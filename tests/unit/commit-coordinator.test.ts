@@ -1,6 +1,34 @@
 import { expect, test } from 'vite-plus/test';
 import { CommitCoordinator } from '../../src/runtime/transaction-coordinator';
 
+test('should keep unkeyed and already-merged participant registration idempotent', () => {
+  const coordinator = new CommitCoordinator();
+  const parent = coordinator.begin();
+  const unkeyed = {};
+  coordinator.register(unkeyed);
+  coordinator.register(unkeyed);
+  expect(parent.participants).toEqual([unkeyed]);
+  const key = {};
+  let merges = 0;
+  coordinator.register({ key });
+  const incoming = {
+    key,
+    merge: () => {
+      merges++;
+    },
+  };
+  coordinator.register(incoming);
+  coordinator.register(incoming);
+  expect(merges).toBe(1);
+  const child = coordinator.begin();
+  coordinator.register(unkeyed);
+  coordinator.register(incoming);
+  coordinator.commit(child);
+  expect(parent.participants).toHaveLength(2);
+  expect(merges).toBe(1);
+  coordinator.discard(parent);
+});
+
 test('should roll back a participant shared by failed nested frames once', () => {
   const coordinator = new CommitCoordinator();
   const parent = coordinator.begin();

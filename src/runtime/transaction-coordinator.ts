@@ -34,6 +34,8 @@ export class CommitTransaction {
   parent: CommitTransaction | null;
   readonly coordinator: CommitCoordinator;
   readonly participants: CommitParticipant[] = [];
+  /** Identities not already represented by the keyed index. */
+  seen: Set<CommitParticipant> | undefined;
   readonly index = new Map<
     object | undefined,
     Map<object, CommitParticipant>
@@ -100,16 +102,21 @@ export class CommitCoordinator {
     transaction: CommitTransaction,
     participant: CommitParticipant
   ): void {
+    if (transaction.seen?.has(participant)) return;
     if (participant.key) {
       let index = transaction.index.get(participant.kind);
       if (!index) transaction.index.set(participant.kind, (index = new Map()));
       const previous = index.get(participant.key);
       if (previous) {
         this.validateCollision(previous, participant);
-        if (previous === participant || participant.collision === 'keep-first')
+        if (previous === participant) return;
+        if (participant.collision === 'keep-first') {
+          (transaction.seen ??= new Set()).add(participant);
           return;
+        }
         try {
           participant.merge!(previous);
+          (transaction.seen ??= new Set()).add(participant);
         } catch (error) {
           transaction.participants.push(participant);
           this.discard(transaction);
@@ -118,6 +125,8 @@ export class CommitCoordinator {
         return;
       }
       index.set(participant.key, participant);
+    } else {
+      (transaction.seen ??= new Set()).add(participant);
     }
     transaction.participants.push(participant);
   }
@@ -191,6 +200,7 @@ export class CommitCoordinator {
     const parent = transaction.parent;
     if (parent?.active) {
       for (const participant of transaction.participants) {
+        if (parent.seen?.has(participant)) continue;
         const previous = participant.key
           ? parent.participant(participant.key, participant.kind)
           : undefined;
@@ -198,15 +208,15 @@ export class CommitCoordinator {
       }
       try {
         for (const participant of transaction.participants) {
+          if (parent.seen?.has(participant)) continue;
           const previous = participant.key
             ? parent.participant(participant.key, participant.kind)
             : undefined;
-          if (
-            previous &&
-            previous !== participant &&
-            participant.collision !== 'keep-first'
-          )
-            participant.merge!(previous);
+          if (previous && previous !== participant) {
+            if (participant.collision !== 'keep-first')
+              participant.merge!(previous);
+            (parent.seen ??= new Set()).add(participant);
+          }
         }
       } catch (error) {
         // An identical participant registered in both frames still has one
@@ -217,11 +227,7 @@ export class CommitCoordinator {
           index--
         ) {
           const participant = transaction.participants[index];
-          if (
-            participant.key &&
-            parent.participant(participant.key, participant.kind) ===
-              participant
-          )
+          if (parent.participants.includes(participant))
             transaction.participants.splice(index, 1);
         }
         this.discard(transaction);
@@ -237,6 +243,10 @@ export class CommitCoordinator {
       }
       for (const [key, value] of transaction.resources) {
         if (!parent.resources.has(key)) parent.resources.set(key, value);
+      }
+      if (transaction.seen) {
+        for (const participant of transaction.seen)
+          (parent.seen ??= new Set()).add(participant);
       }
       this.mergeCompletions(transaction, parent);
       transaction.phase = 'joined';
@@ -359,6 +369,7 @@ export class CommitCoordinator {
 
   private release(transaction: CommitTransaction): void {
     transaction.participants.length = 0;
+    transaction.seen = undefined;
     transaction.index.clear();
     transaction.resources.clear();
     transaction.completions?.clear();
