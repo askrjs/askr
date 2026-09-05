@@ -150,6 +150,24 @@ but name-only filtering still imports unrelated files and runs their preflights.
 Filename filtering removes that preceding work before collection. Its effect on
 the observed drift remains to be measured; concurrent preflights were not found.
 
+The filename-filtered comparison at `700cd40` passes sample quality in all 171
+captures. Seventeen of eighteen original-main comparisons pass; selected and
+unselected resize improve 9.46% and 5.09%, and the optimization comparison improves
+8.50%. SSR layout is rejected at +5.078935%; it is not rounded into a pass.
+All captures remain in `../benchmarks/solid-file-isolated-rejected-700cd40.json`.
+Its nine short observation windows contain 9,024-9,651 samples with RME of
+4.73-7.42% and baseline median drift of 13.95%. The next paired capture uses a
+predeclared minimum of 100,000 samples on both sources, with unchanged workload,
+reset, measurement-time option, and thresholds. A local setup check confirms
+the minimum is collected; it does not establish performance acceptance.
+
+Policy review distinguishes the explicit comparison and sample-quality gates
+from the stability workflow's instruction to investigate drift and retry under
+cleaner conditions. The runner investigation and filename-filtered recaptures
+complete that response. Remaining source-series drift and coarse browser timer
+steps remain disclosed in the artifacts; they do not change the required 5%
+regression limit, 5% optimization gain, or sample-quality rules.
+
 ## Governance coverage
 
 Subsystem value-cycle governance covers boot, common, data, renderer, router,
