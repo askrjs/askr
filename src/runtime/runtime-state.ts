@@ -1,5 +1,7 @@
 import { globalScheduler, type Scheduler } from './scheduler';
 import type { RendererCapabilities } from './renderer-capabilities';
+import { CommitCoordinator } from './transaction-coordinator';
+import { logger } from '../common/logger';
 
 function createMissingRendererHost(): RendererCapabilities {
   const missing = (method: string): never => {
@@ -44,6 +46,7 @@ function createMissingRendererHost(): RendererCapabilities {
     applyComponentResult(instance) {
       if (instance.target || instance._placeholder)
         missing('applyComponentResult');
+      return false;
     },
     classifyComponentUpdate() {
       return { useFastPath: false, reason: 'no-root' };
@@ -87,13 +90,28 @@ function createMissingRendererHost(): RendererCapabilities {
 /** Internal wiring. Public runtime objects are views over these records. */
 export interface RuntimeState {
   readonly scheduler: Scheduler;
+  readonly commits: CommitCoordinator;
   renderer: RendererCapabilities;
 }
 
 export function createRuntimeState(
   scheduler: Scheduler = globalScheduler
 ): RuntimeState {
-  return { scheduler, renderer: createMissingRendererHost() };
+  return {
+    scheduler,
+    renderer: createMissingRendererHost(),
+    commits: new CommitCoordinator({
+      rollbackError(error) {
+        logger.error('[Askr] transaction rollback failed:', error);
+      },
+      settlementErrors(errors) {
+        logger.error(
+          '[Askr] committed lifecycle work failed:',
+          new AggregateError(errors, 'Committed lifecycle work failed')
+        );
+      },
+    }),
+  };
 }
 
 export const defaultRuntimeState = createRuntimeState();

@@ -27,9 +27,9 @@ import {
   clearPortalRegistrations,
 } from './ownership-diagnostics';
 import {
-  getCurrentLifecycleCommitBatch,
-  registerLifecycleTransaction,
-  type LifecycleCommitBatch,
+  getCurrentCommitTransaction,
+  registerCommitEffect,
+  type CommitTransaction,
 } from './component-lifecycle';
 import { registerDefaultPortalRuntime } from '../common/default-portal-runtime';
 
@@ -248,7 +248,7 @@ type PendingDefaultPortalWrite = {
   state: DefaultPortalState;
   owner: PortalOwner | null;
   children: RenderableChild | undefined;
-  batch?: LifecycleCommitBatch;
+  batch?: CommitTransaction;
 };
 
 let _defaultPortalStates = new Map<object, DefaultPortalState>();
@@ -259,16 +259,16 @@ let _pendingDefaultPortalWrites = new WeakMap<
   PendingDefaultPortalWrite
 >();
 const _batchPortalWrites = new WeakMap<
-  LifecycleCommitBatch,
+  CommitTransaction,
   Map<DefaultPortalState, PendingDefaultPortalWrite>
 >();
 
 function trackBatchPortalWrite(
-  batch: LifecycleCommitBatch,
+  batch: CommitTransaction,
   state: DefaultPortalState,
   transaction: PendingDefaultPortalWrite
 ): void {
-  let current: LifecycleCommitBatch | null = batch;
+  let current: CommitTransaction | null = batch;
   while (current) {
     let writes = _batchPortalWrites.get(current);
     if (!writes) {
@@ -488,7 +488,7 @@ function writeDefaultPortal(
   const capturedOwner = owner
     ? { instance: owner, generation: owner.ownership.identity }
     : null;
-  const batch = getCurrentLifecycleCommitBatch();
+  const batch = getCurrentCommitTransaction();
   if (batch) {
     let writes = _batchPortalWrites.get(batch);
     if (!writes) {
@@ -509,7 +509,7 @@ function writeDefaultPortal(
       children: props.children,
       batch,
     };
-    const registered = registerLifecycleTransaction(
+    const registered = registerCommitEffect(
       state,
       () => {
         if (_batchPortalWrites.get(batch)?.get(state) !== transaction) {
@@ -552,7 +552,7 @@ function writeDefaultPortal(
     children: props.children,
   };
   if (
-    registerLifecycleTransaction(
+    registerCommitEffect(
       transaction,
       () => {
         if (_pendingDefaultPortalWrites.get(state) !== transaction) {
@@ -595,7 +595,7 @@ function applyPendingDefaultPortalValue(scope: object): void {
 function getPendingDefaultPortalWrite(
   state: DefaultPortalState
 ): PendingDefaultPortalWrite | undefined {
-  let batch = getCurrentLifecycleCommitBatch();
+  let batch = getCurrentCommitTransaction();
   while (batch) {
     const pending = _batchPortalWrites.get(batch)?.get(state);
     if (pending) {

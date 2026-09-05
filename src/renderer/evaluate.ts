@@ -1,7 +1,10 @@
 import { bindComponentHost, writeHostOwners } from './dom-ownership';
 import { getRuntimeEnv } from './env';
 import type { ComponentFunction, ComponentInstance } from '../runtime';
-import { removeAllListeners } from './cleanup';
+import { teardownNodeSubtree } from './cleanup';
+import { cleanupDetachedComponentHost } from './component-host-cleanup';
+import { runRetainedElementUpdate } from './retained-element-rollback';
+import { registerCommitParticipant } from '../runtime/transaction-access';
 import { createDOMNode, syncComponentElement } from './dom';
 import type { ElementWithContext } from './dom-host';
 import {
@@ -24,12 +27,6 @@ import {
 } from './evaluate-reconcile';
 import { _isDOMElement, type DOMElement } from './types';
 import { __CONTROL_BOUNDARY__ } from '../common/vnode';
-import {
-  beginLifecycleCommitBatch,
-  discardLifecycleCommitBatch,
-  flushLifecycleCommitBatch,
-  getCurrentLifecycleCommitBatch,
-} from '../runtime';
 
 export { clearDOMRange } from './evaluate-dom-range';
 
@@ -53,18 +50,12 @@ export function evaluate(
     return;
   }
 
-  const ownsBatch = !getCurrentLifecycleCommitBatch();
-  const batch = ownsBatch ? beginLifecycleCommitBatch() : null;
-  try {
-    evaluateInLifecycleBatch(node, target, context, retainedOwner);
-    if (batch) flushLifecycleCommitBatch(batch);
-  } catch (error) {
-    if (batch) discardLifecycleCommitBatch(batch);
-    throw error;
-  }
+  runRetainedElementUpdate(target, teardownNodeSubtree, () =>
+    evaluateInTransaction(node, target, context, retainedOwner)
+  );
 }
 
-function evaluateInLifecycleBatch(
+function evaluateInTransaction(
   node: unknown,
   target: Element | null,
   context?: object,
@@ -171,8 +162,18 @@ function evaluateInLifecycleBatch(
           writeHostOwners(nextHost, nextHost.__ASKR_INSTANCES, targetInstance);
           bindComponentHost(targetInstance, newDom);
         }
-        removeAllListeners(target);
-        target.parentNode.replaceChild(newDom, target);
+        const parent = target.parentNode;
+        registerCommitParticipant({
+          settle: () =>
+            cleanupDetachedComponentHost(target, retainedHostInstances),
+          rollback: () => {
+            if (newDom.parentNode === parent)
+              parent.replaceChild(target, newDom);
+            cleanupDetachedComponentHost(newDom, retainedHostInstances);
+            bindComponentHost(targetInstance, target);
+          },
+        });
+        parent.replaceChild(newDom, target);
         return;
       }
     }

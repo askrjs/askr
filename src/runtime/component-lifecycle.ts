@@ -1,48 +1,31 @@
-import { isDevelopmentEnvironment } from '../common/env';
+import { runCommitTransaction } from './transaction-access';
 import type { ComponentInstance } from './component-internal';
-import { isBulkCommitActive } from './fastlane';
-import { executeCommittedLifecycleOperations } from './lifecycle-operation-settlement';
 import {
   enqueueLifecycleCommitForInstance,
   type LifecycleOperation,
-} from './lifecycle-batch';
+} from './render-transaction';
 
 export {
-  beginLifecycleCommitBatch,
+  beginCommitTransaction,
   captureInlineRenderSnapshot,
-  discardLifecycleCommitBatch,
-  drainLifecycleCommitErrors,
+  discardTransaction,
   finalizeInlineReadSubscriptions,
-  flushLifecycleCommitBatch,
-  getCurrentLifecycleCommitBatch,
-  registerLifecycleRollback,
-  registerLifecycleTransaction,
-  type LifecycleCommitBatch,
+  commitTransaction,
+  getCurrentCommitTransaction,
+  registerCommitRollback,
+  registerCommitEffect,
+  type CommitTransaction,
   type LifecycleOperation,
-  type LifecycleTransaction,
-} from './lifecycle-batch';
+  type CommitParticipant,
+} from './render-transaction';
 
-export {
-  discardCommitOperations,
-  executeCommittedLifecycleOperations,
-} from './lifecycle-operation-settlement';
+export { discardCommitOperations } from './lifecycle-operation-settlement';
 
 export function registerMountOperationForInstance(
   instance: ComponentInstance | null,
   operation: LifecycleOperation
 ): void {
   if (instance) {
-    // If we're in bulk-commit fast lane, registering mount operations is a
-    // violation of the fast-lane preconditions. Throw in dev, otherwise ignore
-    // silently in production (we must avoid scheduling work during bulk commit).
-    if (isBulkCommitActive()) {
-      if (isDevelopmentEnvironment()) {
-        throw new Error(
-          'registerMountOperation called during bulk commit fast-lane'
-        );
-      }
-      return;
-    }
     (instance.mountOperations ??= []).push(operation);
   }
 }
@@ -52,14 +35,6 @@ export function registerCommitOperationForInstance(
   operation: LifecycleOperation
 ): void {
   if (instance) {
-    if (isBulkCommitActive()) {
-      if (isDevelopmentEnvironment()) {
-        throw new Error(
-          'registerCommitOperation called during bulk commit fast-lane'
-        );
-      }
-      return;
-    }
     (instance.commitOperations ??= []).push(operation);
   }
 }
@@ -79,7 +54,9 @@ export function commitLifecycleForInstance(
     return;
   }
 
-  executeCommittedLifecycleOperations(instance, wasFirstMount);
+  runCommitTransaction(() =>
+    enqueueLifecycleCommitForInstance(instance, wasFirstMount)
+  );
 }
 
 export function commitRenderedComponent(instance: ComponentInstance): void {

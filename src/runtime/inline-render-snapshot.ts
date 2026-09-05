@@ -5,6 +5,8 @@ import type { ComponentInstance } from './component-internal';
 export type InlineRenderSnapshot = {
   instance: ComponentInstance;
   props: Props;
+  mounted: boolean;
+  firstRenderComplete: boolean;
   ownerFrame: ContextFrame | null;
   portalScope: object | null;
   parentInstance: ComponentInstance | null;
@@ -31,6 +33,8 @@ export function createInlineRenderSnapshot(
   return {
     instance,
     props: instance.props,
+    mounted: instance.ownership.mounted,
+    firstRenderComplete: instance.firstRenderComplete,
     ownerFrame: instance.ownerFrame,
     portalScope: instance.portalScope,
     parentInstance: instance.parentInstance,
@@ -50,6 +54,8 @@ export function restoreInlineRenderSnapshot(
   snapshot: InlineRenderSnapshot
 ): void {
   snapshot.instance.props = snapshot.props;
+  snapshot.instance.ownership.mounted = snapshot.mounted;
+  snapshot.instance.firstRenderComplete = snapshot.firstRenderComplete;
   snapshot.instance.ownerFrame = snapshot.ownerFrame;
   snapshot.instance.portalScope = snapshot.portalScope;
   snapshot.instance.parentInstance = snapshot.parentInstance;

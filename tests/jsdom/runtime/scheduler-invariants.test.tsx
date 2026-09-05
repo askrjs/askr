@@ -3,7 +3,10 @@ import { state, type State } from '../../../src/runtime/state';
 import { getCurrentComponentInstance } from '../../../src/runtime/component';
 import { task } from '../../../src/runtime';
 import { createFineGrainedEffect } from '../../../src/runtime/effect';
-import { enterBulkCommit, exitBulkCommit } from '../../../src/runtime/fastlane';
+import {
+  beginCommitTransaction,
+  commitTransaction,
+} from '../../../src/runtime/transaction-access';
 import {
   notifyReadableReaders,
   recordReadableRead,
@@ -97,21 +100,22 @@ describe('scheduler invariants', () => {
     }
   });
 
-  it('should preserve unrelated queued work when a bulk commit starts', () => {
+  it('should preserve unrelated queued work when a transaction starts', () => {
     let ran = false;
 
     globalScheduler.enqueue(() => {
       ran = true;
     });
 
-    enterBulkCommit();
-    exitBulkCommit();
+    const transaction1 = beginCommitTransaction();
+    transaction1.deferNotifications = true;
+    commitTransaction(transaction1);
     flushScheduler();
 
     expect(ran).toBe(true);
   });
 
-  it('should keep a cleared reactive lane schedulable after bulk commit', () => {
+  it('should keep a cleared reactive lane schedulable after transaction', () => {
     const { container, cleanup } = createTestContainer();
     let source!: State<number>;
     const committedValues: number[] = [];
@@ -133,8 +137,9 @@ describe('scheduler invariants', () => {
     });
 
     source.set(1);
-    enterBulkCommit();
-    exitBulkCommit();
+    const transaction2 = beginCommitTransaction();
+    transaction2.deferNotifications = true;
+    commitTransaction(transaction2);
     source.set(2);
     flushScheduler();
 

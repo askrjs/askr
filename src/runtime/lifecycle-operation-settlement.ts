@@ -1,8 +1,103 @@
 import { isPromiseLike } from '../common/promise';
 import { logger } from '../common/logger';
 import type { ComponentInstance } from './component-internal';
-import type { LifecycleOperation } from './lifecycle-batch';
 import { ownCleanup, type OwnershipRecord } from './ownership';
+import {
+  getCurrentCommitTransaction,
+  registerCommitParticipant,
+} from './transaction-access';
+import type { CommitParticipant } from './transaction-coordinator';
+
+export type LifecycleOperation = () =>
+  | void
+  | (() => void)
+  | PromiseLike<void | (() => void)>;
+
+const LIFECYCLE_COMMIT = {};
+
+class LifecycleCommit implements CommitParticipant {
+  readonly kind = LIFECYCLE_COMMIT;
+  readonly key: ComponentInstance;
+  owner: OwnershipRecord;
+  generation: object;
+  firstMount: boolean;
+  private mounts: LifecycleOperation[] | undefined;
+  private commits: LifecycleOperation[] | undefined;
+  private prepared = false;
+
+  constructor(instance: ComponentInstance, firstMount: boolean) {
+    this.key = instance;
+    this.owner = instance.ownership;
+    this.generation = instance.ownership.identity;
+    this.firstMount = firstMount;
+  }
+
+  merge(parent: CommitParticipant): void {
+    const previous = parent as LifecycleCommit;
+    previous.firstMount =
+      previous.generation === this.generation
+        ? previous.firstMount || this.firstMount
+        : this.firstMount;
+    previous.owner = this.owner;
+    previous.generation = this.generation;
+  }
+
+  private live(): boolean {
+    return (
+      this.key.ownership === this.owner &&
+      this.owner.identity === this.generation &&
+      !this.owner.disposed
+    );
+  }
+
+  publish(): void {
+    if (!this.live()) return;
+    if (this.firstMount) {
+      this.mounts = this.key.mountOperations;
+      this.key.mountOperations = undefined;
+    }
+    this.commits = this.key.commitOperations;
+    this.key.commitOperations = undefined;
+    this.prepared = true;
+  }
+
+  activate(): void {
+    if (this.prepared && this.live())
+      executeOwnedLifecycleOperations(
+        this.key.id,
+        this.owner,
+        this.mounts,
+        this.commits
+      );
+  }
+
+  rollback(): void {
+    if (!this.live()) return;
+    if (this.firstMount) this.key.mountOperations = undefined;
+    discardCommitOperations(this.key);
+  }
+}
+
+export function enqueueLifecycleCommitForInstance(
+  instance: ComponentInstance,
+  firstMount: boolean
+): boolean {
+  const transaction = getCurrentCommitTransaction();
+  if (!transaction) return false;
+  const previous = transaction.participant<LifecycleCommit>(
+    instance,
+    LIFECYCLE_COMMIT
+  );
+  if (previous) {
+    previous.firstMount =
+      previous.generation === instance.ownership.identity
+        ? previous.firstMount || firstMount
+        : firstMount;
+    previous.owner = instance.ownership;
+    previous.generation = instance.ownership.identity;
+  } else registerCommitParticipant(new LifecycleCommit(instance, firstMount));
+  return true;
+}
 
 function settleLifecycleOperationResult(
   owner: OwnershipRecord,
@@ -36,14 +131,13 @@ function settleLifecycleOperationResult(
 }
 
 function executeOperations(
-  instance: ComponentInstance,
+  owner: OwnershipRecord,
   operations: LifecycleOperation[]
 ): unknown[] {
   if (operations.length === 0) {
     return [];
   }
 
-  const owner = instance.ownership;
   const errors: unknown[] = [];
   for (const operation of operations) {
     try {
@@ -59,26 +153,20 @@ export function discardCommitOperations(instance: ComponentInstance): void {
   instance.commitOperations = undefined;
 }
 
-export function executeCommittedLifecycleOperations(
-  instance: ComponentInstance,
-  wasFirstMount: boolean
+function executeOwnedLifecycleOperations(
+  id: string,
+  owner: OwnershipRecord,
+  mounts: LifecycleOperation[] | undefined,
+  commits: LifecycleOperation[] | undefined
 ): void {
   const errors: unknown[] = [];
-  if (wasFirstMount && (instance.mountOperations?.length ?? 0) > 0) {
-    const operations = instance.mountOperations!;
-    instance.mountOperations = undefined;
-    errors.push(...executeOperations(instance, operations));
-  }
-  if ((instance.commitOperations?.length ?? 0) > 0) {
-    const operations = instance.commitOperations!;
-    instance.commitOperations = undefined;
-    errors.push(...executeOperations(instance, operations));
-  }
+  if (mounts?.length) errors.push(...executeOperations(owner, mounts));
+  if (commits?.length) errors.push(...executeOperations(owner, commits));
 
   if (errors.length > 0) {
     throw new AggregateError(
       errors,
-      `Committed lifecycle operations failed for ${instance.id}`
+      `Committed lifecycle operations failed for ${id}`
     );
   }
 }

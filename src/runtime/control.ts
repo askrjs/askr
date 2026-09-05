@@ -11,7 +11,7 @@ import {
 } from './child-scope';
 import { getCurrentInstance, type ComponentInstance } from './component';
 import type { ForState } from './for';
-import { registerLifecycleTransaction } from './component-lifecycle';
+import { registerCommitParticipant } from './transaction-access';
 import { getRuntimeRenderer } from './access';
 
 export interface MatchBranch {
@@ -105,6 +105,7 @@ export interface ControlTransaction {
   removedScopes: ChildScope[];
   shouldClearDomUpdateState: boolean;
   registered: boolean;
+  published?: boolean;
 }
 
 function getBranchScopes(state: ShowState | CaseState): ChildScope[] {
@@ -148,11 +149,12 @@ function beginControlTransaction(
     registered: false,
   };
   state._transaction = transaction;
-  transaction.registered = registerLifecycleTransaction(
-    transaction,
-    () => commitControlTransaction(state, transaction),
-    () => rollbackControlTransaction(state, transaction)
-  );
+  transaction.registered = registerCommitParticipant({
+    key: transaction,
+    publish: () => publishControlTransaction(state, transaction),
+    settle: () => commitControlTransaction(state, transaction),
+    rollback: () => rollbackControlTransaction(state, transaction),
+  });
   return transaction;
 }
 
@@ -182,14 +184,27 @@ function stageBranchRemoval(
   }
 }
 
+function publishControlTransaction(
+  state: ShowState | CaseState,
+  transaction: ControlTransaction
+): void {
+  if (state._transaction !== transaction) return;
+  if (transaction.shouldClearDomUpdateState) {
+    for (const scope of getBranchScopes(state)) scope.needsDomUpdate = false;
+    state.lastRemovedNodes = [];
+    state.lastRemovedRanges = [];
+  }
+  state._transaction = null;
+  transaction.published = true;
+}
+
 function commitControlTransaction(
   state: ShowState | CaseState,
   transaction: ControlTransaction
 ): void {
-  if (state._transaction !== transaction) {
-    return;
-  }
-
+  if (!transaction.published) publishControlTransaction(state, transaction);
+  if (!transaction.published) return;
+  transaction.published = false;
   const errors: unknown[] = [];
   for (const scope of transaction.removedScopes) {
     try {
@@ -198,34 +213,19 @@ function commitControlTransaction(
       errors.push(error);
     }
   }
-
-  if (transaction.shouldClearDomUpdateState) {
-    if ('truthyScope' in state && state.truthyScope) {
-      state.truthyScope.needsDomUpdate = false;
-    }
-    if ('fallbackScope' in state && state.fallbackScope) {
-      state.fallbackScope.needsDomUpdate = false;
-    }
-    if (state.activeScope) {
-      state.activeScope.needsDomUpdate = false;
-    }
-    state.lastRemovedNodes = [];
-    state.lastRemovedRanges = [];
-  }
-  state._transaction = null;
-
-  if (errors.length > 0) {
+  transaction.removedScopes.length = 0;
+  if (errors.length)
     throw new AggregateError(errors, 'Control branch cleanup failed');
-  }
 }
 
 function rollbackControlTransaction(
   state: ShowState | CaseState,
   transaction: ControlTransaction
 ): void {
-  if (state._transaction !== transaction) {
+  if (state._transaction !== transaction && !transaction.published) {
     return;
   }
+  transaction.published = false;
 
   const committedScopes = new Set(transaction.snapshot.scopeSnapshots.keys());
   const currentScopes = getBranchScopes(state);

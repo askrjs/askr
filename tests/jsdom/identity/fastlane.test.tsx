@@ -1,7 +1,6 @@
 import { describe, it, beforeAll, afterAll, expect } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import type { State } from '../../../src/index';
-import '../../../src/runtime/fastlane';
 import {
   createTestContainer,
   flushScheduler,
@@ -99,13 +98,12 @@ describe('runtime fast-lane', () => {
       const commitCount = ns['__LAST_FASTPATH_COMMIT_COUNT'] as
         | number
         | undefined;
-      const inv = ns['__LAST_FASTLANE_INVARIANTS'] as
-        | { mountOps?: number; cleanupFns?: number }
-        | undefined;
       expect(commitCount).toBe(1);
-      expect(inv).toBeDefined();
-      expect(inv!.mountOps).toBe(0);
-      expect(inv!.cleanupFns).toBe(0);
+      expect(
+        Array.from(container.querySelectorAll('li'), (node) =>
+          node.getAttribute('data-key')
+        )
+      ).toEqual(items().map((item) => String(item.id)));
     });
 
     afterAll(() => cleanup());

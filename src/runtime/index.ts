@@ -4,12 +4,11 @@ export * from './component';
 export { cleanupComponentGeneration } from './component-cleanup';
 export * from './context';
 export {
-  beginLifecycleCommitBatch,
+  beginCommitTransaction,
   commitLifecycleForInstance,
   discardCommitOperations,
-  discardLifecycleCommitBatch,
-  drainLifecycleCommitErrors,
-  flushLifecycleCommitBatch,
+  discardTransaction,
+  commitTransaction,
 } from './component-lifecycle';
 export * from './control';
 export * from './dev-namespace';
@@ -17,7 +16,6 @@ export * from './derive';
 export * from './effect';
 export * from './error-boundary';
 export * from './execution-model';
-export * from './fastlane';
 export * from './for';
 export type { ForEachSource, ForKeySelector, ForRenderItem } from './for-types';
 export * from './operations';

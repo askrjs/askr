@@ -1,18 +1,64 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { logger } from '../../../src/common/logger';
 import { createComponentInstance } from '../../../src/runtime/component';
+import { cleanupComponent } from '../../../src/runtime/component-cleanup';
+import { restartComponentGeneration } from '../../../src/runtime/component-generation';
 import {
-  beginLifecycleCommitBatch,
+  beginCommitTransaction,
   commitLifecycleForInstance,
-  discardLifecycleCommitBatch,
-  flushLifecycleCommitBatch,
+  discardTransaction,
+  commitTransaction,
   registerCommitOperationForInstance,
-  registerLifecycleRollback,
-  registerLifecycleTransaction,
+  registerCommitRollback,
+  registerCommitEffect,
   registerMountOperationForInstance,
 } from '../../../src/runtime/component-lifecycle';
 
 describe('committed lifecycle operation isolation', () => {
+  it('should leave replacement lifetime work untouched by an obsolete transaction', () => {
+    const instance = createComponentInstance(
+      'replacement',
+      () => null,
+      {},
+      null
+    );
+    const oldMount = vi.fn();
+    const nextMount = vi.fn();
+    const transaction = beginCommitTransaction();
+    registerMountOperationForInstance(instance, oldMount);
+    commitLifecycleForInstance(instance, true);
+    cleanupComponent(instance);
+    restartComponentGeneration(instance, () => null, false);
+    registerMountOperationForInstance(instance, nextMount);
+    commitTransaction(transaction);
+    expect(oldMount).not.toHaveBeenCalled();
+    expect(nextMount).not.toHaveBeenCalled();
+    expect(instance.mountOperations).toEqual([nextMount]);
+    const next = beginCommitTransaction();
+    commitLifecycleForInstance(instance, true);
+    commitTransaction(next);
+    expect(nextMount).toHaveBeenCalledTimes(1);
+  });
+
+  it('should capture commit operations before mount work replaces the lifetime', () => {
+    const instance = createComponentInstance('reentrant', () => null, {}, null);
+    const oldCommit = vi.fn();
+    const nextCommit = vi.fn();
+    const transaction = beginCommitTransaction();
+    registerMountOperationForInstance(instance, () => {
+      cleanupComponent(instance);
+      restartComponentGeneration(instance, () => null, false);
+      registerCommitOperationForInstance(instance, nextCommit);
+    });
+    registerCommitOperationForInstance(instance, oldCommit);
+    commitLifecycleForInstance(instance, true);
+    commitTransaction(transaction);
+    expect(oldCommit).toHaveBeenCalledTimes(1);
+    expect(nextCommit).not.toHaveBeenCalled();
+    expect(instance.commitOperations).toEqual([nextCommit]);
+    cleanupComponent(instance);
+  });
+
   it('should leave lifecycle containers unallocated until used', () => {
     const instance = createComponentInstance('lazy', () => null, {}, null);
 
@@ -51,10 +97,10 @@ describe('committed lifecycle operation isolation', () => {
       return commitCleanup;
     });
 
-    const batch = beginLifecycleCommitBatch();
+    const batch = beginCommitTransaction();
     commitLifecycleForInstance(instance, true);
 
-    expect(() => flushLifecycleCommitBatch(batch)).not.toThrow();
+    expect(() => commitTransaction(batch)).not.toThrow();
     expect(calls).toEqual([
       'mount-failed',
       'mount-settled',
@@ -72,48 +118,48 @@ describe('committed lifecycle operation isolation', () => {
 
   it('should skip rollback-only entries while preserving full commit order', () => {
     const calls: string[] = [];
-    const batch = beginLifecycleCommitBatch();
+    const batch = beginCommitTransaction();
 
-    registerLifecycleTransaction(
+    registerCommitEffect(
       {},
       () => calls.push('commit:first'),
       () => calls.push('rollback:first')
     );
-    registerLifecycleRollback(() => calls.push('rollback:only'));
-    registerLifecycleTransaction(
+    registerCommitRollback(() => calls.push('rollback:only'));
+    registerCommitEffect(
       {},
       () => calls.push('commit:last'),
       () => calls.push('rollback:last')
     );
 
-    flushLifecycleCommitBatch(batch);
+    commitTransaction(batch);
 
     expect(calls).toEqual(['commit:first', 'commit:last']);
   });
 
   it('should merge nested rollback-only entries in global registration order', () => {
     const calls: string[] = [];
-    const parent = beginLifecycleCommitBatch();
+    const parent = beginCommitTransaction();
 
-    registerLifecycleTransaction(
+    registerCommitEffect(
       {},
       () => calls.push('commit:parent'),
       () => calls.push('rollback:parent')
     );
-    registerLifecycleRollback(() => calls.push('rollback:parent-only'));
+    registerCommitRollback(() => calls.push('rollback:parent-only'));
 
-    const child = beginLifecycleCommitBatch();
-    registerLifecycleRollback(() => calls.push('rollback:child-first'));
-    registerLifecycleTransaction(
+    const child = beginCommitTransaction();
+    registerCommitRollback(() => calls.push('rollback:child-first'));
+    registerCommitEffect(
       {},
       () => calls.push('commit:child'),
       () => calls.push('rollback:child-transaction')
     );
-    registerLifecycleRollback(() => calls.push('rollback:child-last'));
-    flushLifecycleCommitBatch(child);
+    registerCommitRollback(() => calls.push('rollback:child-last'));
+    commitTransaction(child);
 
-    registerLifecycleRollback(() => calls.push('rollback:parent-last'));
-    discardLifecycleCommitBatch(parent);
+    registerCommitRollback(() => calls.push('rollback:parent-last'));
+    discardTransaction(parent);
 
     expect(calls).toEqual([
       'rollback:parent-last',
@@ -127,27 +173,27 @@ describe('committed lifecycle operation isolation', () => {
 
   it('should isolate a discarded child batch from a surviving sibling', () => {
     const calls: string[] = [];
-    const parent = beginLifecycleCommitBatch();
+    const parent = beginCommitTransaction();
 
-    const survivingChild = beginLifecycleCommitBatch();
-    registerLifecycleTransaction(
+    const survivingChild = beginCommitTransaction();
+    registerCommitEffect(
       {},
       () => calls.push('commit:survivor'),
       () => calls.push('rollback:survivor')
     );
-    flushLifecycleCommitBatch(survivingChild);
+    commitTransaction(survivingChild);
 
-    const failingChild = beginLifecycleCommitBatch();
-    registerLifecycleTransaction(
+    const failingChild = beginCommitTransaction();
+    registerCommitEffect(
       {},
       () => calls.push('commit:failed'),
       () => calls.push('rollback:failed')
     );
-    discardLifecycleCommitBatch(failingChild);
+    discardTransaction(failingChild);
 
     expect(calls).toEqual(['rollback:failed']);
 
-    flushLifecycleCommitBatch(parent);
+    commitTransaction(parent);
 
     expect(calls).toEqual(['rollback:failed', 'commit:survivor']);
   });

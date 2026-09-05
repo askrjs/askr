@@ -8,7 +8,6 @@ export {
   commitRenderedComponent,
   createComponentInstance,
   executeComponent,
-  finalizeReadSubscriptions,
   mountInstanceInline,
   registerCommitOperation,
   registerMountOperation,
@@ -35,10 +34,10 @@ export {
   withAppRenderRuntime,
 } from './component-scope';
 export {
-  beginLifecycleCommitBatch,
-  discardLifecycleCommitBatch,
-  flushLifecycleCommitBatch,
-  getCurrentLifecycleCommitBatch,
-  registerLifecycleRollback,
-  registerLifecycleTransaction,
+  beginCommitTransaction,
+  discardTransaction,
+  commitTransaction,
+  getCurrentCommitTransaction,
+  registerCommitRollback,
+  registerCommitEffect,
 } from './component-lifecycle';

@@ -1,4 +1,3 @@
-import { logger } from '../common/logger';
 import { setRef, type Ref } from '../foundations/utilities/compose-ref';
 import {
   addDelegatedListener,
@@ -17,9 +16,14 @@ import {
 } from './cleanup';
 import { keyedElements } from './keyed';
 import {
-  getCurrentLifecycleCommitBatch,
-  registerLifecycleTransaction,
-} from '../runtime';
+  getCurrentCommitTransaction,
+  beginCommitTransaction,
+  applyTransaction,
+  commitTransaction,
+  discardTransaction,
+  suspendTransaction,
+  registerCommitRollback,
+} from '../runtime/transaction-access';
 
 interface FormControlSnapshot {
   value?: string;
@@ -227,6 +231,7 @@ function applyRefValue<T>(ref: unknown, value: T | null): void {
 
 function restoreRef(element: Element, snapshot: RetainedElementSnapshot): void {
   const currentRef = elementRefs.get(element);
+  if (currentRef === snapshot.ref) return;
 
   if (currentRef !== snapshot.ref) {
     applyRefValue(currentRef, null);
@@ -519,44 +524,23 @@ export function runRetainedElementUpdate(
   onError?: () => void,
   bindingsOnly = false
 ): void {
-  const batch = getCurrentLifecycleCommitBatch();
-  const existingSnapshot = batch?.retainedElementSnapshots.get(element) as
-    | RetainedElementSnapshot
-    | undefined;
-  const snapshot =
-    existingSnapshot ?? snapshotRetainedElement(element, bindingsOnly);
-  let restored = false;
-  if (batch && !existingSnapshot) {
-    batch.retainedElementSnapshots.set(element, snapshot);
-    registerLifecycleTransaction(
-      element,
-      () => undefined,
-      () => {
-        if (restored) return;
-        restored = true;
-        restoreRetainedElement(element, snapshot, cleanupRangeNode);
-      }
+  const enclosing = getCurrentCommitTransaction();
+  const transaction = enclosing ?? beginCommitTransaction();
+  if (!transaction.resources.has(element)) {
+    const snapshot = snapshotRetainedElement(element, bindingsOnly);
+    transaction.resources.set(element, snapshot);
+    registerCommitRollback(() =>
+      restoreRetainedElement(element, snapshot, cleanupRangeNode)
     );
   }
-
   try {
-    update();
-  } catch (err) {
+    applyTransaction(transaction, update);
+    if (!enclosing) commitTransaction(transaction);
+  } catch (error) {
     onError?.();
-
-    try {
-      restored = true;
-      restoreRetainedElement(element, snapshot, cleanupRangeNode);
-    } catch (rollbackError) {
-      logger.warn(
-        '[Askr] retained element rollback failed:',
-        new AggregateError(
-          [err, rollbackError],
-          'Render failed and retained rollback reported errors'
-        )
-      );
-    }
-
-    throw err;
+    if (!enclosing) discardTransaction(transaction);
+    throw error;
+  } finally {
+    if (!enclosing) suspendTransaction(transaction);
   }
 }

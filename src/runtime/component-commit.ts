@@ -1,73 +1,105 @@
-import { isDevelopmentEnvironment } from '../common/env';
 import { isPromiseLike } from '../common/promise';
-import { enqueueRuntimeTask, getRuntimeRenderer } from './access';
-import { discardCommitOperations } from './component-lifecycle';
-import { beginRenderTracking } from './component-scope';
-import { tryRuntimeFastLaneSync } from './fastlane';
+import {
+  enqueueRuntimeTask,
+  getRuntimeRenderer,
+  runRuntimeWithSyncProgress,
+} from './access';
+import { commitLifecycleForInstance } from './component-lifecycle';
+import { beginRenderTracking, clearRenderTracking } from './component-scope';
 import { routeComponentErrorToBoundary } from './error-boundary';
 import type { ComponentInstance } from './component-internal';
-import type { ComponentCommitSettlement } from './renderer-capabilities';
-
-export interface ScheduledComponentCommitHost extends ComponentCommitSettlement {
-  execute(instance: ComponentInstance): unknown | Promise<unknown>;
-}
+import {
+  applyTransaction,
+  beginCommitTransaction,
+  captureInlineRenderSnapshot,
+  commitTransaction,
+  discardTransaction,
+  finalizeInlineReadSubscriptions,
+  suspendTransaction,
+} from './render-transaction';
+import { setDevValue } from './dev-namespace';
 
 export function runScheduledComponent(
   instance: ComponentInstance,
-  host: ScheduledComponentCommitHost
+  execute: (instance: ComponentInstance) => unknown
 ): void {
-  const ownershipGeneration = instance.ownership.identity;
+  const owner = instance.ownership;
+  const ownershipGeneration = owner.identity;
   const evaluationGeneration = instance.evaluationGeneration;
+  const transaction = beginCommitTransaction();
   instance.notifyUpdate = instance._enqueueRun!;
+  captureInlineRenderSnapshot(instance);
   beginRenderTracking(instance);
-  let result: unknown | Promise<unknown>;
+  const token = instance._currentRenderToken!;
+  const renderRevision = instance.renderRevision;
+  let result: unknown;
+  let fast = false;
   try {
-    result = host.execute(instance);
-  } catch (err) {
-    discardCommitOperations(instance);
-    if (routeComponentErrorToBoundary(instance, err)) {
-      return;
-    }
-    throw err;
-  }
-
-  if (isPromiseLike(result)) {
-    const error = new Error(
-      'Async components are not supported. Components must be synchronous.'
+    result = execute(instance);
+    if (isPromiseLike(result))
+      throw new Error(
+        'Async components are not supported. Components must be synchronous.'
+      );
+    finalizeInlineReadSubscriptions(
+      instance,
+      token,
+      instance._pendingReadSources,
+      instance._pendingReadSourceVersions
     );
-    discardCommitOperations(instance);
-    if (routeComponentErrorToBoundary(instance, error)) {
-      return;
+    fast = getRuntimeRenderer().classifyComponentUpdate(
+      instance,
+      result
+    ).useFastPath;
+    if (!fast) {
+      setDevValue('__LAST_FASTPATH_STATS', undefined);
+      setDevValue('__LAST_FASTPATH_COMMIT_COUNT', 0);
     }
-    throw error;
+  } catch (error) {
+    discardTransaction(transaction);
+    if (!routeComponentErrorToBoundary(instance, error)) throw error;
+    return;
+  } finally {
+    clearRenderTracking(instance);
+    suspendTransaction(transaction);
   }
 
-  try {
-    const used = tryRuntimeFastLaneSync(instance, result);
-    if (used) {
+  const apply = (): void => {
+    if (
+      owner.disposed ||
+      instance.ownership !== owner ||
+      owner.identity !== ownershipGeneration ||
+      instance.evaluationGeneration !== evaluationGeneration ||
+      instance.renderRevision !== renderRevision
+    ) {
+      discardTransaction(transaction);
       return;
     }
-  } catch (err) {
-    if (routeComponentErrorToBoundary(instance, err)) {
-      return;
-    }
-    if (isDevelopmentEnvironment()) throw err;
-  }
-
-  enqueueRuntimeTask(() => {
     try {
-      if (
-        instance.ownership.identity !== ownershipGeneration ||
-        instance.evaluationGeneration !== evaluationGeneration
-      ) {
-        return;
-      }
-
-      getRuntimeRenderer().applyComponentResult(instance, result, host);
-    } catch (err) {
-      if (!routeComponentErrorToBoundary(instance, err)) {
-        throw err;
-      }
+      transaction.deferNotifications = fast;
+      const applied = applyTransaction(transaction, () => {
+        const wasFirstMount = !owner.mounted;
+        if (
+          !getRuntimeRenderer().applyComponentResult(
+            instance,
+            result,
+            fast ? 'keyed-reorder' : 'ordinary'
+          )
+        )
+          return false;
+        owner.mounted = true;
+        commitLifecycleForInstance(instance, wasFirstMount);
+        return true;
+      });
+      if (applied) commitTransaction(transaction);
+      else discardTransaction(transaction);
+    } catch (error) {
+      discardTransaction(transaction);
+      if (!routeComponentErrorToBoundary(instance, error)) throw error;
+    } finally {
+      suspendTransaction(transaction);
     }
-  });
+  };
+
+  if (fast) runRuntimeWithSyncProgress(apply);
+  else enqueueRuntimeTask(apply);
 }

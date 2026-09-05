@@ -1,7 +1,7 @@
 import { setDevValue, incDevCounter } from '../runtime';
 import { getRuntimeEnv } from './env';
 import { keyedElements } from './keyed';
-import { teardownNodeSubtree } from './cleanup';
+import { retireNodeSubtree } from './cleanup';
 import { retireComponentOwnersForIntrinsicReuse } from './component-host-cleanup';
 import { createDOMNode, updateElementFromVnode } from './dom';
 import { tagsEqualIgnoreCase } from './children-fastpath';
@@ -120,7 +120,7 @@ function commitBulkReplace(parent: Element, nodes: Node[]): number {
   try {
     for (let node = parent.firstChild; node;) {
       const next = node.nextSibling;
-      teardownNodeSubtree(node);
+      retireNodeSubtree(node);
       node = next;
     }
   } catch {

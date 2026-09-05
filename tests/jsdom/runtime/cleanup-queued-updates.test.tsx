@@ -3,12 +3,14 @@ import { state } from '../../../src';
 import {
   createComponentInstance,
   getCurrentComponentInstance,
+  renderComponentInline,
   type ComponentInstance,
 } from '../../../src/runtime/component';
+import { evaluate } from '../../../src/renderer/evaluate';
 import {
-  beginLifecycleCommitBatch,
+  beginCommitTransaction,
   finalizeInlineReadSubscriptions,
-  flushLifecycleCommitBatch,
+  commitTransaction,
 } from '../../../src/runtime/component-lifecycle';
 import { definePortal } from '../../../src/runtime/portal';
 import type { ReadableSource } from '../../../src/runtime/readable';
@@ -21,6 +23,35 @@ import {
 } from '../../../test-utils/render/test-renderer';
 
 describe('cleanup with queued updates', () => {
+  it('should not apply older prepared output after a newer inline render commits', () => {
+    const view = createTestContainer();
+    let owner!: ComponentInstance;
+    let source!: ReturnType<typeof state<number>>;
+    let label = 'old';
+    createIsland({
+      root: view.container,
+      component: () => {
+        owner = getCurrentComponentInstance()!;
+        source = state(0);
+        return <div>{`${label}:${source()}`}</div>;
+      },
+    });
+    flushScheduler();
+    source.set(1);
+    globalScheduler.enqueue(() => {
+      label = 'new';
+      evaluate(renderComponentInline(owner), owner.target);
+    });
+    try {
+      flushScheduler();
+      expect(view.container.textContent).toBe('new:1');
+      expect(source._readers?.has(owner)).toBe(true);
+      expect(owner.ownership.mounted).toBe(true);
+    } finally {
+      view.cleanup();
+    }
+  });
+
   let { container, cleanup } = createTestContainer();
 
   beforeEach(() => {
@@ -170,7 +201,7 @@ describe('cleanup with queued updates', () => {
     deferredReader.notifyUpdate = () => {};
     const deferredSource = (() => 0) as ReadableSource<number>;
     deferredSource._version = 0;
-    const deferredBatch = beginLifecycleCommitBatch();
+    const deferredBatch = beginCommitTransaction();
     finalizeInlineReadSubscriptions(
       deferredReader,
       1,
@@ -178,7 +209,7 @@ describe('cleanup with queued updates', () => {
       new Map([[deferredSource, 0]])
     );
     deferredReader.ownership.identity = {};
-    flushLifecycleCommitBatch(deferredBatch);
+    commitTransaction(deferredBatch);
 
     expect(deferredSource._readers?.has(deferredReader)).not.toBe(true);
   });

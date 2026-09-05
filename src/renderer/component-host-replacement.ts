@@ -1,10 +1,10 @@
+import { registerCommitParticipant } from '../runtime/transaction-access';
 import { ownCleanup } from '../runtime/ownership';
 import { bindComponentHost } from './dom-ownership';
 import {
   cleanupComponent,
   type ComponentInstance,
-  registerLifecycleRollback,
-  registerLifecycleTransaction,
+  registerCommitRollback,
 } from '../runtime';
 import { elementRefs, removeElementRef, updateElementRef } from './cleanup';
 import { cleanupDetachedComponentHost } from './component-host-cleanup';
@@ -12,6 +12,8 @@ import type { InstanceHostNode } from './dom-host';
 import { restoreVNodeComponentInstance } from './component-host-instances';
 import {
   getOwnedRange,
+  getRangeNodes,
+  clearRangeOwner,
   createSingleNodeRange,
   registerRange,
   removeRange,
@@ -73,6 +75,16 @@ export function beginComponentHostReplacement(
 ): ComponentHostReplacement {
   const parent = existingHost.parentNode;
   const previousRange = getOwnedRange(retainedInstance);
+  const previousNodes =
+    previousRange && !previousRange.single
+      ? [
+          previousRange.start,
+          ...getRangeNodes(previousRange),
+          previousRange.end,
+        ]
+      : [existingHost];
+  const previousNextSibling =
+    previousNodes[previousNodes.length - 1]!.nextSibling;
   const previousRef =
     existingHost instanceof Element ? elementRefs.get(existingHost) : undefined;
   let previousRefDetached = false;
@@ -84,11 +96,9 @@ export function beginComponentHostReplacement(
   let replacementAttempted = false;
   let finished = false;
 
-  const commit = (): void => {
+  const publish = (): void => {
     if (finished) return;
-    finished = true;
     if (replacementAttempted && didReplace) {
-      const retained = Array.from(retainedInstances);
       if (nextHost) {
         for (const [instance, binding] of previousBindings) {
           if (
@@ -104,16 +114,28 @@ export function beginComponentHostReplacement(
           }
         }
       }
-      if (previousRange && !previousRange.single) {
-        removeRange(previousRange, (node) => {
-          cleanupDetachedComponentHost(node as InstanceHostNode, retained);
-          node.parentNode?.removeChild(node);
-        });
-        if (nextRange) registerRange(nextRange, retainedInstance);
-      } else {
-        cleanupDetachedComponentHost(existingHost, retained);
+    }
+  };
+  const settle = (): void => {
+    if (finished) return;
+    finished = true;
+    if (!replacementAttempted || !didReplace) return;
+    const retained = Array.from(retainedInstances);
+    const errors: unknown[] = [];
+    if (previousRange) clearRangeOwner(previousRange);
+    for (const node of previousNodes) {
+      try {
+        cleanupDetachedComponentHost(node as InstanceHostNode, retained);
+      } catch (error) {
+        errors.push(error);
       }
     }
+    if (nextRange) registerRange(nextRange, retainedInstance);
+    if (errors.length)
+      throw new AggregateError(
+        errors,
+        'Component replacement retirement failed'
+      );
   };
 
   const rollback = (): void => {
@@ -134,6 +156,19 @@ export function beginComponentHostReplacement(
           cleanupReplacementNode(nextHost, retained);
           nextHost.parentNode?.removeChild(nextHost);
         }
+      } catch (error) {
+        rollbackErrors.push(error);
+      }
+    }
+    if (parent) {
+      try {
+        for (const node of previousNodes)
+          parent.insertBefore(
+            node,
+            previousNextSibling?.parentNode === parent
+              ? previousNextSibling
+              : null
+          );
       } catch (error) {
         rollbackErrors.push(error);
       }
@@ -170,7 +205,22 @@ export function beginComponentHostReplacement(
     }
   };
 
-  const staged = registerLifecycleTransaction({}, commit, rollback);
+  const apply = (): void => {
+    if (
+      replacementAttempted &&
+      didReplace &&
+      previousRange &&
+      !previousRange.single
+    ) {
+      for (const node of previousNodes) node.parentNode?.removeChild(node);
+    }
+  };
+  const staged = registerCommitParticipant({
+    apply,
+    publish,
+    settle,
+    rollback,
+  });
   const replace = (
     materialize: () => Node,
     prepareNextDom: (replacement: Node) => void
@@ -225,7 +275,11 @@ export function beginComponentHostReplacement(
       throw error;
     }
 
-    if (!staged) commit();
+    if (!staged) {
+      apply();
+      publish();
+      settle();
+    }
     return nextHost;
   };
 
@@ -245,7 +299,7 @@ export function registerVNodeComponentInstanceRollback(
   };
 
   ownCleanup(provisionalInstance.ownership, restoreOwnership);
-  registerLifecycleRollback(() => {
+  registerCommitRollback(() => {
     restoreOwnership();
     cleanupProvisionalComponentInstance(provisionalInstance);
   });

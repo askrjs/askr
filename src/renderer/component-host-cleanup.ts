@@ -3,8 +3,8 @@ import {
   cleanupComponent,
   getCurrentInstance,
   incDevCounter,
-  registerLifecycleTransaction,
 } from '../runtime';
+import { registerCommitParticipant } from '../runtime/transaction-access';
 import {
   clearDelegatedHandlersForElement,
   removeDelegatedListener,
@@ -211,20 +211,20 @@ export function pruneComponentHostInstances(
   const previousPrimaryInstance = host.__ASKR_INSTANCE;
   const previousInstances = collectHostInstances(host);
 
-  const commit = (): void => {
+  let departedInstances: ComponentInstance[] = [];
+  const publish = (): void => {
     // Keep the desired iterable live until commit. Nested resolution adds only
     // wrappers that completed successfully; old host metadata remains a
     // lookup ledger and never contributes owners to the next generation.
     const nextInstances = orderHostInstances(retainedInstances);
     const retained = new Set(nextInstances);
     writeHostInstances(host, nextInstances);
-    cleanupHostInstances(
-      Array.from(previousInstances).filter(
-        (instance) => !retained.has(instance)
-      ),
-      'Component host pruning failed'
+    departedInstances = Array.from(previousInstances).filter(
+      (instance) => !retained.has(instance)
     );
   };
+  const settle = (): void =>
+    cleanupHostInstances(departedInstances, 'Component host pruning failed');
 
   const rollback = (): void => {
     const currentInstances = collectHostInstances(host);
@@ -252,8 +252,9 @@ export function pruneComponentHostInstances(
     );
   };
 
-  if (!registerLifecycleTransaction({}, commit, rollback)) {
-    commit();
+  if (!registerCommitParticipant({ publish, settle, rollback })) {
+    publish();
+    settle();
   }
 }
 

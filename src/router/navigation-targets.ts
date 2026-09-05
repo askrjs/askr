@@ -14,10 +14,9 @@ import { CspNonceScope } from '../csp-nonce';
 import { logger } from '../common/logger';
 import {
   cleanupComponent,
-  beginLifecycleCommitBatch,
-  discardLifecycleCommitBatch,
-  drainLifecycleCommitErrors,
-  flushLifecycleCommitBatch,
+  beginCommitTransaction,
+  discardTransaction,
+  commitTransaction,
   flushRuntimeScheduler,
   executeComponent,
   type ComponentInstance,
@@ -693,7 +692,7 @@ export function applyNavigationTargets(
   }));
   const restoreOnExit = (): void => {
     if (!navigationBatchClosed) {
-      discardLifecycleCommitBatch(navigationBatch);
+      discardTransaction(navigationBatch);
       navigationBatchClosed = true;
     }
     restoreDeferredRouteInstances(rollbackSnapshots);
@@ -703,7 +702,7 @@ export function applyNavigationTargets(
     }
     setCurrentRouteLocation(previousPathname, previousHref);
   };
-  const navigationBatch = beginLifecycleCommitBatch();
+  const navigationBatch = beginCommitTransaction();
   let navigationBatchClosed = false;
   try {
     for (const target of rootsToPrepare) {
@@ -731,7 +730,6 @@ export function applyNavigationTargets(
     // layout elements keep their identity. Publication below is still held
     // until every root has rendered successfully.
     flushRuntimeScheduler();
-    cleanupErrors.push(...drainLifecycleCommitErrors());
     if (isStaleRouteRequest(requestId)) {
       restoreOnExit();
       return;
@@ -747,16 +745,15 @@ export function applyNavigationTargets(
     }
 
     flushRuntimeScheduler();
-    cleanupErrors.push(...drainLifecycleCommitErrors());
 
     if (isStaleRouteRequest(requestId)) {
       restoreOnExit();
       return;
     }
 
-    flushLifecycleCommitBatch(navigationBatch);
+    commitTransaction(navigationBatch);
     navigationBatchClosed = true;
-    cleanupErrors.push(...drainLifecycleCommitErrors());
+    cleanupErrors.push(...navigationBatch.errors);
 
     for (const target of matchedTargets) {
       if (target.resolved && target.resolved.kind !== 'redirect') {
@@ -876,7 +873,7 @@ export function applyPopStateNavigationTargets(
   }));
   const restoreOnExit = (): void => {
     if (!navigationBatchClosed) {
-      discardLifecycleCommitBatch(navigationBatch);
+      discardTransaction(navigationBatch);
       navigationBatchClosed = true;
     }
     restoreDeferredRouteInstances(rollbackSnapshots);
@@ -886,7 +883,7 @@ export function applyPopStateNavigationTargets(
     }
     setCurrentRouteLocation(previousPathname, previousHref);
   };
-  const navigationBatch = beginLifecycleCommitBatch();
+  const navigationBatch = beginCommitTransaction();
   let navigationBatchClosed = false;
   try {
     for (const target of rootsToPrepare) {
@@ -909,7 +906,6 @@ export function applyPopStateNavigationTargets(
       return;
     }
     flushRuntimeScheduler();
-    cleanupErrors.push(...drainLifecycleCommitErrors());
     if (isStaleRouteRequest(requestId)) {
       restoreOnExit();
       return;
@@ -924,15 +920,14 @@ export function applyPopStateNavigationTargets(
       rerenderResolvedRoute(target.app.instance, pathname, href);
     }
     flushRuntimeScheduler();
-    cleanupErrors.push(...drainLifecycleCommitErrors());
     if (isStaleRouteRequest(requestId)) {
       restoreOnExit();
       return;
     }
 
-    flushLifecycleCommitBatch(navigationBatch);
+    commitTransaction(navigationBatch);
     navigationBatchClosed = true;
-    cleanupErrors.push(...drainLifecycleCommitErrors());
+    cleanupErrors.push(...navigationBatch.errors);
 
     for (const target of matchedTargets) {
       if (target.resolved && target.resolved.kind !== 'redirect') {

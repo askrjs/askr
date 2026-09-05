@@ -380,8 +380,11 @@ flowchart LR
   `intrinsic-blueprint-materialization.ts` keep blueprint analysis, binding
   publication, and DOM materialization separate behind the small
   `intrinsic-blueprint.ts` facade.
-- `src/runtime/lifecycle-batch.ts` owns lifecycle batch orchestration, while
-  `lifecycle-operation-settlement.ts` owns operation result settlement.
+- `src/runtime/transaction-coordinator.ts` owns the shared commit protocol.
+  Renderer participants apply and restore DOM and indexes; runtime participants
+  publish reads and ownership. `lifecycle-operation-settlement.ts` activates
+  captured operations after publication. Hydration listeners participate in the
+  same reversible application phase.
 - The renderer is deliberately host-shaped so the runtime can stay mostly
   agnostic about DOM details.
 

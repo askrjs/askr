@@ -33,7 +33,7 @@ import { registerOwnedChildScope } from './component';
 import type { FineGrainedEffectHandle } from './effect';
 import type { ForEachSource, ForKeySelector, ForRenderItem } from './for-types';
 import { reconcileForItems } from './for-reconcile';
-import { registerLifecycleTransaction } from './component-lifecycle';
+import { registerCommitParticipant } from './transaction-access';
 import { getRuntimeRenderer } from './access';
 import { logger } from '../common/logger';
 import type { DOMRange } from '../common/dom-range';
@@ -120,6 +120,7 @@ export interface ForItemTransactionSnapshot<T> {
 }
 
 export interface ForTransaction<T> {
+  published?: boolean;
   collectionSnapshotMode: 'copy' | 'reset-empty' | 'preserve-clear' | 'reuse';
   currentItems: readonly T[];
   items: Map<string | number, ForItemInstance<T>>;
@@ -180,18 +181,12 @@ export function createForState<T>(
   const parentInstance = getCurrentInstance();
   const scopeOwner = new OwnershipRecord();
   const ownedScopes = (scopeOwner.children = new Set<ChildScope>());
-  let bulkDisposing = false;
   const scopeOwnership: ChildScopeOwnership = {
     add: (scope) => ownChild(scopeOwner, scope),
-    delete: (scope) => (bulkDisposing ? false : ownedScopes.delete(scope)),
+    delete: (scope) => ownedScopes.delete(scope),
     bulkDispose(run) {
-      bulkDisposing = true;
-      try {
-        run();
-      } finally {
-        bulkDisposing = false;
-        ownedScopes.clear();
-      }
+      ownedScopes.clear();
+      run();
     },
   };
   if (parentInstance) {
@@ -390,11 +385,12 @@ export function registerForStateTransaction<T>(
     return false;
   }
 
-  return registerLifecycleTransaction(
-    transaction,
-    () => commitForStateTransaction(forState, transaction),
-    () => rollbackForStateTransaction(forState, transaction)
-  );
+  return registerCommitParticipant({
+    key: transaction,
+    publish: () => publishForStateTransaction(forState, transaction),
+    settle: () => commitForStateTransaction(forState, transaction),
+    rollback: () => rollbackForStateTransaction(forState, transaction),
+  });
 }
 
 function finalizeForStateRemovals<T>(
@@ -525,38 +521,62 @@ function finalizeForDomUpdateFlags<T>(forState: ForState<T>): void {
   }
 }
 
+function publishForStateTransaction<T>(
+  forState: ForState<T>,
+  transaction: ForTransaction<T>
+): void {
+  if (forState._transaction !== transaction) return;
+  if (transaction.shouldClearDomUpdateState)
+    finalizeForDomUpdateFlags(forState);
+  forState._committedItems = forState.currentItems;
+  forState._transaction = null;
+  transaction.published = true;
+}
+
 export function commitForStateTransaction<T>(
   forState: ForState<T>,
   transaction = forState._transaction
 ): void {
-  if (!transaction || forState._transaction !== transaction) return;
+  if (!transaction) return;
+  if (!transaction.published) publishForStateTransaction(forState, transaction);
+  if (!transaction.published) return;
+  transaction.published = false;
   const finalizationStartMs = BENCH_BUILD_ENABLED ? performance.now() : 0;
+  const errors: unknown[] = [];
   try {
-    finalizeForStateRemovals(forState, transaction);
-    finalizeForSignalEffects(transaction);
-    if (transaction.shouldClearDomUpdateState) {
-      finalizeForDomUpdateFlags(forState);
+    try {
+      finalizeForStateRemovals(forState, transaction);
+    } catch (error) {
+      errors.push(error);
+    }
+    try {
+      finalizeForSignalEffects(transaction);
+    } catch (error) {
+      errors.push(error);
     }
   } finally {
     transaction.itemSnapshots?.clear();
     transaction.unreadIndexSnapshots?.clear();
     transaction.fallbackScopeSnapshot = null;
-    forState._committedItems = forState.currentItems;
-    forState._transaction = null;
-    if (BENCH_BUILD_ENABLED) {
+    if (BENCH_BUILD_ENABLED)
       recordBenchTiming(
         'transactionFinalization',
         performance.now() - finalizationStartMs
       );
-    }
   }
+  if (errors.length) throw new AggregateError(errors, 'For settlement failed');
 }
 
 export function rollbackForStateTransaction<T>(
   forState: ForState<T>,
   transaction = forState._transaction
 ): void {
-  if (!transaction || forState._transaction !== transaction) return;
+  if (
+    !transaction ||
+    (forState._transaction !== transaction && !transaction.published)
+  )
+    return;
+  transaction.published = false;
 
   const rollbackCleanupErrors: unknown[] = [];
   const scopesToDispose = new Set<ChildScope>();

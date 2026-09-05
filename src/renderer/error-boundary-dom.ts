@@ -1,16 +1,11 @@
+import { runCommitTransaction } from '../runtime/transaction-access';
 import {
   type ErrorBoundaryFallbackValue,
   type ErrorBoundaryProps,
 } from '../common/error-boundary';
 import { isDevelopmentEnvironment } from '../common/env';
 import { logger } from '../common/logger';
-import {
-  beginLifecycleCommitBatch,
-  createBoundaryReset,
-  discardLifecycleCommitBatch,
-  flushLifecycleCommitBatch,
-  reportBoundaryError,
-} from '../runtime';
+import { createBoundaryReset, reportBoundaryError } from '../runtime';
 import type { ComponentInstance } from '../runtime';
 import { getRendererDOMHost } from './dom-host';
 import type { DOMElement } from './types';
@@ -91,15 +86,7 @@ function resolveErrorBoundaryFallback(
 }
 
 function runErrorBoundaryDOMAttempt<T>(attempt: () => T): T {
-  const lifecycleBatch = beginLifecycleCommitBatch();
-  try {
-    const result = attempt();
-    flushLifecycleCommitBatch(lifecycleBatch);
-    return result;
-  } catch (error) {
-    discardLifecycleCommitBatch(lifecycleBatch);
-    throw error;
-  }
+  return runCommitTransaction(attempt);
 }
 
 function materializeErrorBoundaryValue(

@@ -1,7 +1,8 @@
 import { clearChildScopeHost } from './scope-host';
+import { joinChildScopePreparation } from '../runtime/child-scope';
 import type { ChildScope } from '../runtime';
 import { syncControlBoundaryScopeDom } from './boundaries';
-import { teardownNodeSubtree } from './cleanup';
+import { retireNodeSubtree } from './cleanup';
 import { getRangeNodes } from './dom-range';
 import {
   createElementForNamespace,
@@ -64,7 +65,7 @@ export function disposeReactiveChildBoundaryNodes(nodes: Node[]): void {
       node.parentNode.removeChild(node);
     }
 
-    teardownNodeSubtree(node);
+    retireNodeSubtree(node);
   }
 }
 
@@ -77,7 +78,7 @@ export function syncReactiveChildExpectedNodes(
   for (let node = el.firstChild; node;) {
     const next = node.nextSibling;
     if (!expectedNodeSet.has(node)) {
-      teardownNodeSubtree(node);
+      retireNodeSubtree(node);
       el.removeChild(node);
     }
     node = next;
@@ -100,6 +101,7 @@ export function commitReactiveChildBoundaryEntryNodes(
   entry: { scope: ChildScope; nodes: Node[] },
   host: ReactiveChildDOMHost
 ): Node[] {
+  joinChildScopePreparation(entry.scope);
   if (!entry.scope.needsDomUpdate) {
     return entry.nodes;
   }
@@ -116,7 +118,7 @@ export function commitReactiveChildBoundaryEntryNodes(
 
     const dom = entry.scope.dom;
     if (dom?.parentNode === el) {
-      teardownNodeSubtree(dom);
+      retireNodeSubtree(dom);
       el.removeChild(dom);
     }
 

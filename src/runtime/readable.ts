@@ -155,24 +155,6 @@ export function shouldCoalesceFineGrainedItemReads(): boolean {
   return owner?._coalesceForItemReads === true;
 }
 
-export function finalizeReadableSubscriptions(
-  instance: ComponentInstance
-): void {
-  const newSet = instance._pendingReadSources;
-  const token = instance._currentRenderToken;
-  const pendingVersions = instance._pendingReadSourceVersions;
-
-  finalizeReadableSubscriptionsFromSnapshot(
-    instance,
-    token,
-    newSet,
-    pendingVersions
-  );
-  instance._pendingReadSources = undefined;
-  instance._currentRenderToken = undefined;
-  instance._pendingReadSourceVersions = undefined;
-}
-
 export function finalizeReadableSubscriptionsFromSnapshot(
   instance: ComponentInstance,
   token: number | undefined,

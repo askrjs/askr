@@ -15,9 +15,9 @@ import {
 import type { InstanceHostElement } from '../../../src/renderer/dom-host';
 import { getSignal, resource, task } from '../../../src/resources';
 import {
-  beginLifecycleCommitBatch,
+  beginCommitTransaction,
   createComponentInstance,
-  flushLifecycleCommitBatch,
+  commitTransaction,
 } from '../../../src/runtime';
 import { state, type State } from '../../../src/runtime/state';
 import { createIsland } from '../../../test-utils/render/create-island';
@@ -65,7 +65,7 @@ describe('component host transactions', () => {
     existingHost.__ASKR_INSTANCE = owner;
     existingHost.__ASKR_INSTANCES = [owner, wrapper];
 
-    const batch = beginLifecycleCommitBatch();
+    const batch = beginCommitTransaction();
     const replacement = beginComponentHostReplacement(
       existingHost,
       owner,
@@ -88,7 +88,7 @@ describe('component host transactions', () => {
     expect(existingHost.isConnected).toBe(false);
     expect(nextHost.isConnected).toBe(true);
 
-    flushLifecycleCommitBatch(batch);
+    commitTransaction(batch);
 
     expect(wrapper.target).toBe(nextHost);
     expect(existingHost.__ASKR_INSTANCE).toBeUndefined();

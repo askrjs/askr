@@ -246,18 +246,17 @@ flowchart LR
   runtime. `src/runtime/component-scope.ts` owns current-instance and
   portal-scope state, hook cursor and order validation, render-token helpers,
   and component signal access. `src/runtime/component-commit.ts` owns
-  scheduled render result handling, fast-lane fallback, placeholder
-  replacement, target DOM evaluation, and rollback.
-  `src/runtime/component-internal.ts` owns instance creation, component
-  function execution, and inline rendering. `src/runtime/component-cleanup.ts`
-  owns cleanup, strict cleanup aggregation, and owned child scopes.
-  `src/runtime/component-lifecycle.ts` owns lifecycle commit batching, inline
-  render snapshots, deferred read subscription commits, mount and commit
-  operation settlement, ownership transactions, and commit discard. Nested
-  batches merge into their parent. At the outer boundary, readable
-  subscriptions settle first, ownership/ref/portal transactions finalize next,
-  and mount/resource/task operations activate last. Discard runs registered
-  rollback participants in reverse order and restores inline render metadata.
+  scheduled preparation and renderer strategy selection. Renderer capabilities
+  own placeholder replacement, target updates, and host restoration.
+  `src/runtime/component-internal.ts` owns execution and inline rendering;
+  `component-cleanup.ts` drains owned attachments and aggregates cleanup errors.
+  `transaction-coordinator.ts` owns preparation, reversible application,
+  publication, and settlement. Nested transactions join their enclosing commit.
+  `render-transaction.ts` contributes reversible subscription and execution
+  snapshots; `lifecycle-operation-settlement.ts` captures lifecycle work for
+  its exact owner before callbacks run. Failed application or publication
+  restores framework state. After publication, cleanup and lifecycle errors
+  are drained without undoing user side effects.
 - `src/runtime/for.ts` is the compatibility facade for `For` runtime state.
   `src/runtime/for-internal.ts` owns state storage, hook binding, source effect
   cleanup registration, source evaluation, and DOM update state clearing.
@@ -270,10 +269,10 @@ flowchart LR
   reads for object/function row items, native array pass-through, signal
   notification, and parent-reader pruning.
 - `src/runtime/state.ts` stores component-local writable cells.
-  `src/runtime/fastlane.ts` keeps bulk DOM reorder commits free of reactive
-  work while the commit is active, then replays one deduplicated notification
-  per state source written by a synchronous native event before the commit
-  exits.
+  Optimized DOM reorders use the same coordinator with deferred notifications.
+  State values change immediately; derived invalidation and reader notification
+  drain once per source after commit or restoration. Ordinary updates retain
+  their existing notification timing.
 - `src/runtime/derive.ts` tracks dependency reads and recomputes in the
   scheduler's `derived` lane.
 - `src/runtime/readable.ts` is the shared substrate connecting state, derived

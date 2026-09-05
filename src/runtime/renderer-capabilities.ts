@@ -11,8 +11,8 @@ export interface RenderEvaluation {
   applyComponentResult(
     instance: ComponentInstance,
     result: unknown,
-    settlement: ComponentCommitSettlement
-  ): void;
+    strategy: 'ordinary' | 'keyed-reorder'
+  ): boolean;
   classifyComponentUpdate(
     instance: ComponentInstance,
     result: unknown
@@ -29,11 +29,6 @@ export interface RenderEvaluation {
     host: Element | Comment
   ): Node | null;
   resolveChildScopeRange?(scope: ChildScope): DOMRange | null;
-}
-
-export interface ComponentCommitSettlement {
-  finalizeReadSubscriptions(instance: ComponentInstance): void;
-  commitRenderedComponent(instance: ComponentInstance): void;
 }
 
 export type ComponentUpdateClassification = Partial<KeyedReorderDecision> & {

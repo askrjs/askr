@@ -14,9 +14,9 @@ import {
 import { getSignal, resource, task } from '../../../src/resources';
 import { getCurrentInstance } from '../../../src/runtime';
 import {
-  beginLifecycleCommitBatch,
-  discardLifecycleCommitBatch,
-  flushLifecycleCommitBatch,
+  beginCommitTransaction,
+  discardTransaction,
+  commitTransaction,
 } from '../../../src/runtime/component-lifecycle';
 import { state, type State } from '../../../src/runtime/state';
 import { getVNodeComponentInstance } from '../../../src/renderer/component-host-instances';
@@ -515,13 +515,13 @@ describe('provisional component ownership rollback', () => {
           return createDOMNode(createTree());
         }
 
-        const batch = beginLifecycleCommitBatch();
+        const batch = beginCommitTransaction();
         try {
           const dom = createDOMNode(createTree());
-          flushLifecycleCommitBatch(batch);
+          commitTransaction(batch);
           return dom;
         } catch (error) {
-          discardLifecycleCommitBatch(batch);
+          discardTransaction(batch);
           throw error;
         }
       };

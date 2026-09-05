@@ -1,4 +1,5 @@
 import { __CONTROL_BOUNDARY__ } from '../common/vnode';
+import { joinChildScopePreparation } from '../runtime/child-scope';
 import {
   getVNodeContextFrame,
   setControlBoundaryContextFrame,
@@ -78,11 +79,15 @@ export function getControlBoundaryCommitChildren(
   }
 
   if (controlState.kind !== 'for') {
+    if (controlState.activeScope)
+      joinChildScopePreparation(controlState.activeScope);
     const activeVNode = controlState.activeScope?.vnode;
     return activeVNode == null || activeVNode === false ? [] : [activeVNode];
   }
 
   if (controlState.orderedKeys.length === 0) {
+    if (controlState.fallbackScope)
+      joinChildScopePreparation(controlState.fallbackScope);
     const fallbackVNode = controlState.fallbackScope?.vnode;
     return fallbackVNode == null || fallbackVNode === false
       ? []
@@ -93,6 +98,7 @@ export function getControlBoundaryCommitChildren(
   for (let index = 0; index < controlState.orderedKeys.length; index += 1) {
     const itemKey = controlState.orderedKeys[index];
     const itemInstance = controlState.items.get(itemKey);
+    if (itemInstance) joinChildScopePreparation(itemInstance.scope);
     childrenVNodes.push((itemInstance?.scope.vnode ?? null) as VNode);
   }
 

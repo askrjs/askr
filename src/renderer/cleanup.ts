@@ -1,6 +1,9 @@
 import { writeHostOwners } from './dom-ownership';
 import { cleanupComponent, type ComponentInstance } from '../runtime';
-import { registerLifecycleTransaction } from '../runtime';
+import { cleanupComponentGeneration } from '../runtime/component-cleanup';
+import type { OwnershipRecord } from '../runtime/ownership';
+import { registerCommitEffect } from '../runtime';
+import { registerCommitParticipant } from '../runtime/transaction-access';
 import { logger } from '../common/logger';
 import { incDevCounter } from '../runtime';
 import {
@@ -65,7 +68,7 @@ export function updateElementRef<T extends Element>(
 ): void {
   const transactionKey = {};
   if (
-    registerLifecycleTransaction(
+    registerCommitEffect(
       transactionKey,
       () => updateElementRefImmediately(element, ref),
       () => undefined
@@ -154,23 +157,26 @@ function cleanupSingleInstance(
     return;
   }
 
-  const instances = new Set<ComponentInstance>();
+  const instances = new Map<ComponentInstance, OwnershipRecord>();
 
   if (Array.isArray(instanceList)) {
     for (const instance of instanceList) {
       if (instance) {
-        instances.add(instance as ComponentInstance);
+        const component = instance as ComponentInstance;
+        instances.set(component, component.ownership);
       }
     }
   }
 
   if (primaryInstance) {
-    instances.add(primaryInstance as ComponentInstance);
+    const component = primaryInstance as ComponentInstance;
+    instances.set(component, component.ownership);
   }
 
-  for (const instance of instances) {
+  for (const [instance, owner] of instances) {
     try {
-      cleanupComponent(instance);
+      if (instance.ownership === owner) cleanupComponent(instance);
+      else cleanupComponentGeneration(instance, owner);
     } catch (err) {
       if (strict) errors!.push(err);
       else logger.warn('[Askr] cleanupComponent failed:', err);
@@ -178,7 +184,16 @@ function cleanupSingleInstance(
   }
 
   try {
-    writeHostOwners(node as InstanceHostNode, undefined, undefined);
+    const current = node as InstanceHostNode;
+    const retained = current.__ASKR_INSTANCES?.filter(
+      (instance) => !instance.ownership.disposed
+    );
+    const primary = current.__ASKR_INSTANCE;
+    writeHostOwners(
+      current,
+      retained?.length ? retained : undefined,
+      primary && !primary.ownership.disposed ? primary : retained?.[0]
+    );
   } catch (e) {
     if (strict) errors!.push(e);
   }
@@ -355,6 +370,21 @@ export function cleanupInstancesUnder(
   opts?: { strict?: boolean }
 ): void {
   cleanupInstanceIfPresent(node, opts);
+}
+
+const RETIRE_SUBTREE = {};
+
+/** Defer lifetime and binding retirement until reversible application succeeds. */
+export function retireNodeSubtree(node: Node): void {
+  if (
+    !registerCommitParticipant({
+      key: node,
+      kind: RETIRE_SUBTREE,
+      settle: () => teardownNodeSubtree(node),
+    })
+  ) {
+    teardownNodeSubtree(node);
+  }
 }
 
 export function teardownNodeSubtree(

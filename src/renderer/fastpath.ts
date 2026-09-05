@@ -7,7 +7,6 @@ import { retireComponentOwnersForIntrinsicReuse } from './component-host-cleanup
 import { recordBenchCounter, recordBenchEvent } from '../runtime';
 import { setDevValue, incDevCounter } from '../runtime';
 import { isRuntimeSchedulerExecuting } from '../runtime';
-import { isBulkCommitActive, markFastPathApplied } from '../runtime';
 import { canUseDirectReplaceChildrenSpread, getMaterializedKey } from './utils';
 import type { KeyedVnode } from './keyed-children';
 
@@ -175,7 +174,6 @@ export function applyRendererFastPath(
 
     // If a runtime bulk commit is active, mark this parent as fast-path applied.
     try {
-      if (isBulkCommitActive()) markFastPathApplied(parent);
     } catch (e) {
       void e;
     }

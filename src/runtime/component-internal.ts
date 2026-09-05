@@ -14,7 +14,7 @@ import {
   withContext,
   type ContextFrame,
 } from './context';
-import { type ReadableSource, finalizeReadableSubscriptions } from './readable';
+import type { ReadableSource } from './readable';
 import {
   isDevelopmentEnvironment,
   isProductionEnvironment,
@@ -33,6 +33,7 @@ import {
   OwnershipRecord,
 } from './ownership';
 import { runScheduledComponent } from './component-commit';
+import { sealInlineRenderSnapshot } from './render-transaction';
 import {
   captureInlineRenderSnapshot as captureLifecycleInlineRenderSnapshot,
   commitLifecycleForInstance,
@@ -88,6 +89,7 @@ export interface ComponentInstance {
   cleanupStrict?: boolean;
   stateValues?: State<unknown>[]; // Persistent state storage across renders
   evaluationGeneration: number; // Prevents stale async evaluation completions
+  renderRevision: number; // Invalidates prepared output after a newer execution
   notifyUpdate: (() => void) | null; // Callback for state updates (persisted on instance)
   // Internal: prebound helpers to avoid per-update closures (allocation hot-path)
   _pendingFlushTask?: () => void; // Clears hasPendingUpdate and triggers notifyUpdate
@@ -160,11 +162,7 @@ function ensurePendingRunTask(instance: ComponentInstance): () => void {
     if (instance.notifyUpdate === null) {
       return;
     }
-    runScheduledComponent(instance, {
-      execute: executeComponentSync,
-      finalizeReadSubscriptions,
-      commitRenderedComponent,
-    });
+    runScheduledComponent(instance, executeComponentSync);
   };
   instance._pendingRunTask = task;
   if (!instance._pendingFlushTask) {
@@ -210,6 +208,7 @@ export function createComponentInstance(
     ownership: new OwnershipRecord(),
     stateValues: undefined,
     evaluationGeneration: 0,
+    renderRevision: 0,
     notifyUpdate: null,
     _pendingFlushTask: undefined,
     _pendingRunTask: undefined,
@@ -304,6 +303,7 @@ export function renderScopedComponent<T>(
     didComplete = true;
     return result;
   } finally {
+    sealInlineRenderSnapshot(instance);
     if (!didComplete) {
       clearRenderTracking(instance);
     }
@@ -417,6 +417,7 @@ function executeComponentSync(
     didComplete = true;
     return result;
   } finally {
+    sealInlineRenderSnapshot(instance);
     if (!didComplete) {
       discardCommitOperations(instance);
     }
@@ -437,18 +438,6 @@ export function executeComponent(instance: ComponentInstance): void {
   // Initial renders use the same cancellable task as state-driven rerenders.
   instance.hasPendingUpdate = true;
   enqueueRuntimeTask(ensurePendingRunTask(instance));
-}
-
-/**
- * Finalize read subscriptions for an instance after a successful commit.
- * - Update per-state readers map to point to this instance's last committed token
- * - Remove this instance from states it no longer reads
- * This is deterministic and runs synchronously with commit to ensure
- * subscribers are only notified when they actually read a state in their
- * last committed render.
- */
-export function finalizeReadSubscriptions(instance: ComponentInstance): void {
-  finalizeReadableSubscriptions(instance);
 }
 
 function warnInstanceOnce(

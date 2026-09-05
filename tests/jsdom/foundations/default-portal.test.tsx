@@ -6,9 +6,9 @@ import {
 } from '../../../src/foundations/structures/portal';
 import { state } from '../../../src/index';
 import {
-  beginLifecycleCommitBatch,
-  discardLifecycleCommitBatch,
-  flushLifecycleCommitBatch,
+  beginCommitTransaction,
+  discardTransaction,
+  commitTransaction,
 } from '../../../src/runtime/component-lifecycle';
 import {
   createTestContainer,
@@ -17,12 +17,12 @@ import {
 import { createIsland } from '../../../test-utils/render/create-island';
 
 function writePortalInNestedBatch(children: string): void {
-  const batch = beginLifecycleCommitBatch();
+  const batch = beginCommitTransaction();
   try {
     Portal({ children });
-    flushLifecycleCommitBatch(batch);
+    commitTransaction(batch);
   } catch (error) {
-    discardLifecycleCommitBatch(batch);
+    discardTransaction(batch);
     throw error;
   }
 }
@@ -144,20 +144,20 @@ describe('DefaultPortal', () => {
     flushScheduler();
     expect(container.textContent?.match(/Stable/g)).toHaveLength(1);
 
-    const rolledBackParent = beginLifecycleCommitBatch();
+    const rolledBackParent = beginCommitTransaction();
     writePortalInNestedBatch('Broken pending');
     writePortalInNestedBatch('Broken');
-    discardLifecycleCommitBatch(rolledBackParent);
+    discardTransaction(rolledBackParent);
     flushScheduler();
 
     expect(container.textContent?.match(/Stable/g)).toHaveLength(1);
     expect(container.textContent).not.toContain('Broken');
     expect(container.textContent).not.toContain('pending');
 
-    const committedParent = beginLifecycleCommitBatch();
+    const committedParent = beginCommitTransaction();
     writePortalInNestedBatch('Recovered pending');
     writePortalInNestedBatch('Recovered');
-    flushLifecycleCommitBatch(committedParent);
+    commitTransaction(committedParent);
     flushScheduler();
 
     expect(container.textContent).not.toContain('Stable');
