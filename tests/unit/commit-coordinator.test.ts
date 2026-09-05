@@ -1,6 +1,184 @@
 import { expect, test } from 'vite-plus/test';
 import { CommitCoordinator } from '../../src/runtime/transaction-coordinator';
 
+test('should transfer a re-registered participant once after its key is cleared', () => {
+  const coordinator = new CommitCoordinator();
+  const events: string[] = [];
+  const parent = coordinator.begin();
+  const child = coordinator.begin();
+  const participant = {
+    key: {} as object | undefined,
+    settle: () => events.push('settled'),
+  };
+  coordinator.register(participant);
+  participant.key = undefined;
+  coordinator.register(participant);
+  coordinator.commit(child);
+  expect(parent.participants).toEqual([participant]);
+  coordinator.commit(parent);
+  expect(events).toEqual(['settled']);
+});
+
+test('should merge and transfer work appended by a nested merge callback', () => {
+  const coordinator = new CommitCoordinator();
+  const events: string[] = [];
+  const parent = coordinator.begin();
+  const first = {};
+  const second = {};
+  coordinator.register({ key: first });
+  coordinator.register({ key: second });
+  const child = coordinator.begin();
+  coordinator.register({
+    key: first,
+    merge: () => {
+      events.push('first merge');
+      coordinator.register({
+        key: second,
+        merge: () => events.push('appended merge'),
+      });
+      coordinator.register({ settle: () => events.push('appended settle') });
+    },
+  });
+  coordinator.commit(child);
+  expect(events).toEqual(['first merge', 'appended merge']);
+  coordinator.commit(parent);
+  expect(events).toEqual(['first merge', 'appended merge', 'appended settle']);
+});
+
+test.each([
+  { parentCount: 1, childCount: 5 },
+  { parentCount: 5, childCount: 1 },
+])(
+  'should preserve joined identities with $parentCount parent and $childCount child members',
+  ({ parentCount, childCount }) => {
+    const coordinator = new CommitCoordinator();
+    const events: string[] = [];
+    const merges: string[] = [];
+    const parent = coordinator.begin();
+    const parentMembers = Array.from({ length: parentCount }, (_, index) => ({
+      settle: () => events.push(`parent ${index}`),
+    }));
+    for (const member of parentMembers) coordinator.register(member);
+    const shared = { settle: () => events.push('shared') };
+    coordinator.register(shared);
+    const parentKey = {};
+    coordinator.register({
+      key: parentKey,
+      settle: () => events.push('parent keyed'),
+    });
+    const parentMerged = {
+      key: parentKey,
+      merge: () => merges.push('parent'),
+    };
+    const parentDiscarded = {
+      key: parentKey,
+      collision: 'keep-first' as const,
+    };
+    coordinator.register(parentMerged);
+    coordinator.register(parentDiscarded);
+
+    const child = coordinator.begin();
+    const childMembers = Array.from({ length: childCount }, (_, index) => ({
+      settle: () => events.push(`child ${index}`),
+    }));
+    for (const member of childMembers) coordinator.register(member);
+    coordinator.register(shared);
+    const childKey = {};
+    coordinator.register({
+      key: childKey,
+      settle: () => events.push('child keyed'),
+    });
+    const childMerged = {
+      key: childKey,
+      merge: () => merges.push('child'),
+    };
+    const childDiscarded = {
+      key: childKey,
+      collision: 'keep-first' as const,
+    };
+    const discardedOnJoin = {
+      key: parentKey,
+      collision: 'keep-first' as const,
+    };
+    coordinator.register(childMerged);
+    coordinator.register(childDiscarded);
+    coordinator.register(discardedOnJoin);
+    coordinator.commit(child);
+    const joinedMembers = parent.participants.slice();
+    const coalesced = [
+      parentMerged,
+      parentDiscarded,
+      childMerged,
+      childDiscarded,
+      discardedOnJoin,
+    ];
+    for (const member of [
+      shared,
+      ...parentMembers,
+      ...childMembers,
+      ...coalesced,
+    ])
+      coordinator.register(member);
+    expect(parent.participants).toEqual(joinedMembers);
+
+    const sibling = coordinator.begin();
+    coordinator.register(shared);
+    for (const member of coalesced) coordinator.register(member);
+    const siblingMember = { settle: () => events.push('sibling') };
+    coordinator.register(siblingMember);
+    coordinator.commit(sibling);
+    coordinator.register(siblingMember);
+    for (const member of coalesced) coordinator.register(member);
+    expect(parent.participants).toEqual([...joinedMembers, siblingMember]);
+    expect(merges).toEqual(['parent', 'child']);
+    coordinator.commit(parent);
+    expect(events).toEqual([
+      ...parentMembers.map((_, index) => `parent ${index}`),
+      'shared',
+      'parent keyed',
+      ...childMembers.map((_, index) => `child ${index}`),
+      'child keyed',
+      'sibling',
+    ]);
+  }
+);
+
+test('should leave both frames intact when the final nested collision is invalid', () => {
+  const coordinator = new CommitCoordinator();
+  const parent = coordinator.begin();
+  parent.deferNotifications = true;
+  const key = {};
+  const resource = {};
+  const completion = {};
+  coordinator.register({ key });
+  coordinator.register({});
+  parent.resources.set(resource, 'parent');
+  coordinator.deferCompletion(completion, () => {});
+  const child = coordinator.begin();
+  coordinator.register({});
+  coordinator.register({ key });
+  child.resources.set(resource, 'child');
+  child.resources.set({}, 'child only');
+  coordinator.deferCompletion(completion, () => {});
+  coordinator.deferCompletion({}, () => {});
+  const snapshots = [parent, child].map((frame) => ({
+    members: frame.participants.slice(),
+    resources: [...frame.resources],
+    completions: [...frame.completions!],
+    seen: [...frame.seen!],
+  }));
+  expect(() => coordinator.commit(child)).toThrow('merge');
+  for (const [index, frame] of [parent, child].entries()) {
+    expect(frame.phase).toBe('preparing');
+    expect(frame.participants).toEqual(snapshots[index].members);
+    expect([...frame.resources]).toEqual(snapshots[index].resources);
+    expect([...frame.completions!]).toEqual(snapshots[index].completions);
+    expect([...frame.seen!]).toEqual(snapshots[index].seen);
+  }
+  coordinator.discard(child);
+  coordinator.discard(parent);
+});
+
 test('should invalidate shared ancestors before draining a direct child merge failure', () => {
   const failure = new Error('merge failed');
   const rollbackFailure = new Error('rollback failed');

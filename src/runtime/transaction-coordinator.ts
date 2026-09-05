@@ -250,42 +250,93 @@ export class CommitCoordinator {
     if (!transaction.active) return;
     const parent = transaction.parent;
     if (parent?.active) {
+      let needsMerge = false;
       for (const participant of transaction.participants) {
         if (parent.seen?.has(participant)) continue;
         const previous = participant.key
           ? parent.participant(participant.key, participant.kind)
           : undefined;
-        if (previous) this.validateCollision(previous, participant);
+        if (previous) {
+          this.validateCollision(previous, participant);
+          if (
+            previous !== participant &&
+            participant.collision !== 'keep-first'
+          )
+            needsMerge = true;
+        }
       }
-      try {
-        for (const participant of transaction.participants) {
-          if (parent.seen?.has(participant)) continue;
-          const previous = participant.key
-            ? parent.participant(participant.key, participant.kind)
-            : undefined;
-          if (previous && previous !== participant) {
-            if (participant.collision !== 'keep-first')
-              participant.merge!(previous);
-            (parent.seen ??= new Set()).add(participant);
+      let changedIdentity = false;
+      for (const [kind, index] of transaction.index) {
+        for (const [key, participant] of index) {
+          if (participant.key !== key || participant.kind !== kind) {
+            changedIdentity = true;
+            break;
           }
         }
-      } catch (error) {
-        this.discardMergedTransactions(transaction, parent);
-        throw error;
+        if (changedIdentity) break;
       }
-      for (const participant of transaction.participants) {
-        if (
-          !participant.key ||
-          !parent.participant(participant.key, participant.kind)
-        )
-          this.add(parent, participant);
+      if (needsMerge || changedIdentity) {
+        // Merges can register further work. Keep their dynamic traversal and
+        // failure ownership separate from callback-free membership transfer.
+        try {
+          for (const participant of transaction.participants) {
+            if (parent.seen?.has(participant)) continue;
+            const previous = participant.key
+              ? parent.participant(participant.key, participant.kind)
+              : undefined;
+            if (previous && previous !== participant) {
+              if (participant.collision !== 'keep-first')
+                participant.merge!(previous);
+              (parent.seen ??= new Set()).add(participant);
+            }
+          }
+        } catch (error) {
+          this.discardMergedTransactions(transaction, parent);
+          throw error;
+        }
+        // A changed key can leave the same record in multiple child slots.
+        // Registration preserves identity deduplication in that uncommon case.
+        for (const participant of transaction.participants) {
+          if (
+            !participant.key ||
+            !parent.participant(participant.key, participant.kind)
+          )
+            this.add(parent, participant);
+        }
+      } else {
+        for (const participant of transaction.participants) {
+          if (parent.seen?.has(participant)) continue;
+          if (participant.key) {
+            let index = parent.index.get(participant.kind);
+            if (!index) parent.index.set(participant.kind, (index = new Map()));
+            const previous = index.get(participant.key);
+            if (previous) {
+              if (previous !== participant)
+                (transaction.seen ??= new Set()).add(participant);
+              continue;
+            }
+            index.set(participant.key, participant);
+          } else {
+            (transaction.seen ??= new Set()).add(participant);
+          }
+          parent.participants.push(participant);
+        }
       }
       for (const [key, value] of transaction.resources) {
         if (!parent.resources.has(key)) parent.resources.set(key, value);
       }
       if (transaction.seen) {
-        for (const participant of transaction.seen)
-          (parent.seen ??= new Set()).add(participant);
+        // The joined child relinquishes its set. Reuse the larger allocation
+        // while retaining identities coalesced in either frame.
+        if (!parent.seen) parent.seen = transaction.seen;
+        else if (parent.seen.size < transaction.seen.size) {
+          for (const participant of parent.seen)
+            transaction.seen.add(participant);
+          parent.seen = transaction.seen;
+        } else {
+          for (const participant of transaction.seen)
+            parent.seen.add(participant);
+        }
       }
       this.mergeCompletions(transaction, parent);
       transaction.phase = 'joined';

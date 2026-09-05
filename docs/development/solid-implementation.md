@@ -39,7 +39,9 @@ brands; explicit root exports fixed those failures.
 Independent final review reproduced direct child merges leaving shared
 ancestors committable, including rollback reentry and transitive sharing.
 Failure handling now invalidates all affected frames before callbacks and
-drains each shared participant once; 18 focused coordinator tests pass.
+drains each shared participant once. Subsequent join characterization covers
+identity-set ownership, sibling joins, reentrant merges, and mutable keys;
+23 focused coordinator tests pass.
 
 The broader DOM suite exposed an intentional duplicate subtree-retirement
 participant; its explicit keep-first policy restored the affected lifecycle
@@ -49,11 +51,20 @@ The initial hosted performance comparison is rejected: 16 of 93 workloads
 exceed 5%, and three workloads fail sample quality in at least one capture.
 All metrics remain in `../benchmarks/solid-initial-0513b15.json`. Isolated
 recaptures and stronger sample collection qualify all but the selected JSX
-resize workload, currently rejected at +5.87%. The next control capture uses
-two baseline series and the lower median, requiring all nine captures to meet
-quality rules. This is the declared measurement decision for that workload;
-a valid failure requires investigation rather than further attempts to obtain
-a passing result. Final acceptance and merge remain pending.
+resize workload, rejected at +5.87%. The declared control capture then used
+two baseline series and the lower median. All nine captures met quality rules,
+but the comparison failed at +8.96%; the full result is retained in
+`../benchmarks/solid-control-rejected-58544e7.json`.
+
+Profiling that exact workload found 10,004 registrations per resize toggle,
+with a large child transaction joining a parent containing one participant.
+Complete collision preflight remains necessary, but callback-free joins now
+transfer membership without a second registration pass and reuse the child's
+identity set. Diagnostic allocation sampling confirms removal of about 160 KiB
+per toggle from the join, with unchanged registration and DOM snapshot counts.
+Merges retain dynamic traversal and their existing rollback ownership. These
+diagnostics do not replace qualification; final acceptance and merge remain
+pending a new comparison of the optimized runtime.
 
 ## Governance coverage
 
@@ -79,7 +90,7 @@ Local browser setup initially failed because Playwright's Node downloader timed
 out. The same official artifact URLs are reachable with curl; browser validation
 uses those exact versions rather than substituting another installed browser.
 
-Final local validation after review: formatting, lint/typecheck, build, 277 unit
+Final local validation after review: formatting, lint/typecheck, build, 282 unit
 tests, 58 repository checks, 1,564 DOM tests, 53 Chromium tests, public type
 tests, and 20 installed-consumer tests pass. Independent structural review
 confirmed all 222 original declaration nodes, core exports, snapshot fields,
