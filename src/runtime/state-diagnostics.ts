@@ -8,10 +8,10 @@ import type { ComponentInstance } from './component-internal';
  * is unused, so this diagnostic belongs at unmount rather than every commit.
  */
 export function warnUnusedStateReads(instance: ComponentInstance): void {
-  if (isProductionEnvironment() || !instance.ownership.mounted) return;
+  if (!instance.ownership.mounted) return;
 
   const stateValues = instance.stateValues;
-  if (!stateValues) return;
+  if (!stateValues?.length || isProductionEnvironment()) return;
 
   for (let i = 0; i < stateValues.length; i++) {
     const state = stateValues[i];
