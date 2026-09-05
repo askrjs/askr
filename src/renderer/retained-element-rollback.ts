@@ -120,6 +120,59 @@ function cloneReactivePropEntry(
   };
 }
 
+function copyRetainedAttributes(
+  attributes: NamedNodeMap
+): Array<[string, string]> {
+  const result: Array<[string, string]> = [];
+  for (let index = 0; index < attributes.length; index += 1) {
+    const attribute = attributes[index];
+    result.push([attribute.name, attribute.value]);
+  }
+  return result;
+}
+
+function copyRetainedChildNodes(children: NodeListOf<ChildNode>): Node[] {
+  const result: Node[] = [];
+  for (let index = 0; index < children.length; index += 1)
+    result.push(children[index]);
+  return result;
+}
+
+function copyRetainedDelegatedListeners(
+  listeners: NonNullable<ReturnType<typeof getDelegatedHandlersForElement>>
+): DelegatedListenerEntrySnapshot[] {
+  const result: DelegatedListenerEntrySnapshot[] = [];
+  listeners.forEach((entry, eventName) =>
+    result.push({
+      eventName,
+      handler: entry.handler,
+      original: entry.original,
+      options: entry.options,
+    })
+  );
+  return result;
+}
+
+function copyRetainedListeners(
+  listeners: Map<string, ListenerMapEntry>
+): ListenerEntrySnapshot[] {
+  const result: ListenerEntrySnapshot[] = [];
+  listeners.forEach((entry, listenerKey) =>
+    result.push({ listenerKey, entry: cloneListenerEntry(entry) })
+  );
+  return result;
+}
+
+function copyRetainedReactiveProps(
+  props: Map<string, ReactivePropCleanupEntry>
+): ReactivePropEntrySnapshot[] {
+  const result: ReactivePropEntrySnapshot[] = [];
+  props.forEach((entry, propName) =>
+    result.push({ propName, entry: cloneReactivePropEntry(entry) })
+  );
+  return result;
+}
+
 export function snapshotRetainedElement(
   element: Element,
   bindingsOnly = false
@@ -133,35 +186,17 @@ export function snapshotRetainedElement(
   const keyedMap = keyedElements.get(element);
 
   return {
-    attributes: bindingsOnly
-      ? []
-      : Array.from(element.attributes, (attribute) => [
-          attribute.name,
-          attribute.value,
-        ]),
-    childNodes: bindingsOnly ? [] : Array.from(element.childNodes),
+    attributes: bindingsOnly ? [] : copyRetainedAttributes(element.attributes),
+    childNodes: bindingsOnly ? [] : copyRetainedChildNodes(element.childNodes),
     delegatedListeners: delegatedHandlerMap
-      ? Array.from(delegatedHandlerMap, ([eventName, entry]) => ({
-          eventName,
-          handler: entry.handler,
-          original: entry.original,
-          options: entry.options,
-        }))
+      ? copyRetainedDelegatedListeners(delegatedHandlerMap)
       : [],
     domCaptured: !bindingsOnly,
     formControl: bindingsOnly ? null : getFormControlSnapshot(element),
     keyedMap: keyedMap ? new Map(keyedMap) : undefined,
-    listeners: listenerMap
-      ? Array.from(listenerMap, ([listenerKey, entry]) => ({
-          listenerKey,
-          entry: cloneListenerEntry(entry),
-        }))
-      : [],
+    listeners: listenerMap ? copyRetainedListeners(listenerMap) : [],
     reactiveProps: reactivePropMap
-      ? Array.from(reactivePropMap, ([propName, entry]) => ({
-          propName,
-          entry: cloneReactivePropEntry(entry),
-        }))
+      ? copyRetainedReactiveProps(reactivePropMap)
       : [],
     ref: elementRefs.get(element),
     textNodes: bindingsOnly ? [] : collectTextSnapshots(element),

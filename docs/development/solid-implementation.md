@@ -95,6 +95,27 @@ owned by commit coordination, versus 1,645 KiB before transfer tuning. Join
 `Map.set` and `Set.add` allocations are absent from the sampled profile. This
 allocation result is diagnostic evidence; timing qualification remains pending.
 
+The `eb70e7d` timing comparison is also rejected. All 135 captures meet sample
+quality and thirteen of fourteen original-main comparisons meet the regression
+limit. Selected resize fails at +12.60%; the separate pre-optimization comparison
+shows +5.23% rather than an improvement. Raising the minimum to 1,000 samples did
+not stabilize the bidirectional medians: selected-resize candidate medians range
+from 65.85 to 74.20 ms while its means range from 57.24 to 58.08 ms. These means
+do not replace the required median gate. Complete captures and median-spread
+analysis remain in `../benchmarks/solid-map-transfer-rejected-eb70e7d.json`.
+
+The next profile identified retained-element snapshot collection as a substantial
+allocation and CPU cost. Capture now copies live DOM collections with indexed
+loops and binding maps with `forEach`, preserving field order and the existing
+entry clones. Five characterization cases pass before and after the change:
+full and binding-only restoration, listener/ref/reactive identity, child and
+attribute order, late text capture after form-control getters, and live attribute
+addition/removal during capture. Independent review found no capture or rollback
+contract changes. A fresh same-host diagnostic pair reports snapshot CPU at
+3.80 versus 1.94 ms per toggle, aggregate profiled CPU down 9.69%, and snapshot
+allocation down 19.0%, with identical snapshot counts. This optimization still
+requires hosted timing qualification.
+
 ## Governance coverage
 
 Subsystem value-cycle governance covers boot, common, data, renderer, router,
@@ -120,7 +141,8 @@ out. The same official artifact URLs are reachable with curl; browser validation
 uses those exact versions rather than substituting another installed browser.
 
 Final local validation after review: formatting, lint/typecheck, build, 294 unit
-tests, 58 repository checks, 1,564 DOM tests, 53 Chromium tests, public type
-tests, and 20 installed-consumer tests pass. Independent structural review
-confirmed all 222 original declaration nodes, core exports, snapshot fields,
+tests, 58 repository checks, 1,569 DOM tests, 53 tests each in Chromium, Firefox,
+and WebKit, public type tests, and 20 installed-consumer tests pass. Package
+lint and artifact checks pass, followed by a normal build. Independent structural
+review confirmed all 222 original declaration nodes, core exports, snapshot fields,
 and query transitions are preserved outside the approved contract corrections.
