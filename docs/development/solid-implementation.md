@@ -41,7 +41,7 @@ ancestors committable, including rollback reentry and transitive sharing.
 Failure handling now invalidates all affected frames before callbacks and
 drains each shared participant once. Subsequent join characterization covers
 identity-set ownership, sibling joins, reentrant merges, and mutable keys;
-23 focused coordinator tests pass.
+26 focused coordinator tests pass.
 
 The broader DOM suite exposed an intentional duplicate subtree-retirement
 participant; its explicit keep-first policy restored the affected lifecycle
@@ -62,7 +62,10 @@ Complete collision preflight remains necessary, but callback-free joins now
 transfer membership without a second registration pass and reuse the child's
 identity set. Diagnostic allocation sampling confirms removal of about 160 KiB
 per toggle from the join, with unchanged registration and DOM snapshot counts.
-Merges retain dynamic traversal and their existing rollback ownership. These
+Merges and changed key/kind indexes retain dynamic traversal and their existing
+rollback ownership. The index-consistency scan avoids temporary entry-pair
+allocations. Additional key-map adoption was profiled and discarded because it
+showed no clear further allocation benefit. These
 diagnostics do not replace qualification; final acceptance and merge remain
 pending a new comparison of the optimized runtime.
 
@@ -90,7 +93,7 @@ Local browser setup initially failed because Playwright's Node downloader timed
 out. The same official artifact URLs are reachable with curl; browser validation
 uses those exact versions rather than substituting another installed browser.
 
-Final local validation after review: formatting, lint/typecheck, build, 282 unit
+Final local validation after review: formatting, lint/typecheck, build, 285 unit
 tests, 58 repository checks, 1,564 DOM tests, 53 Chromium tests, public type
 tests, and 20 installed-consumer tests pass. Independent structural review
 confirmed all 222 original declaration nodes, core exports, snapshot fields,

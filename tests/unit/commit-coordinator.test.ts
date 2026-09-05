@@ -1,6 +1,104 @@
 import { expect, test } from 'vite-plus/test';
 import { CommitCoordinator } from '../../src/runtime/transaction-coordinator';
 
+test('should preserve keyed lookup and existing kind maps across released child and sibling joins', () => {
+  const coordinator = new CommitCoordinator();
+  const parent = coordinator.begin();
+  const existingKind = {};
+  const childKind = {};
+  const siblingKind = {};
+  const key = {};
+  const original = { key, kind: existingKind };
+  coordinator.register(original);
+  const existingMap = parent.index.get(existingKind);
+
+  const child = coordinator.begin();
+  const childMember = { key, kind: childKind };
+  const defaultMember = { key };
+  coordinator.register(childMember);
+  coordinator.register(defaultMember);
+  coordinator.commit(child);
+  expect(child.index.size).toBe(0);
+  expect(parent.index.get(existingKind)).toBe(existingMap);
+  expect(parent.participant(key, existingKind)).toBe(original);
+  expect(parent.participant(key, childKind)).toBe(childMember);
+  expect(parent.participant(key)).toBe(defaultMember);
+  const childKindMap = parent.index.get(childKind);
+
+  const sibling = coordinator.begin();
+  const nextKey = {};
+  const addedExisting = { key: nextKey, kind: existingKind };
+  const addedChildKind = { key: nextKey, kind: childKind };
+  const addedSiblingKind = { key, kind: siblingKind };
+  coordinator.register(childMember);
+  coordinator.register(addedExisting);
+  coordinator.register(addedChildKind);
+  coordinator.register(addedSiblingKind);
+  coordinator.commit(sibling);
+  expect(sibling.index.size).toBe(0);
+  expect(parent.index.get(existingKind)).toBe(existingMap);
+  expect(parent.index.get(childKind)).toBe(childKindMap);
+  expect(parent.participant(key, existingKind)).toBe(original);
+  expect(parent.participant(key, childKind)).toBe(childMember);
+  expect(parent.participant(key)).toBe(defaultMember);
+  expect(parent.participant(nextKey, existingKind)).toBe(addedExisting);
+  expect(parent.participant(nextKey, childKind)).toBe(addedChildKind);
+  expect(parent.participant(key, siblingKind)).toBe(addedSiblingKind);
+  coordinator.register(childMember);
+  coordinator.register(addedSiblingKind);
+  expect(parent.participants).toEqual([
+    original,
+    childMember,
+    defaultMember,
+    addedExisting,
+    addedChildKind,
+    addedSiblingKind,
+  ]);
+  coordinator.discard(parent);
+});
+
+test.each([
+  { policy: 'keep-first', collision: 'keep-first' as const, merges: 0 },
+  { policy: 'merge', collision: undefined, merges: 1 },
+])(
+  'should keep a $policy identity out of a newly joined kind index',
+  ({ collision, merges }) => {
+    const coordinator = new CommitCoordinator();
+    const parent = coordinator.begin();
+    const key = {};
+    const original = { key };
+    coordinator.register(original);
+    let mergeCalls = 0;
+    const coalesced = {
+      key,
+      kind: undefined as object | undefined,
+      collision,
+      merge: () => mergeCalls++,
+    };
+    coordinator.register(coalesced);
+    const child = coordinator.begin();
+    const childKind = {};
+    coalesced.kind = childKind;
+    const admitted = { key: {}, kind: childKind };
+    coordinator.register(coalesced);
+    coordinator.register(admitted);
+    coordinator.commit(child);
+    expect(child.index.size).toBe(0);
+    expect(parent.participant(key)).toBe(original);
+    expect(parent.participant(key, childKind)).toBeUndefined();
+    expect(parent.participant(admitted.key, childKind)).toBe(admitted);
+    coordinator.register(coalesced);
+    const sibling = coordinator.begin();
+    coordinator.register(coalesced);
+    coordinator.commit(sibling);
+    coordinator.register(coalesced);
+    expect(parent.participant(key, childKind)).toBeUndefined();
+    expect(parent.participants).toEqual([original, admitted]);
+    expect(mergeCalls).toBe(merges);
+    coordinator.discard(parent);
+  }
+);
+
 test('should transfer a re-registered participant once after its key is cleared', () => {
   const coordinator = new CommitCoordinator();
   const events: string[] = [];

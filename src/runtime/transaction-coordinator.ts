@@ -267,12 +267,10 @@ export class CommitCoordinator {
       }
       let changedIdentity = false;
       for (const [kind, index] of transaction.index) {
-        for (const [key, participant] of index) {
-          if (participant.key !== key || participant.kind !== kind) {
+        index.forEach((participant, key) => {
+          if (participant.key !== key || participant.kind !== kind)
             changedIdentity = true;
-            break;
-          }
-        }
+        });
         if (changedIdentity) break;
       }
       if (needsMerge || changedIdentity) {
