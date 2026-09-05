@@ -11,6 +11,11 @@ on:
         required: false
         type: string
 
+      control:
+        description: Repeat the baseline before each candidate to measure capture variation
+        required: false
+        type: boolean
+        default: false
       harness:
         description: Optional shared benchmark harness commit for baseline recaptures
         required: false
@@ -61,10 +66,21 @@ jobs:
           git rev-parse HEAD >> bench-results/provenance.txt
           git diff --quiet && printf '%s\n' 'dirty=false' >> bench-results/provenance.txt || printf '%s\n' 'dirty=true' >> bench-results/provenance.txt
           uname -a >> bench-results/provenance.txt
+          lscpu >> bench-results/provenance.txt
           npm ls playwright --depth=0 >> bench-results/provenance.txt
           sha256sum package-lock.json >> bench-results/provenance.txt
           printf '%s\n' "runner_image=${ImageOS:-unknown}" >> bench-results/provenance.txt
+          printf '%s\n' "runner_image_version=${ImageVersion:-unknown}" >> bench-results/provenance.txt
           printf '%s\n' 'instrumentation=disabled' >> bench-results/provenance.txt
+
+      - name: Verify the candidate uses the shared benchmark harness
+        if: inputs.harness != ''
+        env:
+          BENCH_HARNESS_REF: ${{ inputs.harness }}
+        run: |
+          git fetch --depth=1 origin "$BENCH_HARNESS_REF"
+          git diff --exit-code FETCH_HEAD -- benches
+          git rev-parse FETCH_HEAD > bench-results/candidate-harness-provenance.txt
 
       - name: Checkout comparison baseline
         if: inputs.baseline != ''
@@ -101,6 +117,11 @@ jobs:
         working-directory: .benchmark-baseline
         run: npm run bench:tier1 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/baseline-tier1-run1.json
 
+      - name: Run baseline control tier1 capture 1
+        if: inputs.baseline != '' && inputs.control && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '1')
+        working-directory: .benchmark-baseline
+        run: npm run bench:tier1 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/control-tier1-run1.json
+
       - name: Run tier1 capture 1
         if: (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '1')
         run: npm run bench:tier1 -- --testNamePattern "$BENCH_PATTERN" --outputJson bench-results/tier1-run1.json
@@ -109,6 +130,11 @@ jobs:
         if: inputs.baseline != '' && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '1')
         working-directory: .benchmark-baseline
         run: npm run bench:tier1 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/baseline-tier1-run2.json
+
+      - name: Run baseline control tier1 capture 2
+        if: inputs.baseline != '' && inputs.control && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '1')
+        working-directory: .benchmark-baseline
+        run: npm run bench:tier1 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/control-tier1-run2.json
 
       - name: Run tier1 capture 2
         if: (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '1')
@@ -119,6 +145,11 @@ jobs:
         working-directory: .benchmark-baseline
         run: npm run bench:tier1 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/baseline-tier1-run3.json
 
+      - name: Run baseline control tier1 capture 3
+        if: inputs.baseline != '' && inputs.control && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '1')
+        working-directory: .benchmark-baseline
+        run: npm run bench:tier1 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/control-tier1-run3.json
+
       - name: Run tier1 capture 3
         if: (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '1')
         run: npm run bench:tier1 -- --testNamePattern "$BENCH_PATTERN" --outputJson bench-results/tier1-run3.json
@@ -127,6 +158,11 @@ jobs:
         if: inputs.baseline != '' && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '2')
         working-directory: .benchmark-baseline
         run: npm run bench:tier2 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/baseline-tier2-run1.json
+
+      - name: Run baseline control tier2 capture 1
+        if: inputs.baseline != '' && inputs.control && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '2')
+        working-directory: .benchmark-baseline
+        run: npm run bench:tier2 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/control-tier2-run1.json
 
       - name: Run tier2 capture 1
         if: (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '2')
@@ -137,6 +173,11 @@ jobs:
         working-directory: .benchmark-baseline
         run: npm run bench:tier2 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/baseline-tier2-run2.json
 
+      - name: Run baseline control tier2 capture 2
+        if: inputs.baseline != '' && inputs.control && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '2')
+        working-directory: .benchmark-baseline
+        run: npm run bench:tier2 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/control-tier2-run2.json
+
       - name: Run tier2 capture 2
         if: (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '2')
         run: npm run bench:tier2 -- --testNamePattern "$BENCH_PATTERN" --outputJson bench-results/tier2-run2.json
@@ -145,6 +186,11 @@ jobs:
         if: inputs.baseline != '' && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '2')
         working-directory: .benchmark-baseline
         run: npm run bench:tier2 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/baseline-tier2-run3.json
+
+      - name: Run baseline control tier2 capture 3
+        if: inputs.baseline != '' && inputs.control && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '2')
+        working-directory: .benchmark-baseline
+        run: npm run bench:tier2 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/control-tier2-run3.json
 
       - name: Run tier2 capture 3
         if: (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '2')
@@ -155,6 +201,11 @@ jobs:
         working-directory: .benchmark-baseline
         run: npm run bench:tier3 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/baseline-tier3-run1.json
 
+      - name: Run baseline control tier3 capture 1
+        if: inputs.baseline != '' && inputs.control && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '3')
+        working-directory: .benchmark-baseline
+        run: npm run bench:tier3 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/control-tier3-run1.json
+
       - name: Run tier3 capture 1
         if: (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '3')
         run: npm run bench:tier3 -- --testNamePattern "$BENCH_PATTERN" --outputJson bench-results/tier3-run1.json
@@ -163,6 +214,11 @@ jobs:
         if: inputs.baseline != '' && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '3')
         working-directory: .benchmark-baseline
         run: npm run bench:tier3 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/baseline-tier3-run2.json
+
+      - name: Run baseline control tier3 capture 2
+        if: inputs.baseline != '' && inputs.control && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '3')
+        working-directory: .benchmark-baseline
+        run: npm run bench:tier3 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/control-tier3-run2.json
 
       - name: Run tier3 capture 2
         if: (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '3')
@@ -173,6 +229,11 @@ jobs:
         working-directory: .benchmark-baseline
         run: npm run bench:tier3 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/baseline-tier3-run3.json
 
+      - name: Run baseline control tier3 capture 3
+        if: inputs.baseline != '' && inputs.control && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '3')
+        working-directory: .benchmark-baseline
+        run: npm run bench:tier3 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/control-tier3-run3.json
+
       - name: Run tier3 capture 3
         if: (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '3')
         run: npm run bench:tier3 -- --testNamePattern "$BENCH_PATTERN" --outputJson bench-results/tier3-run3.json
@@ -181,6 +242,11 @@ jobs:
         if: inputs.baseline != '' && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '4')
         working-directory: .benchmark-baseline
         run: npm run bench:tier4 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/baseline-tier4-run1.json
+
+      - name: Run baseline control tier4 capture 1
+        if: inputs.baseline != '' && inputs.control && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '4')
+        working-directory: .benchmark-baseline
+        run: npm run bench:tier4 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/control-tier4-run1.json
 
       - name: Run tier4 capture 1
         if: (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '4')
@@ -191,6 +257,11 @@ jobs:
         working-directory: .benchmark-baseline
         run: npm run bench:tier4 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/baseline-tier4-run2.json
 
+      - name: Run baseline control tier4 capture 2
+        if: inputs.baseline != '' && inputs.control && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '4')
+        working-directory: .benchmark-baseline
+        run: npm run bench:tier4 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/control-tier4-run2.json
+
       - name: Run tier4 capture 2
         if: (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '4')
         run: npm run bench:tier4 -- --testNamePattern "$BENCH_PATTERN" --outputJson bench-results/tier4-run2.json
@@ -199,6 +270,11 @@ jobs:
         if: inputs.baseline != '' && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '4')
         working-directory: .benchmark-baseline
         run: npm run bench:tier4 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/baseline-tier4-run3.json
+
+      - name: Run baseline control tier4 capture 3
+        if: inputs.baseline != '' && inputs.control && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '4')
+        working-directory: .benchmark-baseline
+        run: npm run bench:tier4 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/control-tier4-run3.json
 
       - name: Run tier4 capture 3
         if: (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '4')

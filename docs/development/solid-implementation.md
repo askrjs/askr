@@ -7,7 +7,7 @@ target that immutable revision so structural moves do not change its evidence.
 | Finding | Implementation status                                                                                                       |
 | ------- | --------------------------------------------------------------------------------------------------------------------------- |
 | F01     | Workers drain before rejection; lock serialization and initiating-error regressions added.                                  |
-| F02     | Explicit collisions, nested preflight, and merge rollback implemented.                                                      |
+| F02     | Explicit collisions, nested preflight, and shared-ancestor merge rollback implemented.                                      |
 | F03     | Complete intrinsic preflight precedes application; unsupported shapes decline without evaluation.                           |
 | F04     | Void timing contracts and public type regressions implemented.                                                              |
 | F05     | Ordered ref draining and AggregateError implemented.                                                                        |
@@ -36,6 +36,11 @@ Opaque API type tests failed before the new root exports existed. Final review
 also added three failing type assertions for accidentally exported private
 brands; explicit root exports fixed those failures.
 
+Independent final review reproduced direct child merges leaving shared
+ancestors committable, including rollback reentry and transitive sharing.
+Failure handling now invalidates all affected frames before callbacks and
+drains each shared participant once; 18 focused coordinator tests pass.
+
 The broader DOM suite exposed an intentional duplicate subtree-retirement
 participant; its explicit keep-first policy restored the affected lifecycle
 and resource regressions (31 focused cases passed).
@@ -43,7 +48,12 @@ and resource regressions (31 focused cases passed).
 The initial hosted performance comparison is rejected: 16 of 93 workloads
 exceed 5%, and three workloads fail sample quality in at least one capture.
 All metrics remain in `../benchmarks/solid-initial-0513b15.json`. Isolated
-recaptures, final acceptance, and merge remain pending.
+recaptures and stronger sample collection qualify all but the selected JSX
+resize workload, currently rejected at +5.87%. The next control capture uses
+two baseline series and the lower median, requiring all nine captures to meet
+quality rules. This is the declared measurement decision for that workload;
+a valid failure requires investigation rather than further attempts to obtain
+a passing result. Final acceptance and merge remain pending.
 
 ## Governance coverage
 
@@ -68,3 +78,9 @@ installing the runtime host. Packed tests then passed: 10 files, 20 cases.
 Local browser setup initially failed because Playwright's Node downloader timed
 out. The same official artifact URLs are reachable with curl; browser validation
 uses those exact versions rather than substituting another installed browser.
+
+Final local validation after review: formatting, lint/typecheck, build, 277 unit
+tests, 58 repository checks, 1,564 DOM tests, 53 Chromium tests, public type
+tests, and 20 installed-consumer tests pass. Independent structural review
+confirmed all 222 original declaration nodes, core exports, snapshot fields,
+and query transitions are preserved outside the approved contract corrections.

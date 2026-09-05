@@ -19,7 +19,9 @@ change the sample-quality or regression limits. When sample collection options
 change, the optional `harness` commit installs identical benchmark sources on
 the baseline; the harness SHA and complete baseline benchmark diff are retained
 in the artifact. Runtime sources, labels, operations, and reset behavior remain
-unchanged by this option.
+unchanged by this option. Optional `control` captures repeat the baseline before
+each candidate to measure variation. Compare the candidate against the lower
+of the two baseline medians of three, retaining every control and candidate.
 
 ## Acceptance Rules
 
