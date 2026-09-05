@@ -5,7 +5,7 @@ import { teardownNodeSubtree } from './cleanup';
 import { cleanupDetachedComponentHost } from './component-host-cleanup';
 import { runRetainedElementUpdate } from './retained-element-rollback';
 import { registerCommitParticipant } from '../runtime/transaction-access';
-import { createDOMNode, syncComponentElement } from './dom';
+import { getRendererDOMHost } from './dom-host';
 import type { ElementWithContext } from './dom-host';
 import {
   cleanupRangeNode,
@@ -120,7 +120,7 @@ function evaluateInTransaction(
       );
 
       if (_isDOMElement(vnode) && typeof vnode.type === 'function') {
-        const syncedDom = syncComponentElement(
+        const syncedDom = getRendererDOMHost().syncComponentElement(
           target,
           vnode as unknown as ElementWithContext,
           vnode.type as ComponentFunction,
@@ -153,7 +153,7 @@ function evaluateInTransaction(
         return;
       }
 
-      const newDom = createDOMNode(vnode);
+      const newDom = getRendererDOMHost().createDOMNode(vnode);
       if (newDom && target.parentNode) {
         if (newDom instanceof Element) {
           const nextHost = newDom as Element & {
@@ -203,7 +203,7 @@ function evaluateInTransaction(
         return;
       }
 
-      const dom = createDOMNode(vnode);
+      const dom = getRendererDOMHost().createDOMNode(vnode);
       if (dom) {
         target.appendChild(dom);
       }

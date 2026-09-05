@@ -15,21 +15,23 @@ durable test family that observes it.
 - `renderer` owns browser DOM mutation. Reconciliation enters through
   `reconcile-commit.ts`, which either commits the target node sequence or
   restores a coherent replacement on failure.
-- `component-cleanup.ts` owns component shutdown: child scopes, registered
-  cleanup, readable subscriptions, abort signalling, and generation
-  invalidation complete before cleanup errors are surfaced.
+- `ownership.ts` owns the lifetime graph and its iterative disposal drain.
+  `component-cleanup.ts` supplies execution invalidation, subscription removal,
+  and strict/non-strict error settlement to that drain.
 - `ssr` and `ssg` do not depend on browser renderer internals. Synchronous SSR
   remains the documented rendering boundary.
 
 ## Test families
 
-- `tests/checks/architecture.test.ts` protects dependency direction, facades,
+- `tests/checks/architecture.test.ts` protects dependency direction,
   singleton access, server/browser separation, lifecycle ownership, and the
   reconciliation commit boundary. Its dependency matrix follows value imports,
   type-only imports, re-exports, and literal dynamic imports.
-  It also enforces the renderer extraction budgets: targeted original modules
-  must shrink by at least 35%, extracted implementations stay below 400 lines,
-  and the extracted seams remain outside the public type snapshot.
+  Every implementation-level value-import cycle touching runtime or renderer
+  fails the check. Recursive rendering uses explicit host composition and leaf
+  contracts. Type-only dependencies remain distinguishable from executable
+  dependencies. Module length and source-string matching are not architecture
+  contracts.
 - `tests/checks/public-api-snapshot.test.ts` compares the emitted declaration
   exports for every package subpath with `public-api.snapshot.json` and follows
   their normalized declarations into `public-declarations.snapshot.json`.
@@ -71,6 +73,10 @@ durable test family that observes it.
   retained input identity and completed reordering in all three engines.
 - SSG tests cover route planning, parameter expansion, incremental cleanup,
   and failed generation behavior.
+- Owner tests cover deep disposal, reparenting, failure drainage, and exact
+  generation identity. Transaction tests cover nested publication, reversible
+  subscriptions and host application, reentrant writes, and post-publication
+  settlement failures. Optimized rendering uses these same observable contracts.
 
 ## Feature composition coverage
 

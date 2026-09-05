@@ -244,11 +244,10 @@ flowchart LR
 
 The SSR and SSG diagrams are backed by architecture checks:
 
-- `index-internal.ts`, `render-sync.ts`, and `hydration-data.ts` each have
-  explicit ownership and line ceilings. The client boot dependency on
-  `verify-hydration.ts` is an explicit architecture-check exception.
-- `create-static-gen.ts`, `static-routes.ts`, and `generation-plan.ts` have
-  explicit ownership and line ceilings.
+- Server modules cannot import browser renderer implementations. The client
+  boot dependency on `verify-hydration.ts` is an explicit dependency exception.
+- Request-isolation, nested synchronous execution, hydration authentication,
+  streaming cancellation, and generation tests enforce behavior at these seams.
 - SSG should remain an orchestration layer over route expansion and repeated
   synchronous SSR. Any new data-loading work belongs before render, not inside
   the SSR render phase.

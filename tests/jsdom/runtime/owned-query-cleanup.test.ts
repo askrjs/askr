@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vite-plus/test';
 import {
   createComponentInstance,
   cleanupComponent,
-} from '../../../src/runtime/component';
+} from '../../../src/runtime';
 import {
   createDataRuntime,
   resolveDataRuntimeState,
@@ -16,7 +16,7 @@ describe('owned query cleanup', () => {
     const runtime = resolveDataRuntimeState(createDataRuntime());
     const instance = createComponentInstance('queries', () => null, {}, null);
     instance.cleanupStrict = true;
-    const generation = instance.ownership.identity;
+    const generation = instance.owner.identity;
     const sharedGeneration = {};
     const first = new QueryCell(
       { key: 'first', fetch: async () => 1, initialData: 1 },

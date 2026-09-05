@@ -9,7 +9,7 @@ import {
   Presence,
 } from '../../../src/foundations';
 import { resource } from '../../../src/resources';
-import { getCurrentComponentInstance } from '../../../src/runtime/component';
+import { getCurrentComponentInstance } from '../../../src/runtime';
 import { createDetachedRange } from '../../../src/renderer/dom-range';
 import { updateMixedControlChildren } from '../../../src/renderer/element-children';
 import { createIsland } from '../../../test-utils/render/create-island';
@@ -203,9 +203,9 @@ describe('client control-boundary reconciliation', () => {
       refreshSchema = () => schema.refresh();
       const instance = getCurrentComponentInstance();
       if (!instance) throw new Error('expected query workspace instance');
-      if (!instance.ownership.mounted) {
+      if (!instance.owner.mounted) {
         mounts += 1;
-        (instance.ownership.cleanups ??= []).push(() => {
+        (instance.owner.cleanups ??= []).push(() => {
           cleanups += 1;
         });
       }
@@ -913,9 +913,9 @@ describe('client control-boundary reconciliation', () => {
     const Workspace = ({ id }: { id: string }) => {
       const instance = getCurrentComponentInstance();
       if (!instance) throw new Error('expected workspace instance');
-      if (!instance.ownership.mounted) {
+      if (!instance.owner.mounted) {
         mounts += 1;
-        (instance.ownership.cleanups ??= []).push(() => {
+        (instance.owner.cleanups ??= []).push(() => {
           cleanups += 1;
         });
       }
@@ -997,9 +997,9 @@ describe('client control-boundary reconciliation', () => {
     const Content = () => {
       const instance = getCurrentComponentInstance();
       if (!instance) throw new Error('expected content instance');
-      if (!instance.ownership.mounted) {
+      if (!instance.owner.mounted) {
         mounts += 1;
-        (instance.ownership.cleanups ??= []).push(() => {
+        (instance.owner.cleanups ??= []).push(() => {
           cleanups += 1;
         });
       }

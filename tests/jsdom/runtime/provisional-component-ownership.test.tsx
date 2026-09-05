@@ -70,7 +70,7 @@ describe('provisional component ownership rollback', () => {
       if (shouldFail) {
         const instance = getCurrentInstance()!;
         instance.cleanupStrict = true;
-        (instance.ownership.cleanups ??= []).push(() => {
+        (instance.owner.cleanups ??= []).push(() => {
           throw new Error('deep cleanup failed');
         });
         throw new Error('fresh owner primary failure');
@@ -174,7 +174,7 @@ describe('provisional component ownership rollback', () => {
       if (incomingShouldFail) {
         const instance = getCurrentInstance()!;
         instance.cleanupStrict = true;
-        (instance.ownership.cleanups ??= []).push(() => {
+        (instance.owner.cleanups ??= []).push(() => {
           throw new Error('incoming cleanup failed');
         });
         throw new Error('retained nested primary failure');

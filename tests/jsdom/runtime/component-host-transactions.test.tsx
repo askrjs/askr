@@ -60,8 +60,8 @@ describe('component host transactions', () => {
       {},
       existingHost
     );
-    owner.ownership.mounted = true;
-    wrapper.ownership.mounted = true;
+    owner.owner.mounted = true;
+    wrapper.owner.mounted = true;
     existingHost.__ASKR_INSTANCE = owner;
     existingHost.__ASKR_INSTANCES = [owner, wrapper];
 
@@ -105,14 +105,14 @@ describe('component host transactions', () => {
       {},
       existingHost
     );
-    owner.ownership.mounted = true;
+    owner.owner.mounted = true;
     existingHost.__ASKR_INSTANCE = owner;
     existingHost.__ASKR_INSTANCES = [owner];
 
     let nestedSignal!: AbortSignal;
     let nestedAborts = 0;
     let ownerCleanups = 0;
-    (owner.ownership.cleanups ??= []).push(() => {
+    (owner.owner.cleanups ??= []).push(() => {
       ownerCleanups += 1;
     });
 

@@ -15,7 +15,7 @@ import {
   vi,
 } from 'vite-plus/test';
 import { state } from '../../../src/index';
-import { registerMountOperation } from '../../../src/runtime/component';
+import { registerMountOperation } from '../../../src/runtime';
 import { Portal } from '../../../src/foundations/structures/portal';
 import { createSPA } from '@askrjs/askr/boot';
 import { navigate, updateRouteQuery } from '../../../src/router/navigate';

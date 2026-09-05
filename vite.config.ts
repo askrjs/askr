@@ -7,6 +7,7 @@ import {
   isBuildExternal,
   nodeBuiltins,
 } from './tooling/askr-tooling.ts';
+import { relative, resolve } from 'node:path';
 
 const isProd =
   process.env.NODE_ENV === 'production' || process.env.BUILD === 'production';
@@ -42,7 +43,16 @@ export default defineConfig({
     outDir: 'dist',
     platform: 'neutral',
     tsconfig: 'tsconfig.pack.json',
-    dts: true,
+    // Published declarations are authoritative contracts, including names and
+    // documentation. Emitting adapter declarations leaks private binding names.
+    dts: false,
+    copy: [
+      {
+        from: 'src/compatibility/contracts/**/*.d.ts',
+        rename: (_name, _extension, fullPath) =>
+          relative(resolve('src/compatibility/contracts'), fullPath),
+      },
+    ],
     // Keep maps for diagnostics without publishing dangling sourceMappingURL
     // comments or map files in the package tarball.
     sourcemap: 'hidden',

@@ -6,6 +6,7 @@ import {
 } from '../runtime/runtime-state';
 import { adaptRendererHost, rendererHostView } from './renderer';
 import type { AskrRuntimeOptions, RuntimeRendererHost } from './contracts/core';
+import type { RendererCapabilities } from '../runtime/renderer-capabilities';
 
 export type {
   AskrRuntimeOptions,
@@ -19,6 +20,7 @@ const defaultRuntimeOptions: AskrRuntimeOptions = {};
 export class AskrRuntime {
   readonly scheduler: Scheduler;
   private rendererHost: RuntimeRendererHost;
+  #rendererCapabilities: RendererCapabilities;
   readonly #state: RuntimeState;
 
   constructor(options: AskrRuntimeOptions = {}) {
@@ -32,14 +34,20 @@ export class AskrRuntime {
     this.rendererHost =
       options.renderer ?? rendererHostView(this.#state.renderer);
     this.#state.renderer = adaptRendererHost(this.rendererHost);
+    this.#rendererCapabilities = this.#state.renderer;
   }
 
   get renderer(): RuntimeRendererHost {
+    if (this.#rendererCapabilities !== this.#state.renderer) {
+      this.#rendererCapabilities = this.#state.renderer;
+      this.rendererHost = rendererHostView(this.#rendererCapabilities);
+    }
     return this.rendererHost;
   }
 
   configureRenderer(renderer: RuntimeRendererHost): void {
     this.#state.renderer = adaptRendererHost(renderer);
+    this.#rendererCapabilities = this.#state.renderer;
     this.rendererHost = renderer;
   }
 }
@@ -49,7 +57,9 @@ export function createRuntime(options: AskrRuntimeOptions = {}): AskrRuntime {
   return new AskrRuntime(options);
 }
 
-export const defaultRuntime = new AskrRuntime(defaultRuntimeOptions);
+export const defaultRuntime = /* @__PURE__ */ new AskrRuntime(
+  defaultRuntimeOptions
+);
 
 /** Get the process-wide default {@link AskrRuntime}. */
 export function getDefaultRuntime(): AskrRuntime {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vite-plus/test';
 import {
   createComponentInstance,
   mountInstanceInline,
-} from '../../../src/runtime/component';
+} from '../../../src/runtime';
 import { restartComponentGeneration } from '../../../src/runtime/component-generation';
 import { ownCleanup } from '../../../src/runtime/ownership';
 import { cleanupInstanceIfPresent } from '../../../src/renderer/cleanup';
@@ -20,22 +20,22 @@ describe('replacement generation during cleanup', () => {
     );
     mountInstanceInline(instance, host);
     writeHostOwners(host, [instance], instance);
-    const departed = instance.ownership;
+    const departed = instance.owner;
     let replacementCleanup = 0;
     ownCleanup(departed, () => {
       restartComponentGeneration(instance, () => null, false);
       mountInstanceInline(instance, host);
       writeHostOwners(host, [instance], instance);
-      ownCleanup(instance.ownership, () => {
+      ownCleanup(instance.owner, () => {
         replacementCleanup++;
       });
     });
     cleanupInstanceIfPresent(host);
     expect(departed.disposed).toBe(true);
-    expect(instance.ownership.disposed).toBe(false);
+    expect(instance.owner.disposed).toBe(false);
     expect(getOwnedRange(instance)?.start).toBe(host);
     cleanupInstanceIfPresent(host);
     expect(replacementCleanup).toBe(1);
-    expect(instance.ownership.disposed).toBe(true);
+    expect(instance.owner.disposed).toBe(true);
   });
 });

@@ -227,7 +227,13 @@ export function mountOrUpdate(
     }
   } else {
     const componentId = String(++componentIdCounter);
-    instance = createComponentInstance(componentId, wrappedFn, {}, rootElement);
+    instance = createComponentInstance(
+      componentId,
+      wrappedFn,
+      {},
+      rootElement,
+      null
+    );
     instancesByRoot.set(rootElement, instance);
     instance.isRoot = true;
     instance._rootComponentFn = componentFn;

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { resource } from '../../../src/resources';
-import type { ComponentFunction } from '../../../src/runtime/component';
+import type { ComponentFunction } from '../../../src/runtime';
 import {
   createTestContainer,
   flushScheduler,

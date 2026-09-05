@@ -3,7 +3,7 @@ import { createChildScope } from '../../../src/runtime/child-scope';
 import {
   cleanupComponent,
   createComponentInstance,
-} from '../../../src/runtime/component';
+} from '../../../src/runtime';
 import {
   beginCommitTransaction,
   commitTransaction,

@@ -1,7 +1,10 @@
 /** Published compatibility boundary. Implementations own execution; contracts own consumer types. */
 import * as implementation from '../../boot/index';
+import { installOwnershipViews } from '../ownership';
 import type * as Contract from '../contracts/boot/index';
 export type * from '../contracts/boot/index';
+
+installOwnershipViews();
 
 const public_cleanupApp: typeof Contract.cleanupApp = implementation.cleanupApp;
 const public_createIsland: typeof Contract.createIsland =

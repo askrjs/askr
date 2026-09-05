@@ -70,6 +70,17 @@ it('should ignore comments, formatting and private class representation', () => 
   );
 });
 
+it('should normalize binding punctuation while preserving parameter contracts', () => {
+  const compact =
+    'export declare function read({ value }: { value: string }): void;';
+  const formatted =
+    'export declare function read({ value, }: { value: string }): void;';
+  expect(contract(formatted)).toEqual(contract(compact));
+  expect(
+    contract(formatted.replace('value: string', 'value?: string'))
+  ).not.toEqual(contract(compact));
+});
+
 it('should distinguish same-named types reached through different imports', () => {
   const dependencies = {
     '/left.d.ts': 'export interface Details { value: string; }',

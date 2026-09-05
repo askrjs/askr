@@ -3,7 +3,7 @@ import { state, type State } from '../../../src/runtime/state';
 import {
   getCurrentInstance,
   type ComponentInstance,
-} from '../../../src/runtime/component';
+} from '../../../src/runtime';
 import { render } from '../../../src/testing';
 import { task } from '../../../src/runtime';
 import { getRuntimeRenderer } from '../../../src/runtime/access';
@@ -20,7 +20,7 @@ describe('commit publication boundary', () => {
       return visible() ? <button>{'ready'}</button> : null;
     }
     const previous = view.root.innerHTML;
-    const previousOwner = owner.ownership;
+    const previousOwner = owner.owner;
     const renderer = getRuntimeRenderer();
     const evaluate = renderer.evaluate.bind(renderer);
     const replacement = vi
@@ -40,8 +40,8 @@ describe('commit publication boundary', () => {
       visible.set(true);
       expect(() => view.flush()).toThrow('extension publication failed');
       expect(view.root.innerHTML).toBe(previous);
-      expect(owner.ownership).toBe(previousOwner);
-      expect(owner.ownership.disposed).toBe(false);
+      expect(owner.owner).toBe(previousOwner);
+      expect(owner.owner.disposed).toBe(false);
       expect(visible._readers?.has(owner)).toBe(true);
     } finally {
       replacement.mockRestore();
@@ -92,8 +92,8 @@ describe('commit publication boundary', () => {
       expect(view.root.innerHTML).toBe(snapshot);
       expect(view.root.querySelector('button')).toBe(button);
       expect(retired).toBe(0);
-      expect(child.ownership.disposed).toBe(false);
-      expect(child.ownership.mounted).toBe(true);
+      expect(child.owner.disposed).toBe(false);
+      expect(child.owner.mounted).toBe(true);
     } finally {
       insertion.mockRestore();
       view.cleanup();

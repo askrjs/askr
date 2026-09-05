@@ -78,6 +78,14 @@ export function declarationContract(
             if (ts.isStringLiteral(node)) {
               return ts.factory.createStringLiteral(node.text);
             }
+            if (ts.isObjectBindingPattern(node)) {
+              // A formatter's trailing comma is not an argument contract.
+              return ts.factory.createObjectBindingPattern(
+                node.elements.map(
+                  (element) => ts.visitNode(element, visit) as ts.BindingElement
+                )
+              );
+            }
             // Private implementation details are not consumer declarations.
             if (
               (ts.canHaveModifiers(node) &&

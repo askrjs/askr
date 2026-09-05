@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { createComponentInstance } from '../../../src/runtime/component';
+import { createComponentInstance } from '../../../src/runtime';
 import {
   beginCommitTransaction,
   captureInlineRenderSnapshot,

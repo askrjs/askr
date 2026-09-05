@@ -20,14 +20,9 @@ function readOwnerRange(owner: object): DOMRange | undefined {
     : rangesByOwner.get(owner);
 }
 
-function writeOwnerRange(owner: object, range: DOMRange): void {
+function writeOwnerRange(owner: object, range: DOMRange | undefined): void {
   if (DIRECT_RANGE_OWNER in owner) (owner as DirectRangeOwner).range = range;
-  else rangesByOwner.set(owner, range);
-}
-
-function clearOwnerRange(owner: object): void {
-  if (DIRECT_RANGE_OWNER in owner)
-    (owner as DirectRangeOwner).range = undefined;
+  else if (range) rangesByOwner.set(owner, range);
   else rangesByOwner.delete(owner);
 }
 
@@ -225,7 +220,7 @@ export function registerRange(range: DOMRange, owner?: object): void {
       previousRange &&
       (previousRange.start === range.start || previousRange.end === range.end)
     ) {
-      clearOwnerRange(previousOwner);
+      writeOwnerRange(previousOwner, undefined);
     }
   }
 
@@ -286,7 +281,7 @@ export function setRangeOwner(range: DOMRange, owner: object): void {
 }
 
 function clearRegisteredRange(range: DOMRange, owner: object): void {
-  clearOwnerRange(owner);
+  writeOwnerRange(owner, undefined);
   if (ownersByAnchor.get(range.start) === owner)
     ownersByAnchor.delete(range.start);
   if (range.end !== range.start && ownersByAnchor.get(range.end) === owner)
@@ -323,21 +318,21 @@ export function appendRange(
   }
 }
 
+function containsActiveElement(range: DOMRange, parent: Node): boolean {
+  let child = parent.ownerDocument?.activeElement as Node | null | undefined;
+  if (!child || !parent.contains(child)) return false;
+  while (child.parentNode && child.parentNode !== parent)
+    child = child.parentNode;
+  return child.parentNode === parent && rangeContains(range, child);
+}
+
 export function captureRangeFocus(range: DOMRange, parent: Node): () => void {
   const active = parent.ownerDocument?.activeElement;
   if (
     typeof HTMLElement === 'undefined' ||
     !(active instanceof HTMLElement) ||
-    !parent.contains(active)
+    !containsActiveElement(range, parent)
   ) {
-    return () => {};
-  }
-
-  let rangeChild: Node = active;
-  while (rangeChild.parentNode && rangeChild.parentNode !== parent) {
-    rangeChild = rangeChild.parentNode;
-  }
-  if (rangeChild.parentNode !== parent || !rangeContains(range, rangeChild)) {
     return () => {};
   }
 
@@ -393,42 +388,18 @@ export function moveRange(
     return false;
   }
 
-  const active = parent.ownerDocument?.activeElement ?? null;
   const retainedFocusedRange =
-    range.start.parentNode === parent &&
-    active !== null &&
-    parent.contains(active) &&
-    (() => {
-      let directChild: Node = active;
-      while (directChild.parentNode && directChild.parentNode !== parent) {
-        directChild = directChild.parentNode;
-      }
-      return (
-        directChild.parentNode === parent && rangeContains(range, directChild)
-      );
-    })();
+    range.start.parentNode === parent && containsActiveElement(range, parent);
   const restoreFocus = retainedFocusedRange
     ? () => undefined
     : captureRangeFocus(range, parent);
-  if (range.single) {
-    parent.insertBefore(range.start, before);
-    restoreFocus();
-    return true;
+  if (range.single || retainedFocusedRange) {
+    appendRange(parent, range, before);
+  } else {
+    const fragment = parent.ownerDocument!.createDocumentFragment();
+    appendRange(fragment, range);
+    parent.insertBefore(fragment, before);
   }
-
-  const nodes = [range.start, ...getRangeNodes(range), range.end];
-  if (retainedFocusedRange) {
-    for (const node of nodes) {
-      parent.insertBefore(node, before);
-    }
-    return true;
-  }
-
-  const fragment = parent.ownerDocument!.createDocumentFragment();
-  for (const node of nodes) {
-    fragment.appendChild(node);
-  }
-  parent.insertBefore(fragment, before);
   restoreFocus();
   return true;
 }
@@ -464,13 +435,11 @@ export function removeRange(
 ): void {
   if (range.single) {
     removeNode(range.start);
-    clearRangeOwner(range);
-    return;
-  }
-
-  const nodes = [range.start, ...getRangeNodes(range), range.end];
-  for (const node of nodes) {
-    removeNode(node);
+  } else {
+    const nodes = [range.start, ...getRangeNodes(range), range.end];
+    for (const node of nodes) {
+      removeNode(node);
+    }
   }
   clearRangeOwner(range);
 }

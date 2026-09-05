@@ -13,7 +13,7 @@ export function bindComponentHost(
   instance.target = target;
   instance._placeholder = placeholder;
   const host = target ?? placeholder;
-  if (host && !instance.ownership.disposed) indexRangeHostOwner(instance, host);
+  if (host && !instance.owner.disposed) indexRangeHostOwner(instance, host);
 }
 
 /** The writer for component indexes exposed on host nodes. */
@@ -52,7 +52,7 @@ export function writeHostOwners(
 }
 
 function indexBoundHost(owner: ComponentInstance, host: Node): void {
-  if (owner.ownership.disposed) return;
+  if (owner.owner.disposed) return;
   // A pending pruning transaction can still publish metadata on the source
   // host after hydration has moved the component to its range anchors.
   const bound = owner.target ?? owner._placeholder;

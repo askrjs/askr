@@ -4,7 +4,7 @@ import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
-import { registerMountOperation } from '../../../src/runtime/component';
+import { registerMountOperation } from '../../../src/runtime';
 import type { JSXElement } from '../../../src/jsx/types';
 import { createIsland } from '../../../test-utils/render/create-island';
 

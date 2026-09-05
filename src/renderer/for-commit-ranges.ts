@@ -20,7 +20,7 @@ import {
   moveRange,
   rangeContains,
 } from './dom-range';
-import { isMultiNodeVNode } from './evaluate-reconcile';
+import { isMultiNodeVNode } from './vnode-shape';
 import { isHydrationAdoptionScopeActive } from './intrinsic-hydration-adoption';
 import { _isDOMElement, type VNode } from './types';
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { state, type State } from '../../../src/runtime/state';
-import { getCurrentComponentInstance } from '../../../src/runtime/component';
+import { getCurrentComponentInstance } from '../../../src/runtime';
 import { task } from '../../../src/runtime';
 import { createFineGrainedEffect } from '../../../src/runtime/effect';
 import {
@@ -331,7 +331,7 @@ describe('scheduler invariants', () => {
         throw new Error('expected child component instance');
       }
 
-      (instance.ownership.cleanups ??= []).push(() => {
+      (instance.owner.cleanups ??= []).push(() => {
         cleanupRuns += 1;
         cleanupWrites.set((value) => value + 1);
       });
@@ -385,7 +385,7 @@ describe('scheduler invariants', () => {
         throw new Error('expected child component instance');
       }
       childInstance = instance;
-      (instance.ownership.cleanups ??= []).push(() => {
+      (instance.owner.cleanups ??= []).push(() => {
         cleanupRuns += 1;
         shared.set((value) => value + 1);
       });

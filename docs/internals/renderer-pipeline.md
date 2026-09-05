@@ -225,13 +225,14 @@ nodes, and SSR emits the same markers deterministically.
 
 ## Renderer transactions
 
-Each render commit has one provisional lifecycle batch. It includes DOM
-structure, range anchors, keyed metadata, component ownership, refs, listeners,
-reactive property bindings, readable subscriptions, portal writes, child
-scopes, and lifecycle operations. Nested batches merge into their parent only
-after a successful child commit. A failed evaluation discards those writes,
-restores the previous branch or range, and then attempts cleanup in independent
-DOM, ownership, listener, ref, reactive-binding, and keyed-metadata phases.
+Every rendering strategy joins the runtime's shared transaction coordinator.
+Preparation captures execution, ownership, and subscriptions; reversible
+application changes renderer-owned DOM, ranges, refs, listeners, bindings, and
+portals. Publication makes the prepared framework state authoritative before
+settlement drains departed owners and lifecycle work. Nested rendering joins its
+enclosing transaction and cannot publish independently. A pre-publication failure
+restores framework-owned state and disposes provisional owners. A settlement
+failure drains remaining work without undoing arbitrary user side effects.
 
 The original render error remains the thrown error. Rollback failures are
 aggregated and reported afterward. Cleanup of an outgoing committed owner is
@@ -390,10 +391,10 @@ flowchart LR
 
 ## Architecture Review Notes
 
-The renderer diagrams are backed by architecture checks: `dom-internal.ts` and
-the extracted helper owners each have explicit line ceilings, helpers are
-required to be active value imports, and helpers that need DOM operations use
-the internal host contract instead of importing `./dom`.
+Architecture checks reject implementation value-import cycles throughout the
+renderer and runtime. Recursive evaluation uses the internal DOM host contract;
+pure vnode classification lives in a leaf module. Range ownership and rollback
+are enforced by behavior tests rather than line ceilings or source-string checks.
 
 ## Related docs
 

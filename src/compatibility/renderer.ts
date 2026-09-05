@@ -23,8 +23,6 @@ import {
   installOwnershipViews,
 } from './ownership';
 
-installOwnershipViews();
-
 const nativeHosts = new WeakMap<RuntimeRendererHost, RendererCapabilities>();
 
 /** Only extension hosts pay for callback translation. Keep their receiver and
@@ -32,6 +30,7 @@ const nativeHosts = new WeakMap<RuntimeRendererHost, RendererCapabilities>();
 export function adaptRendererHost(
   host: RuntimeRendererHost
 ): RendererCapabilities {
+  installOwnershipViews();
   const native = nativeHosts.get(host);
   if (native) return native;
   return {
@@ -100,11 +99,12 @@ export function adaptRendererHost(
 export function rendererHostView(
   capabilities: RendererCapabilities
 ): RuntimeRendererHost {
+  installOwnershipViews();
   const host = capabilities as unknown as RuntimeRendererHost;
   if (nativeHosts.has(host)) return host;
   const evaluate = capabilities.evaluate;
   capabilities.evaluate = function (...args) {
-    if (args[3] && !args[3].ownership) {
+    if (args[3] && !args[3].owner) {
       executionRecord(
         args[3] as unknown as NonNullable<
           Parameters<RuntimeRendererHost['evaluate']>[3]
@@ -115,7 +115,7 @@ export function rendererHostView(
   };
   const replace = capabilities.replaceComponentRange;
   capabilities.replaceComponentRange = function (...args) {
-    if (!args[0].ownership) {
+    if (!args[0].owner) {
       executionRecord(
         args[0] as unknown as Parameters<
           RuntimeRendererHost['replaceComponentRange']
@@ -127,7 +127,7 @@ export function rendererHostView(
   const resolve = capabilities.resolveChildScopeRange;
   if (resolve) {
     capabilities.resolveChildScopeRange = function (...args) {
-      if (!args[0].componentInstance.ownership) {
+      if (!args[0].componentInstance.owner) {
         executionRecord(
           args[0].componentInstance as unknown as Parameters<
             RuntimeRendererHost['replaceComponentRange']

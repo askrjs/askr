@@ -40,7 +40,7 @@ function collectMountedHostMismatches(root: Node): ComponentInstance[] {
     if (host.__ASKR_INSTANCE) instances.add(host.__ASKR_INSTANCE);
     for (const instance of instances) {
       const ownHost = instance.target ?? instance._placeholder;
-      if (instance.ownership.mounted && ownHost?.isConnected !== true) {
+      if (instance.owner.mounted && ownHost?.isConnected !== true) {
         mismatches.add(instance);
       }
     }
@@ -200,7 +200,7 @@ describe('route ownership generations', () => {
 
     let departed = new Set(
       Array.from(routeInstances.get('a') ?? []).filter(
-        (instance) => instance.ownership.mounted
+        (instance) => instance.owner.mounted
       )
     );
     const generationSize = departed.size;
@@ -224,14 +224,14 @@ describe('route ownership generations', () => {
       ).not.toBeNull();
       expect(collectMountedHostMismatches(container)).toEqual([]);
       for (const instance of departed) {
-        expect(instance.ownership.mounted).toBe(false);
+        expect(instance.owner.mounted).toBe(false);
         expect(instance.notifyUpdate).toBeNull();
         expect(cleanupCounts.get(instance)).toBe(1);
       }
 
       const current = new Set(
         Array.from(routeInstances.get(routeName) ?? []).filter(
-          (instance) => instance.ownership.mounted
+          (instance) => instance.owner.mounted
         )
       );
       expect(current.size).toBe(generationSize);
@@ -323,7 +323,7 @@ describe('route ownership generations', () => {
       const departedName = routeName === 'a' ? 'b' : 'a';
       const departed = Array.from(
         routeInstances.get(departedName) ?? []
-      ).filter((instance) => instance.ownership.mounted);
+      ).filter((instance) => instance.owner.mounted);
 
       navigate(`/same/${routeName}`);
       flushScheduler();
@@ -336,7 +336,7 @@ describe('route ownership generations', () => {
       ).not.toBeNull();
       expect(collectMountedHostMismatches(container)).toEqual([]);
       for (const instance of departed) {
-        expect(instance.ownership.mounted).toBe(false);
+        expect(instance.owner.mounted).toBe(false);
         expect(instance.notifyUpdate).toBeNull();
       }
     }
@@ -499,7 +499,7 @@ describe('route ownership generations', () => {
     const departedPortal = Array.from(departed).find(
       (instance) => instance.fn === PersistentPortal
     );
-    const portalSource = departedPortal?.ownership.reads?.values().next().value;
+    const portalSource = departedPortal?.owner.reads?.values().next().value;
     expect(departed.size).toBeGreaterThanOrEqual(6);
     expect(departedPortal).toBeDefined();
     expect(portalSource?._readers?.size).toBe(1);
@@ -513,7 +513,7 @@ describe('route ownership generations', () => {
     expect(portalSource?._readers?.size).toBe(1);
     expect(portalSource?._readers?.has(departedPortal!)).toBe(false);
     for (const instance of departed) {
-      expect(instance.ownership.mounted).toBe(false);
+      expect(instance.owner.mounted).toBe(false);
       expect(instance.notifyUpdate).toBeNull();
       expect(shared._readers?.has(instance) ?? false).toBe(false);
     }
@@ -820,7 +820,7 @@ describe('route ownership generations', () => {
     route('/a', () => {
       departed = state(0);
       const instance = getCurrentInstance()!;
-      (instance.ownership.cleanups ??= []).push(() => departed!.set(1));
+      (instance.owner.cleanups ??= []).push(() => departed!.set(1));
       return <p>{String(departed())}</p>;
     });
     route('/b', () => {

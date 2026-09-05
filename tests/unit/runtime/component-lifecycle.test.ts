@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { logger } from '../../../src/common/logger';
-import { createComponentInstance } from '../../../src/runtime/component';
+import { createComponentInstance } from '../../../src/runtime';
 import { cleanupComponent } from '../../../src/runtime/component-cleanup';
 import { restartComponentGeneration } from '../../../src/runtime/component-generation';
 import {
@@ -64,7 +64,7 @@ describe('committed lifecycle operation isolation', () => {
 
     expect(instance.mountOperations).toBeUndefined();
     expect(instance.commitOperations).toBeUndefined();
-    expect(instance.ownership.cleanups).toBeUndefined();
+    expect(instance.owner.cleanups).toBeUndefined();
     expect(instance.lifecycleSlots).toBeUndefined();
   });
 
@@ -109,7 +109,7 @@ describe('committed lifecycle operation isolation', () => {
     ]);
     expect(instance.mountOperations).toBeUndefined();
     expect(instance.commitOperations).toBeUndefined();
-    expect(instance.ownership.cleanups).toEqual([mountCleanup, commitCleanup]);
+    expect(instance.owner.cleanups).toEqual([mountCleanup, commitCleanup]);
     expect(errorSpy).toHaveBeenCalledTimes(1);
     expect(errorSpy.mock.calls[0]?.[1]).toBeInstanceOf(AggregateError);
 

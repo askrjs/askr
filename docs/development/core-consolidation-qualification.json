@@ -1,0 +1,544 @@
+{
+  "candidate": {
+    "source_commit": "99c7e1e5c08b8b7e1d121834ea4a0e879a9cb5ec",
+    "runtime_commit": "25bf231f9acd8132578f6f05136855422c67f430",
+    "archive_sha256": "4286068c10ae4b9d0164ebe0f04854d695cbe96397659894cb8ac007ef9e5cbf",
+    "version": "0.2.4",
+    "published": false,
+    "javascript_files_byte_identical_to_behavior_and_performance_candidate": 65,
+    "declarations": "Canonical published contracts with public names, class metadata and JSDoc; normalized 535-type reachable contract unchanged."
+  },
+  "reference": {
+    "version": "0.2.4",
+    "archive_sha256": "1c1c55709fae5086ff65df3afcaf64d47138edfbf01ec7c794cabb812fbb4fa8"
+  },
+  "toolchain": {
+    "node": "v24.20.0",
+    "npm": "12.0.1",
+    "cpu": "Apple M5"
+  },
+  "installation": "Isolated checkouts with their own npm ci installs from unchanged lockfiles; replace every installed core directory with exact packed artifact contents. Verify byte-identical JavaScript when replacing only declarations. No sibling implementation or original checkout edits.",
+  "fixture_policy": {
+    "npm12": "Normalize npm pack JSON array/object transport in existing artifact check fixtures; assertions and budgets unchanged.",
+    "installed_consumers": "Themes and Lucide nested install fixtures point to the exact candidate archive.",
+    "website": "Complete the route mock required by published 0.2.4; derive the reference snapshot from the published tarball with the same declaration formatting. Run candidate check without snapshot-update mode. Preserve names, docs, members, symbols and signatures.",
+    "ssg": "Move prior .askr/client build output out before static analysis of the generated source."
+  },
+  "siblings": [
+    {
+      "name": "askr-charts",
+      "commit": "f0a4768acd07ce7cb376da63b439f35c4871a006",
+      "status": "pass",
+      "original_core_versions": ["0.2.4"],
+      "lock_sha256": "743f83a18f3e9cac5d2de5c81f5153a50b4e47da0add0bc638fe72e21b4689fa",
+      "source_checkout_unchanged": true,
+      "full_check_results": [
+        {
+          "script": "check",
+          "exit": 0
+        }
+      ],
+      "final_typecheck_exit": 0,
+      "installed_copies": [
+        {
+          "path": "node_modules/@askrjs/askr",
+          "javascript_files": 65,
+          "javascript_byte_identical": true
+        }
+      ],
+      "fixture_adaptations": [],
+      "fixtures_restored": true
+    },
+    {
+      "name": "askr-cli",
+      "commit": "347f8176b4c584af9df6cae8a6f1d8aba6fe83fc",
+      "status": "pass",
+      "original_core_versions": ["0.2.4"],
+      "lock_sha256": "eab6f6d68f3e8412858186adfb0179970a442a906595009041eb9c63ed112768",
+      "source_checkout_unchanged": true,
+      "full_check_results": [
+        {
+          "script": "check",
+          "exit": 0
+        }
+      ],
+      "final_typecheck_exit": 0,
+      "installed_copies": [
+        {
+          "path": "node_modules/@askrjs/askr",
+          "javascript_files": 65,
+          "javascript_byte_identical": true
+        }
+      ],
+      "fixture_adaptations": [],
+      "fixtures_restored": true
+    },
+    {
+      "name": "askr-examples",
+      "commit": "9c331767cee282e3ee31da001d73b527ab414dc6",
+      "status": "pass",
+      "original_core_versions": ["0.2.3"],
+      "lock_sha256": "fa2dc6d93d2702491d577d3e9caeddf6697a7a14be9759f5337bb472b94d32a2",
+      "source_checkout_unchanged": true,
+      "full_check_results": [
+        {
+          "script": "acceptance",
+          "exit": 0
+        }
+      ],
+      "final_typecheck_exit": 0,
+      "installed_copies": [
+        {
+          "path": "node_modules/@askrjs/askr",
+          "javascript_files": 65,
+          "javascript_byte_identical": true
+        }
+      ],
+      "fixture_adaptations": [],
+      "fixtures_restored": true
+    },
+    {
+      "name": "askr-i18n",
+      "commit": "06d85c54b21ef765fed9685208c9a072637238be",
+      "status": "pass",
+      "original_core_versions": ["0.2.3"],
+      "lock_sha256": "1ae5d3b05221ceb66b446c273548fb64927577e14baa8b85e9c65701949794fe",
+      "source_checkout_unchanged": true,
+      "full_check_results": [
+        {
+          "script": "check",
+          "exit": 0
+        }
+      ],
+      "final_typecheck_exit": 0,
+      "installed_copies": [
+        {
+          "path": "node_modules/@askrjs/askr",
+          "javascript_files": 65,
+          "javascript_byte_identical": true
+        }
+      ],
+      "fixture_adaptations": [],
+      "fixtures_restored": true
+    },
+    {
+      "name": "askr-logos",
+      "commit": "4f2f1119792e32d09860707f6bd846cd812fa881",
+      "status": "pass",
+      "original_core_versions": ["0.2.3"],
+      "lock_sha256": "9daaedbeeca75f3b89f0e9ff69113616c1a402a5edb5c85a923ee7fac7774d77",
+      "source_checkout_unchanged": true,
+      "full_check_results": [
+        {
+          "script": "check",
+          "exit": 0
+        }
+      ],
+      "final_typecheck_exit": 0,
+      "installed_copies": [
+        {
+          "path": "node_modules/@askrjs/askr",
+          "javascript_files": 65,
+          "javascript_byte_identical": true
+        }
+      ],
+      "fixture_adaptations": [
+        {
+          "file": "tests/package-artifacts.js",
+          "original_sha256": "8a206696eae3127d2d8994f6fcc664d237855a89f151045dab35b4ee7676094e",
+          "adapted_sha256": "a7eecb86109d9eadf492cbc673ea1b44d0e245d3f1f65326ee04d2a1fdc5e597"
+        }
+      ],
+      "fixtures_restored": true
+    },
+    {
+      "name": "askr-lucide",
+      "commit": "ca7aee4723ef41a3a9b4441924d8772601a8f61a",
+      "status": "pass",
+      "original_core_versions": ["0.2.3"],
+      "lock_sha256": "4a168010901daacf188a4b2b7d43b00cdbce617deadf95c2087ba4f2ba1494c7",
+      "source_checkout_unchanged": true,
+      "full_check_results": [
+        {
+          "script": "check",
+          "exit": 0
+        }
+      ],
+      "final_typecheck_exit": 0,
+      "installed_copies": [
+        {
+          "path": "node_modules/@askrjs/askr",
+          "javascript_files": 65,
+          "javascript_byte_identical": true
+        }
+      ],
+      "fixture_adaptations": [
+        {
+          "file": "tests/installed-smoke.js",
+          "original_sha256": "9750fcef185b2682bb8f769d1d8903a07ab0d2bbee5d310f6a2fc48daa69e202",
+          "adapted_sha256": "c41f3b8c7405aa7a4189d8dc78e219a77cf4479eb7d9b04f013b92bc338d27ff"
+        }
+      ],
+      "fixtures_restored": true
+    },
+    {
+      "name": "askr-monaco",
+      "commit": "f3dd4fb102f6564fc9b60f0d437f9bd01912592c",
+      "status": "pass",
+      "original_core_versions": ["0.2.3"],
+      "lock_sha256": "c53d07f223a95aa942322ed02a7b73675a720cb1f9eb0aca4373310c8f4284bc",
+      "source_checkout_unchanged": true,
+      "full_check_results": [
+        {
+          "script": "check",
+          "exit": 0
+        }
+      ],
+      "final_typecheck_exit": 0,
+      "installed_copies": [
+        {
+          "path": "node_modules/@askrjs/askr",
+          "javascript_files": 65,
+          "javascript_byte_identical": true
+        }
+      ],
+      "fixture_adaptations": [
+        {
+          "file": "tests/unit/dev_checks/publish-surface.test.ts",
+          "original_sha256": "881c19ace5ada045d9bc9783f47c7100214853319034321e25f9595df44fdd22",
+          "adapted_sha256": "d489f4d3fed9cc40718c9df63007f093eadd44506748f847d21ac7f27bace1f3"
+        }
+      ],
+      "fixtures_restored": true
+    },
+    {
+      "name": "askr-server",
+      "commit": "d84c24e5f17cfae8658408f65994d55e9e4a17a1",
+      "status": "pass",
+      "original_core_versions": ["0.2.4"],
+      "lock_sha256": "9879df5722dcadb9b870872d8cd8ce20fa3a852b76a7d668f16ccbf8ae4dde58",
+      "source_checkout_unchanged": true,
+      "full_check_results": [
+        {
+          "script": "check",
+          "exit": 0
+        }
+      ],
+      "final_typecheck_exit": 0,
+      "installed_copies": [
+        {
+          "path": "node_modules/@askrjs/askr",
+          "javascript_files": 65,
+          "javascript_byte_identical": true
+        }
+      ],
+      "fixture_adaptations": [
+        {
+          "file": "tests/package-artifacts.js",
+          "original_sha256": "9405d28e6aa5d1e1cfb742b8b3e29c1559e7b702b3f1973695ce61503bf84858",
+          "adapted_sha256": "e453b2feea1281d68c0a6dcd2e48c9417eb6b2f7fe0124bc9c888aa4b97b89e7"
+        }
+      ],
+      "fixtures_restored": true
+    },
+    {
+      "name": "askr-themes",
+      "commit": "8627897a526456cf817292121dce14005d481160",
+      "status": "pass",
+      "original_core_versions": ["0.2.2"],
+      "lock_sha256": "cce2f98c9b1e3fc8d7c8325efe150696fe0cddde9c9766bf4578f52def2980c5",
+      "source_checkout_unchanged": true,
+      "full_check_results": [
+        {
+          "script": "check",
+          "exit": 0
+        }
+      ],
+      "final_typecheck_exit": 0,
+      "installed_copies": [
+        {
+          "path": "node_modules/@askrjs/askr",
+          "javascript_files": 65,
+          "javascript_byte_identical": true
+        }
+      ],
+      "fixture_adaptations": [
+        {
+          "file": "tests/package-artifacts.js",
+          "original_sha256": "e3ce58124def62ed4fde59d871b891d970c441163cbae46f15814297dbd9fb05",
+          "adapted_sha256": "fb05858198dd261abd5b0436008db1c0d3753ec64d9e5f7d0ced5a12817ae8f4"
+        },
+        {
+          "file": "tests/installed-types.js",
+          "original_sha256": "6bf7d958504c1f6f726600b5de43020b46e3608d80101af5bc3139b2cb2d8caa",
+          "adapted_sha256": "ea3f5d105005013b8f28b4f44de59a28d659b235031d617ceada1ce6dfc42370"
+        }
+      ],
+      "fixtures_restored": true
+    },
+    {
+      "name": "askr-ui",
+      "commit": "4782815ce876348216b5b28886e1627089feb63c",
+      "status": "pass with baseline failure",
+      "original_core_versions": ["0.2.4"],
+      "lock_sha256": "309a389417a44266e559262ec2215dc979af8a072ec85f70a72a3e910fd46bae",
+      "source_checkout_unchanged": true,
+      "full_check_results": [
+        {
+          "script": "check",
+          "exit": 1
+        },
+        {
+          "script": "test:publint",
+          "exit": 0
+        },
+        {
+          "script": "pack:check",
+          "exit": 0
+        }
+      ],
+      "final_typecheck_exit": 0,
+      "installed_copies": [
+        {
+          "path": "node_modules/@askrjs/askr",
+          "javascript_files": 65,
+          "javascript_byte_identical": true
+        }
+      ],
+      "fixture_adaptations": [
+        {
+          "file": "scripts/check-package.mjs",
+          "original_sha256": "78929dc3ff77ed050f025697b744a6d2dd81c8e40a948f9247d2907faf2088cb",
+          "adapted_sha256": "a515b3a7364c9389242c9fdfe1249c3b4dd21eb4220b3c0918a0b65b295d1dc1"
+        }
+      ],
+      "fixtures_restored": true
+    },
+    {
+      "name": "askr-vite",
+      "commit": "9b13528ff2dc7701e466e6a2e39480d75d89c81a",
+      "status": "pass",
+      "original_core_versions": ["0.2.4"],
+      "lock_sha256": "a34b16a2b1dcb8cf256920fbce67c871127675a7aace9484cc71878c4bcd07bd",
+      "source_checkout_unchanged": true,
+      "full_check_results": [
+        {
+          "script": "check",
+          "exit": 0
+        }
+      ],
+      "final_typecheck_exit": 0,
+      "installed_copies": [
+        {
+          "path": "node_modules/@askrjs/askr",
+          "javascript_files": 65,
+          "javascript_byte_identical": true
+        }
+      ],
+      "fixture_adaptations": [
+        {
+          "file": "tests/package-artifacts.js",
+          "original_sha256": "d4d3b52c971f37d1a2c245f2e4d4268d97359741809b367ccaad2359838f9623",
+          "adapted_sha256": "4b841e70deb5fe7429241d270266cb8f654df3ad526797fb78fa41fc9b2bb612"
+        }
+      ],
+      "fixtures_restored": true
+    },
+    {
+      "name": "destroyer",
+      "commit": "d49ad50b05c78f9090e69b0c694c245b0e477204",
+      "status": "pass",
+      "original_core_versions": ["0.2.4"],
+      "lock_sha256": "d817436f18136b494dba9fc6a33fbeada2fb7bc317bcab686a0412d607b3d5b2",
+      "source_checkout_unchanged": true,
+      "full_check_results": [
+        {
+          "script": "acceptance",
+          "exit": 0
+        }
+      ],
+      "final_typecheck_exit": 0,
+      "installed_copies": [
+        {
+          "path": "node_modules/@askrjs/askr",
+          "javascript_files": 65,
+          "javascript_byte_identical": true
+        }
+      ],
+      "fixture_adaptations": [],
+      "fixtures_restored": true
+    },
+    {
+      "name": "website",
+      "commit": "116308dff391b64296f304247656d12f58335e9a",
+      "status": "pass",
+      "original_core_versions": ["0.2.3"],
+      "lock_sha256": "d5800fdf82a45758177281f91cf43e41ef8df5794c6410a6e75afa7071ecd128",
+      "source_checkout_unchanged": true,
+      "full_check_results": [
+        {
+          "phase": "normalize declaration formatting on published reference for source-text documentation snapshots",
+          "exit": 0
+        },
+        {
+          "phase": "snapshot from published 0.2.4",
+          "exit": 0
+        },
+        {
+          "phase": "published typecheck with complete route mock",
+          "exit": 0
+        },
+        {
+          "phase": "candidate check against published 0.2.4 snapshot",
+          "exit": 0
+        }
+      ],
+      "final_typecheck_exit": 0,
+      "installed_copies": [
+        {
+          "path": "node_modules/@askrjs/askr",
+          "javascript_files": 65,
+          "javascript_byte_identical": true
+        }
+      ],
+      "fixture_adaptations": [
+        "tests/route-analytics.test.ts",
+        "src/pages/docs/api-manifest.ts",
+        "src/pages/docs/api-snapshot.ts",
+        "src/pages/docs/cli-snapshot.ts",
+        "src/pages/docs/package-peers.ts"
+      ],
+      "fixtures_restored": true
+    }
+  ],
+  "known_baseline_failures": [
+    {
+      "consumer": "askr-ui",
+      "test": "tests/browser/components/virtualized-composites/behavior.test.tsx: should preserve dataset indices inside a virtualized Menubar menu surface",
+      "engines": ["chromium", "firefox", "webkit"],
+      "published_and_candidate_failure": "expected '2' to be '42'",
+      "candidate_browser_passed": 1473,
+      "candidate_browser_failed": 3,
+      "published_focused_passed": 24,
+      "published_focused_failed": 3,
+      "remaining_checks": "Build, lint, types, unit, integrity, jsdom, publint and packed consumer checks pass. No assertion skipped or weakened."
+    }
+  ],
+  "generated_apps": {
+    "cli_archive_sha256": "065ba639fc217ab70797e803861fbcc0a378008be9ad4ca42c7bb3f1dd3f7edd",
+    "cli_version": "0.2.3",
+    "checks": [
+      {
+        "template": "spa",
+        "results": [
+          {
+            "script": "check",
+            "exit": 0
+          }
+        ],
+        "output_files": null
+      },
+      {
+        "template": "ssr",
+        "results": [
+          {
+            "script": "check",
+            "exit": 0
+          }
+        ],
+        "output_files": null
+      },
+      {
+        "template": "ssg",
+        "results": [
+          {
+            "script": "check",
+            "exit": 0
+          }
+        ],
+        "output_files": {
+          "dist/sitemap.xml": true,
+          "dist/robots.txt": true,
+          "dist/.askr/sitemap-manifest.json": true
+        }
+      }
+    ],
+    "final_typechecks": [
+      {
+        "name": "generated-spa",
+        "commit": null,
+        "archive_sha256": "4286068c10ae4b9d0164ebe0f04854d695cbe96397659894cb8ac007ef9e5cbf",
+        "copies": [
+          {
+            "path": "node_modules/@askrjs/askr",
+            "javascript_files": 65,
+            "javascript_byte_identical": true
+          }
+        ],
+        "typecheck_exit": 0
+      },
+      {
+        "name": "generated-ssr",
+        "commit": null,
+        "archive_sha256": "4286068c10ae4b9d0164ebe0f04854d695cbe96397659894cb8ac007ef9e5cbf",
+        "copies": [
+          {
+            "path": "node_modules/@askrjs/askr",
+            "javascript_files": 65,
+            "javascript_byte_identical": true
+          }
+        ],
+        "typecheck_exit": 0
+      },
+      {
+        "name": "generated-ssg",
+        "commit": null,
+        "archive_sha256": "4286068c10ae4b9d0164ebe0f04854d695cbe96397659894cb8ac007ef9e5cbf",
+        "copies": [
+          {
+            "path": "node_modules/@askrjs/askr",
+            "javascript_files": 65,
+            "javascript_byte_identical": true
+          }
+        ],
+        "typecheck_exit": 0
+      }
+    ],
+    "browser": [
+      {
+        "template": "ssr",
+        "command": "dev",
+        "route": "/example",
+        "errors": [],
+        "server_status": 200,
+        "server_rendered_counter": true,
+        "hydrated_counter_and_derived_state": true,
+        "passed": true
+      },
+      {
+        "template": "spa",
+        "command": "preview",
+        "route": "/",
+        "errors": [],
+        "server_status": 200,
+        "navigation_and_controlled_input": true,
+        "passed": true
+      },
+      {
+        "template": "ssg",
+        "command": "preview",
+        "route": "/preview/",
+        "errors": [],
+        "server_status": 200,
+        "server_rendered_counter": true,
+        "hydrated_counter_and_derived_state": true,
+        "passed": true
+      }
+    ],
+    "serving_scope": "Production SPA and SSG preview; SSR client/server build plus actual SSR and hydration through the development server. No production deployment."
+  },
+  "monaco_bundle": {
+    "entryBytes": 224987,
+    "budget": 225000
+  }
+}

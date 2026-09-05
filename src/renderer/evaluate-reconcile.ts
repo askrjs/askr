@@ -495,11 +495,6 @@ export function isFragment(vnode: unknown): vnode is DOMElement {
   return _isDOMElement(vnode) && isFragmentType((vnode as DOMElement).type);
 }
 
-export function isMultiNodeVNode(vnode: VNode): boolean {
-  if (vnode === null || vnode === undefined || vnode === false) return true;
-  return Array.isArray(vnode) || isFragment(vnode);
-}
-
 export function getFragmentChildren(vnode: DOMElement): unknown[] {
   const fragmentChildren = vnode.props?.children ?? vnode.children ?? [];
   return Array.isArray(fragmentChildren)

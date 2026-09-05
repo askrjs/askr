@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { createSPA } from '@askrjs/askr/boot';
 import { definePortal } from '../../../src/runtime/portal';
 import { state } from '../../../src/runtime/state';
-import type { ComponentInstance } from '../../../src/runtime/component';
+import type { ComponentInstance } from '../../../src/runtime';
 import type { ReadableSource } from '../../../src/runtime/readable';
 import { navigate } from '../../../src/router/navigate';
 import { createRouteRegistry, group, route } from '../../../src/router/route';
@@ -98,9 +98,9 @@ describe('portal route cleanup', () => {
         collectInstances(result.container)
       ).find((instance) => instance.fn === OverlayPortal);
       expect(portalInstance).toBeDefined();
-      expect(portalInstance?.ownership.mounted).toBe(true);
+      expect(portalInstance?.owner.mounted).toBe(true);
 
-      const [currentSource] = portalInstance?.ownership.reads ?? [];
+      const [currentSource] = portalInstance?.owner.reads ?? [];
       source ??= currentSource;
       expect(currentSource).toBe(source);
       expect(source?._readers?.size).toBe(1);
@@ -109,7 +109,7 @@ describe('portal route cleanup', () => {
       flushScheduler();
       flushScheduler();
       expect(source?._readers?.size).toBe(1);
-      (portalInstance!.ownership.cleanups ??= []).push(() => {
+      (portalInstance!.owner.cleanups ??= []).push(() => {
         cleanups += 1;
       });
 
@@ -119,7 +119,7 @@ describe('portal route cleanup', () => {
       expect(
         result.container.querySelector('[data-page="plain"]')
       ).not.toBeNull();
-      expect(portalInstance?.ownership.mounted).toBe(false);
+      expect(portalInstance?.owner.mounted).toBe(false);
       expect(source?._readers?.has(portalInstance!)).toBe(false);
       expect(source?._readers?.size ?? 0).toBe(0);
 

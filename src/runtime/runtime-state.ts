@@ -4,6 +4,7 @@ import { CommitCoordinator } from './transaction-coordinator';
 import { logger } from '../common/logger';
 
 function createMissingRendererHost(): RendererCapabilities {
+  const noop = () => undefined;
   const missing = (method: string): never => {
     throw new Error(
       `[Askr] renderer host is not configured; cannot call ${method}().`
@@ -11,11 +12,9 @@ function createMissingRendererHost(): RendererCapabilities {
   };
 
   return {
-    captureComponentHost() {
-      return undefined;
-    },
-    releaseComponentHost() {},
-    detachPortalHostOutput() {},
+    captureComponentHost: noop,
+    releaseComponentHost: noop,
+    detachPortalHostOutput: noop,
     isComponentHostDetached() {
       return false;
     },
@@ -24,16 +23,14 @@ function createMissingRendererHost(): RendererCapabilities {
       scope.dom = undefined;
       scope.range = undefined;
     },
-    captureChildScopeHost() {
-      return undefined;
-    },
+    captureChildScopeHost: noop,
     resolveScopeBoundary() {
       return { dom: undefined, range: undefined };
     },
     prepareScopeRemoval() {
       return { dom: undefined, range: undefined };
     },
-    recordRemovedScopeBoundary() {},
+    recordRemovedScopeBoundary: noop,
     teardownScopeHost() {
       return 0;
     },
@@ -63,12 +60,9 @@ function createMissingRendererHost(): RendererCapabilities {
     teardownNodeSubtree() {
       missing('teardownNodeSubtree');
     },
-    populateKeyMapForElement() {
-      // Fast-lane callers treat an empty key map as a normal decline.
-    },
-    getKeyMapForElement() {
-      return undefined;
-    },
+    // An empty key map is a normal decline; reactive tracking is optional.
+    populateKeyMapForElement: noop,
+    getKeyMapForElement: noop,
     isKeyedReorderFastPathEligible() {
       return {
         useFastPath: false,
@@ -81,9 +75,7 @@ function createMissingRendererHost(): RendererCapabilities {
         isWholeKeyedList: false,
       };
     },
-    markReactivePropsDirtySource() {
-      // Reactive prop tracking is renderer-owned and optional for runtimes.
-    },
+    markReactivePropsDirtySource: noop,
   };
 }
 

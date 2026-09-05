@@ -1,6 +1,8 @@
 import { expect, test } from 'vitest';
 import {
   getDefaultRuntime,
+  For,
+  getSignal,
   state,
   type RuntimeRendererHost,
 } from '@askrjs/askr';
@@ -35,6 +37,68 @@ test('should keep extension cleanup properties backed by the callback owner life
     expect(owner?.mounted).toBe(false);
     expect(owner?.cleanupFns).toBeUndefined();
     expect(cleaned).toEqual(['extension']);
+  } finally {
+    view?.cleanup();
+    runtime.configureRenderer(original);
+  }
+});
+
+test('should preserve mutable scoped-child collection identity without exposing ordinary components', () => {
+  const runtime = getDefaultRuntime();
+  const original = runtime.renderer;
+  let owner: Owner | undefined;
+  let ordinarySignal!: AbortSignal;
+  const cleaned: string[] = [];
+  const Ordinary = () => {
+    ordinarySignal = getSignal();
+    return <span>{'ordinary'}</span>;
+  };
+  runtime.configureRenderer({
+    ...original,
+    evaluate(...args) {
+      owner ??= args[3];
+      original.evaluate(...args);
+    },
+  });
+  let view: ReturnType<typeof render> | undefined;
+  try {
+    view = render(() => (
+      <div>
+        <For each={[1]} by={(value) => value}>
+          {(value) => <span>{value}</span>}
+        </For>
+        <Ordinary />
+      </div>
+    ));
+    const native = owner!._ownedChildScopes!;
+    expect(native).toBeInstanceOf(Set);
+    expect(owner!._ownedChildScopes).toBe(native);
+    expect([...native].map((scope) => scope.key)).toEqual(['for-boundary']);
+    const removed = { key: 'removed', dispose: () => cleaned.push('removed') };
+    const late = { key: 'late', dispose: () => cleaned.push('late') };
+    const skipped = { key: 'skipped', dispose: () => cleaned.push('skipped') };
+    const retained = {
+      key: 'retained',
+      dispose: () => {
+        cleaned.push('retained');
+        assigned.delete(skipped);
+        assigned.add(late);
+        expect(owner!._ownedChildScopes).toEqual(new Set());
+      },
+    };
+    const assigned = Object.freeze(new Set([...native, removed]));
+    owner!._ownedChildScopes = assigned;
+    expect(owner!._ownedChildScopes).toBe(assigned);
+    assigned.delete(removed);
+    assigned.add(retained);
+    assigned.add(skipped);
+    expect(Object.isFrozen(assigned)).toBe(true);
+    view.unmount();
+    expect(cleaned).toEqual(['retained', 'late']);
+    expect(ordinarySignal.aborted).toBe(true);
+    expect(assigned.size).toBe(3);
+    expect(owner!._ownedChildScopes).toEqual(new Set());
+    expect(owner!._ownedChildScopes).not.toBe(assigned);
   } finally {
     view?.cleanup();
     runtime.configureRenderer(original);

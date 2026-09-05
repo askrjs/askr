@@ -1,5 +1,5 @@
 import type { ChildScope } from './child-scope';
-import type { ComponentInstance } from './component';
+import { type ComponentInstance } from './component-internal';
 import {
   markReactivePropsDirtySource,
   markReadableDerivedSubscribersDirty,

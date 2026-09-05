@@ -2,7 +2,7 @@ import { getRuntimeEnv } from './env';
 import { keyedElements } from './keyed';
 import { retireNodeSubtree } from './cleanup';
 import { retireComponentOwnersForIntrinsicReuse } from './component-host-cleanup';
-import { createDOMNode, updateElementFromVnode } from './dom';
+import { getRendererDOMHost } from './dom-host';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
 import {
   hasNonTrivialProps,
@@ -132,7 +132,7 @@ function updateTextContent(
   if (typeof children === 'string' || typeof children === 'number') {
     setTextNodeData(el, String(children));
     if (vnode.props && hasNonTrivialProps(vnode.props)) {
-      updateElementFromVnode(el, vnode, false);
+      getRendererDOMHost().updateElementFromVnode(el, vnode, false);
     }
     return;
   }
@@ -144,13 +144,13 @@ function updateTextContent(
   ) {
     setTextNodeData(el, String(children[0]));
     if (vnode.props && hasNonTrivialProps(vnode.props)) {
-      updateElementFromVnode(el, vnode, false);
+      getRendererDOMHost().updateElementFromVnode(el, vnode, false);
     }
     return;
   }
 
   if (!tryUpdateTwoChildTextPattern(el, vnode)) {
-    updateElementFromVnode(el, vnode);
+    getRendererDOMHost().updateElementFromVnode(el, vnode);
   }
 }
 
@@ -249,7 +249,7 @@ function replaceNodeAtPosition(
   index: number,
   vnode: VNode
 ): void {
-  const dom = createDOMNode(vnode);
+  const dom = getRendererDOMHost().createDOMNode(vnode);
   if (dom) {
     const existing = parent.children[index];
     if (existing) {

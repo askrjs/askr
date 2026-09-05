@@ -5,7 +5,7 @@ import {
   getCurrentComponentInstance,
   renderComponentInline,
   type ComponentInstance,
-} from '../../../src/runtime/component';
+} from '../../../src/runtime';
 import { evaluate } from '../../../src/renderer/evaluate';
 import {
   beginCommitTransaction,
@@ -46,7 +46,7 @@ describe('cleanup with queued updates', () => {
       flushScheduler();
       expect(view.container.textContent).toBe('new:1');
       expect(source._readers?.has(owner)).toBe(true);
-      expect(owner.ownership.mounted).toBe(true);
+      expect(owner.owner.mounted).toBe(true);
     } finally {
       view.cleanup();
     }
@@ -172,8 +172,9 @@ describe('cleanup with queued updates', () => {
     const portalInstance = Array.from(instances).find(
       (instance) => instance.fn === OverlayPortal
     );
-    const portalSource = portalInstance?.ownership.reads?.values().next()
-      .value as ReadableSource<unknown> | undefined;
+    const portalSource = portalInstance?.owner.reads?.values().next().value as
+      | ReadableSource<unknown>
+      | undefined;
 
     expect(portalInstance).toBeDefined();
     expect(portalSource?._readers?.size).toBe(1);
@@ -183,9 +184,9 @@ describe('cleanup with queued updates', () => {
     globalScheduler.enqueue(() => cleanup());
     flushScheduler();
 
-    expect(owner.ownership.mounted).toBe(false);
+    expect(owner.owner.mounted).toBe(false);
     expect(owner.target?.isConnected).toBe(false);
-    expect(portalInstance?.ownership.mounted).toBe(false);
+    expect(portalInstance?.owner.mounted).toBe(false);
     expect(portalSource?._readers?.has(portalInstance!)).toBe(false);
     expect(portalSource?._readers?.size ?? 0).toBe(0);
     expect(container.textContent).not.toContain('overlay:1');
@@ -197,7 +198,7 @@ describe('cleanup with queued updates', () => {
       {},
       null
     );
-    deferredReader.ownership.mounted = true;
+    deferredReader.owner.mounted = true;
     deferredReader.notifyUpdate = () => {};
     const deferredSource = (() => 0) as ReadableSource<number>;
     deferredSource._version = 0;
@@ -208,7 +209,7 @@ describe('cleanup with queued updates', () => {
       new Set([deferredSource]),
       new Map([[deferredSource, 0]])
     );
-    deferredReader.ownership.identity = {};
+    deferredReader.owner.identity = {};
     commitTransaction(deferredBatch);
 
     expect(deferredSource._readers?.has(deferredReader)).not.toBe(true);

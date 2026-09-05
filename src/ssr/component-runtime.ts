@@ -73,6 +73,7 @@ export function executeComponentSync(
       'ssr-temp',
       component as ComponentFunction,
       (props || {}) as Props,
+      null,
       null
     );
     temp.ssr = true;

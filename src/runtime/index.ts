@@ -1,14 +1,53 @@
 export * from './access';
 export * from './child-scope';
-export * from './component';
+export type {
+  ComponentFunction,
+  ComponentInstance,
+} from './component-internal';
+export {
+  captureInlineRenderSnapshot,
+  cleanupComponent,
+  commitRenderedComponent,
+  createComponentInstance,
+  executeComponent,
+  mountInstanceInline,
+  registerCommitOperation,
+  registerMountOperation,
+  registerOwnedChildScope,
+  renderComponentInline,
+  renderScopedComponent,
+  unregisterOwnedChildScope,
+  warnUnusedStateReads,
+} from './component-internal';
+export {
+  claimHookIndex,
+  enterDomCommitScope,
+  getCurrentComponentInstance,
+  getCurrentAppRenderRuntime,
+  getCurrentInstance,
+  getCurrentPortalScope,
+  getCurrentStateIndex,
+  getNextStateIndex,
+  getSignal,
+  resetStateIndex,
+  restoreDomCommitScope,
+  setCurrentComponentInstance,
+  setStateIndex,
+  withAppRenderRuntime,
+} from './component-scope';
+export {
+  beginCommitTransaction,
+  discardTransaction,
+  commitTransaction,
+  getCurrentCommitTransaction,
+  registerCommitRollback,
+  registerCommitEffect,
+} from './component-lifecycle';
 export { cleanupComponentGeneration } from './component-cleanup';
 export * from './context';
 export {
-  beginCommitTransaction,
   commitLifecycleForInstance,
   discardCommitOperations,
-  discardTransaction,
-  commitTransaction,
 } from './component-lifecycle';
 export * from './control';
 export * from './dev-namespace';

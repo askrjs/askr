@@ -74,70 +74,28 @@ flowchart LR
 
 ## Component and For Implementation Ownership
 
-The runtime public import paths remain stable while their active
-implementations live behind facades. `For` item scopes depend on component hook
-indexing and child-scope ownership, so that relationship should stay explicit
-when the implementation is split further.
+Published runtime contracts live in the compatibility adapter. Internal modules
+use leaf execution, lifetime, scheduling, and host capabilities. The former
+component facades have been removed; `runtime/index.ts` exports the internal
+capabilities used by other subsystems.
 
-```mermaid
-flowchart TB
-  componentFacade[component.ts facade]
-  componentInternalFacade[component-facade.ts]
-  componentCore[component-internal.ts]
-  componentCleanup[component-cleanup.ts]
-  componentScope[component-scope.ts]
-  componentCommit[component-commit.ts]
-  componentLifecycle[component-lifecycle.ts]
-  current[current instance and portal scope]
-  renderScope[hook cursor, render tokens, and signal access]
-  scheduledCommit[scheduled render result handling, fast-lane fallback, DOM rollback]
-  lifecycle[lifecycle commit batching, inline snapshots, deferred reads]
-  render[instance creation, component execution, inline rendering]
-  cleanup[component cleanup and owned child scopes]
+`component-internal.ts` owns synchronous execution and inline rendering.
+`component-scope.ts` owns the current component, portal scope, and hook cursor.
+`ownership.ts` owns the lifetime graph and iterative disposal, while
+`component-cleanup.ts` supplies component-specific invalidation and settlement.
+`component-generation.ts` prepares, restores, and retires exact root lifetimes.
 
-  forFacade[for.ts facade]
-  forCore[for-internal.ts]
-  forReconcile[for-reconcile.ts]
-  forScopes[for-scopes.ts]
-  forSignals[for-signals.ts]
-  forState[ForState storage and hook binding]
-  itemSignals[item, index, and property signals]
-  reconcile[key validation and reconciliation strategy]
-  commitPlanning[commit strategy and dirty/move planning]
-  scopeOwnership[item and fallback child scopes]
+`For` reconciliation maintains keyed membership and delegates host application
+to renderer capabilities. Item scopes attach their existing lifetime record to
+the collection owner; no second mutable child ownership model is maintained.
+Ordinary component children join the same graph. Resources and data subscriptions
+register cleanup against the captured lifetime.
 
-  componentFacade --> componentCore
-  componentFacade --> componentInternalFacade
-  componentInternalFacade --> componentCore
-  componentFacade --> componentScope
-  componentCore --> componentScope
-  componentCore --> componentCommit
-  componentCore --> componentCleanup
-  componentScope --> current
-  componentScope --> renderScope
-  componentCore --> componentLifecycle
-  componentCommit --> scheduledCommit
-  componentLifecycle --> lifecycle
-  componentCore --> render
-  componentCleanup --> cleanup
-  forFacade --> forCore
-  forCore --> forState
-  forCore --> forReconcile
-  forReconcile --> reconcile
-  forReconcile --> commitPlanning
-  forReconcile --> forScopes
-  forScopes --> forSignals
-  forSignals --> itemSignals
-  forScopes --> scopeOwnership
-  forScopes --> componentFacade
-```
-
-`runtime/index.ts` is now the stable internal facade for non-runtime areas.
-`component.ts` remains the narrow component-facing entrypoint, while
-`component-facade.ts` holds the stable helper
-surface used by renderer and SSR code. `portal.ts` owns the default portal
-inventory that foundations re-export publicly. `selector-store.ts` owns the
-dirty-selector flush queue used by `selector.ts`.
+`transaction-coordinator.ts` owns every commit's preparation, reversible
+application, publication, and settlement. Scheduled and inline execution
+contribute participants to that protocol. Renderer fast paths only specialize
+host work. `portal.ts` owns portal inventory, and `selector-store.ts` owns
+the dirty-selector queue.
 
 ## Readable graph
 
@@ -242,14 +200,14 @@ flowchart LR
 
 ## Design notes
 
-- `src/runtime/component.ts` is the compatibility facade for the component
-  runtime. `src/runtime/component-scope.ts` owns current-instance and
+- `src/runtime/component-scope.ts` owns current-instance and
   portal-scope state, hook cursor and order validation, render-token helpers,
   and component signal access. `src/runtime/component-commit.ts` owns
   scheduled preparation and renderer strategy selection. Renderer capabilities
   own placeholder replacement, target updates, and host restoration.
   `src/runtime/component-internal.ts` owns execution and inline rendering;
-  `component-cleanup.ts` drains owned attachments and aggregates cleanup errors.
+  `ownership.ts` drains all lifetimes through one iterative path, with component
+  phases supplied by `component-cleanup.ts`.
   `transaction-coordinator.ts` owns preparation, reversible application,
   publication, and settlement. Nested transactions join their enclosing commit.
   `render-transaction.ts` contributes reversible subscription and execution

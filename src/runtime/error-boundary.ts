@@ -1,5 +1,5 @@
 import { logger } from '../common/logger';
-import type { ComponentInstance } from './component';
+import { type ComponentInstance } from './component-internal';
 
 export function createBoundaryReset(instance: ComponentInstance): () => void {
   return () => {
@@ -49,7 +49,7 @@ function getLivePortalErrorParent(
   const parent = instance._portalErrorParent;
   if (
     !parent ||
-    parent.ownership.identity !== instance._portalErrorParentGeneration ||
+    parent.owner.identity !== instance._portalErrorParentGeneration ||
     parent.notifyUpdate === null
   ) {
     return null;

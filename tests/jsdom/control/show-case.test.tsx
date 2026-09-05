@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { resource } from '../../../src/resources';
-import { getCurrentComponentInstance } from '../../../src/runtime/component';
+import { getCurrentComponentInstance } from '../../../src/runtime';
 import { createFineGrainedEffect } from '../../../src/runtime/effect';
 import { Case, Match, Show } from '@askrjs/askr/control';
 import {
@@ -395,7 +395,7 @@ describe('Show primitive', () => {
         },
       });
 
-      (instance.ownership.cleanups ??= []).push(() => {
+      (instance.owner.cleanups ??= []).push(() => {
         effectCleanups += 1;
         effect.cleanup();
       });

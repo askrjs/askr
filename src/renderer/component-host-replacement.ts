@@ -298,7 +298,7 @@ export function registerVNodeComponentInstanceRollback(
     restoreVNodeComponentInstance(node, previousInstance);
   };
 
-  ownCleanup(provisionalInstance.ownership, restoreOwnership);
+  ownCleanup(provisionalInstance.owner, restoreOwnership);
   registerCommitRollback(() => {
     restoreOwnership();
     cleanupProvisionalComponentInstance(provisionalInstance);

@@ -1,4 +1,4 @@
-import { createDOMNode, updateElementFromVnode } from './dom';
+import { getRendererDOMHost } from './dom-host';
 import { _reconcilerRecordedParents } from './keyed';
 import { logger } from '../common/logger';
 import { getRuntimeEnv } from './env';
@@ -96,12 +96,12 @@ export function applyRendererFastPath(
     }
 
     if (el) {
-      updateElementFromVnode(el, vnode);
+      getRendererDOMHost().updateElementFromVnode(el, vnode);
       retireComponentOwnersForIntrinsicReuse(el);
       finalNodes.push(el);
       reusedCount++;
     } else {
-      const newEl = createDOMNode(vnode);
+      const newEl = getRendererDOMHost().createDOMNode(vnode);
       if (newEl) {
         finalNodes.push(newEl);
         createdNodes++;

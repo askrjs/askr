@@ -97,7 +97,7 @@ export function createComponentElement(
     childInstance.portalScope =
       getCurrentInstance()?.portalScope ?? childInstance.portalScope;
     setComponentOwnershipIdentity(childInstance, node, getCurrentInstance(), 0);
-    childInstance.parentInstance = getCurrentInstance();
+
     childInstance.props = props || {};
     childInstance.isRoot = isRouteRootComponentVNode(node);
     inheritComponentCleanupStrict(childInstance);

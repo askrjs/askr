@@ -27,7 +27,7 @@ describe('collection publication', () => {
     const previous = collection._transaction!;
     previous.removedScopes = [removed];
     collection.currentItems = [2];
-    ownCleanup(removed.componentInstance.ownership, () => {
+    ownCleanup(removed.componentInstance.owner, () => {
       expect(collection._transaction).toBeNull();
       expect(collection._committedItems).toEqual([2]);
       beginForStateTransaction(collection);
@@ -61,7 +61,7 @@ describe('collection publication', () => {
       expect(() => commitTransaction(commit)).toThrow('publication failed');
       expect(collection._committedItems).toEqual([]);
       expect(collection._transaction).toBeNull();
-      expect(removed.componentInstance.ownership.disposed).toBe(false);
+      expect(removed.componentInstance.owner.disposed).toBe(false);
     } finally {
       discardTransaction(commit);
       removed.dispose();

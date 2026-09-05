@@ -9,12 +9,21 @@ export interface OwnedChildScope {
  * and requests respectively; neither replaces this identity on a rerender. */
 export class OwnershipRecord {
   identity: object = this;
+  parent: OwnershipRecord | undefined;
+  head: OwnershipRecord | undefined;
+  tail: OwnershipRecord | undefined;
+  previous: OwnershipRecord | undefined;
+  next: OwnershipRecord | undefined;
+  subject: object | undefined;
+  lifecycle: ((owner: OwnershipRecord) => DisposalPhases) | undefined;
   disposed = false;
   mounted = false;
   controller: AbortController | null = null;
   signal: AbortSignal | undefined;
   cleanups: Array<() => void> | undefined;
-  children: Set<OwnedChildScope> | undefined;
+  scope: OwnedChildScope | undefined;
+  scopedIndex: Set<OwnedChildScope> | undefined;
+  hadScopedChildren = false;
   reads: Set<ReadableSource<unknown>> | undefined;
   finalizer: { release(): void } | undefined;
 }
@@ -42,9 +51,80 @@ export function ownCleanup(owner: OwnershipRecord, cleanup: () => void): void {
   else (owner.cleanups ??= []).push(cleanup);
 }
 
+const scopedOwners = new WeakMap<OwnedChildScope, OwnershipRecord>();
+
+/** Index an existing native lifetime; scopes never receive another owner. */
+export function registerScopedOwnership(
+  scope: OwnedChildScope,
+  owner: OwnershipRecord
+): void {
+  owner.scope = scope;
+  scopedOwners.set(scope, owner);
+  if (owner.parent) {
+    owner.parent.hadScopedChildren = true;
+    owner.parent.scopedIndex?.add(scope);
+  }
+}
+
+function scopedOwnership(child: OwnedChildScope): OwnershipRecord {
+  let lifetime = scopedOwners.get(child);
+  if (!lifetime) {
+    lifetime = new OwnershipRecord();
+    lifetime.cleanups = [() => child.dispose()];
+    registerScopedOwnership(child, lifetime);
+  }
+  return lifetime;
+}
+
 export function ownChild(owner: OwnershipRecord, child: OwnedChildScope): void {
-  if (owner.disposed) child.dispose();
-  else (owner.children ??= new Set()).add(child);
+  attachOwnership(scopedOwnership(child), owner);
+}
+
+export function releaseOwnedChild(
+  owner: OwnershipRecord,
+  child: OwnedChildScope
+): void {
+  const lifetime = scopedOwners.get(child);
+  if (lifetime?.parent === owner) detachOwnership(lifetime);
+}
+
+function synchronizeScopedIndex(owner: OwnershipRecord): void {
+  const index = owner.scopedIndex;
+  for (let child = owner.head; child;) {
+    const next = child.next;
+    if (child.scope && !index?.has(child.scope)) detachOwnership(child);
+    child = next;
+  }
+  if (index)
+    for (const scope of Set.prototype.values.call(index))
+      ownChild(owner, scope);
+}
+
+/** Compatibility collections are maintained indexes of the lifetime graph. */
+export function getOwnedChildScopes(
+  owner: OwnershipRecord
+): Set<OwnedChildScope> | undefined {
+  if (!owner.hadScopedChildren) return undefined;
+  if (!owner.scopedIndex) {
+    owner.scopedIndex = new Set();
+    if (owner.disposed) return owner.scopedIndex;
+    for (let child = owner.head; child; child = child.next)
+      if (child.scope) owner.scopedIndex.add(child.scope);
+  }
+  return owner.scopedIndex;
+}
+
+export function setOwnedChildScopes(
+  owner: OwnershipRecord,
+  scopes: Set<OwnedChildScope> | undefined
+): void {
+  owner.scopedIndex = scopes;
+  owner.hadScopedChildren = scopes !== undefined;
+  synchronizeScopedIndex(owner);
+}
+
+export function detachOwnedChildren(owner: OwnershipRecord): void {
+  while (owner.head) detachOwnership(owner.head);
 }
 
 /** Drain attachments within a composite cleanup before surfacing its failures. */
@@ -63,60 +143,204 @@ export function drainOwnedCleanup<T>(
   if (errors.length) throw new AggregateError(errors, 'Owned cleanup failed');
 }
 
-interface DisposalPhases {
+export interface DisposalPhases {
+  begin?(): void;
   beforeCleanup?(): void;
   afterCleanup?(): void;
+  finish?(): void;
   recordError(message: string, error: unknown): void;
 }
 
-/** All owner kinds drain the same lifetime, even after a child or cleanup fails. */
+/** Detach the exact lifetime, independently of its execution record. */
+export function detachOwnership(owner: OwnershipRecord): void {
+  const parent = owner.parent;
+  if (!parent) return;
+  if (owner.previous) owner.previous.next = owner.next;
+  else parent.head = owner.next;
+  if (owner.next) owner.next.previous = owner.previous;
+  else parent.tail = owner.previous;
+  if (owner.scope) parent.scopedIndex?.delete(owner.scope);
+  owner.parent = undefined;
+  owner.previous = undefined;
+  owner.next = undefined;
+}
+
+export function attachOwnership(
+  owner: OwnershipRecord,
+  parent: OwnershipRecord | undefined
+): void {
+  if (owner.parent === parent || owner.disposed) return;
+  if (parent === owner) throw new Error('[Askr] A lifetime cannot own itself.');
+  if (owner.head) {
+    for (let ancestor = parent; ancestor; ancestor = ancestor.parent)
+      if (ancestor === owner)
+        throw new Error('[Askr] Lifetime ownership cannot contain a cycle.');
+  }
+  detachOwnership(owner);
+  if (!parent) return;
+  if (parent.disposed) {
+    disposeOwnership(owner);
+    return;
+  }
+  linkOwnership(owner, parent);
+}
+
+function linkOwnership(owner: OwnershipRecord, parent: OwnershipRecord): void {
+  owner.parent = parent;
+  owner.previous = parent.tail;
+  if (parent.tail) parent.tail.next = owner;
+  else parent.head = owner;
+  parent.tail = owner;
+  if (owner.scope) {
+    parent.hadScopedChildren = true;
+    parent.scopedIndex?.add(owner.scope);
+  }
+}
+
+interface DisposalFrame {
+  owner: OwnershipRecord;
+  phases: DisposalPhases;
+  scopes: SetIterator<OwnedChildScope> | undefined;
+  unreported: unknown[];
+}
+
+function defaultDisposalPhases(): DisposalPhases {
+  const errors: unknown[] = [];
+  return {
+    recordError(_message, error) {
+      errors.push(error);
+    },
+    finish() {
+      if (errors.length)
+        throw new AggregateError(errors, 'Owned cleanup failed');
+    },
+  };
+}
+
+function attemptDisposal(
+  frame: DisposalFrame,
+  message: string,
+  run: () => void
+): void {
+  try {
+    run();
+  } catch (error) {
+    try {
+      frame.phases.recordError(message, error);
+    } catch (reportError) {
+      frame.unreported.push(reportError);
+    }
+  }
+}
+
+function prepareDisposal(
+  owner: OwnershipRecord,
+  phases?: DisposalPhases
+): DisposalFrame {
+  if (owner.scopedIndex) synchronizeScopedIndex(owner);
+  const scopes = owner.scopedIndex?.size
+    ? Set.prototype.values.call(owner.scopedIndex)
+    : undefined;
+  owner.disposed = true;
+  detachOwnership(owner);
+  const frame: DisposalFrame = {
+    owner,
+    phases: phases ?? owner.lifecycle?.(owner) ?? defaultDisposalPhases(),
+    scopes,
+    unreported: [],
+  };
+  if (scopes) owner.scopedIndex = undefined;
+  if (frame.phases.begin)
+    attemptDisposal(
+      frame,
+      '[Askr] owner preparation threw:',
+      frame.phases.begin
+    );
+  return frame;
+}
+
+/** One iterative postorder drain for every lifetime, including deep chains. */
 export function disposeOwnership(
   owner: OwnershipRecord,
-  phases: DisposalPhases
+  phases?: DisposalPhases
 ): void {
   if (owner.disposed) return;
-  owner.disposed = true;
-  const attempt = (message: string, run: () => void): void => {
+  const stack = [prepareDisposal(owner, phases)];
+  while (stack.length) {
+    const frame = stack[stack.length - 1]!;
+    const current = frame.owner;
+    // A consumer may retain and mutate its assigned Set while cleanup runs.
+    // Its live iterator selects lifetimes; the same drain still disposes them.
+    if (frame.scopes) {
+      const next = frame.scopes.next();
+      if (!next.done) {
+        const child = scopedOwnership(next.value);
+        if (!child.disposed && (!child.parent || child.parent === current)) {
+          if (!child.parent) linkOwnership(child, current);
+          stack.push(prepareDisposal(child));
+        }
+        continue;
+      }
+    }
+    if (current.head) {
+      const child = current.head;
+      if (frame.scopes && child.scope) {
+        detachOwnership(child);
+        continue;
+      }
+      // Preparation detaches the head before any callback. Reparenting a
+      // later child removes it from this same graph, so no snapshot is needed.
+      stack.push(prepareDisposal(child));
+      continue;
+    }
+    const attempt = (message: string, run: () => void) =>
+      attemptDisposal(frame, message, run);
+    if (frame.phases.beforeCleanup)
+      attempt(
+        '[Askr] readable subscription cleanup threw:',
+        frame.phases.beforeCleanup
+      );
+    const cleanups = current.cleanups;
+    current.cleanups = undefined;
+    if (cleanups)
+      for (const cleanup of cleanups)
+        attempt('[Askr] cleanup function threw:', cleanup);
+    if (frame.phases.afterCleanup)
+      attempt(
+        '[Askr] readable subscription cleanup threw:',
+        frame.phases.afterCleanup
+      );
+    attempt('[Askr] abort controller cleanup threw:', () => {
+      if (current.controller && !current.controller.signal.aborted)
+        current.controller.abort(disposedSignal.reason);
+    });
+    current.controller = null;
+    current.reads = undefined;
+    current.mounted = false;
+    const finalizer = current.finalizer;
+    current.finalizer = undefined;
+    if (finalizer)
+      attempt('[Askr] owner finalization threw:', () => finalizer.release());
     try {
-      run();
+      frame.phases.finish?.();
     } catch (error) {
-      phases.recordError(message, error);
+      frame.unreported.push(error);
     }
-  };
-  const children = owner.children;
-  owner.children = undefined;
-  if (children) {
-    for (const child of children) {
-      attempt('[Askr] child scope cleanup threw:', () => child.dispose());
-    }
-    children.clear();
-  }
-  if (phases.beforeCleanup) {
-    attempt(
-      '[Askr] readable subscription cleanup threw:',
-      phases.beforeCleanup
-    );
-  }
-  const cleanups = owner.cleanups;
-  owner.cleanups = undefined;
-  if (cleanups) {
-    for (const cleanup of cleanups) {
-      attempt('[Askr] cleanup function threw:', cleanup);
+    current.scope = undefined;
+    current.subject = undefined;
+    current.lifecycle = undefined;
+    stack.pop();
+    if (frame.unreported.length) {
+      const error =
+        frame.unreported.length === 1
+          ? frame.unreported[0]
+          : new AggregateError(frame.unreported, 'Owned cleanup failed');
+      const parent = stack[stack.length - 1];
+      if (parent)
+        attemptDisposal(parent, '[Askr] child ownership cleanup threw:', () => {
+          throw error;
+        });
+      else throw error;
     }
   }
-  if (phases.afterCleanup) {
-    attempt('[Askr] readable subscription cleanup threw:', phases.afterCleanup);
-  }
-  attempt('[Askr] abort controller cleanup threw:', () => {
-    if (owner.controller && !owner.controller.signal.aborted) {
-      owner.controller.abort(disposedSignal.reason);
-    }
-  });
-  owner.controller = null;
-  owner.reads = undefined;
-  owner.mounted = false;
-  const finalizer = owner.finalizer;
-  owner.finalizer = undefined;
-  if (finalizer)
-    attempt('[Askr] owner finalization threw:', () => finalizer.release());
 }

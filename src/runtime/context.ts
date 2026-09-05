@@ -24,8 +24,8 @@ import type { JSXElement } from '../common/jsx';
 import { ELEMENT_TYPE, STATIC_CHILDREN } from '../common/jsx';
 import type { Props } from '../common/props';
 import type { RenderableChild } from '../common/vnode';
-import { getCurrentComponentInstance } from './component';
-import type { ComponentInstance } from './component';
+import { getCurrentComponentInstance } from './component-scope';
+import type { ComponentInstance } from './component-internal';
 import {
   markEagerControlPrimitive,
   markTransparentComponentResult,

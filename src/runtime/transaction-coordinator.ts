@@ -33,9 +33,8 @@ export class CommitTransaction {
   parent: CommitTransaction | null;
   readonly coordinator: CommitCoordinator;
   readonly participants: CommitParticipant[] = [];
-  readonly participantsByKey = new Map<object, CommitParticipant>();
-  readonly participantsByKind = new Map<
-    object,
+  readonly index = new Map<
+    object | undefined,
     Map<object, CommitParticipant>
   >();
   readonly resources = new Map<object, unknown>();
@@ -63,11 +62,7 @@ export class CommitTransaction {
     key: object,
     kind?: object
   ): T | undefined {
-    return (
-      kind
-        ? this.participantsByKind.get(kind)?.get(key)
-        : this.participantsByKey.get(key)
-    ) as T | undefined;
+    return this.index.get(kind)?.get(key) as T | undefined;
   }
 }
 
@@ -106,16 +101,8 @@ export class CommitCoordinator {
     merge: boolean
   ): void {
     if (participant.key) {
-      let index = transaction.participantsByKey;
-      if (participant.kind) {
-        const existing = transaction.participantsByKind.get(participant.kind);
-        if (existing) index = existing;
-        else
-          transaction.participantsByKind.set(
-            participant.kind,
-            (index = new Map())
-          );
-      }
+      let index = transaction.index.get(participant.kind);
+      if (!index) transaction.index.set(participant.kind, (index = new Map()));
       const previous = index.get(participant.key);
       if (previous) {
         if (merge) participant.merge?.(previous);
@@ -215,10 +202,9 @@ export class CommitCoordinator {
       this.discard(transaction);
       throw error;
     } finally {
-      this.frame =
-        previous === transaction
-          ? this.liveFrame(transaction.parent)
-          : this.liveFrame(previous);
+      this.frame = this.liveFrame(
+        previous === transaction ? transaction.parent : previous
+      );
     }
 
     transaction.phase = 'settling';
@@ -230,14 +216,10 @@ export class CommitCoordinator {
       }
     };
     try {
-      for (const participant of transaction.participants) {
-        if (participant.settle) attempt(() => participant.settle!());
-      }
-      for (const participant of transaction.participants) {
-        if (participant.activate) attempt(() => participant.activate!());
-      }
-      for (const participant of transaction.participants) {
-        if (participant.complete) attempt(() => participant.complete!());
+      for (const phase of ['settle', 'activate', 'complete'] as const) {
+        for (const participant of transaction.participants) {
+          if (participant[phase]) attempt(() => participant[phase]!());
+        }
       }
       this.complete(transaction, (error) => transaction.errors.push(error));
       transaction.phase = 'committed';
@@ -276,10 +258,9 @@ export class CommitCoordinator {
       }
     } finally {
       transaction.phase = 'discarded';
-      this.frame =
-        previous === transaction
-          ? this.liveFrame(transaction.parent)
-          : this.liveFrame(previous);
+      this.frame = this.liveFrame(
+        previous === transaction ? transaction.parent : previous
+      );
       if (transaction.parent?.active)
         this.mergeCompletions(transaction, transaction.parent);
       else this.complete(transaction, report);
@@ -312,8 +293,7 @@ export class CommitCoordinator {
 
   private release(transaction: CommitTransaction): void {
     transaction.participants.length = 0;
-    transaction.participantsByKey.clear();
-    transaction.participantsByKind.clear();
+    transaction.index.clear();
     transaction.resources.clear();
     transaction.completions?.clear();
     transaction.completions = undefined;

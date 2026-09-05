@@ -9,7 +9,7 @@ import { resource, task } from '../../../src/runtime/operations';
 import {
   cleanupComponent,
   createComponentInstance,
-} from '../../../src/runtime/component';
+} from '../../../src/runtime';
 import { enqueueRuntimeLane } from '../../../src/runtime/access';
 import { state, type State } from '../../../src/runtime/state';
 import { Portal, _resetDefaultPortal } from '../../../src/runtime/portal';
@@ -554,7 +554,7 @@ describe('lifecycle sequence invariants', () => {
               null
             );
             instance.cleanupStrict = true;
-            (instance.ownership.cleanups ??= []).push(() => {
+            (instance.owner.cleanups ??= []).push(() => {
               throw new Error('quality cleanup failure');
             });
             let cleanupError: unknown = null;

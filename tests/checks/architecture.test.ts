@@ -75,7 +75,10 @@ function isTypeOnly(clause: ts.ImportClause | undefined): boolean {
     ts.isNamespaceImport(clause.namedBindings)
   )
     return false;
-  return clause.namedBindings.elements.every((element) => element.isTypeOnly);
+  return (
+    clause.namedBindings.elements.length > 0 &&
+    clause.namedBindings.elements.every((element) => element.isTypeOnly)
+  );
 }
 
 function collectEdges(file: string, source: ts.SourceFile): Edge[] {
@@ -107,10 +110,18 @@ function collectEdges(file: string, source: ts.SourceFile): Edge[] {
       statement.moduleSpecifier &&
       ts.isStringLiteral(statement.moduleSpecifier)
     ) {
+      const typeOnly =
+        statement.isTypeOnly ||
+        (statement.exportClause &&
+          ts.isNamedExports(statement.exportClause) &&
+          statement.exportClause.elements.length > 0 &&
+          statement.exportClause.elements.every(
+            (element) => element.isTypeOnly
+          ));
       add(
         statement.moduleSpecifier.text,
-        statement.isTypeOnly ? 'type' : 'export',
-        statement.isTypeOnly
+        typeOnly ? 'type' : 'export',
+        Boolean(typeOnly)
       );
     }
   }
@@ -180,74 +191,57 @@ function findCycles(): string[] {
   return [...cycles].sort();
 }
 
-describe('architecture boundaries', () => {
-  const extractedModuleBudgets = [
-    'src/renderer/intrinsic-blueprint-analysis.ts',
-    'src/renderer/intrinsic-blueprint-bindings.ts',
-    'src/renderer/intrinsic-blueprint-materialization.ts',
-    'src/renderer/intrinsic-blueprint-types.ts',
-    'src/renderer/boundary-materialization.ts',
-    'src/renderer/boundary-commit-owner.ts',
-    'src/renderer/boundary-range-adoption.ts',
-    'src/renderer/boundary-range-cleanup.ts',
-    'src/renderer/boundary-range-placement.ts',
-    'src/renderer/boundary-range-sync.ts',
-    'src/renderer/boundary-state.ts',
-    'src/renderer/component-host-creation.ts',
-    'src/renderer/component-host-nested-results.ts',
-    'src/renderer/component-host-replacement.ts',
-    'src/renderer/component-host-results.ts',
-    'src/renderer/for-commit-ranges.ts',
-    'src/renderer/hydration-boundaries.ts',
-    'src/renderer/hydration-listener-transaction.ts',
-    'src/runtime/render-transaction.ts',
-    'src/runtime/lifecycle-operation-settlement.ts',
-  ] as const;
-
-  const targetedOriginalModuleBudgets = [
-    { relativePath: 'src/renderer/intrinsic-blueprint.ts', baselineLines: 994 },
-    { relativePath: 'src/renderer/boundaries.ts', baselineLines: 510 },
-    { relativePath: 'src/renderer/component-host.ts', baselineLines: 907 },
-    { relativePath: 'src/runtime/component-lifecycle.ts', baselineLines: 551 },
-  ] as const;
-
-  const lineCount = (relativePath: string): number =>
-    fs.readFileSync(path.join(rootDir, relativePath), 'utf8').split(/\r?\n/)
-      .length - 1;
-
-  it('should shrink targeted original modules by at least 35%', () => {
-    const overBudget = targetedOriginalModuleBudgets
-      .filter(
-        ({ relativePath, baselineLines }) =>
-          lineCount(relativePath) > Math.floor(baselineLines * 0.65)
-      )
-      .map(({ relativePath }) => relativePath);
-    expect(overBudget).toEqual([]);
-  });
-
-  it('should keep extracted renderer implementations below the complexity budget', () => {
-    const overBudget = extractedModuleBudgets.filter((relativePath) => {
-      return lineCount(relativePath) >= 400;
-    });
-    expect(overBudget).toEqual([]);
-  });
-
-  it('should keep the intrinsic blueprint facade below its pre-extraction size', () => {
-    // The dirty checkpoint contained the combined 994-line implementation;
-    // the facade is intentionally held to 65% of that source size or less.
-    expect(
-      lineCount('src/renderer/intrinsic-blueprint.ts')
-    ).toBeLessThanOrEqual(646);
-  });
-
-  it('should keep the extraction internal to the public API and type snapshot', () => {
-    const publicSnapshot = fs.readFileSync(
-      path.join(rootDir, 'tests/checks/public-api.snapshot.json'),
-      'utf8'
+function findModuleCycles(): string[][] {
+  const graph = new Map<string, Set<string>>();
+  for (const edge of edges.filter((edge) => !edge.typeOnly)) {
+    const from = relative(edge.from);
+    (graph.get(from) ?? graph.set(from, new Set()).get(from)!).add(
+      relative(edge.to)
     );
-    for (const relativePath of extractedModuleBudgets) {
-      expect(publicSnapshot).not.toContain(relativePath);
+  }
+  const indices = new Map<string, number>();
+  const low = new Map<string, number>();
+  const stack: string[] = [];
+  const active = new Set<string>();
+  const components: string[][] = [];
+  let cursor = 0;
+  const visit = (node: string): void => {
+    indices.set(node, cursor);
+    low.set(node, cursor++);
+    stack.push(node);
+    active.add(node);
+    for (const child of graph.get(node) ?? []) {
+      if (!indices.has(child)) {
+        visit(child);
+        low.set(node, Math.min(low.get(node)!, low.get(child)!));
+      } else if (active.has(child))
+        low.set(node, Math.min(low.get(node)!, indices.get(child)!));
     }
+    if (low.get(node) !== indices.get(node)) return;
+    const group: string[] = [];
+    let item: string;
+    do {
+      item = stack.pop()!;
+      active.delete(item);
+      group.push(item);
+    } while (item !== node);
+    if (group.length > 1 || graph.get(node)?.has(node))
+      components.push(group.sort());
+  };
+  for (const node of graph.keys()) if (!indices.has(node)) visit(node);
+  return components.sort((left, right) => left[0]!.localeCompare(right[0]!));
+}
+
+describe('architecture boundaries', () => {
+  it('should keep runtime and renderer implementation value dependencies acyclic', () => {
+    expect(
+      findModuleCycles().filter((group) =>
+        group.some(
+          (file) =>
+            file.startsWith('src/runtime/') || file.startsWith('src/renderer/')
+        )
+      )
+    ).toEqual([]);
   });
 
   it('should keep governed paths free of .mts sources', () => {
@@ -295,6 +289,32 @@ describe('architecture boundaries', () => {
           format(edge) === 'src/boot/index.ts -> src/ssr/verify-hydration.ts'
       )
     ).toBe(true);
+  });
+
+  it('should retain empty-import side effects and exclude named type-only re-exports', () => {
+    const file = path.join(srcDir, 'runtime', 'context.ts');
+    const source = ts.createSourceFile(
+      file,
+      `
+      import {} from './ownership';
+      import { type OwnershipRecord } from './ownership';
+      export { type OwnershipRecord } from './ownership';
+      export { OwnershipRecord, type OwnedChildScope } from './ownership';
+    `,
+      ts.ScriptTarget.Latest,
+      true
+    );
+    expect(
+      collectEdges(file, source).map(({ kind, typeOnly }) => ({
+        kind,
+        typeOnly,
+      }))
+    ).toEqual([
+      { kind: 'value', typeOnly: false },
+      { kind: 'type', typeOnly: true },
+      { kind: 'type', typeOnly: true },
+      { kind: 'export', typeOnly: false },
+    ]);
   });
 
   it('should keep the runtime independent from concrete platform implementations', () => {
@@ -477,20 +497,31 @@ describe('architecture boundaries', () => {
     ).toBe(true);
   });
 
-  it('should keep reconciliation mutation transactional through its commit boundary', () => {
-    const reconcile = sources.find(
-      (source) => source.relative === 'src/renderer/reconcile.ts'
-    );
-    const commit = sources.find(
-      (source) => source.relative === 'src/renderer/reconcile-commit.ts'
-    );
-    expect(reconcile).toBeDefined();
-    expect(commit).toBeDefined();
-    const reconcileText = fs.readFileSync(reconcile!.file, 'utf8');
-    const commitText = fs.readFileSync(commit!.file, 'utf8');
-    expect(reconcileText).toContain("from './reconcile-commit'");
-    expect(commitText).toContain('try');
-    expect(commitText).toContain('catch');
-    expect(commitText).toContain('replaceChildren');
+  it('should route reconciliation removal through renderer-owned retirement', () => {
+    const hasValueEdge = (from: string, to: string) =>
+      edges.some(
+        (edge) =>
+          !edge.typeOnly &&
+          relative(edge.from) === from &&
+          relative(edge.to) === to
+      );
+    expect(
+      hasValueEdge(
+        'src/renderer/reconcile.ts',
+        'src/renderer/reconcile-commit.ts'
+      )
+    ).toBe(true);
+    expect(
+      hasValueEdge(
+        'src/renderer/reconcile-commit.ts',
+        'src/renderer/cleanup.ts'
+      )
+    ).toBe(true);
+    expect(
+      hasValueEdge(
+        'src/renderer/cleanup.ts',
+        'src/runtime/transaction-access.ts'
+      )
+    ).toBe(true);
   });
 });

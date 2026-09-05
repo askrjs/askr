@@ -57,9 +57,12 @@ describe('tier3 system table swap rows', () => {
   let toggle: BenchToggle<readonly RowData[]> | null = null;
 
   bench(
-    'swap two distant rows in a 1,000-row table',
+    'swap two distant rows in a 1,000-row table (32 swaps)',
     () => {
-      mounted!.benchmark.setRows(toggle!.next() as RowData[]);
+      // Each update flushes synchronously. Alternating a fixed block keeps
+      // browser timer quantization below the five-percent regression limit.
+      for (let index = 0; index < 32; index++)
+        mounted!.benchmark.setRows(toggle!.next() as RowData[]);
     },
     {
       ...tier3BenchOptions,

@@ -111,7 +111,7 @@ export function debounceEvent(
 
   // Auto-cleanup on component unmount
   if (inst) {
-    ownCleanup(inst.ownership, () => {
+    ownCleanup(inst.owner, () => {
       debounced.cancel();
     });
   }
@@ -176,7 +176,7 @@ export function throttleEvent(
   };
 
   if (inst) {
-    ownCleanup(inst.ownership, () => throttled.cancel());
+    ownCleanup(inst.owner, () => throttled.cancel());
   }
 
   return throttled;
@@ -233,7 +233,7 @@ export function rafEvent(
     lastEvent = null;
   };
 
-  if (inst) ownCleanup(inst.ownership, () => fn.cancel());
+  if (inst) ownCleanup(inst.owner, () => fn.cancel());
 
   return fn;
 }
@@ -260,7 +260,7 @@ export function scheduleTimeout(ms: number, fn: () => void): CancelFn {
     }
   };
 
-  if (inst) ownCleanup(inst.ownership, cancel);
+  if (inst) ownCleanup(inst.owner, cancel);
   return cancel;
 }
 
@@ -306,7 +306,7 @@ export function scheduleIdle(
     }
   };
 
-  if (inst) ownCleanup(inst.ownership, cancel);
+  if (inst) ownCleanup(inst.owner, cancel);
   return cancel;
 }
 
@@ -367,6 +367,6 @@ export function scheduleRetry<T>(
     cancelled = true;
   };
 
-  if (inst) ownCleanup(inst.ownership, cancel);
+  if (inst) ownCleanup(inst.owner, cancel);
   return { cancel };
 }

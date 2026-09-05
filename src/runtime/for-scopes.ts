@@ -5,7 +5,7 @@
 import type { DOMElement, VNode } from '../common/vnode';
 import type { DOMRange } from '../common/dom-range';
 import { isDevelopmentEnvironment } from '../common/env';
-import type { ComponentInstance } from './component';
+import { type ComponentInstance } from './component-internal';
 import {
   captureChildScopeTransactionSnapshot,
   createChildScope,
