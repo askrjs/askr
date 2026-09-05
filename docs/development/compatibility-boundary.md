@@ -5,11 +5,14 @@ declarations originate from the verified `0.2.4` package and include types
 reachable through callbacks, state reader maps, JSX, and control metadata.
 Their filenames and import names are stable source names. They are maintained
 source contracts, not declarations regenerated from the current implementation.
+Package builds copy this declaration tree unchanged, preserving public symbol
+names, class metadata, and documentation consumed by editors and API tooling.
+Implementation declarations and compatibility binding names are not published.
 
 `src/compatibility/entries/` binds each public value to its implementation and
 ascribes its published contract. Bindings preserve function, constructor, and
 cross-subpath identity and add no function invocation to the ordinary path.
-Both package builds and source consumer tests use these entries. The internal
+Package JavaScript builds and source consumer tests use these entries. The internal
 benchmark entry remains separate.
 
 The ascriptions are an explicit compatibility boundary. They let private owner,
@@ -36,10 +39,12 @@ Constructing a runtime does not invoke an overridden `configureRenderer` method.
 `runtime/renderer-capabilities.ts` describes evaluation, cleanup, keyed rendering,
 and reactive rendering separately. It has no dependency on public compatibility
 types. Browser composition in `boot/runtime-wiring.ts` installs the built-in
-renderer. Its compatibility host and native capabilities currently share an
-object, preserving host identity and property mutation. Inbound operations adopt
-extension-created owner records when necessary; ordinary owners already carry
-their authoritative lifetime.
+renderer capabilities directly. Public runtime views observe a newly installed
+renderer lazily and keep that view stable until the next replacement. Native
+boot does not load the extension translator merely to mount a root. Published
+boot and testing entries install lifetime property views for state reader maps.
+Inbound extension operations adopt consumer-created owner records when necessary;
+ordinary owners already carry their authoritative lifetime.
 
 Custom hosts enter through `compatibility/renderer.ts`. Calls retain the original
 host as `this`, preserve arguments, and observe method replacement. Component,

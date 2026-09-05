@@ -10,6 +10,35 @@ import {
 const root = path.resolve(import.meta.dirname, '../..');
 const contracts = path.join(root, 'src/compatibility/contracts');
 
+it('should preserve public symbol names and documentation for consumer tooling', () => {
+  const entry = path.join(root, 'dist/index.d.ts');
+  const program = ts.createProgram([entry], {
+    module: ts.ModuleKind.NodeNext,
+    moduleResolution: ts.ModuleResolutionKind.NodeNext,
+    skipLibCheck: true,
+  });
+  const checker = program.getTypeChecker();
+  const module = checker.getSymbolAtLocation(program.getSourceFile(entry)!)!;
+  const exports = checker.getExportsOfModule(module);
+  const resolve = (name: string) => {
+    const symbol = exports.find((symbol) => symbol.name === name)!;
+    return symbol.flags & ts.SymbolFlags.Alias
+      ? checker.getAliasedSymbol(symbol)
+      : symbol;
+  };
+  const factory = resolve('createRuntime');
+  expect(factory.name).toBe('createRuntime');
+  expect(
+    ts.displayPartsToString(factory.getDocumentationComment(checker))
+  ).toContain('Create a new');
+  const runtime = resolve('AskrRuntime');
+  expect(runtime.name).toBe('AskrRuntime');
+  expect(runtime.declarations?.some(ts.isClassDeclaration)).toBe(true);
+  expect(
+    ts.displayPartsToString(runtime.getDocumentationComment(checker))
+  ).toContain('scheduler + renderer host');
+});
+
 function declarationFiles(directory: string): string[] {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const file = path.join(directory, entry.name);

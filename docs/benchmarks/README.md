@@ -52,6 +52,13 @@ them. Tail ratios and median-of-three comparisons are derived during analysis;
 they are not raw reporter fields. A row is eligible only with at least 10
 samples, RME no greater than 15%, and nonzero p75 and p99.
 
+Very short workloads must span enough clock ticks for the 5% guardrail to be
+meaningful. Router matching times 128 calls per sample; table swapping times
+32 alternating, synchronously flushed swaps. Names include these counts.
+Compare identical blocks, or divide duration percentiles by the count when
+reporting per-operation values. Keep single-operation captures as diagnostic
+evidence when quantization makes their median unsuitable for qualification.
+
 The lane-specific diagnostics in this repo are intentionally separated so cleanup
 cost can be reviewed independently from ordered work loops and ordered DOM
 movement paths.
@@ -131,15 +138,17 @@ entry size (229,464 bytes against a 225,000-byte limit). These measurements are
 retained as intermediate evidence; final qualification also includes the native
 boot composition and consolidated bookkeeping that address that rejection.
 
+The [completed architecture qualification](./core-architecture-25bf231.json)
+records the final runtime at `25bf231` and the resolution-corrected measurements
+at `b9f82ba` (identical runtime). All 21 guardrails qualify against both the
+preceding stage and the initial baseline. Maximum slowdowns are 1.91% and 4.77%
+respectively. Original single-operation captures and the initially failed
+navigation comparison remain in the evidence. Navigation's repeated isolated
+capture uses the lower of its two baseline controls. Packed Monaco's initial
+entry is 224,987 bytes against its unchanged 225,000-byte budget, compared with
+214,709 bytes for published 0.2.4. No general optimization claim is made.
+
 ## External JFB Comparisons
-
-Very short workloads must span enough clock ticks for the 5% guardrail to be
-meaningful. Router matching times 128 calls per sample; table swapping times
-32 alternating, synchronously flushed swaps. Names include these counts.
-Compare identical blocks, or divide duration percentiles by the count when
-reporting per-operation values. Keep single-operation captures as diagnostic
-evidence when quantization makes their median unsuitable for qualification.
-
 
 The local `js-framework-benchmark` capture is a separate product-level signal
 from the tiered Askr guardrails. For JFB comparisons, keep the framework,
