@@ -40,7 +40,7 @@ export class CommitTransaction {
     object | undefined,
     Map<object, CommitParticipant>
   >();
-  readonly resources = new Map<object, unknown>();
+  resources = new Map<object, unknown>();
   readonly errors: unknown[] = [];
   completions: Map<object, () => void> | undefined;
   deferNotifications = false;
@@ -251,7 +251,12 @@ export class CommitCoordinator {
     const parent = transaction.parent;
     if (parent?.active) {
       let needsMerge = false;
+      let changedIdentity = false;
       for (const participant of transaction.participants) {
+        // Retained keyed records are indexed, not tracked in seen. A keyed
+        // member in seen may have been registered before its key was assigned.
+        if (participant.key && transaction.seen?.has(participant))
+          changedIdentity = true;
         if (parent.seen?.has(participant)) continue;
         const previous = participant.key
           ? parent.participant(participant.key, participant.kind)
@@ -265,7 +270,6 @@ export class CommitCoordinator {
             needsMerge = true;
         }
       }
-      let changedIdentity = false;
       for (const [kind, index] of transaction.index) {
         index.forEach((participant, key) => {
           if (participant.key !== key || participant.kind !== kind)
@@ -303,25 +307,57 @@ export class CommitCoordinator {
         }
       } else {
         for (const participant of transaction.participants) {
-          if (parent.seen?.has(participant)) continue;
+          if (parent.seen?.has(participant)) {
+            if (participant.key)
+              transaction.index.get(participant.kind)!.delete(participant.key);
+            continue;
+          }
           if (participant.key) {
-            let index = parent.index.get(participant.kind);
-            if (!index) parent.index.set(participant.kind, (index = new Map()));
-            const previous = index.get(participant.key);
+            const previous = parent.participant(
+              participant.key,
+              participant.kind
+            );
             if (previous) {
               if (previous !== participant)
                 (transaction.seen ??= new Set()).add(participant);
               continue;
             }
-            index.set(participant.key, participant);
-          } else {
-            (transaction.seen ??= new Set()).add(participant);
           }
           parent.participants.push(participant);
         }
+
+        // Inner indexes have no independent owner. Keep the larger allocation;
+        // parent entries retain collision ownership regardless of map choice.
+        // Child release clears only the outer index after ownership transfers.
+        for (const [kind, index] of transaction.index) {
+          if (!index.size) continue;
+          const existing = parent.index.get(kind);
+          if (!existing) parent.index.set(kind, index);
+          else if (existing.size < index.size) {
+            existing.forEach((participant, key) => index.set(key, participant));
+            parent.index.set(kind, index);
+          } else {
+            index.forEach((participant, key) => {
+              if (!existing.has(key)) existing.set(key, participant);
+            });
+          }
+        }
       }
-      for (const [key, value] of transaction.resources) {
-        if (!parent.resources.has(key)) parent.resources.set(key, value);
+      if (
+        !needsMerge &&
+        !changedIdentity &&
+        parent.resources.size < transaction.resources.size
+      ) {
+        const previousResources = parent.resources;
+        parent.resources = transaction.resources;
+        transaction.resources = previousResources;
+        // Parent values are the earlier snapshots, including explicit undefined.
+        for (const [key, value] of previousResources)
+          parent.resources.set(key, value);
+      } else {
+        for (const [key, value] of transaction.resources) {
+          if (!parent.resources.has(key)) parent.resources.set(key, value);
+        }
       }
       if (transaction.seen) {
         // The joined child relinquishes its set. Reuse the larger allocation

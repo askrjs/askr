@@ -41,7 +41,7 @@ ancestors committable, including rollback reentry and transitive sharing.
 Failure handling now invalidates all affected frames before callbacks and
 drains each shared participant once. Subsequent join characterization covers
 identity-set ownership, sibling joins, reentrant merges, and mutable keys;
-26 focused coordinator tests pass.
+35 focused coordinator tests pass.
 
 The broader DOM suite exposed an intentional duplicate subtree-retirement
 participant; its explicit keep-first policy restored the affected lifecycle
@@ -69,6 +69,32 @@ showed no clear further allocation benefit. These
 diagnostics do not replace qualification; final acceptance and merge remain
 pending a new comparison of the optimized runtime.
 
+The next controlled comparison at `0086048` remains rejected. Eleven of fourteen
+runtime comparisons pass; selected and unselected JSX resize exceed 5%, and one
+keyed-reorder control capture exceeds the RME limit. A separate comparison against
+the pre-optimization source measures only a 2.47% gain. All 135 captures and
+their provenance remain in `../benchmarks/solid-transfer-rejected-0086048.json`.
+Hosted correctness checks pass on all three operating systems and browsers;
+performance acceptance still prevents merge.
+
+The next comparison increases the minimum sample count to 1,000 for the two
+resize workloads and the keyed-reorder workload with the RME failure. Original
+measurement times, operation counts, labels, and reset behavior remain unchanged;
+the shared harness applies the same collection options to every source revision.
+The 5% limit and all sample-quality rules remain unchanged.
+
+Further transfer work merges smaller kind indexes into larger indexes and moves
+resource-map ownership when the child holds the larger allocation. Parent
+collision owners and earlier resource values remain authoritative. These maps
+are internal to commit coordination; retained-element rollback captures snapshot
+values rather than retaining map aliases. Added characterization covers both
+key-mutation directions, kind changes, sibling joins, resource conflicts, child
+release, and rollback order before and after the change.
+Allocation profiling of the revised transfer reports about 1,072 KiB per toggle
+owned by commit coordination, versus 1,645 KiB before transfer tuning. Join
+`Map.set` and `Set.add` allocations are absent from the sampled profile. This
+allocation result is diagnostic evidence; timing qualification remains pending.
+
 ## Governance coverage
 
 Subsystem value-cycle governance covers boot, common, data, renderer, router,
@@ -93,7 +119,7 @@ Local browser setup initially failed because Playwright's Node downloader timed
 out. The same official artifact URLs are reachable with curl; browser validation
 uses those exact versions rather than substituting another installed browser.
 
-Final local validation after review: formatting, lint/typecheck, build, 285 unit
+Final local validation after review: formatting, lint/typecheck, build, 294 unit
 tests, 58 repository checks, 1,564 DOM tests, 53 Chromium tests, public type
 tests, and 20 installed-consumer tests pass. Independent structural review
 confirmed all 222 original declaration nodes, core exports, snapshot fields,

@@ -1,43 +1,122 @@
 import { expect, test } from 'vite-plus/test';
 import { CommitCoordinator } from '../../src/runtime/transaction-coordinator';
 
-test('should preserve keyed lookup and existing kind maps across released child and sibling joins', () => {
+test.each([
+  { parentCount: 0, childCount: 5 },
+  { parentCount: 1, childCount: 5 },
+  { parentCount: 5, childCount: 1 },
+])(
+  'should retain resource values and rollback order with $parentCount parent and $childCount child resources',
+  ({ parentCount, childCount }) => {
+    const coordinator = new CommitCoordinator();
+    const events: string[] = [];
+    const rollbackValues: unknown[] = [];
+    const parent = coordinator.begin();
+    const parentEntries = Array.from(
+      { length: parentCount },
+      () => [{}, {}] as const
+    );
+    for (const [key, value] of parentEntries) parent.resources.set(key, value);
+    const sharedKey = {};
+    if (parentCount > 0) parent.resources.set(sharedKey, undefined);
+    coordinator.register({ rollback: () => events.push('parent') });
+    const child = coordinator.begin();
+    const childEntries = Array.from(
+      { length: childCount },
+      () => [{}, {}] as const
+    );
+    for (const [key, value] of childEntries) child.resources.set(key, value);
+    child.resources.set(sharedKey, 'child');
+    coordinator.register({
+      rollback: () => {
+        events.push('child');
+        // Restoration consumes the still-live resource values before release.
+        for (const [key] of [...parentEntries, ...childEntries])
+          rollbackValues.push(parent.resources.get(key));
+      },
+    });
+    coordinator.commit(child);
+    expect(child.resources.size).toBe(0);
+    for (const [key, value] of [...parentEntries, ...childEntries])
+      expect(parent.resources.get(key)).toBe(value);
+    expect(parent.resources.has(sharedKey)).toBe(true);
+    expect(parent.resources.get(sharedKey)).toBe(
+      parentCount > 0 ? undefined : 'child'
+    );
+    const sibling = coordinator.begin();
+    sibling.resources.set(sharedKey, 'sibling');
+    coordinator.commit(sibling);
+    expect(sibling.resources.size).toBe(0);
+    expect(parent.resources.get(sharedKey)).toBe(
+      parentCount > 0 ? undefined : 'child'
+    );
+    coordinator.discard(parent);
+    expect(events).toEqual(['child', 'parent']);
+    for (const [index, [, value]] of [
+      ...parentEntries,
+      ...childEntries,
+    ].entries())
+      expect(rollbackValues[index]).toBe(value);
+    expect(parent.resources.size).toBe(0);
+  }
+);
+
+test('should preserve keyed lookup and rollback order across released child and sibling joins', () => {
   const coordinator = new CommitCoordinator();
   const parent = coordinator.begin();
+  const outerIndex = parent.index;
+  const rollbacks: string[] = [];
   const existingKind = {};
   const childKind = {};
   const siblingKind = {};
   const key = {};
-  const original = { key, kind: existingKind };
+  const original = {
+    key,
+    kind: existingKind,
+    rollback: () => rollbacks.push('original'),
+  };
   coordinator.register(original);
-  const existingMap = parent.index.get(existingKind);
 
   const child = coordinator.begin();
-  const childMember = { key, kind: childKind };
-  const defaultMember = { key };
+  const childMember = {
+    key,
+    kind: childKind,
+    rollback: () => rollbacks.push('child'),
+  };
+  const defaultMember = { key, rollback: () => rollbacks.push('default') };
   coordinator.register(childMember);
   coordinator.register(defaultMember);
   coordinator.commit(child);
   expect(child.index.size).toBe(0);
-  expect(parent.index.get(existingKind)).toBe(existingMap);
+  expect(parent.index).toBe(outerIndex);
   expect(parent.participant(key, existingKind)).toBe(original);
   expect(parent.participant(key, childKind)).toBe(childMember);
   expect(parent.participant(key)).toBe(defaultMember);
-  const childKindMap = parent.index.get(childKind);
 
   const sibling = coordinator.begin();
   const nextKey = {};
-  const addedExisting = { key: nextKey, kind: existingKind };
-  const addedChildKind = { key: nextKey, kind: childKind };
-  const addedSiblingKind = { key, kind: siblingKind };
+  const addedExisting = {
+    key: nextKey,
+    kind: existingKind,
+    rollback: () => rollbacks.push('added existing'),
+  };
+  const addedChildKind = {
+    key: nextKey,
+    kind: childKind,
+    rollback: () => rollbacks.push('added child kind'),
+  };
+  const addedSiblingKind = {
+    key,
+    kind: siblingKind,
+    rollback: () => rollbacks.push('added sibling kind'),
+  };
   coordinator.register(childMember);
   coordinator.register(addedExisting);
   coordinator.register(addedChildKind);
   coordinator.register(addedSiblingKind);
   coordinator.commit(sibling);
   expect(sibling.index.size).toBe(0);
-  expect(parent.index.get(existingKind)).toBe(existingMap);
-  expect(parent.index.get(childKind)).toBe(childKindMap);
+  expect(parent.index).toBe(outerIndex);
   expect(parent.participant(key, existingKind)).toBe(original);
   expect(parent.participant(key, childKind)).toBe(childMember);
   expect(parent.participant(key)).toBe(defaultMember);
@@ -55,7 +134,105 @@ test('should preserve keyed lookup and existing kind maps across released child 
     addedSiblingKind,
   ]);
   coordinator.discard(parent);
+  expect(rollbacks).toEqual([
+    'added sibling kind',
+    'added child kind',
+    'added existing',
+    'default',
+    'child',
+    'original',
+  ]);
 });
+
+test.each([
+  { parentCount: 1, childCount: 5 },
+  { parentCount: 5, childCount: 1 },
+])(
+  'should preserve collision owners with $parentCount parent and $childCount child keyed members',
+  ({ parentCount, childCount }) => {
+    const coordinator = new CommitCoordinator();
+    const events: string[] = [];
+    const kind = {};
+    const parent = coordinator.begin();
+    const parentMembers = Array.from({ length: parentCount }, (_, index) => ({
+      key: {},
+      kind,
+      settle: () => events.push(`parent ${index}`),
+    }));
+    for (const member of parentMembers) coordinator.register(member);
+    const child = coordinator.begin();
+    const collision = {
+      key: parentMembers[0].key,
+      kind,
+      collision: 'keep-first' as const,
+      settle: () => events.push('discarded collision'),
+    };
+    coordinator.register(collision);
+    const childMembers = Array.from({ length: childCount }, (_, index) => ({
+      key: {},
+      kind,
+      settle: () => events.push(`child ${index}`),
+    }));
+    for (const member of childMembers) coordinator.register(member);
+    coordinator.commit(child);
+    expect(child.index.size).toBe(0);
+    for (const member of [...parentMembers, ...childMembers])
+      expect(parent.participant(member.key, kind)).toBe(member);
+    coordinator.register(collision);
+    expect(parent.participants).toEqual([...parentMembers, ...childMembers]);
+    coordinator.commit(parent);
+    expect(events).toEqual([
+      ...parentMembers.map((_, index) => `parent ${index}`),
+      ...childMembers.map((_, index) => `child ${index}`),
+    ]);
+  }
+);
+
+test.each([false, true])(
+  'should retain an originally unkeyed identity when assigned a key with shared parent %s',
+  (sharedParent) => {
+    const coordinator = new CommitCoordinator();
+    const events: string[] = [];
+    const participant = {
+      key: undefined as object | undefined,
+      settle: () => events.push('settled'),
+    };
+    const parent = coordinator.begin();
+    if (sharedParent) coordinator.register(participant);
+    const child = coordinator.begin();
+    coordinator.register(participant);
+    participant.key = {};
+    coordinator.commit(child);
+    expect(parent.participants).toEqual([participant]);
+    expect(parent.participant(participant.key)).toBe(
+      sharedParent ? undefined : participant
+    );
+    coordinator.register(participant);
+    coordinator.commit(parent);
+    expect(events).toEqual(['settled']);
+  }
+);
+
+test.each([false, true])(
+  'should transfer the current kind after changing from a named kind %s',
+  (initiallyNamed) => {
+    const coordinator = new CommitCoordinator();
+    const parent = coordinator.begin();
+    const child = coordinator.begin();
+    const namedKind = {};
+    const originalKind = initiallyNamed ? namedKind : undefined;
+    const nextKind = initiallyNamed ? undefined : namedKind;
+    const participant = { key: {}, kind: originalKind };
+    coordinator.register(participant);
+    participant.kind = nextKind;
+    coordinator.commit(child);
+    expect(parent.participant(participant.key, originalKind)).toBeUndefined();
+    expect(parent.participant(participant.key, nextKind)).toBe(participant);
+    coordinator.register(participant);
+    expect(parent.participants).toEqual([participant]);
+    coordinator.discard(parent);
+  }
+);
 
 test.each([
   { policy: 'keep-first', collision: 'keep-first' as const, merges: 0 },
