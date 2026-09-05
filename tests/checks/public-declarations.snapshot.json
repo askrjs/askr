@@ -116,7 +116,6 @@
       "MatchProps": [
         "type MatchProps = {\n    key?: string | number | null;\n    when: unknown;\n    children: MatchChild;\n};"
       ],
-      "ownerBrand": ["ownerBrand: unique symbol"],
       "prefetchQuery": [
         "declare function prefetchQuery<TInput, TResult extends {}>(context: QueryPrefetchContext, query: QueryDefinition<TInput, TResult>, input: TInput): Promise<boolean>;"
       ],
@@ -160,7 +159,6 @@
       "Scope": [
         "interface Scope<T> {\n    (props: {\n        value: T;\n        children?: ContextScopeChildren;\n    }): JSXElement;\n    readonly key: ContextKey;\n    readonly defaultValue: T;\n}"
       ],
-      "scopeBrand": ["scopeBrand: unique symbol"],
       "selector": [
         "declare function selector<T>(source: () => T, equals?: SelectorEquals<T>): Selector<T>;"
       ],
@@ -175,7 +173,6 @@
       "ShowProps": [
         "type ShowProps<T> = {\n    when: ShowSource<T>;\n    fallback?: BoundaryChild;\n    children: BoundaryChild | ((value: Truthy<T>) => BoundaryChild);\n};"
       ],
-      "sourceBrand": ["sourceBrand: unique symbol"],
       "state": ["declare function state<T>(initialValue: T): StateTuple<T>;"],
       "State": [
         "interface State<T> extends ReadableSource<T> {\n    (): T;\n    set(...args: StateSetterArgs<T>): void;\n    [Symbol.iterator](): IterableIterator<StateTuple<T>[number]>;\n}"

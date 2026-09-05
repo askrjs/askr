@@ -1,4 +1,8 @@
 import { expectType, expectError } from 'tsd';
+import * as askr from '@askrjs/askr';
+expectError(askr.ownerBrand);
+expectError(askr.scopeBrand);
+expectError(askr.sourceBrand);
 import {
   createDOMRendererHost,
   createRuntime,

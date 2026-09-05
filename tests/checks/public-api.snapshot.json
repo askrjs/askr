@@ -58,14 +58,11 @@
     "hydrateDataRuntime",
     "jsx",
     "jsxs",
-    "ownerBrand",
     "prefetchQuery",
     "readScope",
     "registerSSRStyle",
-    "scopeBrand",
     "selector",
     "serveQuery",
-    "sourceBrand",
     "state"
   ],
   "./boot": [
