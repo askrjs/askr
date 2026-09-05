@@ -125,20 +125,35 @@ class InlineSnapshot implements CommitParticipant {
   readonly key: ComponentInstance;
   private readonly generation: object;
   private readonly snapshot: InlineRenderSnapshot;
+  revision: number;
 
   constructor(instance: ComponentInstance) {
     this.key = instance;
     this.generation = instance.ownership.identity;
     this.snapshot = createInlineRenderSnapshot(instance);
+    this.revision = instance.renderRevision;
+  }
+
+  merge(parent: CommitParticipant): void {
+    (parent as InlineSnapshot).revision = this.revision;
   }
 
   rollback(): void {
     if (
       !this.key.ownership.disposed &&
-      this.key.ownership.identity === this.generation
+      this.key.ownership.identity === this.generation &&
+      this.key.renderRevision === this.revision
     )
       restoreInlineRenderSnapshot(this.snapshot);
   }
+}
+
+export function sealInlineRenderSnapshot(instance: ComponentInstance): void {
+  const snapshot = getCurrentCommitTransaction()?.participant<InlineSnapshot>(
+    instance,
+    INLINE_SNAPSHOT
+  );
+  if (snapshot) snapshot.revision = instance.renderRevision;
 }
 
 export function captureInlineRenderSnapshot(instance: ComponentInstance): void {

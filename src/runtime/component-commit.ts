@@ -31,6 +31,7 @@ export function runScheduledComponent(
   captureInlineRenderSnapshot(instance);
   beginRenderTracking(instance);
   const token = instance._currentRenderToken!;
+  const renderRevision = instance.renderRevision;
   let result: unknown;
   let fast = false;
   try {
@@ -67,7 +68,8 @@ export function runScheduledComponent(
       owner.disposed ||
       instance.ownership !== owner ||
       owner.identity !== ownershipGeneration ||
-      instance.evaluationGeneration !== evaluationGeneration
+      instance.evaluationGeneration !== evaluationGeneration ||
+      instance.renderRevision !== renderRevision
     ) {
       discardTransaction(transaction);
       return;

@@ -6,8 +6,50 @@ import {
 } from '../../../src/runtime/component';
 import { render } from '../../../src/testing';
 import { task } from '../../../src/runtime';
+import { getRuntimeRenderer } from '../../../src/runtime/access';
+import { registerCommitParticipant } from '../../../src/runtime/transaction-access';
 
 describe('commit publication boundary', () => {
+  it('should retain the previous lifetime when an extension declines range replacement and publication fails', () => {
+    let visible!: State<boolean>;
+    let owner!: ComponentInstance;
+    const view = render(() => <Child />);
+    function Child() {
+      owner = getCurrentInstance()!;
+      visible = state(false);
+      return visible() ? <button>{'ready'}</button> : null;
+    }
+    const previous = view.root.innerHTML;
+    const previousOwner = owner.ownership;
+    const renderer = getRuntimeRenderer();
+    const evaluate = renderer.evaluate.bind(renderer);
+    const replacement = vi
+      .spyOn(renderer, 'replaceComponentRange')
+      .mockReturnValue(null);
+    const application = vi
+      .spyOn(renderer, 'evaluate')
+      .mockImplementation((...args) => {
+        evaluate(...args);
+        registerCommitParticipant({
+          publish() {
+            throw new Error('extension publication failed');
+          },
+        });
+      });
+    try {
+      visible.set(true);
+      expect(() => view.flush()).toThrow('extension publication failed');
+      expect(view.root.innerHTML).toBe(previous);
+      expect(owner.ownership).toBe(previousOwner);
+      expect(owner.ownership.disposed).toBe(false);
+      expect(visible._readers?.has(owner)).toBe(true);
+    } finally {
+      replacement.mockRestore();
+      application.mockRestore();
+      view.cleanup();
+    }
+  });
+
   it('should retain a departed child lifetime when later application fails', async () => {
     let phase!: State<boolean>;
     let retired = 0;

@@ -22,7 +22,11 @@ A failure before publication completes restores participants in reverse order
 and drains provisional cleanup despite restoration errors. A failure after
 publication does not reverse arbitrary user side effects. Discarding obsolete
 work cannot restore a disposed owner or overwrite another active execution
-frame. Scoped updates retain their previous subscriptions until the matching
+frame. Render revisions invalidate older prepared output when the same lifetime
+executes again; lifetime identity and async evaluation revisions remain separate.
+Extension hosts that decline range replacement retain the previous owner if
+placeholder publication fails, while provisional descendants are drained.
+Scoped updates retain their previous subscriptions until the matching
 output commits.
 
 Optimized keyed reorders select different DOM work within this protocol. They

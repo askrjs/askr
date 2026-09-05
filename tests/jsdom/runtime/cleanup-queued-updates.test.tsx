@@ -3,8 +3,10 @@ import { state } from '../../../src';
 import {
   createComponentInstance,
   getCurrentComponentInstance,
+  renderComponentInline,
   type ComponentInstance,
 } from '../../../src/runtime/component';
+import { evaluate } from '../../../src/renderer/evaluate';
 import {
   beginCommitTransaction,
   finalizeInlineReadSubscriptions,
@@ -21,6 +23,35 @@ import {
 } from '../../../test-utils/render/test-renderer';
 
 describe('cleanup with queued updates', () => {
+  it('should not apply older prepared output after a newer inline render commits', () => {
+    const view = createTestContainer();
+    let owner!: ComponentInstance;
+    let source!: ReturnType<typeof state<number>>;
+    let label = 'old';
+    createIsland({
+      root: view.container,
+      component: () => {
+        owner = getCurrentComponentInstance()!;
+        source = state(0);
+        return <div>{`${label}:${source()}`}</div>;
+      },
+    });
+    flushScheduler();
+    source.set(1);
+    globalScheduler.enqueue(() => {
+      label = 'new';
+      evaluate(renderComponentInline(owner), owner.target);
+    });
+    try {
+      flushScheduler();
+      expect(view.container.textContent).toBe('new:1');
+      expect(source._readers?.has(owner)).toBe(true);
+      expect(owner.ownership.mounted).toBe(true);
+    } finally {
+      view.cleanup();
+    }
+  });
+
   let { container, cleanup } = createTestContainer();
 
   beforeEach(() => {

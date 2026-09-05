@@ -11,6 +11,8 @@ import {
 } from '../runtime';
 import { registerCommitRollback } from '../runtime/transaction-access';
 import { runRetainedElementUpdate } from './retained-element-rollback';
+import { cleanupDetachedComponentHost } from './component-host-cleanup';
+import type { InstanceHostNode } from './dom-host';
 
 /** DOM application only. Runtime publication and lifecycle settlement belong
  * to the enclosing transaction, regardless of the selected DOM strategy. */
@@ -81,8 +83,36 @@ export function applyComponentResult(
           temporary as Element & { __ASKR_WRAPPER_HOST?: boolean }
         ).__ASKR_WRAPPER_HOST = true;
       registerCommitRollback(() => {
-        renderer.cleanupInstancesUnder(host);
-        if (host.parentNode === parent) parent.replaceChild(placeholder!, host);
+        const indexed = host as InstanceHostNode;
+        const provisional = indexed.__ASKR_INSTANCES?.filter(
+          (owner) => owner !== instance
+        );
+        writeHostOwners(
+          indexed,
+          provisional,
+          indexed.__ASKR_INSTANCE === instance
+            ? provisional?.[0]
+            : indexed.__ASKR_INSTANCE
+        );
+        const errors: unknown[] = [];
+        try {
+          renderer.cleanupInstancesUnder(host);
+        } catch (error) {
+          errors.push(error);
+        }
+        try {
+          cleanupDetachedComponentHost(indexed, instance);
+        } catch (error) {
+          errors.push(error);
+        }
+        try {
+          if (host.parentNode === parent)
+            parent.replaceChild(placeholder!, host);
+        } catch (error) {
+          errors.push(error);
+        }
+        if (errors.length)
+          throw new AggregateError(errors, 'Placeholder restoration failed');
       });
       parent.replaceChild(host, placeholder!);
       bindComponentHost(
