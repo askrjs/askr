@@ -92,7 +92,7 @@ const selectorRecords = new WeakMap<
 function getSelectorStore(
   instance: ComponentInstance
 ): Map<number, SelectorHook<unknown>> {
-  const generation = instance.ownership.identity;
+  const generation = instance.owner.identity;
   let store = selectorCells.get(generation);
   if (!store) {
     store = new Map();
@@ -518,7 +518,7 @@ function createSelectorHook<T>(
 
   attachSelectorHookBinding(hook, source, equals);
 
-  ownCleanup(instance.ownership, () => {
+  ownCleanup(instance.owner, () => {
     try {
       hook._cleanup();
     } finally {
@@ -563,7 +563,7 @@ function getOrCreateSelectorHook<T>(
 
   const created = createSelectorHook(
     instance,
-    instance.ownership.identity,
+    instance.owner.identity,
     store,
     hookIndex,
     source,

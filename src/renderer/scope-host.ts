@@ -99,10 +99,9 @@ export function teardownScopeHost(
 export function hasUnmountedComponentHost(node: Node | undefined): boolean {
   if (!node) return false;
   const host = node as InstanceHostNode;
-  if (host.__ASKR_INSTANCE?.ownership.mounted === false) return true;
+  if (host.__ASKR_INSTANCE?.owner.mounted === false) return true;
   return (
-    host.__ASKR_INSTANCES?.some((instance) => !instance.ownership.mounted) ??
-    false
+    host.__ASKR_INSTANCES?.some((instance) => !instance.owner.mounted) ?? false
   );
 }
 

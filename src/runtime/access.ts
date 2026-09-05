@@ -17,6 +17,11 @@ export function getRuntimeRenderer(): RendererCapabilities {
   return defaultRuntimeState.renderer;
 }
 
+/** Native boot composition does not require a published extension view. */
+export function installRuntimeRenderer(renderer: RendererCapabilities): void {
+  defaultRuntimeState.renderer = renderer;
+}
+
 export function enqueueRuntimeTask(task: RuntimeTask): void {
   getRuntimeScheduler().enqueue(task);
 }

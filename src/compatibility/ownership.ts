@@ -26,10 +26,10 @@ for (const [field, member] of Object.entries(fields)) {
     enumerable: true,
     configurable: true,
     get(this: ExecutionRecord) {
-      return this.ownership[member];
+      return this.owner[member];
     },
     set(this: ExecutionRecord, value: never) {
-      this.ownership[member] = value;
+      this.owner[member] = value;
     },
   };
 }
@@ -37,13 +37,13 @@ descriptors._ownedChildScopes = {
   enumerable: true,
   configurable: true,
   get(this: ExecutionRecord) {
-    return getOwnedChildScopes(this.ownership);
+    return getOwnedChildScopes(this.owner);
   },
   set(
     this: ExecutionRecord,
     scopes: Set<import('../runtime/ownership').OwnedChildScope> | undefined
   ) {
-    setOwnedChildScopes(this.ownership, scopes);
+    setOwnedChildScopes(this.owner, scopes);
   },
 };
 export function installOwnershipViews(): void {
@@ -65,7 +65,7 @@ export function componentView(instance: ExecutionRecord): ComponentInstance {
 /** Adopt a consumer-created extension record in place, preserving identity. */
 export function executionRecord(instance: ComponentInstance): ExecutionRecord {
   const record = instance as unknown as ExecutionRecord;
-  if (!record.ownership) {
+  if (!record.owner) {
     const owner = new OwnershipRecord();
     owner.mounted = instance.mounted;
     owner.controller = instance.abortController;
@@ -74,7 +74,7 @@ export function executionRecord(instance: ComponentInstance): ExecutionRecord {
     owner.reads =
       instance._lastReadSources as unknown as OwnershipRecord['reads'];
     owner.identity = instance._ownershipGeneration;
-    record.ownership = owner;
+    record.owner = owner;
     bindComponentOwnership(record);
     componentView(record);
   }

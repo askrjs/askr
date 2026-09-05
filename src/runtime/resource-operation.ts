@@ -212,8 +212,8 @@ export function resource<T>(
     });
 
     // Cleanup on unmount
-    ownCleanup(inst.ownership, unsubscribe);
-    ownCleanup(inst.ownership, () => cell.dispose());
+    ownCleanup(inst.owner, unsubscribe);
+    ownCleanup(inst.owner, () => cell.dispose());
 
     // Render invariant: do NOT start async work during render on the client.
     // SSR remains strict/synchronous and must throw immediately if async is encountered.

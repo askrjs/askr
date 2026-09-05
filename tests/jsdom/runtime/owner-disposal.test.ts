@@ -16,7 +16,7 @@ describe('owner disposal', () => {
     cleanupComponent(scope.componentInstance);
     expect(scope.vnode).toBeUndefined();
     expect(scope.needsDomUpdate).toBe(false);
-    expect(parent.ownership.firstOwnedChild ? 1 : 0).toBe(0);
+    expect(parent.owner.head ? 1 : 0).toBe(0);
     expect(() => scope.dispose()).not.toThrow();
     cleanupComponent(parent);
   });
@@ -51,7 +51,7 @@ describe('owner disposal', () => {
   it('should dispose a returned cleanup without attaching it to a replacement generation', () => {
     const instance = createComponentInstance('owner', () => null, {}, null);
     const events: string[] = [];
-    instance.ownership.mounted = true;
+    instance.owner.mounted = true;
     instance.mountOperations = [
       () => {
         const prepared = captureComponentGeneration(instance);
@@ -64,7 +64,7 @@ describe('owner disposal', () => {
     ];
     commitLifecycleForInstance(instance, true);
     expect(events).toEqual(['retired']);
-    expect(instance.ownership.cleanups).toBeUndefined();
+    expect(instance.owner.cleanups).toBeUndefined();
     cleanupComponent(instance);
     expect(events).toEqual(['retired']);
   });
@@ -72,8 +72,8 @@ describe('owner disposal', () => {
   it('should invalidate a lifetime once despite reentrant and repeated disposal', () => {
     const instance = createComponentInstance('owner', () => null, {}, null);
     const events: string[] = [];
-    instance.ownership.mounted = true;
-    instance.ownership.cleanups = [
+    instance.owner.mounted = true;
+    instance.owner.cleanups = [
       () => {
         events.push('first');
         cleanupComponent(instance);
@@ -93,7 +93,7 @@ describe('owner disposal', () => {
     scope.dom = document.createTextNode('retained');
     scope.blueprintOwner = {};
     scope.componentInstance.cleanupStrict = true;
-    scope.componentInstance.ownership.cleanups = [
+    scope.componentInstance.owner.cleanups = [
       () => {
         throw new Error('cleanup');
       },
@@ -111,7 +111,7 @@ describe('owner disposal', () => {
   it('should settle cleanup returned by an operation that disposes its owner', () => {
     const instance = createComponentInstance('owner', () => null, {}, null);
     const events: string[] = [];
-    instance.ownership.mounted = true;
+    instance.owner.mounted = true;
     instance.mountOperations = [
       () => {
         events.push('mount');
@@ -123,7 +123,7 @@ describe('owner disposal', () => {
     ];
     commitLifecycleForInstance(instance, true);
     expect(events).toEqual(['mount', 'cleanup']);
-    expect(instance.ownership.cleanups).toBeUndefined();
+    expect(instance.owner.cleanups).toBeUndefined();
     cleanupComponent(instance);
     expect(events).toEqual(['mount', 'cleanup']);
   });

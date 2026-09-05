@@ -11,13 +11,13 @@ import type { ReadableSource } from '../../../src/runtime/readable';
 describe('read publication rollback', () => {
   it('should restore committed reader entries when a later publication fails', () => {
     const instance = createComponentInstance('reader', () => null, {}, null);
-    instance.ownership.mounted = true;
+    instance.owner.mounted = true;
     const previous = (() => 1) as ReadableSource<number>;
     const next = (() => 2) as ReadableSource<number>;
-    const reader = { token: 1, generation: instance.ownership.identity };
+    const reader = { token: 1, generation: instance.owner.identity };
     previous._readers = new Map([[instance, reader]]);
     const sources = new Set([previous]);
-    instance.ownership.reads = sources;
+    instance.owner.reads = sources;
     instance.lastRenderToken = 1;
     const transaction = beginCommitTransaction();
     finalizeInlineReadSubscriptions(instance, 2, new Set([next]), undefined);
@@ -27,7 +27,7 @@ describe('read publication rollback', () => {
       },
     });
     expect(() => commitTransaction(transaction)).toThrow('publication failed');
-    expect(instance.ownership.reads).toBe(sources);
+    expect(instance.owner.reads).toBe(sources);
     expect(instance.lastRenderToken).toBe(1);
     expect(previous._readers.get(instance)).toBe(reader);
     expect(next._readers?.has(instance)).toBe(false);

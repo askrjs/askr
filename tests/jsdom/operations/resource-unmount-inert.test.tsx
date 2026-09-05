@@ -582,7 +582,7 @@ describe('resource() late resolution after unmount (B5)', () => {
         container.querySelector('[data-show-resource]'),
         Child
       );
-      const initialGeneration = initialInstance.ownership.identity;
+      const initialGeneration = initialInstance.owner.identity;
 
       setVisible(false);
       flushScheduler();
@@ -596,7 +596,7 @@ describe('resource() late resolution after unmount (B5)', () => {
         Child
       );
       expect(remountedInstance).not.toBe(initialInstance);
-      expect(remountedInstance.ownership.identity).not.toBe(initialGeneration);
+      expect(remountedInstance.owner.identity).not.toBe(initialGeneration);
       expect(container.querySelector('[data-show-resource]')?.textContent).toBe(
         'pending'
       );
@@ -662,7 +662,7 @@ describe('resource() late resolution after unmount (B5)', () => {
         container.querySelector('[data-row-resource]'),
         RowView
       );
-      const initialGeneration = initialInstance.ownership.identity;
+      const initialGeneration = initialInstance.owner.identity;
 
       rows.set([]);
       flushScheduler();
@@ -676,7 +676,7 @@ describe('resource() late resolution after unmount (B5)', () => {
         RowView
       );
       expect(remountedInstance).not.toBe(initialInstance);
-      expect(remountedInstance.ownership.identity).not.toBe(initialGeneration);
+      expect(remountedInstance.owner.identity).not.toBe(initialGeneration);
       expect(container.querySelector('[data-row-resource]')?.textContent).toBe(
         'pending'
       );

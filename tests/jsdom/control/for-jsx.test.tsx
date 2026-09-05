@@ -242,7 +242,7 @@ describe('For JSX primitive', () => {
 
       const local = state(0);
       localSetters.set(id, local.set);
-      (instance.ownership.cleanups ??= []).push(() => {
+      (instance.owner.cleanups ??= []).push(() => {
         cleanupCounts.set(id, (cleanupCounts.get(id) ?? 0) + 1);
       });
 
@@ -387,7 +387,7 @@ describe('For JSX primitive', () => {
       if (!instance) {
         throw new Error('expected details component instance');
       }
-      (instance.ownership.cleanups ??= []).push(() => {
+      (instance.owner.cleanups ??= []).push(() => {
         detailCleanups.set(id, (detailCleanups.get(id) ?? 0) + 1);
       });
 
@@ -399,7 +399,7 @@ describe('For JSX primitive', () => {
       if (!instance) {
         throw new Error('expected row component instance');
       }
-      (instance.ownership.cleanups ??= []).push(() => {
+      (instance.owner.cleanups ??= []).push(() => {
         rowCleanups.set(item.id, (rowCleanups.get(item.id) ?? 0) + 1);
       });
 

@@ -358,7 +358,7 @@ function commitSlot<T>(instance: ComponentInstance, slot: StreamSlot<T>): void {
 
   if (!slot.cleanupRegistered) {
     slot.cleanupRegistered = true;
-    ownCleanup(instance.ownership, () => disposeSlot(slot));
+    ownCleanup(instance.owner, () => disposeSlot(slot));
   }
 
   if (!slot.explicitlyClosed && (firstCommit || (depsChanged && wasRunning))) {

@@ -11,6 +11,7 @@ import {
 } from './ownership-diagnostics';
 import { getRuntimeRenderer } from './access';
 import { attachOwnership } from './ownership';
+import { resetComponentWork } from './component-reset';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
@@ -26,24 +27,17 @@ export function restartComponentGeneration(
   fn: ComponentInstance['fn'],
   preserveState: boolean
 ): void {
-  instance.ownership = createComponentOwnership(instance);
+  instance.owner = createComponentOwnership(instance);
   instance.fn = fn;
   instance.evaluationGeneration++;
   instance.expectedStateIndices = [];
   instance.firstRenderComplete = false;
   if (!preserveState) {
+    resetComponentWork(instance);
     instance.stateValues = [];
     instance.stateIndexCheck = -1;
-    instance.hasPendingUpdate = false;
-    instance.notifyUpdate = null;
-    instance.mountOperations = undefined;
-    instance.commitOperations = undefined;
-    instance.lifecycleSlots = undefined;
     instance._currentRenderToken = undefined;
     instance.lastRenderToken = 0;
-    instance._pendingReadSources = undefined;
-    instance._pendingReadSourceVersions = undefined;
-    instance._placeholder = undefined;
     instance.errorBoundaryState = undefined;
     instance._portalErrorParent = undefined;
     instance._portalErrorParentGeneration = undefined;
@@ -58,7 +52,7 @@ export function captureComponentGeneration(
 ): PreparedComponentGeneration {
   const restoreHostIndex = getRuntimeRenderer().captureComponentHost(instance);
   const snapshot = {
-    ownership: instance.ownership,
+    owner: instance.owner,
     fn: instance.fn,
     props: instance.props,
     expectedStateIndices: instance.expectedStateIndices,
@@ -81,7 +75,7 @@ export function captureComponentGeneration(
     _pendingReadSourceVersions: instance._pendingReadSourceVersions,
     _appRenderRuntime: instance._appRenderRuntime,
   };
-  const reads = instance.ownership.reads;
+  const reads = instance.owner.reads;
   const readerEntries = Array.from(reads ?? [], (source) => ({
     source,
     reader: source._readers?.get(instance),
@@ -89,41 +83,37 @@ export function captureComponentGeneration(
   let settled = false;
   return {
     prepare(fn, props) {
-      if (settled || instance.ownership !== snapshot.ownership) {
+      if (settled || instance.owner !== snapshot.owner) {
         throw new Error(
           '[Askr] component generation is no longer available for preparation'
         );
       }
       const owner = createComponentOwnership(instance);
-      owner.mounted = snapshot.ownership.mounted;
-      instance.ownership = owner;
-      attachOwnership(owner, snapshot.ownership.parent);
+      owner.mounted = snapshot.owner.mounted;
+      instance.owner = owner;
+      attachOwnership(owner, snapshot.owner.parent);
       instance.fn = fn;
       instance.props = props;
+      resetComponentWork(instance);
       instance.stateValues = [];
       instance.expectedStateIndices = [];
       instance.firstRenderComplete = false;
       instance.stateIndexCheck = -1;
       instance.evaluationGeneration++;
       instance.lifecycleGeneration++;
-      instance.notifyUpdate = null;
       instance.mountOperations = [];
       instance.commitOperations = [];
       instance.lifecycleSlots = [];
-      instance._placeholder = undefined;
-      instance.hasPendingUpdate = false;
       instance._currentRenderToken = undefined;
       instance.lastRenderToken = 0;
-      instance._pendingReadSources = undefined;
-      instance._pendingReadSourceVersions = undefined;
       if (__ASKR_DEVELOPMENT_BUILD__) trackRouteGeneration(owner.identity);
     },
     rollback(restoreHost) {
       if (settled) return [];
       settled = true;
       const errors: unknown[] = [];
-      const provisional = instance.ownership;
-      if (provisional !== snapshot.ownership) {
+      const provisional = instance.owner;
+      if (provisional !== snapshot.owner) {
         try {
           cleanupReadableSubscriptionSources(
             instance,
@@ -151,7 +141,7 @@ export function captureComponentGeneration(
       } catch (error) {
         errors.push(error);
       }
-      snapshot.ownership.reads = reads;
+      snapshot.owner.reads = reads;
       for (const { source, reader } of readerEntries) {
         if (!reader) {
           if (source._readers?.delete(instance) && __ASKR_DEVELOPMENT_BUILD__) {
@@ -170,7 +160,7 @@ export function captureComponentGeneration(
     retire() {
       if (settled) return;
       settled = true;
-      cleanupComponentGeneration(instance, snapshot.ownership);
+      cleanupComponentGeneration(instance, snapshot.owner);
     },
   };
 }

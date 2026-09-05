@@ -98,7 +98,7 @@ function ensureChildScopeFlushTask(scope: MutableChildScope): void {
 
   instance._pendingFlushTask = () => {
     instance.hasPendingUpdate = false;
-    if (instance.notifyUpdate === null || instance.ownership.disposed) {
+    if (instance.notifyUpdate === null || instance.owner.disposed) {
       return;
     }
     if (scope._preparedTransaction)
@@ -107,7 +107,7 @@ function ensureChildScopeFlushTask(scope: MutableChildScope): void {
     scope._preparedTransaction = transaction;
     const snapshot = captureChildScopeTransactionSnapshot(scope);
     registerCommitRollback(() => {
-      if (!instance.ownership.disposed)
+      if (!instance.owner.disposed)
         restoreChildScopeTransactionSnapshot(scope, snapshot);
     });
     try {
@@ -156,7 +156,7 @@ class ChildScopeImpl implements MutableChildScope {
     ownership?: ChildScopeOwnership
   ) {
     this.key = key;
-    this._parentOwnership = parent?.ownership ?? null;
+    this._parentOwnership = parent?.owner ?? null;
     this._onDirty = onDirty;
     this._ownership = ownership;
     this._startStateIndex = getCurrentStateIndex();
@@ -167,8 +167,8 @@ class ChildScopeImpl implements MutableChildScope {
       null
     );
     childScopesByInstance.set(this.componentInstance, this);
-    this.componentInstance.ownership.finalizer = this;
-    registerScopedOwnership(this, this.componentInstance.ownership);
+    this.componentInstance.owner.finalizer = this;
+    registerScopedOwnership(this, this.componentInstance.owner);
 
     if (parent) {
       adoptComponentParent(this.componentInstance, parent);
@@ -219,7 +219,7 @@ class ChildScopeImpl implements MutableChildScope {
 }
 
 function renderScope(scope: MutableChildScope): VNode | undefined {
-  if (scope.componentInstance.ownership.disposed) {
+  if (scope.componentInstance.owner.disposed) {
     if (isDevelopmentEnvironment()) {
       throw new Error(
         `[askr] Attempted to render disposed child scope ${String(scope.key)}.`

@@ -49,7 +49,7 @@ function getLivePortalErrorParent(
   const parent = instance._portalErrorParent;
   if (
     !parent ||
-    parent.ownership.identity !== instance._portalErrorParentGeneration ||
+    parent.owner.identity !== instance._portalErrorParentGeneration ||
     parent.notifyUpdate === null
   ) {
     return null;

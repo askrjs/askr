@@ -1,7 +1,10 @@
 /** Published compatibility boundary. Implementations own execution; contracts own consumer types. */
 import * as implementation from '../../testing/index';
+import { installOwnershipViews } from '../ownership';
 import type * as Contract from '../contracts/testing/index';
 export type * from '../contracts/testing/index';
+
+installOwnershipViews();
 
 const public_cleanup: typeof Contract.cleanup = implementation.cleanup;
 const public_click: typeof Contract.click = implementation.click;

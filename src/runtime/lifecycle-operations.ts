@@ -162,7 +162,7 @@ function commitListenerSlot(
 
   if (!slot.cleanupRegistered) {
     slot.cleanupRegistered = true;
-    ownCleanup(instance.ownership, () => {
+    ownCleanup(instance.owner, () => {
       detachListenerSlot(slot);
       slot.cleanupRegistered = false;
     });
@@ -267,7 +267,7 @@ function commitTimerSlot(instance: ComponentInstance, slot: TimerSlot): void {
 
   if (!slot.cleanupRegistered) {
     slot.cleanupRegistered = true;
-    ownCleanup(instance.ownership, () => {
+    ownCleanup(instance.owner, () => {
       stopTimerSlot(slot);
       slot.cleanupRegistered = false;
     });
@@ -468,7 +468,7 @@ function commitWatchSlot<TValue>(
 
   if (!slot.cleanupRegistered) {
     slot.cleanupRegistered = true;
-    ownCleanup(instance.ownership, () => {
+    ownCleanup(instance.owner, () => {
       stopWatchSlot(slot);
       slot.cleanupRegistered = false;
     });

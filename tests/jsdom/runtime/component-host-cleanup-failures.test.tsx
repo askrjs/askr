@@ -9,6 +9,7 @@ import {
 import { logger } from '../../../src/common/logger';
 import { For } from '../../../src/control';
 import { definePortal } from '../../../src/runtime/portal';
+import type { ComponentInstance } from '../../../src/runtime/component-internal';
 import { getSignal, resource, task } from '../../../src/resources';
 import {
   elementListeners,
@@ -312,15 +313,9 @@ describe('component host cleanup failure isolation', () => {
   });
 
   it('should dispose a nested null portal host during element host replacement', () => {
-    type PortalHostInstance = {
-      fn: unknown;
-      mounted: boolean;
-      evaluationGeneration: number;
-      cleanupFns?: Array<() => void>;
-    };
     type CommentHost = Comment & {
-      __ASKR_INSTANCE?: PortalHostInstance;
-      __ASKR_INSTANCES?: PortalHostInstance[];
+      __ASKR_INSTANCE?: ComponentInstance;
+      __ASKR_INSTANCES?: ComponentInstance[];
     };
 
     const OverlayPortal = definePortal();
@@ -373,8 +368,8 @@ describe('component host cleanup failure isolation', () => {
       ...(portalHost?.__ASKR_INSTANCES ?? []),
     ].find((instance) => instance?.fn === OverlayPortal)!;
     expect(portalHost).toBeDefined();
-    expect(portalInstance.mounted).toBe(true);
-    (portalInstance.cleanupFns ??= []).push(() => {
+    expect(portalInstance.owner.mounted).toBe(true);
+    (portalInstance.owner.cleanups ??= []).push(() => {
       portalCleanups += 1;
     });
 
@@ -384,7 +379,7 @@ describe('component host cleanup failure isolation', () => {
     expect(container.querySelector('[data-owner="new"]')).not.toBeNull();
     expect(portalHost?.__ASKR_INSTANCE).toBeUndefined();
     expect(portalHost?.__ASKR_INSTANCES).toBeUndefined();
-    expect(portalInstance.mounted).toBe(false);
+    expect(portalInstance.owner.mounted).toBe(false);
     expect(portalCleanups).toBe(1);
 
     const disposedGeneration = portalInstance.evaluationGeneration;

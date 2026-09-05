@@ -22,26 +22,26 @@ describe('component lifetime ownership', () => {
       () => null,
       {},
       null,
-      root.ownership
+      root.owner
     );
     const retained = createComponentInstance(
       'retained',
       () => null,
       {},
       null,
-      root.ownership
+      root.owner
     );
-    const signal = getOwnershipSignal(retained.ownership);
+    const signal = getOwnershipSignal(retained.owner);
     let cleaned = 0;
-    ownCleanup(first.ownership, () =>
-      attachOwnership(retained.ownership, replacement.ownership)
+    ownCleanup(first.owner, () =>
+      attachOwnership(retained.owner, replacement.owner)
     );
-    ownCleanup(retained.ownership, () => {
+    ownCleanup(retained.owner, () => {
       cleaned++;
     });
     cleanupComponent(root);
     expect(signal.aborted).toBe(false);
-    expect(retained.ownership.parent).toBe(replacement.ownership);
+    expect(retained.owner.parent).toBe(replacement.owner);
     cleanupComponent(replacement);
     expect(signal.aborted).toBe(true);
     expect(cleaned).toBe(1);
@@ -54,15 +54,13 @@ describe('component lifetime ownership', () => {
       () => null,
       {},
       null,
-      root.ownership
+      root.owner
     );
-    expect(() => attachOwnership(root.ownership, child.ownership)).toThrow(
-      'cycle'
-    );
-    expect(root.ownership.parent).toBeUndefined();
-    expect(child.ownership.parent).toBe(root.ownership);
+    expect(() => attachOwnership(root.owner, child.owner)).toThrow('cycle');
+    expect(root.owner.parent).toBeUndefined();
+    expect(child.owner.parent).toBe(root.owner);
     cleanupComponent(root);
-    expect(child.ownership.disposed).toBe(true);
+    expect(child.owner.disposed).toBe(true);
   });
 
   it('should drain descendants before parent cleanup despite an individual failure', () => {
@@ -80,19 +78,19 @@ describe('component lifetime ownership', () => {
     }
     child.cleanupStrict = true;
     sibling.cleanupStrict = true;
-    const childSignal = getOwnershipSignal(child.ownership);
-    const siblingSignal = getOwnershipSignal(sibling.ownership);
-    ownCleanup(child.ownership, () => {
+    const childSignal = getOwnershipSignal(child.owner);
+    const siblingSignal = getOwnershipSignal(sibling.owner);
+    ownCleanup(child.owner, () => {
       calls.push('child');
       throw new Error('child cleanup failed');
     });
-    ownCleanup(child.ownership, () => {
+    ownCleanup(child.owner, () => {
       calls.push('child remainder');
     });
-    ownCleanup(sibling.ownership, () => {
+    ownCleanup(sibling.owner, () => {
       calls.push('sibling');
     });
-    ownCleanup(root.ownership, () => {
+    ownCleanup(root.owner, () => {
       calls.push('root');
     });
     expect(() => cleanupComponent(root)).toThrow('Cleanup failed');
@@ -107,14 +105,14 @@ describe('component lifetime ownership', () => {
     const root = createComponentInstance('root', () => null, {}, null);
     let parent = root;
     let cleaned = 0;
-    ownCleanup(root.ownership, () => {
+    ownCleanup(root.owner, () => {
       cleaned++;
     });
     try {
       for (let index = 0; index < 10_000; index++) {
         setCurrentComponentInstance(parent);
         parent = createComponentInstance(String(index), () => null, {}, null);
-        ownCleanup(parent.ownership, () => {
+        ownCleanup(parent.owner, () => {
           cleaned++;
         });
       }
@@ -123,6 +121,6 @@ describe('component lifetime ownership', () => {
     }
     expect(() => cleanupComponent(root)).not.toThrow();
     expect(cleaned).toBe(10_001);
-    expect(getOwnershipSignal(parent.ownership).aborted).toBe(true);
+    expect(getOwnershipSignal(parent.owner).aborted).toBe(true);
   });
 });

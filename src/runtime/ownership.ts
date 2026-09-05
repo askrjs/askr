@@ -10,10 +10,10 @@ export interface OwnedChildScope {
 export class OwnershipRecord {
   identity: object = this;
   parent: OwnershipRecord | undefined;
-  firstOwnedChild: OwnershipRecord | undefined;
-  lastOwnedChild: OwnershipRecord | undefined;
-  previousOwnedSibling: OwnershipRecord | undefined;
-  nextOwnedSibling: OwnershipRecord | undefined;
+  head: OwnershipRecord | undefined;
+  tail: OwnershipRecord | undefined;
+  previous: OwnershipRecord | undefined;
+  next: OwnershipRecord | undefined;
   subject: object | undefined;
   lifecycle: ((owner: OwnershipRecord) => DisposalPhases) | undefined;
   disposed = false;
@@ -90,8 +90,8 @@ export function releaseOwnedChild(
 
 function synchronizeScopedIndex(owner: OwnershipRecord): void {
   const index = owner.scopedIndex;
-  for (let child = owner.firstOwnedChild; child;) {
-    const next = child.nextOwnedSibling;
+  for (let child = owner.head; child;) {
+    const next = child.next;
     if (child.scope && !index?.has(child.scope)) detachOwnership(child);
     child = next;
   }
@@ -108,11 +108,7 @@ export function getOwnedChildScopes(
   if (!owner.scopedIndex) {
     owner.scopedIndex = new Set();
     if (owner.disposed) return owner.scopedIndex;
-    for (
-      let child = owner.firstOwnedChild;
-      child;
-      child = child.nextOwnedSibling
-    )
+    for (let child = owner.head; child; child = child.next)
       if (child.scope) owner.scopedIndex.add(child.scope);
   }
   return owner.scopedIndex;
@@ -128,7 +124,7 @@ export function setOwnedChildScopes(
 }
 
 export function detachOwnedChildren(owner: OwnershipRecord): void {
-  while (owner.firstOwnedChild) detachOwnership(owner.firstOwnedChild);
+  while (owner.head) detachOwnership(owner.head);
 }
 
 /** Drain attachments within a composite cleanup before surfacing its failures. */
@@ -159,16 +155,14 @@ export interface DisposalPhases {
 export function detachOwnership(owner: OwnershipRecord): void {
   const parent = owner.parent;
   if (!parent) return;
-  if (owner.previousOwnedSibling)
-    owner.previousOwnedSibling.nextOwnedSibling = owner.nextOwnedSibling;
-  else parent.firstOwnedChild = owner.nextOwnedSibling;
-  if (owner.nextOwnedSibling)
-    owner.nextOwnedSibling.previousOwnedSibling = owner.previousOwnedSibling;
-  else parent.lastOwnedChild = owner.previousOwnedSibling;
+  if (owner.previous) owner.previous.next = owner.next;
+  else parent.head = owner.next;
+  if (owner.next) owner.next.previous = owner.previous;
+  else parent.tail = owner.previous;
   if (owner.scope) parent.scopedIndex?.delete(owner.scope);
   owner.parent = undefined;
-  owner.previousOwnedSibling = undefined;
-  owner.nextOwnedSibling = undefined;
+  owner.previous = undefined;
+  owner.next = undefined;
 }
 
 export function attachOwnership(
@@ -177,7 +171,7 @@ export function attachOwnership(
 ): void {
   if (owner.parent === parent || owner.disposed) return;
   if (parent === owner) throw new Error('[Askr] A lifetime cannot own itself.');
-  if (owner.firstOwnedChild) {
+  if (owner.head) {
     for (let ancestor = parent; ancestor; ancestor = ancestor.parent)
       if (ancestor === owner)
         throw new Error('[Askr] Lifetime ownership cannot contain a cycle.');
@@ -193,10 +187,10 @@ export function attachOwnership(
 
 function linkOwnership(owner: OwnershipRecord, parent: OwnershipRecord): void {
   owner.parent = parent;
-  owner.previousOwnedSibling = parent.lastOwnedChild;
-  if (parent.lastOwnedChild) parent.lastOwnedChild.nextOwnedSibling = owner;
-  else parent.firstOwnedChild = owner;
-  parent.lastOwnedChild = owner;
+  owner.previous = parent.tail;
+  if (parent.tail) parent.tail.next = owner;
+  else parent.head = owner;
+  parent.tail = owner;
   if (owner.scope) {
     parent.hadScopedChildren = true;
     parent.scopedIndex?.add(owner.scope);
@@ -206,8 +200,6 @@ function linkOwnership(owner: OwnershipRecord, parent: OwnershipRecord): void {
 interface DisposalFrame {
   owner: OwnershipRecord;
   phases: DisposalPhases;
-  children: OwnershipRecord[];
-  cursor: number;
   scopes: SetIterator<OwnedChildScope> | undefined;
   unreported: unknown[];
 }
@@ -251,14 +243,9 @@ function prepareDisposal(
     : undefined;
   owner.disposed = true;
   detachOwnership(owner);
-  const children: OwnershipRecord[] = [];
-  for (let child = owner.firstOwnedChild; child; child = child.nextOwnedSibling)
-    children.push(child);
   const frame: DisposalFrame = {
     owner,
     phases: phases ?? owner.lifecycle?.(owner) ?? defaultDisposalPhases(),
-    children,
-    cursor: 0,
     scopes,
     unreported: [],
   };
@@ -295,14 +282,15 @@ export function disposeOwnership(
         continue;
       }
     }
-    if (frame.cursor < frame.children.length) {
-      const child = frame.children[frame.cursor++]!;
+    if (current.head) {
+      const child = current.head;
       if (frame.scopes && child.scope) {
-        if (child.parent === current) detachOwnership(child);
+        detachOwnership(child);
         continue;
       }
-      if (!child.disposed && child.parent === current)
-        stack.push(prepareDisposal(child));
+      // Preparation detaches the head before any callback. Reparenting a
+      // later child removes it from this same graph, so no snapshot is needed.
+      stack.push(prepareDisposal(child));
       continue;
     }
     const attempt = (message: string, run: () => void) =>

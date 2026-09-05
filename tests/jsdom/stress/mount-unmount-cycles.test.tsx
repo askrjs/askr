@@ -116,7 +116,7 @@ describe('mount unmount cycles (STRESS)', () => {
         if (!instance) {
           throw new Error('expected details component instance');
         }
-        (instance.ownership.cleanups ??= []).push(() => {
+        (instance.owner.cleanups ??= []).push(() => {
           detailCleanups += 1;
         });
 

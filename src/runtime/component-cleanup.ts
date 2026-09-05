@@ -9,6 +9,7 @@ import { cleanupReadableSubscriptionSources } from './readable';
 import { untrackRouteGeneration } from './ownership-diagnostics';
 import { warnUnusedStateReads } from './state-diagnostics';
 import { getRuntimeRenderer } from './access';
+import { resetComponentWork } from './component-reset';
 import {
   disposeOwnership,
   ownChild,
@@ -24,7 +25,7 @@ export type { OwnedChildScope } from './ownership';
 
 function componentDisposalPhases(owner: OwnershipRecord): DisposalPhases {
   const instance = owner.subject as ComponentInstance;
-  const active = instance.ownership === owner;
+  const active = instance.owner === owner;
   const hadRendererHost = Boolean(instance.target || instance._placeholder);
   const savedScope = clearCurrentComponentScope();
   const errors: unknown[] | undefined = instance.cleanupStrict ? [] : undefined;
@@ -32,6 +33,10 @@ function componentDisposalPhases(owner: OwnershipRecord): DisposalPhases {
   const detachReads = () => {
     retiredScopes?.clear();
     cleanupReadableSubscriptionSources(instance, owner.reads, owner.identity);
+  };
+  const recordError = (message: string, error: unknown) => {
+    if (errors) errors.push(error);
+    else if (isDevelopmentEnvironment()) logger.warn(message, error);
   };
   return {
     begin() {
@@ -45,31 +50,19 @@ function componentDisposalPhases(owner: OwnershipRecord): DisposalPhases {
     },
     beforeCleanup: active ? undefined : detachReads,
     afterCleanup: active ? detachReads : undefined,
-    recordError(message, error) {
-      if (errors) errors.push(error);
-      else if (isDevelopmentEnvironment()) logger.warn(message, error);
-    },
+    recordError,
     finish() {
       try {
-        if (active && instance.ownership === owner) {
+        if (active && instance.owner === owner) {
           try {
             if (hadRendererHost)
               getRuntimeRenderer().releaseComponentHost(instance);
           } catch (error) {
-            if (errors) errors.push(error);
-            else if (isDevelopmentEnvironment())
-              logger.warn('[Askr] host release failed:', error);
+            recordError('[Askr] host release failed:', error);
           }
-          instance.hasPendingUpdate = false;
-          instance.notifyUpdate = null;
-          instance.mountOperations = undefined;
-          instance.commitOperations = undefined;
-          instance.lifecycleSlots = undefined;
-          instance._pendingReadSources = undefined;
-          instance._pendingReadSourceVersions = undefined;
+          resetComponentWork(instance);
           instance._portalErrorParent = undefined;
           instance._portalErrorParentGeneration = undefined;
-          instance._placeholder = undefined;
         }
         if (__ASKR_DEVELOPMENT_BUILD__) untrackRouteGeneration(owner.identity);
         if (errors?.length)
@@ -94,8 +87,8 @@ export function createComponentOwnership(
 }
 
 export function bindComponentOwnership(instance: ComponentInstance): void {
-  instance.ownership.subject = instance;
-  instance.ownership.lifecycle = componentDisposalPhases;
+  instance.owner.subject = instance;
+  instance.owner.lifecycle = componentDisposalPhases;
 }
 
 /** Retire the captured lifetime without swapping the execution record. */
@@ -107,19 +100,19 @@ export function cleanupComponentGeneration(
 }
 
 export function cleanupComponent(instance: ComponentInstance): void {
-  disposeOwnership(instance.ownership);
+  disposeOwnership(instance.owner);
 }
 
 export function registerOwnedChildScope(
   instance: ComponentInstance,
   scope: OwnedChildScope
 ): void {
-  ownChild(instance.ownership, scope);
+  ownChild(instance.owner, scope);
 }
 
 export function unregisterOwnedChildScope(
   instance: ComponentInstance,
   scope: OwnedChildScope
 ): void {
-  releaseOwnedChild(instance.ownership, scope);
+  releaseOwnedChild(instance.owner, scope);
 }

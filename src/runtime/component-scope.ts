@@ -104,7 +104,7 @@ export function getCurrentPortalScope(): object | null {
 }
 
 export function getSignalForInstance(instance: ComponentInstance): AbortSignal {
-  return getOwnershipSignal(instance.ownership);
+  return getOwnershipSignal(instance.owner);
 }
 
 /**

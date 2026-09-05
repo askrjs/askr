@@ -37,7 +37,7 @@ function getPortalSource(
   const portalInstance = Array.from(collectInstances(root)).find(
     (instance) => instance.fn === portal
   );
-  return portalInstance?.ownership.reads?.values().next().value;
+  return portalInstance?.owner.reads?.values().next().value;
 }
 
 describe('portal cleanup in routed layout and keyed table children', () => {

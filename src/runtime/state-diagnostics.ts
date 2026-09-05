@@ -8,7 +8,7 @@ import type { ComponentInstance } from './component-internal';
  * is unused, so this diagnostic belongs at unmount rather than every commit.
  */
 export function warnUnusedStateReads(instance: ComponentInstance): void {
-  if (!instance.ownership.mounted) return;
+  if (!instance.owner.mounted) return;
 
   const stateValues = instance.stateValues;
   if (!stateValues?.length || isProductionEnvironment()) return;

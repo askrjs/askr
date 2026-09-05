@@ -167,7 +167,7 @@ const forStates = new WeakMap<object, Map<number, ForState<unknown>>>();
 function getForStore(
   instance: ComponentInstance
 ): Map<number, ForState<unknown>> {
-  const generation = instance.ownership.identity;
+  const generation = instance.owner.identity;
   let store = forStates.get(generation);
   if (!store) {
     store = new Map();
@@ -202,7 +202,7 @@ export function createForState<T>(
       },
       scopeOwner
     );
-    attachOwnership(scopeOwner, parentInstance.ownership);
+    attachOwnership(scopeOwner, parentInstance.owner);
   }
 
   return {
@@ -255,7 +255,7 @@ export function useForState<T>(
   }
 
   const hookIndex = claimHookIndex(instance, 'For');
-  const generation = instance.ownership.identity;
+  const generation = instance.owner.identity;
   const store = getForStore(instance);
   const existing = store.get(hookIndex) as ForState<T> | undefined;
 
@@ -270,7 +270,7 @@ export function useForState<T>(
   const created = createForState(eachSource, byFn, renderFn, fallback);
   store.set(hookIndex, created as ForState<unknown>);
 
-  ownCleanup(instance.ownership, () => {
+  ownCleanup(instance.owner, () => {
     try {
       created._sourceEffect?.cleanup();
     } finally {

@@ -22,7 +22,7 @@ describe('For comment host cleanup', () => {
       shared();
       const instance = getCurrentComponentInstance();
       if (!instance) throw new Error('expected null reader instance');
-      (instance.ownership.cleanups ??= []).push(() => {
+      (instance.owner.cleanups ??= []).push(() => {
         cleanupCount += 1;
       });
       return null;
@@ -76,7 +76,7 @@ describe('For comment host cleanup', () => {
       shared();
       const instance = getCurrentComponentInstance();
       if (!instance) throw new Error('expected null reader instance');
-      (instance.ownership.cleanups ??= []).push(() => {
+      (instance.owner.cleanups ??= []).push(() => {
         cleanupCount += 1;
       });
       return null;

@@ -31,14 +31,16 @@ type ReaderEntry = { token: number; generation: object };
 class ReadCommit implements CommitParticipant {
   readonly kind = READ_COMMIT;
   readonly key: ComponentInstance;
-  generation: object;
-  token: number;
+  generation!: object;
+  token!: number;
   sources: Set<ReadableSource<unknown>> | undefined;
   versions: Map<ReadableSource<unknown>, number> | undefined;
-  private previousSources: Set<ReadableSource<unknown>> | undefined;
-  private previousToken: number | undefined;
-  private previousReaders:
-    | Map<ReadableSource<unknown>, ReaderEntry | undefined>
+  private previous:
+    | {
+        sources: Set<ReadableSource<unknown>> | undefined;
+        token: number | undefined;
+        readers: Map<ReadableSource<unknown>, ReaderEntry | undefined>;
+      }
     | undefined;
 
   constructor(
@@ -48,7 +50,15 @@ class ReadCommit implements CommitParticipant {
     versions: Map<ReadableSource<unknown>, number> | undefined
   ) {
     this.key = instance;
-    this.generation = instance.ownership.identity;
+    this.update(token, sources, versions);
+  }
+
+  update(
+    token: number,
+    sources: Set<ReadableSource<unknown>> | undefined,
+    versions: Map<ReadableSource<unknown>, number> | undefined
+  ): void {
+    this.generation = this.key.owner.identity;
     this.token = token;
     this.sources = sources ? new Set(sources) : undefined;
     this.versions = versions ? new Map(versions) : undefined;
@@ -64,15 +74,14 @@ class ReadCommit implements CommitParticipant {
 
   publish(): void {
     const instance = this.key;
-    if (
-      instance.ownership.disposed ||
-      instance.ownership.identity !== this.generation
-    )
+    if (instance.owner.disposed || instance.owner.identity !== this.generation)
       return;
-    this.previousSources = instance.ownership.reads;
-    this.previousToken = instance.lastRenderToken;
-    const readers = (this.previousReaders = new Map());
-    for (const source of this.previousSources ?? [])
+    const { readers, sources } = (this.previous = {
+      sources: instance.owner.reads,
+      token: instance.lastRenderToken,
+      readers: new Map<ReadableSource<unknown>, ReaderEntry | undefined>(),
+    });
+    for (const source of sources ?? [])
       readers.set(source, source._readers?.get(instance));
     for (const source of this.sources ?? []) {
       if (!readers.has(source))
@@ -90,15 +99,15 @@ class ReadCommit implements CommitParticipant {
   rollback(): void {
     const instance = this.key;
     if (
-      !this.previousReaders ||
-      instance.ownership.disposed ||
-      instance.ownership.identity !== this.generation
+      !this.previous ||
+      instance.owner.disposed ||
+      instance.owner.identity !== this.generation
     )
       return;
-    instance.ownership.reads = this.previousSources;
-    instance.lastRenderToken = this.previousToken;
+    instance.owner.reads = this.previous.sources;
+    instance.lastRenderToken = this.previous.token;
     const errors: unknown[] = [];
-    for (const [source, entry] of this.previousReaders) {
+    for (const [source, entry] of this.previous.readers) {
       try {
         const current = source._readers?.get(instance);
         if (entry) {
@@ -129,7 +138,7 @@ class InlineSnapshot implements CommitParticipant {
 
   constructor(instance: ComponentInstance) {
     this.key = instance;
-    this.generation = instance.ownership.identity;
+    this.generation = instance.owner.identity;
     this.snapshot = createInlineRenderSnapshot(instance);
     this.revision = instance.renderRevision;
   }
@@ -140,8 +149,8 @@ class InlineSnapshot implements CommitParticipant {
 
   rollback(): void {
     if (
-      !this.key.ownership.disposed &&
-      this.key.ownership.identity === this.generation &&
+      !this.key.owner.disposed &&
+      this.key.owner.identity === this.generation &&
       this.key.renderRevision === this.revision
     )
       restoreInlineRenderSnapshot(this.snapshot);
@@ -169,7 +178,7 @@ export function finalizeInlineReadSubscriptions(
   sources: Set<ReadableSource<unknown>> | undefined,
   versions: Map<ReadableSource<unknown>, number> | undefined
 ): void {
-  if (!sources?.size && !instance.ownership.reads?.size) return;
+  if (!sources?.size && !instance.owner.reads?.size) return;
   const transaction = getCurrentCommitTransaction();
   if (!transaction) {
     runCommitTransaction(() =>
@@ -180,12 +189,8 @@ export function finalizeInlineReadSubscriptions(
     return;
   }
   const existing = transaction.participant<ReadCommit>(instance, READ_COMMIT);
-  if (existing) {
-    existing.generation = instance.ownership.identity;
-    existing.token = token;
-    existing.sources = sources ? new Set(sources) : undefined;
-    existing.versions = versions ? new Map(versions) : undefined;
-  } else
+  if (existing) existing.update(token, sources, versions);
+  else
     registerCommitParticipant(
       new ReadCommit(instance, token, sources, versions)
     );

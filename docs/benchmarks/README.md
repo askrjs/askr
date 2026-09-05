@@ -113,6 +113,24 @@ is +2.91%. No matching code was tuned in response to capture variability.
 The other 20 rows passed the original final-source capture. These structural
 changes make no optimization claim.
 
+The [intermediate architecture capture](./core-architecture-6b4ad7e.json)
+compares `6b4ad7e` with both the preceding stage (`eda6558`) and the initial
+baseline (`c19ff42`, unchanged runtime from `48a5575`). Each of the three
+revisions has three sequential captures per tier on the same host and toolchain.
+All 21 guardrails meet every sample-quality requirement. The maximum slowdown
+is 2.18% against the preceding stage and 4.55% across the complete series.
+The first candidate failed table truncation at +8.33% and +18.18% respectively;
+its complete comparisons remain in the evidence. A Chromium CPU profile traced
+substantial cleanup work to environment normalization for unused-state warnings
+on components without state. Checking for state first preserves diagnostics and
+removes that work. These captures include that fix and the complete
+compatibility implementation; table truncation returns to a 2.2 ms median.
+These measurements qualify this host and these workloads, not all applications.
+Packed Monaco qualification subsequently rejected this candidate's initial
+entry size (229,464 bytes against a 225,000-byte limit). These measurements are
+retained as intermediate evidence; final qualification also includes the native
+boot composition and consolidated bookkeeping that address that rejection.
+
 ## External JFB Comparisons
 
 The local `js-framework-benchmark` capture is a separate product-level signal

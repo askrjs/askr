@@ -88,6 +88,11 @@ reference authoritative internal state. Scoped-child collections are maintained
 indexes translated into the same lifetime graph when extensions mutate them.
 Internal modules never depend on compatibility shapes.
 
+Native boot installs renderer capabilities directly. Public runtime views track
+that installation lazily, so applications do not load the extension translator
+merely to mount a root. Published boot also installs the lifetime property views
+needed by readable owner maps. Both paths use the same execution records.
+
 ## Enforcement
 
 Architecture tests follow imports and re-exports, distinguish type-only edges,

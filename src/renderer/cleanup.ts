@@ -163,19 +163,19 @@ function cleanupSingleInstance(
     for (const instance of instanceList) {
       if (instance) {
         const component = instance as ComponentInstance;
-        instances.set(component, component.ownership);
+        instances.set(component, component.owner);
       }
     }
   }
 
   if (primaryInstance) {
     const component = primaryInstance as ComponentInstance;
-    instances.set(component, component.ownership);
+    instances.set(component, component.owner);
   }
 
   for (const [instance, owner] of instances) {
     try {
-      if (instance.ownership === owner) cleanupComponent(instance);
+      if (instance.owner === owner) cleanupComponent(instance);
       else cleanupComponentGeneration(instance, owner);
     } catch (err) {
       if (strict) errors!.push(err);
@@ -186,13 +186,13 @@ function cleanupSingleInstance(
   try {
     const current = node as InstanceHostNode;
     const retained = current.__ASKR_INSTANCES?.filter(
-      (instance) => !instance.ownership.disposed
+      (instance) => !instance.owner.disposed
     );
     const primary = current.__ASKR_INSTANCE;
     writeHostOwners(
       current,
       retained?.length ? retained : undefined,
-      primary && !primary.ownership.disposed ? primary : retained?.[0]
+      primary && !primary.owner.disposed ? primary : retained?.[0]
     );
   } catch (e) {
     if (strict) errors!.push(e);

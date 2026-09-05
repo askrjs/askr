@@ -6,29 +6,29 @@ import { trackRouteGeneration } from './ownership-diagnostics';
 export function getComponentLifetimeIdentity(
   instance: ComponentInstance
 ): object {
-  return instance.ownership.identity;
+  return instance.owner.identity;
 }
 
 export function adoptComponentParent(
   instance: ComponentInstance,
   parent: ComponentInstance | null,
-  lifetime: OwnershipRecord | null = parent?.ownership ?? null
+  lifetime: OwnershipRecord | null = parent?.owner ?? null
 ): void {
   instance.parentInstance = parent;
-  attachOwnership(instance.ownership, lifetime ?? undefined);
+  attachOwnership(instance.owner, lifetime ?? undefined);
 }
 
 export function ownComponentCleanup(
   instance: ComponentInstance,
   cleanup: () => void
 ): void {
-  ownCleanup(instance.ownership, cleanup);
+  ownCleanup(instance.owner, cleanup);
 }
 
 export function trackComponentRouteGeneration(
   instance: ComponentInstance
 ): void {
-  trackRouteGeneration(instance.ownership.identity);
+  trackRouteGeneration(instance.owner.identity);
 }
 
 export function isServerComponent(instance: ComponentInstance): boolean {
