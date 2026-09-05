@@ -135,7 +135,7 @@ try {
   );
   const typescriptCli = resolve(
     repositoryRoot,
-    'node_modules/@typescript/native/bin/tsc'
+    'node_modules/typescript/bin/tsc'
   );
   execFileSync(
     process.execPath,

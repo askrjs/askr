@@ -29,6 +29,10 @@ npm install
 
 ## Build
 
+The repository uses TypeScript 7 for command-line typechecking and installed-package
+validation. Checks that inspect source and declarations use the TypeScript 6
+compiler API through the explicit `@typescript/typescript6` dependency.
+
 ```bash
 npm run build
 ```

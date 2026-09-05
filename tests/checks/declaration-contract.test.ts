@@ -1,4 +1,4 @@
-import ts from 'typescript';
+import ts from '@typescript/typescript6';
 import { expect, it } from 'vite-plus/test';
 import { declarationContract } from './declaration-contract';
 

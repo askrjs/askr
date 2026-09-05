@@ -1,4 +1,4 @@
-import ts from 'typescript';
+import ts from '@typescript/typescript6';
 
 /** Follow the declarations exposed by consumers, including unnamed subpath types. */
 export function declarationContract(
