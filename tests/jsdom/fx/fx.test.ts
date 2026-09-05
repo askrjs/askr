@@ -21,7 +21,7 @@ import {
   registerMountOperation,
   setCurrentComponentInstance,
   type ComponentFunction,
-} from '../../../src/runtime/component';
+} from '../../../src/runtime';
 
 const noop: ComponentFunction = () => null;
 

@@ -3,7 +3,7 @@ import { getRuntimeEnv } from './env';
 import { keyedElements } from './keyed';
 import { retireNodeSubtree } from './cleanup';
 import { retireComponentOwnersForIntrinsicReuse } from './component-host-cleanup';
-import { createDOMNode, updateElementFromVnode } from './dom';
+import { getRendererDOMHost } from './dom-host';
 import { tagsEqualIgnoreCase } from './children-fastpath';
 import type { DOMElement, VNode } from './types';
 import { now, recordDOMReplace } from './utils';
@@ -93,14 +93,17 @@ function processElementVnode(
       existingNode.nodeType === 1 &&
       tagsEqualIgnoreCase((existingNode as Element).tagName, tag)
     ) {
-      updateElementFromVnode(existingNode as Element, vnode);
+      getRendererDOMHost().updateElementFromVnode(
+        existingNode as Element,
+        vnode
+      );
       retireComponentOwnersForIntrinsicReuse(existingNode as Element);
       finalNodes.push(existingNode);
       return 'reused';
     }
   }
 
-  const dom = createDOMNode(vnode);
+  const dom = getRendererDOMHost().createDOMNode(vnode);
   if (dom) {
     finalNodes.push(dom);
     return 'created';

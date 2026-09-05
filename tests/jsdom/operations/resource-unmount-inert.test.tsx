@@ -10,7 +10,7 @@ import {
   mountInstanceInline,
   renderComponentInline,
   type ComponentInstance,
-} from '../../../src/runtime/component';
+} from '../../../src/runtime';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,

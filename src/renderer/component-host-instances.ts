@@ -1,3 +1,4 @@
+import { adoptComponentParent } from '../runtime/component-capabilities';
 import { ROUTE_ROOT_COMPONENT } from '../common/router-internal';
 import type { Props } from '../common/props';
 import { isProductionEnvironment } from '../common/env';
@@ -199,6 +200,7 @@ export function setComponentOwnershipIdentity(
   wrapperDepth = 0,
   position?: number
 ): void {
+  adoptComponentParent(instance, parent);
   instance._vnodeOwner =
     typeof node === 'object' && node !== null ? node : undefined;
   instance._vnodeParent = parent;

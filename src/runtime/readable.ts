@@ -3,7 +3,8 @@ import {
   isRuntimeSchedulerExecuting,
   markRuntimeReactivePropsDirtySource,
 } from './access';
-import { getCurrentInstance, type ComponentInstance } from './component';
+import { getCurrentInstance } from './component-scope';
+import type { ComponentInstance } from './component-internal';
 import { adjustOwnershipDiagnostic } from './ownership-diagnostics';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;

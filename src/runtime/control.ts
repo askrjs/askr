@@ -9,7 +9,8 @@ import {
   type ChildScope,
   type ChildScopeTransactionSnapshot,
 } from './child-scope';
-import { getCurrentInstance, type ComponentInstance } from './component';
+import { getCurrentInstance } from './component-scope';
+import { type ComponentInstance } from './component-internal';
 import type { ForState } from './for';
 import { registerCommitParticipant } from './transaction-access';
 import { getRuntimeRenderer } from './access';

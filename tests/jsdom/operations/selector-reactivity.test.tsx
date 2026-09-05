@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { selector, state } from '../../../src/index';
 import { createIsland } from '@askrjs/askr/boot';
-import { renderComponentInline } from '../../../src/runtime/component';
+import { renderComponentInline } from '../../../src/runtime';
 import { For } from '../../../src/control';
 import { flushScheduler } from '../../../test-utils/render/test-renderer';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
@@ -243,7 +243,7 @@ describe('selector reactivity', () => {
 
     selected.set(1);
     type InstanceHost = Element & {
-      __ASKR_INSTANCE?: import('../../../src/runtime/component').ComponentInstance;
+      __ASKR_INSTANCE?: import('../../../src/runtime').ComponentInstance;
     };
     const host = Array.from(container.querySelectorAll('*')).find(
       (el) => (el as InstanceHost).__ASKR_INSTANCE !== undefined

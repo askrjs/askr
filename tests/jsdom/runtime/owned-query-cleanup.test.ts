@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vite-plus/test';
 import {
   createComponentInstance,
   cleanupComponent,
-} from '../../../src/runtime/component';
+} from '../../../src/runtime';
 import {
   createDataRuntime,
   resolveDataRuntimeState,

@@ -1,16 +1,16 @@
+import { registerScopedOwnership, releaseOwnedChild } from './ownership';
+import { adoptComponentParent } from './component-capabilities';
 import { getRuntimeRenderer } from './access';
 import type { ChildScopeHostSnapshot } from './renderer-capabilities';
 import type { VNode } from '../common/vnode';
 import { _isDOMElement } from '../common/vnode';
+import { cleanupComponent, registerOwnedChildScope } from './component-cleanup';
 import {
-  cleanupComponent,
   createComponentInstance,
-  getCurrentInstance,
-  getCurrentStateIndex,
-  registerOwnedChildScope,
   renderScopedComponent,
   type ComponentInstance,
-} from './component';
+} from './component-internal';
+import { getCurrentInstance, getCurrentStateIndex } from './component-scope';
 import { finalizeInlineReadSubscriptions } from './component-lifecycle';
 import { clearRenderTracking } from './component-scope';
 import { isDevelopmentEnvironment } from '../common/env';
@@ -168,9 +168,10 @@ class ChildScopeImpl implements MutableChildScope {
     );
     childScopesByInstance.set(this.componentInstance, this);
     this.componentInstance.ownership.finalizer = this;
+    registerScopedOwnership(this, this.componentInstance.ownership);
 
     if (parent) {
-      this.componentInstance.parentInstance = parent;
+      adoptComponentParent(this.componentInstance, parent);
       this.componentInstance.ownerFrame = parent.ownerFrame;
       this.componentInstance.portalScope = parent.portalScope;
       if (ownership) ownership.add(this);
@@ -197,7 +198,8 @@ class ChildScopeImpl implements MutableChildScope {
         discardTransaction(this._preparedTransaction);
       this._preparedTransaction = undefined;
       if (this._ownership) this._ownership.delete(this);
-      else this._parentOwnership?.children?.delete(this);
+      else if (this._parentOwnership)
+        releaseOwnedChild(this._parentOwnership, this);
     } finally {
       childScopesByInstance.delete(this.componentInstance);
       this._renderFn = undefined;

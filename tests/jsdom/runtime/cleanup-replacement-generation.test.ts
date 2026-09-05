@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vite-plus/test';
 import {
   createComponentInstance,
   mountInstanceInline,
-} from '../../../src/runtime/component';
+} from '../../../src/runtime';
 import { restartComponentGeneration } from '../../../src/runtime/component-generation';
 import { ownCleanup } from '../../../src/runtime/ownership';
 import { cleanupInstanceIfPresent } from '../../../src/renderer/cleanup';

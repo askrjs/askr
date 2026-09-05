@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vite-plus/test';
 import { defineScope, readScope, state } from '../../../src';
 import { For, Show } from '../../../src/control';
 import { definePortal, Presence } from '../../../src/foundations';
-import { getCurrentComponentInstance } from '../../../src/runtime/component';
+import { getCurrentComponentInstance } from '../../../src/runtime';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,

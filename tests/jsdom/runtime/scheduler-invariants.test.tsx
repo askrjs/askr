@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { state, type State } from '../../../src/runtime/state';
-import { getCurrentComponentInstance } from '../../../src/runtime/component';
+import { getCurrentComponentInstance } from '../../../src/runtime';
 import { task } from '../../../src/runtime';
 import { createFineGrainedEffect } from '../../../src/runtime/effect';
 import {

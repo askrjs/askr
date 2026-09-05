@@ -3,7 +3,7 @@ import { cleanupApp } from '../../../src/boot';
 import {
   cleanupComponent,
   createComponentInstance,
-} from '../../../src/runtime/component';
+} from '../../../src/runtime';
 import { task } from '../../../src/runtime/operations';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';

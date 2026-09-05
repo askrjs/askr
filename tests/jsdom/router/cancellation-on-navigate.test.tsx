@@ -19,7 +19,7 @@ import { navigate } from '../../../src/router/navigate';
 import { route } from '../../../src/router/route';
 import { defer } from '../../../src/router/deferred';
 import { resource } from '../../../src/runtime/operations';
-import { getSignal } from '../../../src/runtime/component';
+import { getSignal } from '../../../src/runtime';
 import {
   createTestContainer,
   flushScheduler,

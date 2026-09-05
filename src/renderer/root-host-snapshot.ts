@@ -1,9 +1,4 @@
 import { teardownNodeSubtree } from './cleanup';
-import {
-  cleanupComponent,
-  cleanupComponentGeneration,
-} from '../runtime/component-cleanup';
-import type { ComponentInstance } from '../runtime';
 type RootNodeSnapshot = {
   node: Node;
   children: Node[];
@@ -110,66 +105,11 @@ function restoreRootTree(snapshot: RootHostTreeSnapshot | null): unknown[] {
   return errors;
 }
 
-function collectHostInstances(root: Element): ComponentInstance[] {
-  const instances: ComponentInstance[] = [];
-  const seen = new Set<ComponentInstance>();
-  const pending: Node[] = [root];
-
-  while (pending.length > 0) {
-    const node = pending.pop()!;
-    const host = node as Node & {
-      __ASKR_INSTANCE?: ComponentInstance;
-      __ASKR_INSTANCES?: ComponentInstance[];
-    };
-    for (const instance of host.__ASKR_INSTANCES ?? []) {
-      if (!seen.has(instance)) {
-        seen.add(instance);
-        instances.push(instance);
-      }
-    }
-    if (host.__ASKR_INSTANCE && !seen.has(host.__ASKR_INSTANCE)) {
-      seen.add(host.__ASKR_INSTANCE);
-      instances.push(host.__ASKR_INSTANCE);
-    }
-
-    for (let child = node.lastChild; child; child = child.previousSibling) {
-      pending.push(child);
-    }
-  }
-
-  return instances;
-}
-
 export interface RootHostSnapshot {
   restore(): unknown[];
-  retireDeparted(root: Element | null, retained: ComponentInstance): unknown[];
 }
 
 export function captureRootHost(root: Element | null): RootHostSnapshot {
   const snapshot = captureRootTree(root);
-  const owners = root
-    ? collectHostInstances(root).map((instance) => ({
-        instance,
-        owner: instance.ownership,
-      }))
-    : [];
-  return {
-    restore: () => restoreRootTree(snapshot),
-    retireDeparted(root, retained) {
-      const live = root ? new Set(collectHostInstances(root)) : new Set();
-      const errors: unknown[] = [];
-      for (let index = owners.length - 1; index >= 0; index--) {
-        const { instance, owner } = owners[index]!;
-        if (instance === retained || live.has(instance)) continue;
-        try {
-          if (instance.ownership === owner) cleanupComponent(instance);
-          else cleanupComponentGeneration(instance, owner);
-        } catch (error) {
-          errors.push(error);
-        }
-      }
-      owners.length = 0;
-      return errors;
-    },
-  };
+  return { restore: () => restoreRootTree(snapshot) };
 }

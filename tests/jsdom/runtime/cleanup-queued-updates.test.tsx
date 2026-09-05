@@ -5,7 +5,7 @@ import {
   getCurrentComponentInstance,
   renderComponentInline,
   type ComponentInstance,
-} from '../../../src/runtime/component';
+} from '../../../src/runtime';
 import { evaluate } from '../../../src/renderer/evaluate';
 import {
   beginCommitTransaction,

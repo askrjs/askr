@@ -1,9 +1,6 @@
 import { ownCleanup } from './ownership';
-import {
-  claimHookIndex,
-  getCurrentInstance,
-  type ComponentInstance,
-} from './component';
+import { claimHookIndex, getCurrentInstance } from './component-scope';
+import { type ComponentInstance } from './component-internal';
 import {
   clearDerivedDependencySubscriptions,
   markReadableDerivedSubscribersDirty,

@@ -19,8 +19,8 @@ import {
 import {
   getCurrentComponentInstance,
   getCurrentPortalScope,
-  type ComponentInstance,
-} from './component';
+} from './component-scope';
+import { type ComponentInstance } from './component-internal';
 import { getRuntimeRenderer } from './access';
 import {
   adjustPortalRegistrations,

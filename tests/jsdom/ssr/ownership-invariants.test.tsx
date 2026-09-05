@@ -1,8 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
-import {
-  getCurrentComponentInstance,
-  getSignal,
-} from '../../../src/runtime/component';
+import { getCurrentComponentInstance, getSignal } from '../../../src/runtime';
 import {
   DefaultPortal,
   Portal,

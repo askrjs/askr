@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { For, Show, state } from '../../../src';
 import { cleanupApp, createIsland } from '../../../src/boot';
 import { captureRangeFocus } from '../../../src/renderer/component-fragment-range';
-import { getCurrentComponentInstance } from '../../../src/runtime/component';
+import { getCurrentComponentInstance } from '../../../src/runtime';
 import { flushScheduler } from '../../../test-utils/render/test-renderer';
 
 describe('component fragment structure', () => {

@@ -1,12 +1,11 @@
 import { getComponentLifecycleSlot as getLifecycleSlot } from './component-capabilities';
 import { resolveListenerTarget } from '../resources/browser-activity';
 import { ownCleanup } from './ownership';
+import { claimHookIndex, getCurrentComponentInstance } from './component-scope';
 import {
-  claimHookIndex,
-  getCurrentComponentInstance,
   registerCommitOperation,
   type ComponentInstance,
-} from './component';
+} from './component-internal';
 import { isRouteActivityActive } from '../common/route-activity';
 import { adjustOwnershipDiagnostic } from './ownership-diagnostics';
 import {

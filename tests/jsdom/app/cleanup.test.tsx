@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { cleanupApp } from '../../../src/boot';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
-import { registerMountOperation } from '../../../src/runtime/component';
+import { registerMountOperation } from '../../../src/runtime';
 import type { JSXElement } from '../../../src/jsx/types';
 import { createIsland } from '../../../test-utils/render/create-island';
 

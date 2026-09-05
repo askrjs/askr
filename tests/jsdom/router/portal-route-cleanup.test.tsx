@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { createSPA } from '@askrjs/askr/boot';
 import { definePortal } from '../../../src/runtime/portal';
 import { state } from '../../../src/runtime/state';
-import type { ComponentInstance } from '../../../src/runtime/component';
+import type { ComponentInstance } from '../../../src/runtime';
 import type { ReadableSource } from '../../../src/runtime/readable';
 import { navigate } from '../../../src/router/navigate';
 import { createRouteRegistry, group, route } from '../../../src/router/route';

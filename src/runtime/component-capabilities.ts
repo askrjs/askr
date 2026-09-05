@@ -1,5 +1,5 @@
 import type { ComponentInstance } from './component-internal';
-import { ownCleanup } from './ownership';
+import { attachOwnership, ownCleanup, type OwnershipRecord } from './ownership';
 import { trackRouteGeneration } from './ownership-diagnostics';
 
 /** Integrations may identify and attach to a lifetime without changing it. */
@@ -7,6 +7,15 @@ export function getComponentLifetimeIdentity(
   instance: ComponentInstance
 ): object {
   return instance.ownership.identity;
+}
+
+export function adoptComponentParent(
+  instance: ComponentInstance,
+  parent: ComponentInstance | null,
+  lifetime: OwnershipRecord | null = parent?.ownership ?? null
+): void {
+  instance.parentInstance = parent;
+  attachOwnership(instance.ownership, lifetime ?? undefined);
 }
 
 export function ownComponentCleanup(

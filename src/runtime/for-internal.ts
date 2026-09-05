@@ -1,6 +1,10 @@
 import {
   disposeOwnership,
   ownChild,
+  releaseOwnedChild,
+  detachOwnedChildren,
+  registerScopedOwnership,
+  attachOwnership,
   ownCleanup,
   OwnershipRecord,
 } from './ownership';
@@ -11,8 +15,9 @@ import {
  * and DOM update state cleanup.
  */
 
-import { type ComponentInstance, getCurrentInstance } from './component';
-import { claimHookIndex } from './component';
+import { type ComponentInstance } from './component-internal';
+import { getCurrentInstance } from './component-scope';
+import { claimHookIndex } from './component-scope';
 import type { VNode } from '../common/vnode';
 import {
   disposeChildScope,
@@ -29,7 +34,6 @@ import {
 } from './for-signals';
 import type { ReadableSource } from './readable';
 import type { ChildScopeOwnership } from './child-scope';
-import { registerOwnedChildScope } from './component';
 import type { FineGrainedEffectHandle } from './effect';
 import type { ForEachSource, ForKeySelector, ForRenderItem } from './for-types';
 import { reconcileForItems } from './for-reconcile';
@@ -180,29 +184,25 @@ export function createForState<T>(
 ): ForState<T> {
   const parentInstance = getCurrentInstance();
   const scopeOwner = new OwnershipRecord();
-  const ownedScopes = (scopeOwner.children = new Set<ChildScope>());
   const scopeOwnership: ChildScopeOwnership = {
     add: (scope) => ownChild(scopeOwner, scope),
-    delete: (scope) => ownedScopes.delete(scope),
+    delete: (scope) => releaseOwnedChild(scopeOwner, scope),
     bulkDispose(run) {
-      ownedScopes.clear();
+      detachOwnedChildren(scopeOwner);
       run();
     },
   };
   if (parentInstance) {
-    registerOwnedChildScope(parentInstance, {
-      key: 'for-boundary',
-      dispose() {
-        const errors: unknown[] = [];
-        disposeOwnership(scopeOwner, {
-          recordError(_message, error) {
-            errors.push(error);
-          },
-        });
-        if (errors.length)
-          throw new AggregateError(errors, 'For scope cleanup failed');
+    registerScopedOwnership(
+      {
+        key: 'for-boundary',
+        dispose() {
+          disposeOwnership(scopeOwner);
+        },
       },
-    });
+      scopeOwner
+    );
+    attachOwnership(scopeOwner, parentInstance.ownership);
   }
 
   return {

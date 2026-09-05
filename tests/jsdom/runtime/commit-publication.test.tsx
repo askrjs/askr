@@ -3,7 +3,7 @@ import { state, type State } from '../../../src/runtime/state';
 import {
   getCurrentInstance,
   type ComponentInstance,
-} from '../../../src/runtime/component';
+} from '../../../src/runtime';
 import { render } from '../../../src/testing';
 import { task } from '../../../src/runtime';
 import { getRuntimeRenderer } from '../../../src/runtime/access';

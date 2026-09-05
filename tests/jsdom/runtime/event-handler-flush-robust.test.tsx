@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vite-plus/test';
 import { createIsland } from '../../../src/boot';
 import { state } from '../../../src/runtime/state';
 import { For } from '../../../src/control';
-import type { ComponentFunction } from '../../../src/runtime/component';
+import type { ComponentFunction } from '../../../src/runtime';
 
 // Lightweight mount helper used by other tests
 function mountToDOM(fn: () => unknown) {

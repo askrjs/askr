@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { resource } from '../../../src/resources';
-import { getCurrentComponentInstance } from '../../../src/runtime/component';
+import { getCurrentComponentInstance } from '../../../src/runtime';
 import { For, Show } from '@askrjs/askr/control';
 import type { JSXElement } from '../../../src/jsx/types';
 import {

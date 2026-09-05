@@ -1,5 +1,5 @@
 import { logger } from '../common/logger';
-import type { ComponentInstance } from './component';
+import { type ComponentInstance } from './component-internal';
 
 export function createBoundaryReset(instance: ComponentInstance): () => void {
   return () => {

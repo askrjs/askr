@@ -26,11 +26,13 @@ import {
   cleanupComponent,
   registerOwnedChildScope,
   unregisterOwnedChildScope,
+  bindComponentOwnership,
 } from './component-cleanup';
 import {
   componentRecordPrototype,
   getOwnershipSignal,
   OwnershipRecord,
+  attachOwnership,
 } from './ownership';
 import { runScheduledComponent } from './component-commit';
 import { sealInlineRenderSnapshot } from './render-transaction';
@@ -192,7 +194,8 @@ export function createComponentInstance(
   id: string,
   fn: ComponentFunction,
   props: Props,
-  target: Element | null
+  target: Element | null,
+  lifetimeParent?: OwnershipRecord | null
 ): ComponentInstance {
   const parentInstance = getCurrentInstance();
   const portalScope = parentInstance?.portalScope ?? getCurrentPortalScope();
@@ -237,6 +240,14 @@ export function createComponentInstance(
   };
 
   instance._enqueueRun = enqueueComponentRun;
+
+  bindComponentOwnership(instance);
+  attachOwnership(
+    instance.ownership,
+    lifetimeParent === null
+      ? undefined
+      : (lifetimeParent ?? parentInstance?.ownership)
+  );
 
   return instance;
 }

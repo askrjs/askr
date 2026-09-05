@@ -2,14 +2,15 @@ import type { ComponentInstance } from './component-internal';
 import {
   cleanupComponent,
   cleanupComponentGeneration,
+  createComponentOwnership,
 } from './component-cleanup';
 import { cleanupReadableSubscriptionSources } from './readable';
 import {
   adjustOwnershipDiagnostic,
   trackRouteGeneration,
 } from './ownership-diagnostics';
-import { OwnershipRecord } from './ownership';
 import { getRuntimeRenderer } from './access';
+import { attachOwnership } from './ownership';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
@@ -25,7 +26,7 @@ export function restartComponentGeneration(
   fn: ComponentInstance['fn'],
   preserveState: boolean
 ): void {
-  instance.ownership = new OwnershipRecord();
+  instance.ownership = createComponentOwnership(instance);
   instance.fn = fn;
   instance.evaluationGeneration++;
   instance.expectedStateIndices = [];
@@ -93,9 +94,10 @@ export function captureComponentGeneration(
           '[Askr] component generation is no longer available for preparation'
         );
       }
-      const owner = new OwnershipRecord();
+      const owner = createComponentOwnership(instance);
       owner.mounted = snapshot.ownership.mounted;
       instance.ownership = owner;
+      attachOwnership(owner, snapshot.ownership.parent);
       instance.fn = fn;
       instance.props = props;
       instance.stateValues = [];

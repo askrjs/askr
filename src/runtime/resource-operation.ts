@@ -1,8 +1,6 @@
 import { ownCleanup } from './ownership';
-import {
-  getCurrentComponentInstance,
-  type ComponentInstance,
-} from './component';
+import { getCurrentComponentInstance } from './component-scope';
+import { type ComponentInstance } from './component-internal';
 import { getCurrentContextFrame } from './context';
 import { ResourceCell } from './resource-cell';
 import { state } from './state';

@@ -1,9 +1,12 @@
 import {
   componentRecordPrototype,
   OwnershipRecord,
+  getOwnedChildScopes,
+  setOwnedChildScopes,
 } from '../runtime/ownership';
 import type { ComponentInstance as ExecutionRecord } from '../runtime/component-internal';
 import type { RuntimeRendererHost } from './contracts/core';
+import { bindComponentOwnership } from '../runtime/component-cleanup';
 
 type ComponentInstance = NonNullable<
   Parameters<RuntimeRendererHost['evaluate']>[3]
@@ -13,7 +16,6 @@ const fields = {
   mounted: 'mounted',
   abortController: 'controller',
   cleanupFns: 'cleanups',
-  _ownedChildScopes: 'children',
   _lastReadSources: 'reads',
   _ownershipGeneration: 'identity',
 } as const;
@@ -31,6 +33,19 @@ for (const [field, member] of Object.entries(fields)) {
     },
   };
 }
+descriptors._ownedChildScopes = {
+  enumerable: true,
+  configurable: true,
+  get(this: ExecutionRecord) {
+    return getOwnedChildScopes(this.ownership);
+  },
+  set(
+    this: ExecutionRecord,
+    scopes: Set<import('../runtime/ownership').OwnedChildScope> | undefined
+  ) {
+    setOwnedChildScopes(this.ownership, scopes);
+  },
+};
 export function installOwnershipViews(): void {
   Object.defineProperties(componentRecordPrototype, descriptors);
 }
@@ -55,11 +70,12 @@ export function executionRecord(instance: ComponentInstance): ExecutionRecord {
     owner.mounted = instance.mounted;
     owner.controller = instance.abortController;
     owner.cleanups = instance.cleanupFns;
-    owner.children = instance._ownedChildScopes;
+    setOwnedChildScopes(owner, instance._ownedChildScopes);
     owner.reads =
       instance._lastReadSources as unknown as OwnershipRecord['reads'];
     owner.identity = instance._ownershipGeneration;
     record.ownership = owner;
+    bindComponentOwnership(record);
     componentView(record);
   }
   return record;

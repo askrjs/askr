@@ -3,7 +3,7 @@ import {
   cleanupComponent,
   createComponentInstance,
   renderComponentInline,
-} from '../../../src/runtime/component';
+} from '../../../src/runtime';
 import { captureComponentGeneration } from '../../../src/runtime/component-generation';
 import { createChildScope } from '../../../src/runtime/child-scope';
 import { commitLifecycleForInstance } from '../../../src/runtime/component-lifecycle';
@@ -16,7 +16,7 @@ describe('owner disposal', () => {
     cleanupComponent(scope.componentInstance);
     expect(scope.vnode).toBeUndefined();
     expect(scope.needsDomUpdate).toBe(false);
-    expect(parent.ownership.children?.size ?? 0).toBe(0);
+    expect(parent.ownership.firstOwnedChild ? 1 : 0).toBe(0);
     expect(() => scope.dispose()).not.toThrow();
     cleanupComponent(parent);
   });

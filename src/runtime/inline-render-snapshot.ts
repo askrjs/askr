@@ -1,6 +1,8 @@
 import type { Props } from '../common/props';
 import type { ContextFrame } from './context';
 import type { ComponentInstance } from './component-internal';
+import type { OwnershipRecord } from './ownership';
+import { adoptComponentParent } from './component-capabilities';
 
 export type InlineRenderSnapshot = {
   instance: ComponentInstance;
@@ -10,6 +12,7 @@ export type InlineRenderSnapshot = {
   ownerFrame: ContextFrame | null;
   portalScope: object | null;
   parentInstance: ComponentInstance | null;
+  parentLifetime: OwnershipRecord | undefined;
   isRoot: boolean | undefined;
   vnodeParentGeneration: object | undefined;
   // Ownership-identity fields mutated by setComponentOwnershipIdentity /
@@ -38,6 +41,7 @@ export function createInlineRenderSnapshot(
     ownerFrame: instance.ownerFrame,
     portalScope: instance.portalScope,
     parentInstance: instance.parentInstance,
+    parentLifetime: instance.ownership.parent,
     isRoot: instance.isRoot,
     vnodeParentGeneration: instance._vnodeParentGeneration,
     vnodeOwner: instance._vnodeOwner,
@@ -58,7 +62,11 @@ export function restoreInlineRenderSnapshot(
   snapshot.instance.firstRenderComplete = snapshot.firstRenderComplete;
   snapshot.instance.ownerFrame = snapshot.ownerFrame;
   snapshot.instance.portalScope = snapshot.portalScope;
-  snapshot.instance.parentInstance = snapshot.parentInstance;
+  adoptComponentParent(
+    snapshot.instance,
+    snapshot.parentInstance,
+    snapshot.parentLifetime ?? null
+  );
   snapshot.instance.isRoot = snapshot.isRoot;
   snapshot.instance._vnodeParentGeneration = snapshot.vnodeParentGeneration;
   snapshot.instance._vnodeOwner = snapshot.vnodeOwner;

@@ -13,7 +13,7 @@ import { For } from '../../../src/control';
 import {
   createComponentInstance,
   mountInstanceInline,
-} from '../../../src/runtime/component';
+} from '../../../src/runtime';
 import { _resetDefaultPortal } from '../../../src/foundations/structures/portal';
 import {
   createTestContainer,

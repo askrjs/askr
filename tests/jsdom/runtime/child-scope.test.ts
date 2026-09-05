@@ -4,7 +4,7 @@ import {
   cleanupComponent,
   createComponentInstance,
   renderScopedComponent,
-} from '../../../src/runtime/component';
+} from '../../../src/runtime';
 import {
   notifyReadableReaders,
   recordReadableRead,
@@ -43,7 +43,7 @@ describe('child scope runtime', () => {
     const scope = createChildScope(parent, 'row-1');
     scope.render(() => `${shared()}`);
 
-    expect(parent.ownership.children?.size ?? 0).toBe(1);
+    expect(parent.ownership.firstOwnedChild ? 1 : 0).toBe(1);
     expect(scope.componentInstance._pendingReadSources).toBeUndefined();
     expect(
       scope.componentInstance.ownership.reads?.has(
@@ -53,7 +53,7 @@ describe('child scope runtime', () => {
 
     cleanupComponent(parent);
 
-    expect(parent.ownership.children?.size ?? 0).toBe(0);
+    expect(parent.ownership.firstOwnedChild ? 1 : 0).toBe(0);
     expect(scope.vnode).toBeUndefined();
     expect(scope.dom).toBeUndefined();
     expect(scope.needsDomUpdate).toBe(false);

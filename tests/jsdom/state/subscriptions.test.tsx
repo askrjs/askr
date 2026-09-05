@@ -95,7 +95,7 @@ describe('state subscription invariants', () => {
 
     // Capture the child's instance (attached to its host element) for inspection
     type InstanceHost = Element & {
-      __ASKR_INSTANCE?: import('../../../src/runtime/component').ComponentInstance;
+      __ASKR_INSTANCE?: import('../../../src/runtime').ComponentInstance;
     };
     const childHost = Array.from(container.querySelectorAll('*')).find(
       (el) => (el as InstanceHost).__ASKR_INSTANCE !== undefined
@@ -115,8 +115,7 @@ describe('state subscription invariants', () => {
     // If cleanup didn't run, attempt manual cleanup to assert behavior
     if ((childInst!.ownership.reads?.size ?? 0) !== 0) {
       // Call cleanup to ensure we clear subscriptions
-      const { cleanupComponent } =
-        await import('../../../src/runtime/component');
+      const { cleanupComponent } = await import('../../../src/runtime');
       cleanupComponent(childInst!);
     }
 

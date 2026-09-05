@@ -4,7 +4,7 @@ import { hydrateSPA } from '../../../src/boot';
 import { derive, state } from '../../../src/index';
 import { createIsland } from '@askrjs/askr/boot';
 import { For } from '../../../src/control';
-import { cleanupComponent } from '../../../src/runtime/component';
+import { cleanupComponent } from '../../../src/runtime';
 import { renderToStringSync } from '../../../src/ssr';
 import {
   createTestContainer,
@@ -374,7 +374,7 @@ describe('derive reactivity', () => {
     flushScheduler();
 
     type InstanceHost = Element & {
-      __ASKR_INSTANCE?: import('../../../src/runtime/component').ComponentInstance;
+      __ASKR_INSTANCE?: import('../../../src/runtime').ComponentInstance;
     };
     const childHost = container.querySelector('#child') as InstanceHost | null;
     const childInstance = childHost?.__ASKR_INSTANCE ?? null;

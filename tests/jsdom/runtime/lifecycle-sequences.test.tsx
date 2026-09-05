@@ -9,7 +9,7 @@ import { resource, task } from '../../../src/runtime/operations';
 import {
   cleanupComponent,
   createComponentInstance,
-} from '../../../src/runtime/component';
+} from '../../../src/runtime';
 import { enqueueRuntimeLane } from '../../../src/runtime/access';
 import { state, type State } from '../../../src/runtime/state';
 import { Portal, _resetDefaultPortal } from '../../../src/runtime/portal';
