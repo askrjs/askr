@@ -6,7 +6,56 @@ import {
   type DOMRendererHost,
   type DOMComponentOwner,
   type DOMReactiveSource,
+  state,
+  type State,
 } from '../../../src';
+import { createIsland } from '../../../test-utils/render/create-island';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
+
+test('should preserve owner handles and DOM identity across rerenders and legacy host replacement', () => {
+  const runtime = getDefaultRuntime();
+  const original = runtime.renderer;
+  const owners: DOMComponentOwner[] = [];
+  const adapter = createDOMRendererHost((native) => ({
+    ...native,
+    evaluation: {
+      ...native.evaluation,
+      replaceComponentRange(owner, result, host) {
+        owners.push(owner);
+        return native.evaluation.replaceComponentRange(owner, result, host);
+      },
+    },
+  }));
+  const { container, cleanup } = createTestContainer();
+  let value!: State<number>;
+  function Counter() {
+    value = state(0);
+    return <button>{value()}</button>;
+  }
+  try {
+    runtime.configureRenderer(adapter);
+    createIsland({ root: container, component: Counter });
+    flushScheduler();
+    const button = container.querySelector('button');
+    for (const host of [adapter, original, adapter]) {
+      runtime.configureRenderer(host);
+      value.set(value() + 1);
+      flushScheduler();
+      expect(container.querySelector('button')).toBe(button);
+    }
+    expect(button?.textContent).toBe('3');
+    expect(owners.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(owners).size).toBe(1);
+    expect(Object.isFrozen(owners[0])).toBe(true);
+    expect(Reflect.ownKeys(owners[0])).toEqual([]);
+  } finally {
+    cleanup();
+    runtime.configureRenderer(original);
+  }
+});
 
 test('should construct without installation and preserve late role replacement and receivers', () => {
   const original = getDefaultRuntime().renderer;
