@@ -5,7 +5,7 @@ The historical audit remains in `solid-audit-2026-09-05.md`; source links now
 target that immutable revision so structural moves do not change its evidence.
 
 All nineteen findings are implemented and reviewed. Final performance
-qualification awaits finer clock resolution for two short browser rows.
+qualification passes; see [accepted evidence](../benchmarks/solid-accepted-497b494.json).
 The history below retains earlier failures and pending outcomes as recorded.
 
 | Finding | Implementation status                                                                                                       |
@@ -205,6 +205,33 @@ source and harness revisions, run links, all comparison medians, quality checks,
 residual drift, and the new SSR captures. It references the retained full
 captures for unchanged comparisons and identifies the two pending rows. This
 scope does not claim a final rerun of all 93 initial rows.
+
+## Final performance acceptance
+
+The precise-clock comparisons at `497b494` pass: partial table update is
+unchanged and attribute-heavy SSR improves 0.39%. All eighteen new captures pass
+sample quality, and every hosted preflight records isolation with a 0.005 ms
+clock step. That is at most 1.18% of the shortest capture median. The other
+browser guardrails already span enough ticks; the shortest is 3.6 ms with
+0.1 ms steps. Original coarse-clock results remain diagnostic evidence.
+
+The accepted set combines fifteen unchanged original-main comparisons and the
+optimization comparison at `700cd40`, the longer SSR comparison at `b10860c`,
+and these two precise-clock comparisons. Runtime sources and dependencies are
+identical across those candidates. Each paired job uses the same measurement
+mode, harness, and host for its baseline, control, and candidate; results are
+never compared across clock modes. All 171 accepted captures meet quality
+requirements, all twelve stable guardrails and six affected diagnostics remain
+within the 5% regression limit, and the separate optimization comparison gains
+8.50%. The largest original-main regression is 2.66%.
+
+[Final evidence](../benchmarks/solid-accepted-497b494.json) preserves exact
+revisions, source-equivalence checks, run links, raw capture references, and
+clock probes. Residual source-series drift, including 5.43% in the latest
+attribute-heavy SSR control, remains disclosed after the investigation and
+cleaner recaptures described above. All earlier rejected evidence is retained;
+no threshold, workload label, operation, reset, batch, or runtime version was
+changed to obtain acceptance.
 
 ## Governance coverage
 
