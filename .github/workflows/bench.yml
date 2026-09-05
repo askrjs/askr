@@ -34,6 +34,11 @@ on:
         description: Optional repository-relative benchmark filename for recaptures
         required: false
         type: string
+      precise_clock:
+        description: Enable and verify finer browser timing with cross-origin isolation
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -46,8 +51,15 @@ jobs:
     env:
       BENCH_PATTERN: ${{ inputs.pattern || '.*' }}
       BENCH_FILE: ${{ inputs.file || '.' }}
+      ASKR_BENCH_PRECISE_CLOCK: ${{ inputs.precise_clock && '1' || '0' }}
 
     steps:
+      - name: Require a shared harness for precise-clock comparisons
+        if: inputs.precise_clock && inputs.baseline != '' && inputs.harness == ''
+        run: |
+          printf '%s\n' 'Precise-clock baseline comparisons require a shared harness revision.' >&2
+          exit 1
+
       - name: Checkout repository
         uses: actions/checkout@v7
 
@@ -78,6 +90,7 @@ jobs:
           printf '%s\n' "runner_image_version=${ImageVersion:-unknown}" >> bench-results/provenance.txt
           printf '%s\n' 'instrumentation=disabled' >> bench-results/provenance.txt
           printf '%s\n' "file_filter=$BENCH_FILE" >> bench-results/provenance.txt
+          printf '%s\n' "precise_clock=$ASKR_BENCH_PRECISE_CLOCK" >> bench-results/provenance.txt
 
       - name: Verify the candidate uses the shared benchmark harness
         if: inputs.harness != ''
@@ -85,7 +98,7 @@ jobs:
           BENCH_HARNESS_REF: ${{ inputs.harness }}
         run: |
           git fetch --depth=1 origin "$BENCH_HARNESS_REF"
-          git diff --exit-code FETCH_HEAD -- benches
+          git diff --exit-code FETCH_HEAD -- benches vitest.bench.shared.ts vitest.bench.tier3.config.ts vitest.bench.tier4.config.ts tests/setup-bench-env.ts
           git rev-parse FETCH_HEAD > bench-results/candidate-harness-provenance.txt
 
       - name: Checkout comparison baseline
@@ -108,8 +121,8 @@ jobs:
         run: |
           git fetch --depth=1 origin "$BENCH_HARNESS_REF"
           git rev-parse FETCH_HEAD > ../bench-results/harness-provenance.txt
-          git restore --source=FETCH_HEAD -- benches
-          git diff -- benches > ../bench-results/baseline-harness.diff
+          git restore --source=FETCH_HEAD -- benches vitest.bench.shared.ts vitest.bench.tier3.config.ts vitest.bench.tier4.config.ts tests/setup-bench-env.ts
+          git diff -- benches vitest.bench.shared.ts vitest.bench.tier3.config.ts vitest.bench.tier4.config.ts tests/setup-bench-env.ts > ../bench-results/baseline-harness.diff
 
       - name: Record baseline provenance
         if: inputs.baseline != ''

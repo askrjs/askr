@@ -29,6 +29,20 @@ unchanged by this option. Optional `control` captures repeat the baseline before
 each candidate to measure variation. Compare the candidate against the lower
 of the two baseline medians of three, retaining every control and candidate.
 
+For short browser workloads whose durations span too few clock ticks, opt into
+`precise_clock` in the workflow, or set `ASKR_BENCH_PRECISE_CLOCK=1` locally.
+This sets COOP `same-origin` and COEP `require-corp` response headers for browser
+tiers 3 and 4. Their setup preflight requires `crossOriginIsolated` and a measured
+positive clock step no greater than 0.01 ms, before importing the workload.
+The workflow records the mode in provenance; the preflight logs the observed
+step. For baseline comparisons, provide the shared `harness` revision so its
+browser configuration and setup preflight are installed on both sources as well
+as the benchmark files. Compare all baseline, control, and candidate captures in
+the same clock mode. Default captures retain their existing browser settings;
+workload labels, operations, resets, batches, browser versions, and acceptance
+thresholds remain unchanged. Chromium documents finer timer resolution under
+[cross-origin isolation](https://developer.chrome.com/blog/cross-origin-isolated-hr-timers/).
+
 ## Acceptance Rules
 
 - A benchmark is eligible for tuning only after repeat captures consistently show at

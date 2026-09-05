@@ -4,6 +4,10 @@ Baseline: `aa45809160de0127f1548761dda8261a5baad2cb`.
 The historical audit remains in `solid-audit-2026-09-05.md`; source links now
 target that immutable revision so structural moves do not change its evidence.
 
+All nineteen findings are implemented and reviewed. Final performance
+qualification awaits finer clock resolution for two short browser rows.
+The history below retains earlier failures and pending outcomes as recorded.
+
 | Finding | Implementation status                                                                                                       |
 | ------- | --------------------------------------------------------------------------------------------------------------------------- |
 | F01     | Workers drain before rejection; lock serialization and initiating-error regressions added.                                  |
@@ -167,6 +171,40 @@ cleaner conditions. The runner investigation and filename-filtered recaptures
 complete that response. Remaining source-series drift and coarse browser timer
 steps remain disclosed in the artifacts; they do not change the required 5%
 regression limit, 5% optimization gain, or sample-quality rules.
+
+## SSR qualification and clock resolution
+
+The longer SSR layout comparison at `b10860c` passes at +2.0540%. All nine
+captures contain 100,000 samples and meet quality rules; maximum RME is 8.09%.
+Candidate, baseline, and control median drift is 0.91%, 1.39%, and 3.85%.
+The earlier +5.078935% failure remains preserved. This recapture changes only
+the sample minimum, equally for all sources, with the same workload and reset.
+
+Runtime sources, dependencies, runner configuration, and other benchmark files
+are identical between `700cd40` and `b10860c`. Combining the unchanged comparisons
+with the new SSR result gives 171 captures that pass sample-count, RME, and tail
+rules. All eighteen original-main numerical deltas remain within 5%; the largest
+regression is 2.66%. Selected and unselected resize improve 9.46% and 5.09%,
+and the separate pre-optimization comparison improves 8.50%.
+
+Final evidence review identified a separate clock-resolution requirement in the
+benchmark index. Partial table update and attribute-heavy SSR have medians of
+0.4 and 1.3 ms with 0.1 ms timer steps. Those steps exceed 5% of the measured
+duration, so their displayed 0% deltas remain diagnostic. Qualification requires
+finer-resolution captures of the unchanged operations on both sources.
+
+The opt-in precise-clock mode supplies identical cross-origin isolation headers
+to the baseline and candidate browser harnesses. A preflight records isolation
+and the observed clock step before measuring; paired runs require the shared
+harness. Local characterization first rejected the original non-isolated
+0.1 ms clock, then passed at 0.005 ms in both browser tiers. Default mode also
+passes. Workload labels, batches, resets, and browser versions remain unchanged.
+
+[SSR qualification evidence](../benchmarks/solid-ssr-qualified-b10860c.json) records exact
+source and harness revisions, run links, all comparison medians, quality checks,
+residual drift, and the new SSR captures. It references the retained full
+captures for unchanged comparisons and identifies the two pending rows. This
+scope does not claim a final rerun of all 93 initial rows.
 
 ## Governance coverage
 
