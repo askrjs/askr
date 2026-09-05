@@ -2,6 +2,11 @@
 
 SSG is an advanced build-time feature for teams that need pre-rendered HTML output.
 
+If a file worker fails, generation stops dequeuing writes and waits for every
+started worker before rejecting with the initiating error. Already-started
+writes may finish. Staging cleanup and output-lock release wait for draining;
+cleanup failures do not replace the initiating error.
+
 Use Static Site Generation (SSG) to pre-render Askr routes into `.html` files at build time.
 
 SSG can await build-time route expansion such as `entries()`, but each page is

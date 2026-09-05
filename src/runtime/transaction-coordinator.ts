@@ -20,6 +20,7 @@ export interface CommitParticipant {
   /** Integration publication that must wait for all lifecycle callbacks. */
   complete?(): void;
   rollback?(): void;
+  collision?: 'keep-first';
   merge?(parent: CommitParticipant): void;
 }
 
@@ -91,26 +92,48 @@ export class CommitCoordinator {
 
   register(participant: CommitParticipant): boolean {
     if (!this.frame?.active) return false;
-    this.add(this.frame, participant, false);
+    this.add(this.frame, participant);
     return true;
   }
 
   private add(
     transaction: CommitTransaction,
-    participant: CommitParticipant,
-    merge: boolean
+    participant: CommitParticipant
   ): void {
     if (participant.key) {
       let index = transaction.index.get(participant.kind);
       if (!index) transaction.index.set(participant.kind, (index = new Map()));
       const previous = index.get(participant.key);
       if (previous) {
-        if (merge) participant.merge?.(previous);
+        this.validateCollision(previous, participant);
+        if (previous === participant || participant.collision === 'keep-first')
+          return;
+        try {
+          participant.merge!(previous);
+        } catch (error) {
+          transaction.participants.push(participant);
+          this.discard(transaction);
+          throw error;
+        }
         return;
       }
       index.set(participant.key, participant);
     }
     transaction.participants.push(participant);
+  }
+
+  private validateCollision(
+    previous: CommitParticipant,
+    participant: CommitParticipant
+  ): void {
+    if (
+      previous !== participant &&
+      participant.collision !== 'keep-first' &&
+      !participant.merge
+    )
+      throw new Error(
+        '[Askr] Participant collision requires merge or keep-first.'
+      );
   }
 
   suspend(transaction: CommitTransaction): void {
@@ -167,8 +190,43 @@ export class CommitCoordinator {
     if (!transaction.active) return;
     const parent = transaction.parent;
     if (parent?.active) {
-      for (const participant of transaction.participants)
-        this.add(parent, participant, true);
+      for (const participant of transaction.participants) {
+        const previous = participant.key
+          ? parent.participant(participant.key, participant.kind)
+          : undefined;
+        if (previous) this.validateCollision(previous, participant);
+      }
+      try {
+        for (const participant of transaction.participants) {
+          const previous = participant.key
+            ? parent.participant(participant.key, participant.kind)
+            : undefined;
+          if (
+            previous &&
+            previous !== participant &&
+            participant.collision !== 'keep-first'
+          )
+            participant.merge!(previous);
+        }
+      } catch (error) {
+        // An identical participant registered in both frames still has one
+        // rollback owner. The parent drains it after child-only work.
+        for (let index = transaction.participants.length - 1; index >= 0; index--) {
+          const participant = transaction.participants[index];
+          if (participant.key && parent.participant(participant.key, participant.kind) === participant)
+            transaction.participants.splice(index, 1);
+        }
+        this.discard(transaction);
+        this.discard(parent);
+        throw error;
+      }
+      for (const participant of transaction.participants) {
+        if (
+          !participant.key ||
+          !parent.participant(participant.key, participant.kind)
+        )
+          this.add(parent, participant);
+      }
       for (const [key, value] of transaction.resources) {
         if (!parent.resources.has(key)) parent.resources.set(key, value);
       }
