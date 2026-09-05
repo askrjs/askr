@@ -1,6 +1,51 @@
 import { expect, test, vi } from 'vite-plus/test';
 import { createDOMNode } from '../../../src/renderer/dom-internal';
 import { tryPatchStableForDirtyItem } from '../../../src/renderer/stable-patch';
+import { For } from '../../../src/control';
+import { state, type State } from '../../../src';
+import { createIsland } from '../../../test-utils/render/create-island';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
+
+test('should execute a component exactly once when a dirty intrinsic row falls back to synchronization', () => {
+  const { container, cleanup } = createTestContainer();
+  let phase!: State<number>;
+  let executions = 0;
+  function Child({ value }: { value: number }) {
+    executions += 1;
+    return <span>{value}</span>;
+  }
+  function App() {
+    phase = state(0);
+    const rows = state([1]);
+    return (
+      <For each={rows} by={(row) => row}>
+        {() => {
+          const value = phase();
+          return (
+            <div>{value ? <Child value={value} /> : <span>initial</span>}</div>
+          );
+        }}
+      </For>
+    );
+  }
+  try {
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    phase.set(1);
+    flushScheduler();
+    expect(executions).toBe(1);
+    expect(container.textContent).toBe('1');
+    phase.set(2);
+    flushScheduler();
+    expect(executions).toBe(2);
+    expect(container.textContent).toBe('2');
+  } finally {
+    cleanup();
+  }
+});
 
 test('should declining a stable patch leaves the existing attributes and text unchanged', () => {
   const dom = createDOMNode(
@@ -19,6 +64,52 @@ test('should declining a stable patch leaves the existing attributes and text un
   });
   expect(patched).toBe(false);
   expect(dom.outerHTML).toBe(before);
+});
+
+test('should roll back a supported intrinsic patch when a DOM property operation throws', () => {
+  const { container, cleanup } = createTestContainer();
+  let phase!: State<string>;
+  const failure = new Error('DOM application failed');
+  function App() {
+    phase = state('initial');
+    const rows = state([1]);
+    return (
+      <For each={rows} by={(row) => row}>
+        {() => {
+          const value = phase();
+          return (
+            <button data-phase={value} title={value}>
+              {value}
+            </button>
+          );
+        }}
+      </For>
+    );
+  }
+  try {
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const button = container.querySelector('button');
+    const before = container.innerHTML;
+    const setAttribute = button!.setAttribute;
+    const applying = vi
+      .spyOn(button!, 'setAttribute')
+      .mockImplementation(function (name, value) {
+        if (name === 'title' && value === 'broken') throw failure;
+        setAttribute.call(this, name, value);
+      });
+    phase.set('broken');
+    expect(() => flushScheduler()).toThrow(failure);
+    expect(container.innerHTML).toBe(before);
+    expect(container.querySelector('button')).toBe(button);
+    phase.set('recovered');
+    flushScheduler();
+    expect(button?.textContent).toBe('recovered');
+    expect(button?.title).toBe('recovered');
+    applying.mockRestore();
+  } finally {
+    cleanup();
+  }
 });
 
 test('should decline components and incompatible descendants without refs or component execution', () => {
