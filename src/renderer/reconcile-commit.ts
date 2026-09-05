@@ -1,4 +1,4 @@
-import { teardownNodeSubtree } from './cleanup';
+import { retireNodeSubtree } from './cleanup';
 import { recordDOMReplace } from './utils';
 
 export function commitReconciliation(
@@ -11,7 +11,7 @@ export function commitReconciliation(
     for (let n = parent.firstChild; n;) {
       const next = n.nextSibling;
       if (!finalSet.has(n)) {
-        teardownNodeSubtree(n);
+        retireNodeSubtree(n);
         parent.removeChild(n);
       }
       n = next;
@@ -33,7 +33,7 @@ export function commitReconciliation(
     try {
       for (let n = parent.firstChild; n;) {
         const next = n.nextSibling;
-        teardownNodeSubtree(n);
+        retireNodeSubtree(n);
         n = next;
       }
     } catch {

@@ -5,19 +5,19 @@ import {
   createComponentInstance,
 } from '../../../src/runtime/component';
 import {
-  enterBulkCommit,
-  exitBulkCommit,
-  isBulkCommitActive,
-} from '../../../src/runtime/fastlane';
+  beginCommitTransaction,
+  commitTransaction,
+  getCurrentCommitTransaction,
+} from '../../../src/runtime/transaction-access';
 import { state, type State } from '../../../src/runtime/state';
 import * as readable from '../../../src/runtime/readable';
 
-describe('state.set() during an active bulk commit', () => {
+describe('state.set() during an active transaction', () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('should defer reader notifications until the bulk commit exits', () => {
+  it('should defer reader notifications until the transaction exits', () => {
     const parent = createComponentInstance('parent', () => null, {}, null);
     const scope = createChildScope(parent, 'cell');
     let counter!: State<number>;
@@ -34,7 +34,8 @@ describe('state.set() during an active bulk commit', () => {
     );
     const markPropsSpy = vi.spyOn(readable, 'markReactivePropsDirtySource');
 
-    enterBulkCommit();
+    const transaction1 = beginCommitTransaction();
+    transaction1.deferNotifications = true;
     try {
       counter.set(1);
       counter.set(2);
@@ -44,7 +45,7 @@ describe('state.set() during an active bulk commit', () => {
       expect(markDerivedSpy).not.toHaveBeenCalled();
       expect(markPropsSpy).not.toHaveBeenCalled();
     } finally {
-      exitBulkCommit();
+      commitTransaction(transaction1);
     }
 
     expect(notifySpy).toHaveBeenCalledTimes(1);
@@ -55,7 +56,7 @@ describe('state.set() during an active bulk commit', () => {
   });
 
   it.each(['development', 'production'] as const)(
-    'should replay bulk-commit writes in %s mode',
+    'should replay transaction writes in %s mode',
     (environment) => {
       const previousEnvironment = process.env.NODE_ENV;
       process.env.NODE_ENV = environment;
@@ -70,12 +71,13 @@ describe('state.set() during an active bulk commit', () => {
       const notifySpy = vi.spyOn(readable, 'notifyReadableReaders');
 
       try {
-        enterBulkCommit();
+        const transaction2 = beginCommitTransaction();
+        transaction2.deferNotifications = true;
         try {
           counter.set(1);
           expect(notifySpy).not.toHaveBeenCalled();
         } finally {
-          exitBulkCommit();
+          commitTransaction(transaction2);
         }
 
         expect(counter()).toBe(1);
@@ -103,11 +105,12 @@ describe('state.set() during an active bulk commit', () => {
 
     const notifySpy = vi.spyOn(readable, 'notifyReadableReaders');
 
-    enterBulkCommit();
+    const transaction3 = beginCommitTransaction();
+    transaction3.deferNotifications = true;
     try {
       counter.set(0);
     } finally {
-      exitBulkCommit();
+      commitTransaction(transaction3);
     }
 
     expect(notifySpy).not.toHaveBeenCalled();
@@ -115,7 +118,7 @@ describe('state.set() during an active bulk commit', () => {
     cleanupComponent(parent);
   });
 
-  it('should retain deferred writes until the outermost bulk commit exits', () => {
+  it('should retain deferred writes until the outermost transaction exits', () => {
     const parent = createComponentInstance('parent', () => null, {}, null);
     const scope = createChildScope(parent, 'cell');
     let outerCounter!: State<number>;
@@ -130,24 +133,26 @@ describe('state.set() during an active bulk commit', () => {
 
     const notifySpy = vi.spyOn(readable, 'notifyReadableReaders');
 
-    enterBulkCommit();
+    const transaction4 = beginCommitTransaction();
+    transaction4.deferNotifications = true;
     try {
       outerCounter.set(1);
-      enterBulkCommit();
+      const transaction5 = beginCommitTransaction();
+      transaction5.deferNotifications = true;
       try {
         innerCounter.set(1);
       } finally {
-        exitBulkCommit();
+        commitTransaction(transaction5);
       }
 
-      expect(isBulkCommitActive()).toBe(true);
+      expect(getCurrentCommitTransaction() !== null).toBe(true);
       expect(notifySpy).not.toHaveBeenCalled();
       outerCounter.set(2);
     } finally {
-      exitBulkCommit();
+      commitTransaction(transaction4);
     }
 
-    expect(isBulkCommitActive()).toBe(false);
+    expect(getCurrentCommitTransaction() !== null).toBe(false);
     expect(notifySpy).toHaveBeenCalledTimes(2);
 
     cleanupComponent(parent);

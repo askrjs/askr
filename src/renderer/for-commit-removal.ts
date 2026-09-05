@@ -4,7 +4,7 @@ import {
   recordBenchTiming,
   withBenchMetricScope,
 } from '../runtime';
-import { teardownNodeSubtree } from './cleanup';
+import { retireNodeSubtree } from './cleanup';
 
 declare const __ASKR_BENCH_BUILD__: boolean;
 
@@ -35,7 +35,7 @@ export function removeForBoundaryNodes(
           if (BENCH_BUILD_ENABLED) {
             recordBenchEvent('domRemove');
           }
-          teardownNodeSubtree(removedNodes[i]);
+          retireNodeSubtree(removedNodes[i]);
         }
       } else if (BENCH_BUILD_ENABLED) {
         recordBenchEvent('domRemove', removedNodes.length);
@@ -65,7 +65,7 @@ export function removeForBoundaryNodes(
         recordBenchEvent('domRemove');
       }
       if (shouldTeardown) {
-        teardownNodeSubtree(node);
+        retireNodeSubtree(node);
       }
       parent.removeChild(node);
     }

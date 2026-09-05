@@ -1,17 +1,20 @@
 import { writeScopeHost } from './scope-host';
+import { joinChildScopePreparation } from '../runtime/child-scope';
 import type { DOMRange } from '../common/dom-range';
 import {
   enterDomCommitScope,
-  registerLifecycleTransaction,
   restoreDomCommitScope,
   type ChildScope,
   type ComponentFunction,
 } from '../runtime';
+import { registerCommitParticipant } from '../runtime/transaction-access';
 import {
   findRangeEnd,
   insertRangeBefore,
   isRangeStart,
   removeRange,
+  getRangeNodes,
+  clearRangeOwner,
 } from './dom-range';
 import {
   adoptHydratedRange,
@@ -37,6 +40,7 @@ export function syncControlBoundaryScopeDom(
   allowHydrationAdoption = true,
   insertDetached = true
 ): DOMRange | null {
+  joinChildScopePreparation(scope);
   const previousInstance = enterDomCommitScope(scope.componentInstance);
   try {
     const currentRange = getScopeRange(scope);
@@ -155,22 +159,44 @@ export function syncControlBoundaryScopeDom(
     const previousDom = scope.dom;
     const previousParent = previousRange.start.parentNode;
     const previousNextSibling = previousRange.end.nextSibling;
-    const registered = registerLifecycleTransaction(
-      {},
-      () => removeRange(previousRange, teardownBoundaryRangeNode),
-      () => {
+    const previousNodes = previousRange.single
+      ? [previousRange.start]
+      : [
+          previousRange.start,
+          ...getRangeNodes(previousRange),
+          previousRange.end,
+        ];
+    const registered = registerCommitParticipant({
+      apply: () => {
+        for (const node of previousNodes) node.parentNode?.removeChild(node);
+      },
+      settle: () => {
+        const errors: unknown[] = [];
+        clearRangeOwner(previousRange);
+        for (const node of previousNodes) {
+          try {
+            teardownBoundaryRangeNode(node);
+          } catch (error) {
+            errors.push(error);
+          }
+        }
+        if (errors.length)
+          throw new AggregateError(errors, 'Boundary retirement failed');
+      },
+      rollback: () => {
         removeRange(nextRange, teardownBoundaryRangeNode);
-        if (previousParent && !previousRange.start.parentNode) {
-          previousParent.insertBefore(
-            previousRange.start,
-            previousNextSibling?.parentNode === previousParent
-              ? previousNextSibling
-              : null
-          );
+        if (previousParent) {
+          for (const node of previousNodes)
+            previousParent.insertBefore(
+              node,
+              previousNextSibling?.parentNode === previousParent
+                ? previousNextSibling
+                : null
+            );
         }
         writeScopeHost(scope, previousRange, previousDom);
-      }
-    );
+      },
+    });
 
     if (
       previousRange.single &&

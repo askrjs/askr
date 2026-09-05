@@ -1,7 +1,13 @@
 import { bindComponentHost, writeHostOwners } from './dom-ownership';
+import { runRetainedElementUpdate } from './retained-element-rollback';
+import { teardownNodeSubtree } from './cleanup';
+import {
+  registerCommitParticipant,
+  registerCommitRollback,
+} from '../runtime/transaction-access';
 import {
   mountInstanceInline,
-  registerLifecycleTransaction,
+  registerCommitEffect,
   type ComponentInstance,
 } from '../runtime';
 import { __CONTROL_BOUNDARY__ } from '../common/vnode';
@@ -301,7 +307,7 @@ export function adoptHydratedComponentRange(
   instance._placeholder = start;
   mountInstanceInline(instance, null);
 
-  const registered = registerLifecycleTransaction(
+  const registered = registerCommitEffect(
     {},
     () => {},
     () => {
@@ -372,7 +378,7 @@ export function adoptMarkedHydratedComponentRange(
     }
     writeHostOwners(host, previousInstances, previousInstance, true, true);
   };
-  const registered = registerLifecycleTransaction({}, () => {}, rollback);
+  const registered = registerCommitEffect({}, () => {}, rollback);
 
   try {
     if (
@@ -459,17 +465,41 @@ export function syncTransparentRange(
     current = next;
   }
 
-  const rollbackStaging = registerLifecycleTransaction(
-    {},
-    () => {},
-    () => unwrapStagingHost(staging, parent, restoreFocus)
-  );
+  const previousNodes = Array.from(staging.childNodes);
+  const rollbackStaging = registerCommitRollback(() => {
+    const retained = new Set(previousNodes);
+    let current = range.start.nextSibling;
+    const errors: unknown[] = [];
+    while (current && current !== range.end) {
+      const next = current.nextSibling;
+      if (
+        current !== staging &&
+        !retained.has(current) &&
+        (!preserveForeignHosts || !isAutomaticPortalHost(current))
+      ) {
+        try {
+          teardownNodeSubtree(current);
+        } catch (error) {
+          errors.push(error);
+        }
+        current.parentNode?.removeChild(current);
+      }
+      current = next;
+    }
+    for (const node of previousNodes) parent.insertBefore(node, range.end);
+    staging.remove();
+    restoreFocus();
+    if (errors.length)
+      throw new AggregateError(errors, 'Fragment restoration failed');
+  });
 
   try {
-    getRendererDOMHost().updateElementChildren(
-      staging,
-      normalizedChildren,
-      forceUpdate
+    runRetainedElementUpdate(staging, teardownNodeSubtree, () =>
+      getRendererDOMHost().updateElementChildren(
+        staging,
+        normalizedChildren,
+        forceUpdate
+      )
     );
   } catch (error) {
     if (!rollbackStaging) {
@@ -479,11 +509,9 @@ export function syncTransparentRange(
   }
 
   if (
-    !registerLifecycleTransaction(
-      {},
-      () => unwrapStagingHost(staging, parent, restoreFocus),
-      () => {}
-    )
+    !registerCommitParticipant({
+      apply: () => unwrapStagingHost(staging, parent, restoreFocus),
+    })
   ) {
     unwrapStagingHost(staging, parent, restoreFocus);
   }

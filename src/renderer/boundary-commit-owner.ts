@@ -1,9 +1,9 @@
 import {
-  beginLifecycleCommitBatch,
-  discardLifecycleCommitBatch,
+  beginCommitTransaction,
+  discardTransaction,
   enqueueRuntimeTask,
-  flushLifecycleCommitBatch,
-  registerLifecycleRollback,
+  commitTransaction,
+  registerCommitRollback,
   type ControlBoundaryState,
 } from '../runtime';
 import { getControlBoundaryCommitChildren } from './boundary-state';
@@ -81,13 +81,13 @@ function assignControlBoundaryCommitOwner(
         return;
       }
 
-      const lifecycleBatch = beginLifecycleCommitBatch();
+      const lifecycleBatch = beginCommitTransaction();
       try {
         const childrenVNodes = getControlBoundaryCommitChildren(controlState);
         getCommitBoundaryChildren()(parent, controlState, childrenVNodes);
-        flushLifecycleCommitBatch(lifecycleBatch);
+        commitTransaction(lifecycleBatch);
       } catch (error) {
-        discardLifecycleCommitBatch(lifecycleBatch);
+        discardTransaction(lifecycleBatch);
         throw error;
       }
     });
@@ -102,7 +102,7 @@ export function clearControlBoundaryCommitOwner(parent: Element): void {
     return;
   }
 
-  registerLifecycleRollback(() => {
+  registerCommitRollback(() => {
     if (!controlBoundaryOwners.has(parent)) {
       assignControlBoundaryCommitOwner(parent, owner);
     }
@@ -121,7 +121,7 @@ export function registerControlBoundaryCommitOwner(
 
   const ownerState = controlState as BoundaryCommitOwnerState;
   const previousParent = ownerState._commitOwner;
-  registerLifecycleRollback(() => {
+  registerCommitRollback(() => {
     if (controlBoundaryOwners.get(parent) !== controlState) {
       return;
     }
@@ -172,12 +172,12 @@ export function registerControlBoundaryRangeCommitOwner(
         return;
       }
 
-      const lifecycleBatch = beginLifecycleCommitBatch();
+      const lifecycleBatch = beginCommitTransaction();
       try {
         commitRange();
-        flushLifecycleCommitBatch(lifecycleBatch);
+        commitTransaction(lifecycleBatch);
       } catch (error) {
-        discardLifecycleCommitBatch(lifecycleBatch);
+        discardTransaction(lifecycleBatch);
         throw error;
       }
     });
@@ -186,7 +186,7 @@ export function registerControlBoundaryRangeCommitOwner(
   controlState._enqueueBoundaryCommit = enqueueRangeCommit;
   controlState._hasPendingBoundaryCommit = false;
 
-  registerLifecycleRollback(() => {
+  registerCommitRollback(() => {
     if (controlState._enqueueBoundaryCommit !== enqueueRangeCommit) {
       return;
     }

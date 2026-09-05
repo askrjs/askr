@@ -6,7 +6,7 @@ import {
 } from '../../../src/runtime/component';
 import { captureComponentGeneration } from '../../../src/runtime/component-generation';
 import { createChildScope } from '../../../src/runtime/child-scope';
-import { executeCommittedLifecycleOperations } from '../../../src/runtime/lifecycle-operation-settlement';
+import { commitLifecycleForInstance } from '../../../src/runtime/component-lifecycle';
 
 describe('owner disposal', () => {
   it('should release a child scope when its component is disposed directly', () => {
@@ -62,7 +62,7 @@ describe('owner disposal', () => {
         };
       },
     ];
-    executeCommittedLifecycleOperations(instance, true);
+    commitLifecycleForInstance(instance, true);
     expect(events).toEqual(['retired']);
     expect(instance.ownership.cleanups).toBeUndefined();
     cleanupComponent(instance);
@@ -121,7 +121,7 @@ describe('owner disposal', () => {
         };
       },
     ];
-    executeCommittedLifecycleOperations(instance, true);
+    commitLifecycleForInstance(instance, true);
     expect(events).toEqual(['mount', 'cleanup']);
     expect(instance.ownership.cleanups).toBeUndefined();
     cleanupComponent(instance);

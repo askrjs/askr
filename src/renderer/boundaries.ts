@@ -2,7 +2,7 @@ import { __CONTROL_BOUNDARY__ } from '../common/vnode';
 import type { ComponentFunction, ComponentInstance } from '../runtime';
 import { type ControlBoundaryState } from '../runtime';
 import { recordBenchEvent } from '../runtime';
-import { teardownNodeSubtree } from './cleanup';
+import { retireNodeSubtree } from './cleanup';
 import { getRuntimeEnv } from './env';
 import { commitForStateBoundaryChildren } from './for-commit';
 import { keyedElements } from './keyed';
@@ -124,7 +124,7 @@ export function commitForBoundaryChildren(
 
     for (const removedRange of controlState.lastRemovedRanges) {
       removeRange(removedRange, (node) => {
-        teardownNodeSubtree(node);
+        retireNodeSubtree(node);
         node.parentNode?.removeChild(node);
       });
     }
@@ -134,7 +134,7 @@ export function commitForBoundaryChildren(
       // Empty components are represented by comment hosts carrying their
       // component instance. Teardown handles both element and comment hosts,
       // so every removed boundary node must pass through it.
-      teardownNodeSubtree(removedNode);
+      retireNodeSubtree(removedNode);
       if (removedNode.parentNode === parent) {
         recordBenchEvent('domRemove');
         parent.removeChild(removedNode);
@@ -195,7 +195,7 @@ export function trySyncControlBoundaryChild(
 
   for (const removedRange of controlState.lastRemovedRanges) {
     removeRange(removedRange, (node) => {
-      teardownNodeSubtree(node);
+      retireNodeSubtree(node);
       node.parentNode?.removeChild(node);
     });
   }
@@ -206,7 +206,7 @@ export function trySyncControlBoundaryChild(
       continue;
     }
 
-    teardownNodeSubtree(removedNode);
+    retireNodeSubtree(removedNode);
     if (
       nextDom &&
       !rangeContains(nextDom, removedNode) &&
@@ -223,14 +223,14 @@ export function trySyncControlBoundaryChild(
       currentNode?.parentNode === parent &&
       !rangeContains(nextDom, currentNode)
     ) {
-      teardownNodeSubtree(currentNode);
+      retireNodeSubtree(currentNode);
       insertRangeBefore(parent, nextDom, currentNode);
       currentNode.parentNode?.removeChild(currentNode);
     } else {
       insertRangeBefore(parent, nextDom);
     }
   } else if (!nextDom && currentNode?.parentNode === parent) {
-    teardownNodeSubtree(currentNode);
+    retireNodeSubtree(currentNode);
     parent.removeChild(currentNode);
   }
 

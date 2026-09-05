@@ -6,7 +6,6 @@ import {
   captureForItemTransactionSnapshot,
   clearForDomUpdateState,
   registerForStateTransaction,
-  rollbackForStateTransaction,
   recordBenchCounter,
   recordBenchEvent,
   recordBenchTiming,
@@ -14,10 +13,9 @@ import {
   withBenchMetricScope,
 } from '../runtime';
 import {
-  beginLifecycleCommitBatch,
-  discardLifecycleCommitBatch,
-  flushLifecycleCommitBatch,
-} from '../runtime';
+  runCommitTransaction,
+  registerCommitRollback,
+} from '../runtime/transaction-access';
 import { teardownNodeSubtree } from './cleanup';
 import { keyedElements } from './keyed';
 import type { VNode } from './types';
@@ -85,40 +83,40 @@ export function commitForStateBoundaryChildren(
   );
   const previousKeyedMap =
     keyedMapMayMutate && currentKeyedMap ? new Map(currentKeyedMap) : undefined;
-  const lifecycleBatch = beginLifecycleCommitBatch();
-  // A commit-only transaction does not reconcile collection membership. Keep
-  // the committed collections by reference and snapshot only scopes that the
-  // DOM phase is about to mutate.
-  beginForStateTransaction(forState, 'reuse');
-  registerForStateTransaction(forState);
-  try {
+  runCommitTransaction(() => {
+    registerCommitRollback(() => {
+      const errors: unknown[] = [];
+      const previousChildrenSet = new Set(previousChildren);
+      for (const node of Array.from(parent.childNodes)) {
+        if (!previousChildrenSet.has(node)) {
+          try {
+            teardownNodeSubtree(node);
+          } catch (error) {
+            errors.push(error);
+          }
+        }
+      }
+      try {
+        parent.replaceChildren(...previousChildren);
+      } catch (error) {
+        errors.push(error);
+      }
+      if (keyedMapMayMutate) {
+        if (previousKeyedMap) keyedElements.set(parent, previousKeyedMap);
+        else keyedElements.delete(parent);
+      }
+      if (errors.length)
+        throw new AggregateError(errors, 'List application restoration failed');
+    });
+    beginForStateTransaction(forState, 'reuse');
+    registerForStateTransaction(forState);
     commitForStateBoundaryChildrenImpl(
       parent,
       forState,
       childrenVNodes,
       runtime
     );
-    flushLifecycleCommitBatch(lifecycleBatch);
-  } catch (error) {
-    discardLifecycleCommitBatch(lifecycleBatch);
-    rollbackForStateTransaction(forState);
-
-    const previousChildrenSet = new Set(previousChildren);
-    for (const node of Array.from(parent.childNodes)) {
-      if (!previousChildrenSet.has(node)) {
-        teardownNodeSubtree(node);
-      }
-    }
-    parent.replaceChildren(...previousChildren);
-    if (keyedMapMayMutate) {
-      if (previousKeyedMap) {
-        keyedElements.set(parent, new Map(previousKeyedMap));
-      } else {
-        keyedElements.delete(parent);
-      }
-    }
-    throw error;
-  }
+  });
 }
 
 function commitForStateBoundaryChildrenImpl(

@@ -14,7 +14,7 @@ import {
 } from './boundaries';
 import { isBulkTextFastPathEligible, performBulkTextReplace } from './children';
 import { isFragmentVNode, normalizeComponentChildren } from './child-shape';
-import { teardownNodeSubtree } from './cleanup';
+import { retireNodeSubtree } from './cleanup';
 import { retireComponentOwnersForIntrinsicReuse } from './component-host-cleanup';
 import { getRendererDOMHost, type ElementWithContext } from './dom-host';
 import { keyedElements } from './keyed';
@@ -73,7 +73,7 @@ export function updateElementChildren(
     keyedElements.delete(el);
     for (let n = el.firstChild; n;) {
       const next = n.nextSibling;
-      teardownNodeSubtree(n);
+      retireNodeSubtree(n);
       n = next;
     }
     el.textContent = '';
@@ -106,7 +106,7 @@ export function updateElementChildren(
     } else {
       for (let n = el.firstChild; n;) {
         const next = n.nextSibling;
-        teardownNodeSubtree(n);
+        retireNodeSubtree(n);
         n = next;
       }
       el.textContent = String(children);
@@ -160,7 +160,7 @@ export function updateElementChildren(
 
   for (let n = el.firstChild; n;) {
     const next = n.nextSibling;
-    teardownNodeSubtree(n);
+    retireNodeSubtree(n);
     n = next;
   }
   el.textContent = '';
@@ -196,7 +196,7 @@ function removeRangeAtCursor(parent: Element, cursor: Node): Node | null {
       node.parentNode?.removeChild(node);
       return;
     }
-    teardownNodeSubtree(node);
+    retireNodeSubtree(node);
     node.parentNode?.removeChild(node);
   });
   return next;
@@ -225,7 +225,7 @@ function consumeUnmatchedTailAtCursor(
   }
 
   const next = cursor.nextSibling;
-  teardownNodeSubtree(cursor);
+  retireNodeSubtree(cursor);
   if (cursor.parentNode === parent) {
     parent.removeChild(cursor);
   }
@@ -451,7 +451,7 @@ export function updateMixedControlChildren(
     const old = cursor;
     moveRange(parent, materialized.range, old);
     if (old) {
-      teardownNodeSubtree(old);
+      retireNodeSubtree(old);
       old.parentNode?.removeChild(old);
     }
     cursor = materialized.range.end.nextSibling;
@@ -559,7 +559,7 @@ export function updateUnkeyedChildren(
         } else {
           const dom = domHost.createDOMNode(next, parentNamespace);
           if (dom) {
-            teardownNodeSubtree(current);
+            retireNodeSubtree(current);
             parent.replaceChild(dom, current);
           }
         }
@@ -572,7 +572,7 @@ export function updateUnkeyedChildren(
         if (!synced) {
           const dom = domHost.createDOMNode(next, parentNamespace);
           if (dom) {
-            teardownNodeSubtree(current);
+            retireNodeSubtree(current);
             if (current.parentNode === parent) {
               parent.replaceChild(dom, current);
             } else if (dom.parentNode !== parent) {
@@ -583,7 +583,7 @@ export function updateUnkeyedChildren(
       } else {
         const dom = domHost.createDOMNode(next, parentNamespace);
         if (dom) {
-          teardownNodeSubtree(current);
+          retireNodeSubtree(current);
           parent.replaceChild(dom, current);
         }
       }
@@ -606,7 +606,7 @@ export function updateUnkeyedChildren(
       const nextIsEmpty = isEmptyChild(next);
 
       if (nextIsEmpty && currentNode) {
-        teardownNodeSubtree(currentNode);
+        retireNodeSubtree(currentNode);
         currentNode.parentNode?.removeChild(currentNode);
         continue;
       }
@@ -624,7 +624,7 @@ export function updateUnkeyedChildren(
           (currentNode as Text).data = String(next);
         } else {
           const textNode = document.createTextNode(String(next));
-          teardownNodeSubtree(currentNode);
+          retireNodeSubtree(currentNode);
           parent.replaceChild(textNode, currentNode);
         }
       } else if (_isDOMElement(next)) {
@@ -642,7 +642,7 @@ export function updateUnkeyedChildren(
             } else {
               const dom = domHost.createDOMNode(next, parentNamespace);
               if (dom) {
-                teardownNodeSubtree(currentEl);
+                retireNodeSubtree(currentEl);
                 if (currentNode.parentNode === parent) {
                   parent.replaceChild(dom, currentNode);
                 } else if (dom.parentNode !== parent) {
@@ -686,7 +686,7 @@ export function updateUnkeyedChildren(
             if (!synced) {
               const dom = domHost.createDOMNode(next, parentNamespace);
               if (dom) {
-                teardownNodeSubtree(currentEl);
+                retireNodeSubtree(currentEl);
                 parent.replaceChild(dom, currentNode);
               }
             }
@@ -727,7 +727,7 @@ export function updateUnkeyedChildren(
           }
           const dom = domHost.createDOMNode(next, parentNamespace);
           if (dom) {
-            teardownNodeSubtree(currentNode);
+            retireNodeSubtree(currentNode);
             parent.replaceChild(dom, currentNode);
           }
         }
@@ -756,7 +756,7 @@ export function updateUnkeyedChildren(
   if (existing.length === 0 && parent.childNodes.length > 0) {
     for (let n = parent.firstChild; n;) {
       const next = n.nextSibling;
-      teardownNodeSubtree(n);
+      retireNodeSubtree(n);
       n = next;
     }
     parent.textContent = '';
@@ -769,7 +769,7 @@ export function updateUnkeyedChildren(
     const nextIsEmpty = isEmptyChild(next);
 
     if (nextIsEmpty && current) {
-      teardownNodeSubtree(current);
+      retireNodeSubtree(current);
       current.remove();
       continue;
     }
@@ -784,7 +784,7 @@ export function updateUnkeyedChildren(
 
     if (typeof next === 'string' || typeof next === 'number') {
       const textNode = document.createTextNode(String(next));
-      teardownNodeSubtree(current);
+      retireNodeSubtree(current);
       parent.replaceChild(textNode, current);
     } else if (_isDOMElement(next)) {
       if (typeof next.type === 'string') {
@@ -794,7 +794,7 @@ export function updateUnkeyedChildren(
         } else {
           const dom = domHost.createDOMNode(next, parentNamespace);
           if (dom) {
-            teardownNodeSubtree(current);
+            retireNodeSubtree(current);
             parent.replaceChild(dom, current);
           }
         }
@@ -803,7 +803,7 @@ export function updateUnkeyedChildren(
         if (!synced) {
           const dom = domHost.createDOMNode(next, parentNamespace);
           if (dom) {
-            teardownNodeSubtree(current);
+            retireNodeSubtree(current);
             if (current.parentNode === parent) {
               parent.replaceChild(dom, current);
             } else if (dom.parentNode !== parent) {
@@ -815,7 +815,7 @@ export function updateUnkeyedChildren(
     } else {
       const dom = domHost.createDOMNode(next);
       if (dom) {
-        teardownNodeSubtree(current);
+        retireNodeSubtree(current);
         parent.replaceChild(dom, current);
       }
     }

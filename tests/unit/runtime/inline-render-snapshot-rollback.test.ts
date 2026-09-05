@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { createComponentInstance } from '../../../src/runtime/component';
 import {
-  beginLifecycleCommitBatch,
+  beginCommitTransaction,
   captureInlineRenderSnapshot,
-  discardLifecycleCommitBatch,
-} from '../../../src/runtime/lifecycle-batch';
+  discardTransaction,
+} from '../../../src/runtime/render-transaction';
 
 describe('InlineRenderSnapshot rollback', () => {
   it('should restore ownership-identity fields mutated during a live re-render that throws', () => {
@@ -27,7 +27,7 @@ describe('InlineRenderSnapshot rollback', () => {
     instance._wrapperDepth = 0;
     instance.cleanupStrict = false;
 
-    const batch = beginLifecycleCommitBatch();
+    const batch = beginCommitTransaction();
     captureInlineRenderSnapshot(instance);
 
     // Simulate what component-host.ts's live-instance branch of
@@ -44,7 +44,7 @@ describe('InlineRenderSnapshot rollback', () => {
     instance.cleanupStrict = true;
 
     // The render throws - discard the batch instead of flushing it.
-    discardLifecycleCommitBatch(batch);
+    discardTransaction(batch);
 
     expect(instance._vnodeOwner).toBe(ownerVNodeA);
     expect(instance._vnodeParent).toBe(parentA);
@@ -67,10 +67,10 @@ describe('InlineRenderSnapshot rollback', () => {
     );
     delete noKeyInstance._vnodeKey;
 
-    const batch1 = beginLifecycleCommitBatch();
+    const batch1 = beginCommitTransaction();
     captureInlineRenderSnapshot(noKeyInstance);
     noKeyInstance._vnodeKey = 'assigned-during-render';
-    discardLifecycleCommitBatch(batch1);
+    discardTransaction(batch1);
 
     expect('_vnodeKey' in noKeyInstance).toBe(false);
 
@@ -84,10 +84,10 @@ describe('InlineRenderSnapshot rollback', () => {
     );
     falsyKeyInstance._vnodeKey = 0;
 
-    const batch2 = beginLifecycleCommitBatch();
+    const batch2 = beginCommitTransaction();
     captureInlineRenderSnapshot(falsyKeyInstance);
     falsyKeyInstance._vnodeKey = 'reassigned';
-    discardLifecycleCommitBatch(batch2);
+    discardTransaction(batch2);
 
     expect('_vnodeKey' in falsyKeyInstance).toBe(true);
     expect(falsyKeyInstance._vnodeKey).toBe(0);

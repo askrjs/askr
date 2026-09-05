@@ -139,6 +139,7 @@ export function resetRenderState(instance: ComponentInstance): void {
 }
 
 export function beginRenderTracking(instance: ComponentInstance): void {
+  instance.renderRevision = (instance.renderRevision ?? 0) + 1;
   instance._currentRenderToken = nextRenderToken();
   instance._pendingReadSources = undefined;
   instance._pendingReadSourceVersions = undefined;
