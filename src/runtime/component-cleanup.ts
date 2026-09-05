@@ -8,6 +8,7 @@ import {
 import { cleanupReadableSubscriptionSources } from './readable';
 import { untrackRouteGeneration } from './ownership-diagnostics';
 import { warnUnusedStateReads } from './state-diagnostics';
+import { getRuntimeRenderer } from './access';
 import {
   disposeOwnership,
   ownChild,
@@ -49,6 +50,7 @@ function disposeComponentOwnership(
       },
     });
     if (active && instance.ownership === owner) {
+      getRuntimeRenderer().releaseComponentHost(instance);
       instance.hasPendingUpdate = false;
       instance.notifyUpdate = null;
       instance.mountOperations = undefined;

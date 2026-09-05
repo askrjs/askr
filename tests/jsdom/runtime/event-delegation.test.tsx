@@ -30,7 +30,7 @@ import {
   setGlobalDelegationContainer,
   isDelegatedEvent,
   getDelegatedHandlerForElement,
-} from '../../../src/runtime/events';
+} from '../../../src/renderer/events';
 import { state } from '../../../src/runtime/state';
 import {
   enterDomCommitScope,

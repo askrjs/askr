@@ -1,3 +1,4 @@
+import { writeHostOwners } from './dom-ownership';
 import { cleanupComponent, type ComponentInstance } from '../runtime';
 import { registerLifecycleTransaction } from '../runtime';
 import { logger } from '../common/logger';
@@ -5,8 +6,9 @@ import { incDevCounter } from '../runtime';
 import {
   clearDelegatedHandlersForElement,
   removeDelegatedListener,
-} from '../runtime';
+} from './events';
 import { setRef } from '../foundations/utilities/compose-ref';
+import type { InstanceHostNode } from './dom-host';
 
 type InstanceHost = Node & {
   __ASKR_INSTANCE?: unknown;
@@ -176,8 +178,7 @@ function cleanupSingleInstance(
   }
 
   try {
-    delete node.__ASKR_INSTANCE;
-    delete node.__ASKR_INSTANCES;
+    writeHostOwners(node as InstanceHostNode, undefined, undefined);
   } catch (e) {
     if (strict) errors!.push(e);
   }

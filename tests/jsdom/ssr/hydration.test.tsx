@@ -15,7 +15,7 @@ import { renderToStringSync, renderToString } from '../../../src/ssr';
 import { state } from '../../../src/index';
 import { createDataRuntime } from '../../../src/data';
 import { resource } from '../../../src/resources';
-import { getDelegatedHandlerForElement } from '../../../src/runtime/events';
+import { getDelegatedHandlerForElement } from '../../../src/renderer/events';
 import { defineScope, readScope } from '../../../src/runtime/context';
 import { Case, For, Match, Show } from '../../../src/control';
 import {

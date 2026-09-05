@@ -9,6 +9,40 @@ function createMissingRendererHost(): RendererCapabilities {
   };
 
   return {
+    releaseComponentHost() {},
+    detachPortalHostOutput() {},
+    isComponentHostDetached() {
+      return false;
+    },
+    clearChildScopeHost(scope) {
+      // An unconfigured host can still receive opaque extension references.
+      scope.dom = undefined;
+      scope.range = undefined;
+    },
+    captureChildScopeHost() {
+      return undefined;
+    },
+    resolveScopeBoundary() {
+      return { dom: undefined, range: undefined };
+    },
+    appendScopeBoundaryNodes() {},
+    recordRemovedScopeBoundary() {},
+    teardownScopeHost() {
+      return 0;
+    },
+    hasUnmountedComponentHost() {
+      return false;
+    },
+    recordInlineComponentHost(instance, target) {
+      instance.target = target;
+    },
+    applyComponentResult(instance) {
+      if (instance.target || instance._placeholder)
+        missing('applyComponentResult');
+    },
+    classifyComponentUpdate() {
+      return { useFastPath: false, reason: 'no-root' };
+    },
     evaluate() {
       missing('evaluate');
     },

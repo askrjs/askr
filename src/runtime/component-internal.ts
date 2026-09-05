@@ -4,7 +4,7 @@
  */
 
 import { type State } from './state';
-import { enqueueRuntimeTask } from './access';
+import { enqueueRuntimeTask, getRuntimeRenderer } from './access';
 import type { Props } from '../common/props';
 import type { ComponentFunction } from '../common/component';
 import {
@@ -258,45 +258,7 @@ export function mountInstanceInline(
   instance: ComponentInstance,
   target: Element | null
 ): void {
-  instance.target = target;
-  // Record backref on host element so renderer can clean up when the
-  // node is removed. Avoids leaks if the node is detached or replaced.
-  try {
-    if (typeof Element !== 'undefined' && target instanceof Element) {
-      const host = target as Element & {
-        __ASKR_INSTANCE?: ComponentInstance;
-        __ASKR_INSTANCES?: ComponentInstance[];
-      };
-      const instances = host.__ASKR_INSTANCES;
-      if (!instances) {
-        host.__ASKR_INSTANCES = [instance];
-        host.__ASKR_INSTANCE = instance;
-      } else if (instances[instances.length - 1] !== instance) {
-        const existingIndex = instances.indexOf(instance);
-        const nextInstances =
-          existingIndex === -1
-            ? instances.slice()
-            : instances.filter((entry) => entry !== instance);
-        nextInstances.push(instance);
-        host.__ASKR_INSTANCES = nextInstances;
-        host.__ASKR_INSTANCE = nextInstances[0] ?? instance;
-      }
-    }
-  } catch (err) {
-    if (isDevelopmentEnvironment()) {
-      const componentName = instance.fn.name || instance.id;
-      let hostName = 'unknown';
-      try {
-        hostName = target?.tagName?.toLowerCase() || hostName;
-      } catch {
-        // Keep the original bookkeeping failure as the useful diagnostic.
-      }
-      logger.warn(
-        `[askr] Failed to record DOM ownership for ${componentName} on <${hostName}>.`,
-        err
-      );
-    }
-  }
+  getRuntimeRenderer().recordInlineComponentHost(instance, target);
 
   // Ensure notifyUpdate is available for async resource completions that may
   // try to trigger re-render. This mirrors the setup in executeComponent().

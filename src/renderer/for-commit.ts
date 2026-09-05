@@ -1,3 +1,4 @@
+import { writeScopeHost } from './scope-host';
 import type { ChildScope } from '../runtime';
 import {
   beginForStateTransaction,
@@ -205,7 +206,7 @@ function commitForStateBoundaryChildrenImpl(
       }
 
       captureForItemTransactionSnapshot(forState, itemInstance);
-      itemInstance.scope.dom = existingDom;
+      writeScopeHost(itemInstance.scope, undefined, existingDom);
       itemInstance.scope.needsDomUpdate = true;
     }
   };

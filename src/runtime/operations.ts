@@ -8,13 +8,11 @@ export type {
 } from './stream-operation';
 export {
   capture,
-  documentVisible,
   on,
   routeActive,
   task,
   timer,
   watch,
-  windowFocused,
 } from './lifecycle-operations';
 export type {
   ActivityPredicate,
@@ -25,3 +23,5 @@ export type {
   WatchSource,
   WatchValues,
 } from './lifecycle-operations';
+
+export { documentVisible, windowFocused } from '../resources/browser-activity';

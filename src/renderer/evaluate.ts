@@ -1,3 +1,4 @@
+import { writeHostOwners } from './dom-ownership';
 import { getRuntimeEnv } from './env';
 import type { ComponentFunction, ComponentInstance } from '../runtime';
 import { removeAllListeners } from './cleanup';
@@ -164,9 +165,10 @@ function evaluateInLifecycleBatch(
       const newDom = createDOMNode(vnode);
       if (newDom && target.parentNode) {
         if (newDom instanceof Element) {
-          (
-            newDom as Element & { __ASKR_INSTANCE?: ComponentInstance }
-          ).__ASKR_INSTANCE = targetInstance;
+          const nextHost = newDom as Element & {
+            __ASKR_INSTANCES?: ComponentInstance[];
+          };
+          writeHostOwners(nextHost, nextHost.__ASKR_INSTANCES, targetInstance);
           targetInstance.target = newDom as Element;
         }
         removeAllListeners(target);

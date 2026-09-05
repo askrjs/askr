@@ -8,7 +8,7 @@ import { createIsland } from '../../../test-utils/render/create-island';
 import {
   disableEventDelegation,
   enableEventDelegation,
-} from '../../../src/runtime/events';
+} from '../../../src/renderer/events';
 import {
   keyedElements,
   populateKeyMapForElement,

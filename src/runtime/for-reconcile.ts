@@ -1,3 +1,4 @@
+import { getRuntimeRenderer } from './access';
 /**
  * For key validation and reconciliation strategy ownership.
  */
@@ -27,21 +28,6 @@ import type { ForState } from './for-internal';
 declare const __ASKR_BENCH_BUILD__: boolean;
 
 const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
-
-type ComponentInstanceHost = Node & {
-  __ASKR_INSTANCE?: { ownership: { mounted: boolean } };
-  __ASKR_INSTANCES?: Array<{ ownership: { mounted: boolean } }>;
-};
-
-function hasUnmountedComponentHost(node: Node | undefined): boolean {
-  if (!node) return false;
-  const host = node as ComponentInstanceHost;
-  if (host.__ASKR_INSTANCE?.ownership.mounted === false) return true;
-  return (
-    host.__ASKR_INSTANCES?.some((instance) => !instance.ownership.mounted) ??
-    false
-  );
-}
 
 function failForValidation(message: string): never {
   throw new Error(message);
@@ -428,7 +414,7 @@ export function reconcileForItems<T>(
         const itemChanged = existing.item !== item;
         const scopeNeedsDomUpdate =
           existing.scope.needsDomUpdate ||
-          hasUnmountedComponentHost(existing.scope.dom);
+          getRuntimeRenderer().hasUnmountedComponentHost(existing.scope.dom);
 
         if (itemChanged) {
           updateItemInstance(forState, existing, item);

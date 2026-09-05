@@ -1,3 +1,4 @@
+import { resolveListenerTarget } from '../resources/browser-activity';
 import { ownCleanup } from './ownership';
 import {
   claimHookIndex,
@@ -83,20 +84,6 @@ export function routeActive(
   return () => isRouteActivityActive(pathOrPaths);
 }
 
-/** {@link ActivityPredicate} that is true while the document is visible. */
-export function documentVisible(): ActivityPredicate {
-  return () =>
-    typeof document === 'undefined' || document.visibilityState !== 'hidden';
-}
-
-/** {@link ActivityPredicate} that is true while the window has focus. */
-export function windowFocused(): ActivityPredicate {
-  return () =>
-    typeof document === 'undefined' ||
-    typeof document.hasFocus !== 'function' ||
-    document.hasFocus();
-}
-
 /** An event target, or a function resolving one, accepted by {@link on}. */
 export type ListenerTarget =
   | EventTarget
@@ -180,12 +167,7 @@ function commitListenerSlot(
   slot: ListenerSlot
 ): void {
   slot.handler = slot.pendingHandler;
-  const resolvedTarget =
-    typeof slot.pendingTarget === 'function'
-      ? typeof window === 'undefined'
-        ? null
-        : (slot.pendingTarget() ?? null)
-      : slot.pendingTarget;
+  const resolvedTarget = resolveListenerTarget(slot.pendingTarget);
 
   const shouldReattach =
     !slot.attached ||

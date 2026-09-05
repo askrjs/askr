@@ -9,15 +9,12 @@
  * can still disable or re-enable it when they need to exercise both modes.
  */
 
-import { runRuntimeHandlerScope } from './access';
-import {
-  getCurrentAppRenderRuntime,
-  withAppRenderRuntime,
-} from './component-scope';
+import { runRuntimeHandlerScope } from '../runtime';
+import { getCurrentAppRenderRuntime, withAppRenderRuntime } from '../runtime';
 import type { AppRenderRuntime } from '../common/app-render-runtime';
 import { logger } from '../common/logger';
-import { incrementPerfMetric } from './perf-metrics';
-import { incDevCounter } from './dev-namespace';
+import { incrementPerfMetric } from '../runtime';
+import { incDevCounter } from '../runtime';
 
 declare const __ASKR_BENCH_BUILD__: boolean;
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;

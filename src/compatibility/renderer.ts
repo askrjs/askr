@@ -1,5 +1,22 @@
+import { releaseOwnerRange } from '../renderer/dom-range';
+import {
+  detachPortalHostOutput,
+  isComponentHostDetached,
+} from '../renderer/portal-host';
+import {
+  clearChildScopeHost,
+  captureChildScopeHost,
+  resolveScopeBoundary,
+  appendScopeBoundaryNodes,
+  recordRemovedScopeBoundary,
+  teardownScopeHost,
+  hasUnmountedComponentHost,
+} from '../renderer/scope-host';
 import type { RendererCapabilities } from '../runtime/renderer-capabilities';
 import type { RuntimeRendererHost } from './contracts/core';
+import { applyComponentResult } from '../renderer/component-application';
+import { classifyUpdate } from '../renderer/component-fast-path';
+import { recordInlineComponentHost } from '../renderer/dom-ownership';
 import {
   componentView,
   executionRecord,
@@ -18,6 +35,19 @@ export function adaptRendererHost(
   const native = nativeHosts.get(host);
   if (native) return native;
   return {
+    releaseComponentHost: releaseOwnerRange,
+    detachPortalHostOutput,
+    isComponentHostDetached,
+    clearChildScopeHost,
+    captureChildScopeHost,
+    resolveScopeBoundary,
+    appendScopeBoundaryNodes,
+    recordRemovedScopeBoundary,
+    teardownScopeHost,
+    hasUnmountedComponentHost,
+    recordInlineComponentHost,
+    applyComponentResult,
+    classifyComponentUpdate: classifyUpdate,
     evaluate: (...args) => {
       if (args[3]) componentView(args[3]);
       return host.evaluate(
