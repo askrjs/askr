@@ -42,3 +42,6 @@ not ordinary component children. An assigned collection retains its identity,
 including live additions and removals during disposal. The adapter translates
 those entries into the same lifetime drain. Native rendering does not allocate
 this compatibility collection unless an extension observes it.
+Active disposal leaves a caller-retained collection intact; inactive generation
+retirement clears it before the old generation's cleanup callbacks, preserving
+the published extension behavior in both cases.

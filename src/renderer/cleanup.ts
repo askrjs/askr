@@ -105,7 +105,7 @@ function updateElementRefImmediately<T extends Element>(
       previousOwner !== element
     ) {
       // Keep callback-ref ordering deterministic when a replacement is
-      // staged in the same lifecycle batch: old owner gets null first, then
+      // staged in the same transaction: old owner gets null first, then
       // the callback is reattached to the new owner by its teardown.
       elementRefs.set(element, ref);
       refOwners.set(ref, element);

@@ -28,8 +28,11 @@ function componentDisposalPhases(owner: OwnershipRecord): DisposalPhases {
   const hadRendererHost = Boolean(instance.target || instance._placeholder);
   const savedScope = clearCurrentComponentScope();
   const errors: unknown[] | undefined = instance.cleanupStrict ? [] : undefined;
-  const detachReads = () =>
+  const retiredScopes = active ? undefined : owner.scopedIndex;
+  const detachReads = () => {
+    retiredScopes?.clear();
     cleanupReadableSubscriptionSources(instance, owner.reads, owner.identity);
+  };
   return {
     begin() {
       if (active) {

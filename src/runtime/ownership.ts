@@ -249,7 +249,6 @@ function prepareDisposal(
   const scopes = owner.scopedIndex?.size
     ? Set.prototype.values.call(owner.scopedIndex)
     : undefined;
-  if (scopes) owner.scopedIndex = undefined;
   owner.disposed = true;
   detachOwnership(owner);
   const children: OwnershipRecord[] = [];
@@ -263,6 +262,7 @@ function prepareDisposal(
     scopes,
     unreported: [],
   };
+  if (scopes) owner.scopedIndex = undefined;
   if (frame.phases.begin)
     attemptDisposal(
       frame,

@@ -267,7 +267,7 @@ function finishImmediateControlTransaction(
   state: ShowState | CaseState,
   transaction: ControlTransaction
 ): void {
-  // A lifecycle batch owns the transaction when one is active. During SSR or
+  // The shared coordinator owns settlement when a transaction is active. During SSR or
   // direct internal evaluation there is no batch, so a successful evaluation
   // can commit immediately after its branch has rendered.
   if (state._transaction === transaction && !transaction.registered) {
