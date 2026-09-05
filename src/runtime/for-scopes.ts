@@ -27,7 +27,7 @@ import {
   type ForItemPropertySignal,
   type ReactiveForItemState,
 } from './for-signals';
-import { getRuntimeRenderer } from './access';
+import { getRuntimeScopes } from './access';
 import { recordBenchCounter, recordBenchEvent } from './for-bench';
 import type { ForItemTransactionSnapshot, ForState } from './for-internal';
 import type { ReadableSource } from './readable';
@@ -55,7 +55,7 @@ function recordRemovedBoundary<T>(
   if (BENCH_BUILD_ENABLED && (dom || range)) {
     recordBenchCounter('removedBoundariesRecorded');
   }
-  getRuntimeRenderer().recordRemovedScopeBoundary(
+  getRuntimeScopes().recordRemovedScopeBoundary(
     dom,
     range,
     forState.lastRemovedNodes,
@@ -65,8 +65,8 @@ function recordRemovedBoundary<T>(
 
 function prepareRemovedScope<T>(forState: ForState<T>, scope: ChildScope) {
   const transaction = forState._transaction;
-  if (!transaction) return getRuntimeRenderer().resolveScopeBoundary(scope);
-  const boundary = getRuntimeRenderer().prepareScopeRemoval(
+  if (!transaction) return getRuntimeScopes().resolveScopeBoundary(scope);
+  const boundary = getRuntimeScopes().prepareScopeRemoval(
     scope,
     forState.lastRemovedNodes,
     forState.lastRemovedRanges,
@@ -344,7 +344,7 @@ export function disposeItemInstance<T>(
   }
 
   if (domCleanup === 'teardown')
-    getRuntimeRenderer().teardownScopeHost(removedDom, undefined);
+    getRuntimeScopes().teardownScopeHost(removedDom, undefined);
 
   recordRemovedBoundary(forState, removedDom, removedRange);
 }
@@ -575,7 +575,7 @@ export function disposeFallbackScope<T>(
   }
 
   if (domCleanup === 'teardown')
-    getRuntimeRenderer().teardownScopeHost(removedDom, undefined);
+    getRuntimeScopes().teardownScopeHost(removedDom, undefined);
 
   if (!transaction) recordRemovedBoundary(forState, removedDom, removedRange);
 }

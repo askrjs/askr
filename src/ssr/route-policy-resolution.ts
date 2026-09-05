@@ -1,11 +1,10 @@
 import { isPromiseLike } from '../common/promise';
-import type {
-  AccessDenyStatus,
-  RouteManifest,
-  RouteRequestResult,
-} from '../common/router';
+import type { AccessDenyStatus, RouteRequestResult } from '../common/router';
 import * as RouteModule from '../router/route';
-import { getRouteRenderContext } from '../router/resolution';
+import {
+  getRouteRenderContext,
+  resolvedRouteHasLoader,
+} from '../router/resolution';
 import type { AuthContext } from '@askrjs/auth';
 import { _resolveRouteMatchFromRoutes } from '../router/route-matching';
 import { throwSSRDataMissing } from './context';
@@ -45,22 +44,6 @@ function buildDeniedRoute(route: SSRRoute, status: AccessDenyStatus): SSRRoute {
       children: [String(status)],
     }),
   };
-}
-
-function routeHasSSRLoader(manifest: RouteManifest, route: SSRRoute): boolean {
-  const routeFallbackPrefix = (route as { fallbackPrefix?: string })
-    .fallbackPrefix;
-
-  return manifest.records.some((record) => {
-    const recordFallbackPrefix = (record as { fallbackPrefix?: string })
-      .fallbackPrefix;
-
-    return (
-      record.path === route.path &&
-      recordFallbackPrefix === routeFallbackPrefix &&
-      typeof record.options?.loader === 'function'
-    );
-  });
 }
 
 export function resolvePolicyAwareSSRRoute(
@@ -138,7 +121,7 @@ export function resolvePolicyAwareSSRRoute(
       url: href,
       route: {
         ...matched.route,
-        handler: routeHasSSRLoader(manifest, matched.route)
+        handler: resolvedRouteHasLoader(resolved)
           ? resolved.handler
           : matched.route.handler,
       },

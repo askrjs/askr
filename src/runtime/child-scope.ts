@@ -1,6 +1,6 @@
 import { registerScopedOwnership, releaseOwnedChild } from './ownership';
 import { adoptComponentParent } from './component-capabilities';
-import { getRuntimeRenderer } from './access';
+import { getRuntimeScopes } from './access';
 import type { ChildScopeHostSnapshot } from './renderer-capabilities';
 import type { VNode } from '../common/vnode';
 import { _isDOMElement } from '../common/vnode';
@@ -205,7 +205,7 @@ class ChildScopeImpl implements MutableChildScope {
       this._renderFn = undefined;
       this.previousVnode = undefined;
       this.vnode = undefined;
-      getRuntimeRenderer().clearChildScopeHost(this);
+      getRuntimeScopes().clearChildScopeHost(this);
       this.needsDomUpdate = false;
       this.hydrationPending = false;
       this.blueprintOwner = undefined;
@@ -311,7 +311,7 @@ export function captureChildScopeTransactionSnapshot(
   return {
     previousVnode: scope.previousVnode,
     vnode: scope.vnode,
-    host: getRuntimeRenderer().captureChildScopeHost(scope),
+    host: getRuntimeScopes().captureChildScopeHost(scope),
     needsDomUpdate: scope.needsDomUpdate,
     hydrationPending: scope.hydrationPending,
     renderFn: mutableScope._renderFn,

@@ -1,3 +1,16 @@
+export {
+  createDOMRendererHost,
+  DOMComponentOwner,
+  DOMChildScope,
+  DOMReactiveSource,
+  DOMRendererRange,
+  DOMRendererEvaluation,
+  DOMRendererCleanup,
+  DOMRendererScopes,
+  DOMRendererKeys,
+  DOMRendererReactivity,
+  DOMRendererHost,
+} from './dom-renderer.js';
 import {
   cspNonce,
   selector,

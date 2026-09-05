@@ -1,6 +1,6 @@
 import {
   cleanupComponent,
-  getRuntimeRenderer,
+  getRuntimeCleanup,
   type ComponentInstance,
 } from '../runtime';
 import type { InstanceHostNode } from './dom-host';
@@ -34,7 +34,7 @@ export function detachPortalHostOutput(host: ComponentInstance): void {
     // Host metadata is best-effort on non-extensible DOM shims.
   }
 
-  getRuntimeRenderer().teardownNodeSubtree(target);
+  getRuntimeCleanup().teardownNodeSubtree(target);
 
   const placeholder = target.ownerDocument.createComment('');
   writeHostOwners(placeholder as InstanceHostNode, undefined, host);

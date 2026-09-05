@@ -2,6 +2,11 @@
 
 This document demonstrates correct usage patterns and shows how misuse is prevented by design.
 
+`composeRefs` invokes every ref in order for both assignment and null cleanup,
+then throws an `AggregateError` containing callback failures in that order.
+Readonly object assignments remain ignored. Standalone `setRef` continues to
+propagate callback failures directly.
+
 ## Core Principle
 
 **Foundations define the ONLY way to implement behavior. Components compose foundations, they don't re-implement them.**

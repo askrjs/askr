@@ -9,6 +9,40 @@ workflow artifact as the baseline for a focused change. Capture the baseline
 and candidate back-to-back on the same pinned CI runner, repeat each capture
 three times, and compare the median for the identical workload name.
 
+The manual benchmark workflow accepts an optional `baseline` commit. When
+provided, it installs that revision separately and runs each baseline capture
+immediately before its candidate capture on the same runner. Both sets of raw
+JSON and their commit/lockfile provenance are uploaded together. Optional `tier`,
+`pattern`, and repository-relative `file` inputs select unchanged workloads when
+broad captures show variation. The same file filter applies to every baseline,
+control, and candidate capture and is recorded in `provenance.txt`; omitting it
+keeps all files in the selected tier. Name filtering alone still imports other
+files and runs their top-level preflights. File filtering removes that preceding
+work. Benchmark files already execute sequentially; the effect of removing
+unrelated preflights on capture variation is not yet established. Retain rejected
+captures alongside recaptures; filtering does not change the sample-quality or
+regression limits. When sample collection options change, the optional `harness`
+commit installs identical benchmark sources on
+the baseline; the harness SHA and complete baseline benchmark diff are retained
+in the artifact. Runtime sources, labels, operations, and reset behavior remain
+unchanged by this option. Optional `control` captures repeat the baseline before
+each candidate to measure variation. Compare the candidate against the lower
+of the two baseline medians of three, retaining every control and candidate.
+
+For short browser workloads whose durations span too few clock ticks, opt into
+`precise_clock` in the workflow, or set `ASKR_BENCH_PRECISE_CLOCK=1` locally.
+This sets COOP `same-origin` and COEP `require-corp` response headers for browser
+tiers 3 and 4. Their setup preflight requires `crossOriginIsolated` and a measured
+positive clock step no greater than 0.01 ms, before importing the workload.
+The workflow records the mode in provenance; the preflight logs the observed
+step. For baseline comparisons, provide the shared `harness` revision so its
+browser configuration and setup preflight are installed on both sources as well
+as the benchmark files. Compare all baseline, control, and candidate captures in
+the same clock mode. Default captures retain their existing browser settings;
+workload labels, operations, resets, batches, browser versions, and acceptance
+thresholds remain unchanged. Chromium documents finer timer resolution under
+[cross-origin isolation](https://developer.chrome.com/blog/cross-origin-isolated-hr-timers/).
+
 ## Acceptance Rules
 
 - A benchmark is eligible for tuning only after repeat captures consistently show at

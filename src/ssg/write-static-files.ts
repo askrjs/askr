@@ -6,7 +6,6 @@
  */
 
 import * as fs from 'node:fs/promises';
-import * as fsSync from 'node:fs';
 import * as pathModule from 'node:path';
 import type { RouteRenderResult } from './types';
 import { resolveSsgOutputPath } from './output-path';
@@ -38,14 +37,12 @@ export async function writeStaticFiles(
     }
 
     const fullPath = resolveSsgOutputPath(outputDir, result.filePath);
-    if (fsSync.existsSync(fullPath)) {
-      await fileOperations.rm(fullPath, { force: true });
-      await pruneEmptyDirs(
-        pathModule.dirname(fullPath),
-        outputDir,
-        fileOperations
-      );
-    }
+    await fileOperations.rm(fullPath, { force: true });
+    await pruneEmptyDirs(
+      pathModule.dirname(fullPath),
+      outputDir,
+      fileOperations
+    );
   }
 
   const pendingWrites: RouteRenderResult[] = [];
@@ -86,34 +83,55 @@ export async function writeStaticFiles(
     Math.min(options.concurrency ?? 8, pendingWrites.length || 1)
   );
   let nextIndex = 0;
+  let failed = false;
+  let failure: unknown;
+  const recordFailure = (error: unknown) => {
+    if (!failed) {
+      failed = true;
+      failure = error;
+    }
+  };
 
   const worker = async () => {
-    while (true) {
-      const current = nextIndex;
-      nextIndex += 1;
-      if (current >= pendingWrites.length) {
-        return;
-      }
+    try {
+      while (!failed) {
+        const current = nextIndex;
+        nextIndex += 1;
+        if (current >= pendingWrites.length) {
+          return;
+        }
 
-      const result = pendingWrites[current];
-      const fullPath = resolveSsgOutputPath(outputDir, result.filePath);
-      // Incremental output is observable while a generation is running. Write
-      // the complete replacement beside the live file, then publish it with
-      // rename so a failed write cannot truncate the prior route HTML.
-      const tempPath = pathModule.join(
-        pathModule.dirname(fullPath),
-        `.${pathModule.basename(fullPath)}.askr-${process.pid}-${current}.tmp`
-      );
-      try {
-        await fileOperations.writeFile(tempPath, result.html, 'utf8');
-        await fileOperations.rename(tempPath, fullPath);
-      } finally {
-        await fileOperations.rm(tempPath, { force: true });
+        const result = pendingWrites[current];
+        const fullPath = resolveSsgOutputPath(outputDir, result.filePath);
+        // Incremental output is observable while a generation is running. Write
+        // the complete replacement beside the live file, then publish it with
+        // rename so a failed write cannot truncate the prior route HTML.
+        const tempPath = pathModule.join(
+          pathModule.dirname(fullPath),
+          `.${pathModule.basename(fullPath)}.askr-${process.pid}-${current}.tmp`
+        );
+        try {
+          await fileOperations.writeFile(tempPath, result.html, 'utf8');
+          await fileOperations.rename(tempPath, fullPath);
+        } catch (error) {
+          recordFailure(error);
+        } finally {
+          try {
+            await fileOperations.rm(tempPath, { force: true });
+          } catch (error) {
+            recordFailure(error);
+          }
+        }
       }
+    } catch (error) {
+      // Live result records can change between directory preparation and a
+      // worker claiming them. Preparation failures must drain started writes.
+      recordFailure(error);
     }
   };
 
   await Promise.all(Array.from({ length: concurrency }, () => worker()));
+  if (failed) throw failure;
 }
 
 /**
@@ -139,12 +157,11 @@ async function pruneEmptyDirs(
     ) {
       break;
     }
-    if (!fsSync.existsSync(current)) {
-      break;
-    }
-
-    if ((await fileOperations.readdir(current)).length > 0) {
-      break;
+    try {
+      if ((await fileOperations.readdir(current)).length > 0) break;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') break;
+      throw error;
     }
 
     await fileOperations.rmdir(current);

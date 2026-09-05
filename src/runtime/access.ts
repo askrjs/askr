@@ -1,6 +1,13 @@
 import type { ReadableSource } from './readable';
 import { defaultRuntimeState } from './runtime-state';
-import type { RendererCapabilities } from './renderer-capabilities';
+import type {
+  RendererCapabilities,
+  RenderEvaluation,
+  RenderCleanup,
+  ScopeRendering,
+  ReactiveRendering,
+  KeyedRendering,
+} from './renderer-capabilities';
 import type { Scheduler, SchedulerLane } from './scheduler';
 import {
   clearCurrentComponentScope,
@@ -14,6 +21,22 @@ export function getRuntimeScheduler(): Scheduler {
 }
 
 export function getRuntimeRenderer(): RendererCapabilities {
+  return defaultRuntimeState.renderer;
+}
+
+export function getRuntimeEvaluation(): RenderEvaluation {
+  return defaultRuntimeState.renderer;
+}
+export function getRuntimeCleanup(): RenderCleanup {
+  return defaultRuntimeState.renderer;
+}
+export function getRuntimeScopes(): ScopeRendering {
+  return defaultRuntimeState.renderer;
+}
+export function getRuntimeKeys(): KeyedRendering {
+  return defaultRuntimeState.renderer;
+}
+export function getRuntimeReactivity(): ReactiveRendering {
   return defaultRuntimeState.renderer;
 }
 
@@ -72,5 +95,5 @@ export function setRuntimeBulkCommitProbe(probe: () => boolean): void {
 export function markRuntimeReactivePropsDirtySource(
   source: ReadableSource<unknown>
 ): void {
-  getRuntimeRenderer().markReactivePropsDirtySource(source);
+  getRuntimeReactivity().markReactivePropsDirtySource(source);
 }

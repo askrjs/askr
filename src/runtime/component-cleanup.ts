@@ -8,7 +8,7 @@ import {
 import { cleanupReadableSubscriptionSources } from './readable';
 import { untrackRouteGeneration } from './ownership-diagnostics';
 import { warnUnusedStateReads } from './state-diagnostics';
-import { getRuntimeRenderer } from './access';
+import { getRuntimeCleanup } from './access';
 import { resetComponentWork } from './component-reset';
 import {
   disposeOwnership,
@@ -56,7 +56,7 @@ function componentDisposalPhases(owner: OwnershipRecord): DisposalPhases {
         if (active && instance.owner === owner) {
           try {
             if (hadRendererHost)
-              getRuntimeRenderer().releaseComponentHost(instance);
+              getRuntimeCleanup().releaseComponentHost(instance);
           } catch (error) {
             recordError('[Askr] host release failed:', error);
           }

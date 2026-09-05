@@ -1,3 +1,10 @@
+import {
+  loadingQueryState,
+  freshQueryState,
+  refreshingQueryState,
+  staleQueryState,
+  errorQueryState,
+} from './query-state';
 import { getComponentLifetimeIdentity } from '../runtime/component-capabilities';
 import { logger } from '../common/logger';
 import { getActiveRenderContext } from '../common/render-context';
@@ -60,15 +67,7 @@ export class QueryCell<T> {
   private readonly owners = new Map<object, Set<number>>();
   private readonly warnedDefinitionConflictKeys = new Set<string>();
 
-  private state: QueryState<T> = {
-    data: null,
-    error: null,
-    loading: true,
-    refreshing: false,
-    stale: false,
-    consistency: 'fresh',
-    staleReason: null,
-  };
+  private state: QueryState<T> = loadingQueryState<T>();
 
   constructor(
     options: QueryCellOptions<T>,
@@ -82,15 +81,7 @@ export class QueryCell<T> {
       adjustOwnershipDiagnostic('queryCells', 1);
     }
     if (options.initialData !== undefined) {
-      this.state = {
-        data: options.initialData,
-        error: null,
-        loading: false,
-        refreshing: false,
-        stale: false,
-        consistency: 'fresh',
-        staleReason: null,
-      };
+      this.state = freshQueryState(options.initialData);
     }
   }
 
@@ -302,14 +293,7 @@ export class QueryCell<T> {
       return;
     }
 
-    this.setState({
-      loading: false,
-      error: null,
-      refreshing: true,
-      stale: true,
-      consistency: 'pending-write',
-      staleReason: null,
-    });
+    this.setState(refreshingQueryState(this.state.data, 'pending-write'));
   }
 
   private queueStart(
@@ -361,15 +345,12 @@ export class QueryCell<T> {
     resolve?.();
   }
 
-  private setState(next: Partial<QueryState<T>>): void {
+  private setState(next: QueryState<T>): void {
     if (this.destroyed) {
       return;
     }
 
-    this.state = {
-      ...this.state,
-      ...next,
-    };
+    this.state = next;
     notifySource(this.source);
   }
 
@@ -386,14 +367,9 @@ export class QueryCell<T> {
     this.controller = controller;
 
     const hasData = this.state.data !== null;
-    this.setState({
-      loading: !hasData,
-      refreshing: hasData,
-      stale: hasData,
-      consistency: hasData ? 'refreshing' : 'fresh',
-      error: null,
-      staleReason: null,
-    });
+    this.setState(
+      hasData ? refreshingQueryState(this.state.data!) : loadingQueryState<T>()
+    );
 
     let nextData: T;
     try {
@@ -414,34 +390,18 @@ export class QueryCell<T> {
       if (isAbortError(error, controller.signal)) {
         this.setState(
           hasData
-            ? {
-                loading: false,
-                refreshing: false,
-                stale: true,
-                consistency: 'stale',
-                error: null,
-                staleReason: 'aborted',
-              }
-            : {
-                loading: true,
-                refreshing: false,
-                stale: false,
-                consistency: 'fresh',
-                error: null,
-                staleReason: null,
-              }
+            ? staleQueryState(this.state.data, 'aborted')
+            : loadingQueryState<T>()
         );
         return;
       }
 
-      this.setState({
-        loading: false,
-        refreshing: false,
-        stale: true,
-        consistency: 'stale',
-        error: normalizeAsyncDataError(error, 'Unknown query error'),
-        staleReason: 'error',
-      });
+      this.setState(
+        errorQueryState(
+          this.state.data,
+          normalizeAsyncDataError(error, 'Unknown query error')
+        )
+      );
       return;
     }
 
@@ -461,25 +421,16 @@ export class QueryCell<T> {
     try {
       isConsistent = this.options.isConsistent?.(nextData) ?? true;
     } catch (error) {
-      this.setState({
-        loading: false,
-        refreshing: false,
-        stale: true,
-        consistency: 'stale',
-        error: normalizeAsyncDataError(error, 'Query consistency check failed'),
-        staleReason: 'error',
-      });
+      this.setState(
+        errorQueryState(
+          this.state.data,
+          normalizeAsyncDataError(error, 'Query consistency check failed')
+        )
+      );
       return;
     }
     if (!isConsistent) {
-      this.setState({
-        data: nextData,
-        loading: false,
-        refreshing: false,
-        stale: true,
-        consistency: 'stale',
-        staleReason: 'inconsistent',
-      });
+      this.setState(staleQueryState(nextData, 'inconsistent'));
       try {
         await this.reconcile(
           nextData,
@@ -496,32 +447,19 @@ export class QueryCell<T> {
             controller
           )
         ) {
-          this.setState({
-            loading: false,
-            refreshing: false,
-            stale: true,
-            consistency: 'stale',
-            error: normalizeAsyncDataError(
-              error,
-              'Query reconciliation failed'
-            ),
-            staleReason: 'error',
-          });
+          this.setState(
+            errorQueryState(
+              this.state.data,
+              normalizeAsyncDataError(error, 'Query reconciliation failed')
+            )
+          );
         }
       }
       return;
     }
 
     this.reconcileAttemptCount = 0;
-    this.setState({
-      data: nextData,
-      loading: false,
-      refreshing: false,
-      stale: false,
-      consistency: 'fresh',
-      error: null,
-      staleReason: null,
-    });
+    this.setState(freshQueryState(nextData));
   }
 
   private async reconcile(
@@ -550,11 +488,7 @@ export class QueryCell<T> {
 
     this.reconcileAttemptCount += 1;
     if (this.reconcileAttemptCount > RECONCILE_MAX_ATTEMPTS) {
-      this.setState({
-        consistency: 'stale',
-        refreshing: false,
-        staleReason: 'inconsistent',
-      });
+      this.setState(staleQueryState(this.state.data, 'inconsistent'));
       return;
     }
 

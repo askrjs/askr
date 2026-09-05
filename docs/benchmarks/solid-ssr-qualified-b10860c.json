@@ -1,0 +1,822 @@
+{
+  "status": "pending-clock-resolution",
+  "candidate": "b10860c5ad7102182d9e5a558d5c9427a7fd4071",
+  "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+  "scope": "All twelve documented stable guardrails plus six affected runtime diagnostics and a separate optimization comparison. Partial table update and attribute-heavy SSR require finer browser clock resolution before they can qualify.",
+  "comparison": "Each job captures three baseline, three control and three candidate results sequentially on the same host. Compare the candidate median of three against the lower baseline/control median of three. All 171 captures pass the sample-count, RME and nonzero-tail rules; all 18 original-main numerical deltas are within 5%, and the optimization gain exceeds 5%. The two short browser rows remain diagnostic because 0.1 ms clock steps exceed 5% of their medians.",
+  "sourceEquivalence": {
+    "earlierCandidate": "700cd407ba6c5913b498523cc48af937198ff49b",
+    "finalCandidate": "b10860c5ad7102182d9e5a558d5c9427a7fd4071",
+    "changedFiles": [
+      "benches/tier2/tier2-subsystem-ssr-layout-route.ts",
+      "docs/benchmarks/solid-file-isolated-rejected-700cd40.json",
+      "docs/development/solid-implementation.md"
+    ],
+    "conclusion": "Runtime sources, dependency locks, runner configs and all other benchmark files are identical. The SSR layout sample minimum alone changes from 10 to 100000 and is applied to every source through the shared harness. The new SSR comparison replaces only the failed SSR row; all prior evidence is retained."
+  },
+  "stability": "Runner-source investigation confirmed serial benchmark execution. Filename-filtered recaptures removed unrelated preceding file imports and preflights, completing the documented response to source drift. Residual source-series drift and coarse browser timer steps remain disclosed; neither changes the explicit median or sample-quality gates. These captures do not establish which environmental factor caused drift.",
+  "supersededSSR": {
+    "evidence": "solid-file-isolated-rejected-700cd40.json",
+    "run": 33985522794,
+    "changePercent": 5.078934943082025,
+    "status": "rejected",
+    "reason": "The short-window result exceeded 5%; the predeclared 100000-sample collection extends observation equally across baseline, control and candidate, with unchanged workload, reset and thresholds."
+  },
+  "comparisons": [
+    {
+      "run": 33985502755,
+      "url": "https://github.com/askrjs/askr/actions/runs/33985502755",
+      "gainClaim": false,
+      "workload": [
+        4,
+        "tier4/tier4-integration-jsx-benchmark-app.tsx",
+        "benches/tier4/tier4-integration-jsx-benchmark-app.tsx > tier4 integration jsx benchmark app",
+        "toggle 1,000 selected JSX rows between 1,000 and 2,000 rows"
+      ],
+      "candidate": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+      "harness": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "evidence": "solid-file-isolated-rejected-700cd40.json",
+      "medians": {
+        "candidate": 63.15000000002328,
+        "baseline": 69.84999999998399,
+        "control": 69.7500000000291
+      },
+      "changePercent": -9.462365591402245,
+      "captureCount": 9,
+      "allQualityPass": true,
+      "thresholdPass": true,
+      "sourceSeriesDriftPercent": {
+        "candidate": 6.189710610893884,
+        "baseline": 15.965051628254967,
+        "control": 5.082212257112539
+      }
+    },
+    {
+      "run": 33985503907,
+      "url": "https://github.com/askrjs/askr/actions/runs/33985503907",
+      "gainClaim": false,
+      "workload": [
+        4,
+        "tier4/tier4-integration-jsx-benchmark-app.tsx",
+        "benches/tier4/tier4-integration-jsx-benchmark-app.tsx > tier4 integration jsx benchmark app",
+        "toggle the JSX app between 1,000 and 2,000 rows"
+      ],
+      "candidate": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+      "harness": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "evidence": "solid-file-isolated-rejected-700cd40.json",
+      "medians": {
+        "candidate": 63.399999999965075,
+        "baseline": 66.80000000004657,
+        "control": 67.60000000003492
+      },
+      "changePercent": -5.0898203593998765,
+      "captureCount": 9,
+      "allQualityPass": true,
+      "thresholdPass": true,
+      "sourceSeriesDriftPercent": {
+        "candidate": 6.436041834369188,
+        "baseline": 9.879336349904433,
+        "control": 2.8273809523284843
+      }
+    },
+    {
+      "run": 33985504850,
+      "url": "https://github.com/askrjs/askr/actions/runs/33985504850",
+      "gainClaim": false,
+      "workload": [
+        4,
+        "tier4/tier4-integration-routing-layouts.tsx",
+        "benches/tier4/tier4-integration-routing-layouts.tsx > tier4 integration routing layouts",
+        "navigate routed shell layouts in the integration app"
+      ],
+      "candidate": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+      "harness": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "evidence": "solid-file-isolated-rejected-700cd40.json",
+      "medians": {
+        "candidate": 3.6000000000058208,
+        "baseline": 3.7999999999883585,
+        "control": 3.8000000000174623
+      },
+      "changePercent": -5.263157894293435,
+      "captureCount": 9,
+      "allQualityPass": true,
+      "thresholdPass": true,
+      "sourceSeriesDriftPercent": {
+        "candidate": 5.555555555914871,
+        "baseline": 7.658984557679105e-10,
+        "control": 2.631578947529656
+      }
+    },
+    {
+      "run": 33985505562,
+      "url": "https://github.com/askrjs/askr/actions/runs/33985505562",
+      "gainClaim": false,
+      "workload": [
+        3,
+        "tier3/tier3-system-table-truncate-rows.tsx",
+        "benches/tier3/tier3-system-table-truncate-rows.tsx > tier3 system table truncate rows",
+        "truncate a 2,000-row table to 1,000 rows"
+      ],
+      "candidate": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+      "harness": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "evidence": "solid-file-isolated-rejected-700cd40.json",
+      "medians": {
+        "candidate": 6.2000000000116415,
+        "baseline": 6.100000000034925,
+        "control": 6.100000000034925
+      },
+      "changePercent": 1.6393442619039966,
+      "captureCount": 9,
+      "allQualityPass": true,
+      "thresholdPass": true,
+      "sourceSeriesDriftPercent": {
+        "candidate": 1.6393442619039966,
+        "baseline": 1.6393442619039966,
+        "control": 1.6393442619039966
+      }
+    },
+    {
+      "run": 33985506657,
+      "url": "https://github.com/askrjs/askr/actions/runs/33985506657",
+      "gainClaim": false,
+      "workload": [
+        3,
+        "tier3/tier3-system-table-swap-rows.tsx",
+        "benches/tier3/tier3-system-table-swap-rows.tsx > tier3 system table swap rows",
+        "swap two distant rows in a 1,000-row table (32 swaps)"
+      ],
+      "candidate": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+      "harness": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "evidence": "solid-file-isolated-rejected-700cd40.json",
+      "medians": {
+        "candidate": 11.89999999999418,
+        "baseline": 12.10000000000582,
+        "control": 12.25
+      },
+      "changePercent": -1.6528925620788892,
+      "captureCount": 9,
+      "allQualityPass": true,
+      "thresholdPass": true,
+      "sourceSeriesDriftPercent": {
+        "candidate": 1.6949152543376256,
+        "baseline": 1.666666666763672,
+        "control": 5.785123967035566
+      }
+    },
+    {
+      "run": 33985507949,
+      "url": "https://github.com/askrjs/askr/actions/runs/33985507949",
+      "gainClaim": false,
+      "workload": [
+        3,
+        "tier3/tier3-system-table-partial-update.tsx",
+        "benches/tier3/tier3-system-table-partial-update.tsx > tier3 system table partial update",
+        "update every 10th row in a 1,000-row table"
+      ],
+      "candidate": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+      "harness": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "evidence": "solid-file-isolated-rejected-700cd40.json",
+      "medians": {
+        "candidate": 0.40000000002328306,
+        "baseline": 0.40000000002328306,
+        "control": 0.40000000002328306
+      },
+      "changePercent": 0.0,
+      "captureCount": 9,
+      "allQualityPass": true,
+      "thresholdPass": true,
+      "sourceSeriesDriftPercent": {
+        "candidate": 24.999999992724042,
+        "baseline": 7.275957614183426e-9,
+        "control": 24.999999992724042
+      }
+    },
+    {
+      "run": 33985509346,
+      "url": "https://github.com/askrjs/askr/actions/runs/33985509346",
+      "gainClaim": false,
+      "workload": [
+        3,
+        "tier3/tier3-system-hydration-listeners.tsx",
+        "benches/tier3/tier3-system-hydration-listeners.tsx > tier3 system hydration listeners",
+        "hydrate a listener-heavy intrinsic SSR tree in Chromium"
+      ],
+      "candidate": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+      "harness": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "evidence": "solid-file-isolated-rejected-700cd40.json",
+      "medians": {
+        "candidate": 7.900000000008731,
+        "baseline": 8.39999999999418,
+        "control": 8.299999999988358
+      },
+      "changePercent": -4.819277108195042,
+      "captureCount": 9,
+      "allQualityPass": true,
+      "thresholdPass": true,
+      "sourceSeriesDriftPercent": {
+        "candidate": 6.410256410254012,
+        "baseline": 2.4390243902092656,
+        "control": 4.938271604862865
+      }
+    },
+    {
+      "run": 33985510646,
+      "url": "https://github.com/askrjs/askr/actions/runs/33985510646",
+      "gainClaim": false,
+      "workload": [
+        2,
+        "tier2/tier2-subsystem-control-branch-toggle.tsx",
+        "benches/tier2/tier2-subsystem-control-branch-toggle.tsx > tier2 control-flow branch toggles",
+        "toggle Show truthy and fallback branches"
+      ],
+      "candidate": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+      "harness": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "evidence": "solid-file-isolated-rejected-700cd40.json",
+      "medians": {
+        "candidate": 0.6793800000000374,
+        "baseline": 0.6802729999999428,
+        "control": 0.6717570000000705
+      },
+      "changePercent": 1.134785346481837,
+      "captureCount": 9,
+      "allQualityPass": true,
+      "thresholdPass": true,
+      "sourceSeriesDriftPercent": {
+        "candidate": 1.906795456375443,
+        "baseline": 5.778146529046135,
+        "control": 1.5870783982311343
+      }
+    },
+    {
+      "run": 33985511881,
+      "url": "https://github.com/askrjs/askr/actions/runs/33985511881",
+      "gainClaim": false,
+      "workload": [
+        2,
+        "tier2/tier2-subsystem-control-branch-toggle.tsx",
+        "benches/tier2/tier2-subsystem-control-branch-toggle.tsx > tier2 control-flow branch toggles",
+        "toggle Case branch selection"
+      ],
+      "candidate": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+      "harness": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "evidence": "solid-file-isolated-rejected-700cd40.json",
+      "medians": {
+        "candidate": 0.44745799999998326,
+        "baseline": 0.44686200000023746,
+        "control": 0.44854400000008354
+      },
+      "changePercent": 0.13337450929939987,
+      "captureCount": 9,
+      "allQualityPass": true,
+      "thresholdPass": true,
+      "sourceSeriesDriftPercent": {
+        "candidate": 0.8203472989992688,
+        "baseline": 1.7741986505350082,
+        "control": 2.7287420664767748
+      }
+    },
+    {
+      "run": 33985512854,
+      "url": "https://github.com/askrjs/askr/actions/runs/33985512854",
+      "gainClaim": false,
+      "workload": [
+        2,
+        "tier2/tier2-subsystem-resource-cache-dedupe-abort.tsx",
+        "benches/tier2/tier2-subsystem-resource-cache-dedupe-abort.tsx > tier2 subsystem resource cache dedupe abort",
+        "switch a deduped query key and abort the stale fetch"
+      ],
+      "candidate": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+      "harness": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "evidence": "solid-file-isolated-rejected-700cd40.json",
+      "medians": {
+        "candidate": 4.419910999999956,
+        "baseline": 4.487382500000194,
+        "control": 4.394336999999723
+      },
+      "changePercent": 0.5819763026876368,
+      "captureCount": 9,
+      "allQualityPass": true,
+      "thresholdPass": true,
+      "sourceSeriesDriftPercent": {
+        "candidate": 1.4374933938187784,
+        "baseline": 2.012141898080122,
+        "control": 4.492212820208152
+      }
+    },
+    {
+      "run": 33985514106,
+      "url": "https://github.com/askrjs/askr/actions/runs/33985514106",
+      "gainClaim": false,
+      "workload": [
+        2,
+        "tier2/tier2-subsystem-runtime-component-depth.tsx",
+        "benches/tier2/tier2-subsystem-runtime-component-depth.tsx > tier2 runtime component depth",
+        "mount and clean up a 1,000-component wrapper chain"
+      ],
+      "candidate": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+      "harness": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "evidence": "solid-file-isolated-rejected-700cd40.json",
+      "medians": {
+        "candidate": 9.134217000000262,
+        "baseline": 8.897892499999898,
+        "control": 8.919473500000095
+      },
+      "changePercent": 2.6559603861292747,
+      "captureCount": 9,
+      "allQualityPass": true,
+      "thresholdPass": true,
+      "sourceSeriesDriftPercent": {
+        "candidate": 2.2403410986870265,
+        "baseline": 2.1099213337797185,
+        "control": 0.41585046217151866
+      }
+    },
+    {
+      "run": 33985515298,
+      "url": "https://github.com/askrjs/askr/actions/runs/33985515298",
+      "gainClaim": false,
+      "workload": [
+        2,
+        "tier2/tier2-subsystem-router-navigation.tsx",
+        "benches/tier2/tier2-subsystem-router-navigation.tsx > tier2 router navigation",
+        "navigate between sibling routes with shared layout shape"
+      ],
+      "candidate": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+      "harness": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "evidence": "solid-file-isolated-rejected-700cd40.json",
+      "medians": {
+        "candidate": 2.5221185000000332,
+        "baseline": 2.5755440000000362,
+        "control": 2.5701040000001285
+      },
+      "changePercent": -1.8670645234625916,
+      "captureCount": 9,
+      "allQualityPass": true,
+      "thresholdPass": true,
+      "sourceSeriesDriftPercent": {
+        "candidate": 5.238705593919435,
+        "baseline": 3.349326355715454,
+        "control": 1.4824646545166464
+      }
+    },
+    {
+      "run": 33985516558,
+      "url": "https://github.com/askrjs/askr/actions/runs/33985516558",
+      "gainClaim": false,
+      "workload": [
+        1,
+        "tier1/tier1-hotpath-renderer-keyed-fastpath.tsx",
+        "benches/tier1/tier1-hotpath-renderer-keyed-fastpath.tsx > tier1 renderer keyed fastpath",
+        "reorder a large keyed div list"
+      ],
+      "candidate": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+      "harness": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "evidence": "solid-file-isolated-rejected-700cd40.json",
+      "medians": {
+        "candidate": 12.94511599999987,
+        "baseline": 13.353633000000173,
+        "control": 13.229405499999984
+      },
+      "changePercent": -2.1489212043588335,
+      "captureCount": 9,
+      "allQualityPass": true,
+      "thresholdPass": true,
+      "sourceSeriesDriftPercent": {
+        "candidate": 6.916691725296054,
+        "baseline": 5.199924201356398,
+        "control": 2.7431054798767285
+      }
+    },
+    {
+      "run": 33985517922,
+      "url": "https://github.com/askrjs/askr/actions/runs/33985517922",
+      "gainClaim": false,
+      "workload": [
+        1,
+        "tier1/tier1-hotpath-for-keyed-reorder.tsx",
+        "benches/tier1/tier1-hotpath-for-keyed-reorder.tsx > tier1 hotpath for keyed reorder",
+        "swap distant keyed rows while preserving DOM identity"
+      ],
+      "candidate": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+      "harness": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "evidence": "solid-file-isolated-rejected-700cd40.json",
+      "medians": {
+        "candidate": 3.9680289999996603,
+        "baseline": 3.9321555000001354,
+        "control": 3.908243500000026
+      },
+      "changePercent": 1.5297281246584138,
+      "captureCount": 9,
+      "allQualityPass": true,
+      "thresholdPass": true,
+      "sourceSeriesDriftPercent": {
+        "candidate": 1.4755854461695694,
+        "baseline": 3.922074263388531,
+        "control": 2.3575203608070083
+      }
+    },
+    {
+      "run": 33985519318,
+      "url": "https://github.com/askrjs/askr/actions/runs/33985519318",
+      "gainClaim": false,
+      "workload": [
+        1,
+        "tier1/tier1-hotpath-router-longest-match.ts",
+        "benches/tier1/tier1-hotpath-router-longest-match.ts > tier1 hotpath router longest match",
+        "resolve the most specific route from a 512-route dense table"
+      ],
+      "candidate": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+      "harness": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "evidence": "solid-file-isolated-rejected-700cd40.json",
+      "medians": {
+        "candidate": 0.013355000000046857,
+        "baseline": 0.013404000000036831,
+        "control": 0.013455000000021755
+      },
+      "changePercent": -0.3655625185753464,
+      "captureCount": 9,
+      "allQualityPass": true,
+      "thresholdPass": true,
+      "sourceSeriesDriftPercent": {
+        "candidate": 2.191159803152698,
+        "baseline": 3.0861874284867197,
+        "control": 10.057537399251748
+      }
+    },
+    {
+      "run": 33985520989,
+      "url": "https://github.com/askrjs/askr/actions/runs/33985520989",
+      "gainClaim": false,
+      "workload": [
+        1,
+        "tier1/tier1-hotpath-router-match.ts",
+        "benches/tier1/tier1-hotpath-router-match.ts > tier1 router match",
+        "match literal route segments (128 calls)"
+      ],
+      "candidate": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+      "harness": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "evidence": "solid-file-isolated-rejected-700cd40.json",
+      "medians": {
+        "candidate": 0.03230800000005729,
+        "baseline": 0.03175799999985429,
+        "control": 0.03161699999986922
+      },
+      "changePercent": 2.185533099885917,
+      "captureCount": 9,
+      "allQualityPass": true,
+      "thresholdPass": true,
+      "sourceSeriesDriftPercent": {
+        "candidate": 5.7805117807493644,
+        "baseline": 8.050725333134867,
+        "control": 0.5071797644120801
+      }
+    },
+    {
+      "run": 33985524350,
+      "url": "https://github.com/askrjs/askr/actions/runs/33985524350",
+      "gainClaim": false,
+      "workload": [
+        4,
+        "tier4/tier4-integration-ssr-attr-heavy.ts",
+        "benches/tier4/tier4-integration-ssr-attr-heavy.ts > tier4 integration ssr attr heavy",
+        "render 400 attr-heavy nodes with escaped attributes"
+      ],
+      "candidate": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+      "harness": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "evidence": "solid-file-isolated-rejected-700cd40.json",
+      "medians": {
+        "candidate": 1.3000000000029104,
+        "baseline": 1.3000000000029104,
+        "control": 1.3000000000029104
+      },
+      "changePercent": 0.0,
+      "captureCount": 9,
+      "allQualityPass": true,
+      "thresholdPass": true,
+      "sourceSeriesDriftPercent": {
+        "candidate": 0.0,
+        "baseline": 0.0,
+        "control": 7.692307691618838
+      }
+    },
+    {
+      "run": 33985525729,
+      "url": "https://github.com/askrjs/askr/actions/runs/33985525729",
+      "gainClaim": true,
+      "workload": [
+        4,
+        "tier4/tier4-integration-jsx-benchmark-app.tsx",
+        "benches/tier4/tier4-integration-jsx-benchmark-app.tsx > tier4 integration jsx benchmark app",
+        "toggle 1,000 selected JSX rows between 1,000 and 2,000 rows"
+      ],
+      "candidate": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "baseline": "58544e7af0c1abe92319f96e7398211caae48ffa",
+      "harness": "700cd407ba6c5913b498523cc48af937198ff49b",
+      "evidence": "solid-file-isolated-rejected-700cd40.json",
+      "medians": {
+        "candidate": 43.60000000000582,
+        "baseline": 47.64999999999418,
+        "control": 52.75
+      },
+      "changePercent": -8.499475341004937,
+      "captureCount": 9,
+      "allQualityPass": true,
+      "thresholdPass": true,
+      "sourceSeriesDriftPercent": {
+        "candidate": 6.777645659870468,
+        "baseline": 3.8709677419730415,
+        "control": 10.176125244583067
+      }
+    },
+    {
+      "run": 33986274583,
+      "url": "https://github.com/askrjs/askr/actions/runs/33986274583",
+      "gainClaim": false,
+      "workload": [
+        2,
+        "tier2/tier2-subsystem-ssr-layout-route.ts",
+        "benches/tier2/tier2-subsystem-ssr-layout-route.ts > tier2 ssr layout route",
+        "render a nested layout route with params query and hash"
+      ],
+      "candidate": "b10860c5ad7102182d9e5a558d5c9427a7fd4071",
+      "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+      "harness": "b10860c5ad7102182d9e5a558d5c9427a7fd4071",
+      "evidence": "ssrComparison",
+      "medians": {
+        "candidate": 0.025389000000359374,
+        "baseline": 0.025317999999970198,
+        "control": 0.024878000000171596
+      },
+      "changePercent": 2.0540236360810926,
+      "captureCount": 9,
+      "allQualityPass": true,
+      "thresholdPass": true,
+      "sourceSeriesDriftPercent": {
+        "candidate": 0.9080859141320508,
+        "baseline": 1.393520724694297,
+        "control": 3.8520738819975975
+      }
+    }
+  ],
+  "ssrComparison": {
+    "run": 33986274583,
+    "gainClaim": false,
+    "workload": [
+      2,
+      "tier2/tier2-subsystem-ssr-layout-route.ts",
+      "benches/tier2/tier2-subsystem-ssr-layout-route.ts > tier2 ssr layout route",
+      "render a nested layout route with params query and hash"
+    ],
+    "fileFilter": "benches/tier2/tier2-subsystem-ssr-layout-route.ts",
+    "fileFilterVerified": true,
+    "candidate": "b10860c5ad7102182d9e5a558d5c9427a7fd4071",
+    "baseline": "aa45809160de0127f1548761dda8261a5baad2cb",
+    "harness": "b10860c5ad7102182d9e5a558d5c9427a7fd4071",
+    "provenanceVerified": true,
+    "provenance": "v24.20.0\n11.19.0\nb10860c5ad7102182d9e5a558d5c9427a7fd4071\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\nArchitecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           48 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  4\nOn-line CPU(s) list:                     0-3\nVendor ID:                               AuthenticAMD\nModel name:                              AMD EPYC 9V74 80-Core Processor\nCPU family:                              25\nModel:                                   17\nThread(s) per core:                      2\nCore(s) per socket:                      2\nSocket(s):                               1\nStepping:                                1\nBogoMIPS:                                5192.30\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology tsc_reliable nonstop_tsc cpuid extd_apicid aperfmperf tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid avx512f avx512dq rdseed adx smap avx512ifma clflushopt clwb avx512cd sha_ni avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves user_shstk avx512_bf16 clzero xsaveerptr rdpru arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload avx512vbmi umip avx512_vbmi2 gfni vaes vpclmulqdq avx512_vnni avx512_bitalg avx512_vpopcntdq rdpid fsrm\nVirtualization:                          AMD-V\nHypervisor vendor:                       Microsoft\nVirtualization type:                     full\nL1d cache:                               64 KiB (2 instances)\nL1i cache:                               64 KiB (2 instances)\nL2 cache:                                2 MiB (2 instances)\nL3 cache:                                32 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-3\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:         Vulnerable\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Retpolines; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Vulnerable: No microcode\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Not affected\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n└── playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\nrunner_image_version=20260831.293.1\ninstrumentation=disabled\nfile_filter=benches/tier2/tier2-subsystem-ssr-layout-route.ts\n",
+    "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n",
+    "lockSha256": "0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1",
+    "harnessDiffSha256": "60d18d2ed0ffdfd1719f32150116264b542d3f58e46c8280b9e2d482cd7a7133",
+    "capturedWorkloadVerified": true,
+    "captures": {
+      "candidate": [
+        {
+          "capture": 1,
+          "median": 0.025327999999717576,
+          "mean": 0.03383730411000016,
+          "sampleCount": 100000,
+          "rme": 6.928287947544866,
+          "p75": 0.026539999999840802,
+          "p99": 0.0688849999996819,
+          "min": 0.02221300000019255,
+          "max": 72.13535899999988,
+          "p995": 0.08698200000003453,
+          "variance": 0.14306428370157595,
+          "sd": 0.3782383953296862,
+          "totalTime": 3383.7304110000164,
+          "qualityPass": true,
+          "artifact": "tier2-run1.json",
+          "artifactSha256": "0e77666c420007a054041618831a82ab6ba2c3a8623d0340dc94f22a02521a41"
+        },
+        {
+          "capture": 2,
+          "median": 0.025389000000359374,
+          "mean": 0.034286056630000075,
+          "sampleCount": 100000,
+          "rme": 7.5518526341562335,
+          "p75": 0.02676100000007864,
+          "p99": 0.06581000000005588,
+          "min": 0.02219399999921734,
+          "max": 86.84979500000009,
+          "p995": 0.08387700000002951,
+          "variance": 0.17451386889949244,
+          "sd": 0.4177485713913244,
+          "totalTime": 3428.6056630000076,
+          "qualityPass": true,
+          "artifact": "tier2-run2.json",
+          "artifactSha256": "e9883d89650c8fa0d1f0a2868f1f39228b5ea0f41dd1e210f81db5a459b375df"
+        },
+        {
+          "capture": 3,
+          "median": 0.025558000000046377,
+          "mean": 0.034200187309999644,
+          "sampleCount": 100000,
+          "rme": 7.780512289688346,
+          "p75": 0.02676100000007864,
+          "p99": 0.0645680000000084,
+          "min": 0.022474000000329397,
+          "max": 90.77035400000022,
+          "p995": 0.08521899999982452,
+          "variance": 0.1843152258015142,
+          "sd": 0.4293194915229382,
+          "totalTime": 3420.0187309999646,
+          "qualityPass": true,
+          "artifact": "tier2-run3.json",
+          "artifactSha256": "43ade4314d941fdad8ac193a6973404e4760fca699fc6e665c3cc23ac8da019a"
+        }
+      ],
+      "baseline": [
+        {
+          "capture": 1,
+          "median": 0.025539000000208034,
+          "mean": 0.03439126053999999,
+          "sampleCount": 100000,
+          "rme": 7.601724881982156,
+          "p75": 0.026820999999927153,
+          "p99": 0.06418699999994715,
+          "min": 0.021974000000227534,
+          "max": 83.8810139999996,
+          "p995": 0.08225500000003194,
+          "variance": 0.17791326975584731,
+          "sd": 0.4217976644741496,
+          "totalTime": 3439.126053999999,
+          "qualityPass": true,
+          "artifact": "baseline-tier2-run1.json",
+          "artifactSha256": "2df9ac268c58f5e2f0d1f3664936a700c3ccabec2e26095bb184e5b906ecd7a6"
+        },
+        {
+          "capture": 2,
+          "median": 0.025188000000071042,
+          "mean": 0.034099609759999476,
+          "sampleCount": 100000,
+          "rme": 8.08975128347799,
+          "p75": 0.026530000000093423,
+          "p99": 0.06499900000017078,
+          "min": 0.022123000000192405,
+          "max": 96.19517200000064,
+          "p995": 0.08436800000004041,
+          "variance": 0.1980874741551015,
+          "sd": 0.44507019014432037,
+          "totalTime": 3409.9609759999476,
+          "qualityPass": true,
+          "artifact": "baseline-tier2-run2.json",
+          "artifactSha256": "f579610f560e73e04b1ca4650e239c8b475076fc7bda28ed0bd82986a533ea3b"
+        },
+        {
+          "capture": 3,
+          "median": 0.025317999999970198,
+          "mean": 0.033017048890000386,
+          "sampleCount": 100000,
+          "rme": 5.706420902178565,
+          "p75": 0.026360000000067885,
+          "p99": 0.06256500000017695,
+          "min": 0.0225839999998243,
+          "max": 68.18012899999985,
+          "p995": 0.08295599999996739,
+          "variance": 0.0924042542750046,
+          "sd": 0.30398068075949264,
+          "totalTime": 3301.7048890000387,
+          "qualityPass": true,
+          "artifact": "baseline-tier2-run3.json",
+          "artifactSha256": "555056a701a8dc7c141394ce350b76ae9f413ccc92962a9ac52a7a4a1bbfb5d5"
+        }
+      ],
+      "control": [
+        {
+          "capture": 1,
+          "median": 0.02563899999995556,
+          "mean": 0.034463364939999616,
+          "sampleCount": 100000,
+          "rme": 7.687090339430824,
+          "p75": 0.026830999999901906,
+          "p99": 0.06330600000001141,
+          "min": 0.022523999999975786,
+          "max": 92.02143299999989,
+          "p995": 0.08481800000004114,
+          "variance": 0.18269522013525244,
+          "sd": 0.42742861408105615,
+          "totalTime": 3446.336493999962,
+          "qualityPass": true,
+          "artifact": "control-tier2-run1.json",
+          "artifactSha256": "91f4646778070e6641aee18b3a3a45eff288c3caba16487f9856b03f925154f8"
+        },
+        {
+          "capture": 2,
+          "median": 0.024878000000171596,
+          "mean": 0.033572481369999935,
+          "sampleCount": 100000,
+          "rme": 7.378294077418703,
+          "p75": 0.02620999999999185,
+          "p99": 0.06645099999991544,
+          "min": 0.021772999999939202,
+          "max": 84.05123400000048,
+          "p995": 0.08591999999998734,
+          "variance": 0.15972270705054328,
+          "sd": 0.39965323350442605,
+          "totalTime": 3357.2481369999937,
+          "qualityPass": true,
+          "artifact": "control-tier2-run2.json",
+          "artifactSha256": "f0e4163ab1572969aa06b96d1b786fc8f7283f03fd218b21ae1f647605ed2595"
+        },
+        {
+          "capture": 3,
+          "median": 0.02468799999996918,
+          "mean": 0.033561847019999445,
+          "sampleCount": 100000,
+          "rme": 7.6224611200985395,
+          "p75": 0.02602000000024418,
+          "p99": 0.0677130000001398,
+          "min": 0.021842999999989843,
+          "max": 86.01180699999986,
+          "p995": 0.08963599999992766,
+          "variance": 0.17036092909991124,
+          "sd": 0.41274802131556154,
+          "totalTime": 3356.1847019999445,
+          "qualityPass": true,
+          "artifact": "control-tier2-run3.json",
+          "artifactSha256": "cc54706b718b9b3ba572d2c69212d9edc4eb7f9d1262a365ab5be566ad468431"
+        }
+      ]
+    },
+    "medians": {
+      "candidate": 0.025389000000359374,
+      "baseline": 0.025317999999970198,
+      "control": 0.024878000000171596
+    },
+    "lowerBaseline": 0.024878000000171596,
+    "changePercent": 2.0540236360810926,
+    "allQualityPass": true,
+    "stability": {
+      "candidate": {
+        "minMedian": 0.025327999999717576,
+        "maxMedian": 0.025558000000046377,
+        "driftPercent": 0.9080859141320508,
+        "withinFivePercent": true,
+        "values": [
+          0.025327999999717576, 0.025389000000359374, 0.025558000000046377
+        ]
+      },
+      "baseline": {
+        "minMedian": 0.025188000000071042,
+        "maxMedian": 0.025539000000208034,
+        "driftPercent": 1.393520724694297,
+        "withinFivePercent": true,
+        "values": [
+          0.025539000000208034, 0.025188000000071042, 0.025317999999970198
+        ]
+      },
+      "control": {
+        "minMedian": 0.02468799999996918,
+        "maxMedian": 0.02563899999995556,
+        "driftPercent": 3.8520738819975975,
+        "withinFivePercent": true,
+        "values": [
+          0.02563899999995556, 0.024878000000171596, 0.02468799999996918
+        ]
+      },
+      "baselineAndControl": {
+        "minMedian": 0.02468799999996918,
+        "maxMedian": 0.02563899999995556,
+        "driftPercent": 3.8520738819975975,
+        "withinFivePercent": true,
+        "values": [
+          0.025539000000208034, 0.025188000000071042, 0.025317999999970198,
+          0.02563899999995556, 0.024878000000171596, 0.02468799999996918
+        ]
+      }
+    },
+    "sourceSeriesWithinFivePercent": true,
+    "stabilityInvestigationNeeded": false,
+    "thresholdPass": true,
+    "acceptancePass": true
+  },
+  "numericAndSampleQualifiedCaptureCount": 171,
+  "clockResolutionPendingRuns": [33985507949, 33985524350]
+}

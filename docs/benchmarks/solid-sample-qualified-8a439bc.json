@@ -1,0 +1,231 @@
+{
+  "status": "partially-qualified",
+  "summary": "All three workloads meet sample quality; keyed div reorder and unselected resize meet the 5% regression limit. Selected resize is rejected at +5.87%.",
+  "runs": [
+    {
+      "run": 33968995648,
+      "workload": [
+        1,
+        "tier1/tier1-hotpath-renderer-keyed-fastpath.tsx",
+        "benches/tier1/tier1-hotpath-renderer-keyed-fastpath.tsx > tier1 renderer keyed fastpath",
+        "reorder a large keyed div list"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 13.477932499999952,
+            "mean": 14.113309679999993,
+            "rme": 2.9241079183971856,
+            "sampleCount": 100,
+            "p75": 14.415887000000112,
+            "p99": 21.766316999999844,
+            "capture": 1
+          },
+          {
+            "median": 13.254216499999984,
+            "mean": 13.949984959999993,
+            "rme": 2.7191598202770564,
+            "sampleCount": 100,
+            "p75": 14.332409999999982,
+            "p99": 20.177596999999878,
+            "capture": 2
+          },
+          {
+            "median": 12.983560000000125,
+            "mean": 13.975395879999997,
+            "rme": 3.4397784205020363,
+            "sampleCount": 100,
+            "p75": 14.240097999999762,
+            "p99": 21.79497599999968,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 13.94279449999999,
+            "mean": 14.632699299999999,
+            "rme": 2.826031907735312,
+            "sampleCount": 100,
+            "p75": 14.90896500000008,
+            "p99": 21.05876699999999,
+            "capture": 1
+          },
+          {
+            "median": 13.57296550000001,
+            "mean": 14.262650750000017,
+            "rme": 2.9962438429200597,
+            "sampleCount": 100,
+            "p75": 14.587690999999722,
+            "p99": 20.244195000000218,
+            "capture": 2
+          },
+          {
+            "median": 13.077370999999857,
+            "mean": 13.725412570000003,
+            "rme": 2.714248267809384,
+            "sampleCount": 100,
+            "p75": 13.929673000000093,
+            "p99": 21.304277000000184,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": -2.348410890752095,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\n8a439bc11b2205cf802f1abd150ad08d5f7629d8\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n",
+      "harnessCommit": "8a439bc11b2205cf802f1abd150ad08d5f7629d8",
+      "baselineHarnessDiff": "diff --git a/benches/tier1/tier1-hotpath-renderer-keyed-fastpath.tsx b/benches/tier1/tier1-hotpath-renderer-keyed-fastpath.tsx\nindex c13eeaa..2d61226 100644\n--- a/benches/tier1/tier1-hotpath-renderer-keyed-fastpath.tsx\n+++ b/benches/tier1/tier1-hotpath-renderer-keyed-fastpath.tsx\n@@ -96,6 +96,7 @@ describe('tier1 renderer keyed fastpath', () => {\n     },\n     {\n       ...tier1BenchOptions,\n+      iterations: 100,\n       setup() {\n         const result = createTestContainer();\n         cleanup = result.cleanup;\ndiff --git a/benches/tier4/tier4-integration-jsx-benchmark-app.tsx b/benches/tier4/tier4-integration-jsx-benchmark-app.tsx\nindex 0e38024..98e1d21 100644\n--- a/benches/tier4/tier4-integration-jsx-benchmark-app.tsx\n+++ b/benches/tier4/tier4-integration-jsx-benchmark-app.tsx\n@@ -41,6 +41,7 @@ const jsxAppSlowBenchOptions = extendBenchOptions(tier4BenchOptions, {\n \n const jsxAppAppendBenchOptions = extendBenchOptions(tier4BenchOptions, {\n   time: 2500,\n+  iterations: 100,\n });\n \n function mountJsxBenchmarkApp(initialRows: RowData[]) {\n"
+    },
+    {
+      "run": 33968996417,
+      "workload": [
+        4,
+        "tier4/tier4-integration-jsx-benchmark-app.tsx",
+        "benches/tier4/tier4-integration-jsx-benchmark-app.tsx > tier4 integration jsx benchmark app",
+        "toggle 1,000 selected JSX rows between 1,000 and 2,000 rows"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 60.450000000004366,
+            "mean": 61.30500000000015,
+            "rme": 11.88812485816865,
+            "sampleCount": 100,
+            "p75": 94.89999999999418,
+            "p99": 121.29999999998836,
+            "capture": 1
+          },
+          {
+            "median": 66.90000000000146,
+            "mean": 59.48199999999983,
+            "rme": 11.638692575337014,
+            "sampleCount": 100,
+            "p75": 91.59999999999127,
+            "p99": 126.89999999999418,
+            "capture": 2
+          },
+          {
+            "median": 57.849999999998545,
+            "mean": 59.84699999999953,
+            "rme": 11.81843383989582,
+            "sampleCount": 100,
+            "p75": 92.59999999997672,
+            "p99": 128.3000000000029,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 55.55000000000291,
+            "mean": 58.520999999999916,
+            "rme": 11.98677200645943,
+            "sampleCount": 100,
+            "p75": 91.60000000000582,
+            "p99": 118.5,
+            "capture": 1
+          },
+          {
+            "median": 57.09999999999127,
+            "mean": 60.6839999999998,
+            "rme": 11.844740517631775,
+            "sampleCount": 100,
+            "p75": 93.20000000001164,
+            "p99": 115.90000000000873,
+            "capture": 2
+          },
+          {
+            "median": 57.94999999999709,
+            "mean": 58.63199999999983,
+            "rme": 11.685925414346826,
+            "sampleCount": 100,
+            "p75": 92.19999999999709,
+            "p99": 102.69999999999709,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 5.8669001751551875,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\n8a439bc11b2205cf802f1abd150ad08d5f7629d8\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n",
+      "harnessCommit": "8a439bc11b2205cf802f1abd150ad08d5f7629d8",
+      "baselineHarnessDiff": "diff --git a/benches/tier1/tier1-hotpath-renderer-keyed-fastpath.tsx b/benches/tier1/tier1-hotpath-renderer-keyed-fastpath.tsx\nindex c13eeaa..2d61226 100644\n--- a/benches/tier1/tier1-hotpath-renderer-keyed-fastpath.tsx\n+++ b/benches/tier1/tier1-hotpath-renderer-keyed-fastpath.tsx\n@@ -96,6 +96,7 @@ describe('tier1 renderer keyed fastpath', () => {\n     },\n     {\n       ...tier1BenchOptions,\n+      iterations: 100,\n       setup() {\n         const result = createTestContainer();\n         cleanup = result.cleanup;\ndiff --git a/benches/tier4/tier4-integration-jsx-benchmark-app.tsx b/benches/tier4/tier4-integration-jsx-benchmark-app.tsx\nindex 0e38024..98e1d21 100644\n--- a/benches/tier4/tier4-integration-jsx-benchmark-app.tsx\n+++ b/benches/tier4/tier4-integration-jsx-benchmark-app.tsx\n@@ -41,6 +41,7 @@ const jsxAppSlowBenchOptions = extendBenchOptions(tier4BenchOptions, {\n \n const jsxAppAppendBenchOptions = extendBenchOptions(tier4BenchOptions, {\n   time: 2500,\n+  iterations: 100,\n });\n \n function mountJsxBenchmarkApp(initialRows: RowData[]) {\n"
+    },
+    {
+      "run": 33968997322,
+      "workload": [
+        4,
+        "tier4/tier4-integration-jsx-benchmark-app.tsx",
+        "benches/tier4/tier4-integration-jsx-benchmark-app.tsx > tier4 integration jsx benchmark app",
+        "toggle the JSX app between 1,000 and 2,000 rows"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 57.80000000000291,
+            "mean": 62.27500000000015,
+            "rme": 12.354557740310884,
+            "sampleCount": 100,
+            "p75": 98.40000000000873,
+            "p99": 124.10000000000582,
+            "capture": 1
+          },
+          {
+            "median": 59.84999999999127,
+            "mean": 62.86799999999988,
+            "rme": 12.199047945794792,
+            "sampleCount": 100,
+            "p75": 99.29999999998836,
+            "p99": 129.3000000000029,
+            "capture": 2
+          },
+          {
+            "median": 59.15000000000873,
+            "mean": 61.2710000000005,
+            "rme": 12.323674774333652,
+            "sampleCount": 100,
+            "p75": 96.09999999999127,
+            "p99": 124.69999999998254,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 57.500000000007276,
+            "mean": 60.80499999999986,
+            "rme": 12.155172264933551,
+            "sampleCount": 100,
+            "p75": 95.89999999999418,
+            "p99": 134,
+            "capture": 1
+          },
+          {
+            "median": 56.39999999999418,
+            "mean": 58.894000000000375,
+            "rme": 12.124204076435444,
+            "sampleCount": 100,
+            "p75": 90.19999999999709,
+            "p99": 125.69999999999709,
+            "capture": 2
+          },
+          {
+            "median": 56.80000000000291,
+            "mean": 59.67300000000003,
+            "rme": 12.205874598642666,
+            "sampleCount": 100,
+            "p75": 91.40000000000873,
+            "p99": 129.10000000000582,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 4.137323943672011,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\n8a439bc11b2205cf802f1abd150ad08d5f7629d8\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n",
+      "harnessCommit": "8a439bc11b2205cf802f1abd150ad08d5f7629d8",
+      "baselineHarnessDiff": "diff --git a/benches/tier1/tier1-hotpath-renderer-keyed-fastpath.tsx b/benches/tier1/tier1-hotpath-renderer-keyed-fastpath.tsx\nindex c13eeaa..2d61226 100644\n--- a/benches/tier1/tier1-hotpath-renderer-keyed-fastpath.tsx\n+++ b/benches/tier1/tier1-hotpath-renderer-keyed-fastpath.tsx\n@@ -96,6 +96,7 @@ describe('tier1 renderer keyed fastpath', () => {\n     },\n     {\n       ...tier1BenchOptions,\n+      iterations: 100,\n       setup() {\n         const result = createTestContainer();\n         cleanup = result.cleanup;\ndiff --git a/benches/tier4/tier4-integration-jsx-benchmark-app.tsx b/benches/tier4/tier4-integration-jsx-benchmark-app.tsx\nindex 0e38024..98e1d21 100644\n--- a/benches/tier4/tier4-integration-jsx-benchmark-app.tsx\n+++ b/benches/tier4/tier4-integration-jsx-benchmark-app.tsx\n@@ -41,6 +41,7 @@ const jsxAppSlowBenchOptions = extendBenchOptions(tier4BenchOptions, {\n \n const jsxAppAppendBenchOptions = extendBenchOptions(tier4BenchOptions, {\n   time: 2500,\n+  iterations: 100,\n });\n \n function mountJsxBenchmarkApp(initialRows: RowData[]) {\n"
+    }
+  ]
+}

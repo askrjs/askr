@@ -2,7 +2,8 @@ import { bindComponentHost, writeHostOwners } from './dom-ownership';
 import { captureOwnerRange } from './dom-range';
 import { logger } from '../common/logger';
 import {
-  getRuntimeRenderer,
+  getRuntimeEvaluation,
+  getRuntimeCleanup,
   enterDomCommitScope,
   restoreDomCommitScope,
   getExecutionContextFrame,
@@ -24,7 +25,7 @@ export function applyComponentResult(
   const target = instance.target;
   const placeholder = instance._placeholder;
   if (!target && !placeholder) return false;
-  const renderer = getRuntimeRenderer();
+  const renderer = getRuntimeEvaluation();
   const previousScope = enterDomCommitScope(instance);
   const executionFrame = getExecutionContextFrame(instance.ownerFrame);
   if (!instance._rootComponentFn) {
@@ -37,16 +38,20 @@ export function applyComponentResult(
   try {
     return withContext(executionFrame, () => {
       if (target) {
-        runRetainedElementUpdate(target, renderer.cleanupInstancesUnder, () => {
-          if (strategy === 'keyed-reorder') {
-            // Preserve the extension-host callback contract on this strategy.
-            renderer.evaluate(result, target);
-          } else if (
-            !renderer.replaceComponentRange(instance, result, target)
-          ) {
-            renderer.evaluate(result, target, undefined, instance);
+        runRetainedElementUpdate(
+          target,
+          getRuntimeCleanup().cleanupInstancesUnder,
+          () => {
+            if (strategy === 'keyed-reorder') {
+              // Preserve the extension-host callback contract on this strategy.
+              renderer.evaluate(result, target);
+            } else if (
+              !renderer.replaceComponentRange(instance, result, target)
+            ) {
+              renderer.evaluate(result, target, undefined, instance);
+            }
           }
-        });
+        );
         return true;
       }
       const replacement = renderer.replaceComponentRange(
@@ -96,7 +101,7 @@ export function applyComponentResult(
         );
         const errors: unknown[] = [];
         try {
-          renderer.cleanupInstancesUnder(host);
+          getRuntimeCleanup().cleanupInstancesUnder(host);
         } catch (error) {
           errors.push(error);
         }

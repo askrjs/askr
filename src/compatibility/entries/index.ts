@@ -2,6 +2,8 @@
 import * as implementation from '../../index';
 import type * as Contract from '../contracts/index';
 export type * from '../contracts/index';
+export const createDOMRendererHost: typeof Contract.createDOMRendererHost =
+  implementation.createDOMRendererHost;
 
 const public_AskrRuntime: typeof Contract.AskrRuntime =
   implementation.AskrRuntime as unknown as typeof Contract.AskrRuntime;

@@ -1,0 +1,1422 @@
+{
+  "status": "partially-qualified",
+  "summary": "15 workloads pass; keyed div reorder exceeds 5%; two alternating JSX resize workloads remain ineligible for RME. All three require further capture.",
+  "runs": [
+    {
+      "run": 33968476277,
+      "workload": [
+        1,
+        "tier1/tier1-hotpath-for-keyed-reorder.tsx",
+        "benches/tier1/tier1-hotpath-for-keyed-reorder.tsx > tier1 hotpath for keyed reorder",
+        "swap distant keyed rows while preserving DOM identity"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 3.055418000000145,
+            "mean": 3.322691611570241,
+            "rme": 6.6460021492095,
+            "sampleCount": 121,
+            "p75": 3.356800999999905,
+            "p99": 12.118195000000014,
+            "capture": 1
+          },
+          {
+            "median": 2.955977999999959,
+            "mean": 3.1946118333333375,
+            "rme": 6.122281520781894,
+            "sampleCount": 126,
+            "p75": 3.1257580000001326,
+            "p99": 9.374389999999948,
+            "capture": 2
+          },
+          {
+            "median": 2.9585289999999986,
+            "mean": 3.206289048000017,
+            "rme": 5.940351760763174,
+            "sampleCount": 125,
+            "p75": 3.1433059999999386,
+            "p99": 9.222745999999916,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 2.9708720000000994,
+            "mean": 3.217805912000007,
+            "rme": 6.344819522104252,
+            "sampleCount": 125,
+            "p75": 3.1587749999998778,
+            "p99": 9.939249000000018,
+            "capture": 1
+          },
+          {
+            "median": 2.9870679999999084,
+            "mean": 3.266812943089455,
+            "rme": 6.515050432180498,
+            "sampleCount": 123,
+            "p75": 3.167268000000149,
+            "p99": 11.482241000000158,
+            "capture": 2
+          },
+          {
+            "median": 2.927310000000034,
+            "mean": 3.1918047539682752,
+            "rme": 6.363924589242914,
+            "sampleCount": 126,
+            "p75": 3.1490630000002966,
+            "p99": 9.579869000000144,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": -0.4154672432908679,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\nbd6a88c8dcc560251d09e2b15bb14efb2148ac27\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n"
+    },
+    {
+      "run": 33968477248,
+      "workload": [
+        1,
+        "tier1/tier1-hotpath-renderer-keyed-fastpath.tsx",
+        "benches/tier1/tier1-hotpath-renderer-keyed-fastpath.tsx > tier1 renderer keyed fastpath",
+        "reorder a large keyed div list"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 15.923021500000118,
+            "mean": 16.85827120833335,
+            "rme": 7.638184693014225,
+            "sampleCount": 24,
+            "p75": 17.332154000000173,
+            "p99": 24.586377000000084,
+            "capture": 1
+          },
+          {
+            "median": 15.13703600000008,
+            "mean": 16.009592679999987,
+            "rme": 8.159545356064788,
+            "sampleCount": 25,
+            "p75": 16.758240000000114,
+            "p99": 26.70129799999995,
+            "capture": 2
+          },
+          {
+            "median": 15.72526199999993,
+            "mean": 16.115837760000012,
+            "rme": 7.373181906595881,
+            "sampleCount": 25,
+            "p75": 16.209176000000298,
+            "p99": 26.729175999999825,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 14.496728500000017,
+            "mean": 15.908929730769238,
+            "rme": 7.72170635285086,
+            "sampleCount": 26,
+            "p75": 18.005282999999963,
+            "p99": 22.567603999999847,
+            "capture": 1
+          },
+          {
+            "median": 14.890710499999841,
+            "mean": 15.792861576923052,
+            "rme": 7.335395387404485,
+            "sampleCount": 26,
+            "p75": 16.87308699999994,
+            "p99": 23.054539999999633,
+            "capture": 2
+          },
+          {
+            "median": 14.743516500000169,
+            "mean": 15.716514692307678,
+            "rme": 7.047307735562411,
+            "sampleCount": 26,
+            "p75": 16.262388999999985,
+            "p99": 22.683802999999898,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 6.658828645118353,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\nbd6a88c8dcc560251d09e2b15bb14efb2148ac27\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n"
+    },
+    {
+      "run": 33968478304,
+      "workload": [
+        1,
+        "tier1/tier1-hotpath-renderer-positional-text.tsx",
+        "benches/tier1/tier1-hotpath-renderer-positional-text.tsx > tier1 renderer positional text",
+        "update 1,000 positional text nodes in one container"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 7.0550969999999325,
+            "mean": 7.645829283018858,
+            "rme": 4.360486128865671,
+            "sampleCount": 53,
+            "p75": 8.326379999999972,
+            "p99": 11.922775000000001,
+            "capture": 1
+          },
+          {
+            "median": 7.155984999999873,
+            "mean": 7.64429960377357,
+            "rme": 4.677466399300399,
+            "sampleCount": 53,
+            "p75": 7.354475000000093,
+            "p99": 14.686298999999963,
+            "capture": 2
+          },
+          {
+            "median": 7.164326000000074,
+            "mean": 7.705926499999989,
+            "rme": 4.8688466142178655,
+            "sampleCount": 52,
+            "p75": 7.646980999999869,
+            "p99": 14.734779000000344,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 7.015973999999915,
+            "mean": 7.653036339622647,
+            "rme": 4.662166203610209,
+            "sampleCount": 53,
+            "p75": 8.33398299999999,
+            "p99": 12.796070999999984,
+            "capture": 1
+          },
+          {
+            "median": 6.992971000000125,
+            "mean": 7.582315849056639,
+            "rme": 5.468554314507896,
+            "sampleCount": 53,
+            "p75": 7.208172000000104,
+            "p99": 14.272065000000111,
+            "capture": 2
+          },
+          {
+            "median": 7.096454000000222,
+            "mean": 7.5074340740741095,
+            "rme": 4.043072332175822,
+            "sampleCount": 54,
+            "p75": 7.2646380000001045,
+            "p99": 13.07635399999981,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 1.9956031764080118,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\nbd6a88c8dcc560251d09e2b15bb14efb2148ac27\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n"
+    },
+    {
+      "run": 33968479289,
+      "workload": [
+        1,
+        "tier1/tier1-hotpath-router-match.ts",
+        "benches/tier1/tier1-hotpath-router-match.ts > tier1 router match",
+        "match literal route segments (128 calls)"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 0.03847300000006726,
+            "mean": 0.03954404132067911,
+            "rme": 0.3945039814882224,
+            "sampleCount": 10116,
+            "p75": 0.038743999999951484,
+            "p99": 0.05463299999996707,
+            "capture": 1
+          },
+          {
+            "median": 0.03975500000001375,
+            "mean": 0.040843984888707684,
+            "rme": 0.3787796531410607,
+            "sampleCount": 9794,
+            "p75": 0.0400849999998627,
+            "p99": 0.054894000000103915,
+            "capture": 2
+          },
+          {
+            "median": 0.03869299999996656,
+            "mean": 0.03976482017892601,
+            "rme": 0.3804994552112588,
+            "sampleCount": 10060,
+            "p75": 0.03894399999990128,
+            "p99": 0.05561499999998887,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 0.03801199999998062,
+            "mean": 0.0451889478084042,
+            "rme": 5.968208909491414,
+            "sampleCount": 8852,
+            "p75": 0.038393000000041866,
+            "p99": 0.123051999999916,
+            "capture": 1
+          },
+          {
+            "median": 0.040477000000009866,
+            "mean": 0.0415566779555356,
+            "rme": 0.37086689593628464,
+            "sampleCount": 9626,
+            "p75": 0.040777000000161934,
+            "p99": 0.06063399999993635,
+            "capture": 2
+          },
+          {
+            "median": 0.03890300000011848,
+            "mean": 0.039931367937710634,
+            "rme": 0.3554509672351405,
+            "sampleCount": 10018,
+            "p75": 0.03920400000015434,
+            "p99": 0.054883000000018,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": -0.5398041286052035,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\nbd6a88c8dcc560251d09e2b15bb14efb2148ac27\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n"
+    },
+    {
+      "run": 33968480450,
+      "workload": [
+        1,
+        "tier1/tier1-hotpath-ssr-render.tsx",
+        "benches/tier1/tier1-hotpath-ssr-render.tsx > tier1 ssr render",
+        "render a 250-row sync SSR tree to string"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 0.2166819999999916,
+            "mean": 0.22862990342857187,
+            "rme": 1.0720788408124462,
+            "sampleCount": 1750,
+            "p75": 0.22791899999992893,
+            "p99": 0.5207289999999603,
+            "capture": 1
+          },
+          {
+            "median": 0.21971350000001166,
+            "mean": 0.23203286832946854,
+            "rme": 1.5393972888571352,
+            "sampleCount": 1724,
+            "p75": 0.22874000000001615,
+            "p99": 0.5398049999998875,
+            "capture": 2
+          },
+          {
+            "median": 0.2167779999999766,
+            "mean": 0.23153331636783853,
+            "rme": 1.606263410013159,
+            "sampleCount": 1729,
+            "p75": 0.22857900000008158,
+            "p99": 0.5460970000001453,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 0.22402099999999336,
+            "mean": 0.23643999231678453,
+            "rme": 1.147405582219637,
+            "sampleCount": 1692,
+            "p75": 0.2331090000000131,
+            "p99": 0.5675070000000346,
+            "capture": 1
+          },
+          {
+            "median": 0.22397100000000592,
+            "mean": 0.23727513226571606,
+            "rme": 1.1852003834572158,
+            "sampleCount": 1686,
+            "p75": 0.23454100000003564,
+            "p99": 0.601900999999998,
+            "capture": 2
+          },
+          {
+            "median": 0.22047399999996742,
+            "mean": 0.2311636793760862,
+            "rme": 1.0500817898157009,
+            "sampleCount": 1731,
+            "p75": 0.22907099999997627,
+            "p99": 0.5548530000000937,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": -3.2115764987561413,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\nbd6a88c8dcc560251d09e2b15bb14efb2148ac27\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n"
+    },
+    {
+      "run": 33968481351,
+      "workload": [
+        2,
+        "tier2/tier2-subsystem-hydration-verify-markup.tsx",
+        "benches/tier2/tier2-subsystem-hydration-verify-markup.tsx > tier2 subsystem hydration verify markup",
+        "verify markup for a 1,000-row server-rendered table"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 105.03887299999997,
+            "mean": 108.81013082352945,
+            "rme": 4.3259436750881495,
+            "sampleCount": 17,
+            "p75": 113.29037100000005,
+            "p99": 137.7070960000001,
+            "capture": 1
+          },
+          {
+            "median": 112.07682099999988,
+            "mean": 113.74214712499997,
+            "rme": 3.077021650028108,
+            "sampleCount": 16,
+            "p75": 117.588119,
+            "p99": 129.56793599999992,
+            "capture": 2
+          },
+          {
+            "median": 103.15205900000001,
+            "mean": 107.34233505882358,
+            "rme": 4.3272014007494555,
+            "sampleCount": 17,
+            "p75": 111.66985900000009,
+            "p99": 135.78785700000026,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 109.31049449999978,
+            "mean": 112.66043275000001,
+            "rme": 6.733630603937871,
+            "sampleCount": 16,
+            "p75": 114.47887700000001,
+            "p99": 153.67140299999983,
+            "capture": 1
+          },
+          {
+            "median": 107.90667600000006,
+            "mean": 109.20108847058836,
+            "rme": 4.80055864756502,
+            "sampleCount": 17,
+            "p75": 114.2644049999999,
+            "p99": 137.5044680000001,
+            "capture": 2
+          },
+          {
+            "median": 104.93927699999995,
+            "mean": 108.53140588235291,
+            "rme": 4.54252219999404,
+            "sampleCount": 17,
+            "p75": 113.7907950000008,
+            "p99": 138.03961899999967,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": -2.657669670039775,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\nbd6a88c8dcc560251d09e2b15bb14efb2148ac27\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n"
+    },
+    {
+      "run": 33968482464,
+      "workload": [
+        2,
+        "tier2/tier2-subsystem-ssr-concurrent-isolation.ts",
+        "benches/tier2/tier2-subsystem-ssr-concurrent-isolation.ts > tier2 ssr concurrent isolation",
+        "render 16 isolated SSR requests in parallel"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 0.588455999999951,
+            "mean": 0.7090033931522983,
+            "rme": 4.92916005023467,
+            "sampleCount": 847,
+            "p75": 0.7464629999999488,
+            "p99": 2.221484999999916,
+            "capture": 1
+          },
+          {
+            "median": 0.5683480000000145,
+            "mean": 0.7207990276110521,
+            "rme": 7.255820889373214,
+            "sampleCount": 833,
+            "p75": 0.7476349999999456,
+            "p99": 3.3205810000001748,
+            "capture": 2
+          },
+          {
+            "median": 0.5944480000000567,
+            "mean": 0.7492050734744682,
+            "rme": 6.341417741850902,
+            "sampleCount": 803,
+            "p75": 0.7674030000000585,
+            "p99": 2.111067999999932,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 0.5710430000000315,
+            "mean": 0.7142799059929521,
+            "rme": 6.201680314525387,
+            "sampleCount": 851,
+            "p75": 0.7018190000000004,
+            "p99": 3.31402700000001,
+            "capture": 1
+          },
+          {
+            "median": 0.5663694999999507,
+            "mean": 0.7188294635294091,
+            "rme": 9.691144887974486,
+            "sampleCount": 850,
+            "p75": 0.713271000000077,
+            "p99": 3.5603399999999965,
+            "capture": 2
+          },
+          {
+            "median": 0.5519669999998769,
+            "mean": 0.6907457825086232,
+            "rme": 5.763288449514341,
+            "sampleCount": 869,
+            "p75": 0.7123489999999038,
+            "p99": 3.3666880000000674,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 3.899662676044935,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\nbd6a88c8dcc560251d09e2b15bb14efb2148ac27\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n"
+    },
+    {
+      "run": 33968483191,
+      "workload": [
+        2,
+        "tier2/tier2-subsystem-ssr-layout-route.ts",
+        "benches/tier2/tier2-subsystem-ssr-layout-route.ts > tier2 ssr layout route",
+        "render a nested layout route with params query and hash"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 0.0365039999999226,
+            "mean": 0.05041597311150333,
+            "rme": 10.62568255652936,
+            "sampleCount": 11901,
+            "p75": 0.047739999999976135,
+            "p99": 0.1155109999999695,
+            "capture": 1
+          },
+          {
+            "median": 0.03559250000012071,
+            "mean": 0.04838741669354909,
+            "rme": 6.840672783558634,
+            "sampleCount": 12400,
+            "p75": 0.04703900000004069,
+            "p99": 0.11930599999982405,
+            "capture": 2
+          },
+          {
+            "median": 0.037405000000035216,
+            "mean": 0.05064703367941364,
+            "rme": 6.762199451885851,
+            "sampleCount": 11847,
+            "p75": 0.04865199999994729,
+            "p99": 0.12496399999986352,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 0.03417000000001735,
+            "mean": 0.05075117652034238,
+            "rme": 12.064495695574454,
+            "sampleCount": 11823,
+            "p75": 0.046509000000014566,
+            "p99": 0.11765400000001591,
+            "capture": 1
+          },
+          {
+            "median": 0.03625349999992977,
+            "mean": 0.048780835691057296,
+            "rme": 6.17683923677563,
+            "sampleCount": 12300,
+            "p75": 0.04755000000000109,
+            "p99": 0.12233100000003105,
+            "capture": 2
+          },
+          {
+            "median": 0.03636299999993753,
+            "mean": 0.049482400956623165,
+            "rme": 6.923642845594932,
+            "sampleCount": 12126,
+            "p75": 0.04732000000012704,
+            "p99": 0.12425299999995332,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 0.6909677686107951,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\nbd6a88c8dcc560251d09e2b15bb14efb2148ac27\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n"
+    },
+    {
+      "run": 33968484277,
+      "workload": [
+        3,
+        "tier3/tier3-system-hydration-listeners.tsx",
+        "benches/tier3/tier3-system-hydration-listeners.tsx > tier3 system hydration listeners",
+        "hydrate a listener-heavy intrinsic SSR tree in Chromium"
+      ],
+      "captures": {
+        "baseline": [
+          {
+            "median": 8.699999999982538,
+            "mean": 10.07486033519566,
+            "rme": 10.150949633857058,
+            "sampleCount": 179,
+            "p75": 9.60000000000582,
+            "p99": 22.300000000017462,
+            "capture": 1
+          },
+          {
+            "median": 8.10000000000582,
+            "mean": 8.890640394088756,
+            "rme": 4.317416564888699,
+            "sampleCount": 203,
+            "p75": 8.900000000023283,
+            "p99": 15.200000000011642,
+            "capture": 2
+          },
+          {
+            "median": 8.5,
+            "mean": 9.313917525773165,
+            "rme": 4.564072135324648,
+            "sampleCount": 194,
+            "p75": 9.299999999988358,
+            "p99": 26.900000000023283,
+            "capture": 3
+          }
+        ],
+        "candidate": [
+          {
+            "median": 8.800000000017462,
+            "mean": 9.838797814207492,
+            "rme": 9.535310307390795,
+            "sampleCount": 183,
+            "p75": 9.299999999988358,
+            "p99": 17.79999999998836,
+            "capture": 1
+          },
+          {
+            "median": 8.39999999999418,
+            "mean": 9.000499999999883,
+            "rme": 4.04341842866776,
+            "sampleCount": 200,
+            "p75": 9,
+            "p99": 15,
+            "capture": 2
+          },
+          {
+            "median": 8.700000000011642,
+            "mean": 9.382291666666637,
+            "rme": 3.991036990177527,
+            "sampleCount": 192,
+            "p75": 9.5,
+            "p99": 29.20000000001164,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 2.352941176607537,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\nbd6a88c8dcc560251d09e2b15bb14efb2148ac27\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n"
+    },
+    {
+      "run": 33968485386,
+      "workload": [
+        3,
+        "tier3/tier3-system-keyed-lis-component-boundary.tsx",
+        "benches/tier3/tier3-system-keyed-lis-component-boundary.tsx > tier3 system keyed LIS component boundary",
+        "reorder 2,000 keyed rows through a component boundary"
+      ],
+      "captures": {
+        "baseline": [
+          {
+            "median": 3.3000000000174623,
+            "mean": 3.4147727272728927,
+            "rme": 1.3767244018890266,
+            "sampleCount": 528,
+            "p75": 3.3999999999941792,
+            "p99": 5.599999999976717,
+            "capture": 1
+          },
+          {
+            "median": 3.2999999999883585,
+            "mean": 3.356983240223431,
+            "rme": 1.764330913798055,
+            "sampleCount": 537,
+            "p75": 3.3999999999941792,
+            "p99": 4.099999999976717,
+            "capture": 2
+          },
+          {
+            "median": 3.2000000000116415,
+            "mean": 3.294698354662026,
+            "rme": 1.6383193166800405,
+            "sampleCount": 547,
+            "p75": 3.3000000000174623,
+            "p99": 4.199999999982538,
+            "capture": 3
+          }
+        ],
+        "candidate": [
+          {
+            "median": 3.3000000000174623,
+            "mean": 3.362686567164168,
+            "rme": 0.7584408249915106,
+            "sampleCount": 536,
+            "p75": 3.3999999999941792,
+            "p99": 3.900000000023283,
+            "capture": 1
+          },
+          {
+            "median": 3.2000000000116415,
+            "mean": 3.311948529412,
+            "rme": 1.906574473346203,
+            "sampleCount": 544,
+            "p75": 3.3000000000174623,
+            "p99": 5.399999999994179,
+            "capture": 2
+          },
+          {
+            "median": 3.2000000000116415,
+            "mean": 3.318600368324286,
+            "rme": 1.6108177069178604,
+            "sampleCount": 543,
+            "p75": 3.3000000000174623,
+            "p99": 4.2999999999883585,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": -3.0303030296081723,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\nbd6a88c8dcc560251d09e2b15bb14efb2148ac27\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n"
+    },
+    {
+      "run": 33968486286,
+      "workload": [
+        3,
+        "tier3/tier3-system-table-keyed-movement-cliffs.tsx",
+        "benches/tier3/tier3-system-table-keyed-movement-cliffs.tsx > tier3 system table keyed movement cliffs",
+        "reverse 10,000 keyed rows"
+      ],
+      "captures": {
+        "baseline": [
+          {
+            "median": 28.39999999999418,
+            "mean": 30.397500000002037,
+            "rme": 7.326980262412153,
+            "sampleCount": 40,
+            "p75": 34.09999999997672,
+            "p99": 57,
+            "capture": 1
+          },
+          {
+            "median": 28.400000000023283,
+            "mean": 28.437209302328018,
+            "rme": 6.894108262183614,
+            "sampleCount": 43,
+            "p75": 29.5,
+            "p99": 57.600000000034925,
+            "capture": 2
+          },
+          {
+            "median": 30.800000000046566,
+            "mean": 30.84615384615534,
+            "rme": 9.256695816412028,
+            "sampleCount": 39,
+            "p75": 34.09999999997672,
+            "p99": 64.40000000002328,
+            "capture": 3
+          }
+        ],
+        "candidate": [
+          {
+            "median": 29.20000000001164,
+            "mean": 31.25641025641324,
+            "rme": 7.6125384864771135,
+            "sampleCount": 39,
+            "p75": 36.399999999965075,
+            "p99": 58.100000000034925,
+            "capture": 1
+          },
+          {
+            "median": 28.699999999953434,
+            "mean": 30.530000000000292,
+            "rme": 6.7181504888064,
+            "sampleCount": 40,
+            "p75": 36,
+            "p99": 46.100000000034925,
+            "capture": 2
+          },
+          {
+            "median": 28.60000000000582,
+            "mean": 30.030000000001746,
+            "rme": 7.349209796825678,
+            "sampleCount": 40,
+            "p75": 33.70000000001164,
+            "p99": 57.79999999998836,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 1.056338027922199,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\nbd6a88c8dcc560251d09e2b15bb14efb2148ac27\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n"
+    },
+    {
+      "run": 33968487357,
+      "workload": [
+        3,
+        "tier3/tier3-system-table-keyed-movement-cliffs.tsx",
+        "benches/tier3/tier3-system-table-keyed-movement-cliffs.tsx > tier3 system table keyed movement cliffs",
+        "update every 10th row in a 10,000-row table"
+      ],
+      "captures": {
+        "baseline": [
+          {
+            "median": 4.5,
+            "mean": 4.815599999999918,
+            "rme": 2.8906353882861504,
+            "sampleCount": 250,
+            "p75": 5.19999999999709,
+            "p99": 7.80000000000291,
+            "capture": 1
+          },
+          {
+            "median": 4.5,
+            "mean": 4.717647058823586,
+            "rme": 2.7108276061718635,
+            "sampleCount": 255,
+            "p75": 5,
+            "p99": 7.399999999994179,
+            "capture": 2
+          },
+          {
+            "median": 4.30000000000291,
+            "mean": 4.6130268199232605,
+            "rme": 2.5074243379919934,
+            "sampleCount": 261,
+            "p75": 4.69999999999709,
+            "p99": 8,
+            "capture": 3
+          }
+        ],
+        "candidate": [
+          {
+            "median": 3.8000000000029104,
+            "mean": 4.048821548821696,
+            "rme": 2.4780431141676917,
+            "sampleCount": 297,
+            "p75": 4.19999999999709,
+            "p99": 5.69999999999709,
+            "capture": 1
+          },
+          {
+            "median": 4.5,
+            "mean": 4.64864864864848,
+            "rme": 2.357808318153287,
+            "sampleCount": 259,
+            "p75": 4.80000000000291,
+            "p99": 6.600000000005821,
+            "capture": 2
+          },
+          {
+            "median": 4.69999999999709,
+            "mean": 4.86923076923064,
+            "rme": 2.43486541473599,
+            "sampleCount": 247,
+            "p75": 5,
+            "p99": 7.19999999999709,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 0.0,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\nbd6a88c8dcc560251d09e2b15bb14efb2148ac27\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n"
+    },
+    {
+      "run": 33968488838,
+      "workload": [
+        3,
+        "tier3/tier3-system-table-keyed-movement-density.tsx",
+        "benches/tier3/tier3-system-table-keyed-movement-density.tsx > tier3 system table keyed movement density",
+        "move exactly 1,000 of 2,000 keyed rows"
+      ],
+      "captures": {
+        "baseline": [
+          {
+            "median": 2.6000000000058208,
+            "mean": 2.708803611738182,
+            "rme": 1.793753397034233,
+            "sampleCount": 443,
+            "p75": 2.6999999999970896,
+            "p99": 4.600000000005821,
+            "capture": 1
+          },
+          {
+            "median": 2.3999999999941792,
+            "mean": 2.4665297741272743,
+            "rme": 1.6959201815616602,
+            "sampleCount": 487,
+            "p75": 2.5,
+            "p99": 5,
+            "capture": 2
+          },
+          {
+            "median": 2.3999999999941792,
+            "mean": 2.4499999999999407,
+            "rme": 1.9076460781636508,
+            "sampleCount": 490,
+            "p75": 2.400000000008731,
+            "p99": 5.600000000005821,
+            "capture": 3
+          }
+        ],
+        "candidate": [
+          {
+            "median": 2.5,
+            "mean": 2.506054279749466,
+            "rme": 1.1612107678215182,
+            "sampleCount": 479,
+            "p75": 2.5,
+            "p99": 2.900000000008731,
+            "capture": 1
+          },
+          {
+            "median": 2.400000000008731,
+            "mean": 2.5184486373165984,
+            "rme": 2.1330248337066084,
+            "sampleCount": 477,
+            "p75": 2.5,
+            "p99": 5,
+            "capture": 2
+          },
+          {
+            "median": 2.400000000008731,
+            "mean": 2.509812108559584,
+            "rme": 2.167148775889518,
+            "sampleCount": 479,
+            "p75": 2.5,
+            "p99": 5,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 6.06337202668783e-10,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\nbd6a88c8dcc560251d09e2b15bb14efb2148ac27\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n"
+    },
+    {
+      "run": 33968490676,
+      "workload": [
+        3,
+        "tier3/tier3-system-table-production-select.tsx",
+        "benches/tier3/tier3-system-table-production-select.tsx > tier3 system table production select",
+        "select 100 alternating rows through the DOM click path"
+      ],
+      "captures": {
+        "baseline": [
+          {
+            "median": 1,
+            "mean": 1.017700915564622,
+            "rme": 1.360789334539857,
+            "sampleCount": 983,
+            "p75": 1,
+            "p99": 1.7000000000116415,
+            "capture": 1
+          },
+          {
+            "median": 1,
+            "mean": 1.024462640736944,
+            "rme": 1.6986213428416415,
+            "sampleCount": 977,
+            "p75": 1,
+            "p99": 2,
+            "capture": 2
+          },
+          {
+            "median": 1,
+            "mean": 1.0544783983140271,
+            "rme": 2.6010659234335947,
+            "sampleCount": 949,
+            "p75": 1.099999999976717,
+            "p99": 2.2000000000116415,
+            "capture": 3
+          }
+        ],
+        "candidate": [
+          {
+            "median": 1,
+            "mean": 1.0509453781511993,
+            "rme": 1.7837442097210048,
+            "sampleCount": 952,
+            "p75": 1,
+            "p99": 2,
+            "capture": 1
+          },
+          {
+            "median": 1,
+            "mean": 1.0184317718940996,
+            "rme": 2.130846600724365,
+            "sampleCount": 982,
+            "p75": 1,
+            "p99": 2,
+            "capture": 2
+          },
+          {
+            "median": 1,
+            "mean": 1.0349534643226053,
+            "rme": 1.7462020266406648,
+            "sampleCount": 967,
+            "p75": 1,
+            "p99": 2,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 0.0,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\nbd6a88c8dcc560251d09e2b15bb14efb2148ac27\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n"
+    },
+    {
+      "run": 33968492236,
+      "workload": [
+        3,
+        "tier3/tier3-system-table-replace-all.tsx",
+        "benches/tier3/tier3-system-table-replace-all.tsx > tier3 system table replace all",
+        "replace 1,000 rows with disjoint keys"
+      ],
+      "captures": {
+        "baseline": [
+          {
+            "median": 20.39999999999418,
+            "mean": 25.13902439024241,
+            "rme": 14.551519086843715,
+            "sampleCount": 41,
+            "p75": 31.80000000000291,
+            "p99": 86.59999999999127,
+            "capture": 1
+          },
+          {
+            "median": 19.59999999999127,
+            "mean": 23.30930232557977,
+            "rme": 9.748402019378522,
+            "sampleCount": 43,
+            "p75": 29.59999999999127,
+            "p99": 47.19999999999709,
+            "capture": 2
+          },
+          {
+            "median": 18.5,
+            "mean": 20.883333333332605,
+            "rme": 7.90427405234802,
+            "sampleCount": 48,
+            "p75": 20,
+            "p99": 44.19999999999709,
+            "capture": 3
+          }
+        ],
+        "candidate": [
+          {
+            "median": 20.099999999998545,
+            "mean": 22.20652173913075,
+            "rme": 14.88091459307182,
+            "sampleCount": 46,
+            "p75": 21.39999999999418,
+            "p99": 94.5,
+            "capture": 1
+          },
+          {
+            "median": 19.40000000000873,
+            "mean": 22.6425531914893,
+            "rme": 11.531133018361297,
+            "sampleCount": 47,
+            "p75": 20.30000000000291,
+            "p99": 65.69999999999709,
+            "capture": 2
+          },
+          {
+            "median": 19,
+            "mean": 22.78636363636443,
+            "rme": 11.566501099981643,
+            "sampleCount": 44,
+            "p75": 20.5,
+            "p99": 62.89999999999418,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": -1.020408163176667,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\nbd6a88c8dcc560251d09e2b15bb14efb2148ac27\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n"
+    },
+    {
+      "run": 33968493808,
+      "workload": [
+        4,
+        "tier4/tier4-integration-jsx-benchmark-app.tsx",
+        "benches/tier4/tier4-integration-jsx-benchmark-app.tsx > tier4 integration jsx benchmark app",
+        "toggle 1,000 selected JSX rows between 1,000 and 2,000 rows"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 54.80000000000291,
+            "mean": 44.32807017543855,
+            "rme": 15.702715364748682,
+            "sampleCount": 57,
+            "p75": 67.30000000000291,
+            "p99": 85.59999999999127,
+            "capture": 1
+          },
+          {
+            "median": 38.400000000001455,
+            "mean": 40.359677419354654,
+            "rme": 15.29281979899114,
+            "sampleCount": 62,
+            "p75": 62.59999999999127,
+            "p99": 91.29999999998836,
+            "capture": 2
+          },
+          {
+            "median": 51.30000000000291,
+            "mean": 41.22950819672155,
+            "rme": 15.012571473825181,
+            "sampleCount": 61,
+            "p75": 61.30000000000291,
+            "p99": 86.70000000001164,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 38.25,
+            "mean": 40.464516129031836,
+            "rme": 15.440600969167415,
+            "sampleCount": 62,
+            "p75": 63.40000000000873,
+            "p99": 97.59999999999127,
+            "capture": 1
+          },
+          {
+            "median": 53.59999999999127,
+            "mean": 39.80476190476163,
+            "rme": 14.965990307749239,
+            "sampleCount": 63,
+            "p75": 62,
+            "p99": 86.10000000000582,
+            "capture": 2
+          },
+          {
+            "median": 49.5,
+            "mean": 38.95076923076995,
+            "rme": 14.595165929549445,
+            "sampleCount": 65,
+            "p75": 60.59999999999127,
+            "p99": 83.80000000000291,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 3.6363636363695218,
+      "qualityFailures": [
+        {
+          "label": "candidate",
+          "median": 51.30000000000291,
+          "mean": 41.22950819672155,
+          "rme": 15.012571473825181,
+          "sampleCount": 61,
+          "p75": 61.30000000000291,
+          "p99": 86.70000000001164,
+          "capture": 3
+        },
+        {
+          "label": "candidate",
+          "median": 38.400000000001455,
+          "mean": 40.359677419354654,
+          "rme": 15.29281979899114,
+          "sampleCount": 62,
+          "p75": 62.59999999999127,
+          "p99": 91.29999999998836,
+          "capture": 2
+        },
+        {
+          "label": "baseline",
+          "median": 38.25,
+          "mean": 40.464516129031836,
+          "rme": 15.440600969167415,
+          "sampleCount": 62,
+          "p75": 63.40000000000873,
+          "p99": 97.59999999999127,
+          "capture": 1
+        },
+        {
+          "label": "candidate",
+          "median": 54.80000000000291,
+          "mean": 44.32807017543855,
+          "rme": 15.702715364748682,
+          "sampleCount": 57,
+          "p75": 67.30000000000291,
+          "p99": 85.59999999999127,
+          "capture": 1
+        }
+      ],
+      "provenance": "v24.20.0\n11.19.0\nbd6a88c8dcc560251d09e2b15bb14efb2148ac27\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n"
+    },
+    {
+      "run": 33968495746,
+      "workload": [
+        4,
+        "tier4/tier4-integration-jsx-benchmark-app.tsx",
+        "benches/tier4/tier4-integration-jsx-benchmark-app.tsx > tier4 integration jsx benchmark app",
+        "toggle the JSX app between 1,000 and 2,000 rows"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 85.59999999997672,
+            "mean": 70.00810810810621,
+            "rme": 20.394412642634403,
+            "sampleCount": 37,
+            "p75": 110.90000000002328,
+            "p99": 144.09999999997672,
+            "capture": 1
+          },
+          {
+            "median": 58.30000000001746,
+            "mean": 65.92368421052724,
+            "rme": 20.90287343028325,
+            "sampleCount": 38,
+            "p75": 107.40000000002328,
+            "p99": 126.80000000004657,
+            "capture": 2
+          },
+          {
+            "median": 84.40000000002328,
+            "mean": 66,
+            "rme": 20.09799016033003,
+            "sampleCount": 39,
+            "p75": 107.09999999997672,
+            "p99": 129.29999999998836,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 79.29999999998836,
+            "mean": 63.07804878048951,
+            "rme": 19.364970986255184,
+            "sampleCount": 41,
+            "p75": 101.29999999998836,
+            "p99": 129.89999999996508,
+            "capture": 1
+          },
+          {
+            "median": 81.5,
+            "mean": 62.95365853658196,
+            "rme": 19.234592122213083,
+            "sampleCount": 41,
+            "p75": 101.20000000001164,
+            "p99": 128.20000000001164,
+            "capture": 2
+          },
+          {
+            "median": 82.5,
+            "mean": 64.35641025641085,
+            "rme": 19.879804527316583,
+            "sampleCount": 39,
+            "p75": 102.5,
+            "p99": 129,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 3.558282208617536,
+      "qualityFailures": [
+        {
+          "label": "candidate",
+          "median": 84.40000000002328,
+          "mean": 66,
+          "rme": 20.09799016033003,
+          "sampleCount": 39,
+          "p75": 107.09999999997672,
+          "p99": 129.29999999998836,
+          "capture": 3
+        },
+        {
+          "label": "candidate",
+          "median": 58.30000000001746,
+          "mean": 65.92368421052724,
+          "rme": 20.90287343028325,
+          "sampleCount": 38,
+          "p75": 107.40000000002328,
+          "p99": 126.80000000004657,
+          "capture": 2
+        },
+        {
+          "label": "baseline",
+          "median": 82.5,
+          "mean": 64.35641025641085,
+          "rme": 19.879804527316583,
+          "sampleCount": 39,
+          "p75": 102.5,
+          "p99": 129,
+          "capture": 3
+        },
+        {
+          "label": "baseline",
+          "median": 81.5,
+          "mean": 62.95365853658196,
+          "rme": 19.234592122213083,
+          "sampleCount": 41,
+          "p75": 101.20000000001164,
+          "p99": 128.20000000001164,
+          "capture": 2
+        },
+        {
+          "label": "baseline",
+          "median": 79.29999999998836,
+          "mean": 63.07804878048951,
+          "rme": 19.364970986255184,
+          "sampleCount": 41,
+          "p75": 101.29999999998836,
+          "p99": 129.89999999996508,
+          "capture": 1
+        },
+        {
+          "label": "candidate",
+          "median": 85.59999999997672,
+          "mean": 70.00810810810621,
+          "rme": 20.394412642634403,
+          "sampleCount": 37,
+          "p75": 110.90000000002328,
+          "p99": 144.09999999997672,
+          "capture": 1
+        }
+      ],
+      "provenance": "v24.20.0\n11.19.0\nbd6a88c8dcc560251d09e2b15bb14efb2148ac27\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n"
+    },
+    {
+      "run": 33968497080,
+      "workload": [
+        4,
+        "tier4/tier4-integration-order-table-retention.tsx",
+        "benches/tier4/tier4-integration-order-table-retention.tsx > tier4 integration order table retention",
+        "mount, dirty, tear down, and remount the orders app"
+      ],
+      "captures": {
+        "candidate": [
+          {
+            "median": 1.5,
+            "mean": 1.6645234493192353,
+            "rme": 2.171197950807247,
+            "sampleCount": 1322,
+            "p75": 2,
+            "p99": 3.1999999999970896,
+            "capture": 1
+          },
+          {
+            "median": 1.5,
+            "mean": 1.6017416545719678,
+            "rme": 2.060753486391754,
+            "sampleCount": 1378,
+            "p75": 1.8999999999941792,
+            "p99": 3,
+            "capture": 2
+          },
+          {
+            "median": 1.5,
+            "mean": 1.6209867452135087,
+            "rme": 1.9353488660828027,
+            "sampleCount": 1358,
+            "p75": 1.9000000000087311,
+            "p99": 3,
+            "capture": 3
+          }
+        ],
+        "baseline": [
+          {
+            "median": 1.5,
+            "mean": 1.6658591975776742,
+            "rme": 2.3751724089383264,
+            "sampleCount": 1321,
+            "p75": 2,
+            "p99": 2.6999999999970896,
+            "capture": 1
+          },
+          {
+            "median": 1.5,
+            "mean": 1.6143695014661583,
+            "rme": 1.8798719807302622,
+            "sampleCount": 1364,
+            "p75": 1.8999999999941792,
+            "p99": 3,
+            "capture": 2
+          },
+          {
+            "median": 1.5,
+            "mean": 1.5850251979840817,
+            "rme": 2.122593170372231,
+            "sampleCount": 1389,
+            "p75": 1.8000000000029104,
+            "p99": 3.3000000000029104,
+            "capture": 3
+          }
+        ]
+      },
+      "changePercent": 0.0,
+      "qualityFailures": [],
+      "provenance": "v24.20.0\n11.19.0\nbd6a88c8dcc560251d09e2b15bb14efb2148ac27\ndirty=false\nLinux runnervmejwal 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\n@askrjs/askr@0.2.4 /home/runner/work/askr/askr\n\u2514\u2500\u2500 playwright@1.63.0\n\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\nrunner_image=ubuntu24\ninstrumentation=disabled\n",
+      "baselineProvenance": "aa45809160de0127f1548761dda8261a5baad2cb\n0f07d04200eb4983510bcfdd19adc280c5f587346df7d68fd1fcc687317d5ff1  package-lock.json\n"
+    }
+  ]
+}
