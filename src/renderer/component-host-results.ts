@@ -1,3 +1,4 @@
+import { writeHostOwners } from './dom-ownership';
 import { isSSRPortalHydrationAnchor } from '../common/portal';
 import {
   enterDomCommitScope,
@@ -58,9 +59,10 @@ export function adoptEmptySSRPortalHydrationHost(
     return false;
   }
   const instanceHost = host as InstanceHostNode;
-  instanceHost.__ASKR_INSTANCE = instance;
-  instanceHost.__ASKR_INSTANCES = Array.from(
-    new Set<ComponentInstance>([instance, ...retainedInstances])
+  writeHostOwners(
+    instanceHost,
+    Array.from(new Set<ComponentInstance>([instance, ...retainedInstances])),
+    instance
   );
   instance._placeholder = instanceHost as Comment;
   mountInstanceInline(instance, null);
@@ -88,8 +90,7 @@ export function materializeEmptyHydrationPlaceholder(
     existingHost.parentNode?.insertBefore(placeholder, existingHost);
   }
   const host = placeholder as InstanceHostNode;
-  host.__ASKR_INSTANCE = instance;
-  host.__ASKR_INSTANCES = [instance];
+  writeHostOwners(host, [instance], instance);
   instance._placeholder = placeholder;
   mountInstanceInline(instance, null);
   return placeholder;
@@ -140,8 +141,7 @@ export function materializeResolvedComponentResultNode(
     const placeholder = document.createComment('');
     try {
       const host = placeholder as InstanceHostNode;
-      host.__ASKR_INSTANCE = childInstance;
-      host.__ASKR_INSTANCES = [childInstance];
+      writeHostOwners(host, [childInstance], childInstance);
     } catch {
       // Ignore placeholder metadata failures.
     }
@@ -155,8 +155,7 @@ export function materializeResolvedComponentResultNode(
     if (!instances.includes(childInstance)) {
       instances.push(childInstance);
     }
-    host.__ASKR_INSTANCES = instances;
-    host.__ASKR_INSTANCE = instances[0] ?? childInstance;
+    writeHostOwners(host, instances, instances[0] ?? childInstance);
     childInstance._placeholder = dom;
     mountInstanceInline(childInstance, null);
     return dom;
@@ -174,8 +173,7 @@ export function materializeResolvedComponentResultNode(
   if (!instances.includes(childInstance)) {
     instances.push(childInstance);
   }
-  host.__ASKR_INSTANCE = childInstance;
-  host.__ASKR_INSTANCES = instances;
+  writeHostOwners(host, instances, childInstance);
   childInstance._placeholder = host as Comment;
   mountInstanceInline(childInstance, null);
   return materialized.fragment ?? host;

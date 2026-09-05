@@ -5,6 +5,8 @@ export { cleanupComponentGeneration } from './component-cleanup';
 export * from './context';
 export {
   beginLifecycleCommitBatch,
+  commitLifecycleForInstance,
+  discardCommitOperations,
   discardLifecycleCommitBatch,
   drainLifecycleCommitErrors,
   flushLifecycleCommitBatch,
@@ -14,7 +16,6 @@ export * from './dev-namespace';
 export * from './derive';
 export * from './effect';
 export * from './error-boundary';
-export * from './events';
 export * from './execution-model';
 export * from './fastlane';
 export * from './for';

@@ -17,7 +17,6 @@ import {
   type ReadableSource,
 } from './readable';
 import {
-  cleanupComponent,
   getCurrentComponentInstance,
   getCurrentPortalScope,
   type ComponentInstance,
@@ -396,55 +395,13 @@ function isComponentPortalScope(scope: object): scope is ComponentInstance {
   );
 }
 
-type PortalHostNode = Element & {
-  __ASKR_INSTANCE?: ComponentInstance;
-  __ASKR_INSTANCES?: ComponentInstance[];
-  __ASKR_WRAPPER_HOST?: boolean;
-};
-
 function isEmptyPortalValue(value: RenderableChild | undefined): boolean {
   return value === null || value === undefined || value === false;
 }
 
 function detachDefaultPortalHostOutput(state: DefaultPortalState): void {
-  const host = state.host?.instance;
-  const target = host?.target;
-  const parent = target?.parentNode;
-  if (!host || !target || !parent) {
-    return;
-  }
-
-  const portalHost = target as PortalHostNode;
-  const hostedInstances = new Set<ComponentInstance>(
-    portalHost.__ASKR_INSTANCES ?? []
-  );
-  if (portalHost.__ASKR_INSTANCE) {
-    hostedInstances.add(portalHost.__ASKR_INSTANCE);
-  }
-
-  for (const instance of hostedInstances) {
-    if (instance !== host) {
-      cleanupComponent(instance);
-    }
-  }
-
-  try {
-    delete portalHost.__ASKR_INSTANCE;
-    delete portalHost.__ASKR_INSTANCES;
-    delete portalHost.__ASKR_WRAPPER_HOST;
-  } catch {
-    // Host metadata is best-effort on non-extensible DOM shims.
-  }
-
-  getRuntimeRenderer().teardownNodeSubtree(target);
-
-  const placeholder = document.createComment('');
-  (
-    placeholder as Comment & { __ASKR_INSTANCE?: ComponentInstance }
-  ).__ASKR_INSTANCE = host;
-  parent.replaceChild(placeholder, target);
-  host.target = null;
-  host._placeholder = placeholder;
+  if (state.host)
+    getRuntimeRenderer().detachPortalHostOutput(state.host.instance);
 }
 
 function applyDefaultPortalWrite(
@@ -464,7 +421,7 @@ function isStaleDefaultPortalScope(scope: object): boolean {
     return false;
   }
 
-  if (scope.target && scope.target.isConnected === false) {
+  if (getRuntimeRenderer().isComponentHostDetached(scope)) {
     return true;
   }
 

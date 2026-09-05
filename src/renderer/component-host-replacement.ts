@@ -1,4 +1,5 @@
 import { ownCleanup } from '../runtime/ownership';
+import { bindComponentHost } from './dom-ownership';
 import {
   cleanupComponent,
   type ComponentInstance,
@@ -97,11 +98,9 @@ export function beginComponentHostReplacement(
             continue;
           }
           if (nextHost instanceof Element) {
-            instance.target = nextHost;
-            instance._placeholder = undefined;
+            bindComponentHost(instance, nextHost);
           } else if (nextHost instanceof Comment) {
-            instance.target = null;
-            instance._placeholder = nextHost;
+            bindComponentHost(instance, null, nextHost);
           }
         }
       }
@@ -143,11 +142,14 @@ export function beginComponentHostReplacement(
       if (disposeOnRollback) cleanupComponent(retainedInstance);
       for (const [instance, binding] of previousBindings) {
         if (disposeOnRollback && instance === retainedInstance) continue;
-        instance.target = binding.target;
-        instance._placeholder = binding.placeholder;
+        bindComponentHost(instance, binding.target, binding.placeholder);
       }
       if (!previousBindings.has(retainedInstance) && !disposeOnRollback) {
-        retainedInstance.target = previousTarget;
+        bindComponentHost(
+          retainedInstance,
+          previousTarget,
+          retainedInstance._placeholder
+        );
       }
       if (previousRange) registerRange(previousRange, retainedInstance);
     } catch (error) {

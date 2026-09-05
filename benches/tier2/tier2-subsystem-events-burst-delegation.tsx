@@ -4,7 +4,7 @@ import {
   disableEventDelegation,
   enableEventDelegation,
   setGlobalDelegationContainer,
-} from '../../src/runtime/events';
+} from '../../src/renderer/events';
 import {
   createTestContainer,
   fireEvent,

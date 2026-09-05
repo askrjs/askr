@@ -310,6 +310,78 @@ describe('architecture boundaries', () => {
     expect(forbidden).toEqual([]);
   });
 
+  it('should keep browser globals and node inspection out of runtime execution', () => {
+    const globals = new Set([
+      'window',
+      'document',
+      'Node',
+      'Element',
+      'HTMLElement',
+      'Comment',
+      'Text',
+      'DocumentFragment',
+    ]);
+    const nodeProperties = new Set([
+      'parentNode',
+      'nextSibling',
+      'previousSibling',
+      'nodeType',
+      'childNodes',
+      'tagName',
+      'textContent',
+      'innerHTML',
+      'isConnected',
+    ]);
+    const violations: string[] = [];
+    for (const { relative, source } of sources.filter(
+      ({ file }) => area(file) === 'runtime'
+    )) {
+      const visit = (node: ts.Node): void => {
+        if (ts.isTypeNode(node)) return;
+        if (
+          (ts.isIdentifier(node) && globals.has(node.text)) ||
+          (ts.isPropertyAccessExpression(node) &&
+            nodeProperties.has(node.name.text))
+        ) {
+          violations.push(
+            `${relative}:${source.getLineAndCharacterOfPosition(node.getStart()).line + 1} ${node.getText(source)}`
+          );
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(source);
+    }
+    expect(violations).toEqual([]);
+  });
+
+  it('should update host owner metadata through its renderer index writer', () => {
+    const fields = new Set(['__ASKR_INSTANCE', '__ASKR_INSTANCES']);
+    const violations: string[] = [];
+    for (const { relative, source } of sources) {
+      if (relative === 'src/renderer/dom-ownership.ts') continue;
+      const visit = (node: ts.Node): void => {
+        const target = ts.isDeleteExpression(node)
+          ? node.expression
+          : ts.isBinaryExpression(node) &&
+              node.operatorToken.kind === ts.SyntaxKind.EqualsToken
+            ? node.left
+            : undefined;
+        if (
+          target &&
+          ts.isPropertyAccessExpression(target) &&
+          fields.has(target.name.text)
+        ) {
+          violations.push(
+            `${relative}:${source.getLineAndCharacterOfPosition(node.getStart()).line + 1}`
+          );
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(source);
+    }
+    expect(violations).toEqual([]);
+  });
+
   it('should keep subsystem imports on explicit runtime capability entrypoints', () => {
     const entrypoints = new Set([
       'src/runtime/index.ts',

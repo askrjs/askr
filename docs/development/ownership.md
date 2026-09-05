@@ -20,8 +20,9 @@ context keeps its original cancellation signal after replacement or disposal.
 `runtime/component-generation.ts` owns root generation preparation, rollback,
 and retirement. Navigation retains an opaque prepared generation instead of
 copying and resetting private component fields. The host restores its own state
-between provisional disposal and execution restoration. Renderer and transaction
-consolidation remain subsequent stages of the core series.
+between provisional disposal and execution restoration. The
+[renderer](renderer-ownership.md) owns host mutation and range indexes.
+Transaction consolidation remains a subsequent stage of the core series.
 
 The compatibility adapter exposes the legacy component properties as views of
 the authoritative lifetime. Host callbacks and state reader maps retain the

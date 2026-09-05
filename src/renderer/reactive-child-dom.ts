@@ -1,3 +1,4 @@
+import { clearChildScopeHost } from './scope-host';
 import type { ChildScope } from '../runtime';
 import { syncControlBoundaryScopeDom } from './boundaries';
 import { teardownNodeSubtree } from './cleanup';
@@ -119,7 +120,7 @@ export function commitReactiveChildBoundaryEntryNodes(
       el.removeChild(dom);
     }
 
-    entry.scope.dom = undefined;
+    clearChildScopeHost(entry.scope);
     entry.scope.needsDomUpdate = false;
     return entry.nodes;
   }
@@ -137,8 +138,7 @@ export function commitReactiveChildBoundaryEntryNodes(
 
     const nextNodes = Array.from(boundaryHost.childNodes);
 
-    entry.scope.dom = undefined;
-    entry.scope.range = undefined;
+    clearChildScopeHost(entry.scope);
     entry.scope.needsDomUpdate = false;
     entry.nodes = nextNodes;
     return nextNodes;
@@ -147,8 +147,7 @@ export function commitReactiveChildBoundaryEntryNodes(
   if (entry.nodes.length > 1) {
     disposeReactiveChildBoundaryNodes(entry.nodes);
     entry.nodes = [];
-    entry.scope.dom = undefined;
-    entry.scope.range = undefined;
+    clearChildScopeHost(entry.scope);
   }
 
   const nextDom = syncControlBoundaryScopeDom(

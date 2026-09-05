@@ -5,7 +5,7 @@ import {
   getDelegatedHandlersForElement,
   removeDelegatedListener,
   updateDelegatedListener,
-} from '../runtime';
+} from './events';
 import {
   elementListeners,
   elementReactivePropsCleanup,

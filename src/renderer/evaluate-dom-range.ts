@@ -5,17 +5,18 @@ import {
   tagNamesEqualIgnoreCase,
 } from './evaluate-reconcile';
 import { _isDOMElement } from './types';
-import { RANGE_END_MARKER, RANGE_START_MARKER } from './dom-range';
+import {
+  createEmptyRange,
+  getOwnedRange,
+  releaseOwnerRange,
+} from './dom-range';
 
-interface DOMRange {
-  start: Node;
-  end: Node;
-}
-
-const domRanges = new WeakMap<object, DOMRange>();
+// Context identity is public and may itself be a component or a frozen object.
+// Its private owner uses the same range registry as every other boundary.
+const contextOwners = new WeakMap<object, object>();
 
 export function hasDOMRange(context: object): boolean {
-  return domRanges.has(context);
+  return contextOwners.has(context);
 }
 
 export function createDOMRange(
@@ -23,15 +24,16 @@ export function createDOMRange(
   context: object,
   node: unknown
 ): void {
-  const start = document.createComment(RANGE_START_MARKER);
-  const end = document.createComment(RANGE_END_MARKER);
-  target.appendChild(start);
-  target.appendChild(end);
-  domRanges.set(context, { start, end });
+  const previous = contextOwners.get(context);
+  if (previous) releaseOwnerRange(previous);
+  const owner = {};
+  const { range, fragment } = createEmptyRange(target.ownerDocument, owner);
+  target.appendChild(fragment!);
+  contextOwners.set(context, owner);
 
   const dom = getRendererDOMHost().createDOMNode(node);
   if (dom) {
-    target.insertBefore(dom, end);
+    target.insertBefore(dom, range.end);
   }
 }
 
@@ -44,7 +46,8 @@ export function updateDOMRangeForContext(
   context: object,
   children: unknown[]
 ): void {
-  const range = domRanges.get(context);
+  const owner = contextOwners.get(context);
+  const range = owner ? getOwnedRange(owner) : undefined;
   if (!range) {
     return;
   }
@@ -122,5 +125,7 @@ export function updateDOMRangeForContext(
 }
 
 export function clearDOMRange(context: object): void {
-  domRanges.delete(context);
+  const owner = contextOwners.get(context);
+  if (owner) releaseOwnerRange(owner);
+  contextOwners.delete(context);
 }

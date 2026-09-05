@@ -60,6 +60,7 @@ package boundaries in the platform.
 | [Quality contracts](./development/quality-contracts.md)           | Runtime invariants and test gates                                    |
 | [Compatibility boundary](./development/compatibility-boundary.md) | Published contracts and extension adapters                           |
 | [Runtime ownership](./development/ownership.md)                   | Lifetime identity, cancellation, cleanup, and generation preparation |
+| [Renderer ownership](./development/renderer-ownership.md)         | DOM ranges, host indexes, and platform capabilities                  |
 | [Platform versioning](./development/platform-versioning.md)       | Release coordination policy                                          |
 | [Docs style guide](./contributing/docs-style-guide.md)            | Writing conventions                                                  |
 | [Testing guide](./contributing/testing.md)                        | Test patterns                                                        |

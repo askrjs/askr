@@ -80,7 +80,8 @@ For contributors who need the runtime shape rather than API-first docs, see
 [Internals: Core engine design](./internals/core-engine-design.md).
 Published contracts and extension wiring are described in the
 [public compatibility boundary](./development/compatibility-boundary.md) and
-[runtime ownership](./development/ownership.md).
+[runtime ownership](./development/ownership.md), and
+[renderer ownership](./development/renderer-ownership.md).
 The detailed drill-downs live in
 [Runtime reactivity](./internals/runtime-reactivity.md),
 [Renderer pipeline](./internals/renderer-pipeline.md), and

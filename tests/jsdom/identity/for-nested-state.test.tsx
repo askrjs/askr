@@ -11,7 +11,7 @@ import { DIRECT_REPLACE_CHILDREN_SPREAD_LIMIT } from '../../../src/renderer/util
 import {
   disableEventDelegation,
   enableEventDelegation,
-} from '../../../src/runtime/events';
+} from '../../../src/renderer/events';
 
 test('should update item locally when nested state changes without rerendering the parent', () => {
   const { container, cleanup } = createTestContainer();
