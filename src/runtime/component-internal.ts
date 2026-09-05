@@ -14,7 +14,7 @@ import {
   withContext,
   type ContextFrame,
 } from './context';
-import { type ReadableSource, finalizeReadableSubscriptions } from './readable';
+import type { ReadableSource } from './readable';
 import {
   isDevelopmentEnvironment,
   isProductionEnvironment,
@@ -160,11 +160,7 @@ function ensurePendingRunTask(instance: ComponentInstance): () => void {
     if (instance.notifyUpdate === null) {
       return;
     }
-    runScheduledComponent(instance, {
-      execute: executeComponentSync,
-      finalizeReadSubscriptions,
-      commitRenderedComponent,
-    });
+    runScheduledComponent(instance, executeComponentSync);
   };
   instance._pendingRunTask = task;
   if (!instance._pendingFlushTask) {
@@ -437,18 +433,6 @@ export function executeComponent(instance: ComponentInstance): void {
   // Initial renders use the same cancellable task as state-driven rerenders.
   instance.hasPendingUpdate = true;
   enqueueRuntimeTask(ensurePendingRunTask(instance));
-}
-
-/**
- * Finalize read subscriptions for an instance after a successful commit.
- * - Update per-state readers map to point to this instance's last committed token
- * - Remove this instance from states it no longer reads
- * This is deterministic and runs synchronously with commit to ensure
- * subscribers are only notified when they actually read a state in their
- * last committed render.
- */
-export function finalizeReadSubscriptions(instance: ComponentInstance): void {
-  finalizeReadableSubscriptions(instance);
 }
 
 function warnInstanceOnce(

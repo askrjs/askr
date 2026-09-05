@@ -1,6 +1,6 @@
 import { getRuntimeEnv } from './env';
 import { keyedElements } from './keyed';
-import { teardownNodeSubtree } from './cleanup';
+import { retireNodeSubtree } from './cleanup';
 import { retireComponentOwnersForIntrinsicReuse } from './component-host-cleanup';
 import { createDOMNode, updateElementFromVnode } from './dom';
 import { _isDOMElement, type DOMElement, type VNode } from './types';
@@ -253,7 +253,7 @@ function replaceNodeAtPosition(
   if (dom) {
     const existing = parent.children[index];
     if (existing) {
-      teardownNodeSubtree(existing);
+      retireNodeSubtree(existing);
       parent.replaceChild(dom, existing);
     } else {
       parent.appendChild(dom);

@@ -38,5 +38,5 @@ references without a browser renderer.
 Dependency and syntax checks enforce the runtime's platform boundary and the
 single host-metadata writer. Behavioral tests cover range transfer, stale-range
 retirement, shared wrappers, retained identity, cleanup failures, portal output,
-and hydration adoption. Existing transaction settlement is preserved in this
-stage; the next stage consolidates its preparation and recovery protocol.
+and hydration adoption. The [shared commit protocol](./commit-protocol.md)
+coordinates application, restoration, and post-commit retirement.

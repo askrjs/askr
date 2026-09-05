@@ -1,4 +1,4 @@
-import { teardownNodeSubtree } from './cleanup';
+import { retireNodeSubtree } from './cleanup';
 import { getRendererDOMHost } from './dom-host';
 import {
   smartUpdateElement,
@@ -38,7 +38,7 @@ export function createDOMRange(
 }
 
 export function cleanupRangeNode(node: Node): void {
-  teardownNodeSubtree(node);
+  retireNodeSubtree(node);
 }
 
 export function updateDOMRangeForContext(

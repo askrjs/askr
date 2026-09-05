@@ -4,7 +4,7 @@ import {
   captureForItemTransactionSnapshot,
   clearForDomUpdateState,
   recordBenchEvent,
-  registerLifecycleTransaction,
+  registerCommitEffect,
   type ChildScope,
   type ForState,
 } from '../runtime';
@@ -251,7 +251,7 @@ export function deferBoundaryNodeFinalization(
     }
   };
 
-  if (!registerLifecycleTransaction(pending, finalize, () => undefined)) {
+  if (!registerCommitEffect(pending, finalize, () => undefined)) {
     finalize();
   }
 }

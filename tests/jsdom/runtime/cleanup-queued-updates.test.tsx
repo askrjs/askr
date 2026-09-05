@@ -6,9 +6,9 @@ import {
   type ComponentInstance,
 } from '../../../src/runtime/component';
 import {
-  beginLifecycleCommitBatch,
+  beginCommitTransaction,
   finalizeInlineReadSubscriptions,
-  flushLifecycleCommitBatch,
+  commitTransaction,
 } from '../../../src/runtime/component-lifecycle';
 import { definePortal } from '../../../src/runtime/portal';
 import type { ReadableSource } from '../../../src/runtime/readable';
@@ -170,7 +170,7 @@ describe('cleanup with queued updates', () => {
     deferredReader.notifyUpdate = () => {};
     const deferredSource = (() => 0) as ReadableSource<number>;
     deferredSource._version = 0;
-    const deferredBatch = beginLifecycleCommitBatch();
+    const deferredBatch = beginCommitTransaction();
     finalizeInlineReadSubscriptions(
       deferredReader,
       1,
@@ -178,7 +178,7 @@ describe('cleanup with queued updates', () => {
       new Map([[deferredSource, 0]])
     );
     deferredReader.ownership.identity = {};
-    flushLifecycleCommitBatch(deferredBatch);
+    commitTransaction(deferredBatch);
 
     expect(deferredSource._readers?.has(deferredReader)).not.toBe(true);
   });

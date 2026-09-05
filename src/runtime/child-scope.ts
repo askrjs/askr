@@ -17,6 +17,16 @@ import { isDevelopmentEnvironment } from '../common/env';
 import { DIRECT_RANGE_OWNER, type DOMRange } from '../common/dom-range';
 import { rebaseVNodeTreeWithContextFrame, type ContextFrame } from './context';
 import type { OwnershipRecord } from './ownership';
+import {
+  beginCommitTransaction,
+  commitTransaction,
+  discardTransaction,
+  suspendTransaction,
+  applyTransaction,
+  getCurrentCommitTransaction,
+  registerCommitRollback,
+  type CommitTransaction,
+} from './transaction-access';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
@@ -58,6 +68,7 @@ export interface ChildScopeTransactionSnapshot {
 }
 
 interface MutableChildScope extends ChildScope {
+  _preparedTransaction?: CommitTransaction;
   _startStateIndex: number;
   _renderFn?: (() => VNode) | undefined;
   _onDirty?: (() => void) | undefined;
@@ -90,12 +101,35 @@ function ensureChildScopeFlushTask(scope: MutableChildScope): void {
     if (instance.notifyUpdate === null || instance.ownership.disposed) {
       return;
     }
-    renderScope(scope);
-    scope._onDirty?.();
+    if (scope._preparedTransaction)
+      discardTransaction(scope._preparedTransaction);
+    const transaction = beginCommitTransaction();
+    scope._preparedTransaction = transaction;
+    const snapshot = captureChildScopeTransactionSnapshot(scope);
+    registerCommitRollback(() => {
+      if (!instance.ownership.disposed)
+        restoreChildScopeTransactionSnapshot(scope, snapshot);
+    });
+    try {
+      renderScope(scope);
+      suspendTransaction(transaction);
+      if (scope._onDirty) scope._onDirty();
+      else {
+        scope._preparedTransaction = undefined;
+        commitTransaction(transaction);
+      }
+    } catch (error) {
+      discardTransaction(transaction);
+      scope._preparedTransaction = undefined;
+      throw error;
+    } finally {
+      suspendTransaction(transaction);
+    }
   };
 }
 
 class ChildScopeImpl implements MutableChildScope {
+  _preparedTransaction: CommitTransaction | undefined;
   get [DIRECT_RANGE_OWNER](): true {
     return true;
   }
@@ -159,6 +193,9 @@ class ChildScopeImpl implements MutableChildScope {
 
   release(): void {
     try {
+      if (this._preparedTransaction)
+        discardTransaction(this._preparedTransaction);
+      this._preparedTransaction = undefined;
       if (this._ownership) this._ownership.delete(this);
       else this._parentOwnership?.children?.delete(this);
     } finally {
@@ -192,6 +229,8 @@ function renderScope(scope: MutableChildScope): VNode | undefined {
   if (!scope._renderFn) {
     return scope.vnode;
   }
+
+  joinChildScopePreparation(scope);
 
   const { componentInstance } = scope;
   const previousVNode = scope.vnode;
@@ -249,6 +288,17 @@ function renderScope(scope: MutableChildScope): VNode | undefined {
 
 export function rerenderChildScope(scope: ChildScope): VNode | undefined {
   return renderScope(scope as MutableChildScope);
+}
+
+/** Join prepared reads and scope restoration to the transaction applying its output. */
+export function joinChildScopePreparation(scope: ChildScope): void {
+  const mutable = scope as MutableChildScope;
+  const transaction = mutable._preparedTransaction;
+  const current = getCurrentCommitTransaction();
+  if (!transaction || !current || transaction === current) return;
+  mutable._preparedTransaction = undefined;
+  applyTransaction(transaction, () => {});
+  commitTransaction(transaction);
 }
 
 /** @internal */

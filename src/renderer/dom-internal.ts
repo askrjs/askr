@@ -1,9 +1,9 @@
 import { logger } from '../common/logger';
 import { isFragmentType } from '../common/jsx';
 import {
-  beginLifecycleCommitBatch,
-  discardLifecycleCommitBatch,
-  flushLifecycleCommitBatch,
+  beginCommitTransaction,
+  discardTransaction,
+  commitTransaction,
   getCurrentInstance,
   isBenchMetricScopeActive,
   recordBenchCounter,
@@ -461,7 +461,7 @@ export function activateHydrationBoundary(element: Element): boolean {
     return false;
   }
 
-  const lifecycleBatch = beginLifecycleCommitBatch();
+  const lifecycleBatch = beginCommitTransaction();
   const listenerTransaction = beginHydrationListenerTransaction();
   try {
     element.removeAttribute('data-skip-hydrate');
@@ -469,12 +469,12 @@ export function activateHydrationBoundary(element: Element): boolean {
       updateElementFromVnode(element, record.vnode!, true, true);
     });
     commitHydrationListenerTransaction(listenerTransaction);
-    flushLifecycleCommitBatch(lifecycleBatch);
+    commitTransaction(lifecycleBatch);
     commitDeferredHydrationActivation(record);
     return true;
   } catch (error) {
     discardHydrationListenerTransaction(listenerTransaction);
-    discardLifecycleCommitBatch(lifecycleBatch);
+    discardTransaction(lifecycleBatch);
     element.setAttribute('data-skip-hydrate', 'true');
     rollbackDeferredHydrationActivation(record);
     throw error;

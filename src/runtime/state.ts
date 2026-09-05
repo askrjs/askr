@@ -16,10 +16,7 @@ import {
   getCurrentInstance,
   type ComponentInstance,
 } from './component';
-import {
-  deferBulkCommitReadableNotification,
-  isBulkCommitActive,
-} from './fastlane';
+import { deferCommitNotification } from './transaction-access';
 import { isProductionEnvironment } from '../common/env';
 import {
   recordReadableRead,
@@ -189,27 +186,15 @@ function createStateCell<T>(
     // Skip work if value didn't change
     if (Object.is(value, newValue)) return;
 
-    // Keep the DOM commit itself side-effect silent, then replay one deduplicated
-    // notification for this source after the bulk-commit flag is cleared.
-    if (isBulkCommitActive()) {
-      value = newValue;
-      deferBulkCommitReadableNotification(read as State<T>);
-      return;
-    }
-
-    // INVARIANT: Update the value
     value = newValue;
+    if (!deferCommitNotification(read, notify)) notify();
+  };
 
+  function notify(): void {
     markReadableDerivedSubscribersDirty(read as State<T>);
     markReactivePropsDirtySource(read as State<T>);
-
-    // notifyUpdate may be temporarily unavailable (e.g. during hydration).
-    // We intentionally avoid logging here to keep the state mutation path
-    // side-effect free. The scheduler will process updates when the system
-    // is stable.
-    // After value change, notify only components that *read* this state in their last committed render.
     void notifyReadableReaders(read as State<T>);
-  };
+  }
 
   // Allow destructuring assignment: const [get, set] = state(0);
   // The state function is iterable and yields the getter then the setter

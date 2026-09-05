@@ -200,7 +200,7 @@ describe('architecture boundaries', () => {
     'src/renderer/for-commit-ranges.ts',
     'src/renderer/hydration-boundaries.ts',
     'src/renderer/hydration-listener-transaction.ts',
-    'src/runtime/lifecycle-batch.ts',
+    'src/runtime/render-transaction.ts',
     'src/runtime/lifecycle-operation-settlement.ts',
   ] as const;
 
@@ -387,6 +387,9 @@ describe('architecture boundaries', () => {
       'src/runtime/index.ts',
       'src/runtime/ownership.ts',
       'src/runtime/component-generation.ts',
+      'src/runtime/component-cleanup.ts',
+      'src/runtime/child-scope.ts',
+      'src/runtime/transaction-access.ts',
     ]);
     const optionalCapabilityEdges = new Set([
       // The foundations entry is the explicit opt-in boundary that registers
@@ -413,6 +416,7 @@ describe('architecture boundaries', () => {
   it('should keep default singletons behind their access boundary', () => {
     const allowed = new Set([
       'src/runtime/access.ts',
+      'src/runtime/transaction-access.ts',
       'src/runtime/runtime-state.ts',
       'src/runtime/index.ts',
       'src/fx/index.ts',

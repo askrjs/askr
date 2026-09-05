@@ -1,3 +1,12 @@
+import {
+  beginCommitTransaction,
+  commitTransaction,
+  discardTransaction,
+  suspendTransaction,
+  registerCommitParticipant,
+  type CommitTransaction,
+} from '../runtime/transaction-access';
+
 export type HydrationListenerStageKind = 'direct' | 'delegated';
 
 export interface HydrationListenerStage {
@@ -13,6 +22,7 @@ export interface HydrationListenerTransaction {
   parent: HydrationListenerTransaction | null;
   stages: HydrationListenerStage[];
   active: boolean;
+  commit: CommitTransaction;
 }
 
 let currentTransaction: HydrationListenerTransaction | null = null;
@@ -22,16 +32,47 @@ export function beginHydrationListenerTransaction(): HydrationListenerTransactio
     parent: currentTransaction,
     stages: [],
     active: true,
+    commit: beginCommitTransaction(),
   };
   currentTransaction = transaction;
+  registerCommitParticipant({
+    apply() {
+      const stages = transaction.stages
+        .slice()
+        .sort((left, right) =>
+          left.kind !== right.kind
+            ? left.kind === 'delegated'
+              ? -1
+              : 1
+            : left.eventName.localeCompare(right.eventName)
+        );
+      for (const stage of stages) stage.publish();
+    },
+    rollback() {
+      const errors: unknown[] = [];
+      for (let index = transaction.stages.length - 1; index >= 0; index--) {
+        try {
+          transaction.stages[index]!.rollback();
+        } catch (error) {
+          errors.push(error);
+        }
+      }
+      transaction.stages.length = 0;
+      if (errors.length)
+        throw new AggregateError(
+          errors,
+          'Hydration listener restoration failed'
+        );
+    },
+    settle() {
+      transaction.stages.length = 0;
+    },
+  });
   return transaction;
 }
 
 export function stageHydrationListener(stage: HydrationListenerStage): boolean {
-  if (!currentTransaction?.active) {
-    return false;
-  }
-
+  if (!currentTransaction?.active) return false;
   currentTransaction.stages.push(stage);
   return true;
 }
@@ -50,65 +91,33 @@ export function hasStagedHydrationListener(
 }
 
 function closeTransaction(transaction: HydrationListenerTransaction): boolean {
-  if (!transaction.active) {
-    return false;
-  }
-
+  if (!transaction.active) return false;
   transaction.active = false;
-  currentTransaction = transaction.parent;
+  if (currentTransaction === transaction) {
+    let parent = transaction.parent;
+    while (parent && !parent.active) parent = parent.parent;
+    currentTransaction = parent;
+  }
   return true;
 }
 
 export function commitHydrationListenerTransaction(
   transaction: HydrationListenerTransaction
 ): void {
-  if (!closeTransaction(transaction)) {
-    return;
-  }
-
-  // Publish delegated handlers before direct capture handlers. Delegated
-  // publication is internally coalesced by container and event type, while
-  // the stable order keeps capture listeners deterministic for mixed trees.
-  const stages = [...transaction.stages].sort((left, right) => {
-    if (left.kind !== right.kind) {
-      return left.kind === 'delegated' ? -1 : 1;
-    }
-    return left.eventName.localeCompare(right.eventName);
-  });
-
-  const published: HydrationListenerStage[] = [];
+  if (!closeTransaction(transaction)) return;
   try {
-    for (const stage of stages) {
-      stage.publish();
-      published.push(stage);
-    }
-  } catch (error) {
-    for (let index = published.length - 1; index >= 0; index -= 1) {
-      try {
-        published[index]!.rollback();
-      } catch {
-        // Preserve the publication error. The renderer cleanup path will make
-        // a second exactly-once teardown attempt for any remaining state.
-      }
-    }
-    throw error;
+    commitTransaction(transaction.commit);
+  } finally {
+    suspendTransaction(transaction.commit);
   }
 }
 
 export function discardHydrationListenerTransaction(
   transaction: HydrationListenerTransaction
 ): void {
-  if (!closeTransaction(transaction)) {
-    return;
-  }
-
-  for (let index = transaction.stages.length - 1; index >= 0; index -= 1) {
-    try {
-      transaction.stages[index]!.rollback();
-    } catch {
-      // There is no provisional native listener to remove before publication.
-    }
-  }
+  closeTransaction(transaction);
+  discardTransaction(transaction.commit);
+  suspendTransaction(transaction.commit);
 }
 
 export function getCurrentHydrationListenerTransaction(): HydrationListenerTransaction | null {
