@@ -47,6 +47,14 @@ The broader DOM suite exposed an intentional duplicate subtree-retirement
 participant; its explicit keep-first policy restored the affected lifecycle
 and resource regressions (31 focused cases passed).
 
+Final SSG review reproduced a preparation failure escaping worker error tracking
+when a caller changes a live `getResult()` route path during blocked writes.
+The worker now catches preparation failures synchronously as well as filesystem
+failures, stops later workers from dequeuing, and drains started writes. The new
+public-generation regression first failed, then passed with the existing lifetime
+cases; it also preserves the path error over temp/staging cleanup failures and
+keeps the output lock until draining completes.
+
 The initial hosted performance comparison is rejected: 16 of 93 workloads
 exceed 5%, and three workloads fail sample quality in at least one capture.
 All metrics remain in `../benchmarks/solid-initial-0513b15.json`. Isolated
@@ -150,7 +158,7 @@ Local browser setup initially failed because Playwright's Node downloader timed
 out. The same official artifact URLs are reachable with curl; browser validation
 uses those exact versions rather than substituting another installed browser.
 
-Final local validation after review: formatting, lint/typecheck, build, 294 unit
+Final local validation after review: formatting, lint/typecheck, build, 295 unit
 tests, 58 repository checks, 1,574 DOM tests, 53 tests each in Chromium, Firefox,
 and WebKit, public type tests, and 20 installed-consumer tests pass. Package
 lint and artifact checks pass, followed by a normal build. Independent structural

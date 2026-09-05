@@ -93,34 +93,40 @@ export async function writeStaticFiles(
   };
 
   const worker = async () => {
-    while (!failed) {
-      const current = nextIndex;
-      nextIndex += 1;
-      if (current >= pendingWrites.length) {
-        return;
-      }
+    try {
+      while (!failed) {
+        const current = nextIndex;
+        nextIndex += 1;
+        if (current >= pendingWrites.length) {
+          return;
+        }
 
-      const result = pendingWrites[current];
-      const fullPath = resolveSsgOutputPath(outputDir, result.filePath);
-      // Incremental output is observable while a generation is running. Write
-      // the complete replacement beside the live file, then publish it with
-      // rename so a failed write cannot truncate the prior route HTML.
-      const tempPath = pathModule.join(
-        pathModule.dirname(fullPath),
-        `.${pathModule.basename(fullPath)}.askr-${process.pid}-${current}.tmp`
-      );
-      try {
-        await fileOperations.writeFile(tempPath, result.html, 'utf8');
-        await fileOperations.rename(tempPath, fullPath);
-      } catch (error) {
-        recordFailure(error);
-      } finally {
+        const result = pendingWrites[current];
+        const fullPath = resolveSsgOutputPath(outputDir, result.filePath);
+        // Incremental output is observable while a generation is running. Write
+        // the complete replacement beside the live file, then publish it with
+        // rename so a failed write cannot truncate the prior route HTML.
+        const tempPath = pathModule.join(
+          pathModule.dirname(fullPath),
+          `.${pathModule.basename(fullPath)}.askr-${process.pid}-${current}.tmp`
+        );
         try {
-          await fileOperations.rm(tempPath, { force: true });
+          await fileOperations.writeFile(tempPath, result.html, 'utf8');
+          await fileOperations.rename(tempPath, fullPath);
         } catch (error) {
           recordFailure(error);
+        } finally {
+          try {
+            await fileOperations.rm(tempPath, { force: true });
+          } catch (error) {
+            recordFailure(error);
+          }
         }
       }
+    } catch (error) {
+      // Live result records can change between directory preparation and a
+      // worker claiming them. Preparation failures must drain started writes.
+      recordFailure(error);
     }
   };
 
