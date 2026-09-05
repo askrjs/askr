@@ -1,6 +1,32 @@
 import { expect, test } from 'vite-plus/test';
 import { CommitCoordinator } from '../../src/runtime/transaction-coordinator';
 
+test('should roll back a participant shared by failed nested frames once', () => {
+  const coordinator = new CommitCoordinator();
+  const parent = coordinator.begin();
+  let rollbacks = 0;
+  const shared = {
+    key: {},
+    rollback: () => {
+      rollbacks++;
+    },
+  };
+  const collision = {};
+  coordinator.register(shared);
+  coordinator.register({ key: collision });
+  const child = coordinator.begin();
+  coordinator.register(shared);
+  coordinator.register({
+    key: collision,
+    merge: () => {
+      throw new Error('merge failed');
+    },
+  });
+  expect(() => coordinator.commit(child)).toThrow('merge failed');
+  expect(rollbacks).toBe(1);
+  expect(parent.phase).toBe('discarded');
+});
+
 test('should rejects distinct duplicate participants without silently losing work', () => {
   const coordinator = new CommitCoordinator();
   const transaction = coordinator.begin();

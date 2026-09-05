@@ -1,3 +1,4 @@
+import { ensureNativeDOMHost } from '../renderer/dom-internal';
 import { createRendererCapabilities } from '../renderer';
 import { rendererHostView } from './renderer';
 import type { RuntimeRendererHost } from './contracts/core';
@@ -46,6 +47,7 @@ function handles<RecordType extends object, Handle extends object>() {
 export function createDOMRendererHost(
   configure: (native: DOMRendererHost) => DOMRendererHost
 ): RuntimeRendererHost {
+  ensureNativeDOMHost();
   const renderer = rendererHostView(createRendererCapabilities());
   const owners = handles<
     Parameters<RuntimeRendererHost['replaceComponentRange']>[0],

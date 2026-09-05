@@ -233,6 +233,55 @@ function findModuleCycles(): string[][] {
 }
 
 describe('architecture boundaries', () => {
+  it('should keep vnode context propagation independent of DOM renderer capabilities', () => {
+    expect(
+      edges.filter(
+        (edge) =>
+          edge.from === 'src/runtime/vnode-context.ts' &&
+          (edge.to.startsWith('src/renderer/') ||
+            edge.to === 'src/runtime/access.ts')
+      )
+    ).toEqual([]);
+  });
+
+  it('should keep SSG publication infrastructure independent of route rendering', () => {
+    expect(
+      edges.filter(
+        (edge) =>
+          edge.from === 'src/ssg/output-publication.ts' &&
+          !edge.typeOnly &&
+          (edge.to.startsWith('src/router/') ||
+            edge.to.startsWith('src/ssr/') ||
+            edge.to === 'src/ssg/create-static-gen.ts')
+      )
+    ).toEqual([]);
+  });
+
+  it('should use narrow renderer access in runtime helpers', () => {
+    const violations: string[] = [];
+    for (const { relative, source } of sources) {
+      if (
+        !relative.startsWith('src/runtime/') ||
+        relative === 'src/runtime/access.ts'
+      )
+        continue;
+      for (const statement of source.statements) {
+        if (!ts.isImportDeclaration(statement)) continue;
+        const bindings = statement.importClause?.namedBindings;
+        if (
+          bindings &&
+          ts.isNamedImports(bindings) &&
+          bindings.elements.some(
+            (element) =>
+              (element.propertyName ?? element.name).text ===
+              'getRuntimeRenderer'
+          )
+        )
+          violations.push(relative);
+      }
+    }
+    expect(violations).toEqual([]);
+  });
   it('should keep runtime and renderer implementation value dependencies acyclic', () => {
     expect(
       findModuleCycles().filter((group) =>
@@ -286,7 +335,8 @@ describe('architecture boundaries', () => {
       edges.some(
         (edge) =>
           edge.kind === 'dynamic' &&
-          format(edge) === 'src/boot/index.ts -> src/ssr/verify-hydration.ts'
+          format(edge) ===
+            'src/boot/hydrate-spa.ts -> src/ssr/verify-hydration.ts'
       )
     ).toBe(true);
   });

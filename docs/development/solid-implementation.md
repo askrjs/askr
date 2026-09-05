@@ -1,0 +1,65 @@
+# SOLID remediation status
+
+Baseline: `aa45809160de0127f1548761dda8261a5baad2cb`.
+The historical audit remains in `solid-audit-2026-09-05.md`; source links now
+target that immutable revision so structural moves do not change its evidence.
+
+| Finding | Implementation status                                                                                                       |
+| ------- | --------------------------------------------------------------------------------------------------------------------------- |
+| F01     | Workers drain before rejection; lock serialization and initiating-error regressions added.                                  |
+| F02     | Explicit collisions, nested preflight, and merge rollback implemented.                                                      |
+| F03     | Complete intrinsic preflight precedes application; unsupported shapes decline without evaluation.                           |
+| F04     | Void timing contracts and public type regressions implemented.                                                              |
+| F05     | Ordered ref draining and AggregateError implemented.                                                                        |
+| F06     | Construction-only runtime contract corrected.                                                                               |
+| F07     | Opaque DOM roles and packed-consumer delegation implemented.                                                                |
+| F08     | Flat hook, execution, vnode identity, read, and diagnostic views; snapshot capture colocated with state.                    |
+| F09     | Fresh/hydrated adoption and retained updates separated behind one replacement rollback protocol.                            |
+| F10     | Listener and reactive-binding operations extracted; scalar operations retain their existing owner.                          |
+| F11     | Query cells and fixtures share complete state builders; mutation fixtures remain separate.                                  |
+| F12     | For strategies take explicit inputs and return boundary results; orchestration retains transaction capture and bookkeeping. |
+| F13     | Boot and testing are stable barrels over mode-specific implementations and focused helpers.                                 |
+| F14     | Lifecycle policies and portal modes separated; vnode propagation remains host independent.                                  |
+| F15     | Publication/locking and parallelism extracted; filesystem checks use injected operations.                                   |
+| F16     | Internal renderer helpers use current narrow capability accessors.                                                          |
+| F17     | Maintained declarations split by domain; normalized signatures unchanged outside approved API changes.                      |
+| F18     | SSR loader inspection moved behind router-owned resolution helper.                                                          |
+| F19     | Exact governance coverage documented and dependency seams enforced.                                                         |
+
+## Red evidence
+
+Against the baseline, focused tests reproduced the two transaction collision
+failures, SSG publication after rejection, composed-ref skipped cleanup, and
+stable patch mutation on decline. The corrected public timing assertions then
+failed four checks: numeric debounce/throttle/RAF results and a Promise result.
+Opaque API type tests failed before the new root exports existed.
+
+The broader DOM suite exposed an intentional duplicate subtree-retirement
+participant; its explicit keep-first policy restored the affected lifecycle
+and resource regressions (31 focused cases passed).
+
+Full hosted CI, performance qualification, PR review, and merge remain pending.
+
+## Governance coverage
+
+Subsystem value-cycle governance covers boot, common, data, renderer, router,
+runtime, SSG, and SSR. Module value-cycle governance rejects cycles involving
+runtime or renderer. Type-only edges are parsed and classified but are not
+universally required to form an acyclic graph. Compatibility, foundations,
+actions, effects, testing, and JSX are not all members of the subsystem graph.
+Existing compatibility, declaration, and entrypoint rules still apply.
+
+New checks keep vnode context propagation independent of DOM capabilities,
+publication infrastructure independent of routing/rendering, and runtime
+helpers on narrow renderer accessors. The dynamic-import classification fixture
+now follows hydration's implementation module after its move out of the barrel.
+
+## Verification notes
+
+The packed root-only DOM test exposed missing native DOM initialization after
+bundling. The factory now explicitly ensures native DOM delegation without
+installing the runtime host. Packed tests then passed: 10 files, 20 cases.
+
+Local browser setup initially failed because Playwright's Node downloader timed
+out. The same official artifact URLs are reachable with curl; browser validation
+uses those exact versions rather than substituting another installed browser.

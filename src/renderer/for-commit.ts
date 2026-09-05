@@ -1,3 +1,7 @@
+import {
+  commitForStrategy,
+  isExactRemovedBoundary,
+} from './for-commit-strategies';
 import { writeScopeHost } from './scope-host';
 import type { ChildScope } from '../runtime';
 import {
@@ -19,17 +23,13 @@ import {
 import { teardownNodeSubtree } from './cleanup';
 import { keyedElements } from './keyed';
 import type { VNode } from './types';
-import { canUseDirectReplaceChildrenSpread } from './utils';
 import {
   canSyncKeyedMapMutate,
   getOrBuildDomKeyMap,
   hydrateExistingForDomInOrder,
   syncKeyedMapFromForState,
 } from './for-commit-dom-map';
-import {
-  commitMoveOnlyReorder,
-  replaceChildrenInOrder,
-} from './for-commit-reorder';
+import { replaceChildrenInOrder } from './for-commit-reorder';
 import { removeForBoundaryNodes } from './for-commit-removal';
 import {
   commitForStateBoundaryRanges,
@@ -41,26 +41,6 @@ import {
 declare const __ASKR_BENCH_BUILD__: boolean;
 
 const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
-
-function isExactRemovedBoundary(
-  parent: Element,
-  removedNodes: Node[]
-): boolean {
-  if (
-    removedNodes.length === 0 ||
-    removedNodes.length !== parent.childNodes.length
-  ) {
-    return false;
-  }
-
-  for (let index = 0; index < removedNodes.length; index++) {
-    if (removedNodes[index] !== parent.childNodes[index]) {
-      return false;
-    }
-  }
-
-  return true;
-}
 
 export interface ForCommitRuntime extends ForRangeCommitRuntime {
   isProduction(): boolean;
@@ -303,368 +283,24 @@ function commitForStateBoundaryChildrenImpl(
       : [];
   let boundaryChildrenExact = false;
 
-  const commitDirtyNoReorder = (dirtyIndices: number[]): void => {
-    if (dirtyIndices.length === 0) {
-      boundaryChildrenExact = true;
-      return;
-    }
-
-    const orderedItems = forState.orderedItems;
-    const childNodes = parent.childNodes;
-    const canPatchStableDirtyItems =
-      forState.lastCommitStrategy !== 'TRUNCATE' ||
-      dirtyIndices.length < orderedItems.length;
-
-    for (let dirtyIndex = 0; dirtyIndex < dirtyIndices.length; dirtyIndex++) {
-      const i = dirtyIndices[dirtyIndex];
-      const itemInstance = orderedItems[i];
-      if (!itemInstance) {
-        continue;
-      }
-
-      captureItemBeforeCommit(itemInstance);
-      if (
-        canPatchStableDirtyItems &&
-        !preResolvedRanges.has(itemInstance.scope) &&
-        runtime.tryPatchStableForDirtyItem(itemInstance.scope)
-      ) {
-        if (BENCH_BUILD_ENABLED) {
-          recordBenchCounter('itemDomSyncCalls');
-        }
-        continue;
-      }
-
-      const dom = syncItemDom(itemInstance, childrenVNodes[i]);
-      if (!dom) {
-        continue;
-      }
-
-      const anchor = childNodes[i] ?? null;
-      if (dom.parentNode !== parent || dom !== anchor) {
-        recordBenchEvent('domInsert');
-        parent.insertBefore(dom, anchor);
-      }
-    }
-
-    boundaryChildrenExact = true;
-  };
-
-  const commitAppend = (): void => {
-    const canHydrateInPlace =
-      !forState._hasResolvedItemDom &&
-      forState.lastRemovedNodes.length === 0 &&
-      parent.childNodes.length === forState.orderedKeys.length;
-    if (canHydrateInPlace) {
-      let exactOrder = true;
-      let currentNode = parent.firstChild;
-
-      for (let i = 0; i < forState.orderedKeys.length; i++) {
-        const itemInstance = forState.orderedItems[i];
-        if (!itemInstance) {
-          exactOrder = false;
-          currentNode = currentNode?.nextSibling ?? null;
-          continue;
-        }
-
-        const dom = syncItemDom(itemInstance, childrenVNodes[i]);
-        if (!dom || dom.parentNode !== parent || dom !== currentNode) {
-          exactOrder = false;
-        }
-
-        currentNode = currentNode?.nextSibling ?? null;
-      }
-
-      if (exactOrder) {
-        boundaryChildrenExact = true;
-        return;
-      }
-    }
-
-    const appendColdRows = (): void => {
-      const pendingAppend: Node[] = [];
-      const appendStart = forState.pendingAppendStart ?? 0;
-      const hasDetachedSuffix =
-        forState.pendingAppendStart !== null &&
-        parent.childNodes.length === appendStart;
-
-      for (let i = appendStart; i < forState.orderedKeys.length; i++) {
-        const itemInstance = forState.orderedItems[i];
-        if (!itemInstance) {
-          continue;
-        }
-
-        if (
-          !hasDetachedSuffix &&
-          itemInstance.scope.dom?.parentNode === parent &&
-          !itemInstance.scope.needsDomUpdate
-        ) {
-          continue;
-        }
-
-        const dom = syncItemDom(itemInstance, childrenVNodes[i]);
-        if (!dom) {
-          continue;
-        }
-
-        if (hasDetachedSuffix || dom.parentNode !== parent) {
-          if (BENCH_BUILD_ENABLED) {
-            recordBenchEvent('domInsert');
-          }
-          pendingAppend.push(dom);
-        }
-      }
-
-      if (pendingAppend.length > 0) {
-        const fragment = parent.ownerDocument.createDocumentFragment();
-        if (canUseDirectReplaceChildrenSpread(pendingAppend.length)) {
-          fragment.append(...pendingAppend);
-        } else {
-          for (const node of pendingAppend) {
-            fragment.appendChild(node);
-          }
-        }
-        parent.appendChild(fragment);
-      }
-    };
-
-    if (BENCH_BUILD_ENABLED) {
-      withBenchMetricScope('coldCreate', appendColdRows);
-    } else {
-      appendColdRows();
-    }
-
-    boundaryChildrenExact =
-      parent.childNodes.length === forState.orderedKeys.length;
-  };
-
-  const commitInsertOne = (): void => {
-    const index = forState.pendingInsertedIndex;
-    const item = index === null ? undefined : forState.orderedItems[index];
-
-    if (
-      index === null ||
-      !item ||
-      parent.childNodes.length !== forState.orderedKeys.length - 1
-    ) {
-      commitReorder();
-      return;
-    }
-
-    const anchor = parent.childNodes[index] ?? null;
-    const dom = syncItemDom(item, childrenVNodes[index]);
-    if (dom && (dom.parentNode !== parent || dom !== anchor)) {
-      recordBenchEvent('domInsert');
-      parent.insertBefore(dom, anchor);
-    }
-    boundaryChildrenExact = true;
-  };
-
-  const commitSwap = (): void => {
-    const swapIndices = forState.pendingSwapIndices;
-    if (!swapIndices) {
-      return;
-    }
-
-    let [firstIndex, secondIndex] = swapIndices;
-    if (firstIndex === secondIndex) {
-      return;
-    }
-
-    if (firstIndex > secondIndex) {
-      [firstIndex, secondIndex] = [secondIndex, firstIndex];
-    }
-
-    const firstKey = forState.orderedKeys[firstIndex];
-    const secondKey = forState.orderedKeys[secondIndex];
-    const firstItem = forState.items.get(firstKey);
-    const secondItem = forState.items.get(secondKey);
-
-    if (!firstItem || !secondItem) {
-      commitReorder();
-      return;
-    }
-
-    const firstDom = syncItemDom(firstItem, childrenVNodes[firstIndex]);
-    const secondDom = syncItemDom(secondItem, childrenVNodes[secondIndex]);
-
-    if (!firstDom || !secondDom) {
-      commitReorder();
-      return;
-    }
-
-    if (firstDom.parentNode !== parent || secondDom.parentNode !== parent) {
-      commitReorder();
-      return;
-    }
-
-    const firstBeforeSecond =
-      (firstDom.compareDocumentPosition(secondDom) &
-        Node.DOCUMENT_POSITION_FOLLOWING) !==
-      0;
-    if (firstBeforeSecond) {
-      boundaryChildrenExact = true;
-      return;
-    }
-
-    const firstNextSibling = firstDom.nextSibling;
-    recordBenchEvent('domMove');
-    parent.insertBefore(firstDom, secondDom);
-    recordBenchEvent('domMove');
-    parent.insertBefore(secondDom, firstNextSibling);
-
-    boundaryChildrenExact = true;
-  };
-
-  const commitReorder = (): void => {
-    const items = forState.orderedItems;
-    const count = items.length;
-
-    if (forState.pendingMoveOnly && forState.lastRemovedNodes.length === 0) {
-      const nodes = Array<Node>(count);
-      let movedCount = 0;
-      let insertedCount = 0;
-
-      for (let i = 0; i < count; i++) {
-        const itemInstance = items[i];
-        if (!itemInstance) {
-          return;
-        }
-
-        const scope = itemInstance.scope;
-        const dom =
-          scope.dom && !scope.needsDomUpdate
-            ? scope.dom
-            : syncItemDom(itemInstance, childrenVNodes[i]);
-
-        if (!dom) {
-          return;
-        }
-
-        if (dom.parentNode === parent) {
-          movedCount++;
-        } else {
-          insertedCount++;
-        }
-        nodes[i] = dom;
-      }
-
-      if (insertedCount > 0) {
-        if (movedCount > 0) {
-          recordBenchEvent('domMove', movedCount);
-        }
-        recordBenchEvent('domInsert', insertedCount);
-        replaceChildrenInOrder(
-          parent,
-          nodes,
-          canUseDirectReplaceChildrenSpread(count)
-        );
-        boundaryChildrenExact = true;
-        return;
-      }
-
-      if (count > 1 && commitMoveOnlyReorder(parent, nodes)) {
-        boundaryChildrenExact = true;
-        return;
-      }
-
-      if (movedCount > 0) {
-        recordBenchEvent('domMove', movedCount);
-      }
-      if (insertedCount > 0) {
-        recordBenchEvent('domInsert', insertedCount);
-      }
-
-      replaceChildrenInOrder(parent, nodes, true);
-      boundaryChildrenExact = true;
-      return;
-    }
-
-    let hasExistingChild = false;
-    for (let i = 0; i < count; i++) {
-      const itemInstance = items[i];
-      if (itemInstance?.scope.dom?.parentNode === parent) {
-        hasExistingChild = true;
-        break;
-      }
-    }
-
-    if (!hasExistingChild) {
-      const canConsumeRemovedBoundary = isExactRemovedBoundary(
+  const applyStrategy = (
+    strategy: Parameters<typeof commitForStrategy>[0]
+  ): void => {
+    const result = commitForStrategy(
+      strategy,
+      {
         parent,
-        forState.lastRemovedNodes
-      );
-      const replaceColdRows = (): void => {
-        const nodes: Node[] = [];
-        for (let i = 0; i < count; i++) {
-          const itemInstance = items[i];
-          if (!itemInstance) continue;
-          const dom = syncItemDom(itemInstance, childrenVNodes[i]);
-          if (dom) {
-            if (BENCH_BUILD_ENABLED) {
-              recordBenchEvent('domInsert');
-            }
-            nodes.push(dom);
-          }
-        }
-        if (BENCH_BUILD_ENABLED) {
-          recordBenchCounter('replaceChildrenCommits');
-        }
-        replaceChildrenInOrder(parent, nodes, canConsumeRemovedBoundary);
-      };
-
-      if (BENCH_BUILD_ENABLED) {
-        withBenchMetricScope('coldCreate', replaceColdRows);
-      } else {
-        replaceColdRows();
-      }
-
-      removedBoundaryConsumed = canConsumeRemovedBoundary;
-      boundaryChildrenExact = true;
-      return;
-    }
-
-    if (forState.lastRemovedNodes.length === 0) {
-      const nodes: Node[] = [];
-
-      for (let i = 0; i < count; i++) {
-        const itemInstance = items[i];
-        if (!itemInstance) {
-          continue;
-        }
-
-        const dom = syncItemDom(itemInstance, childrenVNodes[i]);
-        if (!dom) {
-          continue;
-        }
-
-        recordBenchEvent(dom.parentNode === parent ? 'domMove' : 'domInsert');
-        nodes.push(dom);
-      }
-
-      replaceChildrenInOrder(parent, nodes, false);
-      boundaryChildrenExact = true;
-      return;
-    }
-
-    for (let i = 0; i < count; i++) {
-      const itemInstance = items[i];
-      if (!itemInstance) {
-        continue;
-      }
-
-      const dom = syncItemDom(itemInstance, childrenVNodes[i]);
-      if (!dom) {
-        continue;
-      }
-
-      const anchor = parent.childNodes[i] ?? null;
-      if (dom !== anchor) {
-        recordBenchEvent('domMove');
-        parent.insertBefore(dom, anchor);
-      }
-    }
-
-    boundaryChildrenExact = true;
+        forState,
+        childrenVNodes,
+        runtime,
+        preResolvedRanges,
+        captureItemBeforeCommit,
+        syncItemDom,
+      },
+      dirtyIndices
+    );
+    boundaryChildrenExact = result.boundaryChildrenExact;
+    removedBoundaryConsumed ||= result.removedBoundaryConsumed;
   };
 
   const isLocalOnlyDirtyCommit =
@@ -677,7 +313,7 @@ function commitForStateBoundaryChildrenImpl(
     parent.childNodes.length === forState.orderedKeys.length;
 
   if (isLocalOnlyDirtyCommit) {
-    commitDirtyNoReorder(dirtyIndices);
+    applyStrategy('NO_REORDER');
     syncKeyedMapFromForState(parent, forState, 'NO_REORDER', []);
 
     if (BENCH_BUILD_ENABLED) {
@@ -689,7 +325,7 @@ function commitForStateBoundaryChildrenImpl(
 
   switch (forState.lastCommitStrategy) {
     case 'NO_REORDER':
-      commitDirtyNoReorder(dirtyIndices);
+      applyStrategy('NO_REORDER');
       break;
     case 'REMOVE_ONE':
       // Physically remove the node for the removed key first: commitDirtyNoReorder
@@ -701,23 +337,23 @@ function commitForStateBoundaryChildrenImpl(
         teardown: false,
       });
       removedBoundaryConsumed = true;
-      commitDirtyNoReorder(dirtyIndices);
+      applyStrategy('NO_REORDER');
       break;
     case 'TRUNCATE':
-      commitDirtyNoReorder(dirtyIndices);
+      applyStrategy('NO_REORDER');
       break;
     case 'APPEND':
-      commitAppend();
+      applyStrategy('APPEND');
       break;
     case 'INSERT_ONE':
-      commitInsertOne();
+      applyStrategy('INSERT_ONE');
       break;
     case 'SWAP':
-      commitSwap();
+      applyStrategy('SWAP');
       break;
     case 'FULL_KEYED':
     default:
-      commitReorder();
+      applyStrategy('FULL_KEYED');
       break;
   }
 

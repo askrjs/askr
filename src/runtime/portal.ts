@@ -1,14 +1,6 @@
 import { ownCleanup } from './ownership';
 import type { RenderableChild } from '../common/vnode';
 import type { JSXElement } from '../common/jsx';
-import { getActiveRenderContext } from '../common/render-context';
-import {
-  createSSRPortalAnchorToken,
-  createSSRPortalHostToken,
-  SSR_PORTAL_ANCHOR,
-  SSR_PORTAL_HOST,
-} from '../common/portal';
-import { ELEMENT_TYPE } from '../jsx';
 import {
   markReactivePropsDirtySource,
   markReadableDerivedSubscribersDirty,
@@ -21,7 +13,7 @@ import {
   getCurrentPortalScope,
 } from './component-scope';
 import { type ComponentInstance } from './component-internal';
-import { getRuntimeRenderer } from './access';
+import { getRuntimeCleanup } from './access';
 import {
   adjustPortalRegistrations,
   clearPortalRegistrations,
@@ -32,6 +24,14 @@ import {
   type CommitTransaction,
 } from './component-lifecycle';
 import { registerDefaultPortalRuntime } from '../common/default-portal-runtime';
+import { DEFAULT_SSR_PORTAL_KEY } from './portal-ssr';
+import { createSSRPortalHost } from './portal-ssr';
+import { writeSSRPortal } from './portal-ssr';
+import { createSSRPortalAnchor } from './portal-ssr';
+import type { PortalOwner } from './portal-lifetime';
+import { setPortalErrorParent } from './portal-lifetime';
+import { definePortal } from './portal-explicit';
+export { definePortal } from './portal-explicit';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
@@ -47,189 +47,6 @@ export interface Portal<T extends RenderableChild = RenderableChild> {
 /** Props for the {@link Portal} component. */
 export interface PortalProps {
   children?: RenderableChild;
-}
-
-const DEFAULT_SSR_PORTAL_KEY = {};
-
-type PortalOwner = {
-  instance: ComponentInstance;
-  generation: object;
-};
-
-function setPortalErrorParent(
-  host: ComponentInstance | null,
-  owner: PortalOwner | null
-): void {
-  if (!host) {
-    return;
-  }
-  if (
-    owner &&
-    owner.instance.owner.identity === owner.generation &&
-    owner.instance.notifyUpdate !== null
-  ) {
-    host._portalErrorParent = owner.instance;
-    host._portalErrorParentGeneration = owner.generation;
-    return;
-  }
-  host._portalErrorParent = null;
-  host._portalErrorParentGeneration = undefined;
-}
-
-function getSSRPortalSlot(key: object) {
-  const context = getActiveRenderContext();
-  if (context?.mode !== 'ssr') {
-    return null;
-  }
-
-  let slot = context.ssrPortals.slots.get(key);
-  if (!slot) {
-    slot = {
-      hasValue: false,
-      value: undefined,
-      hosts: [],
-    };
-    context.ssrPortals.slots.set(key, slot);
-  }
-  return { context, slot };
-}
-
-function createSSRPortalHost(
-  key: object,
-  automatic: boolean
-): JSXElement | null {
-  const current = getSSRPortalSlot(key);
-  if (!current) {
-    return null;
-  }
-
-  const token = createSSRPortalHostToken(
-    current.context.ssrPortals.nextHostId++
-  );
-  current.slot.hosts.push({ token, automatic });
-  return {
-    $$typeof: ELEMENT_TYPE,
-    type: SSR_PORTAL_HOST,
-    props: { token },
-  } as unknown as JSXElement;
-}
-
-function writeSSRPortal(
-  key: object,
-  children: RenderableChild | undefined
-): boolean {
-  const current = getSSRPortalSlot(key);
-  if (!current) {
-    return false;
-  }
-  current.slot.hasValue = true;
-  current.slot.value = children;
-  return true;
-}
-
-function createSSRPortalAnchor(): JSXElement | null {
-  const context = getActiveRenderContext();
-  if (context?.mode !== 'ssr') {
-    return null;
-  }
-  const token = createSSRPortalAnchorToken(context.ssrPortals.nextHostId++);
-  return {
-    $$typeof: ELEMENT_TYPE,
-    type: SSR_PORTAL_ANCHOR,
-    props: { token },
-  } as unknown as JSXElement;
-}
-
-function createPortalSlot<T>(): {
-  read(): T | undefined;
-  write(value: T | undefined, owner: PortalOwner | null): void;
-  getOwner(): PortalOwner | null;
-} {
-  let currentValue: T | undefined;
-  let currentOwner: PortalOwner | null = null;
-
-  const source = (() => {
-    recordReadableRead(source);
-    return currentValue;
-  }) as ReadableSource<T | undefined>;
-
-  return {
-    read() {
-      return source();
-    },
-    write(value: T | undefined, owner: PortalOwner | null) {
-      const ownerChanged =
-        currentOwner?.instance !== owner?.instance ||
-        currentOwner?.generation !== owner?.generation;
-      currentOwner = owner;
-      if (Object.is(currentValue, value) && !ownerChanged) {
-        return;
-      }
-
-      currentValue = value;
-      markReadableDerivedSubscribersDirty(source);
-      markReactivePropsDirtySource(source);
-      notifyReadableReaders(source);
-    },
-    getOwner() {
-      return currentOwner;
-    },
-  };
-}
-
-/** Create a new named {@link Portal} channel with its own host and content. */
-export function definePortal<
-  T extends RenderableChild = RenderableChild,
->(): Portal<T> {
-  const ssrPortalKey = {};
-
-  if (typeof createPortalSlot === 'function') {
-    const slot = createPortalSlot<T>();
-
-    function PortalHost() {
-      const serverHost = createSSRPortalHost(ssrPortalKey, false);
-      if (serverHost) {
-        return serverHost;
-      }
-      const host = getCurrentComponentInstance();
-      if (host?.fn === PortalHost) {
-        setPortalErrorParent(host, slot.getOwner());
-      }
-      return slot.read();
-    }
-
-    PortalHost.render = function PortalRender(props: { children?: T }) {
-      if (writeSSRPortal(ssrPortalKey, props.children)) {
-        return null;
-      }
-      const owner = getCurrentComponentInstance();
-      slot.write(
-        props.children,
-        owner ? { instance: owner, generation: owner.owner.identity } : null
-      );
-      return null;
-    };
-
-    return PortalHost as Portal<T>;
-  }
-
-  let mounted = false;
-  let value: T | undefined;
-
-  function PortalHostFallback() {
-    mounted = true;
-    return value as unknown;
-  }
-
-  PortalHostFallback.render = function PortalRenderFallback(props: {
-    children?: T;
-  }) {
-    if (!mounted) return null;
-    value = props.children;
-    return null;
-  };
-
-  return PortalHostFallback as Portal<T>;
 }
 
 type DefaultPortalState = {
@@ -252,12 +69,16 @@ type PendingDefaultPortalWrite = {
 };
 
 let _defaultPortalStates = new Map<object, DefaultPortalState>();
+
 let _hasPendingDefaultPortalValue = false;
+
 let _pendingDefaultPortalValue: RenderableChild | undefined = undefined;
+
 let _pendingDefaultPortalWrites = new WeakMap<
   DefaultPortalState,
   PendingDefaultPortalWrite
 >();
+
 const _batchPortalWrites = new WeakMap<
   CommitTransaction,
   Map<DefaultPortalState, PendingDefaultPortalWrite>
@@ -401,7 +222,7 @@ function isEmptyPortalValue(value: RenderableChild | undefined): boolean {
 
 function detachDefaultPortalHostOutput(state: DefaultPortalState): void {
   if (state.host)
-    getRuntimeRenderer().detachPortalHostOutput(state.host.instance);
+    getRuntimeCleanup().detachPortalHostOutput(state.host.instance);
 }
 
 function applyDefaultPortalWrite(
@@ -421,7 +242,7 @@ function isStaleDefaultPortalScope(scope: object): boolean {
     return false;
   }
 
-  if (getRuntimeRenderer().isComponentHostDetached(scope)) {
+  if (getRuntimeCleanup().isComponentHostDetached(scope)) {
     return true;
   }
 

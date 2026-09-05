@@ -211,9 +211,17 @@ export class CommitCoordinator {
       } catch (error) {
         // An identical participant registered in both frames still has one
         // rollback owner. The parent drains it after child-only work.
-        for (let index = transaction.participants.length - 1; index >= 0; index--) {
+        for (
+          let index = transaction.participants.length - 1;
+          index >= 0;
+          index--
+        ) {
           const participant = transaction.participants[index];
-          if (participant.key && parent.participant(participant.key, participant.kind) === participant)
+          if (
+            participant.key &&
+            parent.participant(participant.key, participant.kind) ===
+              participant
+          )
             transaction.participants.splice(index, 1);
         }
         this.discard(transaction);

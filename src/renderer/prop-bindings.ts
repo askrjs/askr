@@ -1,17 +1,7 @@
-import { logger } from '../common/logger';
 import { incDevCounter } from '../runtime';
-import {
-  createFineGrainedEffect,
-  markFineGrainedEffectsDirtySource,
-  type FineGrainedEffectHandle,
-} from '../runtime';
-import { isBenchMetricScopeActive, recordBenchCounter } from '../runtime';
-import { incrementPerfMetric } from '../runtime';
-import type { ReadableSource } from '../runtime';
 import {
   isEventDelegationEnabled,
   addDelegatedListener,
-  addFreshDelegatedListener,
   getDelegatedHandlerForElement,
   getDelegatedHandlersForElement,
   updateDelegatedListener,
@@ -29,7 +19,6 @@ import {
   type ReactivePropCleanupEntry,
   updateElementRef,
 } from './cleanup';
-import { getRuntimeEnv } from './env';
 import type { DOMElement } from './types';
 import {
   createMutableWrappedHandler,
@@ -43,295 +32,27 @@ import {
   hasStagedHydrationListener,
   stageHydrationListener,
 } from './hydration-listener-transaction';
-
-declare const __ASKR_BENCH_BUILD__: boolean;
-
-const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
-
-interface ReactivePropDescriptor {
-  el: Element;
-  propName: string;
-  propFn: () => unknown;
-  tagName: string;
-  lastClassTokens: string[] | null;
-}
-
-const reactivePropRegistry = new Set<ReactivePropDescriptor>();
-const hydrationDirectListeners = new WeakMap<Element, Set<string>>();
-let hydrationDirectListenerDepth = 0;
-
-export function beginHydrationDirectListenerMode(): void {
-  hydrationDirectListenerDepth += 1;
-}
-
-export function endHydrationDirectListenerMode(): void {
-  hydrationDirectListenerDepth = Math.max(0, hydrationDirectListenerDepth - 1);
-}
-
-function markHydrationDirectListener(
-  element: Element,
-  listenerKey: string
-): void {
-  let listeners = hydrationDirectListeners.get(element);
-  if (!listeners) {
-    listeners = new Set();
-    hydrationDirectListeners.set(element, listeners);
-  }
-  listeners.add(listenerKey);
-}
-
-function isHydrationDirectListener(
-  element: Element,
-  listenerKey: string
-): boolean {
-  return hydrationDirectListeners.get(element)?.has(listenerKey) ?? false;
-}
-
-function clearHydrationDirectListener(
-  element: Element,
-  listenerKey: string
-): void {
-  const listeners = hydrationDirectListeners.get(element);
-  listeners?.delete(listenerKey);
-  if (listeners?.size === 0) {
-    hydrationDirectListeners.delete(element);
-  }
-}
-
-function addTrackedListener(
-  el: Element,
-  eventName: string,
-  handler: EventListener,
-  capture = false,
-  fresh = false,
-  forceDirect = false
-): void {
-  const effectiveForceDirect = forceDirect || hydrationDirectListenerDepth > 0;
-  const useDelegation =
-    !effectiveForceDirect &&
-    !capture &&
-    isEventDelegationEnabled() &&
-    isDelegatedEvent(eventName);
-  const listenerKey = getEventListenerKey(eventName, capture);
-
-  if (effectiveForceDirect && isHydrationDirectListener(el, listenerKey)) {
-    const existing = elementListeners.get(el)?.get(listenerKey);
-    if (existing) {
-      existing.updateHandler?.(handler);
-      existing.original = handler;
-      return;
-    }
-  }
-
-  if (
-    !effectiveForceDirect &&
-    !hasStagedHydrationListener(el, eventName, capture) &&
-    stageHydrationListener({
-      // Hydrated listeners publish as direct listeners. This keeps the
-      // initial SSR-to-client handoff independent of delegated-container
-      // event propagation, which is not consistent across browser hosts.
-      kind: 'direct',
-      target: el,
-      eventName,
-      capture,
-      publish: () =>
-        addTrackedListener(el, eventName, handler, capture, fresh, true),
-      rollback: () => {
-        removeTrackedListener(el, eventName, capture);
-        clearHydrationDirectListener(el, listenerKey);
-      },
-    })
-  ) {
-    return;
-  }
-
-  if (useDelegation) {
-    if (fresh) {
-      addFreshDelegatedListener(el, eventName, handler, handler, undefined);
-    } else {
-      addDelegatedListener(el, eventName, handler, handler, undefined);
-    }
-    if (BENCH_BUILD_ENABLED && isBenchMetricScopeActive('coldCreate')) {
-      recordBenchCounter('listenerBindings');
-    }
-    return;
-  }
-
-  const options = getEventListenerOptions(eventName, capture);
-  const mutableHandler = createMutableWrappedHandler(handler, true);
-  const trackedHandler = mutableHandler.handler;
-
-  if (options !== undefined) {
-    el.addEventListener(eventName, trackedHandler, options);
-  } else {
-    el.addEventListener(eventName, trackedHandler);
-  }
-  incDevCounter('listenerAdds');
-  if (effectiveForceDirect) {
-    if (!capture && getDelegatedHandlerForElement(el, eventName)) {
-      removeDelegatedListener(el, eventName);
-    }
-    markHydrationDirectListener(el, listenerKey);
-  }
-
-  if (!elementListeners.has(el)) {
-    elementListeners.set(el, new Map());
-  }
-  elementListeners.get(el)!.set(listenerKey, {
-    handler: trackedHandler,
-    original: handler,
-    eventName,
-    options,
-    isDelegated: false,
-    updateHandler: mutableHandler?.updateHandler,
-  });
-
-  if (BENCH_BUILD_ENABLED && isBenchMetricScopeActive('coldCreate')) {
-    recordBenchCounter('listenerBindings');
-  }
-}
-
-function removeTrackedListener(
-  el: Element,
-  eventName: string,
-  capture: boolean
-): void {
-  if (!capture && getDelegatedHandlerForElement(el, eventName)) {
-    removeDelegatedListener(el, eventName);
-    return;
-  }
-
-  const listenerKey = getEventListenerKey(eventName, capture);
-  const entry = elementListeners.get(el)?.get(listenerKey);
-  if (!entry) {
-    return;
-  }
-
-  if (entry.options !== undefined) {
-    el.removeEventListener(entry.eventName, entry.handler, entry.options);
-  } else {
-    el.removeEventListener(entry.eventName, entry.handler);
-  }
-  incDevCounter('listenerRemoves');
-  const listeners = elementListeners.get(el);
-  listeners?.delete(listenerKey);
-  if (listeners?.size === 0) {
-    elementListeners.delete(el);
-  }
-}
-
-export function markReactivePropsDirtySource(
-  source: ReadableSource<unknown>
-): void {
-  markFineGrainedEffectsDirtySource(source);
-}
-
-function setupReactiveProp(
-  el: Element,
-  propName: string,
-  propFn: () => unknown,
-  tagName: string
-): { cleanup: () => void; updateFn: (nextFn: () => unknown) => void } {
-  const descriptor: ReactivePropDescriptor = {
-    el,
-    propName,
-    propFn,
-    tagName,
-    lastClassTokens: null,
-  };
-
-  let effectHandle: FineGrainedEffectHandle<unknown> | null = null;
-
-  reactivePropRegistry.add(descriptor);
-  effectHandle = createFineGrainedEffect({
-    lane: 'reactive',
-    compute: () => descriptor.propFn(),
-    commit: (value, previousValue) => {
-      incrementPerfMetric('reactivePropReevaluations');
-      applyScalarPropValue(
-        el,
-        propName,
-        value,
-        tagName,
-        previousValue,
-        descriptor
-      );
-    },
-    equals: (previousValue, nextValue) => {
-      if (Object.is(previousValue, nextValue)) {
-        incrementPerfMetric('skippedDomPropWrites');
-        return true;
-      }
-      return false;
-    },
-    onError: (err) => {
-      if (getRuntimeEnv().NODE_ENV !== 'production') {
-        logger.warn('[Askr] Reactive prop update failed:', err);
-      }
-    },
-  });
-
-  if (BENCH_BUILD_ENABLED && isBenchMetricScopeActive('coldCreate')) {
-    recordBenchCounter('reactivePropsMounted');
-  }
-
-  const cleanup = () => {
-    reactivePropRegistry.delete(descriptor);
-    effectHandle?.cleanup();
-    effectHandle = null;
-  };
-
-  const updateFn = (nextFn: () => unknown): void => {
-    if (!effectHandle) {
-      return;
-    }
-
-    descriptor.propFn = nextFn;
-
-    try {
-      effectHandle.updateCompute(nextFn);
-    } catch (err) {
-      if (getRuntimeEnv().NODE_ENV !== 'production') {
-        logger.warn('[Askr] Reactive prop update failed:', err);
-      }
-    }
-  };
-
-  return {
-    cleanup,
-    updateFn,
-  };
-}
+import {
+  addTrackedListener,
+  removeTrackedListener,
+  isHydrationDirectListener,
+  clearHydrationDirectListener,
+  isHydrationDirectListenerMode,
+} from './prop-listeners';
+export {
+  beginHydrationDirectListenerMode,
+  endHydrationDirectListenerMode,
+} from './prop-listeners';
+import { createReactivePropCleanupEntry } from './reactive-prop-bindings';
+export {
+  createReactivePropCleanupEntry,
+  markReactivePropsDirtySource,
+} from './reactive-prop-bindings';
 
 function getOrCreateReactivePropsCleanupMap(
   el: Element
 ): Map<string, ReactivePropCleanupEntry> {
   return getElementReactivePropsCleanupMap(el, true)!;
-}
-
-/** @internal Create a standalone reactive prop entry for rollback restoration. */
-export function createReactivePropCleanupEntry(
-  el: Element,
-  propName: string,
-  propFn: () => unknown,
-  tagName: string
-): ReactivePropCleanupEntry {
-  const reactive = setupReactiveProp(el, propName, propFn, tagName);
-
-  return {
-    cleanup: reactive.cleanup,
-    updateFn: (nextValue) => {
-      reactive.updateFn(nextValue as () => unknown);
-    },
-    restoreFn: (nextValue) =>
-      createReactivePropCleanupEntry(
-        el,
-        propName,
-        nextValue as () => unknown,
-        tagName
-      ),
-    fnRef: propFn,
-  };
 }
 
 export function hasTrackedElementPropBindings(el: Element): boolean {
@@ -625,7 +346,7 @@ export function syncElementPropBindings(
         continue;
       }
       if (
-        hydrationDirectListenerDepth > 0 &&
+        isHydrationDirectListenerMode() &&
         !existingListeners?.has(listenerKey) &&
         !getDelegatedHandlerForElement(el, eventName)
       ) {
