@@ -12,7 +12,10 @@ three times, and compare the median for the identical workload name.
 The manual benchmark workflow accepts an optional `baseline` commit. When
 provided, it installs that revision separately and runs each baseline capture
 immediately before its candidate capture on the same runner. Both sets of raw
-JSON and their commit/lockfile provenance are uploaded together.
+JSON and their commit/lockfile provenance are uploaded together. Optional `tier`
+and `pattern` inputs isolate unchanged workloads when broad captures show
+variation. Retain rejected captures alongside recaptures; filtering does not
+change the sample-quality or regression limits.
 
 ## Acceptance Rules
 

@@ -32,13 +32,18 @@ Against the baseline, focused tests reproduced the two transaction collision
 failures, SSG publication after rejection, composed-ref skipped cleanup, and
 stable patch mutation on decline. The corrected public timing assertions then
 failed four checks: numeric debounce/throttle/RAF results and a Promise result.
-Opaque API type tests failed before the new root exports existed.
+Opaque API type tests failed before the new root exports existed. Final review
+also added three failing type assertions for accidentally exported private
+brands; explicit root exports fixed those failures.
 
 The broader DOM suite exposed an intentional duplicate subtree-retirement
 participant; its explicit keep-first policy restored the affected lifecycle
 and resource regressions (31 focused cases passed).
 
-Full hosted CI, performance qualification, PR review, and merge remain pending.
+The initial hosted performance comparison is rejected: 16 of 93 workloads
+exceed 5%, and three workloads fail sample quality in at least one capture.
+All metrics remain in `../benchmarks/solid-initial-0513b15.json`. Isolated
+recaptures, final acceptance, and merge remain pending.
 
 ## Governance coverage
 

@@ -1,4 +1,5 @@
 name: Benchmarks
+run-name: "Benchmarks (${{ inputs.tier || 'all' }}): ${{ inputs.pattern || 'all workloads' }}"
 
 on:
   schedule:
@@ -10,6 +11,17 @@ on:
         required: false
         type: string
 
+      tier:
+        description: Tier to capture
+        required: false
+        type: choice
+        default: all
+        options: [all, '1', '2', '3', '4']
+      pattern:
+        description: Optional unchanged workload name pattern for isolated recaptures
+        required: false
+        type: string
+
 permissions:
   contents: read
 
@@ -18,6 +30,8 @@ jobs:
     name: Benchmarks (stable)
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      BENCH_PATTERN: ${{ inputs.pattern || '.*' }}
 
     steps:
       - name: Checkout repository
@@ -68,100 +82,112 @@ jobs:
           sha256sum package-lock.json >> ../bench-results/baseline-provenance.txt
 
       - name: Run baseline tier1 capture 1
-        if: inputs.baseline != ''
+        if: inputs.baseline != '' && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '1')
         working-directory: .benchmark-baseline
-        run: npm run bench:tier1 -- --outputJson ../bench-results/baseline-tier1-run1.json
+        run: npm run bench:tier1 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/baseline-tier1-run1.json
 
       - name: Run tier1 capture 1
-        run: npm run bench:tier1 -- --outputJson bench-results/tier1-run1.json
+        if: (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '1')
+        run: npm run bench:tier1 -- --testNamePattern "$BENCH_PATTERN" --outputJson bench-results/tier1-run1.json
 
       - name: Run baseline tier1 capture 2
-        if: inputs.baseline != ''
+        if: inputs.baseline != '' && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '1')
         working-directory: .benchmark-baseline
-        run: npm run bench:tier1 -- --outputJson ../bench-results/baseline-tier1-run2.json
+        run: npm run bench:tier1 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/baseline-tier1-run2.json
 
       - name: Run tier1 capture 2
-        run: npm run bench:tier1 -- --outputJson bench-results/tier1-run2.json
+        if: (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '1')
+        run: npm run bench:tier1 -- --testNamePattern "$BENCH_PATTERN" --outputJson bench-results/tier1-run2.json
 
       - name: Run baseline tier1 capture 3
-        if: inputs.baseline != ''
+        if: inputs.baseline != '' && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '1')
         working-directory: .benchmark-baseline
-        run: npm run bench:tier1 -- --outputJson ../bench-results/baseline-tier1-run3.json
+        run: npm run bench:tier1 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/baseline-tier1-run3.json
 
       - name: Run tier1 capture 3
-        run: npm run bench:tier1 -- --outputJson bench-results/tier1-run3.json
+        if: (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '1')
+        run: npm run bench:tier1 -- --testNamePattern "$BENCH_PATTERN" --outputJson bench-results/tier1-run3.json
 
       - name: Run baseline tier2 capture 1
-        if: inputs.baseline != ''
+        if: inputs.baseline != '' && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '2')
         working-directory: .benchmark-baseline
-        run: npm run bench:tier2 -- --outputJson ../bench-results/baseline-tier2-run1.json
+        run: npm run bench:tier2 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/baseline-tier2-run1.json
 
       - name: Run tier2 capture 1
-        run: npm run bench:tier2 -- --outputJson bench-results/tier2-run1.json
+        if: (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '2')
+        run: npm run bench:tier2 -- --testNamePattern "$BENCH_PATTERN" --outputJson bench-results/tier2-run1.json
 
       - name: Run baseline tier2 capture 2
-        if: inputs.baseline != ''
+        if: inputs.baseline != '' && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '2')
         working-directory: .benchmark-baseline
-        run: npm run bench:tier2 -- --outputJson ../bench-results/baseline-tier2-run2.json
+        run: npm run bench:tier2 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/baseline-tier2-run2.json
 
       - name: Run tier2 capture 2
-        run: npm run bench:tier2 -- --outputJson bench-results/tier2-run2.json
+        if: (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '2')
+        run: npm run bench:tier2 -- --testNamePattern "$BENCH_PATTERN" --outputJson bench-results/tier2-run2.json
 
       - name: Run baseline tier2 capture 3
-        if: inputs.baseline != ''
+        if: inputs.baseline != '' && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '2')
         working-directory: .benchmark-baseline
-        run: npm run bench:tier2 -- --outputJson ../bench-results/baseline-tier2-run3.json
+        run: npm run bench:tier2 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/baseline-tier2-run3.json
 
       - name: Run tier2 capture 3
-        run: npm run bench:tier2 -- --outputJson bench-results/tier2-run3.json
+        if: (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '2')
+        run: npm run bench:tier2 -- --testNamePattern "$BENCH_PATTERN" --outputJson bench-results/tier2-run3.json
 
       - name: Run baseline tier3 capture 1
-        if: inputs.baseline != ''
+        if: inputs.baseline != '' && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '3')
         working-directory: .benchmark-baseline
-        run: npm run bench:tier3 -- --outputJson ../bench-results/baseline-tier3-run1.json
+        run: npm run bench:tier3 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/baseline-tier3-run1.json
 
       - name: Run tier3 capture 1
-        run: npm run bench:tier3 -- --outputJson bench-results/tier3-run1.json
+        if: (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '3')
+        run: npm run bench:tier3 -- --testNamePattern "$BENCH_PATTERN" --outputJson bench-results/tier3-run1.json
 
       - name: Run baseline tier3 capture 2
-        if: inputs.baseline != ''
+        if: inputs.baseline != '' && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '3')
         working-directory: .benchmark-baseline
-        run: npm run bench:tier3 -- --outputJson ../bench-results/baseline-tier3-run2.json
+        run: npm run bench:tier3 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/baseline-tier3-run2.json
 
       - name: Run tier3 capture 2
-        run: npm run bench:tier3 -- --outputJson bench-results/tier3-run2.json
+        if: (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '3')
+        run: npm run bench:tier3 -- --testNamePattern "$BENCH_PATTERN" --outputJson bench-results/tier3-run2.json
 
       - name: Run baseline tier3 capture 3
-        if: inputs.baseline != ''
+        if: inputs.baseline != '' && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '3')
         working-directory: .benchmark-baseline
-        run: npm run bench:tier3 -- --outputJson ../bench-results/baseline-tier3-run3.json
+        run: npm run bench:tier3 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/baseline-tier3-run3.json
 
       - name: Run tier3 capture 3
-        run: npm run bench:tier3 -- --outputJson bench-results/tier3-run3.json
+        if: (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '3')
+        run: npm run bench:tier3 -- --testNamePattern "$BENCH_PATTERN" --outputJson bench-results/tier3-run3.json
 
       - name: Run baseline tier4 capture 1
-        if: inputs.baseline != ''
+        if: inputs.baseline != '' && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '4')
         working-directory: .benchmark-baseline
-        run: npm run bench:tier4 -- --outputJson ../bench-results/baseline-tier4-run1.json
+        run: npm run bench:tier4 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/baseline-tier4-run1.json
 
       - name: Run tier4 capture 1
-        run: npm run bench:tier4 -- --outputJson bench-results/tier4-run1.json
+        if: (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '4')
+        run: npm run bench:tier4 -- --testNamePattern "$BENCH_PATTERN" --outputJson bench-results/tier4-run1.json
 
       - name: Run baseline tier4 capture 2
-        if: inputs.baseline != ''
+        if: inputs.baseline != '' && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '4')
         working-directory: .benchmark-baseline
-        run: npm run bench:tier4 -- --outputJson ../bench-results/baseline-tier4-run2.json
+        run: npm run bench:tier4 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/baseline-tier4-run2.json
 
       - name: Run tier4 capture 2
-        run: npm run bench:tier4 -- --outputJson bench-results/tier4-run2.json
+        if: (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '4')
+        run: npm run bench:tier4 -- --testNamePattern "$BENCH_PATTERN" --outputJson bench-results/tier4-run2.json
 
       - name: Run baseline tier4 capture 3
-        if: inputs.baseline != ''
+        if: inputs.baseline != '' && (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '4')
         working-directory: .benchmark-baseline
-        run: npm run bench:tier4 -- --outputJson ../bench-results/baseline-tier4-run3.json
+        run: npm run bench:tier4 -- --testNamePattern "$BENCH_PATTERN" --outputJson ../bench-results/baseline-tier4-run3.json
 
       - name: Run tier4 capture 3
-        run: npm run bench:tier4 -- --outputJson bench-results/tier4-run3.json
+        if: (inputs.tier == '' || inputs.tier == 'all' || inputs.tier == '4')
+        run: npm run bench:tier4 -- --testNamePattern "$BENCH_PATTERN" --outputJson bench-results/tier4-run3.json
 
       - name: Upload benchmark artifacts
         if: always()
