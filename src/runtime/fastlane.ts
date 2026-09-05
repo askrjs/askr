@@ -253,7 +253,7 @@ function validateFastLaneInvariants(
     commitCount,
     mountOps: instance.mountOperations?.length ?? 0,
     commitOps: instance.commitOperations?.length ?? 0,
-    cleanupFns: instance.cleanupFns?.length ?? 0,
+    cleanupFns: instance.ownership.cleanups?.length ?? 0,
   };
   setDevValue('__LAST_FASTLANE_INVARIANTS', invariants);
 

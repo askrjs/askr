@@ -1,3 +1,4 @@
+import { ownCleanup } from './ownership';
 import {
   getCurrentComponentInstance,
   type ComponentInstance,
@@ -213,10 +214,8 @@ export function resource<T>(
     });
 
     // Cleanup on unmount
-    (inst.cleanupFns ??= []).push(() => {
-      unsubscribe();
-      cell.dispose();
-    });
+    ownCleanup(inst.ownership, unsubscribe);
+    ownCleanup(inst.ownership, () => cell.dispose());
 
     // Render invariant: do NOT start async work during render on the client.
     // SSR remains strict/synchronous and must throw immediately if async is encountered.

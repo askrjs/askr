@@ -62,7 +62,7 @@ describe('SSR ownership invariants', () => {
       }
 
       instance.cleanupStrict = true;
-      (instance.cleanupFns ??= []).push(() => {
+      (instance.ownership.cleanups ??= []).push(() => {
         throw new Error('ssr cleanup failed');
       });
 

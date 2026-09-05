@@ -1,3 +1,4 @@
+import { ownCleanup } from '../runtime/ownership';
 import type { RouteMatch, RouteParams, RouteSnapshot } from '../common/router';
 import { getStagedAppRenderRouteLocation } from '../common/app-render-runtime';
 import { syncRouteActivitySnapshot } from '../common/route-activity';
@@ -84,8 +85,7 @@ export function onRouteChange(
   slot.callback = fn;
   slot.immediate = options.immediate === true;
   if (!slot.cleanupRegistered) {
-    instance.cleanupFns ??= [];
-    instance.cleanupFns.push(() => {
+    ownCleanup(instance.ownership, () => {
       slot.cleanup?.();
       slot.cleanup = null;
     });

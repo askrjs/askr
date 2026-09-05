@@ -1,3 +1,9 @@
+import {
+  disposeOwnership,
+  ownChild,
+  ownCleanup,
+  OwnershipRecord,
+} from './ownership';
 /**
  * For primitive runtime
  *
@@ -156,7 +162,7 @@ const forStates = new WeakMap<object, Map<number, ForState<unknown>>>();
 function getForStore(
   instance: ComponentInstance
 ): Map<number, ForState<unknown>> {
-  const generation = instance._ownershipGeneration;
+  const generation = instance.ownership.identity;
   let store = forStates.get(generation);
   if (!store) {
     store = new Map();
@@ -172,10 +178,11 @@ export function createForState<T>(
   fallback: VNode | null
 ): ForState<T> {
   const parentInstance = getCurrentInstance();
-  const ownedScopes = new Set<ChildScope>();
+  const scopeOwner = new OwnershipRecord();
+  const ownedScopes = (scopeOwner.children = new Set<ChildScope>());
   let bulkDisposing = false;
   const scopeOwnership: ChildScopeOwnership = {
-    add: (scope) => ownedScopes.add(scope),
+    add: (scope) => ownChild(scopeOwner, scope),
     delete: (scope) => (bulkDisposing ? false : ownedScopes.delete(scope)),
     bulkDispose(run) {
       bulkDisposing = true;
@@ -191,19 +198,14 @@ export function createForState<T>(
     registerOwnedChildScope(parentInstance, {
       key: 'for-boundary',
       dispose() {
-        scopeOwnership.bulkDispose(() => {
-          const errors: unknown[] = [];
-          for (const scope of ownedScopes) {
-            try {
-              scope.dispose();
-            } catch (error) {
-              errors.push(error);
-            }
-          }
-          if (errors.length > 0) {
-            throw new AggregateError(errors, 'For scope cleanup failed');
-          }
+        const errors: unknown[] = [];
+        disposeOwnership(scopeOwner, {
+          recordError(_message, error) {
+            errors.push(error);
+          },
         });
+        if (errors.length)
+          throw new AggregateError(errors, 'For scope cleanup failed');
       },
     });
   }
@@ -258,7 +260,7 @@ export function useForState<T>(
   }
 
   const hookIndex = claimHookIndex(instance, 'For');
-  const generation = instance._ownershipGeneration;
+  const generation = instance.ownership.identity;
   const store = getForStore(instance);
   const existing = store.get(hookIndex) as ForState<T> | undefined;
 
@@ -273,12 +275,15 @@ export function useForState<T>(
   const created = createForState(eachSource, byFn, renderFn, fallback);
   store.set(hookIndex, created as ForState<unknown>);
 
-  (instance.cleanupFns ??= []).push(() => {
-    created._sourceEffect?.cleanup();
-    created._sourceEffect = null;
-    store.delete(hookIndex);
-    if (store.size === 0 && forStates.get(generation) === store) {
-      forStates.delete(generation);
+  ownCleanup(instance.ownership, () => {
+    try {
+      created._sourceEffect?.cleanup();
+    } finally {
+      created._sourceEffect = null;
+      store.delete(hookIndex);
+      if (store.size === 0 && forStates.get(generation) === store) {
+        forStates.delete(generation);
+      }
     }
   });
 

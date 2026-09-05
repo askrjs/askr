@@ -1,3 +1,4 @@
+import { ownCleanup } from '../runtime/ownership';
 import { enqueueRuntimeTask } from '../runtime';
 import { getCurrentComponentInstance } from '../runtime';
 import { logger } from '../common/logger';
@@ -110,7 +111,7 @@ export function debounceEvent(
 
   // Auto-cleanup on component unmount
   if (inst) {
-    (inst.cleanupFns ??= []).push(() => {
+    ownCleanup(inst.ownership, () => {
       debounced.cancel();
     });
   }
@@ -175,7 +176,7 @@ export function throttleEvent(
   };
 
   if (inst) {
-    (inst.cleanupFns ??= []).push(() => throttled.cancel());
+    ownCleanup(inst.ownership, () => throttled.cancel());
   }
 
   return throttled;
@@ -232,7 +233,7 @@ export function rafEvent(
     lastEvent = null;
   };
 
-  if (inst) (inst.cleanupFns ??= []).push(() => fn.cancel());
+  if (inst) ownCleanup(inst.ownership, () => fn.cancel());
 
   return fn;
 }
@@ -259,7 +260,7 @@ export function scheduleTimeout(ms: number, fn: () => void): CancelFn {
     }
   };
 
-  if (inst) (inst.cleanupFns ??= []).push(cancel);
+  if (inst) ownCleanup(inst.ownership, cancel);
   return cancel;
 }
 
@@ -305,7 +306,7 @@ export function scheduleIdle(
     }
   };
 
-  if (inst) (inst.cleanupFns ??= []).push(cancel);
+  if (inst) ownCleanup(inst.ownership, cancel);
   return cancel;
 }
 
@@ -366,6 +367,6 @@ export function scheduleRetry<T>(
     cancelled = true;
   };
 
-  if (inst) (inst.cleanupFns ??= []).push(cancel);
+  if (inst) ownCleanup(inst.ownership, cancel);
   return { cancel };
 }

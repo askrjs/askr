@@ -98,9 +98,9 @@ describe('portal route cleanup', () => {
         collectInstances(result.container)
       ).find((instance) => instance.fn === OverlayPortal);
       expect(portalInstance).toBeDefined();
-      expect(portalInstance?.mounted).toBe(true);
+      expect(portalInstance?.ownership.mounted).toBe(true);
 
-      const [currentSource] = portalInstance?._lastReadSources ?? [];
+      const [currentSource] = portalInstance?.ownership.reads ?? [];
       source ??= currentSource;
       expect(currentSource).toBe(source);
       expect(source?._readers?.size).toBe(1);
@@ -109,7 +109,7 @@ describe('portal route cleanup', () => {
       flushScheduler();
       flushScheduler();
       expect(source?._readers?.size).toBe(1);
-      (portalInstance!.cleanupFns ??= []).push(() => {
+      (portalInstance!.ownership.cleanups ??= []).push(() => {
         cleanups += 1;
       });
 
@@ -119,7 +119,7 @@ describe('portal route cleanup', () => {
       expect(
         result.container.querySelector('[data-page="plain"]')
       ).not.toBeNull();
-      expect(portalInstance?.mounted).toBe(false);
+      expect(portalInstance?.ownership.mounted).toBe(false);
       expect(source?._readers?.has(portalInstance!)).toBe(false);
       expect(source?._readers?.size ?? 0).toBe(0);
 

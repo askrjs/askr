@@ -81,6 +81,14 @@ qualified in every capture and stayed within the 5% regression limit; the
 largest median slowdown was 0.74%. This establishes performance preservation
 for the boundary change and makes no optimization claim.
 
+The [ownership qualification](./core-ownership-8847810.json) compares `ffa0ff4`
+with `8847810`. Three baseline and three candidate captures cover the same
+16 rows plus query cancellation and Show/Case branch changes. All 19 rows
+qualified in every capture and stayed within the 5% regression limit. The
+largest median slowdown was 4.55% for table truncation; component-chain
+mount/cleanup changed by +1.16%, and shared-layout navigation by -0.14%.
+This is performance preservation evidence, with no optimization claim.
+
 ## External JFB Comparisons
 
 The local `js-framework-benchmark` capture is a separate product-level signal

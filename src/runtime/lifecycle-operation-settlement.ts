@@ -2,10 +2,10 @@ import { isPromiseLike } from '../common/promise';
 import { logger } from '../common/logger';
 import type { ComponentInstance } from './component-internal';
 import type { LifecycleOperation } from './lifecycle-batch';
+import { ownCleanup, type OwnershipRecord } from './ownership';
 
 function settleLifecycleOperationResult(
-  instance: ComponentInstance,
-  lifecycleGeneration: number,
+  owner: OwnershipRecord,
   result: LifecycleOperation extends (...args: never[]) => infer TResult
     ? TResult
     : never
@@ -14,11 +14,8 @@ function settleLifecycleOperationResult(
     Promise.resolve(result).then(
       (cleanup) => {
         if (typeof cleanup === 'function') {
-          if (
-            instance.lifecycleGeneration === lifecycleGeneration &&
-            instance.mounted
-          ) {
-            (instance.cleanupFns ??= []).push(cleanup);
+          if (!owner.disposed && owner.mounted) {
+            ownCleanup(owner, cleanup);
             return;
           }
 
@@ -34,7 +31,7 @@ function settleLifecycleOperationResult(
       }
     );
   } else if (typeof result === 'function') {
-    (instance.cleanupFns ??= []).push(result);
+    ownCleanup(owner, result);
   }
 }
 
@@ -46,15 +43,11 @@ function executeOperations(
     return [];
   }
 
-  const lifecycleGeneration = instance.lifecycleGeneration;
+  const owner = instance.ownership;
   const errors: unknown[] = [];
   for (const operation of operations) {
     try {
-      settleLifecycleOperationResult(
-        instance,
-        lifecycleGeneration,
-        operation()
-      );
+      settleLifecycleOperationResult(owner, operation());
     } catch (error) {
       errors.push(error);
     }

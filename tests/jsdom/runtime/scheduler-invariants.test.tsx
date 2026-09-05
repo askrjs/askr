@@ -326,7 +326,7 @@ describe('scheduler invariants', () => {
         throw new Error('expected child component instance');
       }
 
-      (instance.cleanupFns ??= []).push(() => {
+      (instance.ownership.cleanups ??= []).push(() => {
         cleanupRuns += 1;
         cleanupWrites.set((value) => value + 1);
       });
@@ -380,7 +380,7 @@ describe('scheduler invariants', () => {
         throw new Error('expected child component instance');
       }
       childInstance = instance;
-      (instance.cleanupFns ??= []).push(() => {
+      (instance.ownership.cleanups ??= []).push(() => {
         cleanupRuns += 1;
         shared.set((value) => value + 1);
       });

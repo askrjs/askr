@@ -141,7 +141,7 @@ describe('cleanup with queued updates', () => {
     const portalInstance = Array.from(instances).find(
       (instance) => instance.fn === OverlayPortal
     );
-    const portalSource = portalInstance?._lastReadSources?.values().next()
+    const portalSource = portalInstance?.ownership.reads?.values().next()
       .value as ReadableSource<unknown> | undefined;
 
     expect(portalInstance).toBeDefined();
@@ -152,9 +152,9 @@ describe('cleanup with queued updates', () => {
     globalScheduler.enqueue(() => cleanup());
     flushScheduler();
 
-    expect(owner.mounted).toBe(false);
+    expect(owner.ownership.mounted).toBe(false);
     expect(owner.target?.isConnected).toBe(false);
-    expect(portalInstance?.mounted).toBe(false);
+    expect(portalInstance?.ownership.mounted).toBe(false);
     expect(portalSource?._readers?.has(portalInstance!)).toBe(false);
     expect(portalSource?._readers?.size ?? 0).toBe(0);
     expect(container.textContent).not.toContain('overlay:1');
@@ -166,7 +166,7 @@ describe('cleanup with queued updates', () => {
       {},
       null
     );
-    deferredReader.mounted = true;
+    deferredReader.ownership.mounted = true;
     deferredReader.notifyUpdate = () => {};
     const deferredSource = (() => 0) as ReadableSource<number>;
     deferredSource._version = 0;
@@ -177,7 +177,7 @@ describe('cleanup with queued updates', () => {
       new Set([deferredSource]),
       new Map([[deferredSource, 0]])
     );
-    deferredReader._ownershipGeneration = {};
+    deferredReader.ownership.identity = {};
     flushLifecycleCommitBatch(deferredBatch);
 
     expect(deferredSource._readers?.has(deferredReader)).not.toBe(true);

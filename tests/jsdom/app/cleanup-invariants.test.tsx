@@ -22,18 +22,18 @@ describe('cleanup invariants', () => {
     controller.signal.addEventListener('abort', () => {
       aborted = true;
     });
-    instance.abortController = controller;
+    instance.ownership.controller = controller;
     instance.cleanupStrict = true;
-    instance.mounted = true;
+    instance.ownership.mounted = true;
     instance.notifyUpdate = () => {};
-    (instance.cleanupFns ??= []).push(() => {
+    (instance.ownership.cleanups ??= []).push(() => {
       throw new Error('cleanup failed');
     });
 
     expect(() => cleanupComponent(instance)).toThrow(AggregateError);
     expect(aborted).toBe(true);
     expect(instance.notifyUpdate).toBeNull();
-    expect(instance.mounted).toBe(false);
+    expect(instance.ownership.mounted).toBe(false);
   });
 
   it('should run async task cleanup exactly once when it resolves after unmount', async () => {
