@@ -50,7 +50,7 @@ actions, effects, testing, and JSX are not all members of the subsystem graph.
 Existing compatibility, declaration, and entrypoint rules still apply.
 
 New checks keep vnode context propagation independent of DOM capabilities,
-publication infrastructure independent of routing/rendering, and runtime
+publication infrastructure independent of routing/rendering, and runtime/renderer
 helpers on narrow renderer accessors. The dynamic-import classification fixture
 now follows hydration's implementation module after its move out of the barrel.
 

@@ -10,121 +10,96 @@ import type { ComponentInstance } from './component-internal';
 
 /** Views share the flat execution record; no wrapper objects or new identities. */
 export interface ComponentHooks {
+  /** Persistent state storage across renders. */
   stateValues?: State<unknown>[];
-  // Batches run requests and enqueues _pendingRunTask
+  /** Tracks hook indices to catch conditional calls. */
   stateIndexCheck: number;
-  // Track state indices to catch conditional calls
+  /** Expected hook index sequence, frozen after the first render. */
   expectedStateIndices?: number[];
-  // Expected sequence of render-scoped hook indices (frozen after first render)
   firstRenderComplete: boolean;
-  // Flag to detect transition from first to subsequent renders
+  /** Operations activated when the component mounts. */
   mountOperations?: Array<
     () => void | (() => void) | PromiseLike<void | (() => void)>
   >;
-  // Operations to run when component mounts
+  /** Operations activated after a successful committed render. */
   commitOperations?: Array<
     () => void | (() => void) | PromiseLike<void | (() => void)>
   >;
-  // Operations to run after a successful committed render
   lifecycleSlots?: unknown[];
-  // Render-scoped lifecycle primitive storage
+  /** Invalidates async mount settlement after disposal. */
   lifecycleGeneration: number;
 }
+
+/** Component type alone cannot identify a retained wrapper chain. */
 export interface ComponentVNodeIdentity {
-  // Renderer ownership identity. A host can contain a retained wrapper chain,
-  // so component type alone is not a safe reuse key.
   _vnodeOwner?: object;
-
   _vnodeParent?: ComponentInstance | null;
-
   _vnodeParentGeneration?: object;
-
   _vnodeKey?: string | number;
-
   _vnodePosition?: number;
-
   _wrapperDepth?: number;
 }
+
 export interface ComponentReads {
-  // Render-tracking for precise subscriptions (internal)
+  /** Token for the in-progress render. */
   _currentRenderToken?: number;
-  // Token for the in-progress render (set before render)
+  /** Token for the last committed render. */
   lastRenderToken?: number;
-  // Token of the last *committed* render
+  /** Readables and their versions captured during the in-progress render. */
   _pendingReadSources?: Set<ReadableSource<unknown>>;
-  // Readables read during the in-progress render
   _pendingReadSourceVersions?: Map<ReadableSource<unknown>, number>;
 }
+
 export interface ComponentDiagnostics {
   id: string;
-  // Source versions captured during the in-progress render
+  /** Development-only warning deduplication. */
   devWarningsEmitted?: Set<string>;
 }
+
 export interface ComponentExecution {
   fn: ComponentFunction;
-
   props: Props;
-
   target: Element | null;
-
-  /** Renderer-maintained index of this execution record's current host. */
+  /** Renderer-maintained index of this record's current host. */
   range?: DOMRange;
-
   parentInstance: ComponentInstance | null;
-
   portalScope: object | null;
-
   owner: OwnershipRecord;
-
+  /** True for temporary SSR instances. */
   ssr?: boolean;
-  // Set to true for SSR temporary instances
-  // Opt-in strict cleanup mode: when true cleanup errors are aggregated and re-thrown
+  /** Aggregate and rethrow cleanup errors when enabled. */
   cleanupStrict?: boolean;
-  // Persistent state storage across renders
+  /** Prevent stale async evaluation completions. */
   evaluationGeneration: number;
-  // Prevents stale async evaluation completions
+  /** Monotonic revision invalidates previously prepared output. */
   renderRevision: number;
-  // Invalidates prepared output after a newer execution
   notifyUpdate: (() => void) | null;
-  // Callback for state updates (persisted on instance)
-  // Internal: prebound helpers to avoid per-update closures (allocation hot-path)
+  /** Prebound helpers avoid closures on each update. */
   _pendingFlushTask?: () => void;
-  // Clears hasPendingUpdate and triggers notifyUpdate
   _pendingRunTask?: () => void;
-  // Clears hasPendingUpdate and runs component
   _enqueueRun?: () => void;
-  // Invalidates async mount-operation settlement after disposal
   hasPendingUpdate: boolean;
-  // Flag to batch state updates (coalescing)
+  /** Provider chain assigned by Scope. */
   ownerFrame: ContextFrame | null;
-  // Provider chain for this component (set by Scope, never overwritten)
   isRoot?: boolean;
-
   _rootComponentFn?: ComponentFunction;
-
-  /** @internal Browser-owned hydration and route state for this app root. */
+  /** Browser-owned hydration and route state for this app root. */
   _appRenderRuntime?: AppRenderRuntime;
-
-  /** @internal CSP nonce retained across browser route navigation. */
+  /** CSP nonce retained across browser route navigation. */
   _cspNonce?: string;
-  // Dev-only warning dedupe for this instance
-
-  // Placeholder for null-returning components. When a component initially returns
-  // null, we create a comment placeholder so updates can replace it with content.
+  /** Placeholder for a null-returning component. */
   _placeholder?: Comment;
-
   errorBoundaryState?: {
     error: unknown | null;
     resetKey: unknown;
     notified: boolean;
   };
-
-  /** @internal Logical error ancestry for content materialized by a portal host. */
+  /** Logical error ancestry for content materialized by a portal host. */
   _portalErrorParent?: ComponentInstance | null;
-
-  /** @internal Ownership identity paired with `_portalErrorParent`. */
+  /** Ownership identity paired with the portal error parent. */
   _portalErrorParentGeneration?: object;
 }
+
 /** Capture generation state without rewinding the monotonic render revision. */
 export function captureGenerationExecution(instance: ComponentInstance) {
   return {

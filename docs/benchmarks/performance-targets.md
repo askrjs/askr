@@ -9,6 +9,11 @@ workflow artifact as the baseline for a focused change. Capture the baseline
 and candidate back-to-back on the same pinned CI runner, repeat each capture
 three times, and compare the median for the identical workload name.
 
+The manual benchmark workflow accepts an optional `baseline` commit. When
+provided, it installs that revision separately and runs each baseline capture
+immediately before its candidate capture on the same runner. Both sets of raw
+JSON and their commit/lockfile provenance are uploaded together.
+
 ## Acceptance Rules
 
 - A benchmark is eligible for tuning only after repeat captures consistently show at

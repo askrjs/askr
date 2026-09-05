@@ -6,6 +6,7 @@ import type {
   RenderCleanup,
   ScopeRendering,
   ReactiveRendering,
+  KeyedRendering,
 } from './renderer-capabilities';
 import type { Scheduler, SchedulerLane } from './scheduler';
 import {
@@ -30,6 +31,9 @@ export function getRuntimeCleanup(): RenderCleanup {
   return defaultRuntimeState.renderer;
 }
 export function getRuntimeScopes(): ScopeRendering {
+  return defaultRuntimeState.renderer;
+}
+export function getRuntimeKeys(): KeyedRendering {
   return defaultRuntimeState.renderer;
 }
 export function getRuntimeReactivity(): ReactiveRendering {

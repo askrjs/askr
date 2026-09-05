@@ -257,11 +257,12 @@ describe('architecture boundaries', () => {
     ).toEqual([]);
   });
 
-  it('should use narrow renderer access in runtime helpers', () => {
+  it('should use narrow renderer access in runtime and renderer helpers', () => {
     const violations: string[] = [];
     for (const { relative, source } of sources) {
       if (
-        !relative.startsWith('src/runtime/') ||
+        (!relative.startsWith('src/runtime/') &&
+          !relative.startsWith('src/renderer/')) ||
         relative === 'src/runtime/access.ts'
       )
         continue;
