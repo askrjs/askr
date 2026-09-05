@@ -133,6 +133,14 @@ boot composition and consolidated bookkeeping that address that rejection.
 
 ## External JFB Comparisons
 
+Very short workloads must span enough clock ticks for the 5% guardrail to be
+meaningful. Router matching times 128 calls per sample; table swapping times
+32 alternating, synchronously flushed swaps. Names include these counts.
+Compare identical blocks, or divide duration percentiles by the count when
+reporting per-operation values. Keep single-operation captures as diagnostic
+evidence when quantization makes their median unsuitable for qualification.
+
+
 The local `js-framework-benchmark` capture is a separate product-level signal
 from the tiered Askr guardrails. For JFB comparisons, keep the framework,
 benchmark ID, browser, throttling mode, reset behavior, and iteration count
