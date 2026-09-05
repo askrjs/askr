@@ -89,11 +89,11 @@ largest median slowdown was 4.55% for table truncation; component-chain
 mount/cleanup changed by +1.16%, and shared-layout navigation by -0.14%.
 This is performance preservation evidence, with no optimization claim.
 
-The [renderer ownership qualification](./core-renderer-54e2e4f.json) compares
-`346b05a` with `54e2e4f` across 21 rows, including delegated event dispatch.
+The [renderer ownership qualification](./core-renderer-fe12030.json) compares
+`346b05a` with `fe12030` across 21 rows, including delegated event dispatch.
 All three baseline and three candidate captures met the quality rules and
 the 5% regression limit. Table truncation changed from 2.3 ms to 2.4 ms
-(+4.35%); the other 20 rows changed by at most +2.63%. Earlier candidates
+(+4.35%); the other 20 rows changed by at most +1.13%. Earlier candidates
 failed the truncation guardrail at +13.04% and +8.70% and were rejected.
 The accepted implementation consolidates native range indexes and scope
 boundary work. This is preservation evidence, with no optimization claim.
