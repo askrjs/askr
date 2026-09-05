@@ -1726,9 +1726,7 @@
           "instrumentation": false,
           "playwright": "1.62.1",
           "workloads": {
-            "1": [
-              "tier1-hotpath-router-longest-match.ts"
-            ]
+            "1": ["tier1-hotpath-router-longest-match.ts"]
           },
           "dependency_link": "/Users/jrepanich/Code/askrjs/askr/node_modules"
         },
@@ -1745,9 +1743,7 @@
           "instrumentation": false,
           "playwright": "1.62.1",
           "workloads": {
-            "1": [
-              "tier1-hotpath-router-longest-match.ts"
-            ]
+            "1": ["tier1-hotpath-router-longest-match.ts"]
           },
           "dependency_link": "/Users/jrepanich/Code/askrjs/askr/node_modules"
         },
@@ -1764,9 +1760,7 @@
           "instrumentation": false,
           "playwright": "1.62.1",
           "workloads": {
-            "1": [
-              "tier1-hotpath-router-longest-match.ts"
-            ]
+            "1": ["tier1-hotpath-router-longest-match.ts"]
           },
           "dependency_link": null
         }
