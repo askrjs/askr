@@ -1,4 +1,4 @@
-import { writeHostOwners } from './dom-ownership';
+import { bindComponentHost, writeHostOwners } from './dom-ownership';
 import { logger } from '../common/logger';
 import {
   getRuntimeRenderer,
@@ -43,9 +43,11 @@ function commitPlaceholderReplacement(
         placeholder
       );
       if (replacement) {
-        instance.target = replacement instanceof Element ? replacement : null;
-        instance._placeholder =
-          replacement instanceof Comment ? replacement : undefined;
+        bindComponentHost(
+          instance,
+          replacement instanceof Element ? replacement : null,
+          replacement instanceof Comment ? replacement : undefined
+        );
       }
     }
     host.finalizeReadSubscriptions(instance);
@@ -68,11 +70,9 @@ function commitPlaceholderReplacement(
   );
   if (rangeReplacement) {
     if (rangeReplacement instanceof Element) {
-      instance.target = rangeReplacement;
-      instance._placeholder = undefined;
+      bindComponentHost(instance, rangeReplacement);
     } else {
-      instance.target = null;
-      instance._placeholder = rangeReplacement as Comment;
+      bindComponentHost(instance, null, rangeReplacement as Comment);
     }
     host.finalizeReadSubscriptions(instance);
     host.commitRenderedComponent(instance);
@@ -101,9 +101,11 @@ function commitPlaceholderReplacement(
       }
       parent.replaceChild(replacement, placeholder);
 
-      instance.target = replacement instanceof Element ? replacement : null;
-      instance._placeholder =
-        replacement instanceof Comment ? replacement : undefined;
+      bindComponentHost(
+        instance,
+        replacement instanceof Element ? replacement : null,
+        replacement instanceof Comment ? replacement : undefined
+      );
       const instanceHost = replacement as Node & {
         __ASKR_INSTANCE?: ComponentInstance;
         __ASKR_INSTANCES?: ComponentInstance[];

@@ -67,6 +67,24 @@ export function releaseOwnerRange(owner: object): void {
   releaseRegisteredRange(owner);
 }
 
+/** A generation can restore its opaque host index after runtime ownership
+ * has been restored. Capturing does not expose renderer metadata to callers. */
+export function captureOwnerRange(owner: object): () => void {
+  const range = getOwnedRange(owner);
+  const host = hostsByOwner.get(owner);
+  const primary = range ? ownersByAnchor.get(range.start) : undefined;
+  return () => {
+    releaseOwnerRange(owner);
+    if (range) {
+      if (primary) registerRange(range, primary);
+      if (rangesByAnchor.has(range.start))
+        rangesByAnchor.set(range.start, range);
+    }
+    if (host) indexRangeHostOwner(owner, host);
+    if (range) writeOwnerRange(owner, range);
+  };
+}
+
 export function releaseRegisteredRange(owner: object): void {
   const range = readOwnerRange(owner);
   if (range) clearRegisteredRange(range, owner);

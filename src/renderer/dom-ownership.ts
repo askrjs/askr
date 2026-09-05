@@ -4,6 +4,18 @@ import type { ComponentInstance } from '../runtime';
 import type { InstanceHostNode } from './dom-host';
 import { clearRangeHostOwner, indexRangeHostOwner } from './dom-range';
 
+/** Publish a replacement binding and its lookup index together. */
+export function bindComponentHost(
+  instance: ComponentInstance,
+  target: Element | null,
+  placeholder?: Comment
+): void {
+  instance.target = target;
+  instance._placeholder = placeholder;
+  const host = target ?? placeholder;
+  if (host && !instance.ownership.disposed) indexRangeHostOwner(instance, host);
+}
+
 /** The writer for component indexes exposed on host nodes. */
 export function writeHostOwners(
   host: InstanceHostNode,

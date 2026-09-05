@@ -1,4 +1,4 @@
-import { releaseOwnerRange } from '../renderer/dom-range';
+import { captureOwnerRange, releaseOwnerRange } from '../renderer/dom-range';
 import {
   detachPortalHostOutput,
   isComponentHostDetached,
@@ -35,6 +35,7 @@ export function adaptRendererHost(
   const native = nativeHosts.get(host);
   if (native) return native;
   return {
+    captureComponentHost: captureOwnerRange,
     releaseComponentHost: releaseOwnerRange,
     detachPortalHostOutput,
     isComponentHostDetached,

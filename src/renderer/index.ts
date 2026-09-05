@@ -1,4 +1,4 @@
-import { releaseOwnerRange } from './dom-range';
+import { captureOwnerRange, releaseOwnerRange } from './dom-range';
 import { detachPortalHostOutput, isComponentHostDetached } from './portal-host';
 import {
   clearChildScopeHost,
@@ -45,6 +45,7 @@ import type { RendererCapabilities } from '../runtime';
 
 export function createRendererCapabilities(): RendererCapabilities {
   return {
+    captureComponentHost: captureOwnerRange,
     releaseComponentHost: releaseOwnerRange,
     detachPortalHostOutput,
     isComponentHostDetached,

@@ -1,4 +1,4 @@
-import { writeHostOwners } from './dom-ownership';
+import { bindComponentHost, writeHostOwners } from './dom-ownership';
 import {
   mountInstanceInline,
   registerLifecycleTransaction,
@@ -142,8 +142,7 @@ function migrateAdoptedRangeOwners(
         target: owner.target,
         placeholder: owner._placeholder,
       });
-      owner.target = null;
-      owner._placeholder = rangeHost as Comment;
+      bindComponentHost(owner, null, rangeHost as Comment);
     }
   }
 
@@ -174,8 +173,7 @@ function migrateAdoptedRangeOwners(
       sourceHadPrimaryInstance
     );
     for (const [owner, binding] of previousBindings) {
-      owner.target = binding.target;
-      owner._placeholder = binding.placeholder;
+      bindComponentHost(owner, binding.target, binding.placeholder);
     }
   };
 }

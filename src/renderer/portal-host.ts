@@ -4,7 +4,7 @@ import {
   type ComponentInstance,
 } from '../runtime';
 import type { InstanceHostNode } from './dom-host';
-import { writeHostOwners } from './dom-ownership';
+import { bindComponentHost, writeHostOwners } from './dom-ownership';
 
 export function detachPortalHostOutput(host: ComponentInstance): void {
   const target = host?.target;
@@ -39,8 +39,7 @@ export function detachPortalHostOutput(host: ComponentInstance): void {
   const placeholder = target.ownerDocument.createComment('');
   writeHostOwners(placeholder as InstanceHostNode, undefined, host);
   parent.replaceChild(placeholder, target);
-  host.target = null;
-  host._placeholder = placeholder;
+  bindComponentHost(host, null, placeholder);
 }
 
 export function isComponentHostDetached(instance: ComponentInstance): boolean {

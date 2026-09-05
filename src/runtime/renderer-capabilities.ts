@@ -42,6 +42,7 @@ export type ComponentUpdateClassification = Partial<KeyedReorderDecision> & {
 };
 
 export interface RenderCleanup {
+  captureComponentHost(instance: ComponentInstance): (() => void) | undefined;
   releaseComponentHost(instance: ComponentInstance): void;
   detachPortalHostOutput(instance: ComponentInstance): void;
   isComponentHostDetached(instance: ComponentInstance): boolean;

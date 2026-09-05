@@ -2,11 +2,15 @@ import { describe, expect, it } from 'vite-plus/test';
 import {
   createComponentInstance,
   getCurrentInstance,
+  mountInstanceInline,
   type ComponentInstance,
 } from '../../../src/runtime';
 import { render } from '../../../src/testing';
 import { jsx } from '../../../src/jsx-runtime';
 import { writeHostOwners } from '../../../src/renderer/dom-ownership';
+import { evaluate } from '../../../src/renderer/evaluate';
+import { detachPortalHostOutput } from '../../../src/renderer/portal-host';
+import { captureComponentGeneration } from '../../../src/runtime/component-generation';
 import {
   createSingleNodeRange,
   clearRangeOwner,
@@ -24,6 +28,51 @@ import {
 } from '../../../src/renderer/evaluate-dom-range';
 
 describe('dom-range ownership reassignment (regression for #357)', () => {
+  it('should restore the range index after a provisional generation is discarded', () => {
+    const host = document.createElement('div');
+    const owner = createComponentInstance('generation', () => null, {}, host);
+    mountInstanceInline(owner, host);
+    const previous = getOwnedRange(owner);
+    const generation = captureComponentGeneration(owner);
+    generation.prepare(() => null, {});
+    const replacement = document.createElement('span');
+    mountInstanceInline(owner, replacement);
+    expect(getOwnedRange(owner)?.start).toBe(replacement);
+    generation.rollback(() => {
+      writeHostOwners(host, [owner], owner);
+      return [];
+    });
+    expect(owner.target).toBe(host);
+    expect(getOwnedRange(owner)).toBe(previous);
+    releaseOwnerRange(owner);
+  });
+
+  it('should move the range index when evaluation replaces an intrinsic host', () => {
+    const parent = document.createElement('main');
+    const host = document.createElement('div');
+    parent.appendChild(host);
+    const owner = createComponentInstance('replace', () => null, {}, host);
+    mountInstanceInline(owner, host);
+    expect(getOwnedRange(owner)?.start).toBe(host);
+    evaluate(jsx('span', { children: 'replacement' }), host, undefined, owner);
+    expect(owner.target).toBe(parent.firstChild);
+    expect(getOwnedRange(owner)?.start).toBe(parent.firstChild);
+    releaseOwnerRange(owner);
+  });
+
+  it('should move a detached portal host index to its live placeholder', () => {
+    const parent = document.createElement('main');
+    const host = document.createElement('div');
+    parent.appendChild(host);
+    const owner = createComponentInstance('portal', () => null, {}, host);
+    mountInstanceInline(owner, host);
+    expect(getOwnedRange(owner)?.start).toBe(host);
+    detachPortalHostOutput(owner);
+    expect(owner._placeholder).toBe(parent.firstChild);
+    expect(getOwnedRange(owner)?.start).toBe(parent.firstChild);
+    releaseOwnerRange(owner);
+  });
+
   it('should keep a scope host and its owned range on the same registration', () => {
     const scope = createChildScope(null, 'scope');
     const previous = createSingleNodeRange(

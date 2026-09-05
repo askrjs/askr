@@ -9,6 +9,9 @@ function createMissingRendererHost(): RendererCapabilities {
   };
 
   return {
+    captureComponentHost() {
+      return undefined;
+    },
     releaseComponentHost() {},
     detachPortalHostOutput() {},
     isComponentHostDetached() {

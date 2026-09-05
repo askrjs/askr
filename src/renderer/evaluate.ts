@@ -1,4 +1,4 @@
-import { writeHostOwners } from './dom-ownership';
+import { bindComponentHost, writeHostOwners } from './dom-ownership';
 import { getRuntimeEnv } from './env';
 import type { ComponentFunction, ComponentInstance } from '../runtime';
 import { removeAllListeners } from './cleanup';
@@ -147,7 +147,7 @@ function evaluateInLifecycleBatch(
               targetInstance,
               retainedHostInstances
             );
-            targetInstance.target = syncedDom;
+            bindComponentHost(targetInstance, syncedDom);
           }
           return;
         }
@@ -169,7 +169,7 @@ function evaluateInLifecycleBatch(
             __ASKR_INSTANCES?: ComponentInstance[];
           };
           writeHostOwners(nextHost, nextHost.__ASKR_INSTANCES, targetInstance);
-          targetInstance.target = newDom as Element;
+          bindComponentHost(targetInstance, newDom);
         }
         removeAllListeners(target);
         target.parentNode.replaceChild(newDom, target);

@@ -9,6 +9,7 @@ import {
   trackRouteGeneration,
 } from './ownership-diagnostics';
 import { OwnershipRecord } from './ownership';
+import { getRuntimeRenderer } from './access';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
@@ -54,6 +55,7 @@ export function restartComponentGeneration(
 export function captureComponentGeneration(
   instance: ComponentInstance
 ): PreparedComponentGeneration {
+  const restoreHostIndex = getRuntimeRenderer().captureComponentHost(instance);
   const snapshot = {
     ownership: instance.ownership,
     fn: instance.fn,
@@ -142,6 +144,11 @@ export function captureComponentGeneration(
         errors.push(error);
       }
       Object.assign(instance, snapshot);
+      try {
+        restoreHostIndex?.();
+      } catch (error) {
+        errors.push(error);
+      }
       snapshot.ownership.reads = reads;
       for (const { source, reader } of readerEntries) {
         if (!reader) {

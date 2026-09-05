@@ -24,6 +24,10 @@ ordering and the presence of legacy metadata properties. A pending host-pruning
 operation cannot redirect a component that hydration has already moved to
 fragment anchors. `renderer/scope-host.ts` writes child-scope range indexes and
 owns text restoration and removed-boundary traversal.
+Replacement bindings update their range indexes together, including portal
+placeholders. Generation rollback restores an opaque renderer snapshot after
+the runtime has restored the surviving owner, so provisional disposal cannot
+erase the previous generation's host index.
 
 The public renderer extension contracts remain unchanged. The compatibility
 adapter supplies renderer-owned application helpers around existing host
