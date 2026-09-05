@@ -38,7 +38,7 @@ describe('keyed For truncation', () => {
       if (!instance) throw new Error('expected row component instance');
       const local = state(0);
       localSetters.set(row.id, local.set);
-      (instance.cleanupFns ??= []).push(() => {
+      (instance.ownership.cleanups ??= []).push(() => {
         cleanupCounts.set(row.id, (cleanupCounts.get(row.id) ?? 0) + 1);
       });
 
@@ -120,7 +120,7 @@ describe('keyed For truncation', () => {
       const instance = getCurrentComponentInstance();
       if (!instance) throw new Error('expected row component instance');
       if (row.broken) throw new Error('retained truncate update failed');
-      (instance.cleanupFns ??= []).push(() => {
+      (instance.ownership.cleanups ??= []).push(() => {
         cleanupCounts.set(row.id, (cleanupCounts.get(row.id) ?? 0) + 1);
       });
       return <button data-row={String(row.id)}>{row.label}</button>;

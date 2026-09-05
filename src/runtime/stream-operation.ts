@@ -1,3 +1,4 @@
+import { ownCleanup } from './ownership';
 import { enqueueRuntimeLane } from './access';
 import {
   claimHookIndex,
@@ -358,7 +359,7 @@ function commitSlot<T>(instance: ComponentInstance, slot: StreamSlot<T>): void {
 
   if (!slot.cleanupRegistered) {
     slot.cleanupRegistered = true;
-    (instance.cleanupFns ??= []).push(() => disposeSlot(slot));
+    ownCleanup(instance.ownership, () => disposeSlot(slot));
   }
 
   if (!slot.explicitlyClosed && (firstCommit || (depsChanged && wasRunning))) {

@@ -20,11 +20,6 @@ import {
   flushLifecycleCommitBatch,
   flushRuntimeScheduler,
   executeComponent,
-  cleanupComponentGeneration,
-  cleanupReadableSubscriptionSources,
-  adjustOwnershipDiagnostic,
-  trackRouteGeneration,
-  type ReadableSource,
   type ComponentInstance,
 } from '../runtime';
 import { teardownNodeSubtree } from '../renderer/cleanup';
@@ -58,7 +53,10 @@ import {
   stageAppRenderRouteLocation,
 } from '../common/app-render-runtime';
 
-declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
+import {
+  captureComponentGeneration,
+  type PreparedComponentGeneration,
+} from '../runtime/component-generation';
 
 /** Options for {@link navigate}. */
 export type NavigateOptions = {
@@ -243,40 +241,9 @@ function reportRouteCleanupErrors(errors: unknown[]): void {
 
 type DeferredRouteCleanup = {
   instance: ComponentInstance;
-  previousOwnershipGeneration: object;
-  previousFn: ComponentInstance['fn'];
-  previousProps: ComponentInstance['props'];
-  previousExpectedStateIndices: ComponentInstance['expectedStateIndices'];
-  previousFirstRenderComplete: boolean;
-  previousStateIndexCheck: number;
-  previousErrorBoundaryState: ComponentInstance['errorBoundaryState'];
-  previousTarget: ComponentInstance['target'];
+  generation: PreparedComponentGeneration;
   previousDom: RouteDomSnapshot | null;
-  previousStateValues: ComponentInstance['stateValues'];
-  previousCleanupFns: ComponentInstance['cleanupFns'];
-  previousOwnedChildScopes: ComponentInstance['_ownedChildScopes'];
-  previousAbortController: AbortController | null;
-  previousMountOperations: ComponentInstance['mountOperations'];
-  previousCommitOperations: ComponentInstance['commitOperations'];
-  previousLifecycleSlots: ComponentInstance['lifecycleSlots'];
-  previousLifecycleGeneration: number;
-  previousEvaluationGeneration: number;
-  previousHasPendingUpdate: boolean;
-  previousNotifyUpdate: ComponentInstance['notifyUpdate'];
-  previousPlaceholder: ComponentInstance['_placeholder'];
-  previousMounted: boolean;
-  previousCurrentRenderToken: ComponentInstance['_currentRenderToken'];
-  previousLastRenderToken: ComponentInstance['lastRenderToken'];
-  previousPendingReadSources: ComponentInstance['_pendingReadSources'];
-  previousPendingReadSourceVersions: ComponentInstance['_pendingReadSourceVersions'];
-  previousLastReadSources: ComponentInstance['_lastReadSources'];
-  previousReaderEntries: Array<{
-    source: ReadableSource<unknown>;
-    reader: { token: number; generation: object } | undefined;
-  }>;
-  previousAppRenderRuntime: ComponentInstance['_appRenderRuntime'];
   previousInstances: ComponentInstance[];
-  previousDisposed: boolean;
 };
 
 type RouteDomNodeSnapshot = {
@@ -420,140 +387,20 @@ function captureDeferredRouteCleanup(
 ): DeferredRouteCleanup {
   return {
     instance,
-    previousOwnershipGeneration: instance._ownershipGeneration,
-    previousFn: instance.fn,
-    previousProps: instance.props,
-    previousExpectedStateIndices: instance.expectedStateIndices,
-    previousFirstRenderComplete: instance.firstRenderComplete,
-    previousStateIndexCheck: instance.stateIndexCheck,
-    previousErrorBoundaryState: instance.errorBoundaryState,
-    previousTarget: instance.target,
+    generation: captureComponentGeneration(instance),
     previousDom: captureRouteDom(instance.target),
-    previousStateValues: instance.stateValues,
-    previousCleanupFns: instance.cleanupFns,
-    previousOwnedChildScopes: instance._ownedChildScopes,
-    previousAbortController: instance.abortController,
-    previousMountOperations: instance.mountOperations,
-    previousCommitOperations: instance.commitOperations,
-    previousLifecycleSlots: instance.lifecycleSlots,
-    previousLifecycleGeneration: instance.lifecycleGeneration,
-    previousEvaluationGeneration: instance.evaluationGeneration,
-    previousHasPendingUpdate: instance.hasPendingUpdate,
-    previousNotifyUpdate: instance.notifyUpdate,
-    previousPlaceholder: instance._placeholder,
-    previousMounted: instance.mounted,
-    previousCurrentRenderToken: instance._currentRenderToken,
-    previousLastRenderToken: instance.lastRenderToken,
-    previousPendingReadSources: instance._pendingReadSources,
-    previousPendingReadSourceVersions: instance._pendingReadSourceVersions,
-    previousLastReadSources: instance._lastReadSources,
-    previousReaderEntries: Array.from(instance._lastReadSources ?? []).map(
-      (source) => ({
-        source,
-        reader: source._readers?.get(instance),
-      })
-    ),
-    previousAppRenderRuntime: instance._appRenderRuntime,
     previousInstances: instance.target
       ? collectHostInstances(instance.target)
       : [],
-    previousDisposed: false,
   };
 }
 
 function restoreDeferredRouteInstance(
   deferred: DeferredRouteCleanup
 ): unknown[] {
-  const instance = deferred.instance;
-  const errors: unknown[] = [];
-  const activeGeneration = instance._ownershipGeneration;
-  const activeReadSources = instance._lastReadSources;
-
-  if (activeGeneration !== deferred.previousOwnershipGeneration) {
-    try {
-      cleanupReadableSubscriptionSources(
-        instance,
-        activeReadSources,
-        activeGeneration
-      );
-    } catch (error) {
-      errors.push(error);
-    }
-    instance._lastReadSources = undefined;
-    try {
-      cleanupComponent(instance);
-    } catch (error) {
-      errors.push(error);
-    }
-  }
-
-  errors.push(...restoreRouteDom(deferred.previousDom));
-
-  instance.fn = deferred.previousFn;
-  instance._ownershipGeneration = deferred.previousOwnershipGeneration;
-  instance.props = deferred.previousProps;
-  instance.expectedStateIndices = deferred.previousExpectedStateIndices;
-  instance.firstRenderComplete = deferred.previousFirstRenderComplete;
-  instance.stateIndexCheck = deferred.previousStateIndexCheck;
-  instance.errorBoundaryState = deferred.previousErrorBoundaryState;
-  instance.target = deferred.previousTarget;
-  instance.stateValues = deferred.previousStateValues;
-  instance.cleanupFns = deferred.previousCleanupFns;
-  instance._ownedChildScopes = deferred.previousOwnedChildScopes;
-  instance.abortController = deferred.previousAbortController;
-  instance.mountOperations = deferred.previousMountOperations;
-  instance.commitOperations = deferred.previousCommitOperations;
-  instance.lifecycleSlots = deferred.previousLifecycleSlots;
-  instance.lifecycleGeneration = deferred.previousLifecycleGeneration;
-  instance.evaluationGeneration = deferred.previousEvaluationGeneration;
-  instance.hasPendingUpdate = deferred.previousHasPendingUpdate;
-  instance.notifyUpdate = deferred.previousNotifyUpdate;
-  instance._placeholder = deferred.previousPlaceholder;
-  instance.mounted = deferred.previousMounted;
-  instance._currentRenderToken = deferred.previousCurrentRenderToken;
-  instance.lastRenderToken = deferred.previousLastRenderToken;
-  instance._pendingReadSources = deferred.previousPendingReadSources;
-  instance._pendingReadSourceVersions =
-    deferred.previousPendingReadSourceVersions;
-  instance._lastReadSources = deferred.previousLastReadSources;
-  instance._appRenderRuntime = deferred.previousAppRenderRuntime;
-
-  const previousSources = new Set(
-    deferred.previousReaderEntries.map(({ source }) => source)
+  return deferred.generation.rollback(() =>
+    restoreRouteDom(deferred.previousDom)
   );
-  for (const source of activeReadSources ?? []) {
-    if (previousSources.has(source)) {
-      continue;
-    }
-
-    const reader = source._readers?.get(instance);
-    if (reader?.generation === activeGeneration) {
-      if (source._readers?.delete(instance) && __ASKR_DEVELOPMENT_BUILD__) {
-        adjustOwnershipDiagnostic('readableReaders', -1);
-      }
-    }
-  }
-  for (const { source, reader } of deferred.previousReaderEntries) {
-    if (!reader) {
-      if (source._readers?.delete(instance) && __ASKR_DEVELOPMENT_BUILD__) {
-        adjustOwnershipDiagnostic('readableReaders', -1);
-      }
-      continue;
-    }
-
-    let readers = source._readers;
-    if (!readers) {
-      readers = new Map();
-      source._readers = readers;
-    }
-    const hadReader = readers.has(instance);
-    readers.set(instance, reader);
-    if (!hadReader && __ASKR_DEVELOPMENT_BUILD__) {
-      adjustOwnershipDiagnostic('readableReaders', 1);
-    }
-  }
-
-  return errors;
 }
 
 function restoreDeferredRouteInstances(
@@ -574,19 +421,10 @@ function cleanupDeferredRouteInstance(
 ): unknown[] {
   const errors: unknown[] = [];
   const instance = deferred.instance;
-  if (!deferred.previousDisposed) {
-    deferred.previousDisposed = true;
-    try {
-      cleanupComponentGeneration(instance, {
-        ownershipGeneration: deferred.previousOwnershipGeneration,
-        cleanupFns: deferred.previousCleanupFns,
-        ownedChildScopes: deferred.previousOwnedChildScopes,
-        abortController: deferred.previousAbortController,
-        readSources: deferred.previousLastReadSources,
-      });
-    } catch (error) {
-      errors.push(error);
-    }
+  try {
+    deferred.generation.retire();
+  } catch (error) {
+    errors.push(error);
   }
 
   const root = instance.target;
@@ -622,36 +460,13 @@ function remountResolvedRoute(
   const deferredCleanup =
     existingSnapshot ?? captureDeferredRouteCleanup(instance);
   clearRegisteredDefaultPortalForInstance(instance);
-  instance.fn = wrapRootRouteHandler(
-    bindResolvedRouteHandler(resolved),
-    instance._cspNonce
+  deferredCleanup.generation.prepare(
+    wrapRootRouteHandler(
+      bindResolvedRouteHandler(resolved),
+      instance._cspNonce
+    ),
+    {}
   );
-  instance.props = {};
-  instance._ownershipGeneration = {};
-  if (__ASKR_DEVELOPMENT_BUILD__) {
-    trackRouteGeneration(instance._ownershipGeneration);
-  }
-
-  instance.stateValues = [];
-  instance.expectedStateIndices = [];
-  instance.firstRenderComplete = false;
-  instance.stateIndexCheck = -1;
-  instance.evaluationGeneration++;
-  instance.lifecycleGeneration++;
-  instance.notifyUpdate = null;
-  instance.mountOperations = [];
-  instance.commitOperations = [];
-  instance.lifecycleSlots = [];
-  instance.cleanupFns = [];
-  instance._ownedChildScopes = new Set();
-  instance._placeholder = undefined;
-  instance.hasPendingUpdate = false;
-  instance._currentRenderToken = undefined;
-  instance.lastRenderToken = 0;
-  instance._pendingReadSources = undefined;
-  instance._lastReadSources = undefined;
-
-  instance.abortController = null;
 
   executeComponent(instance);
   setCurrentRouteLocation(pathname, href);

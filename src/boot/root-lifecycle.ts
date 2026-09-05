@@ -31,6 +31,7 @@ import type { BootAppRouteSource } from './types';
 import { resolveRootElement } from './root-element';
 import { CspNonceScope, validateCspNonce } from '../csp-nonce';
 import { installRendererBridge } from './runtime-wiring';
+import { restartComponentGeneration } from '../runtime/component-generation';
 
 installRendererBridge();
 
@@ -245,36 +246,12 @@ export function mountOrUpdate(
       }
     }
 
-    instance.fn = wrappedFn;
+    restartComponentGeneration(instance, wrappedFn, !shouldResetHookState);
     instance._rootComponentFn = componentFn;
-    instance.evaluationGeneration++;
-    instance.mounted = false;
-    instance.expectedStateIndices = [];
-    instance.firstRenderComplete = false;
     instance.isRoot = true;
     instance.portalScope = instance;
     instance._appRenderRuntime = options?.appRuntime;
     instance._cspNonce = nonce;
-
-    if (shouldResetHookState) {
-      instance.stateValues = [];
-      instance.hasPendingUpdate = false;
-      instance.notifyUpdate = null;
-      instance.stateIndexCheck = -1;
-      instance.mountOperations = undefined;
-      instance.commitOperations = undefined;
-      instance.lifecycleSlots = undefined;
-      instance.cleanupFns = undefined;
-      instance._currentRenderToken = undefined;
-      instance.lastRenderToken = 0;
-      instance._pendingReadSources = undefined;
-      instance._lastReadSources = undefined;
-      instance._placeholder = undefined;
-      instance.errorBoundaryState = undefined;
-      instance._portalErrorParent = undefined;
-      instance._portalErrorParentGeneration = undefined;
-      instance.devWarningsEmitted = undefined;
-    }
 
     if (options && typeof options.cleanupStrict === 'boolean') {
       instance.cleanupStrict = options.cleanupStrict;

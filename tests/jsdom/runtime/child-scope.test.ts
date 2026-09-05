@@ -22,11 +22,11 @@ describe('child scope runtime', () => {
     const parent = createComponentInstance('parent', () => null, {}, null);
     const scope = createChildScope(parent, 'static');
 
-    expect(scope.componentInstance._lastReadSources).toBeUndefined();
+    expect(scope.componentInstance.ownership.reads).toBeUndefined();
 
     scope.render(() => 'static');
 
-    expect(scope.componentInstance._lastReadSources).toBeUndefined();
+    expect(scope.componentInstance.ownership.reads).toBeUndefined();
 
     cleanupComponent(parent);
   });
@@ -43,21 +43,21 @@ describe('child scope runtime', () => {
     const scope = createChildScope(parent, 'row-1');
     scope.render(() => `${shared()}`);
 
-    expect(parent._ownedChildScopes?.size ?? 0).toBe(1);
+    expect(parent.ownership.children?.size ?? 0).toBe(1);
     expect(scope.componentInstance._pendingReadSources).toBeUndefined();
     expect(
-      scope.componentInstance._lastReadSources?.has(
+      scope.componentInstance.ownership.reads?.has(
         shared as unknown as ReadableSource<unknown>
       )
     ).toBe(true);
 
     cleanupComponent(parent);
 
-    expect(parent._ownedChildScopes?.size ?? 0).toBe(0);
+    expect(parent.ownership.children?.size ?? 0).toBe(0);
     expect(scope.vnode).toBeUndefined();
     expect(scope.dom).toBeUndefined();
     expect(scope.needsDomUpdate).toBe(false);
-    expect(scope.componentInstance._lastReadSources?.size ?? 0).toBe(0);
+    expect(scope.componentInstance.ownership.reads?.size ?? 0).toBe(0);
     expect((shared as unknown as ReaderTracked)._readers?.size ?? 0).toBe(0);
 
     expect(() => scope.render(() => 'x')).toThrow(/disposed child scope/);
@@ -81,17 +81,17 @@ describe('child scope runtime', () => {
     rightScope.render(() => `${rightSignal()}`);
 
     expect(
-      leftScope.componentInstance._lastReadSources?.has(
+      leftScope.componentInstance.ownership.reads?.has(
         leftSignal as unknown as ReadableSource<unknown>
       )
     ).toBe(true);
     expect(
-      leftScope.componentInstance._lastReadSources?.has(
+      leftScope.componentInstance.ownership.reads?.has(
         rightSignal as unknown as ReadableSource<unknown>
       )
     ).toBe(false);
     expect(
-      rightScope.componentInstance._lastReadSources?.has(
+      rightScope.componentInstance.ownership.reads?.has(
         rightSignal as unknown as ReadableSource<unknown>
       )
     ).toBe(true);

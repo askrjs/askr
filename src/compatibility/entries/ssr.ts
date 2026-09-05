@@ -1,7 +1,10 @@
 /** Published compatibility boundary. Implementations own execution; contracts own consumer types. */
 import * as implementation from '../../ssr/index';
+import { installOwnershipViews } from '../ownership';
 import type * as Contract from '../contracts/ssr/index';
 export type * from '../contracts/ssr/index';
+
+installOwnershipViews();
 
 const public_SSRDataMissingError: typeof Contract.SSRDataMissingError =
   implementation.SSRDataMissingError;

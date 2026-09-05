@@ -1,3 +1,4 @@
+import { ownCleanup } from '../runtime/ownership';
 import { getActiveRenderContext } from '../common/render-context';
 import { claimHookIndex, getCurrentComponentInstance } from '../runtime';
 import { resolveDataRuntimeState, type DataRuntimeState } from './data-runtime';
@@ -340,7 +341,7 @@ export function createQueryCollection<
     );
   }
 
-  const generation = instance._ownershipGeneration;
+  const generation = instance.ownership.identity;
   const runtimeState = resolveDataRuntimeState(options.runtime);
   const store = getCollectionStore(generation);
   let slot = store.get(hookIndex);
@@ -362,15 +363,18 @@ export function createQueryCollection<
       >,
     };
     store.set(hookIndex, slot);
-    (instance.cleanupFns ??= []).push(() => {
+    ownCleanup(instance.ownership, () => {
       const current = store.get(hookIndex);
-      current?.collection.dispose();
-      store.delete(hookIndex);
-      if (
-        store.size === 0 &&
-        collectionSlotsByGeneration.get(generation) === store
-      ) {
-        collectionSlotsByGeneration.delete(generation);
+      try {
+        current?.collection.dispose();
+      } finally {
+        store.delete(hookIndex);
+        if (
+          store.size === 0 &&
+          collectionSlotsByGeneration.get(generation) === store
+        ) {
+          collectionSlotsByGeneration.delete(generation);
+        }
       }
     });
   }

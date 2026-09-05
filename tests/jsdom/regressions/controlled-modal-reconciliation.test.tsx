@@ -196,9 +196,9 @@ describe('controlled modal reconciliation', () => {
       const instance = getCurrentComponentInstance();
       if (!instance) throw new Error('expected modal component instance');
       modalOwner = instance;
-      if (!instance.mounted) {
+      if (!instance.ownership.mounted) {
         modalMounts += 1;
-        (instance.cleanupFns ??= []).push(() => {
+        (instance.ownership.cleanups ??= []).push(() => {
           modalCleanups += 1;
         });
       }

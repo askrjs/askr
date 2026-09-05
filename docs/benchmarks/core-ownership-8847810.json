@@ -1,0 +1,1445 @@
+{
+  "provenance": {
+    "guardrails": {
+      "baseline": {
+        "node": "v24.20.0",
+        "npm": "12.0.1",
+        "commit": "ffa0ff47341477f8e6646ed14a99e0e2d1851bc7",
+        "status": "?? node_modules",
+        "cpu": "Apple M5",
+        "platform": "macOS-26.6.2-arm64-arm-64bit",
+        "architecture": "arm64",
+        "captured_at": "2026-09-04T23:50:28.055780+00:00",
+        "lock_sha256": "d64e32e822cc8ac82df30d9299ec55194e8f6af2993395abfbbc9b8092402e3f",
+        "instrumentation": false,
+        "playwright": "1.62.1",
+        "workloads": {
+          "1": [
+            "tier1-hotpath-router-longest-match.ts",
+            "tier1-hotpath-router-match.ts",
+            "tier1-hotpath-for-keyed-reorder.tsx",
+            "tier1-hotpath-scheduler-flush.ts",
+            "tier1-hotpath-scheduler-coalesced-state.tsx"
+          ],
+          "2": [
+            "tier2-subsystem-router-navigation.tsx",
+            "tier2-subsystem-ssr-layout-route.ts",
+            "tier2-subsystem-runtime-component-depth.tsx"
+          ],
+          "3": [
+            "tier3-system-table-partial-update.tsx",
+            "tier3-system-table-swap-rows.tsx",
+            "tier3-system-table-truncate-rows.tsx",
+            "tier3-system-hydration-listeners.tsx"
+          ],
+          "4": [
+            "tier4-integration-routed-shell-retention.tsx",
+            "tier4-integration-ssr-attr-heavy.ts"
+          ]
+        },
+        "dependency_link": "/Users/jrepanich/Code/askrjs/askr/node_modules"
+      },
+      "candidate": {
+        "node": "v24.20.0",
+        "npm": "12.0.1",
+        "commit": "884781097c30a5836693c977c587dc02f3b08a79",
+        "status": "",
+        "cpu": "Apple M5",
+        "platform": "macOS-26.6.2-arm64-arm-64bit",
+        "architecture": "arm64",
+        "captured_at": "2026-09-04T23:50:28.140549+00:00",
+        "lock_sha256": "d64e32e822cc8ac82df30d9299ec55194e8f6af2993395abfbbc9b8092402e3f",
+        "instrumentation": false,
+        "playwright": "1.62.1",
+        "workloads": {
+          "1": [
+            "tier1-hotpath-router-longest-match.ts",
+            "tier1-hotpath-router-match.ts",
+            "tier1-hotpath-for-keyed-reorder.tsx",
+            "tier1-hotpath-scheduler-flush.ts",
+            "tier1-hotpath-scheduler-coalesced-state.tsx"
+          ],
+          "2": [
+            "tier2-subsystem-router-navigation.tsx",
+            "tier2-subsystem-ssr-layout-route.ts",
+            "tier2-subsystem-runtime-component-depth.tsx"
+          ],
+          "3": [
+            "tier3-system-table-partial-update.tsx",
+            "tier3-system-table-swap-rows.tsx",
+            "tier3-system-table-truncate-rows.tsx",
+            "tier3-system-hydration-listeners.tsx"
+          ],
+          "4": [
+            "tier4-integration-routed-shell-retention.tsx",
+            "tier4-integration-ssr-attr-heavy.ts"
+          ]
+        },
+        "dependency_link": null
+      }
+    },
+    "attachments": {
+      "baseline": {
+        "node": "v24.20.0",
+        "npm": "12.0.1",
+        "commit": "ffa0ff47341477f8e6646ed14a99e0e2d1851bc7",
+        "status": "?? node_modules",
+        "cpu": "Apple M5",
+        "platform": "macOS-26.6.2-arm64-arm-64bit",
+        "architecture": "arm64",
+        "captured_at": "2026-09-04T23:53:54.087532+00:00",
+        "lock_sha256": "d64e32e822cc8ac82df30d9299ec55194e8f6af2993395abfbbc9b8092402e3f",
+        "instrumentation": false,
+        "playwright": "1.62.1",
+        "workloads": {
+          "2": [
+            "tier2-subsystem-resource-cache-dedupe-abort.tsx",
+            "tier2-subsystem-control-branch-toggle.tsx"
+          ]
+        },
+        "dependency_link": "/Users/jrepanich/Code/askrjs/askr/node_modules"
+      },
+      "candidate": {
+        "node": "v24.20.0",
+        "npm": "12.0.1",
+        "commit": "884781097c30a5836693c977c587dc02f3b08a79",
+        "status": "",
+        "cpu": "Apple M5",
+        "platform": "macOS-26.6.2-arm64-arm-64bit",
+        "architecture": "arm64",
+        "captured_at": "2026-09-04T23:53:54.172336+00:00",
+        "lock_sha256": "d64e32e822cc8ac82df30d9299ec55194e8f6af2993395abfbbc9b8092402e3f",
+        "instrumentation": false,
+        "playwright": "1.62.1",
+        "workloads": {
+          "2": [
+            "tier2-subsystem-resource-cache-dedupe-abort.tsx",
+            "tier2-subsystem-control-branch-toggle.tsx"
+          ]
+        },
+        "dependency_link": null
+      }
+    }
+  },
+  "rows": [
+    {
+      "file": "benches/tier1/tier1-hotpath-router-longest-match.ts",
+      "name": "resolve the most specific route from a 512-route dense table",
+      "baseline": [
+        {
+          "median": 0.005832999999995536,
+          "mean": 0.0058613821288318185,
+          "p75": 0.005875000000003183,
+          "p99": 0.006375000000048203,
+          "rme": 0.09001221969241781,
+          "sampleCount": 68244,
+          "eligible": true
+        },
+        {
+          "median": 0.005499999999983629,
+          "mean": 0.005550266702743154,
+          "p75": 0.005583999999998923,
+          "p99": 0.005999999999971806,
+          "rme": 0.06415218090426088,
+          "sampleCount": 72069,
+          "eligible": true
+        },
+        {
+          "median": 0.00587499999994634,
+          "mean": 0.00590981207062118,
+          "p75": 0.00591700000001083,
+          "p99": 0.006582999999977801,
+          "rme": 0.08823729374127684,
+          "sampleCount": 67685,
+          "eligible": true
+        }
+      ],
+      "candidate": [
+        {
+          "median": 0.005583999999998923,
+          "mean": 0.005652791498261634,
+          "p75": 0.005666000000019267,
+          "p99": 0.006999999999948159,
+          "rme": 0.09041760321403043,
+          "sampleCount": 70762,
+          "eligible": true
+        },
+        {
+          "median": 0.005625000000009095,
+          "mean": 0.005644544062654248,
+          "p75": 0.005665999999962423,
+          "p99": 0.005958000000021002,
+          "rme": 0.060391347872943466,
+          "sampleCount": 70865,
+          "eligible": true
+        },
+        {
+          "median": 0.005625000000009095,
+          "mean": 0.0056795175140920764,
+          "p75": 0.005667000000016742,
+          "p99": 0.0060829999999896245,
+          "rme": 0.06547569586394532,
+          "sampleCount": 70429,
+          "eligible": true
+        }
+      ],
+      "eligible": true,
+      "median_of_three_ms": {
+        "baseline": 0.005832999999995536,
+        "candidate": 0.005625000000009095
+      },
+      "change_percent": -3.5659180522304212,
+      "within_regression_limit": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-router-match.ts",
+      "name": "match literal route segments",
+      "baseline": [
+        {
+          "median": 0.00012500000002546585,
+          "mean": 0.00011932197656814259,
+          "p75": 0.00012500000002546585,
+          "p99": 0.00016700000003311288,
+          "rme": 0.5800030636617177,
+          "sampleCount": 3352275,
+          "eligible": true
+        },
+        {
+          "median": 0.00012500000002546585,
+          "mean": 0.00012159986782099054,
+          "p75": 0.00012500000002546585,
+          "p99": 0.00020799999992959783,
+          "rme": 1.7860966095337407,
+          "sampleCount": 3289478,
+          "eligible": true
+        },
+        {
+          "median": 0.00012500000002546585,
+          "mean": 0.00012022246740922164,
+          "p75": 0.00012500000002546585,
+          "p99": 0.00016700000003311288,
+          "rme": 0.5665229253250091,
+          "sampleCount": 3327166,
+          "eligible": true
+        }
+      ],
+      "candidate": [
+        {
+          "median": 0.00012500000002546585,
+          "mean": 0.00012258300338083918,
+          "p75": 0.00012500000002546585,
+          "p99": 0.00016700000014679972,
+          "rme": 0.46773907769743234,
+          "sampleCount": 3263096,
+          "eligible": true
+        },
+        {
+          "median": 0.00012500000002546585,
+          "mean": 0.00012185402500504077,
+          "p75": 0.00012500000002546585,
+          "p99": 0.00016700000003311288,
+          "rme": 0.12171423090423628,
+          "sampleCount": 3282617,
+          "eligible": true
+        },
+        {
+          "median": 0.00012500000002546585,
+          "mean": 0.00012117043920635548,
+          "p75": 0.00012500000002546585,
+          "p99": 0.00016700000003311288,
+          "rme": 0.6287816369252175,
+          "sampleCount": 3301136,
+          "eligible": true
+        }
+      ],
+      "eligible": true,
+      "median_of_three_ms": {
+        "baseline": 0.00012500000002546585,
+        "candidate": 0.00012500000002546585
+      },
+      "change_percent": 0.0,
+      "within_regression_limit": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-router-match.ts",
+      "name": "match parameterized route segments",
+      "baseline": [
+        {
+          "median": 0.00016699999991942605,
+          "mean": 0.00017233170135285664,
+          "p75": 0.00016700000014679972,
+          "p99": 0.00020900000004075991,
+          "rme": 0.0673411326982103,
+          "sampleCount": 2321106,
+          "eligible": true
+        },
+        {
+          "median": 0.00016699999991942605,
+          "mean": 0.00017284341557499862,
+          "p75": 0.00016700000014679972,
+          "p99": 0.00020900000004075991,
+          "rme": 0.07696945080096373,
+          "sampleCount": 2314234,
+          "eligible": true
+        },
+        {
+          "median": 0.00016699999991942605,
+          "mean": 0.00017315007477920638,
+          "p75": 0.00016700000014679972,
+          "p99": 0.00020900000004075991,
+          "rme": 0.06848633654905036,
+          "sampleCount": 2310135,
+          "eligible": true
+        }
+      ],
+      "candidate": [
+        {
+          "median": 0.00016699999991942605,
+          "mean": 0.00017213056960588795,
+          "p75": 0.00016700000014679972,
+          "p99": 0.00020900000004075991,
+          "rme": 0.068703391525644,
+          "sampleCount": 2323818,
+          "eligible": true
+        },
+        {
+          "median": 0.00016699999991942605,
+          "mean": 0.0001732013313115457,
+          "p75": 0.00016700000014679972,
+          "p99": 0.00020900000004075991,
+          "rme": 0.07151492717460091,
+          "sampleCount": 2309452,
+          "eligible": true
+        },
+        {
+          "median": 0.00016699999991942605,
+          "mean": 0.00017387257752100402,
+          "p75": 0.00016700000014679972,
+          "p99": 0.00020900000004075991,
+          "rme": 0.07163235931306328,
+          "sampleCount": 2300536,
+          "eligible": true
+        }
+      ],
+      "eligible": true,
+      "median_of_three_ms": {
+        "baseline": 0.00016699999991942605,
+        "candidate": 0.00016699999991942605
+      },
+      "change_percent": 0.0,
+      "within_regression_limit": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-router-match.ts",
+      "name": "match wildcard route segments",
+      "baseline": [
+        {
+          "median": 0.00012500000002546585,
+          "mean": 0.00014105211204340167,
+          "p75": 0.00016600000026301132,
+          "p99": 0.00016700000014679972,
+          "rme": 0.16202902668591895,
+          "sampleCount": 2835832,
+          "eligible": true
+        },
+        {
+          "median": 0.00012500000002546585,
+          "mean": 0.00013881814477907498,
+          "p75": 0.00016599999980826396,
+          "p99": 0.00016700000014679972,
+          "rme": 0.15474464183902087,
+          "sampleCount": 2881468,
+          "eligible": true
+        },
+        {
+          "median": 0.00012500000002546585,
+          "mean": 0.00014032020895080163,
+          "p75": 0.00016600000026301132,
+          "p99": 0.00016700000014679972,
+          "rme": 0.1640181363396569,
+          "sampleCount": 2850623,
+          "eligible": true
+        }
+      ],
+      "candidate": [
+        {
+          "median": 0.00012500000002546585,
+          "mean": 0.00013954322734094623,
+          "p75": 0.00016599999980826396,
+          "p99": 0.00016700000014679972,
+          "rme": 0.1640196217130334,
+          "sampleCount": 2866496,
+          "eligible": true
+        },
+        {
+          "median": 0.00012500000002546585,
+          "mean": 0.0001402914695424942,
+          "p75": 0.00016600000026301132,
+          "p99": 0.00016700000014679972,
+          "rme": 0.16472357045840208,
+          "sampleCount": 2851207,
+          "eligible": true
+        },
+        {
+          "median": 0.00012500000002546585,
+          "mean": 0.0001410447256169328,
+          "p75": 0.00016600000026301132,
+          "p99": 0.00016700000014679972,
+          "rme": 0.15610317238141824,
+          "sampleCount": 2835981,
+          "eligible": true
+        }
+      ],
+      "eligible": true,
+      "median_of_three_ms": {
+        "baseline": 0.00012500000002546585,
+        "candidate": 0.00012500000002546585
+      },
+      "change_percent": 0.0,
+      "within_regression_limit": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-scheduler-flush.ts",
+      "name": "enqueue and flush a 500-task batch",
+      "baseline": [
+        {
+          "median": 0.10170900000002803,
+          "mean": 0.1023466203632641,
+          "p75": 0.10249999999999204,
+          "p99": 0.12708299999997053,
+          "rme": 0.18399713226715808,
+          "sampleCount": 3909,
+          "eligible": true
+        },
+        {
+          "median": 0.10249999999996362,
+          "mean": 0.10322020149638791,
+          "p75": 0.10300000000000864,
+          "p99": 0.125583000000006,
+          "rme": 0.1724646643402423,
+          "sampleCount": 3876,
+          "eligible": true
+        },
+        {
+          "median": 0.10137500000001864,
+          "mean": 0.1022821610841214,
+          "p75": 0.10216700000000856,
+          "p99": 0.12712499999997817,
+          "rme": 0.18134344659978,
+          "sampleCount": 3911,
+          "eligible": true
+        }
+      ],
+      "candidate": [
+        {
+          "median": 0.10095899999998892,
+          "mean": 0.10196415549324471,
+          "p75": 0.10212500000000091,
+          "p99": 0.12479199999995672,
+          "rme": 0.17759191946576064,
+          "sampleCount": 3923,
+          "eligible": true
+        },
+        {
+          "median": 0.10216699999998013,
+          "mean": 0.10256282107152041,
+          "p75": 0.1027080000000069,
+          "p99": 0.1258749999999509,
+          "rme": 0.17704376628211538,
+          "sampleCount": 3901,
+          "eligible": true
+        },
+        {
+          "median": 0.10154099999999744,
+          "mean": 0.10244783277848934,
+          "p75": 0.10199999999997544,
+          "p99": 0.1250840000000153,
+          "rme": 0.1754245348011003,
+          "sampleCount": 3905,
+          "eligible": true
+        }
+      ],
+      "eligible": true,
+      "median_of_three_ms": {
+        "baseline": 0.10170900000002803,
+        "candidate": 0.10154099999999744
+      },
+      "change_percent": -0.1651771229984944,
+      "within_regression_limit": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-for-keyed-reorder.tsx",
+      "name": "swap distant keyed rows while preserving DOM identity",
+      "baseline": [
+        {
+          "median": 0.9414374999998927,
+          "mean": 0.9582101148325384,
+          "p75": 0.9561249999999291,
+          "p99": 1.230874999999969,
+          "rme": 1.4329671523720904,
+          "sampleCount": 418,
+          "eligible": true
+        },
+        {
+          "median": 0.9493749999999181,
+          "mean": 0.9659869638554187,
+          "p75": 0.9652499999999691,
+          "p99": 1.2428749999999127,
+          "rme": 1.215159013667504,
+          "sampleCount": 415,
+          "eligible": true
+        },
+        {
+          "median": 0.9422919999999522,
+          "mean": 0.9704277966101732,
+          "p75": 0.9609579999998914,
+          "p99": 1.2497920000000704,
+          "rme": 2.3604381682349405,
+          "sampleCount": 413,
+          "eligible": true
+        }
+      ],
+      "candidate": [
+        {
+          "median": 0.9735829999999623,
+          "mean": 0.9948715806451578,
+          "p75": 0.9939160000001266,
+          "p99": 1.2611249999999927,
+          "rme": 1.605173315651852,
+          "sampleCount": 403,
+          "eligible": true
+        },
+        {
+          "median": 0.9373335000000225,
+          "mean": 0.9623145048076941,
+          "p75": 0.9507919999998649,
+          "p99": 1.2442920000000868,
+          "rme": 2.2205165678630547,
+          "sampleCount": 416,
+          "eligible": true
+        },
+        {
+          "median": 0.9420419999999012,
+          "mean": 0.9585056028708085,
+          "p75": 0.9573339999999462,
+          "p99": 1.2237499999998818,
+          "rme": 1.2311142089710396,
+          "sampleCount": 418,
+          "eligible": true
+        }
+      ],
+      "eligible": true,
+      "median_of_three_ms": {
+        "baseline": 0.9422919999999522,
+        "candidate": 0.9420419999999012
+      },
+      "change_percent": -0.026531054073575255,
+      "within_regression_limit": true
+    },
+    {
+      "file": "benches/tier1/tier1-hotpath-scheduler-coalesced-state.tsx",
+      "name": "coalesce 100 synchronous state writes before one flush",
+      "baseline": [
+        {
+          "median": 0.6483749999999873,
+          "mean": 0.6577095123152717,
+          "p75": 0.6625829999999837,
+          "p99": 0.7967499999999745,
+          "rme": 0.42227137348133276,
+          "sampleCount": 609,
+          "eligible": true
+        },
+        {
+          "median": 0.6499999999999773,
+          "mean": 0.6593338204283391,
+          "p75": 0.6655419999999594,
+          "p99": 0.7969590000000153,
+          "rme": 0.40609746613091074,
+          "sampleCount": 607,
+          "eligible": true
+        },
+        {
+          "median": 0.6435419999999112,
+          "mean": 0.6515044364820843,
+          "p75": 0.6537500000000591,
+          "p99": 0.785874999999919,
+          "rme": 0.39611606777884245,
+          "sampleCount": 614,
+          "eligible": true
+        }
+      ],
+      "candidate": [
+        {
+          "median": 0.6441039999999703,
+          "mean": 0.6519693159609129,
+          "p75": 0.6575000000000273,
+          "p99": 0.7691250000000309,
+          "rme": 0.39882155067687936,
+          "sampleCount": 614,
+          "eligible": true
+        },
+        {
+          "median": 0.6415419999999585,
+          "mean": 0.6512999121951204,
+          "p75": 0.6564999999999941,
+          "p99": 0.8028329999999642,
+          "rme": 0.42235545676519504,
+          "sampleCount": 615,
+          "eligible": true
+        },
+        {
+          "median": 0.6479580000000169,
+          "mean": 0.6569979458128095,
+          "p75": 0.6620410000000447,
+          "p99": 0.78449999999998,
+          "rme": 0.39598086709940244,
+          "sampleCount": 609,
+          "eligible": true
+        }
+      ],
+      "eligible": true,
+      "median_of_three_ms": {
+        "baseline": 0.6483749999999873,
+        "candidate": 0.6441039999999703
+      },
+      "change_percent": -0.6587237324105821,
+      "within_regression_limit": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-ssr-layout-route.ts",
+      "name": "render a nested layout route with params query and hash",
+      "baseline": [
+        {
+          "median": 0.10558400000002166,
+          "mean": 0.1110142910268264,
+          "p75": 0.10712499999999636,
+          "p99": 0.1517909999998892,
+          "rme": 1.3322332860764758,
+          "sampleCount": 5405,
+          "eligible": true
+        },
+        {
+          "median": 0.10454200000003766,
+          "mean": 0.10725111689007971,
+          "p75": 0.1054589999999962,
+          "p99": 0.12895800000001145,
+          "rme": 0.6386681923463123,
+          "sampleCount": 5595,
+          "eligible": true
+        },
+        {
+          "median": 0.10337500000014188,
+          "mean": 0.10629363985828294,
+          "p75": 0.1049160000000029,
+          "p99": 0.13108299999998962,
+          "rme": 0.6564670625830288,
+          "sampleCount": 5645,
+          "eligible": true
+        }
+      ],
+      "candidate": [
+        {
+          "median": 0.10520800000006147,
+          "mean": 0.10789999442546198,
+          "p75": 0.10612499999990632,
+          "p99": 0.13020899999992253,
+          "rme": 0.6351468798386469,
+          "sampleCount": 5561,
+          "eligible": true
+        },
+        {
+          "median": 0.10741599999994378,
+          "mean": 0.10990887399267465,
+          "p75": 0.10912500000006276,
+          "p99": 0.135291000000052,
+          "rme": 0.6202779063637603,
+          "sampleCount": 5460,
+          "eligible": true
+        },
+        {
+          "median": 0.10654199999999037,
+          "mean": 0.1125239444965315,
+          "p75": 0.10870799999997871,
+          "p99": 0.15933399999994435,
+          "rme": 1.2759970449339724,
+          "sampleCount": 5333,
+          "eligible": true
+        }
+      ],
+      "eligible": true,
+      "median_of_three_ms": {
+        "baseline": 0.10454200000003766,
+        "candidate": 0.10654199999999037
+      },
+      "change_percent": 1.9131066939144015,
+      "within_regression_limit": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-router-navigation.tsx",
+      "name": "navigate between sibling routes with shared layout shape",
+      "baseline": [
+        {
+          "median": 0.43845800000005397,
+          "mean": 0.44848595142002967,
+          "p75": 0.45204199999989214,
+          "p99": 0.5635829999999942,
+          "rme": 0.47101360460080727,
+          "sampleCount": 1338,
+          "eligible": true
+        },
+        {
+          "median": 0.4375840000000153,
+          "mean": 0.4485704301717675,
+          "p75": 0.4534169999999449,
+          "p99": 0.5817080000000487,
+          "rme": 0.491357323203882,
+          "sampleCount": 1339,
+          "eligible": true
+        },
+        {
+          "median": 0.43604199999992943,
+          "mean": 0.4450864329132688,
+          "p75": 0.4500829999999496,
+          "p99": 0.5670830000000251,
+          "rme": 0.4089486364081636,
+          "sampleCount": 1349,
+          "eligible": true
+        }
+      ],
+      "candidate": [
+        {
+          "median": 0.4351250000000846,
+          "mean": 0.4454589792130637,
+          "p75": 0.450333999999998,
+          "p99": 0.5724579999999833,
+          "rme": 0.40782905493732846,
+          "sampleCount": 1347,
+          "eligible": true
+        },
+        {
+          "median": 0.4369580000000042,
+          "mean": 0.44698498212955834,
+          "p75": 0.4506669999999531,
+          "p99": 0.5779170000000136,
+          "rme": 0.46109423142060046,
+          "sampleCount": 1343,
+          "eligible": true
+        },
+        {
+          "median": 0.43789599999996653,
+          "mean": 0.447953889552239,
+          "p75": 0.45029199999999037,
+          "p99": 0.5727499999999281,
+          "rme": 0.45921486456027966,
+          "sampleCount": 1340,
+          "eligible": true
+        }
+      ],
+      "eligible": true,
+      "median_of_three_ms": {
+        "baseline": 0.4375840000000153,
+        "candidate": 0.4369580000000042
+      },
+      "change_percent": -0.1430582471048103,
+      "within_regression_limit": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-runtime-component-depth.tsx",
+      "name": "mount and clean up a 1,000-component wrapper chain",
+      "baseline": [
+        {
+          "median": 48.352583000000095,
+          "mean": 48.473150538461546,
+          "p75": 48.52666700000009,
+          "p99": 49.13941599999998,
+          "rme": 0.44228433291498664,
+          "sampleCount": 13,
+          "eligible": true
+        },
+        {
+          "median": 48.3386660000001,
+          "mean": 48.2750738461538,
+          "p75": 48.45095900000001,
+          "p99": 48.80841699999996,
+          "rme": 0.4058590242214854,
+          "sampleCount": 13,
+          "eligible": true
+        },
+        {
+          "median": 48.57362499999999,
+          "mean": 48.61453192307692,
+          "p75": 48.798541000000114,
+          "p99": 49.269207999999935,
+          "rme": 0.4117801640629376,
+          "sampleCount": 13,
+          "eligible": true
+        }
+      ],
+      "candidate": [
+        {
+          "median": 49.43204200000014,
+          "mean": 49.52082684615387,
+          "p75": 49.663332999999966,
+          "p99": 50.102791000000025,
+          "rme": 0.3755676182633828,
+          "sampleCount": 13,
+          "eligible": true
+        },
+        {
+          "median": 48.90095900000006,
+          "mean": 49.021804615384625,
+          "p75": 49.216208999999935,
+          "p99": 50.20937499999991,
+          "rme": 0.6489661230332016,
+          "sampleCount": 13,
+          "eligible": true
+        },
+        {
+          "median": 48.91583300000002,
+          "mean": 48.86846146153843,
+          "p75": 49.214917000000014,
+          "p99": 49.33662499999991,
+          "rme": 0.5101946582247222,
+          "sampleCount": 13,
+          "eligible": true
+        }
+      ],
+      "eligible": true,
+      "median_of_three_ms": {
+        "baseline": 48.352583000000095,
+        "candidate": 48.91583300000002
+      },
+      "change_percent": 1.164880891678366,
+      "within_regression_limit": true
+    },
+    {
+      "file": "benches/tier3/tier3-system-hydration-listeners.tsx",
+      "name": "hydrate a listener-heavy intrinsic SSR tree in Chromium",
+      "baseline": [
+        {
+          "median": 2.200000047683716,
+          "mean": 2.411378848983581,
+          "p75": 2.3000000715255737,
+          "p99": 4.5,
+          "rme": 3.022628617441404,
+          "sampleCount": 747,
+          "eligible": true
+        },
+        {
+          "median": 2.299999952316284,
+          "mean": 2.4242261102671256,
+          "p75": 2.3000000715255737,
+          "p99": 4.400000095367432,
+          "rme": 2.9228786946338285,
+          "sampleCount": 743,
+          "eligible": true
+        },
+        {
+          "median": 2.200000047683716,
+          "mean": 2.4213709677419355,
+          "p75": 2.299999952316284,
+          "p99": 4.600000023841858,
+          "rme": 3.2700779460624045,
+          "sampleCount": 744,
+          "eligible": true
+        }
+      ],
+      "candidate": [
+        {
+          "median": 2.200000047683716,
+          "mean": 2.4058744993324432,
+          "p75": 2.299999952316284,
+          "p99": 4.399999976158142,
+          "rme": 3.0471010905249702,
+          "sampleCount": 749,
+          "eligible": true
+        },
+        {
+          "median": 2.200000047683716,
+          "mean": 2.430634277873998,
+          "p75": 2.3000000715255737,
+          "p99": 4.399999976158142,
+          "rme": 2.9821465138261183,
+          "sampleCount": 741,
+          "eligible": true
+        },
+        {
+          "median": 2.200000047683716,
+          "mean": 2.4082887701809725,
+          "p75": 2.299999952316284,
+          "p99": 4.399999976158142,
+          "rme": 3.3168547398276633,
+          "sampleCount": 748,
+          "eligible": true
+        }
+      ],
+      "eligible": true,
+      "median_of_three_ms": {
+        "baseline": 2.200000047683716,
+        "candidate": 2.200000047683716
+      },
+      "change_percent": 0.0,
+      "within_regression_limit": true
+    },
+    {
+      "file": "benches/tier3/tier3-system-table-partial-update.tsx",
+      "name": "update every 10th row in a 1,000-row table",
+      "baseline": [
+        {
+          "median": 0.19999992847442627,
+          "mean": 0.1582436708898484,
+          "p75": 0.20000004768371582,
+          "p99": 0.30000007152557373,
+          "rme": 0.9228578338280202,
+          "sampleCount": 6320,
+          "eligible": true
+        },
+        {
+          "median": 0.19999992847442627,
+          "mean": 0.15657482769762493,
+          "p75": 0.20000004768371582,
+          "p99": 0.30000007152557373,
+          "rme": 0.9372876856492987,
+          "sampleCount": 6388,
+          "eligible": true
+        },
+        {
+          "median": 0.19999992847442627,
+          "mean": 0.1602050624990723,
+          "p75": 0.20000004768371582,
+          "p99": 0.30000007152557373,
+          "rme": 1.1049260627630473,
+          "sampleCount": 6242,
+          "eligible": true
+        }
+      ],
+      "candidate": [
+        {
+          "median": 0.19999992847442627,
+          "mean": 0.15754568364609692,
+          "p75": 0.20000004768371582,
+          "p99": 0.30000007152557373,
+          "rme": 0.9152934583930368,
+          "sampleCount": 6348,
+          "eligible": true
+        },
+        {
+          "median": 0.19999992847442627,
+          "mean": 0.1583029919642898,
+          "p75": 0.20000004768371582,
+          "p99": 0.30000007152557373,
+          "rme": 0.9147229007752552,
+          "sampleCount": 6317,
+          "eligible": true
+        },
+        {
+          "median": 0.19999992847442627,
+          "mean": 0.1575953356294725,
+          "p75": 0.20000004768371582,
+          "p99": 0.30000007152557373,
+          "rme": 1.4556423728413699,
+          "sampleCount": 6346,
+          "eligible": true
+        }
+      ],
+      "eligible": true,
+      "median_of_three_ms": {
+        "baseline": 0.19999992847442627,
+        "candidate": 0.19999992847442627
+      },
+      "change_percent": 0.0,
+      "within_regression_limit": true
+    },
+    {
+      "file": "benches/tier3/tier3-system-table-swap-rows.tsx",
+      "name": "swap two distant rows in a 1,000-row table",
+      "baseline": [
+        {
+          "median": 0.10000002384185791,
+          "mean": 0.1377548209070831,
+          "p75": 0.19999992847442627,
+          "p99": 0.2999999523162842,
+          "rme": 0.9893597215377291,
+          "sampleCount": 7260,
+          "eligible": true
+        },
+        {
+          "median": 0.10000002384185791,
+          "mean": 0.13861399860078066,
+          "p75": 0.19999992847442627,
+          "p99": 0.2999999523162842,
+          "rme": 0.9815784952291063,
+          "sampleCount": 7215,
+          "eligible": true
+        },
+        {
+          "median": 0.10000002384185791,
+          "mean": 0.1375705049001526,
+          "p75": 0.20000004768371582,
+          "p99": 0.2999999523162842,
+          "rme": 1.0099830483848196,
+          "sampleCount": 7269,
+          "eligible": true
+        }
+      ],
+      "candidate": [
+        {
+          "median": 0.10000002384185791,
+          "mean": 0.13700506918755995,
+          "p75": 0.19999992847442627,
+          "p99": 0.2999999523162842,
+          "rme": 1.0005315489076714,
+          "sampleCount": 7299,
+          "eligible": true
+        },
+        {
+          "median": 0.10000002384185791,
+          "mean": 0.13704262025489927,
+          "p75": 0.19999992847442627,
+          "p99": 0.2999999523162842,
+          "rme": 0.9917074826780762,
+          "sampleCount": 7297,
+          "eligible": true
+        },
+        {
+          "median": 0.10000002384185791,
+          "mean": 0.1376221274122241,
+          "p75": 0.20000004768371582,
+          "p99": 0.2999999523162842,
+          "rme": 1.0000320195360572,
+          "sampleCount": 7267,
+          "eligible": true
+        }
+      ],
+      "eligible": true,
+      "median_of_three_ms": {
+        "baseline": 0.10000002384185791,
+        "candidate": 0.10000002384185791
+      },
+      "change_percent": 0.0,
+      "within_regression_limit": true
+    },
+    {
+      "file": "benches/tier3/tier3-system-table-truncate-rows.tsx",
+      "name": "truncate a 2,000-row table to 1,000 rows",
+      "baseline": [
+        {
+          "median": 2.299999952316284,
+          "mean": 2.5229219174204904,
+          "p75": 2.3000000715255737,
+          "p99": 6.899999976158142,
+          "rme": 6.231069648491142,
+          "sampleCount": 397,
+          "eligible": true
+        },
+        {
+          "median": 2.200000047683716,
+          "mean": 2.6783422508979227,
+          "p75": 2.3000000715255737,
+          "p99": 7.100000023841858,
+          "rme": 6.465359799689139,
+          "sampleCount": 374,
+          "eligible": true
+        },
+        {
+          "median": 2.200000047683716,
+          "mean": 2.6025974013588646,
+          "p75": 2.3000000715255737,
+          "p99": 6.899999976158142,
+          "rme": 6.9565328547132195,
+          "sampleCount": 385,
+          "eligible": true
+        }
+      ],
+      "candidate": [
+        {
+          "median": 2.299999952316284,
+          "mean": 2.7203804351713345,
+          "p75": 2.399999976158142,
+          "p99": 18.200000047683716,
+          "rme": 8.314736873588929,
+          "sampleCount": 368,
+          "eligible": true
+        },
+        {
+          "median": 2.299999952316284,
+          "mean": 2.788888888557752,
+          "p75": 2.399999976158142,
+          "p99": 6.5,
+          "rme": 6.830035354655966,
+          "sampleCount": 360,
+          "eligible": true
+        },
+        {
+          "median": 2.5,
+          "mean": 2.945294119680629,
+          "p75": 2.5,
+          "p99": 16.700000047683716,
+          "rme": 7.3967930084542735,
+          "sampleCount": 340,
+          "eligible": true
+        }
+      ],
+      "eligible": true,
+      "median_of_three_ms": {
+        "baseline": 2.200000047683716,
+        "candidate": 2.299999952316284
+      },
+      "change_percent": 4.545450112051319,
+      "within_regression_limit": true
+    },
+    {
+      "file": "benches/tier4/tier4-integration-routed-shell-retention.tsx",
+      "name": "mount, churn, and unmount the routed shell",
+      "baseline": [
+        {
+          "median": 1.6999999284744263,
+          "mean": 1.7222222222222223,
+          "p75": 1.7000000476837158,
+          "p99": 3.100000023841858,
+          "rme": 1.0277249663354866,
+          "sampleCount": 1278,
+          "eligible": true
+        },
+        {
+          "median": 1.6999999284744263,
+          "mean": 1.7296383647986178,
+          "p75": 1.7000000476837158,
+          "p99": 3.200000047683716,
+          "rme": 1.0924346773396283,
+          "sampleCount": 1272,
+          "eligible": true
+        },
+        {
+          "median": 1.6999999284744263,
+          "mean": 1.7342001576419888,
+          "p75": 1.7999999523162842,
+          "p99": 3.200000047683716,
+          "rme": 1.051109928655135,
+          "sampleCount": 1269,
+          "eligible": true
+        }
+      ],
+      "candidate": [
+        {
+          "median": 1.6999999284744263,
+          "mean": 1.7291437550407642,
+          "p75": 1.7999999523162842,
+          "p99": 3.100000023841858,
+          "rme": 1.0947048750220738,
+          "sampleCount": 1273,
+          "eligible": true
+        },
+        {
+          "median": 1.6999999284744263,
+          "mean": 1.7367797948849324,
+          "p75": 1.7999999523162842,
+          "p99": 3.3000000715255737,
+          "rme": 1.0445775779481548,
+          "sampleCount": 1267,
+          "eligible": true
+        },
+        {
+          "median": 1.7000000476837158,
+          "mean": 1.7586730615698176,
+          "p75": 1.7999999523162842,
+          "p99": 3.1999999284744263,
+          "rme": 1.07396627150658,
+          "sampleCount": 1251,
+          "eligible": true
+        }
+      ],
+      "eligible": true,
+      "median_of_three_ms": {
+        "baseline": 1.6999999284744263,
+        "candidate": 1.6999999284744263
+      },
+      "change_percent": 0.0,
+      "within_regression_limit": true
+    },
+    {
+      "file": "benches/tier4/tier4-integration-ssr-attr-heavy.ts",
+      "name": "render 400 attr-heavy nodes with escaped attributes",
+      "baseline": [
+        {
+          "median": 0.6000000238418579,
+          "mean": 0.6360322169804785,
+          "p75": 0.6999999284744263,
+          "p99": 0.7999999523162842,
+          "rme": 0.38532958866860617,
+          "sampleCount": 2359,
+          "eligible": true
+        },
+        {
+          "median": 0.6000000238418579,
+          "mean": 0.6353663701417334,
+          "p75": 0.6999999284744263,
+          "p99": 0.7999999523162842,
+          "rme": 0.38094151309686697,
+          "sampleCount": 2361,
+          "eligible": true
+        },
+        {
+          "median": 0.6000000238418579,
+          "mean": 0.6400597270438289,
+          "p75": 0.7000000476837158,
+          "p99": 0.7999999523162842,
+          "rme": 0.3820435200966985,
+          "sampleCount": 2344,
+          "eligible": true
+        }
+      ],
+      "candidate": [
+        {
+          "median": 0.6000000238418579,
+          "mean": 0.6377551020408163,
+          "p75": 0.6999999284744263,
+          "p99": 0.7999999523162842,
+          "rme": 0.37895412908650905,
+          "sampleCount": 2352,
+          "eligible": true
+        },
+        {
+          "median": 0.6000000238418579,
+          "mean": 0.6409226826550053,
+          "p75": 0.7000000476837158,
+          "p99": 0.7999999523162842,
+          "rme": 0.3831608123706225,
+          "sampleCount": 2341,
+          "eligible": true
+        },
+        {
+          "median": 0.6000000238418579,
+          "mean": 0.6349555649497072,
+          "p75": 0.6999999284744263,
+          "p99": 0.7999999523162842,
+          "rme": 0.3789726468077658,
+          "sampleCount": 2363,
+          "eligible": true
+        }
+      ],
+      "eligible": true,
+      "median_of_three_ms": {
+        "baseline": 0.6000000238418579,
+        "candidate": 0.6000000238418579
+      },
+      "change_percent": 0.0,
+      "within_regression_limit": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-control-branch-toggle.tsx",
+      "name": "toggle Show truthy and fallback branches",
+      "baseline": [
+        {
+          "median": 0.1563340000000153,
+          "mean": 0.1590873677094382,
+          "p75": 0.15920900000003257,
+          "p99": 0.19783300000005966,
+          "rme": 0.41330003109220925,
+          "sampleCount": 3772,
+          "eligible": true
+        },
+        {
+          "median": 0.15499999999997272,
+          "mean": 0.15792047315789554,
+          "p75": 0.15820800000005875,
+          "p99": 0.2000420000001668,
+          "rme": 0.4105809554837965,
+          "sampleCount": 3800,
+          "eligible": true
+        },
+        {
+          "median": 0.15591699999981756,
+          "mean": 0.15863726619085253,
+          "p75": 0.1584170000000995,
+          "p99": 0.19466699999998127,
+          "rme": 0.40777382963363046,
+          "sampleCount": 3783,
+          "eligible": true
+        }
+      ],
+      "candidate": [
+        {
+          "median": 0.155083999999988,
+          "mean": 0.1580570252831215,
+          "p75": 0.15800000000012915,
+          "p99": 0.19529099999999744,
+          "rme": 0.4020335678540001,
+          "sampleCount": 3797,
+          "eligible": true
+        },
+        {
+          "median": 0.15591700000004494,
+          "mean": 0.15868930230097847,
+          "p75": 0.158457999999996,
+          "p99": 0.19433299999991505,
+          "rme": 0.4047866855131905,
+          "sampleCount": 3781,
+          "eligible": true
+        },
+        {
+          "median": 0.15566600000011022,
+          "mean": 0.1584455980987596,
+          "p75": 0.15800000000001546,
+          "p99": 0.19920799999999872,
+          "rme": 0.41382898213332886,
+          "sampleCount": 3787,
+          "eligible": true
+        }
+      ],
+      "eligible": true,
+      "median_of_three_ms": {
+        "baseline": 0.15591699999981756,
+        "candidate": 0.15566600000011022
+      },
+      "change_percent": -0.16098308696783636,
+      "within_regression_limit": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-control-branch-toggle.tsx",
+      "name": "toggle Case branch selection",
+      "baseline": [
+        {
+          "median": 0.1555829999999787,
+          "mean": 0.15710444476439953,
+          "p75": 0.1566250000000764,
+          "p99": 0.1831250000000182,
+          "rme": 0.37131446770181586,
+          "sampleCount": 3820,
+          "eligible": true
+        },
+        {
+          "median": 0.15337499999986903,
+          "mean": 0.1552474230271682,
+          "p75": 0.15470799999980045,
+          "p99": 0.18408300000010058,
+          "rme": 0.3918398727858108,
+          "sampleCount": 3865,
+          "eligible": true
+        },
+        {
+          "median": 0.15399999999999636,
+          "mean": 0.15591675188360618,
+          "p75": 0.15554100000008475,
+          "p99": 0.18154099999992468,
+          "rme": 0.37399045993795454,
+          "sampleCount": 3849,
+          "eligible": true
+        }
+      ],
+      "candidate": [
+        {
+          "median": 0.15462499999989632,
+          "mean": 0.1564608239895674,
+          "p75": 0.155666999999994,
+          "p99": 0.18270899999993162,
+          "rme": 0.37670544349701,
+          "sampleCount": 3835,
+          "eligible": true
+        },
+        {
+          "median": 0.15424999999981992,
+          "mean": 0.15637676413865095,
+          "p75": 0.15574999999989814,
+          "p99": 0.18358400000010988,
+          "rme": 0.3587419388243378,
+          "sampleCount": 3837,
+          "eligible": true
+        },
+        {
+          "median": 0.15433299999995143,
+          "mean": 0.15643393587069665,
+          "p75": 0.1557500000001255,
+          "p99": 0.18620800000007875,
+          "rme": 0.3772646153555279,
+          "sampleCount": 3836,
+          "eligible": true
+        }
+      ],
+      "eligible": true,
+      "median_of_three_ms": {
+        "baseline": 0.15399999999999636,
+        "candidate": 0.15433299999995143
+      },
+      "change_percent": 0.21623376620458767,
+      "within_regression_limit": true
+    },
+    {
+      "file": "benches/tier2/tier2-subsystem-resource-cache-dedupe-abort.tsx",
+      "name": "switch a deduped query key and abort the stale fetch",
+      "baseline": [
+        {
+          "median": 0.7494590000000017,
+          "mean": 0.7593489683944339,
+          "p75": 0.7685410000000275,
+          "p99": 0.9363749999999982,
+          "rme": 0.33384706117695856,
+          "sampleCount": 791,
+          "eligible": true
+        },
+        {
+          "median": 0.7569999999999482,
+          "mean": 0.767458398976984,
+          "p75": 0.7730409999999779,
+          "p99": 0.9469169999999849,
+          "rme": 0.33876982556269336,
+          "sampleCount": 782,
+          "eligible": true
+        },
+        {
+          "median": 0.7532920000001013,
+          "mean": 0.7650815171974513,
+          "p75": 0.770832999999925,
+          "p99": 0.9411249999999995,
+          "rme": 0.3408973722909413,
+          "sampleCount": 785,
+          "eligible": true
+        }
+      ],
+      "candidate": [
+        {
+          "median": 0.7448329999999714,
+          "mean": 0.7539854422110537,
+          "p75": 0.7599169999999731,
+          "p99": 0.9579160000000115,
+          "rme": 0.34507976097039533,
+          "sampleCount": 796,
+          "eligible": true
+        },
+        {
+          "median": 0.7557919999999854,
+          "mean": 0.7656558737244896,
+          "p75": 0.7716669999999795,
+          "p99": 0.9511670000000549,
+          "rme": 0.3292669873816608,
+          "sampleCount": 784,
+          "eligible": true
+        },
+        {
+          "median": 0.7485000000000355,
+          "mean": 0.7594182819216212,
+          "p75": 0.7679590000000189,
+          "p99": 0.9192920000000413,
+          "rme": 0.33701382949630715,
+          "sampleCount": 791,
+          "eligible": true
+        }
+      ],
+      "eligible": true,
+      "median_of_three_ms": {
+        "baseline": 0.7532920000001013,
+        "candidate": 0.7485000000000355
+      },
+      "change_percent": -0.6361410980158078,
+      "within_regression_limit": true
+    }
+  ],
+  "acceptance": {
+    "row_count": 19,
+    "eligible_rows": 19,
+    "regression_limit_percent": 5,
+    "maximum_slowdown_percent": 4.545450112051319,
+    "all_within_limit": true,
+    "optimization_claim": false
+  }
+}

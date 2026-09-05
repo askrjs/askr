@@ -30,7 +30,7 @@ export function runScheduledComponent(
   instance: ComponentInstance,
   host: ScheduledComponentCommitHost
 ): void {
-  const ownershipGeneration = instance._ownershipGeneration;
+  const ownershipGeneration = instance.ownership.identity;
   const evaluationGeneration = instance.evaluationGeneration;
   instance.notifyUpdate = instance._enqueueRun!;
   beginRenderTracking(instance);
@@ -71,7 +71,7 @@ export function runScheduledComponent(
   enqueueRuntimeTask(() => {
     try {
       if (
-        instance._ownershipGeneration !== ownershipGeneration ||
+        instance.ownership.identity !== ownershipGeneration ||
         instance.evaluationGeneration !== evaluationGeneration
       ) {
         return;
@@ -202,7 +202,7 @@ function commitToTarget(
   let restoredOldChildren = false;
 
   try {
-    const wasFirstMount = !instance.mounted;
+    const wasFirstMount = !instance.ownership.mounted;
     const oldInstance = enterDomCommitScope(instance);
     const executionFrame = getExecutionContextFrame(instance.ownerFrame);
     oldChildren = Array.from(target.childNodes);
@@ -243,7 +243,7 @@ function commitToTarget(
     }
 
     host.finalizeReadSubscriptions(instance);
-    instance.mounted = true;
+    instance.ownership.mounted = true;
     commitLifecycleForInstance(instance, wasFirstMount);
     flushLifecycleCommitBatch(lifecycleBatch);
   } catch (renderError) {

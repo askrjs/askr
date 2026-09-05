@@ -7,6 +7,7 @@
 import type { ReadableSource } from './readable';
 import type { ComponentInstance } from './component-internal';
 import type { AppRenderRuntime } from '../common/app-render-runtime';
+import { getOwnershipSignal } from './ownership';
 
 type ComponentScopeSnapshot = {
   instance: ComponentInstance | null;
@@ -34,15 +35,6 @@ let renderScopedDepth = 0;
 let outerRenderScopedInstance: ComponentInstance | null = null;
 let outerRenderScopedPortalScope: object | null = null;
 let outerRenderScopedStateIndex = 0;
-
-function ensureAbortController(instance: ComponentInstance): AbortController {
-  let controller = instance.abortController;
-  if (!controller || controller.signal.aborted) {
-    controller = new AbortController();
-    instance.abortController = controller;
-  }
-  return controller;
-}
 
 function nextRenderToken(): number {
   return ++globalRenderCounter;
@@ -112,7 +104,7 @@ export function getCurrentPortalScope(): object | null {
 }
 
 export function getSignalForInstance(instance: ComponentInstance): AbortSignal {
-  return ensureAbortController(instance).signal;
+  return getOwnershipSignal(instance.ownership);
 }
 
 /**

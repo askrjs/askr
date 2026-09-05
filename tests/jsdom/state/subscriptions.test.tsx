@@ -104,7 +104,7 @@ describe('state subscription invariants', () => {
       ? (childHost as InstanceHost).__ASKR_INSTANCE
       : null;
     expect(childInst).toBeDefined();
-    expect(childInst!._lastReadSources?.has(shared!)).toBeTruthy();
+    expect(childInst!.ownership.reads?.has(shared!)).toBeTruthy();
 
     // Unmount the child
     togg!.set(false);
@@ -113,14 +113,14 @@ describe('state subscription invariants', () => {
 
     // The child's instance should have been cleaned up
     // If cleanup didn't run, attempt manual cleanup to assert behavior
-    if ((childInst!._lastReadSources?.size ?? 0) !== 0) {
+    if ((childInst!.ownership.reads?.size ?? 0) !== 0) {
       // Call cleanup to ensure we clear subscriptions
       const { cleanupComponent } =
         await import('../../../src/runtime/component');
       cleanupComponent(childInst!);
     }
 
-    expect(childInst!._lastReadSources?.size ?? 0).toBe(0);
+    expect(childInst!.ownership.reads?.size ?? 0).toBe(0);
 
     // Readers map should no longer contain the child instance
     const readers = (shared as unknown as { _readers?: Map<unknown, unknown> })

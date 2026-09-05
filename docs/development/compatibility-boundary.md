@@ -37,15 +37,16 @@ Constructing a runtime does not invoke an overridden `configureRenderer` method.
 and reactive rendering separately. It has no dependency on public compatibility
 types. Browser composition in `boot/runtime-wiring.ts` installs the built-in
 renderer. Its compatibility host and native capabilities currently share an
-object, preserving host identity and property mutation without a second mutable
-model or callback translation on the built-in rendering path.
+object, preserving host identity and property mutation. Inbound operations adopt
+extension-created owner records when necessary; ordinary owners already carry
+their authoritative lifetime.
 
 Custom hosts enter through `compatibility/renderer.ts`. Calls retain the original
 host as `this`, preserve arguments, and observe method replacement. Component,
-scope, and readable identities currently cross this boundary unchanged. A later
-representation change must preserve the legacy observable fields through views
-backed by authoritative records, including owner identity shared by callbacks
-and state reader maps.
+scope, and readable identities cross this boundary unchanged. Legacy component
+lifetime properties are views backed by the runtime ownership record, including
+the owner identity shared by callbacks and state reader maps. See
+[Runtime ownership](ownership.md) for preparation and disposal semantics.
 
 ## Checks
 

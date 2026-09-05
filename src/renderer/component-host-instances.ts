@@ -182,9 +182,10 @@ export function hasComponentOwnershipIdentity(
   position?: number
 ): boolean {
   return (
+    !instance.ownership.disposed &&
     instance.fn === type &&
     instance._vnodeParent === parent &&
-    instance._vnodeParentGeneration === parent?._ownershipGeneration &&
+    instance._vnodeParentGeneration === parent?.ownership.identity &&
     instance._vnodeKey === extractComponentIdentityKey(node) &&
     instance._wrapperDepth === wrapperDepth &&
     instance._vnodePosition === position
@@ -201,7 +202,7 @@ export function setComponentOwnershipIdentity(
   instance._vnodeOwner =
     typeof node === 'object' && node !== null ? node : undefined;
   instance._vnodeParent = parent;
-  instance._vnodeParentGeneration = parent?._ownershipGeneration;
+  instance._vnodeParentGeneration = parent?.ownership.identity;
   const key = extractComponentIdentityKey(node as DOMElement);
   if (key === undefined) {
     delete instance._vnodeKey;
@@ -224,6 +225,7 @@ export function findHostInstanceByType(
     const vnodeOwner = getVNodeComponentInstance(node);
     if (
       vnodeOwner &&
+      !vnodeOwner.ownership.disposed &&
       (parent === undefined ||
         hasComponentOwnershipIdentity(
           vnodeOwner,
@@ -239,13 +241,13 @@ export function findHostInstanceByType(
 
     const key = extractComponentIdentityKey(node as DOMElement);
     const identityMatches = instances.filter((instance) => {
-      if (instance.fn !== type) return false;
+      if (instance.ownership.disposed || instance.fn !== type) return false;
       if (parent !== undefined && instance._vnodeParent !== parent) {
         return false;
       }
       if (
         parent !== undefined &&
-        instance._vnodeParentGeneration !== parent?._ownershipGeneration
+        instance._vnodeParentGeneration !== parent?.ownership.identity
       ) {
         return false;
       }
@@ -267,20 +269,25 @@ export function findHostInstanceByType(
 
     // A single unannotated owner is safe for legacy hydration hosts. Do not
     // fall back to type-only reuse when a wrapper chain has several owners.
-    const sameType = instances.filter((instance) => instance.fn === type);
+    const sameType = instances.filter(
+      (instance) => !instance.ownership.disposed && instance.fn === type
+    );
     if (key === undefined && sameType.length === 1) {
       return sameType[0]!;
     }
     return null;
   }
 
-  if (host.__ASKR_INSTANCE?.fn === type) {
+  if (
+    host.__ASKR_INSTANCE?.fn === type &&
+    !host.__ASKR_INSTANCE.ownership.disposed
+  ) {
     const instance = host.__ASKR_INSTANCE;
     const key = extractComponentIdentityKey(node as DOMElement);
     if (
       (parent === undefined || instance._vnodeParent === parent) &&
       (parent === undefined ||
-        instance._vnodeParentGeneration === parent?._ownershipGeneration) &&
+        instance._vnodeParentGeneration === parent?.ownership.identity) &&
       (node === undefined || instance._vnodeKey === key) &&
       (wrapperDepth === undefined || instance._wrapperDepth === wrapperDepth)
     ) {
@@ -313,8 +320,11 @@ export function findStableHostInstanceByType(
 ): ComponentInstance | null {
   const instances = new Set(host.__ASKR_INSTANCES ?? []);
   if (host.__ASKR_INSTANCE) instances.add(host.__ASKR_INSTANCE);
+  for (const instance of instances) {
+    if (instance.ownership.disposed) instances.delete(instance);
+  }
 
-  const parentGeneration = parent?._ownershipGeneration;
+  const parentGeneration = parent?.ownership.identity;
 
   const vnodeOwner = getVNodeComponentInstance(node);
   if (
@@ -339,7 +349,7 @@ export function findStableHostInstanceByType(
           (instance._vnodeParent !== parent &&
             instance._vnodeParent != null &&
             instance._vnodeParentGeneration ===
-              instance._vnodeParent._ownershipGeneration)) &&
+              instance._vnodeParent.ownership.identity)) &&
         instance._vnodeKey === undefined &&
         instance._wrapperDepth === wrapperDepth &&
         ((range?.single === false && range.start === host) ||
@@ -368,7 +378,7 @@ export function findStableHostInstanceByType(
       instance._vnodeParent !== parent &&
       instance._vnodeParent != null &&
       instance._vnodeParentGeneration ===
-        instance._vnodeParent._ownershipGeneration &&
+        instance._vnodeParent.ownership.identity &&
       instance._vnodeKey === key &&
       instance._wrapperDepth === wrapperDepth &&
       ((range?.single === false && range.start === host) ||

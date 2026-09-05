@@ -1,3 +1,4 @@
+import { createComponentInstance } from '../../../src/runtime/component';
 import { resetRouteState, currentRouteRegistry } from '../../router-test-utils';
 import { describe, it, expect, beforeEach } from 'vite-plus/test';
 import {
@@ -38,7 +39,7 @@ describe('route registration constraints', () => {
     expect(() => route('/ok', () => null)).not.toThrow();
 
     registerAppInstance(
-      {} as unknown as Parameters<typeof registerAppInstance>[0],
+      createComponentInstance('registration', () => null, {}, null),
       '/',
       { registry: currentRouteRegistry() }
     );

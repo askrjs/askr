@@ -1,3 +1,4 @@
+import { drainOwnedCleanup, ownCleanup } from '../runtime/ownership';
 import { getActiveRenderContext } from '../common/render-context';
 import { getCurrentAppRenderRuntime } from '../runtime';
 import type { ComponentInstance } from '../runtime';
@@ -144,7 +145,7 @@ export function getQuerySlotStore(
   runtimeState: DataRuntimeState,
   instance: ComponentInstance
 ): Map<number, QuerySlot> {
-  const generation = instance._ownershipGeneration;
+  const generation = instance.ownership.identity;
   let store = runtimeState.querySlotsByGeneration.get(generation);
   if (!store) {
     store = new Map();
@@ -157,7 +158,7 @@ export function getMutationSlotStore(
   runtimeState: DataRuntimeState,
   instance: ComponentInstance
 ): Map<number, MutationSlot> {
-  const generation = instance._ownershipGeneration;
+  const generation = instance.ownership.identity;
   let store = runtimeState.mutationSlotsByGeneration.get(generation);
   if (!store) {
     store = new Map();
@@ -170,21 +171,23 @@ export function ensureQueryCleanup(
   runtimeState: DataRuntimeState,
   instance: ComponentInstance
 ): void {
-  const generation = instance._ownershipGeneration;
+  const generation = instance.ownership.identity;
   if (runtimeState.queryCleanupRegistered.has(generation)) {
     return;
   }
 
   runtimeState.queryCleanupRegistered.add(generation);
   const slots = getQuerySlotStore(runtimeState, instance);
-  (instance.cleanupFns ??= []).push(() => {
-    for (const [hookIndex, slot] of slots) {
-      slot.cell.detach(generation, hookIndex);
+  ownCleanup(instance.ownership, () => {
+    try {
+      drainOwnedCleanup(slots, ([hookIndex, slot]) =>
+        slot.cell.detach(generation, hookIndex)
+      );
+    } finally {
+      slots.clear();
+      runtimeState.querySlotsByGeneration.delete(generation);
+      runtimeState.queryCleanupRegistered.delete(generation);
     }
-
-    slots.clear();
-    runtimeState.querySlotsByGeneration.delete(generation);
-    runtimeState.queryCleanupRegistered.delete(generation);
   });
 }
 
@@ -192,21 +195,21 @@ export function ensureMutationCleanup(
   runtimeState: DataRuntimeState,
   instance: ComponentInstance
 ): void {
-  const generation = instance._ownershipGeneration;
+  const generation = instance.ownership.identity;
   if (runtimeState.mutationCleanupRegistered.has(generation)) {
     return;
   }
 
   runtimeState.mutationCleanupRegistered.add(generation);
   const slots = getMutationSlotStore(runtimeState, instance);
-  (instance.cleanupFns ??= []).push(() => {
-    for (const slot of slots.values()) {
-      slot.cell.abort();
+  ownCleanup(instance.ownership, () => {
+    try {
+      drainOwnedCleanup(slots.values(), (slot) => slot.cell.abort());
+    } finally {
+      slots.clear();
+      runtimeState.mutationSlotsByGeneration.delete(generation);
+      runtimeState.mutationCleanupRegistered.delete(generation);
     }
-
-    slots.clear();
-    runtimeState.mutationSlotsByGeneration.delete(generation);
-    runtimeState.mutationCleanupRegistered.delete(generation);
   });
 }
 

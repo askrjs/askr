@@ -83,7 +83,10 @@ export function commitLifecycleForInstance(
 }
 
 export function commitRenderedComponent(instance: ComponentInstance): void {
-  if (instance.mounted && (instance.commitOperations?.length ?? 0) > 0) {
+  if (
+    instance.ownership.mounted &&
+    (instance.commitOperations?.length ?? 0) > 0
+  ) {
     commitLifecycleForInstance(instance, false);
   }
 }

@@ -554,7 +554,7 @@ describe('lifecycle sequence invariants', () => {
               null
             );
             instance.cleanupStrict = true;
-            (instance.cleanupFns ??= []).push(() => {
+            (instance.ownership.cleanups ??= []).push(() => {
               throw new Error('quality cleanup failure');
             });
             let cleanupError: unknown = null;

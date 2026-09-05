@@ -310,7 +310,12 @@ describe('architecture boundaries', () => {
     expect(forbidden).toEqual([]);
   });
 
-  it('should keep runtime internals behind the runtime facade for external consumers', () => {
+  it('should keep subsystem imports on explicit runtime capability entrypoints', () => {
+    const entrypoints = new Set([
+      'src/runtime/index.ts',
+      'src/runtime/ownership.ts',
+      'src/runtime/component-generation.ts',
+    ]);
     const optionalCapabilityEdges = new Set([
       // The foundations entry is the explicit opt-in boundary that registers
       // portal support without retaining it in every runtime consumer.
@@ -325,7 +330,7 @@ describe('architecture boundaries', () => {
       .filter(
         (edge) =>
           relative(edge.to).startsWith('src/runtime/') &&
-          relative(edge.to) !== 'src/runtime/index.ts'
+          !entrypoints.has(relative(edge.to))
       )
       .map(format)
       .filter((edge) => !optionalCapabilityEdges.has(edge))
@@ -380,17 +385,18 @@ describe('architecture boundaries', () => {
     expect(forbidden).toEqual([]);
   });
 
-  it('should use one component cleanup owner for child disposal, cleanup, abort, and stale-work invalidation', () => {
-    const cleanup = sources.find(
-      (source) => source.relative === 'src/runtime/component-cleanup.ts'
-    );
-    expect(cleanup).toBeDefined();
-    const text = fs.readFileSync(cleanup!.file, 'utf8');
-    expect(text).toContain('scope.dispose()');
-    expect(text).toContain('cleanup()');
-    expect(text).toContain('abortController.abort(');
-    expect(text).toContain('instance.lifecycleGeneration++');
-    expect(text).toContain('instance.evaluationGeneration++');
+  it('should keep ownership primitives independent of execution, renderer, and compatibility implementations', () => {
+    const owner = path.join(srcDir, 'runtime', 'ownership.ts');
+    expect(sourcePaths.has(owner)).toBe(true);
+    expect(
+      edges.filter((edge) => edge.from === owner && !edge.typeOnly).map(format)
+    ).toEqual([]);
+    const cleanup = path.join(srcDir, 'runtime', 'component-cleanup.ts');
+    expect(
+      edges.some(
+        (edge) => edge.from === cleanup && edge.to === owner && !edge.typeOnly
+      )
+    ).toBe(true);
   });
 
   it('should keep reconciliation mutation transactional through its commit boundary', () => {

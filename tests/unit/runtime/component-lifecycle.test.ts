@@ -18,7 +18,7 @@ describe('committed lifecycle operation isolation', () => {
 
     expect(instance.mountOperations).toBeUndefined();
     expect(instance.commitOperations).toBeUndefined();
-    expect(instance.cleanupFns).toBeUndefined();
+    expect(instance.ownership.cleanups).toBeUndefined();
     expect(instance.lifecycleSlots).toBeUndefined();
   });
 
@@ -63,7 +63,7 @@ describe('committed lifecycle operation isolation', () => {
     ]);
     expect(instance.mountOperations).toBeUndefined();
     expect(instance.commitOperations).toBeUndefined();
-    expect(instance.cleanupFns).toEqual([mountCleanup, commitCleanup]);
+    expect(instance.ownership.cleanups).toEqual([mountCleanup, commitCleanup]);
     expect(errorSpy).toHaveBeenCalledTimes(1);
     expect(errorSpy.mock.calls[0]?.[1]).toBeInstanceOf(AggregateError);
 

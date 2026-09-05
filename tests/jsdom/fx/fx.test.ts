@@ -115,7 +115,7 @@ describe('FX layer', () => {
     mountInstanceInline(inst, target);
 
     // simulate unmount
-    for (const fn of inst.cleanupFns) fn();
+    for (const fn of inst.ownership.cleanups) fn();
 
     vi.advanceTimersByTime(120);
     // cancelled so not called

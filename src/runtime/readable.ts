@@ -53,7 +53,7 @@ let suppressComponentReadTrackingDepth = 0;
 let currentFineGrainedReadCollector: FineGrainedReadCollector | null = null;
 
 function scheduleReadableInstanceUpdate(instance: ComponentInstance): void {
-  if (instance.hasPendingUpdate) {
+  if (instance.ownership.disposed || instance.hasPendingUpdate) {
     return;
   }
 
@@ -180,17 +180,18 @@ export function finalizeReadableSubscriptionsFromSnapshot(
   pendingReadSourceVersions:
     | Map<ReadableSource<unknown>, number>
     | undefined = instance._pendingReadSourceVersions,
-  ownershipGeneration: object = instance._ownershipGeneration
+  ownershipGeneration: object = instance.ownership.identity
 ): void {
   if (
+    instance.ownership.disposed ||
     token === undefined ||
-    instance._ownershipGeneration !== ownershipGeneration ||
-    (!instance.mounted && instance.notifyUpdate === null)
+    instance.ownership.identity !== ownershipGeneration ||
+    (!instance.ownership.mounted && instance.notifyUpdate === null)
   ) {
     return;
   }
 
-  const oldSet = instance._lastReadSources;
+  const oldSet = instance.ownership.reads;
   const pendingVersions = pendingReadSourceVersions;
   let needsFollowUpUpdate = false;
 
@@ -198,7 +199,7 @@ export function finalizeReadableSubscriptionsFromSnapshot(
     for (const source of oldSet) {
       if (!newSet?.has(source)) {
         const reader = source._readers?.get(instance);
-        if (reader?.generation === instance._ownershipGeneration) {
+        if (reader?.generation === instance.ownership.identity) {
           if (source._readers?.delete(instance) && DEVELOPMENT_BUILD_ENABLED) {
             adjustOwnershipDiagnostic('readableReaders', -1);
           }
@@ -236,7 +237,7 @@ export function finalizeReadableSubscriptionsFromSnapshot(
       const hadReader = readers.has(instance);
       readers.set(instance, {
         token: instance.lastRenderToken ?? 0,
-        generation: instance._ownershipGeneration,
+        generation: instance.ownership.identity,
       });
       if (!hadReader && DEVELOPMENT_BUILD_ENABLED) {
         adjustOwnershipDiagnostic('readableReaders', 1);
@@ -244,7 +245,7 @@ export function finalizeReadableSubscriptionsFromSnapshot(
     }
   }
 
-  instance._lastReadSources = newSet?.size ? newSet : undefined;
+  instance.ownership.reads = newSet?.size ? newSet : undefined;
 
   if (needsFollowUpUpdate) {
     scheduleReadableInstanceUpdate(instance);
@@ -253,9 +254,9 @@ export function finalizeReadableSubscriptionsFromSnapshot(
 
 export function cleanupReadableSubscriptions(
   instance: ComponentInstance,
-  generation: object = instance._ownershipGeneration
+  generation: object = instance.ownership.identity
 ): void {
-  const sources = instance._lastReadSources;
+  const sources = instance.ownership.reads;
   if (!sources || sources.size === 0) {
     instance._pendingReadSources = undefined;
     instance._pendingReadSourceVersions = undefined;
@@ -263,7 +264,7 @@ export function cleanupReadableSubscriptions(
   }
 
   cleanupReadableSubscriptionSources(instance, sources, generation);
-  instance._lastReadSources = undefined;
+  instance.ownership.reads = undefined;
   instance._pendingReadSources = undefined;
   instance._pendingReadSourceVersions = undefined;
 }
@@ -399,7 +400,7 @@ export function notifyReadableReaders(
       }
     }
     if (
-      instance._ownershipGeneration !== reader.generation ||
+      instance.ownership.identity !== reader.generation ||
       instance.lastRenderToken !== reader.token
     ) {
       continue;

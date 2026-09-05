@@ -7,7 +7,6 @@ import {
   getCurrentStateIndex,
   registerOwnedChildScope,
   renderScopedComponent,
-  unregisterOwnedChildScope,
   type ComponentInstance,
 } from './component';
 import { finalizeInlineReadSubscriptions } from './component-lifecycle';
@@ -15,6 +14,7 @@ import { clearRenderTracking } from './component-scope';
 import { isDevelopmentEnvironment } from '../common/env';
 import type { DOMRange } from '../common/dom-range';
 import { rebaseVNodeTreeWithContextFrame, type ContextFrame } from './context';
+import type { OwnershipRecord } from './ownership';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
@@ -61,8 +61,7 @@ interface MutableChildScope extends ChildScope {
   _startStateIndex: number;
   _renderFn?: (() => VNode) | undefined;
   _onDirty?: (() => void) | undefined;
-  _parent?: ComponentInstance | null;
-  _disposed: boolean;
+  _parentOwnership?: OwnershipRecord | null;
   _renderedOwnerFrame: ContextFrame | null;
 }
 
@@ -88,7 +87,7 @@ function ensureChildScopeFlushTask(scope: MutableChildScope): void {
 
   instance._pendingFlushTask = () => {
     instance.hasPendingUpdate = false;
-    if (instance.notifyUpdate === null || scope._disposed) {
+    if (instance.notifyUpdate === null || instance.ownership.disposed) {
       return;
     }
     renderScope(scope);
@@ -109,9 +108,8 @@ class ChildScopeImpl implements MutableChildScope {
   _startStateIndex: number;
   _renderFn: (() => VNode) | undefined = undefined;
   _onDirty: (() => void) | undefined;
-  _parent: ComponentInstance | null;
+  _parentOwnership: OwnershipRecord | null;
   _ownership?: ChildScopeOwnership;
-  _disposed = false;
   _renderedOwnerFrame: ContextFrame | null = null;
 
   constructor(
@@ -121,7 +119,7 @@ class ChildScopeImpl implements MutableChildScope {
     ownership?: ChildScopeOwnership
   ) {
     this.key = key;
-    this._parent = parent;
+    this._parentOwnership = parent?.ownership ?? null;
     this._onDirty = onDirty;
     this._ownership = ownership;
     this._startStateIndex = getCurrentStateIndex();
@@ -132,6 +130,7 @@ class ChildScopeImpl implements MutableChildScope {
       null
     );
     childScopesByInstance.set(this.componentInstance, this);
+    this.componentInstance.ownership.finalizer = this;
 
     if (parent) {
       this.componentInstance.parentInstance = parent;
@@ -152,30 +151,34 @@ class ChildScopeImpl implements MutableChildScope {
   }
 
   dispose(): void {
-    if (this._disposed) {
-      return;
-    }
-    this._disposed = true;
-    if (this._parent) {
-      if (this._ownership) this._ownership.delete(this);
-      else unregisterOwnedChildScope(this._parent, this);
-    }
-    childScopesByInstance.delete(this.componentInstance);
     cleanupComponent(this.componentInstance);
-    this._renderFn = undefined;
-    this.previousVnode = undefined;
-    this.vnode = undefined;
-    this.dom = undefined;
-    this.range = undefined;
-    this.needsDomUpdate = false;
-    this.hydrationPending = false;
-    this.blueprintOwner = undefined;
-    this.componentInstance.hasPendingUpdate = false;
+  }
+
+  release(): void {
+    try {
+      if (this._ownership) this._ownership.delete(this);
+      else this._parentOwnership?.children?.delete(this);
+    } finally {
+      childScopesByInstance.delete(this.componentInstance);
+      this._renderFn = undefined;
+      this.previousVnode = undefined;
+      this.vnode = undefined;
+      this.dom = undefined;
+      this.range = undefined;
+      this.needsDomUpdate = false;
+      this.hydrationPending = false;
+      this.blueprintOwner = undefined;
+      this.componentInstance.hasPendingUpdate = false;
+      this._parentOwnership = null;
+      this._onDirty = undefined;
+      this._ownership = undefined;
+      this._renderedOwnerFrame = null;
+    }
   }
 }
 
 function renderScope(scope: MutableChildScope): VNode | undefined {
-  if (scope._disposed) {
+  if (scope.componentInstance.ownership.disposed) {
     if (isDevelopmentEnvironment()) {
       throw new Error(
         `[askr] Attempted to render disposed child scope ${String(scope.key)}.`

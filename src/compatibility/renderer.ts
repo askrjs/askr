@@ -1,5 +1,12 @@
 import type { RendererCapabilities } from '../runtime/renderer-capabilities';
 import type { RuntimeRendererHost } from './contracts/core';
+import {
+  componentView,
+  executionRecord,
+  installOwnershipViews,
+} from './ownership';
+
+installOwnershipViews();
 
 const nativeHosts = new WeakMap<RuntimeRendererHost, RendererCapabilities>();
 
@@ -11,29 +18,35 @@ export function adaptRendererHost(
   const native = nativeHosts.get(host);
   if (native) return native;
   return {
-    evaluate: (...args) =>
-      host.evaluate(
+    evaluate: (...args) => {
+      if (args[3]) componentView(args[3]);
+      return host.evaluate(
         ...(args as unknown as Parameters<RuntimeRendererHost['evaluate']>)
-      ),
+      );
+    },
     cleanupInstancesUnder: (...args) => host.cleanupInstancesUnder(...args),
-    replaceComponentRange: (...args) =>
-      host.replaceComponentRange(
+    replaceComponentRange: (...args) => {
+      componentView(args[0]);
+      return host.replaceComponentRange(
         ...(args as unknown as Parameters<
           RuntimeRendererHost['replaceComponentRange']
         >)
-      ),
+      );
+    },
     get resolveChildScopeRange() {
       return host.resolveChildScopeRange
         ? (
             ...args: Parameters<
               NonNullable<RendererCapabilities['resolveChildScopeRange']>
             >
-          ) =>
-            host.resolveChildScopeRange!(
+          ) => {
+            componentView(args[0].componentInstance);
+            return host.resolveChildScopeRange!(
               ...(args as unknown as Parameters<
                 NonNullable<RuntimeRendererHost['resolveChildScopeRange']>
               >)
-            )
+            );
+          }
         : undefined;
     },
     teardownNodeSubtree: (...args) => host.teardownNodeSubtree(...args),
@@ -51,12 +64,48 @@ export function adaptRendererHost(
   };
 }
 
-/** Until ownership records diverge, the native host itself is its stable view.
- * Sharing the object also preserves writes, deletion, and property descriptors. */
+/** Keep the native host's identity and writable properties. Only inbound
+ * extension records require adoption; ordinary owners are already authoritative. */
 export function rendererHostView(
   capabilities: RendererCapabilities
 ): RuntimeRendererHost {
   const host = capabilities as unknown as RuntimeRendererHost;
+  if (nativeHosts.has(host)) return host;
+  const evaluate = capabilities.evaluate;
+  capabilities.evaluate = function (...args) {
+    if (args[3] && !args[3].ownership) {
+      executionRecord(
+        args[3] as unknown as NonNullable<
+          Parameters<RuntimeRendererHost['evaluate']>[3]
+        >
+      );
+    }
+    return evaluate.apply(this, args);
+  };
+  const replace = capabilities.replaceComponentRange;
+  capabilities.replaceComponentRange = function (...args) {
+    if (!args[0].ownership) {
+      executionRecord(
+        args[0] as unknown as Parameters<
+          RuntimeRendererHost['replaceComponentRange']
+        >[0]
+      );
+    }
+    return replace.apply(this, args);
+  };
+  const resolve = capabilities.resolveChildScopeRange;
+  if (resolve) {
+    capabilities.resolveChildScopeRange = function (...args) {
+      if (!args[0].componentInstance.ownership) {
+        executionRecord(
+          args[0].componentInstance as unknown as Parameters<
+            RuntimeRendererHost['replaceComponentRange']
+          >[0]
+        );
+      }
+      return resolve.apply(this, args);
+    };
+  }
   nativeHosts.set(host, capabilities);
   return host;
 }
