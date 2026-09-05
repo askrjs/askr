@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { cleanupApp, createIsland, createSPA } from '@askrjs/askr/boot';
 import { Show } from '../../../src/control';
-import { getCurrentComponentInstance } from '../../../src/runtime/component';
+import { getCurrentComponentInstance } from '../../../src/runtime';
 import { navigate } from '../../../src/router/navigate';
 import { route } from '../../../src/router/route';
 import {
@@ -116,7 +116,7 @@ describe('mount unmount cycles (STRESS)', () => {
         if (!instance) {
           throw new Error('expected details component instance');
         }
-        (instance.ownership.cleanups ??= []).push(() => {
+        (instance.owner.cleanups ??= []).push(() => {
           detailCleanups += 1;
         });
 

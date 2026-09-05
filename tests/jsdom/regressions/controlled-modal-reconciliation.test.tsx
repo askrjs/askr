@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vite-plus/test';
 import { defineScope, readScope, state } from '../../../src';
 import { For, Show } from '../../../src/control';
 import { definePortal, Presence } from '../../../src/foundations';
-import { getCurrentComponentInstance } from '../../../src/runtime/component';
+import { getCurrentComponentInstance } from '../../../src/runtime';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -196,9 +196,9 @@ describe('controlled modal reconciliation', () => {
       const instance = getCurrentComponentInstance();
       if (!instance) throw new Error('expected modal component instance');
       modalOwner = instance;
-      if (!instance.ownership.mounted) {
+      if (!instance.owner.mounted) {
         modalMounts += 1;
-        (instance.ownership.cleanups ??= []).push(() => {
+        (instance.owner.cleanups ??= []).push(() => {
           modalCleanups += 1;
         });
       }

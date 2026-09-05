@@ -9,12 +9,14 @@ export type {
   CommitTransaction,
 } from './transaction-coordinator';
 
+const commits = defaultRuntimeState.commits;
+
 export function beginCommitTransaction(): CommitTransaction {
-  return defaultRuntimeState.commits.begin();
+  return commits.begin();
 }
 
 export function getCurrentCommitTransaction(): CommitTransaction | null {
-  const transaction = defaultRuntimeState.commits.current;
+  const transaction = commits.current;
   return transaction?.active ? transaction : null;
 }
 
@@ -22,32 +24,32 @@ export function deferCommitNotification(
   key: object,
   notify: () => void
 ): boolean {
-  return defaultRuntimeState.commits.deferCompletion(key, notify);
+  return commits.deferCompletion(key, notify);
 }
 
 export function commitTransaction(transaction: CommitTransaction): void {
-  defaultRuntimeState.commits.commit(transaction);
+  commits.commit(transaction);
 }
 
 export function discardTransaction(transaction: CommitTransaction): void {
-  defaultRuntimeState.commits.discard(transaction);
+  commits.discard(transaction);
 }
 
 export function suspendTransaction(transaction: CommitTransaction): void {
-  defaultRuntimeState.commits.suspend(transaction);
+  commits.suspend(transaction);
 }
 
 export function applyTransaction<T>(
   transaction: CommitTransaction,
   operation: () => T
 ): T {
-  return defaultRuntimeState.commits.apply(transaction, operation);
+  return commits.apply(transaction, operation);
 }
 
 export function registerCommitParticipant(
   participant: CommitParticipant
 ): boolean {
-  return defaultRuntimeState.commits.register(participant);
+  return commits.register(participant);
 }
 
 export function registerCommitEffect(

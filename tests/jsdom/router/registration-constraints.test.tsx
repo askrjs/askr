@@ -1,4 +1,4 @@
-import { createComponentInstance } from '../../../src/runtime/component';
+import { createComponentInstance } from '../../../src/runtime';
 import { resetRouteState, currentRouteRegistry } from '../../router-test-utils';
 import { describe, it, expect, beforeEach } from 'vite-plus/test';
 import {

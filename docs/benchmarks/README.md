@@ -52,6 +52,13 @@ them. Tail ratios and median-of-three comparisons are derived during analysis;
 they are not raw reporter fields. A row is eligible only with at least 10
 samples, RME no greater than 15%, and nonzero p75 and p99.
 
+Very short workloads must span enough clock ticks for the 5% guardrail to be
+meaningful. Router matching times 128 calls per sample; table swapping times
+32 alternating, synchronously flushed swaps. Names include these counts.
+Compare identical blocks, or divide duration percentiles by the count when
+reporting per-operation values. Keep single-operation captures as diagnostic
+evidence when quantization makes their median unsuitable for qualification.
+
 The lane-specific diagnostics in this repo are intentionally separated so cleanup
 cost can be reviewed independently from ordered work loops and ordered DOM
 movement paths.
@@ -112,6 +119,34 @@ control medians, captured immediately before the candidate; that comparison
 is +2.91%. No matching code was tuned in response to capture variability.
 The other 20 rows passed the original final-source capture. These structural
 changes make no optimization claim.
+
+The [intermediate architecture capture](./core-architecture-6b4ad7e.json)
+compares `6b4ad7e` with both the preceding stage (`eda6558`) and the initial
+baseline (`c19ff42`, unchanged runtime from `48a5575`). Each of the three
+revisions has three sequential captures per tier on the same host and toolchain.
+All 21 guardrails meet every sample-quality requirement. The maximum slowdown
+is 2.18% against the preceding stage and 4.55% across the complete series.
+The first candidate failed table truncation at +8.33% and +18.18% respectively;
+its complete comparisons remain in the evidence. A Chromium CPU profile traced
+substantial cleanup work to environment normalization for unused-state warnings
+on components without state. Checking for state first preserves diagnostics and
+removes that work. These captures include that fix and the complete
+compatibility implementation; table truncation returns to a 2.2 ms median.
+These measurements qualify this host and these workloads, not all applications.
+Packed Monaco qualification subsequently rejected this candidate's initial
+entry size (229,464 bytes against a 225,000-byte limit). These measurements are
+retained as intermediate evidence; final qualification also includes the native
+boot composition and consolidated bookkeeping that address that rejection.
+
+The [completed architecture qualification](./core-architecture-25bf231.json)
+records the final runtime at `25bf231` and the resolution-corrected measurements
+at `b9f82ba` (identical runtime). All 21 guardrails qualify against both the
+preceding stage and the initial baseline. Maximum slowdowns are 1.91% and 4.77%
+respectively. Original single-operation captures and the initially failed
+navigation comparison remain in the evidence. Navigation's repeated isolated
+capture uses the lower of its two baseline controls. Packed Monaco's initial
+entry is 224,987 bytes against its unchanged 225,000-byte budget, compared with
+214,709 bytes for published 0.2.4. No general optimization claim is made.
 
 ## External JFB Comparisons
 

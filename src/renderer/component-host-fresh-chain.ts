@@ -138,7 +138,7 @@ export function resolveFreshNestedComponentResult(
         0
       );
       nestedInstance.isRoot = isRouteRootComponentVNode(nestedVNode);
-      nestedInstance.parentInstance = activeParent;
+
       nestedInstance.portalScope =
         activeParent.portalScope ?? nestedInstance.portalScope;
       nestedInstance.cleanupStrict = activeParent.cleanupStrict;

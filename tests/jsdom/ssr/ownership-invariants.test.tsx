@@ -1,8 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
-import {
-  getCurrentComponentInstance,
-  getSignal,
-} from '../../../src/runtime/component';
+import { getCurrentComponentInstance, getSignal } from '../../../src/runtime';
 import {
   DefaultPortal,
   Portal,
@@ -62,7 +59,7 @@ describe('SSR ownership invariants', () => {
       }
 
       instance.cleanupStrict = true;
-      (instance.ownership.cleanups ??= []).push(() => {
+      (instance.owner.cleanups ??= []).push(() => {
         throw new Error('ssr cleanup failed');
       });
 

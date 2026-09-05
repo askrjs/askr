@@ -75,7 +75,7 @@ export function resolveNestedComponentResult(
       null
     );
     nestedInstance.isRoot = isRouteRootComponentVNode(currentResult);
-    nestedInstance.parentInstance = parentInstance;
+
     nestedInstance.portalScope =
       parentInstance?.portalScope ?? nestedInstance.portalScope;
     inheritComponentCleanupStrict(nestedInstance);
@@ -162,7 +162,7 @@ export function resolveHostNestedComponentResult(
       if (hadNestedInstance) captureInlineRenderSnapshot(nestedInstance);
       setVNodeComponentInstance(nestedVNode, nestedInstance);
       nestedInstance.isRoot = isRouteRootComponentVNode(nestedVNode);
-      nestedInstance.parentInstance = activeParent;
+
       nestedInstance.portalScope =
         activeParent.portalScope ?? nestedInstance.portalScope;
       inheritComponentCleanupStrict(nestedInstance);
@@ -242,7 +242,7 @@ export function resolveWrapperHostResult(
     );
     nestedInstance.props =
       (((nestedVNode as DOMElement).props ?? {}) as Props) || {};
-    nestedInstance.parentInstance = activeParent;
+
     nestedInstance.isRoot = isRouteRootComponentVNode(nestedVNode);
     nestedInstance.portalScope =
       activeParent.portalScope ?? nestedInstance.portalScope;

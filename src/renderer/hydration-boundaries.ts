@@ -11,7 +11,7 @@ export type DeferredHydrationBoundaryState =
 export interface DeferredHydrationBoundaryRecord {
   readonly root: Element;
   readonly element: Element;
-  readonly ownership: {
+  readonly owner: {
     owner: ComponentInstance | null;
     parent: ComponentInstance | null;
     portalScope: object | null;
@@ -46,7 +46,7 @@ export function registerDeferredHydrationBoundary(
   const record: DeferredHydrationBoundaryRecord = {
     root,
     element,
-    ownership: {
+    owner: {
       owner: null,
       parent: null,
       portalScope: null,
@@ -78,9 +78,9 @@ export function rememberDeferredHydrationVNode(
 
   record.vnode = vnode;
   record.renderResult = vnode;
-  record.ownership.owner = owner;
-  record.ownership.parent = owner?.parentInstance ?? null;
-  record.ownership.portalScope = owner?.portalScope ?? null;
+  record.owner.owner = owner;
+  record.owner.parent = owner?.parentInstance ?? null;
+  record.owner.portalScope = owner?.portalScope ?? null;
   record.context = context;
   return record;
 }

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { For, Show, state } from '../../../src';
 import { cleanupApp, createIsland } from '../../../src/boot';
 import { captureRangeFocus } from '../../../src/renderer/component-fragment-range';
-import { getCurrentComponentInstance } from '../../../src/runtime/component';
+import { getCurrentComponentInstance } from '../../../src/runtime';
 import { flushScheduler } from '../../../test-utils/render/test-renderer';
 
 describe('component fragment structure', () => {
@@ -24,10 +24,8 @@ describe('component fragment structure', () => {
     const Body = () => {
       const instance = getCurrentComponentInstance();
       if (!instance) throw new Error('expected component instance');
-      if (!instance.ownership.mounted) {
-        (instance.ownership.cleanups ??= []).push(() =>
-          cleanupCalls.push('body')
-        );
+      if (!instance.owner.mounted) {
+        (instance.owner.cleanups ??= []).push(() => cleanupCalls.push('body'));
       }
       const shape = state<'scalar' | 'array' | 'fragment' | 'empty'>('array');
       const label = state('stable');
@@ -759,8 +757,8 @@ describe('component fragment structure', () => {
       expand = () => expanded.set(true);
       const instance = getCurrentComponentInstance();
       if (!instance) throw new Error('expected Content component instance');
-      if (!instance.ownership.mounted) {
-        (instance.ownership.cleanups ??= []).push(() => {
+      if (!instance.owner.mounted) {
+        (instance.owner.cleanups ??= []).push(() => {
           cleanups += 1;
         });
       }
@@ -858,8 +856,8 @@ describe('component fragment structure', () => {
     function First({ id }: { id: string }) {
       const instance = getCurrentComponentInstance();
       if (!instance) throw new Error('expected First component instance');
-      if (!instance.ownership.mounted) {
-        (instance.ownership.cleanups ??= []).push(() => {
+      if (!instance.owner.mounted) {
+        (instance.owner.cleanups ??= []).push(() => {
           firstCleanups += 1;
         });
       }
@@ -874,8 +872,8 @@ describe('component fragment structure', () => {
     function Second({ id }: { id: string }) {
       const instance = getCurrentComponentInstance();
       if (!instance) throw new Error('expected Second component instance');
-      if (!instance.ownership.mounted) {
-        (instance.ownership.cleanups ??= []).push(() => {
+      if (!instance.owner.mounted) {
+        (instance.owner.cleanups ??= []).push(() => {
           secondCleanups += 1;
         });
       }
@@ -957,8 +955,8 @@ describe('component fragment structure', () => {
       setExpanded = expanded.set;
       const instance = getCurrentComponentInstance();
       if (!instance) throw new Error('expected Row component instance');
-      if (!instance.ownership.mounted) {
-        (instance.ownership.cleanups ??= []).push(() => {
+      if (!instance.owner.mounted) {
+        (instance.owner.cleanups ??= []).push(() => {
           cleanups += 1;
         });
       }
@@ -1054,8 +1052,8 @@ describe('component fragment structure', () => {
       expandFallback = () => expanded.set(true);
       const instance = getCurrentComponentInstance();
       if (!instance) throw new Error('expected Fallback component instance');
-      if (!instance.ownership.mounted) {
-        (instance.ownership.cleanups ??= []).push(() => {
+      if (!instance.owner.mounted) {
+        (instance.owner.cleanups ??= []).push(() => {
           fallbackCleanups += 1;
         });
       }
@@ -1072,8 +1070,8 @@ describe('component fragment structure', () => {
     function Row({ id }: { id: string }) {
       const instance = getCurrentComponentInstance();
       if (!instance) throw new Error('expected fallback Row instance');
-      if (!instance.ownership.mounted) {
-        (instance.ownership.cleanups ??= []).push(() => {
+      if (!instance.owner.mounted) {
+        (instance.owner.cleanups ??= []).push(() => {
           rowCleanups += 1;
         });
       }

@@ -27,24 +27,35 @@ class LifecycleCommit implements CommitParticipant {
 
   constructor(instance: ComponentInstance, firstMount: boolean) {
     this.key = instance;
-    this.owner = instance.ownership;
-    this.generation = instance.ownership.identity;
+    this.owner = instance.owner;
+    this.generation = instance.owner.identity;
     this.firstMount = firstMount;
   }
 
   merge(parent: CommitParticipant): void {
-    const previous = parent as LifecycleCommit;
-    previous.firstMount =
-      previous.generation === this.generation
-        ? previous.firstMount || this.firstMount
-        : this.firstMount;
-    previous.owner = this.owner;
-    previous.generation = this.generation;
+    (parent as LifecycleCommit).update(
+      this.owner,
+      this.generation,
+      this.firstMount
+    );
+  }
+
+  update(
+    owner: OwnershipRecord,
+    generation: object,
+    firstMount: boolean
+  ): void {
+    this.firstMount =
+      this.generation === generation
+        ? this.firstMount || firstMount
+        : firstMount;
+    this.owner = owner;
+    this.generation = generation;
   }
 
   private live(): boolean {
     return (
-      this.key.ownership === this.owner &&
+      this.key.owner === this.owner &&
       this.owner.identity === this.generation &&
       !this.owner.disposed
     );
@@ -89,12 +100,7 @@ export function enqueueLifecycleCommitForInstance(
     LIFECYCLE_COMMIT
   );
   if (previous) {
-    previous.firstMount =
-      previous.generation === instance.ownership.identity
-        ? previous.firstMount || firstMount
-        : firstMount;
-    previous.owner = instance.ownership;
-    previous.generation = instance.ownership.identity;
+    previous.update(instance.owner, instance.owner.identity, firstMount);
   } else registerCommitParticipant(new LifecycleCommit(instance, firstMount));
   return true;
 }
@@ -130,25 +136,6 @@ function settleLifecycleOperationResult(
   }
 }
 
-function executeOperations(
-  owner: OwnershipRecord,
-  operations: LifecycleOperation[]
-): unknown[] {
-  if (operations.length === 0) {
-    return [];
-  }
-
-  const errors: unknown[] = [];
-  for (const operation of operations) {
-    try {
-      settleLifecycleOperationResult(owner, operation());
-    } catch (error) {
-      errors.push(error);
-    }
-  }
-  return errors;
-}
-
 export function discardCommitOperations(instance: ComponentInstance): void {
   instance.commitOperations = undefined;
 }
@@ -160,8 +147,15 @@ function executeOwnedLifecycleOperations(
   commits: LifecycleOperation[] | undefined
 ): void {
   const errors: unknown[] = [];
-  if (mounts?.length) errors.push(...executeOperations(owner, mounts));
-  if (commits?.length) errors.push(...executeOperations(owner, commits));
+  for (const operations of [mounts, commits]) {
+    for (const operation of operations ?? []) {
+      try {
+        settleLifecycleOperationResult(owner, operation());
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+  }
 
   if (errors.length > 0) {
     throw new AggregateError(

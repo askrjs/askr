@@ -37,7 +37,7 @@ import {
   getCurrentComponentInstance,
   restoreDomCommitScope,
   type ComponentInstance,
-} from '../../../src/runtime/component';
+} from '../../../src/runtime';
 
 describe('event delegation', () => {
   let container: HTMLElement;

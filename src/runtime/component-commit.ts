@@ -23,7 +23,7 @@ export function runScheduledComponent(
   instance: ComponentInstance,
   execute: (instance: ComponentInstance) => unknown
 ): void {
-  const owner = instance.ownership;
+  const owner = instance.owner;
   const ownershipGeneration = owner.identity;
   const evaluationGeneration = instance.evaluationGeneration;
   const transaction = beginCommitTransaction();
@@ -66,7 +66,7 @@ export function runScheduledComponent(
   const apply = (): void => {
     if (
       owner.disposed ||
-      instance.ownership !== owner ||
+      instance.owner !== owner ||
       owner.identity !== ownershipGeneration ||
       instance.evaluationGeneration !== evaluationGeneration ||
       instance.renderRevision !== renderRevision

@@ -65,8 +65,6 @@ function prepare(root: object, input: RootUpdateInput): PreparedRootUpdate {
           errors.push(error);
         }
       }
-      if (applied)
-        errors.push(...host.retireDeparted(instance.target, instance));
       return errors;
     },
   };

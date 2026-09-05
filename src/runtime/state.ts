@@ -11,11 +11,8 @@
  * - state.set() callback (notifyUpdate) always available
  */
 
-import {
-  claimHookIndex,
-  getCurrentInstance,
-  type ComponentInstance,
-} from './component';
+import { claimHookIndex, getCurrentInstance } from './component-scope';
+import { type ComponentInstance } from './component-internal';
 import { deferCommitNotification } from './transaction-access';
 import { isProductionEnvironment } from '../common/env';
 import {

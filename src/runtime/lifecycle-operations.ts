@@ -1,12 +1,11 @@
 import { getComponentLifecycleSlot as getLifecycleSlot } from './component-capabilities';
 import { resolveListenerTarget } from '../resources/browser-activity';
 import { ownCleanup } from './ownership';
+import { claimHookIndex, getCurrentComponentInstance } from './component-scope';
 import {
-  claimHookIndex,
-  getCurrentComponentInstance,
   registerCommitOperation,
   type ComponentInstance,
-} from './component';
+} from './component-internal';
 import { isRouteActivityActive } from '../common/route-activity';
 import { adjustOwnershipDiagnostic } from './ownership-diagnostics';
 import {
@@ -163,7 +162,7 @@ function commitListenerSlot(
 
   if (!slot.cleanupRegistered) {
     slot.cleanupRegistered = true;
-    ownCleanup(instance.ownership, () => {
+    ownCleanup(instance.owner, () => {
       detachListenerSlot(slot);
       slot.cleanupRegistered = false;
     });
@@ -268,7 +267,7 @@ function commitTimerSlot(instance: ComponentInstance, slot: TimerSlot): void {
 
   if (!slot.cleanupRegistered) {
     slot.cleanupRegistered = true;
-    ownCleanup(instance.ownership, () => {
+    ownCleanup(instance.owner, () => {
       stopTimerSlot(slot);
       slot.cleanupRegistered = false;
     });
@@ -469,7 +468,7 @@ function commitWatchSlot<TValue>(
 
   if (!slot.cleanupRegistered) {
     slot.cleanupRegistered = true;
-    ownCleanup(instance.ownership, () => {
+    ownCleanup(instance.owner, () => {
       stopWatchSlot(slot);
       slot.cleanupRegistered = false;
     });

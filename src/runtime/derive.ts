@@ -1,9 +1,6 @@
 import { ownCleanup } from './ownership';
-import {
-  claimHookIndex,
-  getCurrentInstance,
-  type ComponentInstance,
-} from './component';
+import { claimHookIndex, getCurrentInstance } from './component-scope';
+import { type ComponentInstance } from './component-internal';
 import { enqueueRuntimeLane, getRuntimeFlushVersion } from './access';
 import {
   clearDerivedDependencySubscriptions,
@@ -55,7 +52,7 @@ let hasPendingDerivedFlush = false;
 function getDeriveStore(
   instance: ComponentInstance
 ): Map<number, DerivedCell<unknown>> {
-  const generation = instance.ownership.identity;
+  const generation = instance.owner.identity;
   let store = deriveCells.get(generation);
   if (!store) {
     store = new Map();
@@ -221,7 +218,7 @@ function createDerivedCell<T>(
     }
   };
 
-  ownCleanup(instance.ownership, () => {
+  ownCleanup(instance.owner, () => {
     try {
       cell._cleanup();
     } finally {
@@ -252,7 +249,7 @@ function getOrCreateDerivedCell<T>(
 
   const created = createDerivedCell(
     instance,
-    instance.ownership.identity,
+    instance.owner.identity,
     store,
     hookIndex,
     compute

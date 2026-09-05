@@ -13,7 +13,7 @@ import { getDevValue } from '../../../src/runtime/dev-namespace';
 import {
   createComponentInstance,
   mountInstanceInline,
-} from '../../../src/runtime/component';
+} from '../../../src/runtime';
 import {
   createTestContainer,
   flushScheduler,

@@ -1,4 +1,4 @@
-import type { ComponentInstance } from './component';
+import { type ComponentInstance } from './component-internal';
 import type { ChildScope } from './child-scope';
 import type { ReadableSource } from './readable';
 import type { DOMRange } from '../common/dom-range';

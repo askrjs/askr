@@ -28,7 +28,7 @@ import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
-import type { ComponentInstance } from '../../../src/runtime/component';
+import type { ComponentInstance } from '../../../src/runtime';
 
 function setDocumentVisibility(value: DocumentVisibilityState): () => void {
   const ownDescriptor = Object.getOwnPropertyDescriptor(

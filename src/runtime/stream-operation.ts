@@ -1,11 +1,10 @@
 import { ownCleanup } from './ownership';
 import { enqueueRuntimeLane } from './access';
+import { claimHookIndex, getCurrentComponentInstance } from './component-scope';
 import {
-  claimHookIndex,
-  getCurrentComponentInstance,
   registerCommitOperation,
   type ComponentInstance,
-} from './component';
+} from './component-internal';
 import { adjustOwnershipDiagnostic } from './ownership-diagnostics';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
@@ -359,7 +358,7 @@ function commitSlot<T>(instance: ComponentInstance, slot: StreamSlot<T>): void {
 
   if (!slot.cleanupRegistered) {
     slot.cleanupRegistered = true;
-    ownCleanup(instance.ownership, () => disposeSlot(slot));
+    ownCleanup(instance.owner, () => disposeSlot(slot));
   }
 
   if (!slot.explicitlyClosed && (firstCommit || (depsChanged && wasRunning))) {

@@ -26,11 +26,13 @@ import {
   cleanupComponent,
   registerOwnedChildScope,
   unregisterOwnedChildScope,
+  bindComponentOwnership,
 } from './component-cleanup';
 import {
   componentRecordPrototype,
   getOwnershipSignal,
   OwnershipRecord,
+  attachOwnership,
 } from './ownership';
 import { runScheduledComponent } from './component-commit';
 import { sealInlineRenderSnapshot } from './render-transaction';
@@ -83,7 +85,7 @@ export interface ComponentInstance {
   range?: DOMRange;
   parentInstance: ComponentInstance | null;
   portalScope: object | null;
-  ownership: OwnershipRecord;
+  owner: OwnershipRecord;
   ssr?: boolean; // Set to true for SSR temporary instances
   // Opt-in strict cleanup mode: when true cleanup errors are aggregated and re-thrown
   cleanupStrict?: boolean;
@@ -172,7 +174,7 @@ function ensurePendingRunTask(instance: ComponentInstance): () => void {
 }
 
 function enqueueComponentRun(this: ComponentInstance): void {
-  if (this.ownership.disposed || this.hasPendingUpdate) {
+  if (this.owner.disposed || this.hasPendingUpdate) {
     return;
   }
 
@@ -192,7 +194,8 @@ export function createComponentInstance(
   id: string,
   fn: ComponentFunction,
   props: Props,
-  target: Element | null
+  target: Element | null,
+  lifetimeParent?: OwnershipRecord | null
 ): ComponentInstance {
   const parentInstance = getCurrentInstance();
   const portalScope = parentInstance?.portalScope ?? getCurrentPortalScope();
@@ -205,7 +208,7 @@ export function createComponentInstance(
     range: undefined,
     parentInstance,
     portalScope: portalScope ?? null,
-    ownership: new OwnershipRecord(),
+    owner: new OwnershipRecord(),
     stateValues: undefined,
     evaluationGeneration: 0,
     renderRevision: 0,
@@ -237,6 +240,14 @@ export function createComponentInstance(
   };
 
   instance._enqueueRun = enqueueComponentRun;
+
+  bindComponentOwnership(instance);
+  attachOwnership(
+    instance.owner,
+    lifetimeParent === null
+      ? undefined
+      : (lifetimeParent ?? parentInstance?.owner)
+  );
 
   return instance;
 }
@@ -272,8 +283,8 @@ export function mountInstanceInline(
   // Use prebound enqueue helper to avoid allocating a new closure
   instance.notifyUpdate = instance._enqueueRun!;
 
-  const wasFirstMount = !instance.ownership.mounted;
-  instance.ownership.mounted = true;
+  const wasFirstMount = !instance.owner.mounted;
+  instance.owner.mounted = true;
   commitLifecycleForInstance(instance, wasFirstMount);
 }
 
@@ -380,7 +391,7 @@ function executeComponentSync(
     const renderStartTime = trackRenderTime ? Date.now() : 0;
 
     // Create context object with abort signal
-    const context = new ComponentExecutionContext(instance.ownership);
+    const context = new ComponentExecutionContext(instance.owner);
 
     // Execute component within its owner frame (provider chain).
     // This ensures all context reads see the correct provider values.

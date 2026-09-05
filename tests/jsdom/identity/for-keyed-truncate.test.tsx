@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { For } from '../../../src/control';
 import { createIsland } from '../../../src/boot';
-import { getCurrentComponentInstance } from '../../../src/runtime/component';
+import { getCurrentComponentInstance } from '../../../src/runtime';
 import { state, type State } from '../../../src/runtime/state';
 import {
   createTestContainer,
@@ -38,7 +38,7 @@ describe('keyed For truncation', () => {
       if (!instance) throw new Error('expected row component instance');
       const local = state(0);
       localSetters.set(row.id, local.set);
-      (instance.ownership.cleanups ??= []).push(() => {
+      (instance.owner.cleanups ??= []).push(() => {
         cleanupCounts.set(row.id, (cleanupCounts.get(row.id) ?? 0) + 1);
       });
 
@@ -120,7 +120,7 @@ describe('keyed For truncation', () => {
       const instance = getCurrentComponentInstance();
       if (!instance) throw new Error('expected row component instance');
       if (row.broken) throw new Error('retained truncate update failed');
-      (instance.ownership.cleanups ??= []).push(() => {
+      (instance.owner.cleanups ??= []).push(() => {
         cleanupCounts.set(row.id, (cleanupCounts.get(row.id) ?? 0) + 1);
       });
       return <button data-row={String(row.id)}>{row.label}</button>;

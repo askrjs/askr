@@ -2,7 +2,7 @@ import { resetRouteState } from '../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { createSPA } from '@askrjs/askr/boot';
 import { definePortal, type Portal } from '../../../src/runtime/portal';
-import type { ComponentInstance } from '../../../src/runtime/component';
+import type { ComponentInstance } from '../../../src/runtime';
 import type { ReadableSource } from '../../../src/runtime/readable';
 import { currentRoute } from '../../../src/router/activity';
 import { navigate } from '../../../src/router/navigate';
@@ -37,7 +37,7 @@ function getPortalSource(
   const portalInstance = Array.from(collectInstances(root)).find(
     (instance) => instance.fn === portal
   );
-  return portalInstance?.ownership.reads?.values().next().value;
+  return portalInstance?.owner.reads?.values().next().value;
 }
 
 describe('portal cleanup in routed layout and keyed table children', () => {

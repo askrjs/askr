@@ -465,9 +465,7 @@ type RoutePathParams<Path extends string> = [
   ExtractRoutePathParamNames<Path>,
 ] extends [never]
   ? Record<never, string>
-  : {
-      [Key in ExtractRoutePathParamNames<Path>]: string;
-    };
+  : { [Key in ExtractRoutePathParamNames<Path>]: string };
 /**
  * A route page component: a regular component that receives route params as
  * props derived from the URL pattern.
