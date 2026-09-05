@@ -5,7 +5,7 @@ import type {
   ScopeBoundary,
 } from '../runtime/renderer-capabilities';
 import type { InstanceHostNode } from './dom-host';
-import { releaseRegisteredRange } from './dom-range';
+import { indexOwnedRange, releaseRegisteredRange } from './dom-range';
 
 /** Both fields are indexes of the same renderer-owned boundary. */
 export function writeScopeHost(
@@ -13,6 +13,7 @@ export function writeScopeHost(
   range: DOMRange | undefined,
   dom = range?.single ? range.start : undefined
 ): void {
+  indexOwnedRange(scope, range);
   scope.range = range;
   scope.dom = dom;
 }

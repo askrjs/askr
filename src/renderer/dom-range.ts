@@ -1,4 +1,8 @@
-import type { DOMRange } from '../common/dom-range';
+import {
+  DIRECT_RANGE_OWNER,
+  type DirectRangeOwner,
+  type DOMRange,
+} from '../common/dom-range';
 
 export type { DOMRange } from '../common/dom-range';
 
@@ -10,23 +14,51 @@ const ownersByAnchor = new WeakMap<Node, object>();
 const rangesByAnchor = new WeakMap<Node, DOMRange>();
 const hostsByOwner = new WeakMap<object, Node>();
 
+function readOwnerRange(owner: object): DOMRange | undefined {
+  return DIRECT_RANGE_OWNER in owner
+    ? (owner as DirectRangeOwner).range
+    : rangesByOwner.get(owner);
+}
+
+function writeOwnerRange(owner: object, range: DOMRange): void {
+  if (DIRECT_RANGE_OWNER in owner) (owner as DirectRangeOwner).range = range;
+  else rangesByOwner.set(owner, range);
+}
+
+function clearOwnerRange(owner: object): void {
+  if (DIRECT_RANGE_OWNER in owner)
+    (owner as DirectRangeOwner).range = undefined;
+  else rangesByOwner.delete(owner);
+}
+
+/** Update an alias without transferring the anchors' primary owner. */
+export function indexOwnedRange(
+  owner: object,
+  range: DOMRange | undefined
+): void {
+  const previous = readOwnerRange(owner);
+  if (previous === range) return;
+  if (previous) clearRegisteredRange(previous, owner);
+  if (range) writeOwnerRange(owner, range);
+}
+
 /** Component wrappers share the host range, without transferring its lifetime owner. */
 export function indexRangeHostOwner(owner: object, host: Node): void {
   const previous = hostsByOwner.get(owner);
   if (previous && previous !== host) {
-    const range = rangesByOwner.get(owner);
+    const range = readOwnerRange(owner);
     if (range?.start === previous) clearRangeOwner(range, owner);
   }
   hostsByOwner.set(owner, host);
   const primary = ownersByAnchor.get(host);
-  const range = primary ? rangesByOwner.get(primary) : rangesByAnchor.get(host);
-  if (range?.start === host) rangesByOwner.set(owner, range);
+  const range = primary ? readOwnerRange(primary) : rangesByAnchor.get(host);
+  if (range?.start === host) writeOwnerRange(owner, range);
 }
 
 export function clearRangeHostOwner(owner: object, host: Node): void {
   if (hostsByOwner.get(owner) !== host) return;
   hostsByOwner.delete(owner);
-  const range = rangesByOwner.get(owner);
+  const range = readOwnerRange(owner);
   if (range?.start === host) clearRangeOwner(range, owner);
 }
 
@@ -36,7 +68,7 @@ export function releaseOwnerRange(owner: object): void {
 }
 
 export function releaseRegisteredRange(owner: object): void {
-  const range = rangesByOwner.get(owner);
+  const range = readOwnerRange(owner);
   if (range) clearRegisteredRange(range, owner);
 }
 
@@ -160,14 +192,14 @@ export function registerRange(range: DOMRange, owner?: object): void {
     return;
   }
 
-  const previous = rangesByOwner.get(owner);
+  const previous = readOwnerRange(owner);
   if (previous && previous !== range) clearRangeOwner(previous, owner);
 
   const previousStartOwner = ownersByAnchor.get(range.start);
   const previousEndOwner = ownersByAnchor.get(range.end);
   for (const previousOwner of [previousStartOwner, previousEndOwner]) {
     const previousRange = previousOwner
-      ? rangesByOwner.get(previousOwner)
+      ? readOwnerRange(previousOwner)
       : undefined;
     if (
       previousOwner &&
@@ -175,11 +207,11 @@ export function registerRange(range: DOMRange, owner?: object): void {
       previousRange &&
       (previousRange.start === range.start || previousRange.end === range.end)
     ) {
-      rangesByOwner.delete(previousOwner);
+      clearOwnerRange(previousOwner);
     }
   }
 
-  rangesByOwner.set(owner, range);
+  writeOwnerRange(owner, range);
   ownersByAnchor.set(range.start, owner);
   if (range.end !== range.start) {
     ownersByAnchor.set(range.end, owner);
@@ -190,7 +222,7 @@ export function registerRange(range: DOMRange, owner?: object): void {
   };
   for (const shared of host.__ASKR_INSTANCES ?? []) {
     if (hostsByOwner.get(shared) === range.start)
-      rangesByOwner.set(shared, range);
+      writeOwnerRange(shared, range);
   }
   const primary = host.__ASKR_INSTANCE;
   if (
@@ -198,18 +230,18 @@ export function registerRange(range: DOMRange, owner?: object): void {
     primary !== host.__ASKR_INSTANCES?.[0] &&
     hostsByOwner.get(primary) === range.start
   )
-    rangesByOwner.set(primary, range);
+    writeOwnerRange(primary, range);
 }
 
 export function getOwnedRange(owner: object): DOMRange | undefined {
-  const owned = rangesByOwner.get(owner);
+  const owned = readOwnerRange(owner);
   if (owned) return owned;
   const host = hostsByOwner.get(owner);
   if (!host) return undefined;
   const primary = ownersByAnchor.get(host);
-  const registered = primary ? rangesByOwner.get(primary) : undefined;
+  const registered = primary ? readOwnerRange(primary) : undefined;
   if (registered?.start === host) {
-    rangesByOwner.set(owner, registered);
+    writeOwnerRange(owner, registered);
     return registered;
   }
   const range = rangesByAnchor.get(host);
@@ -236,7 +268,7 @@ export function setRangeOwner(range: DOMRange, owner: object): void {
 }
 
 function clearRegisteredRange(range: DOMRange, owner: object): void {
-  rangesByOwner.delete(owner);
+  clearOwnerRange(owner);
   if (ownersByAnchor.get(range.start) === owner)
     ownersByAnchor.delete(range.start);
   if (range.end !== range.start && ownersByAnchor.get(range.end) === owner)
@@ -245,19 +277,15 @@ function clearRegisteredRange(range: DOMRange, owner: object): void {
 
 export function clearRangeOwner(range: DOMRange, owner?: object): void {
   if (owner) {
-    if (rangesByOwner.get(owner) === range) clearRegisteredRange(range, owner);
+    if (readOwnerRange(owner) === range) clearRegisteredRange(range, owner);
     return;
   }
   const startOwner = ownersByAnchor.get(range.start);
   const endOwner =
     range.end === range.start ? startOwner : ownersByAnchor.get(range.end);
-  if (startOwner && rangesByOwner.get(startOwner) === range)
+  if (startOwner && readOwnerRange(startOwner) === range)
     clearRegisteredRange(range, startOwner);
-  if (
-    endOwner &&
-    endOwner !== startOwner &&
-    rangesByOwner.get(endOwner) === range
-  )
+  if (endOwner && endOwner !== startOwner && readOwnerRange(endOwner) === range)
     clearRegisteredRange(range, endOwner);
 }
 

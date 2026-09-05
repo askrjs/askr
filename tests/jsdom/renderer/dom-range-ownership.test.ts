@@ -13,9 +13,52 @@ import {
   getOwnedRange,
   getRangeOwner,
   registerRange,
+  releaseOwnerRange,
 } from '../../../src/renderer/dom-range';
+import { createChildScope } from '../../../src/runtime/child-scope';
+import { writeScopeHost } from '../../../src/renderer/scope-host';
+import {
+  clearDOMRange,
+  createDOMRange,
+  updateDOMRangeForContext,
+} from '../../../src/renderer/evaluate-dom-range';
 
 describe('dom-range ownership reassignment (regression for #357)', () => {
+  it('should keep a scope host and its owned range on the same registration', () => {
+    const scope = createChildScope(null, 'scope');
+    const previous = createSingleNodeRange(
+      document.createElement('div'),
+      scope
+    );
+    writeScopeHost(scope, previous);
+    const next = createSingleNodeRange(document.createElement('span'));
+    writeScopeHost(scope, next);
+    expect(getOwnedRange(scope)).toBe(next);
+    expect(getRangeOwner(previous.start)).toBeUndefined();
+    releaseOwnerRange(scope);
+    expect(getOwnedRange(scope)).toBeUndefined();
+    expect(scope.range).toBeUndefined();
+    scope.dispose();
+  });
+
+  it('should register extension context anchors without mutating the context', () => {
+    const context = Object.freeze({ range: 'consumer-owned' });
+    const host = document.createElement('div');
+    createDOMRange(host, context, 'initial');
+    const start = host.firstChild!;
+    const end = host.lastChild!;
+    const owner = getRangeOwner(start)!;
+    expect(owner).toBeDefined();
+    expect(getOwnedRange(owner)).toEqual({ start, end, single: false });
+    updateDOMRangeForContext(host, context, ['updated']);
+    expect(host.textContent).toBe('updated');
+    expect(context.range).toBe('consumer-owned');
+    clearDOMRange(context);
+    expect(getRangeOwner(start)).toBeUndefined();
+    expect(getRangeOwner(end)).toBeUndefined();
+    expect(getOwnedRange(owner)).toBeUndefined();
+  });
+
   it('should refresh shared owner indexes when the same anchors receive a new range', () => {
     const outer = createComponentInstance('outer', () => null, {}, null);
     const inner = createComponentInstance('inner', () => null, {}, null);

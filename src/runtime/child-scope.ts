@@ -14,7 +14,7 @@ import {
 import { finalizeInlineReadSubscriptions } from './component-lifecycle';
 import { clearRenderTracking } from './component-scope';
 import { isDevelopmentEnvironment } from '../common/env';
-import type { DOMRange } from '../common/dom-range';
+import { DIRECT_RANGE_OWNER, type DOMRange } from '../common/dom-range';
 import { rebaseVNodeTreeWithContextFrame, type ContextFrame } from './context';
 import type { OwnershipRecord } from './ownership';
 
@@ -96,6 +96,9 @@ function ensureChildScopeFlushTask(scope: MutableChildScope): void {
 }
 
 class ChildScopeImpl implements MutableChildScope {
+  get [DIRECT_RANGE_OWNER](): true {
+    return true;
+  }
   key: string | number;
   componentInstance: ComponentInstance;
   previousVnode: VNode | undefined = undefined;

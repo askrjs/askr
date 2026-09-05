@@ -13,6 +13,10 @@ a newer registration at the same anchors. Explicit range ownership transfers
 remain distinct from components sharing a host: wrapper components resolve to
 the same active range through a host index, without transferring the range's
 primary owner. Singleton ranges are materialized when first queried.
+Native component and child-scope records retain a direct range index; opaque
+extension owners use an external index. Both are maintained by the same
+registry. Public evaluation contexts have private owners in that registry, so
+context objects remain untouched and do not introduce a second range model.
 
 `renderer/dom-ownership.ts` is the writer for component metadata on nodes and
 the corresponding host indexes. Updates and restoration retain primary-owner

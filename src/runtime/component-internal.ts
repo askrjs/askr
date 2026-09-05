@@ -60,6 +60,11 @@ import {
   restoreRenderScopedComponent,
 } from './component-scope';
 import type { AppRenderRuntime } from '../common/app-render-runtime';
+import { DIRECT_RANGE_OWNER, type DOMRange } from '../common/dom-range';
+
+Object.defineProperty(componentRecordPrototype, DIRECT_RANGE_OWNER, {
+  value: true,
+});
 
 // Production modules never enter diagnostic render timing. Development/test
 // modules retain the runtime environment check for prod-fallback coverage.
@@ -73,6 +78,8 @@ export interface ComponentInstance {
   fn: ComponentFunction;
   props: Props;
   target: Element | null;
+  /** Renderer-maintained index of this execution record's current host. */
+  range?: DOMRange;
   parentInstance: ComponentInstance | null;
   portalScope: object | null;
   ownership: OwnershipRecord;
@@ -197,6 +204,7 @@ export function createComponentInstance(
     fn,
     props,
     target,
+    range: undefined,
     parentInstance,
     portalScope: portalScope ?? null,
     ownership: new OwnershipRecord(),
