@@ -15,7 +15,11 @@ immediately before its candidate capture on the same runner. Both sets of raw
 JSON and their commit/lockfile provenance are uploaded together. Optional `tier`
 and `pattern` inputs isolate unchanged workloads when broad captures show
 variation. Retain rejected captures alongside recaptures; filtering does not
-change the sample-quality or regression limits.
+change the sample-quality or regression limits. When sample collection options
+change, the optional `harness` commit installs identical benchmark sources on
+the baseline; the harness SHA and complete baseline benchmark diff are retained
+in the artifact. Runtime sources, labels, operations, and reset behavior remain
+unchanged by this option.
 
 ## Acceptance Rules
 

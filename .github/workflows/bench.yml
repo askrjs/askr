@@ -11,6 +11,10 @@ on:
         required: false
         type: string
 
+      harness:
+        description: Optional shared benchmark harness commit for baseline recaptures
+        required: false
+        type: string
       tier:
         description: Tier to capture
         required: false
@@ -73,6 +77,17 @@ jobs:
         if: inputs.baseline != ''
         working-directory: .benchmark-baseline
         run: npm ci
+
+      - name: Use the shared benchmark harness for the baseline
+        if: inputs.baseline != '' && inputs.harness != ''
+        working-directory: .benchmark-baseline
+        env:
+          BENCH_HARNESS_REF: ${{ inputs.harness }}
+        run: |
+          git fetch --depth=1 origin "$BENCH_HARNESS_REF"
+          git rev-parse FETCH_HEAD > ../bench-results/harness-provenance.txt
+          git restore --source=FETCH_HEAD -- benches
+          git diff -- benches > ../bench-results/baseline-harness.diff
 
       - name: Record baseline provenance
         if: inputs.baseline != ''

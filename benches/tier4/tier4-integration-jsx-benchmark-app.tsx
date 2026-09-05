@@ -41,6 +41,7 @@ const jsxAppSlowBenchOptions = extendBenchOptions(tier4BenchOptions, {
 
 const jsxAppAppendBenchOptions = extendBenchOptions(tier4BenchOptions, {
   time: 2500,
+  iterations: 100,
 });
 
 function mountJsxBenchmarkApp(initialRows: RowData[]) {
