@@ -1,4 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vite-plus/test';
 import { cleanupApp, createSPA } from '../../../src/boot';
 import { task } from '../../../src/runtime/operations';
 import { getSignal } from '../../../src/resources';
@@ -21,9 +28,50 @@ describe('navigation during lifecycle settlement', () => {
     window.history.replaceState({}, '', '/first');
   });
   afterEach(() => {
+    vi.restoreAllMocks();
     cleanupApp(view.container);
     view.cleanup();
     window.history.replaceState({}, '', '/');
+  });
+
+  it('should surface synchronous history failures without restoring a retired generation', async () => {
+    let firstSignal!: AbortSignal;
+    let secondSignal!: AbortSignal;
+    await createSPA({
+      root: view.container,
+      registry: routeRegistryFromTable([
+        {
+          path: '/first',
+          handler: () => {
+            firstSignal = getSignal();
+            return <p>{'first'}</p>;
+          },
+        },
+        {
+          path: '/second',
+          handler: () => {
+            secondSignal = getSignal();
+            return <p>{'second'}</p>;
+          },
+        },
+      ]),
+    });
+    const failure = new DOMException(
+      'History state cannot be cloned',
+      'DataCloneError'
+    );
+    vi.spyOn(window.history, 'pushState').mockImplementationOnce(() => {
+      throw failure;
+    });
+    expect(() => navigate('/second')).toThrow(failure);
+    expect(firstSignal.aborted).toBe(true);
+    expect(secondSignal.aborted).toBe(false);
+    expect(view.container.textContent).toBe('second');
+    const retained = secondSignal;
+    navigate('/second?retry=1');
+    flushScheduler();
+    expect(window.location.pathname).toBe('/second');
+    expect(secondSignal).toBe(retained);
   });
 
   it.each(['commit', 'discard'] as const)(

@@ -453,6 +453,7 @@ function commitNavigationRoots(
     };
   });
   const transaction = beginCommitTransaction();
+  let completionFailure: { error: unknown } | undefined;
   registerCommitParticipant({
     rollback() {
       const errors: unknown[] = [];
@@ -484,6 +485,9 @@ function commitNavigationRoots(
         syncRegisteredRouteSnapshot();
         reconcileNavigationMetadata(targets);
         updateScroll();
+      } catch (error) {
+        completionFailure = { error };
+        throw error;
       } finally {
         for (const root of roots) root.prepared.publish();
       }
@@ -507,6 +511,7 @@ function commitNavigationRoots(
       },
     });
     commitTransaction(transaction);
+    if (completionFailure) throw completionFailure.error;
   } catch (error) {
     logger.error('[Askr] navigation failed:', error);
     throw error;

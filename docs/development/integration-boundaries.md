@@ -20,6 +20,8 @@ still drains its departed owners and releases its staged location, but cannot
 overwrite the newer destination. Navigation nested inside another transaction
 waits for that transaction's publication and settlement. It cannot retire owners
 or publish history independently.
+Synchronous History API failures still propagate to the navigation caller.
+They occur after publication and cannot resurrect a retired generation.
 
 Data integrations use runtime capabilities to identify the current lifetime and
 attach cleanup. The existing data runtime remains the only query cache owner.
