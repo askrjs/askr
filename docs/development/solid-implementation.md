@@ -15,7 +15,7 @@ target that immutable revision so structural moves do not change its evidence.
 | F07     | Opaque DOM roles and packed-consumer delegation implemented.                                                                |
 | F08     | Flat hook, execution, vnode identity, read, and diagnostic views; snapshot capture colocated with state.                    |
 | F09     | Fresh/hydrated adoption and retained updates separated behind one replacement rollback protocol.                            |
-| F10     | Listener and reactive-binding operations extracted; scalar operations retain their existing owner.                          |
+| F10     | Listener and reactive-binding reconciliation and pruning extracted; ordered dispatch and scalar ownership retained.         |
 | F11     | Query cells and fixtures share complete state builders; mutation fixtures remain separate.                                  |
 | F12     | For strategies take explicit inputs and return boundary results; orchestration retains transaction capture and bookkeeping. |
 | F13     | Boot and testing are stable barrels over mode-specific implementations and focused helpers.                                 |
@@ -116,6 +116,16 @@ contract changes. A fresh same-host diagnostic pair reports snapshot CPU at
 allocation down 19.0%, with identical snapshot counts. This optimization still
 requires hosted timing qualification.
 
+Final structural review found that the original F10 extraction moved binding
+helpers while leaving reconciliation policies in the central prop loop. Those
+policies and repeated listener teardown now live with their respective owners.
+The orchestrator retains one prop loop followed by scalar-attribute, listener,
+and reactive-binding pruning in that order. Initial order/error characterization
+and existing binding suites passed 45 cases before extraction. Three new tests
+caught eager vnode-type reads introduced during extraction; lazy reads restore
+the original reuse and cleanup order. All 83 focused binding, hydration, stable
+patch, and rollback cases pass after the move.
+
 ## Governance coverage
 
 Subsystem value-cycle governance covers boot, common, data, renderer, router,
@@ -141,7 +151,7 @@ out. The same official artifact URLs are reachable with curl; browser validation
 uses those exact versions rather than substituting another installed browser.
 
 Final local validation after review: formatting, lint/typecheck, build, 294 unit
-tests, 58 repository checks, 1,569 DOM tests, 53 tests each in Chromium, Firefox,
+tests, 58 repository checks, 1,574 DOM tests, 53 tests each in Chromium, Firefox,
 and WebKit, public type tests, and 20 installed-consumer tests pass. Package
 lint and artifact checks pass, followed by a normal build. Independent structural
 review confirmed all 222 original declaration nodes, core exports, snapshot fields,

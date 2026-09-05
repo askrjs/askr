@@ -8,8 +8,13 @@ import { isBenchMetricScopeActive, recordBenchCounter } from '../runtime';
 import { incrementPerfMetric } from '../runtime';
 import type { ReadableSource } from '../runtime';
 import { applyScalarPropValue } from './attributes';
-import { type ReactivePropCleanupEntry } from './cleanup';
+import {
+  elementReactivePropsCleanup,
+  getElementReactivePropsCleanupMap,
+  type ReactivePropCleanupEntry,
+} from './cleanup';
 import { getRuntimeEnv } from './env';
+import type { DOMElement } from './types';
 declare const __ASKR_BENCH_BUILD__: boolean;
 const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
 
@@ -129,4 +134,69 @@ export function createReactivePropCleanupEntry(
       ),
     fnRef: propFn,
   };
+}
+
+export function getOrCreateReactivePropsCleanupMap(
+  el: Element
+): Map<string, ReactivePropCleanupEntry> {
+  return getElementReactivePropsCleanupMap(el, true)!;
+}
+
+/** Retire a binding before its prop becomes a scalar or is removed. */
+export function removeReactivePropBinding(
+  entries: Map<string, ReactivePropCleanupEntry> | undefined,
+  key: string
+): boolean {
+  const entry = entries?.get(key);
+  if (!entry) return false;
+  entry.cleanup();
+  entries?.delete(key);
+  return true;
+}
+
+/** Reuse a binding's effect identity when replacing its compute function. */
+export function syncReactivePropBinding(
+  el: Element,
+  key: string,
+  value: () => unknown,
+  vnode: Pick<DOMElement, 'type'>,
+  existingEntry: ReactivePropCleanupEntry | undefined
+): void {
+  if (existingEntry && existingEntry.fnRef === value) return;
+  if (existingEntry?.updateFn) {
+    existingEntry.updateFn(value);
+    existingEntry.fnRef = value;
+    return;
+  }
+  if (existingEntry) existingEntry.cleanup();
+  getOrCreateReactivePropsCleanupMap(el).set(
+    key,
+    createReactivePropCleanupEntry(el, key, value, vnode.type as string)
+  );
+}
+
+/** Prune reactive bindings only after listener reconciliation completes. */
+export function pruneReactivePropBindings(
+  el: Element,
+  existingReactiveProps: Map<string, ReactivePropCleanupEntry> | undefined,
+  desiredReactivePropNames: Set<string> | null
+): void {
+  if (existingReactiveProps && existingReactiveProps.size > 0) {
+    if (desiredReactivePropNames === null) {
+      existingReactiveProps.forEach((entry) => {
+        entry.cleanup();
+      });
+      elementReactivePropsCleanup.delete(el);
+    } else {
+      existingReactiveProps.forEach((entry, key) => {
+        if (!desiredReactivePropNames.has(key)) {
+          entry.cleanup();
+          existingReactiveProps.delete(key);
+        }
+      });
+      if (existingReactiveProps.size === 0) {
+        elementReactivePropsCleanup.delete(el);
+      }
+    }
+  }
 }
