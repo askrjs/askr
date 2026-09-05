@@ -12,11 +12,17 @@ three times, and compare the median for the identical workload name.
 The manual benchmark workflow accepts an optional `baseline` commit. When
 provided, it installs that revision separately and runs each baseline capture
 immediately before its candidate capture on the same runner. Both sets of raw
-JSON and their commit/lockfile provenance are uploaded together. Optional `tier`
-and `pattern` inputs isolate unchanged workloads when broad captures show
-variation. Retain rejected captures alongside recaptures; filtering does not
-change the sample-quality or regression limits. When sample collection options
-change, the optional `harness` commit installs identical benchmark sources on
+JSON and their commit/lockfile provenance are uploaded together. Optional `tier`,
+`pattern`, and repository-relative `file` inputs select unchanged workloads when
+broad captures show variation. The same file filter applies to every baseline,
+control, and candidate capture and is recorded in `provenance.txt`; omitting it
+keeps all files in the selected tier. Name filtering alone still imports other
+files and runs their top-level preflights. File filtering removes that preceding
+work. Benchmark files already execute sequentially; the effect of removing
+unrelated preflights on capture variation is not yet established. Retain rejected
+captures alongside recaptures; filtering does not change the sample-quality or
+regression limits. When sample collection options change, the optional `harness`
+commit installs identical benchmark sources on
 the baseline; the harness SHA and complete baseline benchmark diff are retained
 in the artifact. Runtime sources, labels, operations, and reset behavior remain
 unchanged by this option. Optional `control` captures repeat the baseline before

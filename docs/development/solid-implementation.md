@@ -134,6 +134,22 @@ caught eager vnode-type reads introduced during extraction; lazy reads restore
 the original reuse and cleanup order. All 83 focused binding, hydration, stable
 patch, and rollback cases pass after the move.
 
+The `b36ff06` comparison covers all twelve documented guardrails and the affected
+diagnostics. All eighteen original-main median deltas meet the 5% regression
+limit; selected and unselected resize improve 3.01% and 3.52%, respectively. The
+separate optimization comparison improves 11.09%. Acceptance remains pending:
+two of 171 captures fail sample quality, and twelve of nineteen comparisons have
+more than 5% drift in a three-capture source series. The complete rejected set is
+retained in `../benchmarks/solid-snapshot-rejected-b36ff06.json`.
+
+Truncation's first baseline and candidate captures contain 121 and 119 samples
+with RME of 17.91% and 17.55%. Its next capture uses a minimum of 1,000 samples,
+equally on both sources, retaining the same operation, reset, timing, and label.
+Installed runner-source inspection confirms benchmark files execute serially,
+but name-only filtering still imports unrelated files and runs their preflights.
+Filename filtering removes that preceding work before collection. Its effect on
+the observed drift remains to be measured; concurrent preflights were not found.
+
 ## Governance coverage
 
 Subsystem value-cycle governance covers boot, common, data, renderer, router,
