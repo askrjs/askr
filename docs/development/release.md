@@ -59,6 +59,8 @@ source checkouts unchanged. Generate SPA, SSR, and SSG applications using a
 packed CLI and run their complete `check` commands with the candidate installed.
 SSG qualification also verifies the generated sitemap, robots file, and manifest.
 This qualification does not publish a package or require a version change.
+See the [core consolidation qualification](core-consolidation-qualification.md)
+for the recorded package, consumer, browser, and performance evidence.
 
 The intended happy path is:
 
