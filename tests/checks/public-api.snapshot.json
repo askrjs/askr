@@ -5,6 +5,16 @@
     "Case",
     "CaseProps",
     "CspNonceScope",
+    "DOMChildScope",
+    "DOMComponentOwner",
+    "DOMReactiveSource",
+    "DOMRendererCleanup",
+    "DOMRendererEvaluation",
+    "DOMRendererHost",
+    "DOMRendererKeys",
+    "DOMRendererRange",
+    "DOMRendererReactivity",
+    "DOMRendererScopes",
     "DataRuntime",
     "Derived",
     "For",
@@ -32,6 +42,7 @@
     "StateSetter",
     "StateTuple",
     "configureRenderDiagnostics",
+    "createDOMRendererHost",
     "createQuery",
     "createQueryCollection",
     "createRef",
@@ -47,20 +58,15 @@
     "hydrateDataRuntime",
     "jsx",
     "jsxs",
+    "ownerBrand",
     "prefetchQuery",
     "readScope",
     "registerSSRStyle",
+    "scopeBrand",
     "selector",
     "serveQuery",
+    "sourceBrand",
     "state"
-  ],
-  "./actions": [
-    "ActionDescriptor",
-    "ActionForm",
-    "ActionStatus",
-    "ActionValidationError",
-    "action",
-    "defineAction"
   ],
   "./boot": [
     "HydrateSPAConfig",
@@ -387,6 +393,14 @@
     "to",
     "unauthorized",
     "updateRouteQuery"
+  ],
+  "./actions": [
+    "ActionDescriptor",
+    "ActionForm",
+    "ActionStatus",
+    "ActionValidationError",
+    "action",
+    "defineAction"
   ],
   "./ssr": [
     "DocumentRenderArgs",

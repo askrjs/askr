@@ -14,6 +14,9 @@
       "configureRenderDiagnostics": [
         "declare function configureRenderDiagnostics(options: RenderDiagnosticsOptions): () => void;"
       ],
+      "createDOMRendererHost": [
+        "export declare function createDOMRendererHost(configure: (native: DOMRendererHost) => DOMRendererHost): RuntimeRendererHost;"
+      ],
       "createQuery": [
         "declare function createQuery<T extends {}>(options: QueryOptions<T>): Query<T>;",
         "declare function createQuery<TInput, TResult extends {}>(definition: QueryDefinition<TInput, TResult>, input: TInput, options?: Omit<QueryOptions<TResult>, \"key\" | \"fetch\">): Query<TResult>;"
@@ -51,6 +54,36 @@
       "Derived": [
         "interface Derived<T> extends ReadableSource<T> {\n    (): T;\n}"
       ],
+      "DOMChildScope": [
+        "export interface DOMChildScope {\n    readonly [scopeBrand]: never;\n}"
+      ],
+      "DOMComponentOwner": [
+        "export interface DOMComponentOwner {\n    readonly [ownerBrand]: never;\n}"
+      ],
+      "DOMReactiveSource": [
+        "export interface DOMReactiveSource {\n    readonly [sourceBrand]: never;\n}"
+      ],
+      "DOMRendererCleanup": [
+        "export interface DOMRendererCleanup {\n    cleanupInstancesUnder(node: Node): void;\n    teardownNodeSubtree(root: Node): void;\n}"
+      ],
+      "DOMRendererEvaluation": [
+        "export interface DOMRendererEvaluation {\n    evaluate(node: unknown, target: Element | null, context?: object, retainedOwner?: DOMComponentOwner): void;\n    replaceComponentRange(owner: DOMComponentOwner, result: unknown, host: Element | Comment): Node | null;\n}"
+      ],
+      "DOMRendererHost": [
+        "export interface DOMRendererHost {\n    evaluation: DOMRendererEvaluation;\n    cleanup: DOMRendererCleanup;\n    scopes: DOMRendererScopes;\n    keys: DOMRendererKeys;\n    reactivity: DOMRendererReactivity;\n}"
+      ],
+      "DOMRendererKeys": [
+        "export interface DOMRendererKeys {\n    populateKeyMapForElement(parent: Element): void;\n    getKeyMapForElement(parent: Element): Map<string | number, Element> | undefined;\n    isKeyedReorderFastPathEligible(parent: Element, children: unknown[], oldKeyMap: Map<string | number, Element> | undefined): RuntimeKeyedReorderDecision;\n}"
+      ],
+      "DOMRendererRange": [
+        "export interface DOMRendererRange {\n    readonly start: Node;\n    readonly end: Node;\n    readonly single: boolean;\n}"
+      ],
+      "DOMRendererReactivity": [
+        "export interface DOMRendererReactivity {\n    markReactivePropsDirtySource(source: DOMReactiveSource): void;\n}"
+      ],
+      "DOMRendererScopes": [
+        "export interface DOMRendererScopes {\n    resolveChildScopeRange(scope: DOMChildScope): DOMRendererRange | null;\n}"
+      ],
       "For": [
         "For: <T, K extends string | number = string | number>(props: ForProps<T, K>) => JSXElement"
       ],
@@ -83,6 +116,7 @@
       "MatchProps": [
         "type MatchProps = {\n    key?: string | number | null;\n    when: unknown;\n    children: MatchChild;\n};"
       ],
+      "ownerBrand": ["ownerBrand: unique symbol"],
       "prefetchQuery": [
         "declare function prefetchQuery<TInput, TResult extends {}>(context: QueryPrefetchContext, query: QueryDefinition<TInput, TResult>, input: TInput): Promise<boolean>;"
       ],
@@ -126,6 +160,7 @@
       "Scope": [
         "interface Scope<T> {\n    (props: {\n        value: T;\n        children?: ContextScopeChildren;\n    }): JSXElement;\n    readonly key: ContextKey;\n    readonly defaultValue: T;\n}"
       ],
+      "scopeBrand": ["scopeBrand: unique symbol"],
       "selector": [
         "declare function selector<T>(source: () => T, equals?: SelectorEquals<T>): Selector<T>;"
       ],
@@ -140,6 +175,7 @@
       "ShowProps": [
         "type ShowProps<T> = {\n    when: ShowSource<T>;\n    fallback?: BoundaryChild;\n    children: BoundaryChild | ((value: Truthy<T>) => BoundaryChild);\n};"
       ],
+      "sourceBrand": ["sourceBrand: unique symbol"],
       "state": ["declare function state<T>(initialValue: T): StateTuple<T>;"],
       "State": [
         "interface State<T> extends ReadableSource<T> {\n    (): T;\n    set(...args: StateSetterArgs<T>): void;\n    [Symbol.iterator](): IterableIterator<StateTuple<T>[number]>;\n}"
@@ -717,7 +753,7 @@
     },
     "./fx": {
       "debounce": [
-        "declare function debounce<T extends AnyFn>(fn: T, ms: number, options?: DebounceOptions): T & {\n    cancel(): void;\n};"
+        "declare function debounce<T extends AnyFn>(fn: T, ms: number, options?: DebounceOptions): Scheduled<T> & {\n    cancel(): void;\n};"
       ],
       "debounceEvent": [
         "declare function debounceEvent(ms: number, handler: EventListener, options?: {\n    leading?: boolean;\n    trailing?: boolean;\n}): EventListener & {\n    cancel(): void;\n    flush(): void;\n};"
@@ -730,7 +766,7 @@
         "declare function idle(fn: () => void, options?: {\n    timeout?: number;\n}): void;"
       ],
       "once": ["declare function once<T extends AnyFn>(fn: T): T;"],
-      "raf": ["declare function raf<T extends AnyFn>(fn: T): T;"],
+      "raf": ["declare function raf<T extends AnyFn>(fn: T): Scheduled<T>;"],
       "rafEvent": [
         "declare function rafEvent(handler: EventListener): EventListener & {\n    cancel(): void;\n};"
       ],
@@ -753,7 +789,7 @@
         "declare function scheduleTimeout(ms: number, fn: () => void): CancelFn;"
       ],
       "throttle": [
-        "declare function throttle<T extends AnyFn>(fn: T, ms: number, options?: ThrottleOptions): T & {\n    cancel(): void;\n};"
+        "declare function throttle<T extends AnyFn>(fn: T, ms: number, options?: ThrottleOptions): Scheduled<T> & {\n    cancel(): void;\n};"
       ],
       "throttleEvent": [
         "declare function throttleEvent(ms: number, handler: EventListener, options?: {\n    leading?: boolean;\n    trailing?: boolean;\n}): EventListener & {\n    cancel(): void;\n};"
@@ -1374,6 +1410,9 @@
     "createDataRuntime": [
       "declare function createDataRuntime(options?: DataRuntimeOptions): DataRuntime;"
     ],
+    "createDOMRendererHost": [
+      "export declare function createDOMRendererHost(configure: (native: DOMRendererHost) => DOMRendererHost): RuntimeRendererHost;"
+    ],
     "createFreshQuery": [
       "declare function createFreshQuery<T extends {}>(data: T, options?: MockQueryOptions): Query<T>;"
     ],
@@ -1440,7 +1479,7 @@
       "interface DataRuntimeOptions {\n    queryCache?: Map<string, unknown>;\n    queryData?: Map<string, unknown>;\n    queryTestOverrides?: Map<string, unknown>;\n    mutationTestOverrides?: Map<string, unknown>;\n}"
     ],
     "debounce": [
-      "declare function debounce<T extends AnyFn>(fn: T, ms: number, options?: DebounceOptions): T & {\n    cancel(): void;\n};"
+      "declare function debounce<T extends AnyFn>(fn: T, ms: number, options?: DebounceOptions): Scheduled<T> & {\n    cancel(): void;\n};"
     ],
     "debounceEvent": [
       "declare function debounceEvent(ms: number, handler: EventListener, options?: {\n    leading?: boolean;\n    trailing?: boolean;\n}): EventListener & {\n    cancel(): void;\n    flush(): void;\n};"
@@ -1527,11 +1566,41 @@
     "documentVisible": [
       "declare function documentVisible(): ActivityPredicate;"
     ],
+    "DOMChildScope": [
+      "export interface DOMChildScope {\n    readonly [scopeBrand]: never;\n}"
+    ],
+    "DOMComponentOwner": [
+      "export interface DOMComponentOwner {\n    readonly [ownerBrand]: never;\n}"
+    ],
     "DOMElement": [
       "interface DOMElement {\n    type: JSXElementType;\n    props?: Props;\n    children?: VNode[];\n    key?: string | number | null;\n    [Symbol.iterator]?: never;\n    _controlState?: ControlBoundaryState;\n}"
     ],
     "DOMRange": [
       "interface DOMRange {\n    start: Node;\n    end: Node;\n    single: boolean;\n}"
+    ],
+    "DOMReactiveSource": [
+      "export interface DOMReactiveSource {\n    readonly [sourceBrand]: never;\n}"
+    ],
+    "DOMRendererCleanup": [
+      "export interface DOMRendererCleanup {\n    cleanupInstancesUnder(node: Node): void;\n    teardownNodeSubtree(root: Node): void;\n}"
+    ],
+    "DOMRendererEvaluation": [
+      "export interface DOMRendererEvaluation {\n    evaluate(node: unknown, target: Element | null, context?: object, retainedOwner?: DOMComponentOwner): void;\n    replaceComponentRange(owner: DOMComponentOwner, result: unknown, host: Element | Comment): Node | null;\n}"
+    ],
+    "DOMRendererHost": [
+      "export interface DOMRendererHost {\n    evaluation: DOMRendererEvaluation;\n    cleanup: DOMRendererCleanup;\n    scopes: DOMRendererScopes;\n    keys: DOMRendererKeys;\n    reactivity: DOMRendererReactivity;\n}"
+    ],
+    "DOMRendererKeys": [
+      "export interface DOMRendererKeys {\n    populateKeyMapForElement(parent: Element): void;\n    getKeyMapForElement(parent: Element): Map<string | number, Element> | undefined;\n    isKeyedReorderFastPathEligible(parent: Element, children: unknown[], oldKeyMap: Map<string | number, Element> | undefined): RuntimeKeyedReorderDecision;\n}"
+    ],
+    "DOMRendererRange": [
+      "export interface DOMRendererRange {\n    readonly start: Node;\n    readonly end: Node;\n    readonly single: boolean;\n}"
+    ],
+    "DOMRendererReactivity": [
+      "export interface DOMRendererReactivity {\n    markReactivePropsDirtySource(source: DOMReactiveSource): void;\n}"
+    ],
+    "DOMRendererScopes": [
+      "export interface DOMRendererScopes {\n    resolveChildScopeRange(scope: DOMChildScope): DOMRendererRange | null;\n}"
     ],
     "EAGER_CONTROL_PRIMITIVE": ["EAGER_CONTROL_PRIMITIVE: unique symbol"],
     "EagerControlPrimitive": [
@@ -2034,6 +2103,7 @@
     "OwnedChildScope": [
       "type OwnedChildScope = {\n    key: string | number;\n    dispose(): void;\n};"
     ],
+    "ownerBrand": ["ownerBrand: unique symbol"],
     "page": [
       "declare function page<const TPath extends string, TComponent extends AnyRouteComponent>(path: TPath, Component: CompatibleRouteComponent<TPath, TComponent>, fn: RouteDefinition): void;",
       "declare function page<const TPath extends string, TComponent extends AnyRouteComponent>(path: TPath, Component: CompatibleRouteComponent<TPath, TComponent>, options: PageHelperOptions, fn: RouteDefinition): void;",
@@ -2159,7 +2229,7 @@
     "QueryTestRegistry": [
       "interface QueryTestRegistry {\n    readonly runtime: DataRuntime;\n    set<T extends {}>(key: string, query: Query<T>): void;\n    delete(key: string): void;\n    clear(): void;\n}"
     ],
-    "raf": ["declare function raf<T extends AnyFn>(fn: T): T;"],
+    "raf": ["declare function raf<T extends AnyFn>(fn: T): Scheduled<T>;"],
     "rafEvent": [
       "declare function rafEvent(handler: EventListener): EventListener & {\n    cancel(): void;\n};"
     ],
@@ -2433,6 +2503,9 @@
     "RuntimeRendererHost": [
       "interface RuntimeRendererHost {\n    evaluate(node: unknown, target: Element | null, context?: object, retainedOwner?: ComponentInstance): void;\n    cleanupInstancesUnder(node: Node): void;\n    replaceComponentRange(instance: ComponentInstance, result: unknown, host: Element | Comment): Node | null;\n    resolveChildScopeRange?(scope: ChildScope): DOMRange | null;\n    teardownNodeSubtree(root: Node): void;\n    populateKeyMapForElement(parent: Element): void;\n    getKeyMapForElement(parent: Element): Map<string | number, Element> | undefined;\n    isKeyedReorderFastPathEligible(parent: Element, children: unknown[], oldKeyMap: Map<string | number, Element> | undefined): RuntimeKeyedReorderDecision;\n    markReactivePropsDirtySource(source: ReadableSource<unknown>): void;\n}"
     ],
+    "Scheduled": [
+      "type Scheduled<T extends AnyFn> = (this: ThisParameterType<T>, ...args: Parameters<T>) => void;"
+    ],
     "scheduleEventHandler": [
       "declare function scheduleEventHandler(handler: EventListener): EventListener;"
     ],
@@ -2457,6 +2530,7 @@
     "Scope": [
       "interface Scope<T> {\n    (props: {\n        value: T;\n        children?: ContextScopeChildren;\n    }): JSXElement;\n    readonly key: ContextKey;\n    readonly defaultValue: T;\n}"
     ],
+    "scopeBrand": ["scopeBrand: unique symbol"],
     "ScrollRestorationOptions": [
       "type ScrollRestorationOptions = {\n    navigation?: NavigationScrollBehavior;\n    history?: HistoryScrollBehavior;\n};"
     ],
@@ -2510,6 +2584,7 @@
     "SnapshotSourceBrand": [
       "type SnapshotSourceBrand = {\n    readonly [SNAPSHOT_SOURCE_BRAND]: true;\n};"
     ],
+    "sourceBrand": ["sourceBrand: unique symbol"],
     "SPAConfig": [
       "type SPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    cleanupStrict?: boolean;\n    component?: never;\n};"
     ],
@@ -2646,7 +2721,7 @@
       "interface TextareaIntrinsicProps extends IntrinsicProps {\n    autoComplete?: ReactiveProp<IntrinsicTextValue>;\n    autocomplete?: ReactiveProp<IntrinsicTextValue>;\n    cols?: ReactiveProp<IntrinsicNumberValue>;\n    disabled?: ReactiveProp<IntrinsicBooleanValue>;\n    maxLength?: ReactiveProp<IntrinsicNumberValue>;\n    maxlength?: ReactiveProp<IntrinsicNumberValue>;\n    minLength?: ReactiveProp<IntrinsicNumberValue>;\n    minlength?: ReactiveProp<IntrinsicNumberValue>;\n    name?: ReactiveProp<IntrinsicTextValue>;\n    placeholder?: ReactiveProp<IntrinsicTextValue>;\n    readOnly?: ReactiveProp<IntrinsicBooleanValue>;\n    readonly?: ReactiveProp<IntrinsicBooleanValue>;\n    required?: ReactiveProp<IntrinsicBooleanValue>;\n    rows?: ReactiveProp<IntrinsicNumberValue>;\n    value?: ReactiveProp<IntrinsicTextValue>;\n}"
     ],
     "throttle": [
-      "declare function throttle<T extends AnyFn>(fn: T, ms: number, options?: ThrottleOptions): T & {\n    cancel(): void;\n};"
+      "declare function throttle<T extends AnyFn>(fn: T, ms: number, options?: ThrottleOptions): Scheduled<T> & {\n    cancel(): void;\n};"
     ],
     "throttleEvent": [
       "declare function throttleEvent(ms: number, handler: EventListener, options?: {\n    leading?: boolean;\n    trailing?: boolean;\n}): EventListener & {\n    cancel(): void;\n};"

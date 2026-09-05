@@ -1,3 +1,4 @@
+export * from './dom-renderer.js';
 import {
   cspNonce,
   selector,

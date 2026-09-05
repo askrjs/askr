@@ -23,6 +23,10 @@ export interface RetryOptions {
 }
 
 type AnyFn = (...args: never[]) => unknown;
+type Scheduled<T extends AnyFn> = (
+  this: ThisParameterType<T>,
+  ...args: Parameters<T>
+) => void;
 type CallableFn = (this: unknown, ...args: unknown[]) => unknown;
 
 /**
@@ -46,7 +50,7 @@ export function debounce<T extends AnyFn>(
   fn: T,
   ms: number,
   options?: DebounceOptions
-): T & { cancel(): void } {
+): Scheduled<T> & { cancel(): void } {
   const callable = fn as unknown as CallableFn;
   let timeoutId: NodeJS.Timeout | null = null;
   const { leading = false, trailing = true } = options || {};
@@ -88,7 +92,7 @@ export function debounce<T extends AnyFn>(
     trailingPending = false;
   };
 
-  return debounced as unknown as T & { cancel(): void };
+  return debounced as unknown as Scheduled<T> & { cancel(): void };
 }
 
 /**
@@ -112,7 +116,7 @@ export function throttle<T extends AnyFn>(
   fn: T,
   ms: number,
   options?: ThrottleOptions
-): T & { cancel(): void } {
+): Scheduled<T> & { cancel(): void } {
   const callable = fn as unknown as CallableFn;
   let lastCallTime: number | null = null;
   let timeoutId: NodeJS.Timeout | null = null;
@@ -163,7 +167,7 @@ export function throttle<T extends AnyFn>(
     }
   };
 
-  return throttled as unknown as T & { cancel(): void };
+  return throttled as unknown as Scheduled<T> & { cancel(): void };
 }
 
 /**
@@ -228,7 +232,7 @@ export function defer(fn: () => void): void {
  * update(); // same frame, no duplicate
  * ```
  */
-export function raf<T extends AnyFn>(fn: T): T {
+export function raf<T extends AnyFn>(fn: T): Scheduled<T> {
   const callable = fn as unknown as CallableFn;
   let frameId: number | null = null;
   let lastArgs: unknown[] | null = null;
@@ -245,7 +249,7 @@ export function raf<T extends AnyFn>(fn: T): T {
         frameId = null;
       });
     }
-  } as unknown as T;
+  } as unknown as Scheduled<T>;
 }
 
 /**

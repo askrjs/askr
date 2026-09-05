@@ -20,6 +20,10 @@ interface RetryOptions {
   backoff?: (attemptIndex: number) => number;
 }
 type AnyFn = (...args: never[]) => unknown;
+type Scheduled<T extends AnyFn> = (
+  this: ThisParameterType<T>,
+  ...args: Parameters<T>
+) => void;
 /**
  * Debounce — delay execution, coalesce rapid calls
  *
@@ -41,7 +45,7 @@ declare function debounce<T extends AnyFn>(
   fn: T,
   ms: number,
   options?: DebounceOptions
-): T & {
+): Scheduled<T> & {
   cancel(): void;
 };
 /**
@@ -65,7 +69,7 @@ declare function throttle<T extends AnyFn>(
   fn: T,
   ms: number,
   options?: ThrottleOptions
-): T & {
+): Scheduled<T> & {
   cancel(): void;
 };
 /**
@@ -114,7 +118,7 @@ declare function defer(fn: () => void): void;
  * update(); // same frame, no duplicate
  * ```
  */
-declare function raf<T extends AnyFn>(fn: T): T;
+declare function raf<T extends AnyFn>(fn: T): Scheduled<T>;
 /**
  * Idle — schedule low-priority work
  *
