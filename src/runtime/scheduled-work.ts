@@ -22,13 +22,17 @@ export class ScheduledWork {
     try {
       scheduler.enqueueInLane(lane, this.task);
     } catch (error) {
-      this.pending = false;
+      this.cancel();
       throw error;
     }
   }
 
+  // Overrides may only reset internal ownership, never throw or call user code.
+  protected cancel(): void {
+    this.pending = false;
+  }
+
   static release(task: () => void): void {
-    const work = workByTask.get(task);
-    if (work) work.pending = false;
+    workByTask.get(task)?.cancel();
   }
 }
