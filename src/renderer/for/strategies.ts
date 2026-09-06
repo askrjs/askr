@@ -1,4 +1,4 @@
-import type { ForState } from '../../runtime';
+import type { ForCommitPlan } from '../../runtime';
 import {
   recordBenchCounter,
   recordBenchEvent,
@@ -13,7 +13,7 @@ declare const __ASKR_BENCH_BUILD__: boolean;
 const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
 export function isExactRemovedBoundary(
   parent: Element,
-  removedNodes: Node[]
+  removedNodes: readonly Node[]
 ): boolean {
   if (
     removedNodes.length === 0 ||
@@ -33,46 +33,36 @@ export function isExactRemovedBoundary(
 
 interface ForStrategyInputs {
   parent: Element;
-  forState: ForState<unknown>;
-  childrenVNodes: VNode[];
-  runtime: ForCommitRuntime;
+  runtime: Pick<ForCommitRuntime, 'tryPatchStableForDirtyItem'>;
   preResolvedRanges: ReturnType<
     typeof prepareForCommitRanges
   >['preResolvedRanges'];
-  captureItemBeforeCommit(
-    item: ForState<unknown>['orderedItems'][number]
-  ): void;
-  syncItemDom(
-    item: ForState<unknown>['orderedItems'][number],
-    vnode: VNode
-  ): Node | null;
+  captureItemBeforeCommit(item: ForCommitPlan['items'][number]): void;
+  syncItemDom(item: ForCommitPlan['items'][number], vnode: VNode): Node | null;
 }
 export function commitForStrategy(
-  strategy: 'NO_REORDER' | 'APPEND' | 'INSERT_ONE' | 'SWAP' | 'FULL_KEYED',
+  plan: ForCommitPlan,
   {
     parent,
-    forState,
-    childrenVNodes,
     runtime,
     preResolvedRanges,
     captureItemBeforeCommit,
     syncItemDom,
-  }: ForStrategyInputs,
-  dirtyIndices: number[]
+  }: ForStrategyInputs
 ): { boundaryChildrenExact: boolean; removedBoundaryConsumed: boolean } {
+  const childrenVNodes = plan.vnodes;
   let boundaryChildrenExact = false;
   let removedBoundaryConsumed = false;
-  const commitDirtyNoReorder = (dirtyIndices: number[]): void => {
+  const commitDirtyNoReorder = (dirtyIndices: readonly number[]): void => {
     if (dirtyIndices.length === 0) {
       boundaryChildrenExact = true;
       return;
     }
 
-    const orderedItems = forState.orderedItems;
+    if (plan.kind !== 'NO_REORDER') return;
+    const orderedItems = plan.items;
     const childNodes = parent.childNodes;
-    const canPatchStableDirtyItems =
-      forState.lastCommitStrategy !== 'TRUNCATE' ||
-      dirtyIndices.length < orderedItems.length;
+    const canPatchStableDirtyItems = plan.allowStablePatch;
 
     for (let dirtyIndex = 0; dirtyIndex < dirtyIndices.length; dirtyIndex++) {
       const i = dirtyIndices[dirtyIndex];
@@ -109,16 +99,17 @@ export function commitForStrategy(
   };
 
   const commitAppend = (): void => {
+    if (plan.kind !== 'APPEND') return;
     const canHydrateInPlace =
-      !forState._hasResolvedItemDom &&
-      forState.lastRemovedNodes.length === 0 &&
-      parent.childNodes.length === forState.orderedKeys.length;
+      plan.canHydrate &&
+      plan.removedNodes.length === 0 &&
+      parent.childNodes.length === plan.items.length;
     if (canHydrateInPlace) {
       let exactOrder = true;
       let currentNode = parent.firstChild;
 
-      for (let i = 0; i < forState.orderedKeys.length; i++) {
-        const itemInstance = forState.orderedItems[i];
+      for (let i = 0; i < plan.items.length; i++) {
+        const itemInstance = plan.items[i];
         if (!itemInstance) {
           exactOrder = false;
           currentNode = currentNode?.nextSibling ?? null;
@@ -141,13 +132,12 @@ export function commitForStrategy(
 
     const appendColdRows = (): void => {
       const pendingAppend: Node[] = [];
-      const appendStart = forState.pendingAppendStart ?? 0;
+      const appendStart = plan.appendStart ?? 0;
       const hasDetachedSuffix =
-        forState.pendingAppendStart !== null &&
-        parent.childNodes.length === appendStart;
+        plan.appendStart !== null && parent.childNodes.length === appendStart;
 
-      for (let i = appendStart; i < forState.orderedKeys.length; i++) {
-        const itemInstance = forState.orderedItems[i];
+      for (let i = appendStart; i < plan.items.length; i++) {
+        const itemInstance = plan.items[i];
         if (!itemInstance) {
           continue;
         }
@@ -192,18 +182,18 @@ export function commitForStrategy(
       appendColdRows();
     }
 
-    boundaryChildrenExact =
-      parent.childNodes.length === forState.orderedKeys.length;
+    boundaryChildrenExact = parent.childNodes.length === plan.items.length;
   };
 
   const commitInsertOne = (): void => {
-    const index = forState.pendingInsertedIndex;
-    const item = index === null ? undefined : forState.orderedItems[index];
+    if (plan.kind !== 'INSERT_ONE') return;
+    const index = plan.index;
+    const item = index === null ? undefined : plan.items[index];
 
     if (
       index === null ||
       !item ||
-      parent.childNodes.length !== forState.orderedKeys.length - 1
+      parent.childNodes.length !== plan.items.length - 1
     ) {
       commitReorder();
       return;
@@ -219,7 +209,8 @@ export function commitForStrategy(
   };
 
   const commitSwap = (): void => {
-    const swapIndices = forState.pendingSwapIndices;
+    if (plan.kind !== 'SWAP') return;
+    const swapIndices = plan.indices;
     if (!swapIndices) {
       return;
     }
@@ -233,10 +224,8 @@ export function commitForStrategy(
       [firstIndex, secondIndex] = [secondIndex, firstIndex];
     }
 
-    const firstKey = forState.orderedKeys[firstIndex];
-    const secondKey = forState.orderedKeys[secondIndex];
-    const firstItem = forState.items.get(firstKey);
-    const secondItem = forState.items.get(secondKey);
+    const firstItem = plan.items[firstIndex];
+    const secondItem = plan.items[secondIndex];
 
     if (!firstItem || !secondItem) {
       commitReorder();
@@ -275,10 +264,10 @@ export function commitForStrategy(
   };
 
   const commitReorder = (): void => {
-    const items = forState.orderedItems;
+    const items = plan.items;
     const count = items.length;
 
-    if (forState.pendingMoveOnly && forState.lastRemovedNodes.length === 0) {
+    if (plan.moveOnly && plan.removedNodes.length === 0) {
       const nodes = Array<Node>(count);
       let movedCount = 0;
       let insertedCount = 0;
@@ -350,7 +339,7 @@ export function commitForStrategy(
     if (!hasExistingChild) {
       const canConsumeRemovedBoundary = isExactRemovedBoundary(
         parent,
-        forState.lastRemovedNodes
+        plan.removedNodes
       );
       const replaceColdRows = (): void => {
         const nodes: Node[] = [];
@@ -382,7 +371,7 @@ export function commitForStrategy(
       return;
     }
 
-    if (forState.lastRemovedNodes.length === 0) {
+    if (plan.removedNodes.length === 0) {
       const nodes: Node[] = [];
 
       for (let i = 0; i < count; i++) {
@@ -426,9 +415,9 @@ export function commitForStrategy(
     boundaryChildrenExact = true;
   };
 
-  switch (strategy) {
+  switch (plan.kind) {
     case 'NO_REORDER':
-      commitDirtyNoReorder(dirtyIndices);
+      commitDirtyNoReorder(plan.dirtyIndices);
       break;
     case 'APPEND':
       commitAppend();
