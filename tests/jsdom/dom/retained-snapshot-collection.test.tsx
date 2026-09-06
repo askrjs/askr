@@ -120,6 +120,53 @@ test.each([false, true])(
   }
 );
 
+test('should restore empty and populated element snapshots independently across repeated rollback', () => {
+  const empty = document.createElement('div');
+  const populated = createDOMNode(
+    <section title="before">before</section>
+  ) as Element;
+  const emptySnapshot = snapshotRetainedElement(empty);
+  const populatedSnapshot = snapshotRetainedElement(populated);
+  const originalText = populated.firstChild;
+  for (let iteration = 0; iteration < 2; iteration++) {
+    empty.setAttribute('title', 'added');
+    empty.textContent = 'added';
+    populated.setAttribute('title', 'after');
+    populated.textContent = 'after';
+    restoreRetainedElement(populated, populatedSnapshot, teardownNodeSubtree);
+    restoreRetainedElement(empty, emptySnapshot, teardownNodeSubtree);
+    expect(empty.getAttributeNames()).toEqual([]);
+    expect(empty.childNodes).toHaveLength(0);
+    expect(populated.getAttribute('title')).toBe('before');
+    expect(populated.firstChild).toBe(originalText);
+    expect(populated.textContent).toBe('before');
+  }
+});
+
+test('should retain live text-index capture when a text getter changes the next sibling', () => {
+  const element = document.createElement('div');
+  const first = document.createTextNode('first');
+  const second = document.createTextNode('second');
+  const added = document.createTextNode('added');
+  element.append(first, second);
+  Object.defineProperty(first, 'data', {
+    configurable: true,
+    get() {
+      second.remove();
+      element.appendChild(added);
+      return 'captured first';
+    },
+  });
+  const snapshot = snapshotRetainedElement(element);
+  Reflect.deleteProperty(first, 'data');
+  first.data = 'changed';
+  added.data = 'changed';
+  restoreRetainedElement(element, snapshot, teardownNodeSubtree);
+  expect(Array.from(element.childNodes)).toEqual([first, second]);
+  expect(first.data).toBe('captured first');
+  expect(added.data).toBe('added');
+});
+
 test('should capture text after form getters while retaining the earlier attributes and child order', () => {
   const element = createDOMNode(
     <section data-phase="before">

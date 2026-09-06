@@ -53,28 +53,36 @@ interface TextSnapshot {
 }
 
 export interface RetainedElementSnapshot {
-  attributes: Array<[string, string]>;
-  childNodes: Node[];
-  delegatedListeners: DelegatedListenerEntrySnapshot[];
+  attributes: ReadonlyArray<[string, string]>;
+  childNodes: readonly Node[];
+  delegatedListeners: readonly DelegatedListenerEntrySnapshot[];
   domCaptured: boolean;
   formControl: FormControlSnapshot | null;
   keyedMap: Map<string | number, Element> | undefined;
-  listeners: ListenerEntrySnapshot[];
-  reactiveProps: ReactivePropEntrySnapshot[];
+  listeners: readonly ListenerEntrySnapshot[];
+  reactiveProps: readonly ReactivePropEntrySnapshot[];
   ref: unknown;
-  textNodes: TextSnapshot[];
+  textNodes: readonly TextSnapshot[];
 }
 
-function collectTextSnapshots(root: Element): TextSnapshot[] {
-  const snapshots: TextSnapshot[] = [];
-  for (let index = 0; index < root.childNodes.length; index += 1) {
-    const node = root.childNodes[index];
+// Rollback only reads these collections. Populated records still own their
+// copies; sharing the immutable empty case avoids per-element empty arrays.
+const EMPTY_SNAPSHOT_ENTRIES: readonly never[] = Object.freeze([]);
+
+function collectTextSnapshots(root: Element): readonly TextSnapshot[] {
+  let snapshots: TextSnapshot[] | undefined;
+  const children = root.childNodes;
+  for (
+    let index = 0, node = children.item(0);
+    node;
+    node = children.item(++index)
+  ) {
     if (node.nodeType === 3) {
       const text = node as Text;
-      snapshots.push({ node: text, data: text.data });
+      (snapshots ??= []).push({ node: text, data: text.data });
     }
   }
-  return snapshots;
+  return snapshots ?? EMPTY_SNAPSHOT_ENTRIES;
 }
 
 function getFormControlSnapshot(element: Element): FormControlSnapshot | null {
@@ -82,19 +90,17 @@ function getFormControlSnapshot(element: Element): FormControlSnapshot | null {
     value?: unknown;
     checked?: unknown;
   };
-  const snapshot: FormControlSnapshot = {};
+  let snapshot: FormControlSnapshot | null = null;
 
   if ('value' in control) {
-    snapshot.value = String(control.value ?? '');
+    snapshot = { value: String(control.value ?? '') };
   }
 
   if ('checked' in control) {
-    snapshot.checked = Boolean(control.checked);
+    (snapshot ??= {}).checked = Boolean(control.checked);
   }
 
-  return snapshot.value !== undefined || snapshot.checked !== undefined
-    ? snapshot
-    : null;
+  return snapshot;
 }
 
 function cloneListenerEntry(entry: ListenerMapEntry): ListenerMapEntry {
@@ -122,19 +128,23 @@ function cloneReactivePropEntry(
 
 function copyRetainedAttributes(
   attributes: NamedNodeMap
-): Array<[string, string]> {
+): ReadonlyArray<[string, string]> {
+  let attribute = attributes.item(0);
+  if (!attribute) return EMPTY_SNAPSHOT_ENTRIES;
   const result: Array<[string, string]> = [];
-  for (let index = 0; index < attributes.length; index += 1) {
-    const attribute = attributes[index];
+  for (let index = 0; attribute; attribute = attributes.item(++index)) {
     result.push([attribute.name, attribute.value]);
   }
   return result;
 }
 
-function copyRetainedChildNodes(children: NodeListOf<ChildNode>): Node[] {
+function copyRetainedChildNodes(
+  children: NodeListOf<ChildNode>
+): readonly Node[] {
+  let child = children.item(0);
+  if (!child) return EMPTY_SNAPSHOT_ENTRIES;
   const result: Node[] = [];
-  for (let index = 0; index < children.length; index += 1)
-    result.push(children[index]);
+  for (let index = 0; child; child = children.item(++index)) result.push(child);
   return result;
 }
 
@@ -186,24 +196,35 @@ export function snapshotRetainedElement(
   const keyedMap = keyedElements.get(element);
 
   return {
-    attributes: bindingsOnly ? [] : copyRetainedAttributes(element.attributes),
-    childNodes: bindingsOnly ? [] : copyRetainedChildNodes(element.childNodes),
+    attributes: bindingsOnly
+      ? EMPTY_SNAPSHOT_ENTRIES
+      : copyRetainedAttributes(element.attributes),
+    childNodes: bindingsOnly
+      ? EMPTY_SNAPSHOT_ENTRIES
+      : copyRetainedChildNodes(element.childNodes),
     delegatedListeners: delegatedHandlerMap
       ? copyRetainedDelegatedListeners(delegatedHandlerMap)
-      : [],
+      : EMPTY_SNAPSHOT_ENTRIES,
     domCaptured: !bindingsOnly,
     formControl: bindingsOnly ? null : getFormControlSnapshot(element),
     keyedMap: keyedMap ? new Map(keyedMap) : undefined,
-    listeners: listenerMap ? copyRetainedListeners(listenerMap) : [],
+    listeners: listenerMap
+      ? copyRetainedListeners(listenerMap)
+      : EMPTY_SNAPSHOT_ENTRIES,
     reactiveProps: reactivePropMap
       ? copyRetainedReactiveProps(reactivePropMap)
-      : [],
+      : EMPTY_SNAPSHOT_ENTRIES,
     ref: elementRefs.get(element),
-    textNodes: bindingsOnly ? [] : collectTextSnapshots(element),
+    textNodes: bindingsOnly
+      ? EMPTY_SNAPSHOT_ENTRIES
+      : collectTextSnapshots(element),
   };
 }
 
-function sameChildOrder(element: Element, childNodes: Node[]): boolean {
+function sameChildOrder(
+  element: Element,
+  childNodes: readonly Node[]
+): boolean {
   if (element.childNodes.length !== childNodes.length) {
     return false;
   }
