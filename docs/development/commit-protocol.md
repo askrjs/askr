@@ -4,6 +4,14 @@ Each runtime state owns a transaction coordinator. It has no component,
 scheduler, or browser dependencies. Internal callers use `runtime/transactions/access.ts`;
 published runtime and renderer extension contracts remain unchanged.
 
+Transaction handles expose read-only phase and parent information. The
+coordinator privately owns phase transitions, participant indexes, resources,
+and completion queues. Diagnostic collections are detached copies, so inspection
+cannot erase pending work. Resource capture admits the first value for a key,
+including `undefined`; notification deferral uses an explicit operation. Both
+operations reject settled transactions. Nested joins retain their existing
+collision policy, resource precedence, and reverse rollback order.
+
 Component host synchronization, range replacement, and standalone host pruning
 enter through `runCommitOperation`. The boundary reuses an active transaction
 or creates and drains one for the entire operation. Replacement participants

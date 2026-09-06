@@ -108,7 +108,7 @@ describe('scheduler invariants', () => {
     });
 
     const transaction1 = beginCommitTransaction();
-    transaction1.deferNotifications = true;
+    transaction1.setDeferredNotifications(true);
     commitTransaction(transaction1);
     flushScheduler();
 
@@ -138,7 +138,7 @@ describe('scheduler invariants', () => {
 
     source.set(1);
     const transaction2 = beginCommitTransaction();
-    transaction2.deferNotifications = true;
+    transaction2.setDeferredNotifications(true);
     commitTransaction(transaction2);
     source.set(2);
     flushScheduler();
