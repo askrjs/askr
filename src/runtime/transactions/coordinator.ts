@@ -35,9 +35,9 @@ interface TransactionState {
   coordinator: CommitCoordinator;
   participants: CommitParticipant[];
   seen: Set<CommitParticipant> | undefined;
-  index: Map<object | undefined, Map<object, CommitParticipant>>;
-  resources: Map<object, unknown>;
-  errors: unknown[];
+  index: Map<object | undefined, Map<object, CommitParticipant>> | undefined;
+  resources: Map<object, unknown> | undefined;
+  errors: unknown[] | undefined;
   completions: Map<object, () => void> | undefined;
   deferNotifications: boolean;
 }
@@ -68,9 +68,9 @@ export class CommitTransaction {
       coordinator,
       participants: [],
       seen: undefined,
-      index: new Map(),
-      resources: new Map(),
-      errors: [],
+      index: undefined,
+      resources: undefined,
+      errors: undefined,
       completions: undefined,
       deferNotifications: false,
     };
@@ -90,10 +90,10 @@ export class CommitTransaction {
     return Object.freeze(this.#state.participants.slice());
   }
   get errors(): readonly unknown[] {
-    return Object.freeze(this.#state.errors.slice());
+    return Object.freeze(this.#state.errors?.slice() ?? []);
   }
   get resourceCount(): number {
-    return this.#state.resources.size;
+    return this.#state.resources?.size ?? 0;
   }
   /** Detached diagnostic collections cannot mutate coordinator bookkeeping. */
   inspect(): {
@@ -107,7 +107,7 @@ export class CommitTransaction {
   } {
     return {
       index: new Map(
-        Array.from(this.#state.index, ([kind, entries]) => [
+        Array.from(this.#state.index ?? [], ([kind, entries]) => [
           kind,
           new Map(entries),
         ])
@@ -125,17 +125,17 @@ export class CommitTransaction {
   }
 
   hasResource(key: object): boolean {
-    return this.#state.resources.has(key);
+    return this.#state.resources?.has(key) ?? false;
   }
   resource<T = unknown>(key: object): T | undefined {
-    return this.#state.resources.get(key) as T | undefined;
+    return this.#state.resources?.get(key) as T | undefined;
   }
   captureResource<T>(key: object, resource: T): T {
     if (!this.active)
       throw new Error(
         '[Askr] Cannot capture a resource on a settled transaction.'
       );
-    const resources = this.#state.resources;
+    const resources = (this.#state.resources ??= new Map());
     if (resources.has(key)) return resources.get(key) as T;
     resources.set(key, resource);
     return resource;
@@ -149,7 +149,7 @@ export class CommitTransaction {
     key: object,
     kind?: object
   ): T | undefined {
-    return this.#state.index.get(kind)?.get(key) as T | undefined;
+    return this.#state.index?.get(kind)?.get(key) as T | undefined;
   }
 }
 
@@ -190,8 +190,12 @@ export class CommitCoordinator {
     const state = transactionState(transaction);
     if (state.seen?.has(participant)) return;
     if (participant.key) {
-      let index = state.index.get(participant.kind);
-      if (!index) state.index.set(participant.kind, (index = new Map()));
+      const kinds = (state.index ??= new Map<
+        object | undefined,
+        Map<object, CommitParticipant>
+      >());
+      let index = kinds.get(participant.kind);
+      if (!index) kinds.set(participant.kind, (index = new Map()));
       const previous = index.get(participant.key);
       if (previous) {
         this.validateCollision(previous, participant);
@@ -368,7 +372,7 @@ export class CommitCoordinator {
             needsMerge = true;
         }
       }
-      for (const [kind, index] of state.index) {
+      for (const [kind, index] of state.index?.entries() ?? []) {
         index.forEach((participant, key) => {
           if (participant.key !== key || participant.kind !== kind)
             changedIdentity = true;
@@ -407,7 +411,7 @@ export class CommitCoordinator {
         for (const participant of state.participants) {
           if (parentState.seen?.has(participant)) {
             if (participant.key)
-              state.index.get(participant.kind)!.delete(participant.key);
+              state.index!.get(participant.kind)!.delete(participant.key);
             continue;
           }
           if (participant.key) {
@@ -426,14 +430,18 @@ export class CommitCoordinator {
 
         // Inner indexes have no independent owner. Keep the larger allocation;
         // parent entries retain collision ownership regardless of map choice.
-        // Child release clears only the outer index after ownership transfers.
-        for (const [kind, index] of state.index) {
+        // Child release drops only the outer index after ownership transfers.
+        for (const [kind, index] of state.index?.entries() ?? []) {
           if (!index.size) continue;
-          const existing = parentState.index.get(kind);
-          if (!existing) parentState.index.set(kind, index);
+          const kinds = (parentState.index ??= new Map<
+            object | undefined,
+            Map<object, CommitParticipant>
+          >());
+          const existing = kinds.get(kind);
+          if (!existing) kinds.set(kind, index);
           else if (existing.size < index.size) {
             existing.forEach((participant, key) => index.set(key, participant));
-            parentState.index.set(kind, index);
+            kinds.set(kind, index);
           } else {
             index.forEach((participant, key) => {
               if (!existing.has(key)) existing.set(key, participant);
@@ -442,20 +450,21 @@ export class CommitCoordinator {
         }
       }
       if (
+        state.resources &&
         !needsMerge &&
         !changedIdentity &&
-        parentState.resources.size < state.resources.size
+        (parentState.resources?.size ?? 0) < state.resources.size
       ) {
         const previousResources = parentState.resources;
         parentState.resources = state.resources;
         state.resources = previousResources;
         // Parent values are the earlier snapshots, including explicit undefined.
-        for (const [key, value] of previousResources)
+        for (const [key, value] of previousResources ?? [])
           parentState.resources.set(key, value);
-      } else {
+      } else if (state.resources) {
+        const resources = (parentState.resources ??= new Map());
         for (const [key, value] of state.resources) {
-          if (!parentState.resources.has(key))
-            parentState.resources.set(key, value);
+          if (!resources.has(key)) resources.set(key, value);
         }
       }
       if (state.seen) {
@@ -513,13 +522,13 @@ export class CommitCoordinator {
           try {
             participant[phase]?.();
           } catch (error) {
-            state.errors.push(error);
+            (state.errors ??= []).push(error);
           }
         }
       }
-      this.complete(transaction, (error) => state.errors.push(error));
+      this.complete(transaction, (error) => (state.errors ??= []).push(error));
       state.phase = 'committed';
-      if (state.errors.length)
+      if (state.errors?.length)
         this.options.settlementErrors?.(state.errors, transaction);
     } finally {
       state.phase = 'committed';
@@ -595,8 +604,8 @@ export class CommitCoordinator {
     const state = transactionState(transaction);
     state.participants.length = 0;
     state.seen = undefined;
-    state.index.clear();
-    state.resources.clear();
+    state.index = undefined;
+    state.resources = undefined;
     state.completions?.clear();
     state.completions = undefined;
   }
