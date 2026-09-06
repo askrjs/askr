@@ -117,6 +117,29 @@ export class ResourceCell<U> {
     if (notify) this.notifySubscribers();
     if (!current()) return;
 
+    const fail = (reason: unknown, asynchronous = false) => {
+      if (!current()) return;
+      let error: Error;
+      try {
+        if (
+          asynchronous &&
+          ((reason instanceof Error && reason.name === 'AbortError') ||
+            (typeof DOMException !== 'undefined' &&
+              reason instanceof DOMException &&
+              reason.name === 'AbortError'))
+        )
+          return;
+        error = reason instanceof Error ? reason : new Error(String(reason));
+      } catch {
+        error = new Error('Resource error normalization failed');
+      }
+      if (!current()) return;
+      this.pending = false;
+      this.error = error;
+      if (asynchronous) this.reportError(reason);
+      if (current() && (notify || asynchronous)) this.notifySubscribers();
+    };
+
     let result: PromiseLike<U> | U;
     let asynchronous: boolean;
     try {
@@ -126,10 +149,7 @@ export class ResourceCell<U> {
       );
       asynchronous = isPromiseLike<U>(result);
     } catch (err) {
-      if (!current()) return;
-      this.pending = false;
-      this.error = err instanceof Error ? err : new Error(String(err));
-      if (notify) this.notifySubscribers();
+      fail(err);
       return;
     }
 
@@ -147,33 +167,20 @@ export class ResourceCell<U> {
       throwSSRDataMissing();
     }
 
-    Promise.resolve(result).then(
-      (val) => {
-        if (!current()) return;
-        this.value = val;
-        this.pending = false;
-        this.error = null;
-        this.notifySubscribers();
-      },
-      (err) => {
-        if (!current()) return;
-
-        const isAbortError =
-          (err instanceof Error && err.name === 'AbortError') ||
-          (typeof DOMException !== 'undefined' &&
-            err instanceof DOMException &&
-            err.name === 'AbortError');
-
-        if (isAbortError) {
-          return;
-        }
-
-        this.pending = false;
-        this.error = err instanceof Error ? err : new Error(String(err));
-        this.reportError(err);
-        this.notifySubscribers();
-      }
-    );
+    try {
+      Promise.resolve(result).then(
+        (val) => {
+          if (!current()) return;
+          this.value = val;
+          this.pending = false;
+          this.error = null;
+          this.notifySubscribers();
+        },
+        (err) => fail(err, true)
+      );
+    } catch (err) {
+      fail(err);
+    }
   }
 
   refresh() {

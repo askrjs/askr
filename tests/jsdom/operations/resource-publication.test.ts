@@ -16,6 +16,66 @@ afterEach(() => {
 });
 
 describe('resource execution and publication isolation', () => {
+  it('should settle an async failure even when its string conversion throws', async () => {
+    vi.spyOn(logger, 'error').mockImplementation(() => {});
+    const cell = resource(() =>
+      Promise.reject({
+        toString() {
+          throw new Error('conversion failed');
+        },
+      })
+    );
+    cell.start();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(cell.snapshot.pending).toBe(false);
+    expect(cell.snapshot.error?.message).toBe(
+      'Resource error normalization failed'
+    );
+  });
+
+  it.each(['sync', 'async'] as const)(
+    'should preserve refresh during %s error normalization',
+    async (mode) => {
+      const failure = {
+        toString() {
+          cell.setLoader(() => 'new');
+          cell.refresh();
+          return 'stale error';
+        },
+      };
+      const cell = resource(() => {
+        if (mode === 'async') return Promise.reject(failure);
+        throw failure;
+      });
+      cell.start();
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(cell.snapshot).toMatchObject({
+        value: 'new',
+        pending: false,
+        error: null,
+      });
+    }
+  );
+
+  it('should publish promise assimilation failures through the loader contract', () => {
+    const failure = new Error('constructor getter failed');
+    const result = Promise.resolve('ready');
+    Object.defineProperty(result, 'constructor', {
+      get() {
+        throw failure;
+      },
+    });
+    const cell = resource(() => result);
+    expect(() => cell.start()).not.toThrow();
+    expect(cell.snapshot).toMatchObject({
+      value: null,
+      pending: false,
+      error: failure,
+    });
+  });
+
   it('should continue pending notification and execution after a subscriber throws', () => {
     const report = vi.spyOn(logger, 'error').mockImplementation(() => {
       throw new Error('logger failed');

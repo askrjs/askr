@@ -174,7 +174,9 @@ or publishing a result, including synchronous values and errors. Subscriber
 failures are reported separately and do not become loader errors or prevent
 other subscribers from observing the published snapshot. Thenable inspection
 belongs to loader execution, so a throwing `then` getter publishes a loader
-error through the same snapshot contract.
+error through the same snapshot contract. Promise assimilation and error
+normalization share that boundary. Normalization finishes before execution
+freshness is rechecked, so coercing a thrown value cannot overwrite a refresh.
 
 ```mermaid
 flowchart LR
