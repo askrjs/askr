@@ -76,7 +76,24 @@ export class ResourceCell<U> {
     this.snapshot.value = this.value;
     this.snapshot.pending = this.pending;
     this.snapshot.error = this.error;
-    for (const cb of this.subscribers) cb();
+    for (const cb of this.subscribers) {
+      try {
+        cb();
+      } catch (error) {
+        this.reportError(error, 'Resource subscriber error');
+      }
+    }
+  }
+
+  private reportError(error: unknown, label = 'Async resource error') {
+    try {
+      logger.error(
+        `[Askr] ${label}${this.ownerName ? ` in ${this.ownerName}` : ''}:`,
+        error
+      );
+    } catch {
+      /* Logging cannot interrupt resource execution or publication. */
+    }
   }
 
   start(ssr = false, notify = true) {
@@ -86,27 +103,58 @@ export class ResourceCell<U> {
 
     const generation = this.generation;
 
-    this.controller?.abort();
+    const previous = this.controller;
     const controller = new AbortController();
     this.controller = controller;
+    const current = () =>
+      this.generation === generation &&
+      this.controller === controller &&
+      !controller.signal.aborted;
+    previous?.abort();
+    if (!current()) return;
     this.pending = true;
     this.error = null;
     if (notify) this.notifySubscribers();
+    if (!current()) return;
+
+    const fail = (reason: unknown, asynchronous = false) => {
+      if (!current()) return;
+      let error: Error;
+      try {
+        if (
+          asynchronous &&
+          ((reason instanceof Error && reason.name === 'AbortError') ||
+            (typeof DOMException !== 'undefined' &&
+              reason instanceof DOMException &&
+              reason.name === 'AbortError'))
+        )
+          return;
+        error = reason instanceof Error ? reason : new Error(String(reason));
+      } catch {
+        error = new Error('Resource error normalization failed');
+      }
+      if (!current()) return;
+      this.pending = false;
+      this.error = error;
+      if (asynchronous) this.reportError(reason);
+      if (current() && (notify || asynchronous)) this.notifySubscribers();
+    };
 
     let result: PromiseLike<U> | U;
+    let asynchronous: boolean;
     try {
       // Execute only the synchronous step inside the frozen resource frame.
       result = withAsyncResourceContext(this.resourceFrame, () =>
         this.fn({ signal: controller.signal })
       );
+      asynchronous = isPromiseLike<U>(result);
     } catch (err) {
-      this.pending = false;
-      this.error = err instanceof Error ? err : new Error(String(err));
-      if (notify) this.notifySubscribers();
+      fail(err);
       return;
     }
 
-    if (!isPromiseLike<U>(result)) {
+    if (!asynchronous) {
+      if (!current()) return;
       this.value = result as U;
       this.pending = false;
       this.error = null;
@@ -119,51 +167,20 @@ export class ResourceCell<U> {
       throwSSRDataMissing();
     }
 
-    Promise.resolve(result)
-      .then((val) => {
-        if (this.generation !== generation) return;
-        if (this.controller !== controller) return;
-        // A loader that does not reject on abort (e.g. a plain Promise) would
-        // otherwise commit its value after the fetch was cancelled by a deps
-        // change, refresh(), or unmount. Mirror the AbortError guard used in
-        // the rejection path so an aborted fetch's resolution stays inert.
-        if (controller.signal.aborted) return;
-        this.value = val;
-        this.pending = false;
-        this.error = null;
-        this.notifySubscribers();
-      })
-      .catch((err) => {
-        if (this.generation !== generation) return;
-        if (this.controller !== controller) return;
-
-        const isAbortError =
-          controller.signal.aborted ||
-          (err instanceof Error && err.name === 'AbortError') ||
-          (typeof DOMException !== 'undefined' &&
-            err instanceof DOMException &&
-            err.name === 'AbortError');
-
-        if (isAbortError) {
-          return;
-        }
-
-        this.pending = false;
-        this.error = err instanceof Error ? err : new Error(String(err));
-        try {
-          if (this.ownerName) {
-            logger.error(
-              `[Askr] Async resource error in ${this.ownerName}:`,
-              err
-            );
-          } else {
-            logger.error('[Askr] Async resource error:', err);
-          }
-        } catch {
-          /* ignore logging errors */
-        }
-        this.notifySubscribers();
-      });
+    try {
+      Promise.resolve(result).then(
+        (val) => {
+          if (!current()) return;
+          this.value = val;
+          this.pending = false;
+          this.error = null;
+          this.notifySubscribers();
+        },
+        (err) => fail(err, true)
+      );
+    } catch (err) {
+      fail(err);
+    }
   }
 
   refresh() {
@@ -172,7 +189,6 @@ export class ResourceCell<U> {
     }
 
     this.generation++;
-    this.controller?.abort();
     this.start();
   }
 
