@@ -14,6 +14,7 @@ import { assertSchedulingPrecondition, invariant } from '../common/invariant';
 import { logger } from '../common/logger';
 import { recordSchedulerFlushTaskCount } from './diagnostics/perf-metrics';
 import { adjustOwnershipDiagnostic } from './diagnostics/ownership-diagnostics';
+import { SchedulerScopes } from './scheduler-scopes';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
@@ -52,8 +53,8 @@ export class Scheduler {
     post: { tasks: [], head: 0 },
   };
 
+  private readonly scopes = new SchedulerScopes();
   private running = false;
-  private inHandler = false;
   private depth = 0;
   private executionDepth = 0; // for compat with existing diagnostics
 
@@ -62,9 +63,6 @@ export class Scheduler {
 
   // Best-effort microtask kick scheduling
   private kickScheduled = false;
-
-  // Escape hatch flag for runWithSyncProgress
-  private allowSyncProgress = false;
 
   // Waiters waiting for flushVersion >= target
   private waiters: FlushWaiter[] = [];
@@ -125,10 +123,8 @@ export class Scheduler {
 
   private scheduleFlushKick(): void {
     if (
-      this.running ||
       this.kickScheduled ||
-      this.inHandler ||
-      this.allowSyncProgress ||
+      !this.scopes.canKick(this.running) ||
       this.isBulkCommitActive() ||
       !this.hasPendingTasks()
     ) {
@@ -139,7 +135,7 @@ export class Scheduler {
     queueMicrotask(() => {
       this.kickScheduled = false;
       if (
-        this.running ||
+        !this.scopes.canKick(this.running) ||
         this.isBulkCommitActive() ||
         !this.hasPendingTasks()
       ) {
@@ -166,7 +162,7 @@ export class Scheduler {
     );
 
     // Strict rule: during bulk commit, only allow enqueues if runWithSyncProgress enabled
-    if (this.isBulkCommitActive() && !this.allowSyncProgress) {
+    if (this.isBulkCommitActive() && !this.scopes.allowSyncProgress) {
       if (isDevelopmentEnvironment()) {
         throw new Error(
           '[Scheduler] enqueue() during bulk commit (not allowed)'
@@ -193,7 +189,7 @@ export class Scheduler {
 
     // Dev-only guard: disallow flush during bulk commit unless allowed
     if (isDevelopmentEnvironment()) {
-      if (this.isBulkCommitActive() && !this.allowSyncProgress) {
+      if (this.isBulkCommitActive() && !this.scopes.allowSyncProgress) {
         throw new Error(
           '[Scheduler] flush() started during bulk commit (not allowed)'
         );
@@ -270,8 +266,7 @@ export class Scheduler {
       }
 
       // Advance flush epoch and resolve waiters
-      this.flushVersion++;
-      this.resolveWaiters();
+      this.completeEpoch();
       recordSchedulerFlushTaskCount(executedTaskCount);
     }
 
@@ -284,10 +279,9 @@ export class Scheduler {
   }
 
   runWithSyncProgress<T>(fn: () => T): T {
-    const prev = this.allowSyncProgress;
-    this.allowSyncProgress = true;
+    this.scopes.adjustProgress(1);
 
-    // Snapshot flushVersion so we can ensure we always complete an epoch
+    // Track whether this scope already completed an explicit flush.
     const startVersion = this.flushVersion;
 
     try {
@@ -308,19 +302,11 @@ export class Scheduler {
 
       return res;
     } finally {
-      // If no flush happened during the protected window, complete an epoch so
-      // observers (tests) see progress even when fast-lane did synchronous work
-      // without enqueuing tasks.
-      try {
-        if (this.flushVersion === startVersion) {
-          this.flushVersion++;
-          this.resolveWaiters();
-        }
-      } catch (e) {
-        void e;
-      }
-
-      this.allowSyncProgress = prev;
+      this.scopes.adjustProgress(-1);
+      // Nested scopes and active flushes have an outer completion owner. A
+      // throwing callback may leave work queued; its kick must survive exit.
+      if (this.flushVersion === startVersion) this.completeIdleEpoch();
+      this.scheduleFlushKick();
     }
   }
 
@@ -342,7 +328,7 @@ export class Scheduler {
           flushVersion: this.flushVersion,
           queueLen: this.getPendingTaskCount(),
           running: this.running,
-          inHandler: this.inHandler,
+          inHandler: this.scopes.inHandler,
           bulk: this.isBulkCommitActive(),
           ...(__ASKR_DEVELOPMENT_BUILD__
             ? {
@@ -383,8 +369,8 @@ export class Scheduler {
         post: this.lanes.post.tasks.length - this.lanes.post.head,
       },
       // New fields for optional inspection
-      inHandler: this.inHandler,
-      allowSyncProgress: this.allowSyncProgress,
+      inHandler: this.scopes.inHandler,
+      allowSyncProgress: this.scopes.allowSyncProgress,
     };
   }
 
@@ -399,15 +385,14 @@ export class Scheduler {
   }
 
   runInHandlerScope<T>(fn: () => T, flushMode: 'defer' | 'sync' = 'defer'): T {
-    const prevInHandler = this.inHandler;
-    this.inHandler = true;
+    this.scopes.adjustHandler(1);
 
     try {
       return fn();
     } finally {
-      this.inHandler = prevInHandler;
+      this.scopes.adjustHandler(-1);
 
-      if (!this.inHandler) {
+      if (!this.scopes.inHandler) {
         if (flushMode === 'sync') {
           this.flushIfQueued();
         } else {
@@ -418,14 +403,14 @@ export class Scheduler {
   }
 
   setInHandler(v: boolean) {
-    this.inHandler = v;
+    this.scopes.setHandlerFlag(v);
     if (!v) {
       this.scheduleFlushKick();
     }
   }
 
   isInHandler(): boolean {
-    return this.inHandler;
+    return this.scopes.inHandler;
   }
 
   isExecuting(): boolean {
@@ -446,14 +431,6 @@ export class Scheduler {
       if (__ASKR_DEVELOPMENT_BUILD__) {
         adjustOwnershipDiagnostic('queuedSchedulerWork', -remaining);
       }
-      queueMicrotask(() => {
-        try {
-          this.flushVersion++;
-          this.resolveWaiters();
-        } catch (e) {
-          void e;
-        }
-      });
       return remaining;
     }
 
@@ -466,9 +443,23 @@ export class Scheduler {
     if (__ASKR_DEVELOPMENT_BUILD__) {
       adjustOwnershipDiagnostic('queuedSchedulerWork', -remaining);
     }
+    this.completeIdleEpoch();
+    return remaining;
+  }
+
+  private completeIdleEpoch(): void {
+    if (
+      !this.running &&
+      !this.scopes.allowSyncProgress &&
+      !this.hasPendingTasks()
+    ) {
+      this.completeEpoch();
+    }
+  }
+
+  private completeEpoch(): void {
     this.flushVersion++;
     this.resolveWaiters();
-    return remaining;
   }
 
   private resolveWaiters() {
