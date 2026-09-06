@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
-import { state, type State } from '../../../src/runtime/state';
+import { state, type State } from '../../../src/runtime/reactivity/state';
 import {
   getCurrentInstance,
   type ComponentInstance,
@@ -7,7 +7,7 @@ import {
 import { render } from '../../../src/testing';
 import { task } from '../../../src/runtime';
 import { getRuntimeRenderer } from '../../../src/runtime/access';
-import { registerCommitParticipant } from '../../../src/runtime/transaction-access';
+import { registerCommitParticipant } from '../../../src/runtime/transactions/access';
 
 describe('commit publication boundary', () => {
   it('should retain the previous lifetime when an extension declines range replacement and publication fails', () => {

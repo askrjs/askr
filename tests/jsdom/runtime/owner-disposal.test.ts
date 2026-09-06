@@ -4,9 +4,9 @@ import {
   createComponentInstance,
   renderComponentInline,
 } from '../../../src/runtime';
-import { captureComponentGeneration } from '../../../src/runtime/component-generation';
-import { createChildScope } from '../../../src/runtime/child-scope';
-import { commitLifecycleForInstance } from '../../../src/runtime/component-lifecycle';
+import { captureComponentGeneration } from '../../../src/runtime/component/generation';
+import { createChildScope } from '../../../src/runtime/ownership/child-scope';
+import { commitLifecycleForInstance } from '../../../src/runtime/component/lifecycle';
 
 describe('owner disposal', () => {
   it('should release a child scope when its component is disposed directly', () => {

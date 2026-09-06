@@ -5,12 +5,12 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import { cleanupApp, createSPA } from '../../../../src/boot';
-import { state } from '../../../../src/runtime/state';
+import { state } from '../../../../src/runtime/reactivity/state';
 import {
   recordReadableRead,
   notifyReadableReaders,
   type ReadableSource,
-} from '../../../../src/runtime/readable';
+} from '../../../../src/runtime/reactivity/readable';
 import { group, route } from '../../../../src/router/route';
 import {
   createTestContainer,

@@ -18,8 +18,8 @@ import type { RouteConfig } from '../../../src/ssg/types';
 import type { JSXElement } from '../../../src/jsx/types';
 import type { DocumentRenderContext } from '../../../src/common/ssr';
 import { resource } from '../../../src/resources';
-import { defineScope } from '../../../src/runtime/context';
-import { state } from '../../../src/runtime/state';
+import { defineScope } from '../../../src/runtime/context/context';
+import { state } from '../../../src/runtime/reactivity/state';
 import {
   DefaultPortal,
   Portal,

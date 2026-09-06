@@ -8,7 +8,7 @@ import {
 } from 'vite-plus/test';
 import { logger } from '../../../src/common/logger';
 import { state } from '../../../src/index';
-import { getKeyMapForElement } from '../../../src/renderer/keyed';
+import { getKeyMapForElement } from '../../../src/renderer/reconciliation/keyed';
 import { resource, task } from '../../../src/resources';
 import { renderToStringSync } from '../../../src/ssr';
 import { createIsland } from '../../../test-utils/render/create-island';

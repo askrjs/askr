@@ -4,7 +4,7 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../src/boot';
-import { state } from '../../../src/runtime/state';
+import { state } from '../../../src/runtime/reactivity/state';
 import { dismissable } from '../../../src/foundations/interactions/dismissable';
 import {
   createWrappedHandler,

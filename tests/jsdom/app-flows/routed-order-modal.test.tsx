@@ -6,7 +6,7 @@ import {
   Portal,
   _resetDefaultPortal,
 } from '../../../src/foundations/structures/portal';
-import { state } from '../../../src/runtime/state';
+import { state } from '../../../src/runtime/reactivity/state';
 import { navigate } from '../../../src/router/navigate';
 import { group, route } from '../../../src/router/route';
 import {

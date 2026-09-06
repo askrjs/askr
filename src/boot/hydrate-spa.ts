@@ -46,12 +46,12 @@ import { validateCspNonce } from '../csp-nonce';
 import {
   beginHydrationDirectListenerMode,
   endHydrationDirectListenerMode,
-} from '../renderer/prop-bindings';
+} from '../renderer/props/bindings';
 import {
   beginHydrationListenerTransaction,
   commitHydrationListenerTransaction,
   discardHydrationListenerTransaction,
-} from '../renderer/hydration-listener-transaction';
+} from '../renderer/hydration/listener-transaction';
 import { beginHydrationInteractionReplay } from './hydration-interaction-replay';
 
 /**

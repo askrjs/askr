@@ -1,0 +1,608 @@
+import { ownCleanup } from '../ownership/record';
+import type { RenderableChild } from '../../common/vnode';
+import type { JSXElement } from '../../common/jsx';
+import {
+  markReactivePropsDirtySource,
+  markReadableDerivedSubscribersDirty,
+  notifyReadableReaders,
+  recordReadableRead,
+  type ReadableSource,
+} from '../reactivity/readable';
+import {
+  getCurrentComponentInstance,
+  getCurrentPortalScope,
+} from '../component/scope';
+import { type ComponentInstance } from '../component/instance';
+import { getRuntimeCleanup } from '../access';
+import {
+  adjustPortalRegistrations,
+  clearPortalRegistrations,
+} from '../diagnostics/ownership-diagnostics';
+import {
+  getCurrentCommitTransaction,
+  registerCommitEffect,
+  type CommitTransaction,
+} from '../component/lifecycle';
+import { registerDefaultPortalRuntime } from '../../common/default-portal-runtime';
+import { DEFAULT_SSR_PORTAL_KEY } from './ssr';
+import { createSSRPortalHost } from './ssr';
+import { writeSSRPortal } from './ssr';
+import { createSSRPortalAnchor } from './ssr';
+import type { PortalOwner } from './lifetime';
+import { setPortalErrorParent } from './lifetime';
+import { definePortal } from './explicit';
+export { definePortal } from './explicit';
+
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
+
+/**
+ * A named portal channel created by {@link definePortal}: call it as a
+ * component to render the host, and call `.render(props)` to write content.
+ */
+export interface Portal<T extends RenderableChild = RenderableChild> {
+  (): T | JSXElement | null | undefined;
+  render(props: { children?: T }): unknown;
+}
+
+/** Props for the {@link Portal} component. */
+export interface PortalProps {
+  children?: RenderableChild;
+}
+
+type DefaultPortalState = {
+  portal: Portal<RenderableChild>;
+  owner: PortalOwner | null;
+  host: PortalOwner | null;
+  cleanupOwners: WeakSet<object>;
+  explicitHostOwners: Map<object, ComponentInstance>;
+  explicitHostCleanupOwners: WeakSet<object>;
+  explicitHostSource: ReadableSource<number>;
+  ownerVersion: number;
+  ownerSource: ReadableSource<number>;
+};
+
+type PendingDefaultPortalWrite = {
+  state: DefaultPortalState;
+  owner: PortalOwner | null;
+  children: RenderableChild | undefined;
+  batch?: CommitTransaction;
+};
+
+let _defaultPortalStates = new Map<object, DefaultPortalState>();
+
+let _hasPendingDefaultPortalValue = false;
+
+let _pendingDefaultPortalValue: RenderableChild | undefined = undefined;
+
+let _pendingDefaultPortalWrites = new WeakMap<
+  DefaultPortalState,
+  PendingDefaultPortalWrite
+>();
+
+const _batchPortalWrites = new WeakMap<
+  CommitTransaction,
+  Map<DefaultPortalState, PendingDefaultPortalWrite>
+>();
+
+function trackBatchPortalWrite(
+  batch: CommitTransaction,
+  state: DefaultPortalState,
+  transaction: PendingDefaultPortalWrite
+): void {
+  let current: CommitTransaction | null = batch;
+  while (current) {
+    let writes = _batchPortalWrites.get(current);
+    if (!writes) {
+      writes = new Map();
+      _batchPortalWrites.set(current, writes);
+    }
+    if (!writes.has(state)) {
+      writes.set(state, transaction);
+    }
+    current = current.parent;
+  }
+}
+
+function clearTrackedBatchPortalWrite(
+  transaction: PendingDefaultPortalWrite
+): void {
+  let batch = transaction.batch ?? null;
+  while (batch) {
+    const writes = _batchPortalWrites.get(batch);
+    if (writes?.get(transaction.state) === transaction) {
+      writes.delete(transaction.state);
+    }
+    batch = batch.parent;
+  }
+}
+
+type DefaultPortalHostProps = {
+  __askrAutoDefaultPortal?: boolean;
+};
+
+function createPortalStateSource(
+  readCount: () => number
+): ReadableSource<number> {
+  let source: ReadableSource<number>;
+  source = (() => {
+    recordReadableRead(source);
+    return readCount();
+  }) as ReadableSource<number>;
+  return source;
+}
+
+function readExplicitDefaultPortalHosts(state: DefaultPortalState): number {
+  return state.explicitHostSource();
+}
+
+function notifyExplicitDefaultPortalHostReaders(
+  state: DefaultPortalState
+): void {
+  markReadableDerivedSubscribersDirty(state.explicitHostSource);
+  markReactivePropsDirtySource(state.explicitHostSource);
+  notifyReadableReaders(state.explicitHostSource);
+}
+
+function setDefaultPortalOwner(
+  state: DefaultPortalState,
+  owner: PortalOwner | null
+): void {
+  if (
+    state.owner?.instance === owner?.instance &&
+    state.owner?.generation === owner?.generation
+  ) {
+    return;
+  }
+  state.owner = owner;
+  state.ownerVersion += 1;
+  markReadableDerivedSubscribersDirty(state.ownerSource);
+  markReactivePropsDirtySource(state.ownerSource);
+  notifyReadableReaders(state.ownerSource);
+}
+
+function createDefaultPortalState(): DefaultPortalState {
+  const state: DefaultPortalState = {
+    portal: definePortal<RenderableChild>(),
+    owner: null,
+    host: null,
+    cleanupOwners: new WeakSet<object>(),
+    explicitHostOwners: new Map<object, ComponentInstance>(),
+    explicitHostCleanupOwners: new WeakSet<object>(),
+    explicitHostSource: (() => 0) as ReadableSource<number>,
+    ownerVersion: 0,
+    ownerSource: (() => 0) as ReadableSource<number>,
+  };
+
+  state.explicitHostSource = createPortalStateSource(
+    () => state.explicitHostOwners.size
+  );
+  state.ownerSource = createPortalStateSource(() => state.ownerVersion);
+  return state;
+}
+
+export function _resetDefaultPortal(): void {
+  if (__ASKR_DEVELOPMENT_BUILD__) {
+    for (const state of _defaultPortalStates.values()) {
+      clearPortalRegistrations(state);
+    }
+  }
+  _defaultPortalStates = new Map<object, DefaultPortalState>();
+  _hasPendingDefaultPortalValue = false;
+  _pendingDefaultPortalValue = undefined;
+  _pendingDefaultPortalWrites = new WeakMap();
+}
+
+export function disposeDefaultPortalScope(scope: object | null): void {
+  if (!scope) {
+    return;
+  }
+
+  const state = _defaultPortalStates.get(scope);
+  if (state) {
+    state.portal.render({ children: undefined });
+    if (__ASKR_DEVELOPMENT_BUILD__) {
+      clearPortalRegistrations(state);
+    }
+  }
+
+  _defaultPortalStates.delete(scope);
+}
+
+function isComponentPortalScope(scope: object): scope is ComponentInstance {
+  return (
+    'lifecycleGeneration' in scope &&
+    'evaluationGeneration' in scope &&
+    'parentInstance' in scope
+  );
+}
+
+function isEmptyPortalValue(value: RenderableChild | undefined): boolean {
+  return value === null || value === undefined || value === false;
+}
+
+function detachDefaultPortalHostOutput(state: DefaultPortalState): void {
+  if (state.host)
+    getRuntimeCleanup().detachPortalHostOutput(state.host.instance);
+}
+
+function applyDefaultPortalWrite(
+  state: DefaultPortalState,
+  children: RenderableChild | undefined,
+  owner: PortalOwner | null
+): void {
+  state.portal.render({ children });
+  setDefaultPortalOwner(state, owner);
+  if (isEmptyPortalValue(children)) {
+    detachDefaultPortalHostOutput(state);
+  }
+}
+
+function isStaleDefaultPortalScope(scope: object): boolean {
+  if (!isComponentPortalScope(scope)) {
+    return false;
+  }
+
+  if (getRuntimeCleanup().isComponentHostDetached(scope)) {
+    return true;
+  }
+
+  return scope.owner.mounted === false;
+}
+
+function pruneStaleDefaultPortalScopes(): void {
+  if (_defaultPortalStates.size === 0) {
+    return;
+  }
+
+  for (const scope of Array.from(_defaultPortalStates.keys())) {
+    if (isStaleDefaultPortalScope(scope)) {
+      disposeDefaultPortalScope(scope);
+    }
+  }
+}
+
+function getSingleDefaultPortalScope(): object | null {
+  pruneStaleDefaultPortalScopes();
+
+  if (_defaultPortalStates.size !== 1) {
+    return null;
+  }
+
+  return _defaultPortalStates.keys().next().value ?? null;
+}
+
+function getDefaultPortalState(scope: object): DefaultPortalState {
+  let state = _defaultPortalStates.get(scope);
+  if (!state) {
+    state = createDefaultPortalState();
+    _defaultPortalStates.set(scope, state);
+  }
+  return state;
+}
+
+function resolveDefaultPortalScope(
+  owner: ComponentInstance | null
+): object | null {
+  return (
+    owner?.portalScope ??
+    getCurrentPortalScope() ??
+    getSingleDefaultPortalScope()
+  );
+}
+
+function writeDefaultPortal(
+  props: PortalProps,
+  owner: ComponentInstance | null
+): void {
+  const scope = resolveDefaultPortalScope(owner);
+  if (!scope) {
+    if (_defaultPortalStates.size !== 0) {
+      return;
+    }
+
+    _hasPendingDefaultPortalValue = true;
+    _pendingDefaultPortalValue = props.children;
+    return;
+  }
+
+  const state = getDefaultPortalState(scope);
+  const capturedOwner = owner
+    ? { instance: owner, generation: owner.owner.identity }
+    : null;
+  const batch = getCurrentCommitTransaction();
+  if (batch) {
+    let writes = _batchPortalWrites.get(batch);
+    if (!writes) {
+      writes = new Map();
+      _batchPortalWrites.set(batch, writes);
+    }
+
+    const existing = writes.get(state);
+    if (existing) {
+      existing.owner = capturedOwner;
+      existing.children = props.children;
+      return;
+    }
+
+    const transaction: PendingDefaultPortalWrite = {
+      state,
+      owner: capturedOwner,
+      children: props.children,
+      batch,
+    };
+    const registered = registerCommitEffect(
+      state,
+      () => {
+        if (_batchPortalWrites.get(batch)?.get(state) !== transaction) {
+          return;
+        }
+        clearTrackedBatchPortalWrite(transaction);
+        applyDefaultPortalWrite(state, transaction.children, transaction.owner);
+      },
+      () => {
+        clearTrackedBatchPortalWrite(transaction);
+      },
+      () => {
+        const parentBatch = batch.parent;
+        const parentWrite = parentBatch
+          ? _batchPortalWrites.get(parentBatch)?.get(state)
+          : undefined;
+        if (parentWrite && parentWrite !== transaction) {
+          parentWrite.owner = transaction.owner;
+          parentWrite.children = transaction.children;
+        }
+        clearTrackedBatchPortalWrite(transaction);
+      }
+    );
+    if (registered) {
+      trackBatchPortalWrite(batch, state, transaction);
+      return;
+    }
+  }
+
+  const pending = _pendingDefaultPortalWrites.get(state);
+  if (pending) {
+    pending.owner = capturedOwner;
+    pending.children = props.children;
+    return;
+  }
+
+  const transaction: PendingDefaultPortalWrite = {
+    state,
+    owner: capturedOwner,
+    children: props.children,
+  };
+  if (
+    registerCommitEffect(
+      transaction,
+      () => {
+        if (_pendingDefaultPortalWrites.get(state) !== transaction) {
+          return;
+        }
+
+        _pendingDefaultPortalWrites.delete(state);
+        _hasPendingDefaultPortalValue = false;
+        _pendingDefaultPortalValue = undefined;
+        applyDefaultPortalWrite(state, transaction.children, transaction.owner);
+      },
+      () => {
+        if (_pendingDefaultPortalWrites.get(state) === transaction) {
+          _pendingDefaultPortalWrites.delete(state);
+        }
+      }
+    )
+  ) {
+    _pendingDefaultPortalWrites.set(state, transaction);
+    return;
+  }
+
+  _hasPendingDefaultPortalValue = false;
+  _pendingDefaultPortalValue = undefined;
+  applyDefaultPortalWrite(state, props.children, capturedOwner);
+}
+
+function applyPendingDefaultPortalValue(scope: object): void {
+  if (!_hasPendingDefaultPortalValue) {
+    return;
+  }
+
+  const state = getDefaultPortalState(scope);
+  state.portal.render({ children: _pendingDefaultPortalValue });
+  setDefaultPortalOwner(state, null);
+  _hasPendingDefaultPortalValue = false;
+  _pendingDefaultPortalValue = undefined;
+}
+
+function getPendingDefaultPortalWrite(
+  state: DefaultPortalState
+): PendingDefaultPortalWrite | undefined {
+  let batch = getCurrentCommitTransaction();
+  while (batch) {
+    const pending = _batchPortalWrites.get(batch)?.get(state);
+    if (pending) {
+      return pending;
+    }
+    batch = batch.parent;
+  }
+
+  return _pendingDefaultPortalWrites.get(state);
+}
+
+function hasPendingReplacementPortalOwner(
+  state: DefaultPortalState,
+  owner: ComponentInstance,
+  generation: object
+): boolean {
+  const pendingOwner = getPendingDefaultPortalWrite(state)?.owner;
+  return Boolean(
+    pendingOwner &&
+    (pendingOwner.instance !== owner || pendingOwner.generation !== generation)
+  );
+}
+
+function registerDefaultPortalOwner(owner: ComponentInstance): void {
+  const scope = resolveDefaultPortalScope(owner);
+  if (!scope) {
+    return;
+  }
+
+  const state = getDefaultPortalState(scope);
+  const generation = owner.owner.identity;
+  if (state.cleanupOwners.has(generation)) {
+    return;
+  }
+
+  state.cleanupOwners.add(generation);
+  if (__ASKR_DEVELOPMENT_BUILD__) {
+    adjustPortalRegistrations(state, 1);
+  }
+  ownCleanup(owner.owner, () => {
+    const currentState = _defaultPortalStates.get(scope);
+    if (!currentState) {
+      return;
+    }
+
+    if (
+      currentState.owner?.instance === owner &&
+      currentState.owner.generation === generation &&
+      !hasPendingReplacementPortalOwner(currentState, owner, generation)
+    ) {
+      applyDefaultPortalWrite(currentState, undefined, null);
+    }
+    if (currentState.cleanupOwners.delete(generation)) {
+      if (__ASKR_DEVELOPMENT_BUILD__) {
+        adjustPortalRegistrations(currentState, -1);
+      }
+    }
+  });
+}
+
+function registerExplicitDefaultPortalHost(
+  scope: object,
+  state: DefaultPortalState,
+  owner: ComponentInstance | null
+): void {
+  if (!owner) {
+    return;
+  }
+
+  const generation = owner.owner.identity;
+  if (!state.explicitHostOwners.has(generation)) {
+    state.explicitHostOwners.set(generation, owner);
+    if (__ASKR_DEVELOPMENT_BUILD__) {
+      adjustPortalRegistrations(state, 1);
+    }
+    notifyExplicitDefaultPortalHostReaders(state);
+  }
+
+  if (!state.explicitHostCleanupOwners.has(generation)) {
+    state.explicitHostCleanupOwners.add(generation);
+    ownCleanup(owner.owner, () => {
+      if (_defaultPortalStates.get(scope) !== state) {
+        return;
+      }
+
+      state.explicitHostCleanupOwners.delete(generation);
+      if (
+        state.explicitHostOwners.get(generation) === owner &&
+        state.explicitHostOwners.delete(generation)
+      ) {
+        if (__ASKR_DEVELOPMENT_BUILD__) {
+          adjustPortalRegistrations(state, -1);
+        }
+        notifyExplicitDefaultPortalHostReaders(state);
+      }
+    });
+  }
+}
+
+export function clearDefaultPortalForInstance(
+  instance: ComponentInstance
+): void {
+  const scope = instance.portalScope;
+  if (!scope) {
+    return;
+  }
+
+  const state = _defaultPortalStates.get(scope);
+  if (!state) {
+    return;
+  }
+
+  _hasPendingDefaultPortalValue = false;
+  _pendingDefaultPortalValue = undefined;
+  state.portal.render({ children: undefined });
+  setDefaultPortalOwner(state, null);
+  detachDefaultPortalHostOutput(state);
+}
+
+/**
+ * The implicit portal channel that {@link Portal} writes to and that any
+ * host rendered without an explicit portal falls back to.
+ */
+export const DefaultPortal: Portal<RenderableChild> = (() => {
+  function Host(props?: DefaultPortalHostProps) {
+    const serverHost = createSSRPortalHost(
+      DEFAULT_SSR_PORTAL_KEY,
+      props?.__askrAutoDefaultPortal === true
+    );
+    if (serverHost) {
+      return serverHost;
+    }
+
+    const owner = getCurrentComponentInstance();
+    const scope = resolveDefaultPortalScope(owner);
+    if (!scope) {
+      return null;
+    }
+
+    const state = getDefaultPortalState(scope);
+    state.host = owner
+      ? { instance: owner, generation: owner.owner.identity }
+      : null;
+    const isAutomaticFallback = props?.__askrAutoDefaultPortal === true;
+    if (!isAutomaticFallback) {
+      registerExplicitDefaultPortalHost(scope, state, owner);
+    } else if (readExplicitDefaultPortalHosts(state) > 0) {
+      return null;
+    }
+
+    applyPendingDefaultPortalValue(scope);
+    state.ownerSource();
+    setPortalErrorParent(owner, state.owner);
+    const value = state.portal();
+    return value === undefined ? null : value;
+  }
+
+  Host.render = function Render(props: { children?: RenderableChild }) {
+    if (writeSSRPortal(DEFAULT_SSR_PORTAL_KEY, props.children)) {
+      return null;
+    }
+    writeDefaultPortal(props, getCurrentComponentInstance());
+    return null;
+  };
+
+  return Host as Portal<RenderableChild>;
+})();
+
+/** Write children to the {@link DefaultPortal} host wherever it is rendered. */
+export function Portal(props: PortalProps): JSXElement | null {
+  if (writeSSRPortal(DEFAULT_SSR_PORTAL_KEY, props.children)) {
+    return createSSRPortalAnchor();
+  }
+
+  const owner = getCurrentComponentInstance();
+  if (owner) {
+    registerDefaultPortalOwner(owner);
+  }
+  writeDefaultPortal(props, owner);
+  return null;
+}
+
+registerDefaultPortalRuntime({
+  host: DefaultPortal,
+  clearForInstance(instance) {
+    clearDefaultPortalForInstance(instance as ComponentInstance);
+  },
+  disposeScope: disposeDefaultPortalScope,
+});

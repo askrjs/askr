@@ -21,7 +21,7 @@ import {
   task,
   timer,
 } from '@askrjs/askr/resources';
-import { state } from '../../../src/runtime/state';
+import { state } from '../../../src/runtime/reactivity/state';
 import { navigate } from '../../../src/router/navigate';
 import { group, route } from '../../../src/router/route';
 import {

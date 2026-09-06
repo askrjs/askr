@@ -11,7 +11,7 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { allowFrameworkWarnings } from '../../setup-env';
-import { brandSnapshotSource } from '../../../src/runtime/snapshot-source';
+import { brandSnapshotSource } from '../../../src/runtime/reactivity/snapshot-source';
 
 const EXECUTION_MODEL_KEY = Symbol.for('__ASKR_EXECUTION_MODEL__');
 

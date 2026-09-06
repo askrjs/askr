@@ -90,9 +90,9 @@ Each live key owns:
 - one cached DOM root
 
 Reconciliation strategy and development key validation live in
-`src/runtime/for-reconcile.ts`. Item and fallback child scopes live in
-`src/runtime/for-scopes.ts`. Reactive item and index accessor mechanics live in
-`src/runtime/for-signals.ts`; the scope owner calls into that helper to create
+`src/runtime/control/for-reconcile.ts`. Item and fallback child scopes live in
+`src/runtime/control/for-scopes.ts`. Reactive item and index accessor mechanics live in
+`src/runtime/control/for-signals.ts`; the scope owner calls into that helper to create
 row-local item signals, proxy object/function property reads, pass array items
 through as native arrays, notify readable subscribers, and prune parent readers
 when a row updates without rerendering the owning component.

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { defineScope, readScope, state } from '../../../src';
 import { createIsland } from '../../../test-utils/render/create-island';
-import { findHostInstanceByType } from '../../../src/renderer/component-host-instances';
+import { findHostInstanceByType } from '../../../src/renderer/component/host-instances';
 import type { ComponentFunction } from '../../../src/runtime';
 import {
   createTestContainer,

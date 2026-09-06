@@ -1,6 +1,6 @@
 import { globalScheduler, type Scheduler } from './scheduler';
 import type { RendererCapabilities } from './renderer-capabilities';
-import { CommitCoordinator } from './transaction-coordinator';
+import { CommitCoordinator } from './transactions/coordinator';
 import { logger } from '../common/logger';
 
 function createMissingRendererHost(): RendererCapabilities {

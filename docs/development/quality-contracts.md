@@ -13,10 +13,10 @@ durable test family that observes it.
   SSG implementations. External subsystems use `runtime/index.ts`, while
   default scheduler and runtime access stays behind `runtime/access.ts`.
 - `renderer` owns browser DOM mutation. Reconciliation enters through
-  `reconcile-commit.ts`, which either commits the target node sequence or
+  `reconciliation/reconcile-commit.ts`, which either commits the target node sequence or
   restores a coherent replacement on failure.
-- `ownership.ts` owns the lifetime graph and its iterative disposal drain.
-  `component-cleanup.ts` supplies execution invalidation, subscription removal,
+- `ownership/record.ts` owns the lifetime graph and its iterative disposal drain.
+  `component/cleanup.ts` supplies execution invalidation, subscription removal,
   and strict/non-strict error settlement to that drain.
 - `ssr` and `ssg` do not depend on browser renderer internals. Synchronous SSR
   remains the documented rendering boundary.

@@ -30,8 +30,8 @@ import {
   setGlobalDelegationContainer,
   isDelegatedEvent,
   getDelegatedHandlerForElement,
-} from '../../../src/renderer/events';
-import { state } from '../../../src/runtime/state';
+} from '../../../src/renderer/props/events';
+import { state } from '../../../src/runtime/reactivity/state';
 import {
   enterDomCommitScope,
   getCurrentComponentInstance,

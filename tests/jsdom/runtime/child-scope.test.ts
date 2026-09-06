@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vite-plus/test';
-import { createChildScope } from '../../../src/runtime/child-scope';
+import { createChildScope } from '../../../src/runtime/ownership/child-scope';
 import {
   cleanupComponent,
   createComponentInstance,
@@ -9,8 +9,8 @@ import {
   notifyReadableReaders,
   recordReadableRead,
   type ReadableSource,
-} from '../../../src/runtime/readable';
-import { state, type State } from '../../../src/runtime/state';
+} from '../../../src/runtime/reactivity/readable';
+import { state, type State } from '../../../src/runtime/reactivity/state';
 import { flushScheduler } from '../../../test-utils/render/test-renderer';
 
 type ReaderTracked = {

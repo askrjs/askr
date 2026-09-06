@@ -7,7 +7,7 @@ import {
   vi,
 } from 'vite-plus/test';
 import { For } from '../../../src/control';
-import { state, type State } from '../../../src/runtime/state';
+import { state, type State } from '../../../src/runtime/reactivity/state';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,

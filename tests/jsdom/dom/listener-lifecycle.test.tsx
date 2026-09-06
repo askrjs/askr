@@ -17,7 +17,7 @@ import { createIsland } from '../../../test-utils/render/create-island';
 import {
   disableEventDelegation,
   enableEventDelegation,
-} from '../../../src/renderer/events';
+} from '../../../src/renderer/props/events';
 
 describe('listener lifecycle (DOM)', () => {
   let { container, cleanup } = createTestContainer();

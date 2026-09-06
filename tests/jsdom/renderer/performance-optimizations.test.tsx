@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { createIsland } from '@askrjs/askr/boot';
-import { getElementRefOwner } from '../../../src/renderer/cleanup';
+import { getElementRefOwner } from '../../../src/renderer/ownership/cleanup';
 import {
   createTestContainer,
   flushScheduler,

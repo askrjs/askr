@@ -9,7 +9,7 @@ import {
 } from 'vite-plus/test';
 import { configureRenderDiagnostics, state } from '../../../src/index';
 import { For } from '../../../src/control';
-import { getDevValue } from '../../../src/runtime/dev-namespace';
+import { getDevValue } from '../../../src/runtime/diagnostics/dev-namespace';
 import {
   createComponentInstance,
   mountInstanceInline,

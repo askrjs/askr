@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { ResourceCell } from '../../../src/runtime/resource-cell';
+import { ResourceCell } from '../../../src/runtime/lifecycle/resource-cell';
 
 describe('resource promise-like invariants', () => {
   it('should await thenable resource loaders like native promises', async () => {

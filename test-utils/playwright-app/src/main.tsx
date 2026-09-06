@@ -27,14 +27,20 @@ import {
   updateRouteQuery,
 } from '@askrjs/askr/router';
 import { renderToString } from '@askrjs/askr/ssr';
-import { selector } from '../../../src/runtime/selector';
+import { selector } from '../../../src/runtime/reactivity/selector';
 import { globalScheduler } from '../../../src/runtime/scheduler';
-import { getBenchMetrics, resetBenchMetrics } from '../../../src/runtime/for';
+import {
+  getBenchMetrics,
+  resetBenchMetrics,
+} from '../../../src/runtime/control/for';
 import {
   getPerfMetrics,
   resetPerfMetrics,
-} from '../../../src/runtime/perf-metrics';
-import { getDevValue, setDevValue } from '../../../src/runtime/dev-namespace';
+} from '../../../src/runtime/diagnostics/perf-metrics';
+import {
+  getDevValue,
+  setDevValue,
+} from '../../../src/runtime/diagnostics/dev-namespace';
 import {
   getBenchmarkMetadata,
   mountBenchmark,

@@ -9,9 +9,9 @@ import {
   createAppRenderRuntime,
   stageAppRenderRouteLocation,
 } from '../common/app-render-runtime';
-import { captureComponentGeneration } from '../runtime/component-generation';
+import { captureComponentGeneration } from '../runtime/component/generation';
 import { executeComponent, type ComponentInstance } from '../runtime';
-import { captureRootHost } from '../renderer/root-host-snapshot';
+import { captureRootHost } from '../renderer/ownership/root-snapshot';
 import { withoutRouteHydrationMetadata } from '../router/route-hydration';
 import { wrapRootRouteHandler } from './root-handler';
 

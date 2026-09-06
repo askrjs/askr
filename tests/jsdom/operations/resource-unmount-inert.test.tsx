@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vite-plus/test';
 import { For, Show } from '../../../src/control';
 import { resource } from '../../../src/resources';
 import { task } from '../../../src/runtime/operations';
-import { state, type State } from '../../../src/runtime/state';
+import { state, type State } from '../../../src/runtime/reactivity/state';
 import type { JSXElement } from '../../../src/jsx/types';
 import {
   cleanupComponent,
