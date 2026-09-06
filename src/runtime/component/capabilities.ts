@@ -61,3 +61,27 @@ export function getComponentLifecycleSlot<TSlot extends { kind: string }>(
   slots[index] = slot;
   return slot;
 }
+
+/** Identity mutation stays with the execution record; renderers resolve keys. */
+export function setComponentVNodeIdentity(
+  instance: ComponentInstance,
+  node: unknown,
+  parent: ComponentInstance | null,
+  resolveKey: () => string | number | undefined,
+  wrapperDepth = 0,
+  position?: number
+): void {
+  adoptComponentParent(instance, parent);
+  instance._vnodeOwner =
+    typeof node === 'object' && node !== null ? node : undefined;
+  instance._vnodeParent = parent;
+  instance._vnodeParentGeneration = parent?.owner.identity;
+  const key = resolveKey();
+  if (key === undefined) {
+    delete instance._vnodeKey;
+  } else {
+    instance._vnodeKey = key;
+  }
+  instance._vnodePosition = position;
+  instance._wrapperDepth = wrapperDepth;
+}

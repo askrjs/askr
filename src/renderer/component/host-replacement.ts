@@ -6,11 +6,6 @@ import {
   type ComponentInstance,
   registerCommitRollback,
 } from '../../runtime';
-import {
-  elementRefs,
-  removeElementRef,
-  updateElementRef,
-} from '../ownership/cleanup';
 import { cleanupDetachedComponentHost } from './host-cleanup';
 import type { InstanceHostNode } from '../dom-host';
 import { restoreVNodeComponentInstance } from './host-instances';
@@ -89,9 +84,6 @@ export function beginComponentHostReplacement(
       : [existingHost];
   const previousNextSibling =
     previousNodes[previousNodes.length - 1]!.nextSibling;
-  const previousRef =
-    existingHost instanceof Element ? elementRefs.get(existingHost) : undefined;
-  let previousRefDetached = false;
   let nextDom: Node | null = null;
   let nextHost: Node | null = null;
   let nextRange: DOMRange | undefined;
@@ -99,10 +91,12 @@ export function beginComponentHostReplacement(
   let didReplace = false;
   let replacementAttempted = false;
   let finished = false;
+  let publishedRetainedInstances: ComponentInstance[] | undefined;
 
   const publish = (): void => {
     if (finished) return;
     if (replacementAttempted && didReplace) {
+      publishedRetainedInstances = Array.from(retainedInstances);
       if (nextHost) {
         for (const [instance, binding] of previousBindings) {
           if (
@@ -124,7 +118,7 @@ export function beginComponentHostReplacement(
     if (finished) return;
     finished = true;
     if (!replacementAttempted || !didReplace) return;
-    const retained = Array.from(retainedInstances);
+    const retained = publishedRetainedInstances!;
     const errors: unknown[] = [];
     if (previousRange) clearRangeOwner(previousRange);
     for (const node of previousNodes) {
@@ -194,13 +188,6 @@ export function beginComponentHostReplacement(
     } catch (error) {
       rollbackErrors.push(error);
     }
-    if (previousRefDetached && previousRef && existingHost instanceof Element) {
-      try {
-        updateElementRef(existingHost, previousRef);
-      } catch (error) {
-        rollbackErrors.push(error);
-      }
-    }
     if (rollbackErrors.length > 0) {
       throw new AggregateError(
         rollbackErrors,
@@ -219,71 +206,56 @@ export function beginComponentHostReplacement(
       for (const node of previousNodes) node.parentNode?.removeChild(node);
     }
   };
-  const staged = registerCommitParticipant({
-    apply,
-    publish,
-    settle,
-    rollback,
-  });
+  if (
+    !registerCommitParticipant({
+      apply,
+      publish,
+      settle,
+      rollback,
+    })
+  )
+    throw new Error(
+      '[askr] Component replacement requires a commit operation.'
+    );
   const replace = (
     materialize: () => Node,
     prepareNextDom: (replacement: Node) => void
   ): Node => {
     replacementAttempted = true;
-    if (!staged && previousRef && existingHost instanceof Element) {
-      removeElementRef(existingHost);
-      previousRefDetached = true;
+
+    previousBindings = new Map(
+      Array.from(retainedInstances, (instance) => [
+        instance,
+        {
+          target: instance.target,
+          placeholder: instance._placeholder,
+        },
+      ])
+    );
+    nextDom = materialize();
+    const registeredRange = getOwnedRange(retainedInstance);
+    nextRange =
+      registeredRange && registeredRange !== previousRange
+        ? registeredRange
+        : undefined;
+    nextHost =
+      nextDom instanceof DocumentFragment ? nextDom.firstChild : nextDom;
+    if (!nextHost) {
+      throw new Error('[askr] Component replacement produced no host node.');
+    }
+    if (!nextRange) {
+      nextRange = createSingleNodeRange(nextHost, retainedInstance);
+    }
+    prepareNextDom(nextHost);
+    if (parent && nextHost !== existingHost) {
+      if (previousRange && !previousRange.single) {
+        parent.insertBefore(nextDom, previousRange.start);
+      } else {
+        parent.replaceChild(nextDom, existingHost);
+      }
+      didReplace = true;
     }
 
-    try {
-      previousBindings = new Map(
-        Array.from(retainedInstances, (instance) => [
-          instance,
-          {
-            target: instance.target,
-            placeholder: instance._placeholder,
-          },
-        ])
-      );
-      nextDom = materialize();
-      const registeredRange = getOwnedRange(retainedInstance);
-      nextRange =
-        registeredRange && registeredRange !== previousRange
-          ? registeredRange
-          : undefined;
-      nextHost =
-        nextDom instanceof DocumentFragment ? nextDom.firstChild : nextDom;
-      if (!nextHost) {
-        throw new Error('[askr] Component replacement produced no host node.');
-      }
-      if (!nextRange) {
-        nextRange = createSingleNodeRange(nextHost, retainedInstance);
-      }
-      prepareNextDom(nextHost);
-      if (parent && nextHost !== existingHost) {
-        if (previousRange && !previousRange.single) {
-          parent.insertBefore(nextDom, previousRange.start);
-        } else {
-          parent.replaceChild(nextDom, existingHost);
-        }
-        didReplace = true;
-      }
-    } catch (error) {
-      if (!staged) {
-        try {
-          rollback();
-        } catch {
-          // Preserve the original materialization error.
-        }
-      }
-      throw error;
-    }
-
-    if (!staged) {
-      apply();
-      publish();
-      settle();
-    }
     return nextHost;
   };
 

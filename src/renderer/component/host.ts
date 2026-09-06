@@ -1,3 +1,4 @@
+import { runCommitOperation } from '../../runtime/transactions/access';
 import {
   getCurrentInstance,
   type ComponentFunction,
@@ -22,6 +23,31 @@ export {
 } from './host-instances';
 export { createComponentElement } from './host-creation';
 export function syncComponentElement(
+  currentDom: Node | null,
+  node: ElementWithContext,
+  type: ComponentFunction,
+  props: Record<string, unknown>,
+  parentNamespace?: string,
+  forceChildrenUpdate = false,
+  retainedHostInstances?: Iterable<ComponentInstance>,
+  hydrationRangeEnd?: Node | null,
+  preserveHydrationCursorOnEmpty = false
+): Node | null {
+  return runCommitOperation(() =>
+    syncComponentElementInTransaction(
+      currentDom,
+      node,
+      type,
+      props,
+      parentNamespace,
+      forceChildrenUpdate,
+      retainedHostInstances,
+      hydrationRangeEnd,
+      preserveHydrationCursorOnEmpty
+    )
+  );
+}
+function syncComponentElementInTransaction(
   currentDom: Node | null,
   node: ElementWithContext,
   type: ComponentFunction,

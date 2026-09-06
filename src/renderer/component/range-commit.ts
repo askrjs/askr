@@ -1,3 +1,4 @@
+import { runCommitOperation } from '../../runtime/transactions/access';
 import {
   enterDomCommitScope,
   getVNodeContextFrame,
@@ -40,6 +41,15 @@ import { getParentNamespace } from '../intrinsic/namespaces';
 import { _isDOMElement, type VNode } from '../types';
 
 export function replaceComponentRange(
+  instance: ComponentInstance,
+  result: unknown,
+  host: Element | Comment
+): Node | null {
+  return runCommitOperation(() =>
+    replaceComponentRangeInTransaction(instance, result, host)
+  );
+}
+function replaceComponentRangeInTransaction(
   instance: ComponentInstance,
   result: unknown,
   host: Element | Comment

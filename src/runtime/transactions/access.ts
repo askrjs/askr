@@ -72,3 +72,10 @@ export function runCommitTransaction<T>(operation: () => T): T {
     suspendTransaction(transaction);
   }
 }
+
+/** Operation boundaries reuse their enclosing transaction, or own its lifetime. */
+export function runCommitOperation<T>(operation: () => T): T {
+  return getCurrentCommitTransaction()
+    ? operation()
+    : runCommitTransaction(operation);
+}

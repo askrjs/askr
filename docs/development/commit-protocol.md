@@ -1,8 +1,27 @@
 # Shared commit protocol
 
 Each runtime state owns a transaction coordinator. It has no component,
-scheduler, or browser dependencies. Internal callers use `transaction-access.ts`;
+scheduler, or browser dependencies. Internal callers use `runtime/transactions/access.ts`;
 published runtime and renderer extension contracts remain unchanged.
+
+Component host synchronization, range replacement, and standalone host pruning
+enter through `runCommitOperation`. The boundary reuses an active transaction
+or creates and drains one for the entire operation. Replacement participants
+require this boundary and never execute a separate apply/publish/settle fallback.
+An unsuccessful standalone adoption therefore preserves outgoing owners, and
+a failed retained update restores its execution state just like a nested update.
+
+The runtime's retained-update preparation owns snapshot capture and execution
+mutation together. The renderer supplies vnode identity, context, and props;
+the runtime applies parent attachment and retained execution fields before
+component evaluation. Renderer key resolution remains lazy to preserve getter
+ordering relative to snapshot capture and identity mutation.
+
+Retained-owner collections remain live during preparation so nested resolution
+can add successful wrappers. Replacement closes that collection at publication;
+retirement uses the published membership even if a settlement callback mutates
+the original collection. Rollback before publication still sees provisional
+preparation state.
 
 1. Preparation executes synchronous components and captures their pending
    reads and provisional scope state. A scheduled result can suspend until its

@@ -1,4 +1,5 @@
 export * from './access';
+export { prepareRetainedComponentUpdate } from './component/retained-update';
 export * from './ownership/child-scope';
 export type {
   ComponentFunction,
