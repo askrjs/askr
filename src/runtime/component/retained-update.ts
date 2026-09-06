@@ -8,15 +8,15 @@ export function prepareRetainedComponentUpdate(
   instance: ComponentInstance,
   props: ComponentInstance['props'],
   vnode: object,
-  resolveKey: () => string | number | undefined,
+  resolveKey: (node: unknown) => string | number | undefined,
   parent: ComponentInstance | null,
-  resolveIsRoot: () => boolean,
+  resolveIsRoot: (node: unknown) => boolean,
   frame: ContextFrame | null | undefined
 ): void {
   captureInlineRenderSnapshot(instance);
   instance.props = props;
   setComponentVNodeIdentity(instance, vnode, parent, resolveKey);
-  instance.isRoot = resolveIsRoot();
+  instance.isRoot = resolveIsRoot(vnode);
   instance.portalScope = parent?.portalScope ?? instance.portalScope;
   if (parent) instance.cleanupStrict = parent.cleanupStrict;
   if (frame) instance.ownerFrame = frame;

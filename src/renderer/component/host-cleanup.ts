@@ -6,6 +6,7 @@ import {
 } from '../../runtime';
 import {
   registerCommitParticipant,
+  getCurrentCommitTransaction,
   runCommitOperation,
 } from '../../runtime/transactions/access';
 import {
@@ -202,6 +203,8 @@ export function pruneComponentHostInstances(
   host: InstanceHostNode,
   retainedInstances: Iterable<ComponentInstance>
 ): void {
+  if (getCurrentCommitTransaction())
+    return pruneComponentHostInstancesInTransaction(host, retainedInstances);
   runCommitOperation(() =>
     pruneComponentHostInstancesInTransaction(host, retainedInstances)
   );

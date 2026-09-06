@@ -12,9 +12,10 @@ including `undefined`; notification deferral uses an explicit operation. Both
 operations reject settled transactions. Nested joins retain their existing
 collision policy, resource precedence, and reverse rollback order.
 
-Component host synchronization, range replacement, and standalone host pruning
-enter through `runCommitOperation`. The boundary reuses an active transaction
-or creates and drains one for the entire operation. Replacement participants
+Component host synchronization, range replacement, and host pruning establish
+a commit operation boundary. Nested calls reuse the active transaction directly;
+standalone calls use `runCommitOperation` to create and drain one for the entire
+operation. Replacement participants
 require this boundary and never execute a separate apply/publish/settle fallback.
 An unsuccessful standalone adoption therefore preserves outgoing owners, and
 a failed retained update restores its execution state just like a nested update.

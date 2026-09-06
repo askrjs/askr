@@ -204,7 +204,7 @@ export function setComponentOwnershipIdentity(
     instance,
     node,
     parent,
-    () => extractComponentIdentityKey(node),
+    extractComponentIdentityKey,
     wrapperDepth,
     position
   );

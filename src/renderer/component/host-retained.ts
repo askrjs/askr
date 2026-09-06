@@ -75,9 +75,9 @@ export function updateRetainedComponentHost(
     existingInstance,
     props || {},
     node,
-    () => extractComponentIdentityKey(node),
+    extractComponentIdentityKey,
     getCurrentInstance(),
-    () => isRouteRootComponentVNode(node),
+    isRouteRootComponentVNode,
     snapshot
   );
 

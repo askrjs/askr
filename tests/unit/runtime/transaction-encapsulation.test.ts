@@ -37,17 +37,14 @@ describe('transaction encapsulation', () => {
     const coordinator = new CommitCoordinator();
     const transaction = coordinator.begin();
     const key = {};
-    expect(
-      transaction.captureResource(key, () => {
-        transaction.captureResource(key, () => undefined);
-        return 'later';
-      })
-    ).toBeUndefined();
+    const prepare = () => {
+      transaction.captureResource(key, undefined);
+      return 'later';
+    };
+    expect(transaction.captureResource(key, prepare())).toBeUndefined();
     expect(transaction.hasResource(key)).toBe(true);
     coordinator.commit(transaction);
-    expect(() => transaction.captureResource(key, () => 'closed')).toThrow(
-      'settled'
-    );
+    expect(() => transaction.captureResource(key, 'closed')).toThrow('settled');
     expect(() => transaction.setDeferredNotifications(true)).toThrow('settled');
     expect(transaction.resourceCount).toBe(0);
   });

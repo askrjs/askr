@@ -130,22 +130,15 @@ export class CommitTransaction {
   resource<T = unknown>(key: object): T | undefined {
     return this.#state.resources.get(key) as T | undefined;
   }
-  captureResource<T>(key: object, create: () => T): T {
+  captureResource<T>(key: object, resource: T): T {
     if (!this.active)
       throw new Error(
         '[Askr] Cannot capture a resource on a settled transaction.'
       );
-    if (this.#state.resources.has(key))
-      return this.#state.resources.get(key) as T;
-    const resource = create();
-    if (!this.active)
-      throw new Error(
-        '[Askr] Cannot capture a resource on a settled transaction.'
-      );
-    // Reentrant capture keeps the first admitted value, including undefined.
-    if (!this.#state.resources.has(key))
-      this.#state.resources.set(key, resource);
-    return this.#state.resources.get(key) as T;
+    const resources = this.#state.resources;
+    if (resources.has(key)) return resources.get(key) as T;
+    resources.set(key, resource);
+    return resource;
   }
   setDeferredNotifications(enabled: boolean): void {
     if (!this.active)

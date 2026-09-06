@@ -1,4 +1,7 @@
-import { runCommitOperation } from '../../runtime/transactions/access';
+import {
+  getCurrentCommitTransaction,
+  runCommitOperation,
+} from '../../runtime/transactions/access';
 import {
   enterDomCommitScope,
   getVNodeContextFrame,
@@ -45,6 +48,8 @@ export function replaceComponentRange(
   result: unknown,
   host: Element | Comment
 ): Node | null {
+  if (getCurrentCommitTransaction())
+    return replaceComponentRangeInTransaction(instance, result, host);
   return runCommitOperation(() =>
     replaceComponentRangeInTransaction(instance, result, host)
   );

@@ -1,4 +1,7 @@
-import { runCommitOperation } from '../../runtime/transactions/access';
+import {
+  getCurrentCommitTransaction,
+  runCommitOperation,
+} from '../../runtime/transactions/access';
 import {
   getCurrentInstance,
   type ComponentFunction,
@@ -33,6 +36,18 @@ export function syncComponentElement(
   hydrationRangeEnd?: Node | null,
   preserveHydrationCursorOnEmpty = false
 ): Node | null {
+  if (getCurrentCommitTransaction())
+    return syncComponentElementInTransaction(
+      currentDom,
+      node,
+      type,
+      props,
+      parentNamespace,
+      forceChildrenUpdate,
+      retainedHostInstances,
+      hydrationRangeEnd,
+      preserveHydrationCursorOnEmpty
+    );
   return runCommitOperation(() =>
     syncComponentElementInTransaction(
       currentDom,

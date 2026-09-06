@@ -17,18 +17,17 @@ test.each([
       () => [{}, {}] as const
     );
     for (const [key, value] of parentEntries)
-      parent.captureResource(key, () => value);
+      parent.captureResource(key, value);
     const sharedKey = {};
-    if (parentCount > 0) parent.captureResource(sharedKey, () => undefined);
+    if (parentCount > 0) parent.captureResource(sharedKey, undefined);
     coordinator.register({ rollback: () => events.push('parent') });
     const child = coordinator.begin();
     const childEntries = Array.from(
       { length: childCount },
       () => [{}, {}] as const
     );
-    for (const [key, value] of childEntries)
-      child.captureResource(key, () => value);
-    child.captureResource(sharedKey, () => 'child');
+    for (const [key, value] of childEntries) child.captureResource(key, value);
+    child.captureResource(sharedKey, 'child');
     coordinator.register({
       rollback: () => {
         events.push('child');
@@ -46,7 +45,7 @@ test.each([
       parentCount > 0 ? undefined : 'child'
     );
     const sibling = coordinator.begin();
-    sibling.captureResource(sharedKey, () => 'sibling');
+    sibling.captureResource(sharedKey, 'sibling');
     coordinator.commit(sibling);
     expect(sibling.resourceCount).toBe(0);
     expect(parent.resource(sharedKey)).toBe(
@@ -426,13 +425,13 @@ test('should leave both frames intact when the final nested collision is invalid
   const completion = {};
   coordinator.register({ key });
   coordinator.register({});
-  parent.captureResource(resource, () => 'parent');
+  parent.captureResource(resource, 'parent');
   coordinator.deferCompletion(completion, () => {});
   const child = coordinator.begin();
   coordinator.register({});
   coordinator.register({ key });
-  child.captureResource(resource, () => 'child');
-  child.captureResource({}, () => 'child only');
+  child.captureResource(resource, 'child');
+  child.captureResource({}, 'child only');
   coordinator.deferCompletion(completion, () => {});
   coordinator.deferCompletion({}, () => {});
   const snapshots = [parent, child].map((frame) => ({

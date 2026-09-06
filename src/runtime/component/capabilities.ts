@@ -67,7 +67,7 @@ export function setComponentVNodeIdentity(
   instance: ComponentInstance,
   node: unknown,
   parent: ComponentInstance | null,
-  resolveKey: () => string | number | undefined,
+  resolveKey: (node: unknown) => string | number | undefined,
   wrapperDepth = 0,
   position?: number
 ): void {
@@ -76,7 +76,7 @@ export function setComponentVNodeIdentity(
     typeof node === 'object' && node !== null ? node : undefined;
   instance._vnodeParent = parent;
   instance._vnodeParentGeneration = parent?.owner.identity;
-  const key = resolveKey();
+  const key = resolveKey(node);
   if (key === undefined) {
     delete instance._vnodeKey;
   } else {
