@@ -6,6 +6,7 @@ import {
   registerCommitParticipant,
   type CommitTransaction,
 } from '../../runtime/transactions/access';
+import { drainOwnedCleanup } from '../../runtime/ownership/record';
 
 export type HydrationListenerStageKind = 'direct' | 'delegated';
 
@@ -21,7 +22,7 @@ export interface HydrationListenerStage {
 export interface HydrationListenerTransaction {
   parent: HydrationListenerTransaction | null;
   stages: HydrationListenerStage[];
-  active: boolean;
+  readonly active: boolean;
   commit: CommitTransaction;
 }
 
@@ -29,9 +30,17 @@ let currentTransaction: HydrationListenerTransaction | null = null;
 
 export function beginHydrationListenerTransaction(): HydrationListenerTransaction {
   const transaction: HydrationListenerTransaction = {
-    parent: currentTransaction,
+    parent: getCurrentHydrationListenerTransaction(),
     stages: [],
-    active: true,
+    get active() {
+      for (
+        let frame: CommitTransaction | null = this.commit;
+        frame;
+        frame = frame.parent
+      )
+        if (!frame.active) return false;
+      return true;
+    },
     commit: beginCommitTransaction(),
   };
   currentTransaction = transaction;
@@ -49,20 +58,9 @@ export function beginHydrationListenerTransaction(): HydrationListenerTransactio
       for (const stage of stages) stage.publish();
     },
     rollback() {
-      const errors: unknown[] = [];
-      for (let index = transaction.stages.length - 1; index >= 0; index--) {
-        try {
-          transaction.stages[index]!.rollback();
-        } catch (error) {
-          errors.push(error);
-        }
-      }
-      transaction.stages.length = 0;
-      if (errors.length)
-        throw new AggregateError(
-          errors,
-          'Hydration listener restoration failed'
-        );
+      drainOwnedCleanup(transaction.stages.splice(0).reverse(), (stage) =>
+        stage.rollback()
+      );
     },
     settle() {
       transaction.stages.length = 0;
@@ -72,8 +70,9 @@ export function beginHydrationListenerTransaction(): HydrationListenerTransactio
 }
 
 export function stageHydrationListener(stage: HydrationListenerStage): boolean {
-  if (!currentTransaction?.active) return false;
-  currentTransaction.stages.push(stage);
+  const transaction = getCurrentHydrationListenerTransaction();
+  if (!transaction) return false;
+  transaction.stages.push(stage);
   return true;
 }
 
@@ -82,7 +81,7 @@ export function hasStagedHydrationListener(
   eventName: string,
   capture: boolean
 ): boolean {
-  return !!currentTransaction?.stages.some(
+  return !!getCurrentHydrationListenerTransaction()?.stages.some(
     (stage) =>
       stage.target === target &&
       stage.eventName === eventName &&
@@ -90,36 +89,37 @@ export function hasStagedHydrationListener(
   );
 }
 
-function closeTransaction(transaction: HydrationListenerTransaction): boolean {
-  if (!transaction.active) return false;
-  transaction.active = false;
-  if (currentTransaction === transaction) {
-    let parent = transaction.parent;
-    while (parent && !parent.active) parent = parent.parent;
-    currentTransaction = parent;
-  }
-  return true;
-}
-
-export function commitHydrationListenerTransaction(
-  transaction: HydrationListenerTransaction
+function finishTransaction(
+  transaction: HydrationListenerTransaction,
+  commit: boolean
 ): void {
-  if (!closeTransaction(transaction)) return;
+  if (currentTransaction === transaction)
+    currentTransaction = transaction.parent;
   try {
-    commitTransaction(transaction.commit);
+    if (commit && transaction.active) commitTransaction(transaction.commit);
+    else discardTransaction(transaction.commit);
   } finally {
     suspendTransaction(transaction.commit);
   }
 }
 
+export function commitHydrationListenerTransaction(
+  transaction: HydrationListenerTransaction
+): void {
+  finishTransaction(transaction, true);
+}
+
 export function discardHydrationListenerTransaction(
   transaction: HydrationListenerTransaction
 ): void {
-  closeTransaction(transaction);
-  discardTransaction(transaction.commit);
-  suspendTransaction(transaction.commit);
+  finishTransaction(transaction, false);
 }
 
 export function getCurrentHydrationListenerTransaction(): HydrationListenerTransaction | null {
-  return currentTransaction?.active ? currentTransaction : null;
+  while (currentTransaction && !currentTransaction.active) {
+    const stale = currentTransaction;
+    currentTransaction = currentTransaction.parent;
+    discardTransaction(stale.commit);
+  }
+  return currentTransaction;
 }
