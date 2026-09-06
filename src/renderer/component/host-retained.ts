@@ -1,6 +1,6 @@
 import { isPromiseLike } from '../../common/promise';
 import {
-  captureInlineRenderSnapshot,
+  prepareRetainedComponentUpdate,
   enterDomCommitScope,
   getCurrentInstance,
   renderComponentInline,
@@ -25,10 +25,9 @@ import {
   type InstanceHostNode,
 } from '../dom-host';
 import {
-  inheritComponentCleanupStrict,
   inheritComponentKey,
   isRouteRootComponentVNode,
-  setComponentOwnershipIdentity,
+  extractComponentIdentityKey,
 } from './host-instances';
 import { _isDOMElement, type DOMElement, type VNode } from '../types';
 import { tagNamesEqualIgnoreCase } from '../utils';
@@ -72,22 +71,15 @@ export function updateRetainedComponentHost(
     existingInstance.target,
     liveRetainedInstances
   );
-  captureInlineRenderSnapshot(existingInstance);
-  existingInstance.props = props || {};
-  setComponentOwnershipIdentity(
+  prepareRetainedComponentUpdate(
     existingInstance,
+    props || {},
     node,
+    extractComponentIdentityKey,
     getCurrentInstance(),
-    0
+    isRouteRootComponentVNode,
+    snapshot
   );
-  existingInstance.isRoot = isRouteRootComponentVNode(node);
-  existingInstance.portalScope =
-    getCurrentInstance()?.portalScope ?? existingInstance.portalScope;
-  inheritComponentCleanupStrict(existingInstance);
-
-  if (snapshot) {
-    existingInstance.ownerFrame = snapshot;
-  }
 
   const result = withContext(snapshot, () =>
     renderComponentInline(existingInstance)

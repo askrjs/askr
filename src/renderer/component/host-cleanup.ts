@@ -4,7 +4,11 @@ import {
   getCurrentInstance,
   incDevCounter,
 } from '../../runtime';
-import { registerCommitParticipant } from '../../runtime/transactions/access';
+import {
+  registerCommitParticipant,
+  getCurrentCommitTransaction,
+  runCommitOperation,
+} from '../../runtime/transactions/access';
 import {
   clearDelegatedHandlersForElement,
   removeDelegatedListener,
@@ -199,6 +203,16 @@ export function pruneComponentHostInstances(
   host: InstanceHostNode,
   retainedInstances: Iterable<ComponentInstance>
 ): void {
+  if (getCurrentCommitTransaction())
+    return pruneComponentHostInstancesInTransaction(host, retainedInstances);
+  runCommitOperation(() =>
+    pruneComponentHostInstancesInTransaction(host, retainedInstances)
+  );
+}
+function pruneComponentHostInstancesInTransaction(
+  host: InstanceHostNode,
+  retainedInstances: Iterable<ComponentInstance>
+): void {
   const hadInstanceList = Object.prototype.hasOwnProperty.call(
     host,
     '__ASKR_INSTANCES'
@@ -252,10 +266,7 @@ export function pruneComponentHostInstances(
     );
   };
 
-  if (!registerCommitParticipant({ publish, settle, rollback })) {
-    publish();
-    settle();
-  }
+  registerCommitParticipant({ publish, settle, rollback });
 }
 
 function orderHostInstances(

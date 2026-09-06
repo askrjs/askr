@@ -16,38 +16,39 @@ test.each([
       { length: parentCount },
       () => [{}, {}] as const
     );
-    for (const [key, value] of parentEntries) parent.resources.set(key, value);
+    for (const [key, value] of parentEntries)
+      parent.captureResource(key, value);
     const sharedKey = {};
-    if (parentCount > 0) parent.resources.set(sharedKey, undefined);
+    if (parentCount > 0) parent.captureResource(sharedKey, undefined);
     coordinator.register({ rollback: () => events.push('parent') });
     const child = coordinator.begin();
     const childEntries = Array.from(
       { length: childCount },
       () => [{}, {}] as const
     );
-    for (const [key, value] of childEntries) child.resources.set(key, value);
-    child.resources.set(sharedKey, 'child');
+    for (const [key, value] of childEntries) child.captureResource(key, value);
+    child.captureResource(sharedKey, 'child');
     coordinator.register({
       rollback: () => {
         events.push('child');
         // Restoration consumes the still-live resource values before release.
         for (const [key] of [...parentEntries, ...childEntries])
-          rollbackValues.push(parent.resources.get(key));
+          rollbackValues.push(parent.resource(key));
       },
     });
     coordinator.commit(child);
-    expect(child.resources.size).toBe(0);
+    expect(child.resourceCount).toBe(0);
     for (const [key, value] of [...parentEntries, ...childEntries])
-      expect(parent.resources.get(key)).toBe(value);
-    expect(parent.resources.has(sharedKey)).toBe(true);
-    expect(parent.resources.get(sharedKey)).toBe(
+      expect(parent.resource(key)).toBe(value);
+    expect(parent.hasResource(sharedKey)).toBe(true);
+    expect(parent.resource(sharedKey)).toBe(
       parentCount > 0 ? undefined : 'child'
     );
     const sibling = coordinator.begin();
-    sibling.resources.set(sharedKey, 'sibling');
+    sibling.captureResource(sharedKey, 'sibling');
     coordinator.commit(sibling);
-    expect(sibling.resources.size).toBe(0);
-    expect(parent.resources.get(sharedKey)).toBe(
+    expect(sibling.resourceCount).toBe(0);
+    expect(parent.resource(sharedKey)).toBe(
       parentCount > 0 ? undefined : 'child'
     );
     coordinator.discard(parent);
@@ -57,14 +58,13 @@ test.each([
       ...childEntries,
     ].entries())
       expect(rollbackValues[index]).toBe(value);
-    expect(parent.resources.size).toBe(0);
+    expect(parent.resourceCount).toBe(0);
   }
 );
 
 test('should preserve keyed lookup and rollback order across released child and sibling joins', () => {
   const coordinator = new CommitCoordinator();
   const parent = coordinator.begin();
-  const outerIndex = parent.index;
   const rollbacks: string[] = [];
   const existingKind = {};
   const childKind = {};
@@ -87,8 +87,7 @@ test('should preserve keyed lookup and rollback order across released child and 
   coordinator.register(childMember);
   coordinator.register(defaultMember);
   coordinator.commit(child);
-  expect(child.index.size).toBe(0);
-  expect(parent.index).toBe(outerIndex);
+  expect(child.inspect().index.size).toBe(0);
   expect(parent.participant(key, existingKind)).toBe(original);
   expect(parent.participant(key, childKind)).toBe(childMember);
   expect(parent.participant(key)).toBe(defaultMember);
@@ -115,8 +114,7 @@ test('should preserve keyed lookup and rollback order across released child and 
   coordinator.register(addedChildKind);
   coordinator.register(addedSiblingKind);
   coordinator.commit(sibling);
-  expect(sibling.index.size).toBe(0);
-  expect(parent.index).toBe(outerIndex);
+  expect(sibling.inspect().index.size).toBe(0);
   expect(parent.participant(key, existingKind)).toBe(original);
   expect(parent.participant(key, childKind)).toBe(childMember);
   expect(parent.participant(key)).toBe(defaultMember);
@@ -175,7 +173,7 @@ test.each([
     }));
     for (const member of childMembers) coordinator.register(member);
     coordinator.commit(child);
-    expect(child.index.size).toBe(0);
+    expect(child.inspect().index.size).toBe(0);
     for (const member of [...parentMembers, ...childMembers])
       expect(parent.participant(member.key, kind)).toBe(member);
     coordinator.register(collision);
@@ -260,7 +258,7 @@ test.each([
     coordinator.register(coalesced);
     coordinator.register(admitted);
     coordinator.commit(child);
-    expect(child.index.size).toBe(0);
+    expect(child.inspect().index.size).toBe(0);
     expect(parent.participant(key)).toBe(original);
     expect(parent.participant(key, childKind)).toBeUndefined();
     expect(parent.participant(admitted.key, childKind)).toBe(admitted);
@@ -421,34 +419,36 @@ test.each([
 test('should leave both frames intact when the final nested collision is invalid', () => {
   const coordinator = new CommitCoordinator();
   const parent = coordinator.begin();
-  parent.deferNotifications = true;
+  parent.setDeferredNotifications(true);
   const key = {};
   const resource = {};
   const completion = {};
   coordinator.register({ key });
   coordinator.register({});
-  parent.resources.set(resource, 'parent');
+  parent.captureResource(resource, 'parent');
   coordinator.deferCompletion(completion, () => {});
   const child = coordinator.begin();
   coordinator.register({});
   coordinator.register({ key });
-  child.resources.set(resource, 'child');
-  child.resources.set({}, 'child only');
+  child.captureResource(resource, 'child');
+  child.captureResource({}, 'child only');
   coordinator.deferCompletion(completion, () => {});
   coordinator.deferCompletion({}, () => {});
   const snapshots = [parent, child].map((frame) => ({
     members: frame.participants.slice(),
-    resources: [...frame.resources],
-    completions: [...frame.completions!],
-    seen: [...frame.seen!],
+    resources: [...frame.inspect().resources],
+    completions: [...frame.inspect().completions!],
+    seen: [...frame.inspect().seen!],
   }));
   expect(() => coordinator.commit(child)).toThrow('merge');
   for (const [index, frame] of [parent, child].entries()) {
     expect(frame.phase).toBe('preparing');
     expect(frame.participants).toEqual(snapshots[index].members);
-    expect([...frame.resources]).toEqual(snapshots[index].resources);
-    expect([...frame.completions!]).toEqual(snapshots[index].completions);
-    expect([...frame.seen!]).toEqual(snapshots[index].seen);
+    expect([...frame.inspect().resources]).toEqual(snapshots[index].resources);
+    expect([...frame.inspect().completions!]).toEqual(
+      snapshots[index].completions
+    );
+    expect([...frame.inspect().seen!]).toEqual(snapshots[index].seen);
   }
   coordinator.discard(child);
   coordinator.discard(parent);
@@ -564,7 +564,7 @@ test('should finish shared rollback before draining deferred completions', () =>
   const coordinator = new CommitCoordinator();
   const events: string[] = [];
   const parent = coordinator.begin();
-  parent.deferNotifications = true;
+  parent.setDeferredNotifications(true);
   const shared = {
     key: {},
     rollback: () => events.push('shared rollback'),

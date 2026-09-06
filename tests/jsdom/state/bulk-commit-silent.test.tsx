@@ -42,7 +42,7 @@ describe('transaction state replay', () => {
 
     try {
       const transaction1 = beginCommitTransaction();
-      transaction1.deferNotifications = true;
+      transaction1.setDeferredNotifications(true);
       try {
         items.set(items().map((x) => x + 1));
         expect(container.textContent).toBe(previousText);

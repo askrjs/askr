@@ -75,7 +75,7 @@ export function runScheduledComponent(
       return;
     }
     try {
-      transaction.deferNotifications = fast;
+      transaction.setDeferredNotifications(fast);
       const applied = applyTransaction(transaction, () => {
         const wasFirstMount = !owner.mounted;
         if (

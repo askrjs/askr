@@ -1,8 +1,39 @@
 # Shared commit protocol
 
 Each runtime state owns a transaction coordinator. It has no component,
-scheduler, or browser dependencies. Internal callers use `transaction-access.ts`;
+scheduler, or browser dependencies. Internal callers use `runtime/transactions/access.ts`;
 published runtime and renderer extension contracts remain unchanged.
+
+Transaction handles expose read-only phase and parent information. The
+coordinator privately owns phase transitions, participant indexes, resources,
+and completion queues. Diagnostic collections are detached copies, so inspection
+cannot erase pending work. Resource capture admits the first value for a key,
+including `undefined`; notification deferral uses an explicit operation. Both
+operations reject settled transactions. Nested joins retain their existing
+collision policy, resource precedence, and reverse rollback order.
+
+Component host synchronization, range replacement, and host pruning establish
+a commit operation boundary. Nested calls reuse the active transaction directly;
+standalone calls use `runCommitOperation` to create and drain one for the entire
+operation. Replacement participants
+require this boundary and never execute a separate apply/publish/settle fallback.
+An unsuccessful standalone adoption therefore preserves outgoing owners, and
+a failed retained update restores its execution state just like a nested update.
+
+The runtime's retained-update preparation owns snapshot capture and execution
+mutation together. The renderer supplies vnode identity, context, and props;
+the runtime applies parent attachment and retained execution fields before
+component evaluation. Renderer key resolution remains lazy to preserve getter
+ordering relative to snapshot capture and identity mutation.
+
+Retained-owner collections remain live during preparation so nested resolution
+can add successful wrappers. Replacement closes that collection at publication;
+retirement uses the published membership even if a settlement callback mutates
+the original collection. Rollback before publication still sees provisional
+preparation state.
+One renderer-owned replacement record implements these phases with shared
+methods. It registers at the original preparation point, while allocating host
+binding snapshots only when replacement is attempted.
 
 1. Preparation executes synchronous components and captures their pending
    reads and provisional scope state. A scheduled result can suspend until its

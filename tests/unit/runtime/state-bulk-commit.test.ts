@@ -35,7 +35,7 @@ describe('state.set() during an active transaction', () => {
     const markPropsSpy = vi.spyOn(readable, 'markReactivePropsDirtySource');
 
     const transaction1 = beginCommitTransaction();
-    transaction1.deferNotifications = true;
+    transaction1.setDeferredNotifications(true);
     try {
       counter.set(1);
       counter.set(2);
@@ -72,7 +72,7 @@ describe('state.set() during an active transaction', () => {
 
       try {
         const transaction2 = beginCommitTransaction();
-        transaction2.deferNotifications = true;
+        transaction2.setDeferredNotifications(true);
         try {
           counter.set(1);
           expect(notifySpy).not.toHaveBeenCalled();
@@ -106,7 +106,7 @@ describe('state.set() during an active transaction', () => {
     const notifySpy = vi.spyOn(readable, 'notifyReadableReaders');
 
     const transaction3 = beginCommitTransaction();
-    transaction3.deferNotifications = true;
+    transaction3.setDeferredNotifications(true);
     try {
       counter.set(0);
     } finally {
@@ -134,11 +134,11 @@ describe('state.set() during an active transaction', () => {
     const notifySpy = vi.spyOn(readable, 'notifyReadableReaders');
 
     const transaction4 = beginCommitTransaction();
-    transaction4.deferNotifications = true;
+    transaction4.setDeferredNotifications(true);
     try {
       outerCounter.set(1);
       const transaction5 = beginCommitTransaction();
-      transaction5.deferNotifications = true;
+      transaction5.setDeferredNotifications(true);
       try {
         innerCounter.set(1);
       } finally {
