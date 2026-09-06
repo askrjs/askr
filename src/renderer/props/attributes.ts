@@ -362,6 +362,15 @@ export function applyClassPropValue(
   descriptor?: ClassTokenDescriptor
 ): void {
   const nextString = String(value);
+  if (
+    !descriptor &&
+    previousValue === undefined &&
+    nextString.length > 0 &&
+    readElementClassName(el) === nextString
+  ) {
+    incrementPerfMetric('skippedDomPropWrites');
+    return;
+  }
   const nextTokens = tokenizeClassValue(nextString);
   const previousTokens =
     descriptor?.lastClassTokens ?? tokenizeClassValue(previousValue);
@@ -434,7 +443,13 @@ export function applyScalarPropValue(
   } else if (isUnsafeUrlAttribute(key, value)) {
     removeRenderedAttribute(el, key);
   } else {
-    setRenderedAttribute(el, key, String(value));
+    const nextValue = String(value);
+    const attributeName = getRenderedAttributeName(el, key);
+    if (el.getAttribute(attributeName) === nextValue) {
+      incrementPerfMetric('skippedDomPropWrites');
+      return;
+    }
+    el.setAttribute(attributeName, nextValue);
   }
 }
 
@@ -443,12 +458,11 @@ export function removeStaleAttributes(
   vnode: unknown,
   props: Record<string, unknown>
 ): void {
-  const desiredAttributes = new Set<string>();
+  const desiredAttributes: string[] = [];
   const key = extractKey(vnode);
 
   if (key !== undefined) {
-    desiredAttributes.add('data-key');
-    desiredAttributes.add('data-askr-key-kind');
+    desiredAttributes.push('data-key', 'data-askr-key-kind');
   }
 
   for (const propName in props) {
@@ -463,11 +477,31 @@ export function removeStaleAttributes(
     )
       continue;
 
-    desiredAttributes.add(getRenderedAttributeName(el, propName));
+    desiredAttributes.push(getRenderedAttributeName(el, propName));
   }
 
-  for (const attribute of Array.from(el.attributes)) {
-    if (!desiredAttributes.has(getRenderedAttributeName(el, attribute.name))) {
+  // Most intrinsic nodes have only a few attributes. Keep their lookup inline;
+  // larger prop sets retain bounded lookup cost through a hash set.
+  const desiredAttributeSet =
+    desiredAttributes.length > 8 ? new Set(desiredAttributes) : undefined;
+  // Snapshot the original Attr objects before callbacks can mutate the live
+  // collection. Indexed access avoids the DOM iterator's per-entry objects.
+  const attributes = el.attributes;
+  const retained: Attr[] = [];
+  for (
+    let index = 0, attribute = attributes.item(0);
+    attribute;
+    attribute = attributes.item(++index)
+  ) {
+    retained.push(attribute);
+  }
+  for (const attribute of retained) {
+    const attributeName = getRenderedAttributeName(el, attribute.name);
+    if (
+      !(desiredAttributeSet
+        ? desiredAttributeSet.has(attributeName)
+        : desiredAttributes.includes(attributeName))
+    ) {
       removeRenderedAttribute(el, attribute.name);
     }
   }
