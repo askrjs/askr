@@ -10,6 +10,7 @@ import type {
 } from './renderer-capabilities';
 import type { Scheduler, SchedulerLane } from './scheduler';
 import type { ScheduledWork } from './scheduled-work';
+export { ScheduledWork } from './scheduled-work';
 export { SCHEDULER_LANES } from './scheduler';
 import {
   clearCurrentComponentScope,

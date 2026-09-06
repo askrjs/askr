@@ -175,6 +175,16 @@ load only, while `refreshing` and `pending-write` always imply `stale: true` and
 previous value available. A mutation-driven invalidation commits `pending-write` first, then
 moves to `refreshing` when the confirming fetch starts.
 `staleReason` narrows settled stale states into `inconsistent`, `aborted`, or `error`.
+If the scheduler clears or rejects a queued query before its fetch starts, the
+associated refresh promise settles without fetching or replacing the current data.
+A later refresh can schedule normally. Development admission errors still throw
+synchronously; cancellation also settles a shared promise when it owns a queued
+invalidation replacement or reconciliation retry. Clearing queued work does not
+publish a new query state: if invalidation already aborted a running request, its
+last snapshot can still report `refreshing` until a later explicit refresh.
+Late results or errors from the aborted request cannot replace that snapshot,
+even if its fetch ignores the abort signal.
+
 Manual calls to `refresh()` coalesce while a request is pending. `invalidate()`
 is the distinct operation that replaces stale work; rapid invalidations before
 the replacement begins coalesce into the latest queued refresh. A `reconcile` callback may
