@@ -231,6 +231,10 @@ flowchart LR
 
 ## Design notes
 
+- Hydration listener staging derives eligibility from its commit transaction
+  and enclosing transactions. Direct coordinator rollback or completion retires
+  the listener scope; abandoned children are discarded before a fresh scope
+  starts. Listener rollback drains in reverse order despite individual failures.
 - `src/runtime/component/scope.ts` owns current-instance and
   portal-scope state, hook cursor and order validation, render-token helpers,
   and component signal access. `src/runtime/component/commit.ts` owns
