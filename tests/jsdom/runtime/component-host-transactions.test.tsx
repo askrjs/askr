@@ -1,3 +1,4 @@
+import { runCommitOperation } from '../../../src/runtime/transactions/access';
 import {
   afterEach,
   beforeEach,
@@ -124,12 +125,6 @@ describe('component host transactions', () => {
       return <span data-provisional-owner={'true'}>{'provisional'}</span>;
     }
 
-    const replacement = beginComponentHostReplacement(
-      existingHost,
-      owner,
-      existingHost,
-      [owner]
-    );
     const replaceChild = vi
       .spyOn(container, 'replaceChild')
       .mockImplementationOnce(() => {
@@ -138,11 +133,19 @@ describe('component host transactions', () => {
 
     try {
       expect(() =>
-        replacement.replace(
-          () => materializeComponentResultNode(owner, <NestedOwner />),
-          (nextHost) =>
-            retainMaterializedReplacementOwnerChain(nextHost, owner, [owner])
-        )
+        runCommitOperation(() => {
+          const replacement = beginComponentHostReplacement(
+            existingHost,
+            owner,
+            existingHost,
+            [owner]
+          );
+          replacement.replace(
+            () => materializeComponentResultNode(owner, <NestedOwner />),
+            (nextHost) =>
+              retainMaterializedReplacementOwnerChain(nextHost, owner, [owner])
+          );
+        })
       ).toThrow('replacement insertion failed');
     } finally {
       replaceChild.mockRestore();

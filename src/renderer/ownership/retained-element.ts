@@ -582,9 +582,11 @@ export function runRetainedElementUpdate(
 ): void {
   const enclosing = getCurrentCommitTransaction();
   const transaction = enclosing ?? beginCommitTransaction();
-  if (!transaction.resources.has(element)) {
-    const snapshot = snapshotRetainedElement(element, bindingsOnly);
-    transaction.resources.set(element, snapshot);
+  if (!transaction.hasResource(element)) {
+    const snapshot = transaction.captureResource(
+      element,
+      snapshotRetainedElement(element, bindingsOnly)
+    );
     registerCommitRollback(() =>
       restoreRetainedElement(element, snapshot, cleanupRangeNode)
     );

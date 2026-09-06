@@ -1,4 +1,4 @@
-import { adoptComponentParent } from '../../runtime/component/capabilities';
+import { setComponentVNodeIdentity } from '../../runtime/component/capabilities';
 import { ROUTE_ROOT_COMPONENT } from '../../common/router-internal';
 import type { Props } from '../../common/props';
 import { isProductionEnvironment } from '../../common/env';
@@ -153,7 +153,7 @@ export function inheritComponentKey(
   return target;
 }
 
-function extractComponentIdentityKey(
+export function extractComponentIdentityKey(
   node: unknown
 ): string | number | undefined {
   const publicKey = extractKey(node);
@@ -200,19 +200,14 @@ export function setComponentOwnershipIdentity(
   wrapperDepth = 0,
   position?: number
 ): void {
-  adoptComponentParent(instance, parent);
-  instance._vnodeOwner =
-    typeof node === 'object' && node !== null ? node : undefined;
-  instance._vnodeParent = parent;
-  instance._vnodeParentGeneration = parent?.owner.identity;
-  const key = extractComponentIdentityKey(node as DOMElement);
-  if (key === undefined) {
-    delete instance._vnodeKey;
-  } else {
-    instance._vnodeKey = key;
-  }
-  instance._vnodePosition = position;
-  instance._wrapperDepth = wrapperDepth;
+  setComponentVNodeIdentity(
+    instance,
+    node,
+    parent,
+    extractComponentIdentityKey,
+    wrapperDepth,
+    position
+  );
 }
 
 export function findHostInstanceByType(

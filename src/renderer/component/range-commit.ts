@@ -1,4 +1,8 @@
 import {
+  getCurrentCommitTransaction,
+  runCommitOperation,
+} from '../../runtime/transactions/access';
+import {
   enterDomCommitScope,
   getVNodeContextFrame,
   restoreDomCommitScope,
@@ -40,6 +44,17 @@ import { getParentNamespace } from '../intrinsic/namespaces';
 import { _isDOMElement, type VNode } from '../types';
 
 export function replaceComponentRange(
+  instance: ComponentInstance,
+  result: unknown,
+  host: Element | Comment
+): Node | null {
+  if (getCurrentCommitTransaction())
+    return replaceComponentRangeInTransaction(instance, result, host);
+  return runCommitOperation(() =>
+    replaceComponentRangeInTransaction(instance, result, host)
+  );
+}
+function replaceComponentRangeInTransaction(
   instance: ComponentInstance,
   result: unknown,
   host: Element | Comment
