@@ -56,6 +56,10 @@ export * from './reactivity/effect';
 export * from './component/error-boundary';
 export * from './execution-model';
 export * from './control/for';
+export {
+  prepareForCommitPlan,
+  type ForCommitPlan,
+} from './control/for-commit-plan';
 export type {
   ForEachSource,
   ForKeySelector,
