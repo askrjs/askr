@@ -1,7 +1,8 @@
 import { ownCleanup } from '../ownership/record';
 import { claimHookIndex, getCurrentInstance } from '../component/scope';
 import { type ComponentInstance } from '../component/instance';
-import { enqueueRuntimeLane, getRuntimeFlushVersion } from '../access';
+import { requestRuntimeWork, getRuntimeFlushVersion } from '../access';
+import { ScheduledWork } from '../scheduled-work';
 import {
   clearDerivedDependencySubscriptions,
   markReadableDerivedSubscribersDirty,
@@ -30,7 +31,7 @@ interface DerivedCell<T> extends Derived<T>, DerivedSubscriber {
   _value: T;
   _hasValue: boolean;
   _dirty: boolean;
-  _scheduled: boolean;
+  _pending: boolean;
   _evaluating: boolean;
   _active: boolean;
   _lastRecomputeFlushVersion: number;
@@ -47,7 +48,7 @@ type SnapshotSource<T> = {
 
 const deriveCells = new WeakMap<object, Map<number, DerivedCell<unknown>>>();
 const dirtyDerivedCells = new Set<DerivedCell<unknown>>();
-let hasPendingDerivedFlush = false;
+const derivedWork = new ScheduledWork(flushDirtyDerivedCells);
 
 function getDeriveStore(
   instance: ComponentInstance
@@ -63,22 +64,14 @@ function getDeriveStore(
 
 function markDerivedCellDirty(cell: DerivedCell<unknown>): void {
   cell._dirty = true;
-  if (cell._scheduled) {
-    return;
+  if (!cell._pending) {
+    cell._pending = true;
+    dirtyDerivedCells.add(cell);
   }
-
-  cell._scheduled = true;
-  dirtyDerivedCells.add(cell);
-
-  if (!hasPendingDerivedFlush) {
-    hasPendingDerivedFlush = true;
-    enqueueRuntimeLane('derived', flushDirtyDerivedCells);
-  }
+  requestRuntimeWork('derived', derivedWork);
 }
 
 function flushDirtyDerivedCells(): void {
-  hasPendingDerivedFlush = false;
-
   if (dirtyDerivedCells.size === 0) {
     return;
   }
@@ -90,7 +83,7 @@ function flushDirtyDerivedCells(): void {
   while (!next.done) {
     const cell = next.value as DerivedCell<unknown>;
     dirtyDerivedCells.delete(cell);
-    cell._scheduled = false;
+    cell._pending = false;
     if (!cell._dirty) {
       next = pending.next();
       continue;
@@ -183,7 +176,7 @@ function createDerivedCell<T>(
     }
 
     recordReadableRead(derivedCell);
-    return recomputeDerivedCell(derivedCell, derivedCell._scheduled);
+    return recomputeDerivedCell(derivedCell, derivedCell._pending);
   } as DerivedCell<T>;
 
   cell._owner = instance;
@@ -192,7 +185,7 @@ function createDerivedCell<T>(
   cell._value = undefined as T;
   cell._hasValue = false;
   cell._dirty = true;
-  cell._scheduled = false;
+  cell._pending = false;
   cell._evaluating = false;
   cell._active = true;
   cell._lastRecomputeFlushVersion = -1;
@@ -205,7 +198,7 @@ function createDerivedCell<T>(
       return;
     }
     cell._active = false;
-    cell._scheduled = false;
+    cell._pending = false;
     cell._dirty = false;
     cell._pendingDependencySources = undefined;
     dirtyDerivedCells.delete(cell);

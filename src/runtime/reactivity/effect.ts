@@ -4,7 +4,8 @@ import {
   type ReadableSource,
   withFineGrainedReadTracking,
 } from './readable';
-import { enqueueRuntimeLane } from '../access';
+import { requestRuntimeWork, SCHEDULER_LANES } from '../access';
+import { ScheduledWork } from '../scheduled-work';
 import type { SchedulerLane } from '../scheduler';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
@@ -24,9 +25,6 @@ type EffectSource = ReadableSource<unknown> & {
 
 type EffectFlushSets = Record<SchedulerLane, Set<FineGrainedEffect<unknown>>>;
 
-type EffectPendingFlushState = Record<SchedulerLane, boolean>;
-type EffectLaneDirtyState = Record<SchedulerLane, boolean>;
-
 const effectSources: EffectRegistry = new WeakMap();
 const dirtyEffectsByLane: EffectFlushSets = {
   derived: new Set(),
@@ -34,26 +32,13 @@ const dirtyEffectsByLane: EffectFlushSets = {
   reactive: new Set(),
   post: new Set(),
 };
-const hasPendingLaneFlush: EffectPendingFlushState = {
-  derived: false,
-  component: false,
-  reactive: false,
-  post: false,
-};
-
-const dirtyLaneState: EffectLaneDirtyState = {
-  derived: false,
-  component: false,
-  reactive: false,
-  post: false,
-};
 
 const MAX_EFFECT_RUNS_PER_FLUSH = 50;
-const LANE_FLUSH_TASKS: Record<SchedulerLane, () => void> = {
-  derived: () => flushLaneEffects('derived'),
-  component: () => flushLaneEffects('component'),
-  reactive: () => flushLaneEffects('reactive'),
-  post: () => flushLaneEffects('post'),
+const LANE_FLUSH_TASKS: Record<SchedulerLane, ScheduledWork> = {
+  derived: new ScheduledWork(() => flushLaneEffects('derived')),
+  component: new ScheduledWork(() => flushLaneEffects('component')),
+  reactive: new ScheduledWork(() => flushLaneEffects('reactive')),
+  post: new ScheduledWork(() => flushLaneEffects('post')),
 };
 
 type EffectReadSources =
@@ -424,8 +409,6 @@ function handleEffectError(
 }
 
 function flushLaneEffects(lane: SchedulerLane): void {
-  hasPendingLaneFlush[lane] = false;
-
   const effects = dirtyEffectsByLane[lane];
   if (effects.size === 0) {
     return;
@@ -480,15 +463,6 @@ function flushLaneEffects(lane: SchedulerLane): void {
   }
 }
 
-function scheduleLaneFlush(lane: SchedulerLane): void {
-  if (hasPendingLaneFlush[lane]) {
-    return;
-  }
-
-  hasPendingLaneFlush[lane] = true;
-  enqueueRuntimeLane(lane, LANE_FLUSH_TASKS[lane]);
-}
-
 function unscheduleEffect(effect: FineGrainedEffect<unknown>): void {
   dirtyEffectsByLane[effect.lane].delete(effect);
 }
@@ -509,40 +483,23 @@ export function markFineGrainedEffectsDirtySource(
     return;
   }
 
-  dirtyLaneState.derived = false;
-  dirtyLaneState.component = false;
-  dirtyLaneState.reactive = false;
-  dirtyLaneState.post = false;
-
-  const markDirty = (effect: FineGrainedEffect<unknown>): void => {
-    if (!effect.isActive) {
-      return;
-    }
-    const lane = effect.lane;
-    dirtyEffectsByLane[lane].add(effect);
-    dirtyLaneState[lane] = true;
-  };
-
   if (registered instanceof Set) {
     for (const effect of registered) {
-      markDirty(effect);
+      markDirtyEffect(effect);
     }
   } else {
-    markDirty(registered);
+    markDirtyEffect(registered);
   }
 
-  if (dirtyLaneState.derived) {
-    scheduleLaneFlush('derived');
+  for (const lane of SCHEDULER_LANES) {
+    if (dirtyEffectsByLane[lane].size)
+      requestRuntimeWork(lane, LANE_FLUSH_TASKS[lane]);
   }
-  if (dirtyLaneState.component) {
-    scheduleLaneFlush('component');
-  }
-  if (dirtyLaneState.reactive) {
-    scheduleLaneFlush('reactive');
-  }
-  if (dirtyLaneState.post) {
-    scheduleLaneFlush('post');
-  }
+}
+
+function markDirtyEffect(effect: FineGrainedEffect<unknown>): void {
+  if (!effect.isActive) return;
+  dirtyEffectsByLane[effect.lane].add(effect);
 }
 
 class FineGrainedEffectImpl<T>

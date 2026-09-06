@@ -220,10 +220,10 @@ function defaultDisposalPhases(): DisposalPhases {
 function attemptDisposal(
   frame: DisposalFrame,
   message: string,
-  run: () => void
+  run: (() => void) | undefined
 ): void {
   try {
-    run();
+    run?.();
   } catch (error) {
     try {
       frame.phases.recordError(message, error);
@@ -237,25 +237,32 @@ function prepareDisposal(
   owner: OwnershipRecord,
   phases?: DisposalPhases
 ): DisposalFrame {
-  if (owner.scopedIndex) synchronizeScopedIndex(owner);
-  const scopes = owner.scopedIndex?.size
-    ? Set.prototype.values.call(owner.scopedIndex)
-    : undefined;
+  const errors: unknown[] = [];
+  let scopes: SetIterator<OwnedChildScope> | undefined;
+  try {
+    if (owner.scopedIndex) synchronizeScopedIndex(owner);
+    if (owner.scopedIndex?.size)
+      scopes = Set.prototype.values.call(owner.scopedIndex);
+  } catch (error) {
+    // A failed compatibility index cannot govern the remaining graph drain.
+    errors.push(error);
+    owner.scopedIndex = undefined;
+  }
   owner.disposed = true;
   detachOwnership(owner);
+  try {
+    phases ??= owner.lifecycle?.(owner);
+  } catch (error) {
+    errors.push(error);
+  }
   const frame: DisposalFrame = {
     owner,
-    phases: phases ?? owner.lifecycle?.(owner) ?? defaultDisposalPhases(),
+    phases: phases ?? defaultDisposalPhases(),
     scopes,
-    unreported: [],
+    unreported: errors,
   };
   if (scopes) owner.scopedIndex = undefined;
-  if (frame.phases.begin)
-    attemptDisposal(
-      frame,
-      '[Askr] owner preparation threw:',
-      frame.phases.begin
-    );
+  attemptDisposal(frame, '[Askr] owner preparation threw:', frame.phases.begin);
   return frame;
 }
 
@@ -293,23 +300,21 @@ export function disposeOwnership(
       stack.push(prepareDisposal(child));
       continue;
     }
-    const attempt = (message: string, run: () => void) =>
+    const attempt = (message: string, run: (() => void) | undefined) =>
       attemptDisposal(frame, message, run);
-    if (frame.phases.beforeCleanup)
-      attempt(
-        '[Askr] readable subscription cleanup threw:',
-        frame.phases.beforeCleanup
-      );
+    attempt(
+      '[Askr] readable subscription cleanup threw:',
+      frame.phases.beforeCleanup
+    );
     const cleanups = current.cleanups;
     current.cleanups = undefined;
     if (cleanups)
       for (const cleanup of cleanups)
         attempt('[Askr] cleanup function threw:', cleanup);
-    if (frame.phases.afterCleanup)
-      attempt(
-        '[Askr] readable subscription cleanup threw:',
-        frame.phases.afterCleanup
-      );
+    attempt(
+      '[Askr] readable subscription cleanup threw:',
+      frame.phases.afterCleanup
+    );
     attempt('[Askr] abort controller cleanup threw:', () => {
       if (current.controller && !current.controller.signal.aborted)
         current.controller.abort(disposedSignal.reason);

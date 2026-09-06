@@ -15,6 +15,7 @@ import { logger } from '../common/logger';
 import { recordSchedulerFlushTaskCount } from './diagnostics/perf-metrics';
 import { adjustOwnershipDiagnostic } from './diagnostics/ownership-diagnostics';
 import { SchedulerScopes } from './scheduler-scopes';
+import { ScheduledWork } from './scheduled-work';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
@@ -24,7 +25,7 @@ type Task = () => void;
 export type SchedulerLane = 'derived' | 'component' | 'reactive' | 'post';
 export type SchedulerBulkCommitProbe = () => boolean;
 
-const SCHEDULER_LANES: SchedulerLane[] = [
+export const SCHEDULER_LANES: readonly SchedulerLane[] = [
   'derived',
   'component',
   'reactive',
@@ -163,6 +164,7 @@ export class Scheduler {
 
     // Strict rule: during bulk commit, only allow enqueues if runWithSyncProgress enabled
     if (this.isBulkCommitActive() && !this.scopes.allowSyncProgress) {
+      ScheduledWork.release(task);
       if (isDevelopmentEnvironment()) {
         throw new Error(
           '[Scheduler] enqueue() during bulk commit (not allowed)'
@@ -422,22 +424,12 @@ export class Scheduler {
     const remaining = this.getPendingTaskCount();
     if (remaining <= 0) return 0;
 
-    if (this.running) {
-      for (const lane of SCHEDULER_LANES) {
-        const queue = this.lanes[lane];
-        queue.tasks.length = queue.head;
-      }
-      this.taskCount = Math.max(0, this.taskCount - remaining);
-      if (__ASKR_DEVELOPMENT_BUILD__) {
-        adjustOwnershipDiagnostic('queuedSchedulerWork', -remaining);
-      }
-      return remaining;
-    }
-
     for (const lane of SCHEDULER_LANES) {
       const queue = this.lanes[lane];
-      queue.tasks.length = 0;
-      queue.head = 0;
+      for (let index = queue.head; index < queue.tasks.length; index++)
+        ScheduledWork.release(queue.tasks[index]);
+      queue.tasks.length = this.running ? queue.head : 0;
+      if (!this.running) queue.head = 0;
     }
     this.taskCount = Math.max(0, this.taskCount - remaining);
     if (__ASKR_DEVELOPMENT_BUILD__) {

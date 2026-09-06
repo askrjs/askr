@@ -1,36 +1,27 @@
-import { enqueueRuntimeLane } from '../access';
+import { requestRuntimeWork } from '../access';
+import { ScheduledWork } from '../scheduled-work';
 
 type DirtySelectorRecord = {
   _dirty: boolean;
-  _scheduled: boolean;
+  _pending: boolean;
 };
 
 const dirtySelectorRecords = new Set<DirtySelectorRecord>();
-let hasPendingSelectorFlush = false;
+let selectorWork: ScheduledWork | undefined;
 
 export function markDirtySelectorRecord<T extends DirtySelectorRecord>(
   record: T,
   flush: () => void
 ): void {
   record._dirty = true;
-  if (record._scheduled) {
-    return;
+  if (!record._pending) {
+    record._pending = true;
+    dirtySelectorRecords.add(record);
   }
-
-  record._scheduled = true;
-  dirtySelectorRecords.add(record);
-
-  if (hasPendingSelectorFlush) {
-    return;
-  }
-
-  hasPendingSelectorFlush = true;
-  enqueueRuntimeLane('derived', flush);
+  requestRuntimeWork('derived', (selectorWork ??= new ScheduledWork(flush)));
 }
 
 export function takeDirtySelectorRecords<T extends DirtySelectorRecord>(): T[] {
-  hasPendingSelectorFlush = false;
-
   if (dirtySelectorRecords.size === 0) {
     return [];
   }
