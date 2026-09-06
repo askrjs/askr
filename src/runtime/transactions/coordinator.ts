@@ -507,17 +507,14 @@ export class CommitCoordinator {
     }
 
     state.phase = 'settling';
-    const attempt = (run: () => void): void => {
-      try {
-        run();
-      } catch (error) {
-        state.errors.push(error);
-      }
-    };
     try {
       for (const phase of ['settle', 'activate', 'complete'] as const) {
         for (const participant of state.participants) {
-          if (participant[phase]) attempt(() => participant[phase]!());
+          try {
+            participant[phase]?.();
+          } catch (error) {
+            state.errors.push(error);
+          }
         }
       }
       this.complete(transaction, (error) => state.errors.push(error));
