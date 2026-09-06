@@ -331,6 +331,11 @@ flowchart LR
   class token patching, style string/object/null handling, form `value` and
   `checked`, stale attribute removal, static scalar props, and key
   materialization.
+  Retained scalar attributes and nonempty classes are compared with the live DOM
+  before writing, so equal values avoid redundant mutations and external changes
+  are still repaired. Empty class handling retains HTML/SVG differences. Stale
+  attribute cleanup snapshots the original attribute objects before removal
+  callbacks can change the collection.
 - `src/renderer/props/bindings.ts` orchestrates initial prop application and
   update-time prop/listener diffing in the existing execution order.
 - `src/renderer/props/listeners.ts` owns tracked listener registration, direct

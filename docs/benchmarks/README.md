@@ -157,6 +157,13 @@ with unchanged operations. Rejected captures, clock-resolution limitations, and
 residual source-series drift remain in the evidence and
 [implementation ledger](../development/solid-implementation.md).
 
+The [list update qualification](./list-updates-c0c802a.json) records the first
+optimization slice after `c0c802a`. Original selected and unselected JSX resize
+workloads improve by 11.11% and 8.10%, with a maximum final guardrail slowdown of
+2.08%. The [iteration ledger](../development/list-update-optimization.md)
+documents red/green tests, rejected candidates, phase diagnostics, and remaining
+capture variation. These are local measurements with unchanged acceptance rules.
+
 ## External JFB Comparisons
 
 The local `js-framework-benchmark` capture is a separate product-level signal

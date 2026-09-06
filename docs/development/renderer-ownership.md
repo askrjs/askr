@@ -29,6 +29,12 @@ placeholders. Generation rollback restores an opaque renderer snapshot after
 the runtime has restored the surviving owner, so provisional disposal cannot
 erase the previous generation's host index.
 
+`renderer/ownership/retained-element.ts` captures shallow rollback records before
+element updates. Snapshot collections are read-only during restoration. Empty
+collections share one frozen value; populated collections retain independent
+copies of attributes, child nodes, listeners, and reactive bindings. Form-control
+and text capture retain their ordering, including changes made by control getters.
+
 The public renderer extension contracts remain unchanged. The compatibility
 adapter supplies renderer-owned application helpers around existing host
 callbacks, preserving receivers, argument lists, and method replacement.
