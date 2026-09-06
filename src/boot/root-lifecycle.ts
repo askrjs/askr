@@ -156,6 +156,7 @@ function attachCleanupForRoot(
         set: function (this: Element, value: string) {
           if (value === '' && instancesByRoot.get(this) === instance) {
             cleanupRootInstance(rootElement, instance);
+            if (instancesByRoot.has(this)) return;
           }
           return descriptor.set?.call(this, value);
         },

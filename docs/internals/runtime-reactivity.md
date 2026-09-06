@@ -88,6 +88,8 @@ Boot cleanup retires the root registration and captures its cleanup callbacks
 before invoking user code. A callback can mount a replacement on the same element;
 the retiring lifetime cannot erase its registration, callbacks, or hydration
 boundaries. During an update, such a replacement supersedes the interrupted mount.
+The `innerHTML = ''` cleanup entry point also preserves a replacement mounted
+during teardown instead of applying the old lifetime's pending DOM clear.
 Unsubscribing an old root callback affects only its captured callback collection.
 
 `For` reconciliation maintains keyed membership and delegates host application

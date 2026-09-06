@@ -2,16 +2,24 @@ import { describe, expect, it, vi } from 'vite-plus/test';
 import { cleanupApp, hasApp } from '../../../src/boot';
 import { registerRootCleanupCallback } from '../../../src/boot/root-lifecycle';
 import { registerMountOperation } from '../../../src/runtime';
+import { resource } from '../../../src/runtime/operations';
 import { createIsland } from '../../../test-utils/render/create-island';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 
 describe('root lifetime cleanup', () => {
-  it.each(['component', 'ref', 'root', 'strict root'] as const)(
-    'should preserve a replacement mounted from %s cleanup',
-    (phase) => {
+  it.each(
+    (['component', 'ref', 'root', 'strict root'] as const).flatMap((phase) =>
+      (['cleanupApp', 'innerHTML'] as const).map(
+        (trigger) => [phase, trigger] as const
+      )
+    )
+  )(
+    'should preserve a replacement mounted from %s cleanup through %s',
+    (phase, trigger) => {
       const { container, cleanup } = createTestContainer();
       const replacementCleanup = vi.fn();
       const replacementClick = vi.fn();
+      let replacementSignal!: AbortSignal;
       let replaced = false;
       const replace = () => {
         if (replaced) return;
@@ -20,6 +28,10 @@ describe('root lifetime cleanup', () => {
           root: container,
           component: () => {
             registerMountOperation(() => replacementCleanup);
+            resource(({ signal }) => {
+              replacementSignal = signal;
+              return 'active';
+            });
             return <button onClick={replacementClick}>replacement</button>;
           },
         });
@@ -44,15 +56,20 @@ describe('root lifetime cleanup', () => {
       if (phase === 'root' || phase === 'strict root')
         registerRootCleanupCallback(container, replace);
       try {
-        if (phase === 'strict root')
-          expect(() => cleanupApp(container)).toThrow(AggregateError);
-        else cleanupApp(container);
+        const retire = () => {
+          if (trigger === 'cleanupApp') cleanupApp(container);
+          else container.innerHTML = '';
+        };
+        if (phase === 'strict root') expect(retire).toThrow(AggregateError);
+        else retire();
         expect(hasApp(container)).toBe(true);
         expect(container.textContent).toBe('replacement');
         container.querySelector('button')!.click();
         expect(replacementClick).toHaveBeenCalledOnce();
         expect(replacementCleanup).not.toHaveBeenCalled();
+        expect(replacementSignal.aborted).toBe(false);
         cleanupApp(container);
+        expect(replacementSignal.aborted).toBe(true);
         expect(replacementCleanup).toHaveBeenCalledTimes(1);
         expect(hasApp(container)).toBe(false);
       } finally {
@@ -60,6 +77,23 @@ describe('root lifetime cleanup', () => {
       }
     }
   );
+
+  it('should clear innerHTML normally when cleanup does not mount a replacement', () => {
+    const { container, cleanup } = createTestContainer();
+    const retired = vi.fn();
+    createIsland({
+      root: container,
+      component: () => {
+        registerMountOperation(() => retired);
+        return <div>original</div>;
+      },
+    });
+    container.innerHTML = '';
+    expect(container.textContent).toBe('');
+    expect(hasApp(container)).toBe(false);
+    expect(retired).toHaveBeenCalledOnce();
+    cleanup();
+  });
 
   it('should let a mount during update cleanup supersede the interrupted update', () => {
     const { container, cleanup } = createTestContainer();
