@@ -8,7 +8,11 @@ import {
 import { getComponentLifetimeIdentity } from '../runtime/component/capabilities';
 import { logger } from '../common/logger';
 import { getActiveRenderContext } from '../common/render-context';
-import { adjustOwnershipDiagnostic, enqueueRuntimeTask } from '../runtime';
+import {
+  adjustOwnershipDiagnostic,
+  requestRuntimeWork,
+  ScheduledWork,
+} from '../runtime';
 import {
   claimHookIndex,
   getCurrentAppRenderRuntime,
@@ -43,6 +47,20 @@ type QueryCellOptions<T> = QueryOptions<T> & {
   readonly definitionIdentity?: object;
 };
 
+class QueryStartWork extends ScheduledWork {
+  constructor(
+    run: () => void,
+    private readonly settle: () => void
+  ) {
+    super(run);
+  }
+
+  protected override cancel(): void {
+    super.cancel();
+    this.settle();
+  }
+}
+
 export class QueryCell<T> {
   private readonly source = createReadableSource();
   private readonly key: string;
@@ -50,7 +68,6 @@ export class QueryCell<T> {
   private options: QueryCellOptions<T>;
   private controller: AbortController | null = null;
   private generation = 0;
-  private startQueued = false;
   private pendingRefresh: Promise<void> | null = null;
   private pendingRefreshKind:
     | 'initial'
@@ -158,7 +175,6 @@ export class QueryCell<T> {
     }
     this.controller?.abort();
     this.controller = null;
-    this.startQueued = false;
     this.reconcileAttemptCount = 0;
     this.ownerCount = 0;
     this.owners.clear();
@@ -230,8 +246,7 @@ export class QueryCell<T> {
       !this.destroyed &&
       this.state.data === null &&
       this.state.error === null &&
-      !this.pendingRefresh &&
-      !this.startQueued
+      !this.pendingRefresh
     );
   }
 
@@ -240,7 +255,6 @@ export class QueryCell<T> {
       this.destroyed ||
       this.state.data !== null ||
       this.pendingRefresh ||
-      this.startQueued ||
       this.options.skipInitialFetch
     ) {
       return;
@@ -258,7 +272,7 @@ export class QueryCell<T> {
       if (this.pendingRefreshKind === 'invalidation') {
         this.controller?.abort();
         this.queueStart(undefined, 'manual', true);
-        return this.pendingRefresh;
+        return this.pendingRefresh ?? Promise.resolve();
       } else {
         return this.pendingRefresh;
       }
@@ -311,7 +325,6 @@ export class QueryCell<T> {
         this.reconcileAttemptCount = 0;
         return ++this.reconcileSequence;
       })();
-    this.startQueued = true;
     this.pendingRefreshKind = kind;
     const token = ++this.pendingRefreshToken;
     if (!continuePending || !this.pendingRefresh) {
@@ -319,19 +332,27 @@ export class QueryCell<T> {
         this.pendingRefreshResolve = resolve;
       });
     }
-    enqueueRuntimeTask(() => {
-      if (token !== this.pendingRefreshToken) {
-        return;
-      }
-      this.startQueued = false;
-      if (this.destroyed) {
-        this.finishPendingRefresh(token);
-        return;
-      }
-      void this.start(sequence).finally(() => {
-        this.finishPendingRefresh(token);
-      });
-    });
+    requestRuntimeWork(
+      'component',
+      new QueryStartWork(
+        () => {
+          if (token !== this.pendingRefreshToken) {
+            return;
+          }
+          if (this.destroyed) {
+            this.finishPendingRefresh(token);
+            return;
+          }
+          void this.start(sequence).finally(() => {
+            this.finishPendingRefresh(token);
+          });
+        },
+        () => {
+          if (token !== this.pendingRefreshToken) return;
+          this.finishPendingRefresh(token);
+        }
+      )
+    );
   }
 
   private finishPendingRefresh(token = this.pendingRefreshToken): void {
