@@ -7,6 +7,14 @@ events, detaches portal output, and captures and restores child-scope host state
 Resource activity helpers own document visibility, focus, and deferred browser
 listener targets; their existing server defaults remain unchanged.
 
+List strategy execution consumes a prepared commit plan rather than the mutable
+`ForState`. Preparation copies ordered membership, vnode inputs, removal nodes,
+and strategy parameters before renderer callbacks run. Item scopes retain their
+identity and remain owned by the existing collection transaction. Strategy
+variants require their own parameters; incomplete insertion or swap preparation
+falls back to general keyed placement. The renderer orchestrator continues to
+own snapshot registration, rollback, and final boundary bookkeeping.
+
 `renderer/ownership/ranges.ts` owns range registration. An owner moving to another
 range releases its old anchor indexes. Clearing an obsolete range cannot remove
 a newer registration at the same anchors. Explicit range ownership transfers

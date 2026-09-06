@@ -3,6 +3,7 @@ import { writeScopeHost } from '../ownership/scope-host';
 import type { ChildScope } from '../../runtime';
 import {
   beginForStateTransaction,
+  prepareForCommitPlan,
   captureForFallbackTransactionSnapshot,
   captureForItemTransactionSnapshot,
   clearForDomUpdateState,
@@ -281,20 +282,17 @@ function commitForStateBoundaryChildrenImpl(
   let boundaryChildrenExact = false;
 
   const applyStrategy = (
-    strategy: Parameters<typeof commitForStrategy>[0]
+    strategy: Parameters<typeof prepareForCommitPlan>[3]
   ): void => {
     const result = commitForStrategy(
-      strategy,
+      prepareForCommitPlan(forState, childrenVNodes, dirtyIndices, strategy),
       {
         parent,
-        forState,
-        childrenVNodes,
         runtime,
         preResolvedRanges,
         captureItemBeforeCommit,
         syncItemDom,
-      },
-      dirtyIndices
+      }
     );
     boundaryChildrenExact = result.boundaryChildrenExact;
     removedBoundaryConsumed ||= result.removedBoundaryConsumed;
