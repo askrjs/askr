@@ -207,7 +207,7 @@ export function snapshotRetainedElement(
       : EMPTY_SNAPSHOT_ENTRIES,
     domCaptured: !bindingsOnly,
     formControl: bindingsOnly ? null : getFormControlSnapshot(element),
-    keyedMap: keyedMap ? new Map(keyedMap) : undefined,
+    keyedMap: keyedMap && new Map(keyedMap),
     listeners: listenerMap
       ? copyRetainedListeners(listenerMap)
       : EMPTY_SNAPSHOT_ENTRIES,
@@ -582,23 +582,25 @@ export function runRetainedElementUpdate(
 ): void {
   const enclosing = getCurrentCommitTransaction();
   const transaction = enclosing ?? beginCommitTransaction();
-  if (!transaction.hasResource(element)) {
-    const snapshot = transaction.captureResource(
-      element,
-      snapshotRetainedElement(element, bindingsOnly)
-    );
-    registerCommitRollback(() =>
-      restoreRetainedElement(element, snapshot, cleanupRangeNode)
-    );
-  }
   try {
+    if (!transaction.hasResource(element)) {
+      const snapshot = transaction.captureResource(
+        element,
+        snapshotRetainedElement(element, bindingsOnly)
+      );
+      registerCommitRollback(() =>
+        restoreRetainedElement(element, snapshot, cleanupRangeNode)
+      );
+    }
     applyTransaction(transaction, update);
     if (!enclosing) commitTransaction(transaction);
   } catch (error) {
     onError?.();
-    if (!enclosing) discardTransaction(transaction);
     throw error;
   } finally {
-    if (!enclosing) suspendTransaction(transaction);
+    if (!enclosing) {
+      discardTransaction(transaction);
+      suspendTransaction(transaction);
+    }
   }
 }

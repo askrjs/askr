@@ -266,6 +266,13 @@ forms retain the general validator. First bindings on fresh elements publish
 through the fresh-element cleanup path, while later bindings on the same
 element join the existing retained record.
 
+Retained-element snapshot preparation shares the update's transaction failure
+boundary. Preparation failures invoke the same error callback as update
+failures. An owned transaction is discarded and its current scope released
+even when that callback throws; an enclosing transaction remains the caller's
+responsibility. The error callback runs before rollback so it can retire
+provisional work, but cannot prevent rollback by throwing.
+
 Fine-grained effects keep the first two readable sources inline and widen to a
 collection only for the third distinct source. `For` item property reads use
 the same first/two/3+ representation, preserving precise invalidation while
