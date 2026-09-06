@@ -30,6 +30,7 @@ interface CommitCoordinatorOptions {
 }
 
 interface TransactionState {
+  committing?: boolean;
   phase: CommitPhase;
   parent: CommitTransaction | null;
   coordinator: CommitCoordinator;
@@ -151,6 +152,22 @@ export class CommitTransaction {
   ): T | undefined {
     return this.#state.index?.get(kind)?.get(key) as T | undefined;
   }
+}
+
+/** Reuse the larger map while preserving earlier values, including undefined. */
+function mergeEarlierEntries<K, V>(
+  earlier: Map<K, V> | undefined,
+  later: Map<K, V>,
+  reuseLater = true
+): Map<K, V> {
+  if (reuseLater && (!earlier || earlier.size < later.size)) {
+    for (const [key, value] of earlier ?? []) later.set(key, value);
+    return later;
+  }
+  earlier ??= new Map();
+  for (const [key, value] of later)
+    if (!earlier.has(key)) earlier.set(key, value);
+  return earlier;
 }
 
 /** One synchronous stack per runtime. This coordinator has no component,
@@ -277,15 +294,15 @@ export class CommitCoordinator {
     const owners = new Set<CommitParticipant>();
     for (let index = frames.length - 1; index >= 0; index--) {
       const frame = frames[index];
-      transactionState(frame).phase = 'discarding';
+      const frameState = transactionState(frame);
+      frameState.phase = 'discarding';
       for (
-        let member = transactionState(frame).participants.length - 1;
+        let member = frameState.participants.length - 1;
         member >= 0;
         member--
       ) {
-        const participant = transactionState(frame).participants[member];
-        if (owners.has(participant))
-          transactionState(frame).participants.splice(member, 1);
+        const participant = frameState.participants[member];
+        if (owners.has(participant)) frameState.participants.splice(member, 1);
         else owners.add(participant);
       }
     }
@@ -334,13 +351,13 @@ export class CommitCoordinator {
   notificationsDeferred(): boolean {
     let transaction = this.frame;
     while (transaction) {
+      const state = transactionState(transaction);
       if (
-        transactionState(transaction).deferNotifications &&
-        (transaction.active ||
-          transactionState(transaction).phase === 'discarding')
+        state.deferNotifications &&
+        (transaction.active || state.phase === 'discarding')
       )
         return true;
-      transaction = transactionState(transaction).parent;
+      transaction = state.parent;
     }
     return false;
   }
@@ -348,191 +365,182 @@ export class CommitCoordinator {
   commit(transaction: CommitTransaction): void {
     const state = transactionState(transaction);
     this.assertOwned(transaction);
-    if (!transaction.active) return;
-    const parent = state.parent;
-    if (parent?.active) {
-      const parentState = transactionState(parent);
-      let needsMerge = false;
-      let changedIdentity = false;
-      for (const participant of state.participants) {
-        // Retained keyed records are indexed, not tracked in seen. A keyed
-        // member in seen may have been registered before its key was assigned.
-        if (participant.key && state.seen?.has(participant))
-          changedIdentity = true;
-        if (parentState.seen?.has(participant)) continue;
-        const previous = participant.key
-          ? parent.participant(participant.key, participant.kind)
-          : undefined;
-        if (previous) {
-          this.validateCollision(previous, participant);
-          if (
-            previous !== participant &&
-            participant.collision !== 'keep-first'
-          )
-            needsMerge = true;
-        }
-      }
-      for (const [kind, index] of state.index?.entries() ?? []) {
-        index.forEach((participant, key) => {
-          if (participant.key !== key || participant.kind !== kind)
+    if (!transaction.active || state.committing) return;
+    state.committing = true;
+    try {
+      const parent = state.parent;
+      if (parent?.active) {
+        const parentState = transactionState(parent);
+        let needsMerge = false;
+        let changedIdentity = false;
+        for (const participant of state.participants) {
+          // Retained keyed records are indexed, not tracked in seen. A keyed
+          // member in seen may have been registered before its key was assigned.
+          if (participant.key && state.seen?.has(participant))
             changedIdentity = true;
-        });
-        if (changedIdentity) break;
-      }
-      if (needsMerge || changedIdentity) {
-        // Merges can register further work. Keep their dynamic traversal and
-        // failure ownership separate from callback-free membership transfer.
-        try {
-          for (const participant of state.participants) {
-            if (parentState.seen?.has(participant)) continue;
-            const previous = participant.key
-              ? parent.participant(participant.key, participant.kind)
-              : undefined;
-            if (previous && previous !== participant) {
-              if (participant.collision !== 'keep-first')
-                participant.merge!(previous);
-              (parentState.seen ??= new Set()).add(participant);
+          if (parentState.seen?.has(participant)) continue;
+          const previous = participant.key
+            ? parent.participant(participant.key, participant.kind)
+            : undefined;
+          if (previous) {
+            this.validateCollision(previous, participant);
+            if (
+              previous !== participant &&
+              participant.collision !== 'keep-first'
+            )
+              needsMerge = true;
+          }
+        }
+        for (const [kind, index] of state.index?.entries() ?? []) {
+          index.forEach((participant, key) => {
+            if (participant.key !== key || participant.kind !== kind)
+              changedIdentity = true;
+          });
+          if (changedIdentity) break;
+        }
+        if (needsMerge || changedIdentity) {
+          // Merges can register further work. Keep their dynamic traversal and
+          // failure ownership separate from callback-free membership transfer.
+          try {
+            for (const participant of state.participants) {
+              if (parentState.seen?.has(participant)) continue;
+              const previous = participant.key
+                ? parent.participant(participant.key, participant.kind)
+                : undefined;
+              if (previous && previous !== participant) {
+                if (participant.collision !== 'keep-first')
+                  participant.merge!(previous);
+                if (!parent.active) this.discard(transaction);
+                if (!transaction.active) return;
+                (parentState.seen ??= new Set()).add(participant);
+              }
             }
+          } catch (error) {
+            this.discardMergedTransactions(transaction, parent);
+            throw error;
           }
-        } catch (error) {
-          this.discardMergedTransactions(transaction, parent);
-          throw error;
-        }
-        // A changed key can leave the same record in multiple child slots.
-        // Registration preserves identity deduplication in that uncommon case.
-        for (const participant of state.participants) {
-          if (
-            !participant.key ||
-            !parent.participant(participant.key, participant.kind)
-          )
-            this.add(parent, participant);
-        }
-      } else {
-        for (const participant of state.participants) {
-          if (parentState.seen?.has(participant)) {
-            if (participant.key)
-              state.index!.get(participant.kind)!.delete(participant.key);
-            continue;
+          // A changed key can leave the same record in multiple child slots.
+          // Registration preserves identity deduplication in that uncommon case.
+          for (const participant of state.participants) {
+            if (
+              !participant.key ||
+              !parent.participant(participant.key, participant.kind)
+            )
+              this.add(parent, participant);
           }
-          if (participant.key) {
-            const previous = parent.participant(
-              participant.key,
-              participant.kind
-            );
-            if (previous) {
-              if (previous !== participant)
-                (state.seen ??= new Set()).add(participant);
+        } else {
+          for (const participant of state.participants) {
+            if (parentState.seen?.has(participant)) {
+              if (participant.key)
+                state.index!.get(participant.kind)!.delete(participant.key);
               continue;
             }
+            if (participant.key) {
+              const previous = parent.participant(
+                participant.key,
+                participant.kind
+              );
+              if (previous) {
+                if (previous !== participant)
+                  (state.seen ??= new Set()).add(participant);
+                continue;
+              }
+            }
+            parentState.participants.push(participant);
           }
-          parentState.participants.push(participant);
-        }
 
-        // Inner indexes have no independent owner. Keep the larger allocation;
-        // parent entries retain collision ownership regardless of map choice.
-        // Child release drops only the outer index after ownership transfers.
-        for (const [kind, index] of state.index?.entries() ?? []) {
-          if (!index.size) continue;
-          const kinds = (parentState.index ??= new Map<
-            object | undefined,
-            Map<object, CommitParticipant>
-          >());
-          const existing = kinds.get(kind);
-          if (!existing) kinds.set(kind, index);
-          else if (existing.size < index.size) {
-            existing.forEach((participant, key) => index.set(key, participant));
-            kinds.set(kind, index);
+          // Inner indexes have no independent owner. Keep the larger allocation;
+          // parent entries retain collision ownership regardless of map choice.
+          // Child release drops only the outer index after ownership transfers.
+          for (const [kind, index] of state.index?.entries() ?? []) {
+            if (!index.size) continue;
+            const kinds = (parentState.index ??= new Map<
+              object | undefined,
+              Map<object, CommitParticipant>
+            >());
+            kinds.set(kind, mergeEarlierEntries(kinds.get(kind), index));
+          }
+        }
+        if (state.resources)
+          parentState.resources = mergeEarlierEntries(
+            parentState.resources,
+            state.resources,
+            !needsMerge && !changedIdentity
+          );
+        if (state.seen) {
+          // The joined child relinquishes its set. Reuse the larger allocation
+          // while retaining identities coalesced in either frame.
+          if (!parentState.seen) parentState.seen = state.seen;
+          else if (parentState.seen.size < state.seen.size) {
+            for (const participant of parentState.seen)
+              state.seen.add(participant);
+            parentState.seen = state.seen;
           } else {
-            index.forEach((participant, key) => {
-              if (!existing.has(key)) existing.set(key, participant);
-            });
+            for (const participant of state.seen)
+              parentState.seen.add(participant);
           }
         }
+        this.mergeCompletions(transaction, parent);
+        state.phase = 'joined';
+        this.suspend(transaction);
+        this.release(transaction);
+        return;
       }
-      if (
-        state.resources &&
-        !needsMerge &&
-        !changedIdentity &&
-        (parentState.resources?.size ?? 0) < state.resources.size
-      ) {
-        const previousResources = parentState.resources;
-        parentState.resources = state.resources;
-        state.resources = previousResources;
-        // Parent values are the earlier snapshots, including explicit undefined.
-        for (const [key, value] of previousResources ?? [])
-          parentState.resources.set(key, value);
-      } else if (state.resources) {
-        const resources = (parentState.resources ??= new Map());
-        for (const [key, value] of state.resources) {
-          if (!resources.has(key)) resources.set(key, value);
-        }
-      }
-      if (state.seen) {
-        // The joined child relinquishes its set. Reuse the larger allocation
-        // while retaining identities coalesced in either frame.
-        if (!parentState.seen) parentState.seen = state.seen;
-        else if (parentState.seen.size < state.seen.size) {
-          for (const participant of parentState.seen)
-            state.seen.add(participant);
-          parentState.seen = state.seen;
-        } else {
-          for (const participant of state.seen)
-            parentState.seen.add(participant);
-        }
-      }
-      this.mergeCompletions(transaction, parent);
-      state.phase = 'joined';
-      this.suspend(transaction);
-      this.release(transaction);
-      return;
-    }
 
-    const previous = this.frame;
-    this.frame = transaction;
-    let applied = 0;
-    let published = 0;
-    try {
-      // A nested render from an application hook can append participants.
-      // Apply those before allowing their publication, including additions
-      // made while another participant is publishing framework bookkeeping.
-      while (
-        applied < state.participants.length ||
-        published < state.participants.length
-      ) {
-        state.phase = 'applying';
-        while (applied < state.participants.length)
-          state.participants[applied++]!.apply?.();
-        state.phase = 'publishing';
-        if (published < state.participants.length)
-          state.participants[published++]!.publish?.();
+      const previous = this.frame;
+      this.frame = transaction;
+      let applied = 0;
+      let published = 0;
+      try {
+        // A nested render from an application hook can append participants.
+        // Apply those before allowing their publication, including additions
+        // made while another participant is publishing framework bookkeeping.
+        while (
+          applied < state.participants.length ||
+          published < state.participants.length
+        ) {
+          state.phase = 'applying';
+          while (applied < state.participants.length) {
+            state.participants[applied++]!.apply?.();
+            if (!transaction.active) return;
+          }
+          state.phase = 'publishing';
+          if (published < state.participants.length)
+            state.participants[published++]!.publish?.();
+          if (!transaction.active) return;
+        }
+      } catch (error) {
+        this.discard(transaction);
+        throw error;
+      } finally {
+        this.frame = this.liveFrame(
+          previous === transaction ? state.parent : previous
+        );
       }
-    } catch (error) {
-      this.discard(transaction);
-      throw error;
-    } finally {
-      this.frame = this.liveFrame(
-        previous === transaction ? state.parent : previous
-      );
-    }
 
-    state.phase = 'settling';
-    try {
-      for (const phase of ['settle', 'activate', 'complete'] as const) {
-        for (const participant of state.participants) {
-          try {
-            participant[phase]?.();
-          } catch (error) {
-            (state.errors ??= []).push(error);
+      state.phase = 'settling';
+      try {
+        for (const phase of ['settle', 'activate', 'complete'] as const) {
+          for (const participant of state.participants) {
+            try {
+              participant[phase]?.();
+            } catch (error) {
+              (state.errors ??= []).push(error);
+            }
           }
         }
+        this.complete(transaction, (error) =>
+          (state.errors ??= []).push(error)
+        );
+        state.phase = 'committed';
+        if (state.errors?.length)
+          this.options.settlementErrors?.(state.errors, transaction);
+      } finally {
+        state.phase = 'committed';
+        this.release(transaction);
       }
-      this.complete(transaction, (error) => (state.errors ??= []).push(error));
-      state.phase = 'committed';
-      if (state.errors?.length)
-        this.options.settlementErrors?.(state.errors, transaction);
     } finally {
-      state.phase = 'committed';
-      this.release(transaction);
+      state.committing = false;
     }
   }
 

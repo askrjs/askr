@@ -2,6 +2,134 @@ import { describe, expect, it } from 'vite-plus/test';
 import { CommitCoordinator } from '../../../src/runtime/transactions/coordinator';
 
 describe('shared commit coordination', () => {
+  it('should discard a joining child when its merge discards the parent', () => {
+    const coordinator = new CommitCoordinator();
+    const parent = coordinator.begin();
+    const key = {};
+    const calls: string[] = [];
+    coordinator.register({
+      key,
+      rollback() {
+        calls.push('parent');
+      },
+    });
+    const child = coordinator.begin();
+    coordinator.register({
+      key,
+      merge() {
+        coordinator.discard(parent);
+      },
+      rollback() {
+        calls.push('child');
+      },
+    });
+    coordinator.commit(child);
+    expect(parent.phase).toBe('discarded');
+    expect(child.phase).toBe('discarded');
+    expect(calls).toEqual(['parent', 'child']);
+    expect(coordinator.current).toBeNull();
+  });
+
+  it('should merge once when a merge callback commits its own child again', () => {
+    const coordinator = new CommitCoordinator();
+    const parent = coordinator.begin();
+    const key = {};
+    coordinator.register({ key });
+    const child = coordinator.begin();
+    let merges = 0;
+    coordinator.register({
+      key,
+      merge() {
+        if (++merges === 1) coordinator.commit(child);
+      },
+    });
+    coordinator.commit(child);
+    expect(merges).toBe(1);
+    expect(child.phase).toBe('joined');
+    coordinator.commit(parent);
+    expect(parent.phase).toBe('committed');
+    expect(coordinator.current).toBeNull();
+  });
+
+  it('should preserve a discarded child during participant merge', () => {
+    const coordinator = new CommitCoordinator();
+    const calls: string[] = [];
+    const parent = coordinator.begin();
+    const key = {};
+    coordinator.register({
+      key,
+      settle() {
+        calls.push('parent');
+      },
+    });
+    const child = coordinator.begin();
+    coordinator.register({
+      key,
+      merge() {
+        coordinator.discard(child);
+      },
+      rollback() {
+        calls.push('rollback');
+      },
+    });
+    coordinator.commit(child);
+    expect(child.phase).toBe('discarded');
+    expect(coordinator.current).toBe(parent);
+    coordinator.commit(parent);
+    expect(calls).toEqual(['rollback', 'parent']);
+  });
+
+  it.each(['apply', 'publish'] as const)(
+    'should keep discard terminal during %s',
+    (phase) => {
+      const coordinator = new CommitCoordinator();
+      const transaction = coordinator.begin();
+      const calls: string[] = [];
+      coordinator.register({
+        [phase]() {
+          calls.push(phase);
+          coordinator.discard(transaction);
+        },
+        rollback() {
+          calls.push('rollback');
+        },
+        settle() {
+          calls.push('settle');
+        },
+      });
+      coordinator.commit(transaction);
+      expect(transaction.phase).toBe('discarded');
+      expect(calls).toEqual([phase, 'rollback']);
+      expect(coordinator.current).toBeNull();
+    }
+  );
+
+  it.each(['apply', 'publish'] as const)(
+    'should ignore recursive commit during %s without duplicating work',
+    (phase) => {
+      const coordinator = new CommitCoordinator();
+      const transaction = coordinator.begin();
+      const calls: string[] = [];
+      let reentered = false;
+      coordinator.register({
+        [phase]() {
+          calls.push(phase);
+          if (!reentered) {
+            reentered = true;
+            coordinator.commit(transaction);
+          }
+        },
+        settle() {
+          calls.push('settle');
+        },
+      });
+      coordinator.commit(transaction);
+      expect(calls).toEqual([phase, 'settle']);
+      expect(transaction.phase).toBe('committed');
+      expect(coordinator.current).toBeNull();
+    }
+  );
+
   it('should apply every participant before publishing and settling work', () => {
     const coordinator = new CommitCoordinator();
     const calls: string[] = [];

@@ -65,7 +65,7 @@ interface SelectorSourceRecord<T> extends DerivedSubscriber {
   _value: T;
   _hasValue: boolean;
   _dirty: boolean;
-  _scheduled: boolean;
+  _pending: boolean;
   _evaluating: boolean;
   _sources: Set<ReadableSource<unknown>>;
   _pendingDependencySources?: Set<ReadableSource<unknown>>;
@@ -113,7 +113,7 @@ function flushDirtySelectorRecords(): void {
   for (const record of takeDirtySelectorRecords<
     SelectorSourceRecord<unknown>
   >()) {
-    record._scheduled = false;
+    record._pending = false;
     if (!record._dirty) {
       continue;
     }
@@ -207,7 +207,7 @@ function createSelectorSourceRecord<T>(
     _value: undefined as T,
     _hasValue: false,
     _dirty: true,
-    _scheduled: false,
+    _pending: false,
     _evaluating: false,
     _sources: new Set(),
     _lanes: new Map(),
@@ -215,7 +215,7 @@ function createSelectorSourceRecord<T>(
       markSelectorRecordDirty(record as SelectorSourceRecord<unknown>);
     },
     _cleanup: () => {
-      record._scheduled = false;
+      record._pending = false;
       record._dirty = false;
       record._hasValue = false;
       record._evaluating = false;
@@ -492,7 +492,7 @@ function createSelectorHook<T>(
 
     const current =
       record._dirty || !record._hasValue
-        ? recomputeSelectorSourceRecord(record, record._scheduled)
+        ? recomputeSelectorSourceRecord(record, record._pending)
         : record._value;
 
     return lane._equals(current, candidate);

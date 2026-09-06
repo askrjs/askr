@@ -97,6 +97,19 @@ contribute participants to that protocol. Renderer fast paths only specialize
 host work. `portal/portal.ts` owns portal inventory, and `reactivity/selector-store.ts` owns
 the dirty-selector queue.
 
+`scheduled-work.ts` owns coalesced flush tickets for derived values, selectors,
+and effects. A ticket is released before execution, on rejected admission
+(including production's silent rejection), and when the scheduler clears its
+queued task. A later invalidation can therefore schedule fresh work. Reentrant
+writes can request another flush without duplicating an already queued ticket.
+
+Dirty membership remains with each reactive subsystem; it is not proof that a
+scheduler task exists. Derived and selector batch flags track pending downstream
+notification, while effects use their existing per-lane dirty sets directly.
+Clearing scheduler work does not revert state values or discard these dirty
+records. The next source write can resume propagation of the current value.
+Ordinary scheduler tasks retain their existing multiplicity and lane ordering.
+
 ## Readable graph
 
 State and derived values are two kinds of readable source feeding the same
@@ -208,8 +221,17 @@ flowchart LR
   `src/runtime/component/instance.ts` owns execution and inline rendering;
   `ownership/record.ts` drains all lifetimes through one iterative path, with component
   phases supplied by `component/cleanup.ts`.
+  Disposal preparation failures are reported after the remaining ownership
+  graph drains. A failed compatibility child index falls back to the linked
+  graph; a failed lifecycle phase factory falls back to ordinary owned cleanup,
+  cancellation, and finalization. Component scope is entered in the protected
+  begin phase and restored in finish. Repeated disposal remains a no-op.
   `transactions/coordinator.ts` owns preparation, reversible application,
   publication, and settlement. Nested transactions join their enclosing commit.
+  Each transaction has one active commit operation. Recursive commit calls on
+  that transaction do nothing; distinct nested transactions still join normally.
+  Discard during application, publication, or participant merge stops that
+  operation and remains terminal, without later settlement or activation.
   `transactions/render.ts` contributes reversible subscription and execution
   snapshots; `lifecycle/settlement.ts` captures lifecycle work for
   its exact owner before callbacks run. Failed application or publication
