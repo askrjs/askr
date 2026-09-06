@@ -182,6 +182,8 @@ synchronously; cancellation also settles a shared promise when it owns a queued
 invalidation replacement or reconciliation retry. Clearing queued work does not
 publish a new query state: if invalidation already aborted a running request, its
 last snapshot can still report `refreshing` until a later explicit refresh.
+Late results or errors from the aborted request cannot replace that snapshot,
+even if its fetch ignores the abort signal.
 
 Manual calls to `refresh()` coalesce while a request is pending. `invalidate()`
 is the distinct operation that replaces stale work; rapid invalidations before

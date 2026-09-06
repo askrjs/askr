@@ -349,6 +349,9 @@ export class QueryCell<T> {
         },
         () => {
           if (token !== this.pendingRefreshToken) return;
+          // The replacement may have already aborted a running fetch. Retire
+          // its authority even when that fetch ignores cancellation.
+          this.generation += 1;
           this.finishPendingRefresh(token);
         }
       )

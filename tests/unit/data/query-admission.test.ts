@@ -75,6 +75,58 @@ describe('query work admission', () => {
     expect(query.refreshing).toBe(false);
   });
 
+  for (const interruption of [
+    'clear',
+    'reject',
+    'production-reject',
+  ] as const) {
+    it.each(['resolve', 'reject'] as const)(
+      `should ignore late %s after replacement ${interruption}`,
+      async (outcome) => {
+        const runtime = createDataRuntime();
+        let resolve!: (value: { value: number }) => void;
+        let reject!: (reason: Error) => void;
+        const query = createQuery({
+          key: 'late',
+          runtime,
+          initialData: { value: 1 },
+          fetch: () =>
+            new Promise<{ value: number }>((res, rej) => {
+              resolve = res;
+              reject = rej;
+            }),
+        });
+        const pending = query.refresh();
+        scheduler.flush();
+        if (interruption === 'clear') {
+          invalidate('late', { runtime });
+          scheduler.clearPendingSyncTasks();
+        } else {
+          if (interruption === 'production-reject') {
+            vi.spyOn(environment, 'isDevelopmentEnvironment').mockReturnValue(
+              false
+            );
+          }
+          scheduler.setBulkCommitProbe(() => true);
+          if (interruption === 'reject') {
+            expect(() => invalidate('late', { runtime })).toThrow(
+              'during bulk commit'
+            );
+          } else invalidate('late', { runtime });
+          scheduler.setBulkCommitProbe(() => false);
+        }
+        await pending;
+        if (outcome === 'resolve') resolve({ value: 99 });
+        else reject(new Error('obsolete failure'));
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(query.data).toEqual({ value: 1 });
+        expect(query.error).toBeNull();
+        expect(query.refreshing).toBe(true);
+      }
+    );
+  }
+
   it('should settle silently rejected production work and recovers', async () => {
     vi.spyOn(environment, 'isDevelopmentEnvironment').mockReturnValue(false);
     const fetch = vi.fn(async () => ({ value: 2 }));
