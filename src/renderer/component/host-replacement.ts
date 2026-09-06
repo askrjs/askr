@@ -72,99 +72,127 @@ export function beginComponentHostReplacement(
   retainedInstances: Iterable<ComponentInstance> = [retainedInstance],
   disposeOnRollback = false
 ): ComponentHostReplacement {
-  const parent = existingHost.parentNode;
-  const previousRange = getOwnedRange(retainedInstance);
-  const previousNodes =
-    previousRange && !previousRange.single
-      ? [
-          previousRange.start,
-          ...getRangeNodes(previousRange),
-          previousRange.end,
-        ]
-      : [existingHost];
-  const previousNextSibling =
-    previousNodes[previousNodes.length - 1]!.nextSibling;
-  let nextDom: Node | null = null;
-  let nextHost: Node | null = null;
-  let nextRange: DOMRange | undefined;
-  let previousBindings = new Map<ComponentInstance, HostBinding>();
-  let didReplace = false;
-  let replacementAttempted = false;
-  let finished = false;
-  let publishedRetainedInstances: ComponentInstance[] | undefined;
+  return new HostReplacement(
+    existingHost,
+    retainedInstance,
+    previousTarget,
+    retainedInstances,
+    disposeOnRollback
+  );
+}
 
-  const publish = (): void => {
-    if (finished) return;
-    if (replacementAttempted && didReplace) {
-      publishedRetainedInstances = Array.from(retainedInstances);
-      if (nextHost) {
-        for (const [instance, binding] of previousBindings) {
+/** One replacement record owns preparation, publication, retirement, and restoration. */
+class HostReplacement implements ComponentHostReplacement {
+  private readonly parent: ParentNode | null;
+  private readonly previousRange: DOMRange | undefined;
+  private readonly previousNodes: Node[];
+  private readonly previousNextSibling: ChildNode | null;
+  private nextHost: Node | null = null;
+  private nextRange: DOMRange | undefined;
+  private previousBindings: Map<ComponentInstance, HostBinding> | undefined;
+  private didReplace = false;
+  private replacementAttempted = false;
+  private finished = false;
+  private publishedRetainedInstances: ComponentInstance[] | undefined;
+
+  constructor(
+    private readonly existingHost: InstanceHostNode,
+    private readonly retainedInstance: ComponentInstance,
+    private readonly previousTarget: Element | null,
+    private readonly retainedInstances: Iterable<ComponentInstance>,
+    private readonly disposeOnRollback: boolean
+  ) {
+    this.parent = existingHost.parentNode;
+    this.previousRange = getOwnedRange(retainedInstance);
+    this.previousNodes =
+      this.previousRange && !this.previousRange.single
+        ? [
+            this.previousRange.start,
+            ...getRangeNodes(this.previousRange),
+            this.previousRange.end,
+          ]
+        : [existingHost];
+    this.previousNextSibling =
+      this.previousNodes[this.previousNodes.length - 1]!.nextSibling;
+    if (!registerCommitParticipant(this))
+      throw new Error(
+        '[askr] Component replacement requires a commit operation.'
+      );
+  }
+
+  publish(): void {
+    if (this.finished) return;
+    if (this.replacementAttempted && this.didReplace) {
+      this.publishedRetainedInstances = Array.from(this.retainedInstances);
+      if (this.nextHost) {
+        for (const [instance, binding] of this.previousBindings ?? []) {
           if (
-            binding.target !== existingHost &&
-            binding.placeholder !== existingHost
+            binding.target !== this.existingHost &&
+            binding.placeholder !== this.existingHost
           ) {
             continue;
           }
-          if (nextHost instanceof Element) {
-            bindComponentHost(instance, nextHost);
-          } else if (nextHost instanceof Comment) {
-            bindComponentHost(instance, null, nextHost);
+          if (this.nextHost instanceof Element) {
+            bindComponentHost(instance, this.nextHost);
+          } else if (this.nextHost instanceof Comment) {
+            bindComponentHost(instance, null, this.nextHost);
           }
         }
       }
     }
-  };
-  const settle = (): void => {
-    if (finished) return;
-    finished = true;
-    if (!replacementAttempted || !didReplace) return;
-    const retained = publishedRetainedInstances!;
+  }
+
+  settle(): void {
+    if (this.finished) return;
+    this.finished = true;
+    if (!this.replacementAttempted || !this.didReplace) return;
+    const retained = this.publishedRetainedInstances!;
     const errors: unknown[] = [];
-    if (previousRange) clearRangeOwner(previousRange);
-    for (const node of previousNodes) {
+    if (this.previousRange) clearRangeOwner(this.previousRange);
+    for (const node of this.previousNodes) {
       try {
         cleanupDetachedComponentHost(node as InstanceHostNode, retained);
       } catch (error) {
         errors.push(error);
       }
     }
-    if (nextRange) registerRange(nextRange, retainedInstance);
+    if (this.nextRange) registerRange(this.nextRange, this.retainedInstance);
     if (errors.length)
       throw new AggregateError(
         errors,
         'Component replacement retirement failed'
       );
-  };
+  }
 
-  const rollback = (): void => {
-    if (finished) return;
-    finished = true;
-    if (!replacementAttempted) return;
+  rollback(): void {
+    if (this.finished) return;
+    this.finished = true;
+    if (!this.replacementAttempted) return;
 
     const rollbackErrors: unknown[] = [];
-    const retained = Array.from(retainedInstances);
-    if (nextHost && nextHost !== existingHost) {
+    const retained = Array.from(this.retainedInstances);
+    if (this.nextHost && this.nextHost !== this.existingHost) {
       try {
-        if (nextRange && !nextRange.single) {
-          removeRange(nextRange, (node) => {
+        if (this.nextRange && !this.nextRange.single) {
+          removeRange(this.nextRange, (node) => {
             cleanupReplacementNode(node, retained);
             node.parentNode?.removeChild(node);
           });
         } else {
-          cleanupReplacementNode(nextHost, retained);
-          nextHost.parentNode?.removeChild(nextHost);
+          cleanupReplacementNode(this.nextHost, retained);
+          this.nextHost.parentNode?.removeChild(this.nextHost);
         }
       } catch (error) {
         rollbackErrors.push(error);
       }
     }
-    if (parent) {
+    if (this.parent) {
       try {
-        for (const node of previousNodes)
-          parent.insertBefore(
+        for (const node of this.previousNodes)
+          this.parent.insertBefore(
             node,
-            previousNextSibling?.parentNode === parent
-              ? previousNextSibling
+            this.previousNextSibling?.parentNode === this.parent
+              ? this.previousNextSibling
               : null
           );
       } catch (error) {
@@ -172,19 +200,24 @@ export function beginComponentHostReplacement(
       }
     }
     try {
-      if (disposeOnRollback) cleanupComponent(retainedInstance);
-      for (const [instance, binding] of previousBindings) {
-        if (disposeOnRollback && instance === retainedInstance) continue;
+      if (this.disposeOnRollback) cleanupComponent(this.retainedInstance);
+      for (const [instance, binding] of this.previousBindings ?? []) {
+        if (this.disposeOnRollback && instance === this.retainedInstance)
+          continue;
         bindComponentHost(instance, binding.target, binding.placeholder);
       }
-      if (!previousBindings.has(retainedInstance) && !disposeOnRollback) {
+      if (
+        !this.previousBindings?.has(this.retainedInstance) &&
+        !this.disposeOnRollback
+      ) {
         bindComponentHost(
-          retainedInstance,
-          previousTarget,
-          retainedInstance._placeholder
+          this.retainedInstance,
+          this.previousTarget,
+          this.retainedInstance._placeholder
         );
       }
-      if (previousRange) registerRange(previousRange, retainedInstance);
+      if (this.previousRange)
+        registerRange(this.previousRange, this.retainedInstance);
     } catch (error) {
       rollbackErrors.push(error);
     }
@@ -194,37 +227,27 @@ export function beginComponentHostReplacement(
         'Component host replacement rollback failed'
       );
     }
-  };
+  }
 
-  const apply = (): void => {
+  apply(): void {
     if (
-      replacementAttempted &&
-      didReplace &&
-      previousRange &&
-      !previousRange.single
+      this.replacementAttempted &&
+      this.didReplace &&
+      this.previousRange &&
+      !this.previousRange.single
     ) {
-      for (const node of previousNodes) node.parentNode?.removeChild(node);
+      for (const node of this.previousNodes) node.parentNode?.removeChild(node);
     }
-  };
-  if (
-    !registerCommitParticipant({
-      apply,
-      publish,
-      settle,
-      rollback,
-    })
-  )
-    throw new Error(
-      '[askr] Component replacement requires a commit operation.'
-    );
-  const replace = (
+  }
+
+  replace(
     materialize: () => Node,
     prepareNextDom: (replacement: Node) => void
-  ): Node => {
-    replacementAttempted = true;
+  ): Node {
+    this.replacementAttempted = true;
 
-    previousBindings = new Map(
-      Array.from(retainedInstances, (instance) => [
+    this.previousBindings = new Map(
+      Array.from(this.retainedInstances, (instance) => [
         instance,
         {
           target: instance.target,
@@ -232,34 +255,35 @@ export function beginComponentHostReplacement(
         },
       ])
     );
-    nextDom = materialize();
-    const registeredRange = getOwnedRange(retainedInstance);
-    nextRange =
-      registeredRange && registeredRange !== previousRange
+    const nextDom = materialize();
+    const registeredRange = getOwnedRange(this.retainedInstance);
+    this.nextRange =
+      registeredRange && registeredRange !== this.previousRange
         ? registeredRange
         : undefined;
-    nextHost =
+    this.nextHost =
       nextDom instanceof DocumentFragment ? nextDom.firstChild : nextDom;
-    if (!nextHost) {
+    if (!this.nextHost) {
       throw new Error('[askr] Component replacement produced no host node.');
     }
-    if (!nextRange) {
-      nextRange = createSingleNodeRange(nextHost, retainedInstance);
+    if (!this.nextRange) {
+      this.nextRange = createSingleNodeRange(
+        this.nextHost,
+        this.retainedInstance
+      );
     }
-    prepareNextDom(nextHost);
-    if (parent && nextHost !== existingHost) {
-      if (previousRange && !previousRange.single) {
-        parent.insertBefore(nextDom, previousRange.start);
+    prepareNextDom(this.nextHost);
+    if (this.parent && this.nextHost !== this.existingHost) {
+      if (this.previousRange && !this.previousRange.single) {
+        this.parent.insertBefore(nextDom, this.previousRange.start);
       } else {
-        parent.replaceChild(nextDom, existingHost);
+        this.parent.replaceChild(nextDom, this.existingHost);
       }
-      didReplace = true;
+      this.didReplace = true;
     }
 
-    return nextHost;
-  };
-
-  return { replace };
+    return this.nextHost;
+  }
 }
 
 export function registerVNodeComponentInstanceRollback(

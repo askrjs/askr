@@ -30,6 +30,9 @@ can add successful wrappers. Replacement closes that collection at publication;
 retirement uses the published membership even if a settlement callback mutates
 the original collection. Rollback before publication still sees provisional
 preparation state.
+One renderer-owned replacement record implements these phases with shared
+methods. It registers at the original preparation point, while allocating host
+binding snapshots only when replacement is attempted.
 
 1. Preparation executes synchronous components and captures their pending
    reads and provisional scope state. A scheduled result can suspend until its
