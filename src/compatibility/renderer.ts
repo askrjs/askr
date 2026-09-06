@@ -1,8 +1,11 @@
-import { captureOwnerRange, releaseOwnerRange } from '../renderer/dom-range';
+import {
+  captureOwnerRange,
+  releaseOwnerRange,
+} from '../renderer/ownership/ranges';
 import {
   detachPortalHostOutput,
   isComponentHostDetached,
-} from '../renderer/portal-host';
+} from '../renderer/ownership/portal-host';
 import {
   clearChildScopeHost,
   captureChildScopeHost,
@@ -11,12 +14,12 @@ import {
   recordRemovedScopeBoundary,
   teardownScopeHost,
   hasUnmountedComponentHost,
-} from '../renderer/scope-host';
+} from '../renderer/ownership/scope-host';
 import type { RendererCapabilities } from '../runtime/renderer-capabilities';
 import type { RuntimeRendererHost } from './contracts/core';
-import { applyComponentResult } from '../renderer/component-application';
-import { classifyUpdate } from '../renderer/component-fast-path';
-import { recordInlineComponentHost } from '../renderer/dom-ownership';
+import { applyComponentResult } from '../renderer/component/application';
+import { classifyUpdate } from '../renderer/component/fast-path';
+import { recordInlineComponentHost } from '../renderer/ownership/nodes';
 import {
   componentView,
   executionRecord,

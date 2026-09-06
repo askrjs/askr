@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { CommitCoordinator } from '../../../src/runtime/transaction-coordinator';
+import { CommitCoordinator } from '../../../src/runtime/transactions/coordinator';
 
 describe('shared commit coordination', () => {
   it('should apply every participant before publishing and settling work', () => {

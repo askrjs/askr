@@ -10,7 +10,7 @@ import {
 import { cleanupApp, hydrateSPA } from '../../../src/boot';
 import { For, Show } from '../../../src/control';
 import { resource } from '../../../src/runtime/operations';
-import { state } from '../../../src/runtime/state';
+import { state } from '../../../src/runtime/reactivity/state';
 import { renderToString } from '../../../src/ssr';
 import {
   createTestContainer,

@@ -10,8 +10,8 @@ import {
 } from '../../../src/foundations';
 import { resource } from '../../../src/resources';
 import { getCurrentComponentInstance } from '../../../src/runtime';
-import { createDetachedRange } from '../../../src/renderer/dom-range';
-import { updateMixedControlChildren } from '../../../src/renderer/element-children';
+import { createDetachedRange } from '../../../src/renderer/ownership/ranges';
+import { updateMixedControlChildren } from '../../../src/renderer/children/element-children';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,

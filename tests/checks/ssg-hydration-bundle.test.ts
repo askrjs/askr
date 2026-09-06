@@ -69,7 +69,7 @@ describe('SSG hydration bundle', () => {
       )
     );
 
-    expect(bundledModules).not.toContain('src/runtime/portal.ts');
+    expect(bundledModules).not.toContain('src/runtime/portal/portal.ts');
     expect(bundledModules).not.toContain('src/router/authoring.ts');
     expect(bundledModules).not.toContain('src/router/deferred.tsx');
 

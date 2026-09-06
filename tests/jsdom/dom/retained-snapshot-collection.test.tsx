@@ -4,15 +4,15 @@ import {
   createDOMNode,
   updateElementFromVnode,
 } from '../../../src/renderer/dom-internal';
-import { teardownNodeSubtree } from '../../../src/renderer/cleanup';
+import { teardownNodeSubtree } from '../../../src/renderer/ownership/cleanup';
 import {
   getKeyMapForElement,
   populateKeyMapForElement,
-} from '../../../src/renderer/keyed';
+} from '../../../src/renderer/reconciliation/keyed';
 import {
   restoreRetainedElement,
   snapshotRetainedElement,
-} from '../../../src/renderer/retained-element-rollback';
+} from '../../../src/renderer/ownership/retained-element';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,

@@ -4,6 +4,10 @@ The core separates lifetime ownership, execution, transactions, and host state.
 Published application and renderer extension contracts are maintained by the
 compatibility adapter; internal modules depend on capabilities and leaf contracts.
 
+The [runtime source layout](../development/runtime-layout.md) and
+[renderer source layout](../development/renderer-layout.md) map these owners
+to their implementation directories.
+
 | Responsibility                                         | Authoritative owner            |
 | ------------------------------------------------------ | ------------------------------ |
 | Lifetimes, child disposal, cancellation, subscriptions | Runtime ownership records      |

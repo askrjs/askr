@@ -7,7 +7,7 @@ import {
   rebaseVNodeTreeWithContextFrame,
   withContext,
   type ContextFrame,
-} from '../../../src/runtime/context';
+} from '../../../src/runtime/context/context';
 import { Case, For, Match, Show, state } from '../../../src/index';
 import { Portal, Slot } from '@askrjs/askr/foundations';
 import { _resetDefaultPortal } from '../../../src/foundations/structures/portal';

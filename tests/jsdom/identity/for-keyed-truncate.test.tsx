@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { For } from '../../../src/control';
 import { createIsland } from '../../../src/boot';
 import { getCurrentComponentInstance } from '../../../src/runtime';
-import { state, type State } from '../../../src/runtime/state';
+import { state, type State } from '../../../src/runtime/reactivity/state';
 import {
   createTestContainer,
   flushScheduler,

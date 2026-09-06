@@ -22,13 +22,13 @@ import {
 import { createIsland } from '../../../test-utils/render/create-island';
 import '../../../src/router/route';
 import { navigate } from '../../../src/router/navigate';
-import { nextComponentInstanceId } from '../../../src/renderer/component-host-instances';
+import { nextComponentInstanceId } from '../../../src/renderer/component/host-instances';
 import {
   deleteDevValue,
   getDevNamespace,
   getDevValue,
   incDevCounter,
-} from '../../../src/runtime/dev-namespace';
+} from '../../../src/runtime/diagnostics/dev-namespace';
 
 describe('prod fallbacks (DEV_ERRORS)', () => {
   let { container, cleanup } = createTestContainer();

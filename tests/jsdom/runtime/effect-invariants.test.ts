@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vite-plus/test';
 import {
   createFineGrainedEffect,
   markFineGrainedEffectsDirtySource,
-} from '../../../src/runtime/effect';
+} from '../../../src/runtime/reactivity/effect';
 import {
   recordReadableRead,
   type ReadableSource,
-} from '../../../src/runtime/readable';
+} from '../../../src/runtime/reactivity/readable';
 import { globalScheduler } from '../../../src/runtime/scheduler';
 
 function createSource(initialValue: number): {

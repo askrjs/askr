@@ -79,11 +79,11 @@ use leaf execution, lifetime, scheduling, and host capabilities. The former
 component facades have been removed; `runtime/index.ts` exports the internal
 capabilities used by other subsystems.
 
-`component-internal.ts` owns synchronous execution and inline rendering.
-`component-scope.ts` owns the current component, portal scope, and hook cursor.
-`ownership.ts` owns the lifetime graph and iterative disposal, while
-`component-cleanup.ts` supplies component-specific invalidation and settlement.
-`component-generation.ts` prepares, restores, and retires exact root lifetimes.
+`component/instance.ts` owns synchronous execution and inline rendering.
+`component/scope.ts` owns the current component, portal scope, and hook cursor.
+`ownership/record.ts` owns the lifetime graph and iterative disposal, while
+`component/cleanup.ts` supplies component-specific invalidation and settlement.
+`component/generation.ts` prepares, restores, and retires exact root lifetimes.
 
 `For` reconciliation maintains keyed membership and delegates host application
 to renderer capabilities. Item scopes attach their existing lifetime record to
@@ -91,10 +91,10 @@ the collection owner; no second mutable child ownership model is maintained.
 Ordinary component children join the same graph. Resources and data subscriptions
 register cleanup against the captured lifetime.
 
-`transaction-coordinator.ts` owns every commit's preparation, reversible
+`transactions/coordinator.ts` owns every commit's preparation, reversible
 application, publication, and settlement. Scheduled and inline execution
 contribute participants to that protocol. Renderer fast paths only specialize
-host work. `portal.ts` owns portal inventory, and `selector-store.ts` owns
+host work. `portal/portal.ts` owns portal inventory, and `reactivity/selector-store.ts` owns
 the dirty-selector queue.
 
 ## Readable graph
@@ -150,7 +150,7 @@ snapshot object.
 ```mermaid
 flowchart LR
   component[Component render]
-  resourceHook[resource() in runtime/resource-operation.ts]
+  resourceHook[resource() in runtime/lifecycle/resource.ts]
   cell[ResourceCell]
   abort[AbortController]
   loader[loader fn with signal]
@@ -200,48 +200,48 @@ flowchart LR
 
 ## Design notes
 
-- `src/runtime/component-scope.ts` owns current-instance and
+- `src/runtime/component/scope.ts` owns current-instance and
   portal-scope state, hook cursor and order validation, render-token helpers,
-  and component signal access. `src/runtime/component-commit.ts` owns
+  and component signal access. `src/runtime/component/commit.ts` owns
   scheduled preparation and renderer strategy selection. Renderer capabilities
   own placeholder replacement, target updates, and host restoration.
-  `src/runtime/component-internal.ts` owns execution and inline rendering;
-  `ownership.ts` drains all lifetimes through one iterative path, with component
-  phases supplied by `component-cleanup.ts`.
-  `transaction-coordinator.ts` owns preparation, reversible application,
+  `src/runtime/component/instance.ts` owns execution and inline rendering;
+  `ownership/record.ts` drains all lifetimes through one iterative path, with component
+  phases supplied by `component/cleanup.ts`.
+  `transactions/coordinator.ts` owns preparation, reversible application,
   publication, and settlement. Nested transactions join their enclosing commit.
-  `render-transaction.ts` contributes reversible subscription and execution
-  snapshots; `lifecycle-operation-settlement.ts` captures lifecycle work for
+  `transactions/render.ts` contributes reversible subscription and execution
+  snapshots; `lifecycle/settlement.ts` captures lifecycle work for
   its exact owner before callbacks run. Failed application or publication
   restores framework state. After publication, cleanup and lifecycle errors
   are drained without undoing user side effects.
-- `src/runtime/for.ts` is the compatibility facade for `For` runtime state.
-  `src/runtime/for-internal.ts` owns state storage, hook binding, source effect
+- `src/runtime/control/for.ts` is the compatibility facade for `For` runtime state.
+  `src/runtime/control/for-state.ts` owns state storage, hook binding, source effect
   cleanup registration, source evaluation, and DOM update state clearing.
-  `src/runtime/for-reconcile.ts` owns development key validation,
+  `src/runtime/control/for-reconcile.ts` owns development key validation,
   reconciliation strategy selection and execution, benchmark fast-lane/timing
-  recording, and commit planning fields. `src/runtime/for-scopes.ts` owns
+  recording, and commit planning fields. `src/runtime/control/for-scopes.ts` owns
   per-item scope creation/render/update/disposal, index-signal synchronization,
   fallback scope rendering/disposal, and removed-node bookkeeping.
-  `src/runtime/for-signals.ts` owns reactive item/index signals, property proxy
+  `src/runtime/control/for-signals.ts` owns reactive item/index signals, property proxy
   reads for object/function row items, native array pass-through, signal
   notification, and parent-reader pruning.
-- `src/runtime/state.ts` stores component-local writable cells.
+- `src/runtime/reactivity/state.ts` stores component-local writable cells.
   Optimized DOM reorders use the same coordinator with deferred notifications.
   State values change immediately; derived invalidation and reader notification
   drain once per source after commit or restoration. Ordinary updates retain
   their existing notification timing.
-- `src/runtime/derive.ts` tracks dependency reads and recomputes in the
+- `src/runtime/reactivity/derive.ts` tracks dependency reads and recomputes in the
   scheduler's `derived` lane.
-- `src/runtime/readable.ts` is the shared substrate connecting state, derived
+- `src/runtime/reactivity/readable.ts` is the shared substrate connecting state, derived
   values, reactive props, and component readers.
 - `src/runtime/access.ts` is the internal boundary for default scheduler and
   renderer-host access used by runtime, renderer, data, and FX hot paths.
 - `src/runtime/operations.ts` is the stable operations facade.
-  `src/runtime/resource-operation.ts` owns the component-bound `resource()`
-  wrapper around `ResourceCell`, while `src/runtime/lifecycle-operations.ts`
+  `src/runtime/lifecycle/resource.ts` owns the component-bound `resource()`
+  wrapper around `ResourceCell`, while `src/runtime/lifecycle/operations.ts`
   owns `on()`, `timer()`, `task()`, `capture()`, and lifecycle predicates.
-  `src/runtime/resource-cell.ts` remains intentionally component-agnostic.
+  `src/runtime/lifecycle/resource-cell.ts` remains intentionally component-agnostic.
 - `src/data/index.ts` is the stable data facade. `src/data/data-runtime.ts`
   owns keyed cache runtime state, default runtime resolution, and slot stores.
   `src/data/query-cell.ts` owns `QueryCell` and `createQuery()`,
@@ -258,8 +258,8 @@ The runtime diagrams are backed by architecture checks:
 
 - Component, `For`, and data helpers have explicit owner-module ceilings rather
   than temporary cluster exemptions.
-- `For` depends on component hook indexing from `component-scope.ts` and
-  child-scope cleanup from `component-cleanup.ts`. That coupling is legitimate,
+- `For` depends on component hook indexing from `component/scope.ts` and
+  child-scope cleanup from `component/cleanup.ts`. That coupling is legitimate,
   but it should stay behind explicit contract modules so future splits do not
   reach back into component internals.
 

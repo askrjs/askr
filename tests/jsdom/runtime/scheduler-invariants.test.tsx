@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { state, type State } from '../../../src/runtime/state';
+import { state, type State } from '../../../src/runtime/reactivity/state';
 import { getCurrentComponentInstance } from '../../../src/runtime';
 import { task } from '../../../src/runtime';
-import { createFineGrainedEffect } from '../../../src/runtime/effect';
+import { createFineGrainedEffect } from '../../../src/runtime/reactivity/effect';
 import {
   beginCommitTransaction,
   commitTransaction,
-} from '../../../src/runtime/transaction-access';
+} from '../../../src/runtime/transactions/access';
 import {
   notifyReadableReaders,
   recordReadableRead,
   type ReadableSource,
-} from '../../../src/runtime/readable';
+} from '../../../src/runtime/reactivity/readable';
 import { globalScheduler, Scheduler } from '../../../src/runtime/scheduler';
 import {
   createTestContainer,

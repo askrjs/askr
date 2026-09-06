@@ -28,7 +28,7 @@ import { validateCspNonce } from '../csp-nonce';
 import { wrapRootRouteHandler } from './root-handler';
 import { installRootUpdateHost } from './root-update';
 import { installRendererBridge } from './runtime-wiring';
-import { restartComponentGeneration } from '../runtime/component-generation';
+import { restartComponentGeneration } from '../runtime/component/generation';
 
 installRendererBridge();
 installRootUpdateHost();

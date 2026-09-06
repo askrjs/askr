@@ -1,7 +1,7 @@
 import type { RouteAuthOptions, RouteRegistry } from '../common/router';
 import { isProductionEnvironment } from '../common/env';
 import type { ComponentInstance } from '../runtime';
-import { trackComponentRouteGeneration } from '../runtime/component-capabilities';
+import { trackComponentRouteGeneration } from '../runtime/component/capabilities';
 import { lockRouteRegistration, syncCurrentRouteSnapshot } from './route';
 import { computeRouteActivityMatches } from './route-matching';
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;

@@ -10,7 +10,7 @@ import {
 import { hydrateSPA } from '../../../src/boot';
 import { renderToStringSync } from '../../../src/ssr';
 import { task } from '../../../src/runtime/operations';
-import { state, type State } from '../../../src/runtime/state';
+import { state, type State } from '../../../src/runtime/reactivity/state';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,

@@ -162,6 +162,24 @@ function format(edge: Edge): string {
   return `${relative(edge.from)} -> ${relative(edge.to)}`;
 }
 
+function violatesVNodeContextBoundary(edge: Edge): boolean {
+  return (
+    relative(edge.from) === 'src/runtime/context/vnode.ts' &&
+    (relative(edge.to).startsWith('src/renderer/') ||
+      relative(edge.to) === 'src/runtime/access.ts')
+  );
+}
+
+function violatesPublicationBoundary(edge: Edge): boolean {
+  return (
+    relative(edge.from) === 'src/ssg/output-publication.ts' &&
+    !edge.typeOnly &&
+    (relative(edge.to).startsWith('src/router/') ||
+      relative(edge.to).startsWith('src/ssr/') ||
+      relative(edge.to) === 'src/ssg/create-static-gen.ts')
+  );
+}
+
 function findCycles(): string[] {
   const graph = new Map<string, Set<string>>();
   for (const edge of edges.filter((edge) => !edge.typeOnly)) {
@@ -234,27 +252,58 @@ function findModuleCycles(): string[][] {
 
 describe('architecture boundaries', () => {
   it('should keep vnode context propagation independent of DOM renderer capabilities', () => {
-    expect(
-      edges.filter(
-        (edge) =>
-          edge.from === 'src/runtime/vnode-context.ts' &&
-          (edge.to.startsWith('src/renderer/') ||
-            edge.to === 'src/runtime/access.ts')
-      )
-    ).toEqual([]);
+    expect(edges.filter(violatesVNodeContextBoundary).map(format)).toEqual([]);
   });
 
   it('should keep SSG publication infrastructure independent of route rendering', () => {
-    expect(
-      edges.filter(
-        (edge) =>
-          edge.from === 'src/ssg/output-publication.ts' &&
-          !edge.typeOnly &&
-          (edge.to.startsWith('src/router/') ||
-            edge.to.startsWith('src/ssr/') ||
-            edge.to === 'src/ssg/create-static-gen.ts')
-      )
-    ).toEqual([]);
+    expect(edges.filter(violatesPublicationBoundary).map(format)).toEqual([]);
+  });
+
+  it('should reject renderer and runtime access edges resolved from nested vnode context', () => {
+    const file = path.join(srcDir, 'runtime', 'context', 'vnode.ts');
+    const source = ts.createSourceFile(
+      file,
+      `
+      import '../../renderer/ownership/cleanup';
+      import type * as RendererTypes from '../../renderer/ownership/cleanup';
+      void import('../access');
+      import '../ownership/record';
+    `,
+      ts.ScriptTarget.Latest,
+      true
+    );
+    const found = collectEdges(file, source);
+    expect(found).toHaveLength(4);
+    expect(found.filter(violatesVNodeContextBoundary).map(format)).toEqual([
+      'src/runtime/context/vnode.ts -> src/renderer/ownership/cleanup.ts',
+      'src/runtime/context/vnode.ts -> src/renderer/ownership/cleanup.ts',
+      'src/runtime/context/vnode.ts -> src/runtime/access.ts',
+    ]);
+  });
+
+  it('should reject publication rendering edges while allowing type-only dependencies', () => {
+    const file = path.join(srcDir, 'ssg', 'output-publication.ts');
+    const source = ts.createSourceFile(
+      file,
+      `
+      import '../router/navigate';
+      export * from '../ssr/render-sync';
+      import './create-static-gen';
+      import type * as RouterTypes from '../router/navigate';
+      export type * from '../ssr/render-sync';
+      import type * as GeneratorTypes from './create-static-gen';
+      import './output-path';
+    `,
+      ts.ScriptTarget.Latest,
+      true
+    );
+    const found = collectEdges(file, source);
+    expect(found).toHaveLength(7);
+    expect(found.filter(violatesPublicationBoundary).map(format)).toEqual([
+      'src/ssg/output-publication.ts -> src/router/navigate.ts',
+      'src/ssg/output-publication.ts -> src/ssr/render-sync.ts',
+      'src/ssg/output-publication.ts -> src/ssg/create-static-gen.ts',
+    ]);
   });
 
   it('should use narrow renderer access in runtime and renderer helpers', () => {
@@ -343,14 +392,14 @@ describe('architecture boundaries', () => {
   });
 
   it('should retain empty-import side effects and exclude named type-only re-exports', () => {
-    const file = path.join(srcDir, 'runtime', 'context.ts');
+    const file = path.join(srcDir, 'runtime', 'context', 'context.ts');
     const source = ts.createSourceFile(
       file,
       `
-      import {} from './ownership';
-      import { type OwnershipRecord } from './ownership';
-      export { type OwnershipRecord } from './ownership';
-      export { OwnershipRecord, type OwnedChildScope } from './ownership';
+      import {} from '../ownership/record';
+      import { type OwnershipRecord } from '../ownership/record';
+      export { type OwnershipRecord } from '../ownership/record';
+      export { OwnershipRecord, type OwnedChildScope } from '../ownership/record';
     `,
       ts.ScriptTarget.Latest,
       true
@@ -429,7 +478,7 @@ describe('architecture boundaries', () => {
     const fields = new Set(['__ASKR_INSTANCE', '__ASKR_INSTANCES']);
     const violations: string[] = [];
     for (const { relative, source } of sources) {
-      if (relative === 'src/renderer/dom-ownership.ts') continue;
+      if (relative === 'src/renderer/ownership/nodes.ts') continue;
       const visit = (node: ts.Node): void => {
         const target = ts.isDeleteExpression(node)
           ? node.expression
@@ -456,18 +505,18 @@ describe('architecture boundaries', () => {
   it('should keep subsystem imports on explicit runtime capability entrypoints', () => {
     const entrypoints = new Set([
       'src/runtime/index.ts',
-      'src/runtime/ownership.ts',
-      'src/runtime/component-generation.ts',
-      'src/runtime/component-capabilities.ts',
-      'src/runtime/component-scope.ts',
-      'src/runtime/component-cleanup.ts',
-      'src/runtime/child-scope.ts',
-      'src/runtime/transaction-access.ts',
+      'src/runtime/ownership/record.ts',
+      'src/runtime/component/generation.ts',
+      'src/runtime/component/capabilities.ts',
+      'src/runtime/component/scope.ts',
+      'src/runtime/component/cleanup.ts',
+      'src/runtime/ownership/child-scope.ts',
+      'src/runtime/transactions/access.ts',
     ]);
     const optionalCapabilityEdges = new Set([
       // The foundations entry is the explicit opt-in boundary that registers
       // portal support without retaining it in every runtime consumer.
-      'src/foundations/structures/portal.tsx -> src/runtime/portal.ts',
+      'src/foundations/structures/portal.tsx -> src/runtime/portal/portal.ts',
     ]);
     const forbidden = edges
       .filter(
@@ -489,7 +538,7 @@ describe('architecture boundaries', () => {
   it('should keep default singletons behind their access boundary', () => {
     const allowed = new Set([
       'src/runtime/access.ts',
-      'src/runtime/transaction-access.ts',
+      'src/runtime/transactions/access.ts',
       'src/runtime/runtime-state.ts',
       'src/runtime/index.ts',
       'src/fx/index.ts',
@@ -535,12 +584,12 @@ describe('architecture boundaries', () => {
   });
 
   it('should keep ownership primitives independent of execution, renderer, and compatibility implementations', () => {
-    const owner = path.join(srcDir, 'runtime', 'ownership.ts');
+    const owner = path.join(srcDir, 'runtime', 'ownership', 'record.ts');
     expect(sourcePaths.has(owner)).toBe(true);
     expect(
       edges.filter((edge) => edge.from === owner && !edge.typeOnly).map(format)
     ).toEqual([]);
-    const cleanup = path.join(srcDir, 'runtime', 'component-cleanup.ts');
+    const cleanup = path.join(srcDir, 'runtime', 'component', 'cleanup.ts');
     expect(
       edges.some(
         (edge) => edge.from === cleanup && edge.to === owner && !edge.typeOnly
@@ -558,20 +607,20 @@ describe('architecture boundaries', () => {
       );
     expect(
       hasValueEdge(
-        'src/renderer/reconcile.ts',
-        'src/renderer/reconcile-commit.ts'
+        'src/renderer/reconciliation/reconcile.ts',
+        'src/renderer/reconciliation/reconcile-commit.ts'
       )
     ).toBe(true);
     expect(
       hasValueEdge(
-        'src/renderer/reconcile-commit.ts',
-        'src/renderer/cleanup.ts'
+        'src/renderer/reconciliation/reconcile-commit.ts',
+        'src/renderer/ownership/cleanup.ts'
       )
     ).toBe(true);
     expect(
       hasValueEdge(
-        'src/renderer/cleanup.ts',
-        'src/runtime/transaction-access.ts'
+        'src/renderer/ownership/cleanup.ts',
+        'src/runtime/transactions/access.ts'
       )
     ).toBe(true);
   });

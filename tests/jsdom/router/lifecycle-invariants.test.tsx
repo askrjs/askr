@@ -2,7 +2,7 @@ import { routeRegistryFromTable } from '../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { cleanupApp, createSPA } from '../../../src/boot';
 import { resource, task } from '../../../src/runtime/operations';
-import { state, type State } from '../../../src/runtime/state';
+import { state, type State } from '../../../src/runtime/reactivity/state';
 import { navigate } from '../../../src/router/navigate';
 import {
   createTestContainer,

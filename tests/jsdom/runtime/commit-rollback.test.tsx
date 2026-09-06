@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../../src/index';
-import type { State } from '../../../src/runtime/state';
+import type { State } from '../../../src/runtime/reactivity/state';
 import {
   createTestContainer,
   flushScheduler,

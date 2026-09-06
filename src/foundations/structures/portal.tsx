@@ -5,5 +5,5 @@ export {
   definePortal,
   disposeDefaultPortalScope,
   Portal,
-} from '../../runtime/portal';
-export type { PortalProps } from '../../runtime/portal';
+} from '../../runtime/portal/portal';
+export type { PortalProps } from '../../runtime/portal/portal';

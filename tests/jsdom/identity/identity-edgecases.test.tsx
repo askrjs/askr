@@ -8,11 +8,11 @@ import { createIsland } from '../../../test-utils/render/create-island';
 import {
   disableEventDelegation,
   enableEventDelegation,
-} from '../../../src/renderer/events';
+} from '../../../src/renderer/props/events';
 import {
   keyedElements,
   populateKeyMapForElement,
-} from '../../../src/renderer/keyed';
+} from '../../../src/renderer/reconciliation/keyed';
 import { For } from '../../../src/control';
 
 describe('identity edge cases', () => {

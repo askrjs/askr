@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { state } from '../../../src';
 import { createIsland } from '@askrjs/askr/boot';
 import { For } from '../../../src/control';
-import { getBenchMetrics } from '../../../src/runtime/for';
+import { getBenchMetrics } from '../../../src/runtime/control/for';
 import {
   createTestContainer,
   flushScheduler,

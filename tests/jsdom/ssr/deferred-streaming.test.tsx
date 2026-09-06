@@ -6,7 +6,7 @@ import {
   route,
 } from '../../../src/router/route';
 import { defer, Resolve, routeData } from '../../../src/router/deferred';
-import { state } from '../../../src/runtime/state';
+import { state } from '../../../src/runtime/reactivity/state';
 import {
   renderRouteRequest,
   renderRouteRequestToString,

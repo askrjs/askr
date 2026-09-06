@@ -6,7 +6,7 @@ import {
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { hydrateSPA } from '../../../src/boot';
 import { Case, For, Match, Show } from '../../../src/control';
-import { defineScope, readScope } from '../../../src/runtime/context';
+import { defineScope, readScope } from '../../../src/runtime/context/context';
 import { fallback, route } from '../../../src/router/route';
 import { Fragment, jsx, jsxs } from '../../../src/jsx/jsx-runtime';
 import {

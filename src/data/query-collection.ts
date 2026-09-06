@@ -1,7 +1,7 @@
 import {
   getComponentLifetimeIdentity,
   ownComponentCleanup,
-} from '../runtime/component-capabilities';
+} from '../runtime/component/capabilities';
 import { getActiveRenderContext } from '../common/render-context';
 import { claimHookIndex, getCurrentComponentInstance } from '../runtime';
 import { resolveDataRuntimeState, type DataRuntimeState } from './data-runtime';

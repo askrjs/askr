@@ -17,7 +17,7 @@ import type { State } from '../../../src/index';
 import {
   getPerfMetrics,
   resetPerfMetrics,
-} from '../../../src/runtime/perf-metrics';
+} from '../../../src/runtime/diagnostics/perf-metrics';
 import {
   createTestContainer,
   flushScheduler,

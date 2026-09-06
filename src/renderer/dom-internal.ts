@@ -16,14 +16,14 @@ import {
   isDangerousInnerHTMLPayload,
   materializeFreshKey,
   materializeKey,
-} from './attributes';
+} from './props/attributes';
 import {
   configureBoundaryDOMHost,
   createForBoundary,
   getControlBoundaryState,
   getDirectControlBoundaryVNode,
   registerControlBoundaryCommitOwner,
-} from './boundaries';
+} from './control/boundaries';
 
 declare const __ASKR_BENCH_BUILD__: boolean;
 
@@ -32,58 +32,61 @@ import {
   isBulkTextFastPathEligible,
   performBulkPositionalKeyedTextUpdate,
   performBulkTextReplace,
-} from './children';
+} from './children/children';
 import {
   maybeWarnMissingKeys,
   tryGetStaticCreateFastPathShape,
-} from './child-shape';
+} from './children/child-shape';
 import {
   removeAllListeners,
   removeElementReactiveProps,
   teardownNodeSubtree,
   updateElementRef,
-} from './cleanup';
-import { createComponentElement, syncComponentElement } from './component-host';
+} from './ownership/cleanup';
+import { createComponentElement, syncComponentElement } from './component/host';
 import { configureRendererDOMHost, type ElementWithContext } from './dom-host';
 import {
   rendererReactiveChildDOMHost,
   updateElementChildren,
   updateUnkeyedChildren,
-} from './element-children';
+} from './children/element-children';
 import {
   createErrorBoundaryElement,
   type ErrorBoundaryVNode,
-} from './error-boundary-dom';
+} from './component/error-boundary';
 import { getRuntimeEnv } from './env';
-import { createElementForNamespace, resolveChildNamespace } from './namespaces';
+import {
+  createElementForNamespace,
+  resolveChildNamespace,
+} from './intrinsic/namespaces';
 import {
   applyPropsToElement,
   hasTrackedElementPropBindings,
   syncElementPropBindings,
-} from './prop-bindings';
-import { syncReactiveScalarChild } from './reactive-children';
-import { runRetainedElementUpdate } from './retained-element-rollback';
-import { canReuseStaticSubtree } from './static-reuse';
-import { tryPatchStableForDirtyItem } from './stable-patch';
+} from './props/bindings';
+import { syncReactiveScalarChild } from './children/reactive-children';
+import { runRetainedElementUpdate } from './ownership/retained-element';
+import { canReuseStaticSubtree } from './children/static-reuse';
+import { tryPatchStableForDirtyItem } from './reconciliation/stable-patch';
 import {
   tryAdoptMatchingIntrinsicSubtree,
   withIntrinsicHydrationAdoption,
-} from './intrinsic-hydration-adoption';
+} from './hydration/adoption';
 import {
   beginDeferredHydrationActivation,
   commitDeferredHydrationActivation,
   rememberDeferredHydrationVNode,
   rollbackDeferredHydrationActivation,
-} from './hydration-boundaries';
+} from './hydration/boundaries';
 import {
   beginHydrationListenerTransaction,
   commitHydrationListenerTransaction,
   discardHydrationListenerTransaction,
-} from './hydration-listener-transaction';
+} from './hydration/listener-transaction';
 import {
   createComponentResultNodeWithBlueprint,
   createResultNodeWithBlueprint,
-} from './intrinsic-blueprint';
+} from './intrinsic/blueprint';
 import {
   _isDOMElement,
   type DOMElement,
@@ -91,9 +94,12 @@ import {
   type VNode,
 } from './types';
 
-export { createForBoundary, commitForBoundaryChildren } from './boundaries';
-export { markReactivePropsDirtySource } from './prop-bindings';
-export { setStaticChildSlotsCacheEnabled } from './static-reuse';
+export {
+  createForBoundary,
+  commitForBoundaryChildren,
+} from './control/boundaries';
+export { markReactivePropsDirtySource } from './props/bindings';
+export { setStaticChildSlotsCacheEnabled } from './children/static-reuse';
 export {
   isBulkTextFastPathEligible,
   performBulkPositionalKeyedTextUpdate,

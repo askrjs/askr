@@ -1,11 +1,11 @@
-export { resource } from './resource-operation';
-export type { ResourceResult } from './resource-operation';
-export { stream } from './stream-operation';
+export { resource } from './lifecycle/resource';
+export type { ResourceResult } from './lifecycle/resource';
+export { stream } from './lifecycle/stream';
 export type {
   StreamOptions,
   StreamResult,
   StreamStatus,
-} from './stream-operation';
+} from './lifecycle/stream';
 export {
   capture,
   on,
@@ -13,7 +13,7 @@ export {
   task,
   timer,
   watch,
-} from './lifecycle-operations';
+} from './lifecycle/operations';
 export type {
   ActivityPredicate,
   ListenerTarget,
@@ -22,6 +22,6 @@ export type {
   WatchContext,
   WatchSource,
   WatchValues,
-} from './lifecycle-operations';
+} from './lifecycle/operations';
 
 export { documentVisible, windowFocused } from '../resources/browser-activity';

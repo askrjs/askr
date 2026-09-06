@@ -4,7 +4,7 @@ import {
   beginCommitTransaction,
   captureInlineRenderSnapshot,
   discardTransaction,
-} from '../../../src/runtime/render-transaction';
+} from '../../../src/runtime/transactions/render';
 
 describe('InlineRenderSnapshot rollback', () => {
   it('should restore ownership-identity fields mutated during a live re-render that throws', () => {

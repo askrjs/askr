@@ -9,7 +9,7 @@ import {
   beginCommitTransaction,
   discardTransaction,
   commitTransaction,
-} from '../../../src/runtime/component-lifecycle';
+} from '../../../src/runtime/component/lifecycle';
 import {
   createTestContainer,
   flushScheduler,

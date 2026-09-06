@@ -17,7 +17,7 @@ import {
 import {
   enterRenderScopedComponent,
   restoreRenderScopedComponent,
-} from '../runtime/component-scope';
+} from '../runtime/component/scope';
 import type { ContextFrame } from '../runtime';
 import {
   disposeRegisteredDefaultPortalScope,

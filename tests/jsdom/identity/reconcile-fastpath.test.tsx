@@ -9,7 +9,7 @@ import { DIRECT_REPLACE_CHILDREN_SPREAD_LIMIT } from '../../../src/renderer/util
 import {
   disableEventDelegation,
   enableEventDelegation,
-} from '../../../src/renderer/events';
+} from '../../../src/renderer/props/events';
 
 describe('reconcile keyed children fast-path', () => {
   let container: HTMLElement, cleanup: () => void;

@@ -7,7 +7,7 @@ events, detaches portal output, and captures and restores child-scope host state
 Resource activity helpers own document visibility, focus, and deferred browser
 listener targets; their existing server defaults remain unchanged.
 
-`renderer/dom-range.ts` owns range registration. An owner moving to another
+`renderer/ownership/ranges.ts` owns range registration. An owner moving to another
 range releases its old anchor indexes. Clearing an obsolete range cannot remove
 a newer registration at the same anchors. Explicit range ownership transfers
 remain distinct from components sharing a host: wrapper components resolve to
@@ -18,11 +18,11 @@ extension owners use an external index. Both are maintained by the same
 registry. Public evaluation contexts have private owners in that registry, so
 context objects remain untouched and do not introduce a second range model.
 
-`renderer/dom-ownership.ts` is the writer for component metadata on nodes and
+`renderer/ownership/nodes.ts` is the writer for component metadata on nodes and
 the corresponding host indexes. Updates and restoration retain primary-owner
 ordering and the presence of legacy metadata properties. A pending host-pruning
 operation cannot redirect a component that hydration has already moved to
-fragment anchors. `renderer/scope-host.ts` writes child-scope range indexes and
+fragment anchors. `renderer/ownership/scope-host.ts` writes child-scope range indexes and
 owns text restoration and removed-boundary traversal.
 Replacement bindings update their range indexes together, including portal
 placeholders. Generation rollback restores an opaque renderer snapshot after

@@ -15,7 +15,7 @@ import {
   beginCommitTransaction,
   commitTransaction,
   discardTransaction,
-} from '../../../src/runtime/transaction-access';
+} from '../../../src/runtime/transactions/access';
 import {
   createTestContainer,
   flushScheduler,

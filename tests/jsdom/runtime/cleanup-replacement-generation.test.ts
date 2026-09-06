@@ -3,11 +3,11 @@ import {
   createComponentInstance,
   mountInstanceInline,
 } from '../../../src/runtime';
-import { restartComponentGeneration } from '../../../src/runtime/component-generation';
-import { ownCleanup } from '../../../src/runtime/ownership';
-import { cleanupInstanceIfPresent } from '../../../src/renderer/cleanup';
-import { writeHostOwners } from '../../../src/renderer/dom-ownership';
-import { getOwnedRange } from '../../../src/renderer/dom-range';
+import { restartComponentGeneration } from '../../../src/runtime/component/generation';
+import { ownCleanup } from '../../../src/runtime/ownership/record';
+import { cleanupInstanceIfPresent } from '../../../src/renderer/ownership/cleanup';
+import { writeHostOwners } from '../../../src/renderer/ownership/nodes';
+import { getOwnedRange } from '../../../src/renderer/ownership/ranges';
 
 describe('replacement generation during cleanup', () => {
   it('should preserve host ownership published by a cleanup callback', () => {

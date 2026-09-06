@@ -2,9 +2,9 @@ import { resetRouteState, currentRouteRegistry } from '../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { cleanupApp, createSPA } from '../../../src/boot';
 import { Show } from '../../../src/control';
-import { derive } from '../../../src/runtime/derive';
+import { derive } from '../../../src/runtime/reactivity/derive';
 import { resource } from '../../../src/runtime/operations';
-import { state, type StateSetter } from '../../../src/runtime/state';
+import { state, type StateSetter } from '../../../src/runtime/reactivity/state';
 import { navigate } from '../../../src/router/navigate';
 import { group, route } from '../../../src/router/route';
 import {

@@ -17,10 +17,10 @@ import {
   beginCommitTransaction,
   discardTransaction,
   commitTransaction,
-} from '../../../src/runtime/component-lifecycle';
-import { state, type State } from '../../../src/runtime/state';
-import { getVNodeComponentInstance } from '../../../src/renderer/component-host-instances';
-import { teardownNodeSubtree } from '../../../src/renderer/cleanup';
+} from '../../../src/runtime/component/lifecycle';
+import { state, type State } from '../../../src/runtime/reactivity/state';
+import { getVNodeComponentInstance } from '../../../src/renderer/component/host-instances';
+import { teardownNodeSubtree } from '../../../src/renderer/ownership/cleanup';
 import { createDOMNode } from '../../../src/renderer/dom';
 import type { JSXElement } from '../../../src/jsx/types';
 import { createIsland } from '../../../test-utils/render/create-island';

@@ -5,7 +5,7 @@ import {
   staleQueryState,
   errorQueryState,
 } from './query-state';
-import { getComponentLifetimeIdentity } from '../runtime/component-capabilities';
+import { getComponentLifetimeIdentity } from '../runtime/component/capabilities';
 import { logger } from '../common/logger';
 import { getActiveRenderContext } from '../common/render-context';
 import { adjustOwnershipDiagnostic, enqueueRuntimeTask } from '../runtime';

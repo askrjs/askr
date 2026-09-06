@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { createComponentInstance } from '../../../src/runtime/component-internal';
-import { cleanupComponent } from '../../../src/runtime/component-cleanup';
-import { setCurrentComponentInstance } from '../../../src/runtime/component-scope';
+import { createComponentInstance } from '../../../src/runtime/component/instance';
+import { cleanupComponent } from '../../../src/runtime/component/cleanup';
+import { setCurrentComponentInstance } from '../../../src/runtime/component/scope';
 import {
   attachOwnership,
   getOwnershipSignal,
   ownCleanup,
-} from '../../../src/runtime/ownership';
+} from '../../../src/runtime/ownership/record';
 
 describe('component lifetime ownership', () => {
   it('should preserve a child adopted by another lifetime during sibling cleanup', () => {

@@ -7,10 +7,10 @@ import {
 } from '../../../src/runtime';
 import { render } from '../../../src/testing';
 import { jsx } from '../../../src/jsx-runtime';
-import { writeHostOwners } from '../../../src/renderer/dom-ownership';
-import { evaluate } from '../../../src/renderer/evaluate';
-import { detachPortalHostOutput } from '../../../src/renderer/portal-host';
-import { captureComponentGeneration } from '../../../src/runtime/component-generation';
+import { writeHostOwners } from '../../../src/renderer/ownership/nodes';
+import { evaluate } from '../../../src/renderer/evaluation/evaluate';
+import { detachPortalHostOutput } from '../../../src/renderer/ownership/portal-host';
+import { captureComponentGeneration } from '../../../src/runtime/component/generation';
 import {
   createSingleNodeRange,
   clearRangeOwner,
@@ -18,14 +18,14 @@ import {
   getRangeOwner,
   registerRange,
   releaseOwnerRange,
-} from '../../../src/renderer/dom-range';
-import { createChildScope } from '../../../src/runtime/child-scope';
-import { writeScopeHost } from '../../../src/renderer/scope-host';
+} from '../../../src/renderer/ownership/ranges';
+import { createChildScope } from '../../../src/runtime/ownership/child-scope';
+import { writeScopeHost } from '../../../src/renderer/ownership/scope-host';
 import {
   clearDOMRange,
   createDOMRange,
   updateDOMRangeForContext,
-} from '../../../src/renderer/evaluate-dom-range';
+} from '../../../src/renderer/evaluation/range';
 
 describe('dom-range ownership reassignment (regression for #357)', () => {
   it('should restore the range index after a provisional generation is discarded', () => {

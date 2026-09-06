@@ -1,6 +1,6 @@
 import { expect, test, vi } from 'vite-plus/test';
 import { createDOMNode } from '../../../src/renderer/dom-internal';
-import { tryPatchStableForDirtyItem } from '../../../src/renderer/stable-patch';
+import { tryPatchStableForDirtyItem } from '../../../src/renderer/reconciliation/stable-patch';
 import { For } from '../../../src/control';
 import { state, type State } from '../../../src';
 import { getSignal } from '../../../src/resources';

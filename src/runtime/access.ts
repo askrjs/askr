@@ -1,4 +1,4 @@
-import type { ReadableSource } from './readable';
+import type { ReadableSource } from './reactivity/readable';
 import { defaultRuntimeState } from './runtime-state';
 import type {
   RendererCapabilities,
@@ -12,7 +12,7 @@ import type { Scheduler, SchedulerLane } from './scheduler';
 import {
   clearCurrentComponentScope,
   restoreCurrentComponentScope,
-} from './component-scope';
+} from './component/scope';
 
 type RuntimeTask = () => void;
 

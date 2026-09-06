@@ -8,7 +8,7 @@ import {
 import {
   getPerfMetrics,
   resetPerfMetrics,
-} from '../../../src/runtime/perf-metrics';
+} from '../../../src/runtime/diagnostics/perf-metrics';
 import { allowFrameworkWarnings } from '../../setup-env';
 
 function resetFineGrainedDiagnostics(): void {

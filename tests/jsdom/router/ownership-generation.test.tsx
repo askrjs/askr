@@ -10,7 +10,7 @@ import { derive, selector, state, type State } from '../../../src';
 import { For } from '../../../src/control';
 import { Presence } from '../../../src/foundations/structures';
 import { task } from '../../../src/runtime/operations';
-import { definePortal, Portal } from '../../../src/runtime/portal';
+import { definePortal, Portal } from '../../../src/runtime/portal/portal';
 import {
   defineScope,
   getCurrentInstance,

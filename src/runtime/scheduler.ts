@@ -12,8 +12,8 @@
 import { isDevelopmentEnvironment } from '../common/env';
 import { assertSchedulingPrecondition, invariant } from '../common/invariant';
 import { logger } from '../common/logger';
-import { recordSchedulerFlushTaskCount } from './perf-metrics';
-import { adjustOwnershipDiagnostic } from './ownership-diagnostics';
+import { recordSchedulerFlushTaskCount } from './diagnostics/perf-metrics';
+import { adjustOwnershipDiagnostic } from './diagnostics/ownership-diagnostics';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 

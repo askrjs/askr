@@ -11,8 +11,11 @@ import {
   createComponentInstance,
 } from '../../../src/runtime';
 import { enqueueRuntimeLane } from '../../../src/runtime/access';
-import { state, type State } from '../../../src/runtime/state';
-import { Portal, _resetDefaultPortal } from '../../../src/runtime/portal';
+import { state, type State } from '../../../src/runtime/reactivity/state';
+import {
+  Portal,
+  _resetDefaultPortal,
+} from '../../../src/runtime/portal/portal';
 import { renderToStringSync } from '../../../src/ssr';
 import {
   createTestContainer,

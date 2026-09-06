@@ -14,7 +14,7 @@ import {
 } from '../../src/router/route';
 import { clearRouteState } from '../../src/router/store';
 import { cleanupNavigation } from '../../src/router/navigate';
-import { getBenchMetrics } from '../../src/runtime/for';
+import { getBenchMetrics } from '../../src/runtime/control/for';
 import { renderToString } from '../../src/ssr';
 import { getCurrentRenderData, getNextKey } from '../../src/ssr/render-keys';
 import type { RouteConfig } from '../../src/ssg/types';

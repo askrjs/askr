@@ -1,9 +1,9 @@
 export * from './access';
-export * from './child-scope';
+export * from './ownership/child-scope';
 export type {
   ComponentFunction,
   ComponentInstance,
-} from './component-internal';
+} from './component/instance';
 export {
   captureInlineRenderSnapshot,
   cleanupComponent,
@@ -18,7 +18,7 @@ export {
   renderScopedComponent,
   unregisterOwnedChildScope,
   warnUnusedStateReads,
-} from './component-internal';
+} from './component/instance';
 export {
   claimHookIndex,
   enterDomCommitScope,
@@ -34,7 +34,7 @@ export {
   setCurrentComponentInstance,
   setStateIndex,
   withAppRenderRuntime,
-} from './component-scope';
+} from './component/scope';
 export {
   beginCommitTransaction,
   discardTransaction,
@@ -42,37 +42,41 @@ export {
   getCurrentCommitTransaction,
   registerCommitRollback,
   registerCommitEffect,
-} from './component-lifecycle';
-export { cleanupComponentGeneration } from './component-cleanup';
-export * from './context';
+} from './component/lifecycle';
+export { cleanupComponentGeneration } from './component/cleanup';
+export * from './context/context';
 export {
   commitLifecycleForInstance,
   discardCommitOperations,
-} from './component-lifecycle';
-export * from './control';
-export * from './dev-namespace';
-export * from './derive';
-export * from './effect';
-export * from './error-boundary';
+} from './component/lifecycle';
+export * from './control/branches';
+export * from './diagnostics/dev-namespace';
+export * from './reactivity/derive';
+export * from './reactivity/effect';
+export * from './component/error-boundary';
 export * from './execution-model';
-export * from './for';
-export type { ForEachSource, ForKeySelector, ForRenderItem } from './for-types';
+export * from './control/for';
+export type {
+  ForEachSource,
+  ForKeySelector,
+  ForRenderItem,
+} from './control/for-types';
 export * from './operations';
 export {
   adjustOwnershipDiagnostic,
   trackRouteGeneration,
-} from './ownership-diagnostics';
-export * from './perf-metrics';
-export * from './readable';
+} from './diagnostics/ownership-diagnostics';
+export * from './diagnostics/perf-metrics';
+export * from './reactivity/readable';
 export {
   configureRenderDiagnostics,
   type RenderDiagnosticsOptions,
-} from './render-diagnostics';
+} from './diagnostics/render-diagnostics';
 export type { RendererCapabilities } from './renderer-capabilities';
 export {
   scheduleEventHandler,
   type Scheduler,
   type SchedulerLane,
 } from './scheduler';
-export * from './selector';
-export * from './state';
+export * from './reactivity/selector';
+export * from './reactivity/state';

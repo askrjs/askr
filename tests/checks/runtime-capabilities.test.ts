@@ -12,7 +12,7 @@ import {
   getRuntimeRenderer,
   getRuntimeScheduler,
 } from '../../src/runtime/access';
-import { createChildScope } from '../../src/runtime/child-scope';
+import { createChildScope } from '../../src/runtime/ownership/child-scope';
 import type { RuntimeRendererHost } from '../../src/compatibility/contracts/core';
 
 const originalHost = getDefaultRuntime().renderer;
