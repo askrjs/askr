@@ -163,6 +163,11 @@ flowchart LR
 
 ## Lifecycle-bound async resources
 
+Synchronous SSR rejects asynchronous resource loaders with `SSRDataMissingError`.
+Before rejecting the render, it observes the returned asynchronous work and
+aborts its signal. Late loader rejections remain handled even when the caller
+has already caught the render error; SSR never waits for the loader to finish.
+
 `resource()` is a component-scoped async primitive. It wraps async work in a
 `ResourceCell`, ties cancellation to component lifecycle, and exposes a stable
 snapshot object.

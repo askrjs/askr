@@ -163,7 +163,10 @@ export class ResourceCell<U> {
     }
 
     if (ssr) {
-      // During SSR async results are disallowed
+      // Observe rejected work before abort listeners can reject it. SSR stays
+      // synchronous, but the loader's asynchronous failure must remain owned.
+      new Promise<U>((resolve) => resolve(result)).then(undefined, () => {});
+      controller.abort();
       throwSSRDataMissing();
     }
 
