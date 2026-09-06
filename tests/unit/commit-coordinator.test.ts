@@ -1,5 +1,5 @@
 import { expect, test } from 'vite-plus/test';
-import { CommitCoordinator } from '../../src/runtime/transaction-coordinator';
+import { CommitCoordinator } from '../../src/runtime/transactions/coordinator';
 
 test.each([
   { parentCount: 0, childCount: 5 },

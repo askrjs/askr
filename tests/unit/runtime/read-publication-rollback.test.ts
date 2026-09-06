@@ -5,8 +5,8 @@ import {
   commitTransaction,
   finalizeInlineReadSubscriptions,
   registerCommitParticipant,
-} from '../../../src/runtime/render-transaction';
-import type { ReadableSource } from '../../../src/runtime/readable';
+} from '../../../src/runtime/transactions/render';
+import type { ReadableSource } from '../../../src/runtime/reactivity/readable';
 
 describe('read publication rollback', () => {
   it('should restore committed reader entries when a later publication fails', () => {

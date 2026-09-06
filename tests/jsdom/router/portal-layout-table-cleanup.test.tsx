@@ -1,9 +1,9 @@
 import { resetRouteState } from '../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { createSPA } from '@askrjs/askr/boot';
-import { definePortal, type Portal } from '../../../src/runtime/portal';
+import { definePortal, type Portal } from '../../../src/runtime/portal/portal';
 import type { ComponentInstance } from '../../../src/runtime';
-import type { ReadableSource } from '../../../src/runtime/readable';
+import type { ReadableSource } from '../../../src/runtime/reactivity/readable';
 import { currentRoute } from '../../../src/router/activity';
 import { navigate } from '../../../src/router/navigate';
 import { createRouteRegistry, group, route } from '../../../src/router/route';

@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { createChildScope } from '../../../src/runtime/child-scope';
+import { createChildScope } from '../../../src/runtime/ownership/child-scope';
 import {
   createForState,
   beginForStateTransaction,
   rollbackForStateTransaction,
-} from '../../../src/runtime/for-internal';
-import { ownCleanup } from '../../../src/runtime/ownership';
+} from '../../../src/runtime/control/for-state';
+import { ownCleanup } from '../../../src/runtime/ownership/record';
 import {
   beginCommitTransaction,
   commitTransaction,
   registerCommitParticipant,
   discardTransaction,
-} from '../../../src/runtime/transaction-access';
+} from '../../../src/runtime/transactions/access';
 
 describe('collection publication', () => {
   it('should publish membership before cleanup starts a replacement update', () => {

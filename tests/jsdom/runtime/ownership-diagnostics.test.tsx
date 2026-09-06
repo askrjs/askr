@@ -2,11 +2,11 @@ import { resetRouteState, currentRouteRegistry } from '../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { cleanupApp, createSPA } from '@askrjs/askr/boot';
 import { createDataRuntime, createQuery } from '../../../src/data';
-import { Portal } from '../../../src/runtime/portal';
-import { resource } from '../../../src/runtime/resource-operation';
-import { timer } from '../../../src/runtime/lifecycle-operations';
-import { stream } from '../../../src/runtime/stream-operation';
-import { getOwnershipDiagnostics } from '../../../src/runtime/ownership-diagnostics';
+import { Portal } from '../../../src/runtime/portal/portal';
+import { resource } from '../../../src/runtime/lifecycle/resource';
+import { timer } from '../../../src/runtime/lifecycle/operations';
+import { stream } from '../../../src/runtime/lifecycle/stream';
+import { getOwnershipDiagnostics } from '../../../src/runtime/diagnostics/ownership-diagnostics';
 import { navigate } from '../../../src/router/navigate';
 import { route } from '../../../src/router/route';
 import {

@@ -1,12 +1,12 @@
 import { afterEach, expect, test, vi } from 'vite-plus/test';
-import { syncElementPropBindings } from '../../../src/renderer/prop-bindings';
+import { syncElementPropBindings } from '../../../src/renderer/props/bindings';
 import type { DOMElement } from '../../../src/renderer/types';
 import {
   elementListeners,
   elementReactivePropsCleanup,
   type ListenerMapEntry,
   type ReactivePropCleanupEntry,
-} from '../../../src/renderer/cleanup';
+} from '../../../src/renderer/ownership/cleanup';
 
 afterEach(() => vi.restoreAllMocks());
 

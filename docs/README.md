@@ -77,7 +77,9 @@ Benchmark workflow and current optimization goals live under
 [performance targets](./benchmarks/performance-targets.md).
 
 For contributors who need the runtime shape rather than API-first docs, see
-[Internals: Core engine design](./internals/core-engine-design.md).
+[Internals: Core engine design](./internals/core-engine-design.md) and the
+[runtime source layout](./development/runtime-layout.md) and
+[renderer source layout](./development/renderer-layout.md).
 Published contracts and extension wiring are described in the
 [public compatibility boundary](./development/compatibility-boundary.md) and
 [runtime ownership](./development/ownership.md), and

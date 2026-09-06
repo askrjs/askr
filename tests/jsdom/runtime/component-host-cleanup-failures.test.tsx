@@ -8,15 +8,15 @@ import {
 } from 'vite-plus/test';
 import { logger } from '../../../src/common/logger';
 import { For } from '../../../src/control';
-import { definePortal } from '../../../src/runtime/portal';
-import type { ComponentInstance } from '../../../src/runtime/component-internal';
+import { definePortal } from '../../../src/runtime/portal/portal';
+import type { ComponentInstance } from '../../../src/runtime/component/instance';
 import { getSignal, resource, task } from '../../../src/resources';
 import {
   elementListeners,
   elementReactivePropsCleanup,
   elementRefs,
-} from '../../../src/renderer/cleanup';
-import { state, type State } from '../../../src/runtime/state';
+} from '../../../src/renderer/ownership/cleanup';
+import { state, type State } from '../../../src/runtime/reactivity/state';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,

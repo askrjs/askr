@@ -4,7 +4,10 @@ import {
 } from '../../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { cleanupApp, createSPA } from '../../../../src/boot';
-import { defineScope, readScope } from '../../../../src/runtime/context';
+import {
+  defineScope,
+  readScope,
+} from '../../../../src/runtime/context/context';
 import { group, route } from '../../../../src/router/route';
 import {
   createTestContainer,

@@ -2,7 +2,7 @@ import {
   getComponentLifecycleSlot,
   ownComponentCleanup,
   isServerComponent,
-} from '../runtime/component-capabilities';
+} from '../runtime/component/capabilities';
 import type { RouteMatch, RouteParams, RouteSnapshot } from '../common/router';
 import { getStagedAppRenderRouteLocation } from '../common/app-render-runtime';
 import { syncRouteActivitySnapshot } from '../common/route-activity';

@@ -6,14 +6,14 @@ import {
   renderComponentInline,
   type ComponentInstance,
 } from '../../../src/runtime';
-import { evaluate } from '../../../src/renderer/evaluate';
+import { evaluate } from '../../../src/renderer/evaluation/evaluate';
 import {
   beginCommitTransaction,
   finalizeInlineReadSubscriptions,
   commitTransaction,
-} from '../../../src/runtime/component-lifecycle';
-import { definePortal } from '../../../src/runtime/portal';
-import type { ReadableSource } from '../../../src/runtime/readable';
+} from '../../../src/runtime/component/lifecycle';
+import { definePortal } from '../../../src/runtime/portal/portal';
+import type { ReadableSource } from '../../../src/runtime/reactivity/readable';
 import { globalScheduler } from '../../../src/runtime/scheduler';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {

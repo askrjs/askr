@@ -1,8 +1,8 @@
 import {
   getComponentLifetimeIdentity,
   ownComponentCleanup,
-} from '../runtime/component-capabilities';
-import { drainOwnedCleanup } from '../runtime/ownership';
+} from '../runtime/component/capabilities';
+import { drainOwnedCleanup } from '../runtime/ownership/record';
 import { getActiveRenderContext } from '../common/render-context';
 import { getCurrentAppRenderRuntime } from '../runtime';
 import type { ComponentInstance } from '../runtime';

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
-import { createChildScope } from '../../../src/runtime/child-scope';
+import { createChildScope } from '../../../src/runtime/ownership/child-scope';
 import {
   cleanupComponent,
   createComponentInstance,
@@ -8,7 +8,7 @@ import {
   createForIndexSignal,
   createForItemSignal,
   createReactiveForItem,
-} from '../../../src/runtime/for-signals';
+} from '../../../src/runtime/control/for-signals';
 import { logger } from '../../../src/common/logger';
 
 describe('For signal allocation', () => {

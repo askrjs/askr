@@ -16,9 +16,9 @@ it('should import renderer modules safely in SSR when document/window are missin
     // Use import() so the module is evaluated under the altered globals.
     const modules = await Promise.all([
       import('../../../src/renderer/dom'),
-      import('../../../src/renderer/evaluate'),
-      import('../../../src/renderer/fastpath'),
-      import('../../../src/renderer/reconcile'),
+      import('../../../src/renderer/evaluation/evaluate'),
+      import('../../../src/renderer/reconciliation/fastpath'),
+      import('../../../src/renderer/reconciliation/reconcile'),
     ]);
 
     expect(modules).toHaveLength(4);

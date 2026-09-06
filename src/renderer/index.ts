@@ -1,5 +1,8 @@
-import { captureOwnerRange, releaseOwnerRange } from './dom-range';
-import { detachPortalHostOutput, isComponentHostDetached } from './portal-host';
+import { captureOwnerRange, releaseOwnerRange } from './ownership/ranges';
+import {
+  detachPortalHostOutput,
+  isComponentHostDetached,
+} from './ownership/portal-host';
 import {
   clearChildScopeHost,
   captureChildScopeHost,
@@ -8,39 +11,45 @@ import {
   recordRemovedScopeBoundary,
   teardownScopeHost,
   hasUnmountedComponentHost,
-} from './scope-host';
+} from './ownership/scope-host';
 // Renderer barrel entrypoint.
 // Keep this file small: re-export the public surface and provide the runtime
 // renderer host used by browser composition.
 
 export * from './types';
-export * from './cleanup';
+export * from './ownership/cleanup';
 export {
   keyedElements,
   getKeyMapForElement,
   populateKeyMapForElement,
   _reconcilerRecordedParents,
   isKeyedReorderFastPathEligible,
-} from './keyed';
+} from './reconciliation/keyed';
 export * from './dom';
-export { evaluate, clearDOMRange } from './evaluate';
-export { withIntrinsicHydrationAdoption } from './intrinsic-hydration-adoption';
+export { evaluate, clearDOMRange } from './evaluation/evaluate';
+export { withIntrinsicHydrationAdoption } from './hydration/adoption';
 export {
   clearDeferredHydrationBoundaries,
   registerDeferredHydrationBoundary,
-} from './hydration-boundaries';
+} from './hydration/boundaries';
 export { activateHydrationBoundary } from './dom-internal';
 
-import { evaluate as _evaluate } from './evaluate';
-import { cleanupInstancesUnder, teardownNodeSubtree } from './cleanup';
-import { isKeyedReorderFastPathEligible, getKeyMapForElement } from './keyed';
-import { populateKeyMapForElement } from './keyed';
+import { evaluate as _evaluate } from './evaluation/evaluate';
+import {
+  cleanupInstancesUnder,
+  teardownNodeSubtree,
+} from './ownership/cleanup';
+import {
+  isKeyedReorderFastPathEligible,
+  getKeyMapForElement,
+} from './reconciliation/keyed';
+import { populateKeyMapForElement } from './reconciliation/keyed';
 import { markReactivePropsDirtySource as _markReactivePropsDirtySource } from './dom';
-import { replaceComponentRange } from './component-range-commit';
-import { getScopeRange } from './boundary-range-adoption';
-import { applyComponentResult } from './component-application';
-import { classifyUpdate } from './component-fast-path';
-import { recordInlineComponentHost } from './dom-ownership';
+import { replaceComponentRange } from './component/range-commit';
+import { getScopeRange } from './control/range-adoption';
+import { applyComponentResult } from './component/application';
+import { classifyUpdate } from './component/fast-path';
+import { recordInlineComponentHost } from './ownership/nodes';
 import type { RendererCapabilities } from '../runtime';
 
 export function createRendererCapabilities(): RendererCapabilities {

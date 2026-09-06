@@ -7,11 +7,11 @@ import {
   vi,
 } from 'vite-plus/test';
 import { For } from '../../../src/control';
-import { beginComponentHostReplacement } from '../../../src/renderer/component-host-replacement';
+import { beginComponentHostReplacement } from '../../../src/renderer/component/host-replacement';
 import {
   materializeComponentResultNode,
   retainMaterializedReplacementOwnerChain,
-} from '../../../src/renderer/component-host-results';
+} from '../../../src/renderer/component/host-results';
 import type { InstanceHostElement } from '../../../src/renderer/dom-host';
 import { getSignal, resource, task } from '../../../src/resources';
 import {
@@ -19,7 +19,7 @@ import {
   createComponentInstance,
   commitTransaction,
 } from '../../../src/runtime';
-import { state, type State } from '../../../src/runtime/state';
+import { state, type State } from '../../../src/runtime/reactivity/state';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,

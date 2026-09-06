@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state, derive } from '../../../src/index';
-import type { State } from '../../../src/runtime/state';
-import type { Derived } from '../../../src/runtime/derive';
+import type { State } from '../../../src/runtime/reactivity/state';
+import type { Derived } from '../../../src/runtime/reactivity/derive';
 import {
   createTestContainer,
   flushScheduler,
@@ -10,7 +10,7 @@ import { createIsland } from '../../../test-utils/render/create-island';
 
 // Coverage for ONE reactive source read by MULTIPLE distinct component
 // subscribers — the fan-out, reader-drop, and double-read-dedupe paths in
-// src/runtime/readable.ts (notifyReadableReaders / subscription publication).
+// src/runtime/reactivity/readable.ts (notifyReadableReaders / subscription publication).
 //
 // Pattern: a parent owns the source and passes its getter down to sibling child
 // components. The parent itself does NOT read the source, so only the children

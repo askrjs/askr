@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import { cleanupApp, createSPA } from '../../../../src/boot';
 import { resource } from '../../../../src/runtime/operations';
-import { state } from '../../../../src/runtime/state';
+import { state } from '../../../../src/runtime/reactivity/state';
 import { navigate } from '../../../../src/router/navigate';
 import { allow } from '../../../../src/router/policy';
 import {

@@ -40,7 +40,7 @@ import {
   type PreparedRootUpdate,
 } from '../common/root-update';
 import type { ComponentFunction } from '../common/component';
-import { registerCommitParticipant } from '../runtime/transaction-access';
+import { registerCommitParticipant } from '../runtime/transactions/access';
 
 /** Options for {@link navigate}. */
 export type NavigateOptions = {

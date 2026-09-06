@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { resource } from '../../../src/resources';
 import { getCurrentComponentInstance } from '../../../src/runtime';
-import { createFineGrainedEffect } from '../../../src/runtime/effect';
+import { createFineGrainedEffect } from '../../../src/runtime/reactivity/effect';
 import { Case, Match, Show } from '@askrjs/askr/control';
 import {
   createTestContainer,

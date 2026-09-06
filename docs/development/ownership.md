@@ -1,6 +1,6 @@
 # Runtime ownership
 
-`runtime/ownership.ts` owns each lifetime's identity, cancellation signal,
+`runtime/ownership/record.ts` owns each lifetime's identity, cancellation signal,
 cleanup registrations, child lifetimes, and committed subscriptions. Execution
 records hold hook state and render revisions. Async resources and query cells
 retain their independent request revisions and existing cache semantics.
@@ -23,7 +23,7 @@ belongs to that lifetime, including when the callback synchronously replaces
 the root. Cleanup returned after disposal runs immediately. A captured execution
 context keeps its original cancellation signal after replacement or disposal.
 
-`runtime/component-generation.ts` owns root generation preparation, rollback,
+`runtime/component/generation.ts` owns root generation preparation, rollback,
 and retirement. Navigation retains an opaque prepared generation instead of
 copying and resetting private component fields. The host restores its own state
 between provisional disposal and execution restoration. The

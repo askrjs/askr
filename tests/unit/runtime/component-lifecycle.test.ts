@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { logger } from '../../../src/common/logger';
 import { createComponentInstance } from '../../../src/runtime';
-import { cleanupComponent } from '../../../src/runtime/component-cleanup';
-import { restartComponentGeneration } from '../../../src/runtime/component-generation';
+import { cleanupComponent } from '../../../src/runtime/component/cleanup';
+import { restartComponentGeneration } from '../../../src/runtime/component/generation';
 import {
   beginCommitTransaction,
   commitLifecycleForInstance,
@@ -12,7 +12,7 @@ import {
   registerCommitRollback,
   registerCommitEffect,
   registerMountOperationForInstance,
-} from '../../../src/runtime/component-lifecycle';
+} from '../../../src/runtime/component/lifecycle';
 
 describe('committed lifecycle operation isolation', () => {
   it('should leave replacement lifetime work untouched by an obsolete transaction', () => {

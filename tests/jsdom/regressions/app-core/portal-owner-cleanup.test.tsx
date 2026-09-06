@@ -3,7 +3,7 @@ import {
   Portal,
   _resetDefaultPortal,
 } from '../../../../src/foundations/structures/portal';
-import { state } from '../../../../src/runtime/state';
+import { state } from '../../../../src/runtime/reactivity/state';
 import { createIsland } from '../../../../test-utils/render/create-island';
 import {
   createTestContainer,

@@ -2,15 +2,15 @@ import { describe, expect, it } from 'vite-plus/test';
 import {
   createChildScope,
   joinChildScopePreparation,
-} from '../../../src/runtime/child-scope';
-import { state, type State } from '../../../src/runtime/state';
+} from '../../../src/runtime/ownership/child-scope';
+import { state, type State } from '../../../src/runtime/reactivity/state';
 import { globalScheduler } from '../../../src/runtime/scheduler';
 import {
   beginCommitTransaction,
   commitTransaction,
   discardTransaction,
   registerCommitParticipant,
-} from '../../../src/runtime/transaction-access';
+} from '../../../src/runtime/transactions/access';
 
 describe('scoped commit preparation', () => {
   it('should retain committed readers until prepared output publishes and restore them after failure', () => {

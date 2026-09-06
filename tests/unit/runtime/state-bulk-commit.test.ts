@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
-import { createChildScope } from '../../../src/runtime/child-scope';
+import { createChildScope } from '../../../src/runtime/ownership/child-scope';
 import {
   cleanupComponent,
   createComponentInstance,
@@ -8,9 +8,9 @@ import {
   beginCommitTransaction,
   commitTransaction,
   getCurrentCommitTransaction,
-} from '../../../src/runtime/transaction-access';
-import { state, type State } from '../../../src/runtime/state';
-import * as readable from '../../../src/runtime/readable';
+} from '../../../src/runtime/transactions/access';
+import { state, type State } from '../../../src/runtime/reactivity/state';
+import * as readable from '../../../src/runtime/reactivity/readable';
 
 describe('state.set() during an active transaction', () => {
   afterEach(() => {

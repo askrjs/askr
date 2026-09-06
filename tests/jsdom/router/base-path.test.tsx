@@ -8,7 +8,7 @@ import {
 } from 'vite-plus/test';
 import { createSPA, hydrateSPA } from '../../../src/boot';
 import { Link } from '../../../src/components/link';
-import { state } from '../../../src/runtime/state';
+import { state } from '../../../src/runtime/reactivity/state';
 import { isRoutePathActive } from '../../../src/router/activity';
 import { navigate, updateRouteQuery } from '../../../src/router/navigate';
 import {

@@ -1,4 +1,4 @@
-import { ownCleanup } from '../runtime/ownership';
+import { ownCleanup } from '../runtime/ownership/record';
 import { enqueueRuntimeTask } from '../runtime';
 import { getCurrentComponentInstance } from '../runtime';
 import { logger } from '../common/logger';

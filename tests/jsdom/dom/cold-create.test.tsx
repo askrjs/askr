@@ -5,8 +5,8 @@ import {
   createDetachedRange,
   getOwnedRange,
   registerRange,
-} from '../../../src/renderer/dom-range';
-import { state, type State } from '../../../src/runtime/state';
+} from '../../../src/renderer/ownership/ranges';
+import { state, type State } from '../../../src/runtime/reactivity/state';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
