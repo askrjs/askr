@@ -167,6 +167,15 @@ flowchart LR
 `ResourceCell`, ties cancellation to component lifecycle, and exposes a stable
 snapshot object.
 
+Each execution owns its controller and checks that ownership after abort
+callbacks, pending notifications, and loader completion. Refresh, abort, or
+disposal during those callbacks prevents the superseded execution from running
+or publishing a result, including synchronous values and errors. Subscriber
+failures are reported separately and do not become loader errors or prevent
+other subscribers from observing the published snapshot. Thenable inspection
+belongs to loader execution, so a throwing `then` getter publishes a loader
+error through the same snapshot contract.
+
 ```mermaid
 flowchart LR
   component[Component render]
