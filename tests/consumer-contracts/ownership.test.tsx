@@ -10,6 +10,50 @@ import { render } from '@askrjs/askr/testing';
 
 type Owner = NonNullable<Parameters<RuntimeRendererHost['evaluate']>[3]>;
 
+test('should drain published owner lifetimes when child-index preparation throws', () => {
+  const runtime = getDefaultRuntime();
+  const original = runtime.renderer;
+  let owner: Owner | undefined;
+  let signal!: AbortSignal;
+  const cleaned: string[] = [];
+  runtime.configureRenderer({
+    ...original,
+    evaluate(...args) {
+      owner ??= args[3];
+      original.evaluate(...args);
+    },
+  });
+  let view: ReturnType<typeof render> | undefined;
+  try {
+    view = render(() => {
+      signal = getSignal();
+      return (
+        <For each={[1]} by={(value) => value}>
+          {(value) => <span>{value}</span>}
+        </For>
+      );
+    });
+    (owner!.cleanupFns ??= []).push(() => cleaned.push('owner'));
+    const scopes = owner!._ownedChildScopes!;
+    owner!._ownedChildScopes = new Set([
+      ...scopes,
+      { key: 'extension', dispose: () => cleaned.push('extension') },
+    ]);
+    owner!._ownedChildScopes!.has = () => {
+      throw new Error('index unavailable');
+    };
+    view.unmount();
+    expect(cleaned).toEqual(['extension', 'owner']);
+    expect(signal.aborted).toBe(true);
+    expect(owner!.mounted).toBe(false);
+    view.unmount();
+    expect(cleaned).toHaveLength(2);
+  } finally {
+    view?.cleanup();
+    runtime.configureRenderer(original);
+  }
+});
+
 test('should keep extension cleanup properties backed by the callback owner lifetime', () => {
   const runtime = getDefaultRuntime();
   const original = runtime.renderer;

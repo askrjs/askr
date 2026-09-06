@@ -9,6 +9,8 @@ import type {
   KeyedRendering,
 } from './renderer-capabilities';
 import type { Scheduler, SchedulerLane } from './scheduler';
+import type { ScheduledWork } from './scheduled-work';
+export { SCHEDULER_LANES } from './scheduler';
 import {
   clearCurrentComponentScope,
   restoreCurrentComponentScope,
@@ -54,6 +56,13 @@ export function enqueueRuntimeLane(
   task: RuntimeTask
 ): void {
   getRuntimeScheduler().enqueueInLane(lane, task);
+}
+
+export function requestRuntimeWork(
+  lane: SchedulerLane,
+  work: ScheduledWork
+): void {
+  work.request(getRuntimeScheduler(), lane);
 }
 
 export function runRuntimeHandlerScope<T>(

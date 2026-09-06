@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { createComponentInstance } from '../../../src/runtime/component/instance';
 import { cleanupComponent } from '../../../src/runtime/component/cleanup';
-import { setCurrentComponentInstance } from '../../../src/runtime/component/scope';
+import {
+  getCurrentComponentInstance,
+  setCurrentComponentInstance,
+} from '../../../src/runtime/component/scope';
 import {
   attachOwnership,
   getOwnershipSignal,
@@ -9,6 +12,110 @@ import {
 } from '../../../src/runtime/ownership/record';
 
 describe('component lifetime ownership', () => {
+  it('should preserve caller scope when root phase configuration throws', () => {
+    const root = createComponentInstance('root', () => null, {}, null);
+    const outer = createComponentInstance('outer', () => null, {}, null);
+    const signal = getOwnershipSignal(root.owner);
+    let cleaned = false;
+    ownCleanup(root.owner, () => {
+      cleaned = true;
+    });
+    Object.defineProperty(root, 'cleanupStrict', {
+      get() {
+        throw new Error('configuration failed');
+      },
+    });
+    setCurrentComponentInstance(outer);
+    try {
+      expect(() => cleanupComponent(root)).toThrow('configuration failed');
+      expect(getCurrentComponentInstance()).toBe(outer);
+      expect(cleaned).toBe(true);
+      expect(signal.aborted).toBe(true);
+    } finally {
+      setCurrentComponentInstance(null);
+      cleanupComponent(outer);
+    }
+  });
+
+  it.each(['phases', 'child index'] as const)(
+    'should finish the ownership drain after %s preparation fails',
+    (failure) => {
+      const root = createComponentInstance('root', () => null, {}, null);
+      const child = createComponentInstance(
+        'child',
+        () => null,
+        {},
+        null,
+        root.owner
+      );
+      const sibling = createComponentInstance(
+        'sibling',
+        () => null,
+        {},
+        null,
+        root.owner
+      );
+      const outer = createComponentInstance('outer', () => null, {}, null);
+      root.cleanupStrict = true;
+      child.cleanupStrict = true;
+      const calls: string[] = [];
+      const signals = [child, sibling, root].map((instance) => {
+        ownCleanup(instance.owner, () => {
+          calls.push(instance.id);
+        });
+        instance.owner.finalizer = {
+          release() {
+            calls.push(`${instance.id} finalized`);
+          },
+        };
+        return getOwnershipSignal(instance.owner);
+      });
+      const error = new Error('preparation failed');
+      if (failure === 'phases') {
+        child.owner.lifecycle = () => {
+          throw error;
+        };
+      } else {
+        const grandchild = createComponentInstance(
+          'grandchild',
+          () => null,
+          {},
+          null,
+          child.owner
+        );
+        grandchild.owner.scope = { key: 'grandchild', dispose() {} };
+        child.owner.scopedIndex = new Set();
+        child.owner.scopedIndex.has = () => {
+          throw error;
+        };
+        ownCleanup(grandchild.owner, () => {
+          calls.push('grandchild');
+        });
+      }
+      setCurrentComponentInstance(outer);
+      try {
+        expect(() => cleanupComponent(root)).toThrow();
+        expect(calls).toEqual([
+          ...(failure === 'child index' ? ['grandchild'] : []),
+          'child',
+          'child finalized',
+          'sibling',
+          'sibling finalized',
+          'root',
+          'root finalized',
+        ]);
+        expect(signals.every((signal) => signal.aborted)).toBe(true);
+        expect(getCurrentComponentInstance()).toBe(outer);
+        const count = calls.length;
+        cleanupComponent(root);
+        expect(calls).toHaveLength(count);
+      } finally {
+        setCurrentComponentInstance(null);
+        cleanupComponent(outer);
+      }
+    }
+  );
+
   it('should preserve a child adopted by another lifetime during sibling cleanup', () => {
     const root = createComponentInstance('root', () => null, {}, null);
     const replacement = createComponentInstance(

@@ -27,7 +27,7 @@ function componentDisposalPhases(owner: OwnershipRecord): DisposalPhases {
   const instance = owner.subject as ComponentInstance;
   const active = instance.owner === owner;
   const hadRendererHost = Boolean(instance.target || instance._placeholder);
-  const savedScope = clearCurrentComponentScope();
+  let savedScope: ReturnType<typeof clearCurrentComponentScope>;
   const errors: unknown[] | undefined = instance.cleanupStrict ? [] : undefined;
   const retiredScopes = active ? undefined : owner.scopedIndex;
   const detachReads = () => {
@@ -40,6 +40,7 @@ function componentDisposalPhases(owner: OwnershipRecord): DisposalPhases {
   };
   return {
     begin() {
+      savedScope = clearCurrentComponentScope();
       if (active) {
         instance.lifecycleGeneration++;
         instance.evaluationGeneration++;
