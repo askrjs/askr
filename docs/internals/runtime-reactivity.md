@@ -84,6 +84,11 @@ capabilities used by other subsystems.
 `ownership/record.ts` owns the lifetime graph and iterative disposal, while
 `component/cleanup.ts` supplies component-specific invalidation and settlement.
 `component/generation.ts` prepares, restores, and retires exact root lifetimes.
+Boot cleanup retires the root registration and captures its cleanup callbacks
+before invoking user code. A callback can mount a replacement on the same element;
+the retiring lifetime cannot erase its registration, callbacks, or hydration
+boundaries. During an update, such a replacement supersedes the interrupted mount.
+Unsubscribing an old root callback affects only its captured callback collection.
 
 `For` reconciliation maintains keyed membership and delegates host application
 to renderer capabilities. Item scopes attach their existing lifetime record to

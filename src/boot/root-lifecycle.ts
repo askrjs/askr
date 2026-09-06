@@ -53,9 +53,7 @@ interface ElementWithCleanup extends Element {
 }
 
 function clearRootCleanupCallbacks(rootElement: Element): void {
-  try {
-    delete (rootElement as ElementWithCleanup)[ROOT_CLEANUP_CALLBACKS_SYMBOL];
-  } catch {
+  if (!Reflect.deleteProperty(rootElement, ROOT_CLEANUP_CALLBACKS_SYMBOL)) {
     (rootElement as ElementWithCleanup)[ROOT_CLEANUP_CALLBACKS_SYMBOL]?.clear();
   }
 }
@@ -72,32 +70,13 @@ export function registerRootCleanupCallback(
 
   return () => {
     callbacks.delete(callback);
-    if (callbacks.size === 0) {
+    if (
+      callbacks.size === 0 &&
+      elementWithCleanup[ROOT_CLEANUP_CALLBACKS_SYMBOL] === callbacks
+    ) {
       clearRootCleanupCallbacks(rootElement);
     }
   };
-}
-
-function runRootCleanupCallbacks(
-  rootElement: Element,
-  errors: unknown[]
-): void {
-  const callbacks = (rootElement as ElementWithCleanup)[
-    ROOT_CLEANUP_CALLBACKS_SYMBOL
-  ];
-  if (!callbacks || callbacks.size === 0) {
-    clearRootCleanupCallbacks(rootElement);
-    return;
-  }
-
-  clearRootCleanupCallbacks(rootElement);
-  for (const callback of callbacks) {
-    try {
-      callback();
-    } catch (e) {
-      errors.push(e);
-    }
-  }
 }
 
 function cleanupRootInstance(
@@ -105,31 +84,39 @@ function cleanupRootInstance(
   instance: ComponentInstance,
   options?: RootCleanupOptions
 ) {
-  const errors: unknown[] = [];
-  try {
-    teardownNodeSubtree(rootElement);
-  } catch (e) {
-    errors.push(e);
-  }
-
-  try {
-    cleanupComponent(instance);
-  } catch (e) {
-    errors.push(e);
-  }
-
-  runRootCleanupCallbacks(rootElement, errors);
+  if (instancesByRoot.get(rootElement) !== instance) return;
+  const element = rootElement as ElementWithCleanup;
+  const cleanup = element[CLEANUP_SYMBOL];
+  const callbacks = element[ROOT_CLEANUP_CALLBACKS_SYMBOL];
+  const wasRoutedRoot = routedRoots.delete(rootElement);
+  instancesByRoot.delete(rootElement);
+  clearRootCleanupCallbacks(rootElement);
+  // The instance check also makes non-configurable cleanup markers inert.
+  Reflect.deleteProperty(element, CLEANUP_SYMBOL);
   clearDeferredHydrationBoundaries(rootElement);
-
-  if (!options?.preserveInstance) {
-    unregisterAppInstance(instance);
-    instancesByRoot.delete(rootElement);
-    clearRootCleanupCallbacks(rootElement);
-    try {
-      delete (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL];
-    } catch {
-      // Ignore cleanup marker removal failures.
+  const errors: unknown[] = [];
+  for (const phase of [
+    [() => teardownNodeSubtree(rootElement), () => cleanupComponent(instance)],
+    callbacks ?? [],
+  ]) {
+    for (const callback of phase) {
+      try {
+        callback();
+      } catch (e) {
+        errors.push(e);
+      }
     }
+  }
+
+  if (options?.preserveInstance && !instancesByRoot.has(rootElement)) {
+    instancesByRoot.set(rootElement, instance);
+    element[CLEANUP_SYMBOL] = cleanup;
+    if (wasRoutedRoot) routedRoots.add(rootElement);
+  } else {
+    unregisterAppInstance(instance);
+  }
+  if (wasRoutedRoot && routedRoots.size === 0) {
+    clearRouteState();
   }
 
   if (errors.length > 0) {
@@ -148,6 +135,9 @@ function attachCleanupForRoot(
   (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL] = (options) => {
     cleanupRootInstance(rootElement, instance, options);
   };
+  registerRootCleanupCallback(rootElement, () => {
+    disposeRegisteredDefaultPortalScope(instance.portalScope ?? instance);
+  });
 
   try {
     const descriptor =
@@ -160,18 +150,14 @@ function attachCleanupForRoot(
 
     if (descriptor && (descriptor.get || descriptor.set)) {
       Object.defineProperty(rootElement, 'innerHTML', {
-        get: descriptor.get
-          ? function (this: Element) {
-              return descriptor.get!.call(this);
-            }
-          : undefined,
+        get: function (this: Element) {
+          return descriptor.get?.call(this);
+        },
         set: function (this: Element, value: string) {
           if (value === '' && instancesByRoot.get(this) === instance) {
             cleanupRootInstance(rootElement, instance);
           }
-          if (descriptor.set) {
-            return descriptor.set.call(this, value);
-          }
+          return descriptor.set?.call(this, value);
         },
         configurable: true,
       });
@@ -197,6 +183,11 @@ export function mountOrUpdate(
   const reusedExistingInstance = typeof existingCleanup === 'function';
   if (reusedExistingInstance) {
     existingCleanup({ preserveInstance: true });
+    if (
+      (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL] !== existingCleanup
+    ) {
+      return;
+    }
   }
 
   let instance = instancesByRoot.get(rootElement);
@@ -216,15 +207,6 @@ export function mountOrUpdate(
     }
 
     restartComponentGeneration(instance, wrappedFn, !shouldResetHookState);
-    instance._rootComponentFn = componentFn;
-    instance.isRoot = true;
-    instance.portalScope = instance;
-    instance._appRenderRuntime = options?.appRuntime;
-    instance._cspNonce = nonce;
-
-    if (options && typeof options.cleanupStrict === 'boolean') {
-      instance.cleanupStrict = options.cleanupStrict;
-    }
   } else {
     const componentId = String(++componentIdCounter);
     instance = createComponentInstance(
@@ -235,20 +217,18 @@ export function mountOrUpdate(
       null
     );
     instancesByRoot.set(rootElement, instance);
-    instance.isRoot = true;
-    instance._rootComponentFn = componentFn;
-    instance.portalScope = instance;
-    instance._appRenderRuntime = options?.appRuntime;
-    instance._cspNonce = nonce;
-    if (options && typeof options.cleanupStrict === 'boolean') {
-      instance.cleanupStrict = options.cleanupStrict;
-    }
+  }
+
+  instance.isRoot = true;
+  instance._rootComponentFn = componentFn;
+  instance.portalScope = instance;
+  instance._appRenderRuntime = options?.appRuntime;
+  instance._cspNonce = nonce;
+  if (options && typeof options.cleanupStrict === 'boolean') {
+    instance.cleanupStrict = options.cleanupStrict;
   }
 
   attachCleanupForRoot(rootElement, instance);
-  registerRootCleanupCallback(rootElement, () => {
-    disposeRegisteredDefaultPortalScope(instance.portalScope ?? instance);
-  });
   executeComponent(instance);
   flushRuntimeScheduler();
 }
@@ -284,11 +264,6 @@ export function replaceMountedRootInstance(
   nextInstance._placeholder = undefined;
   nextInstance.isRoot = true;
   attachCleanupForRoot(rootElement, nextInstance);
-  registerRootCleanupCallback(rootElement, () => {
-    disposeRegisteredDefaultPortalScope(
-      nextInstance.portalScope ?? nextInstance
-    );
-  });
   previousInstance.target = null;
 }
 
@@ -315,22 +290,10 @@ export function cleanupApp(root: Element | string): void {
   if (!rootElement) return;
 
   const cleanupFn = (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL];
-  try {
-    if (typeof cleanupFn === 'function') {
-      cleanupFn();
-    }
-  } finally {
-    const wasRoutedRoot = routedRoots.delete(rootElement);
-    instancesByRoot.delete(rootElement);
+  if (typeof cleanupFn === 'function') {
+    cleanupFn();
+  } else {
     clearRootCleanupCallbacks(rootElement);
-    if (wasRoutedRoot && routedRoots.size === 0) {
-      clearRouteState();
-    }
-    try {
-      delete (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL];
-    } catch {
-      // Ignore cleanup marker removal failures.
-    }
   }
 }
 
