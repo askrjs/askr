@@ -15,11 +15,6 @@ export type ComponentScopeSnapshot = {
   stateIndex: number;
 };
 
-type InstancePortalScopeSnapshot = {
-  instance: ComponentInstance | null;
-  portalScope: object | null;
-};
-
 type InlineRenderTrackingSnapshot = {
   currentRenderToken: number | undefined;
   pendingReadSources: Set<ReadableSource<unknown>> | undefined;
@@ -31,10 +26,6 @@ let currentPortalScope: object | null = null;
 let scopedAppRenderRuntime: AppRenderRuntime | undefined;
 let stateIndex = 0;
 let globalRenderCounter = 0;
-let renderScopedDepth = 0;
-let outerRenderScopedInstance: ComponentInstance | null = null;
-let outerRenderScopedPortalScope: object | null = null;
-let outerRenderScopedStateIndex = 0;
 
 function nextRenderToken(): number {
   return ++globalRenderCounter;
@@ -107,13 +98,6 @@ export function withComponentScope<T>(
   } finally {
     endComponentScope(snapshot);
   }
-}
-
-function captureInstancePortalScope(): InstancePortalScopeSnapshot {
-  return {
-    instance: currentInstance,
-    portalScope: currentPortalScope,
-  };
 }
 
 export function getCurrentComponentInstance(): ComponentInstance | null {
@@ -228,94 +212,56 @@ export function restoreInlineRenderTracking(
 export function enterRenderScopedComponent(
   instance: ComponentInstance,
   startStateIndex: number
-): ComponentScopeSnapshot | null {
-  let savedScope: ComponentScopeSnapshot | null = null;
-  if (renderScopedDepth === 0) {
-    outerRenderScopedInstance = currentInstance;
-    outerRenderScopedPortalScope = currentPortalScope;
-    outerRenderScopedStateIndex = stateIndex;
-  } else {
-    savedScope = captureScope();
-  }
-  renderScopedDepth += 1;
-  currentInstance = instance;
-  currentPortalScope =
-    instance.portalScope ??
-    (savedScope ? savedScope.portalScope : outerRenderScopedPortalScope);
-  stateIndex = startStateIndex;
-  return savedScope;
+): ComponentScopeSnapshot {
+  return beginComponentScope({ instance, stateIndex: startStateIndex });
 }
 
 export function restoreRenderScopedComponent(
-  snapshot: ComponentScopeSnapshot | null
+  snapshot: ComponentScopeSnapshot
 ): void {
-  renderScopedDepth -= 1;
-  if (snapshot) {
-    restoreScope(snapshot);
-    return;
-  }
-
-  currentInstance = outerRenderScopedInstance;
-  currentPortalScope = outerRenderScopedPortalScope;
-  stateIndex = outerRenderScopedStateIndex;
-  outerRenderScopedInstance = null;
-  outerRenderScopedPortalScope = null;
-  outerRenderScopedStateIndex = 0;
+  endComponentScope(snapshot);
 }
 
-export function captureInlineComponentScope(): InstancePortalScopeSnapshot {
-  return captureInstancePortalScope();
+export function captureInlineComponentScope(): ComponentScopeSnapshot {
+  return beginComponentScope({});
 }
 
 export function restoreInlineComponentScope(
-  snapshot: InstancePortalScopeSnapshot
+  snapshot: ComponentScopeSnapshot
 ): void {
-  currentInstance = snapshot.instance;
-  currentPortalScope = snapshot.portalScope;
+  endComponentScope(snapshot);
 }
 
 export function enterComponentExecutionScope(
   instance: ComponentInstance
-): object | null {
-  const savedPortalScope = currentPortalScope;
-  currentInstance = instance;
-  currentPortalScope = instance.portalScope ?? savedPortalScope;
-  stateIndex = 0;
-  return savedPortalScope;
+): ComponentScopeSnapshot {
+  return beginComponentScope({ instance, stateIndex: 0 });
 }
 
 export function exitComponentExecutionScope(
-  savedPortalScope: object | null
+  snapshot: ComponentScopeSnapshot
 ): void {
-  currentInstance = null;
-  currentPortalScope = savedPortalScope;
+  endComponentScope(snapshot);
 }
 
 export function enterDomCommitScope(
   instance: ComponentInstance
-): ComponentInstance | null {
-  const previousInstance = currentInstance;
-  currentInstance = instance;
-  return previousInstance;
+): ComponentScopeSnapshot {
+  return beginComponentScope({ instance });
 }
 
-export function restoreDomCommitScope(
-  previousInstance: ComponentInstance | null
-): void {
-  currentInstance = previousInstance;
+export function restoreDomCommitScope(snapshot: ComponentScopeSnapshot): void {
+  endComponentScope(snapshot);
 }
 
 export function clearCurrentComponentScope(): ComponentScopeSnapshot {
-  const savedScope = captureScope();
-  currentInstance = null;
-  currentPortalScope = null;
-  return savedScope;
+  return beginComponentScope({ instance: null, portalScope: null });
 }
 
 export function restoreCurrentComponentScope(
   snapshot: ComponentScopeSnapshot
 ): void {
-  restoreScope(snapshot);
+  endComponentScope(snapshot);
 }
 
 export function getNextStateIndex(): number {

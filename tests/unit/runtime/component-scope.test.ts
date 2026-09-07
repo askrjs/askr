@@ -5,10 +5,10 @@
  * `endComponentScope`: whatever the entry changes, restoration returns all
  * three ambient fields.
  *
- * The second block characterises the older enter/exit pairs as they behave
- * today, asymmetries included. Those assertions describe current behaviour, not
- * desired behaviour; the step that migrates callers onto the primitive is what
- * changes them, and these cases are the record of what it changed.
+ * The second block covers the named pairs now built on that primitive, at the
+ * two points where they used to be asymmetric: a DOM commit scope left the hook
+ * cursor advanced, and leaving an execution scope nulled the current instance
+ * instead of restoring it.
  */
 
 import { describe, expect, it } from 'vite-plus/test';
@@ -92,30 +92,32 @@ describe('component scope primitive (RUNTIME)', () => {
   });
 });
 
-describe('legacy component scope pairs, as they behave today (RUNTIME)', () => {
-  it('should leave the hook cursor advanced after a DOM commit scope', () => {
+describe('scope pairs built on the primitive (RUNTIME)', () => {
+  it('should restore the hook cursor after a DOM commit scope', () => {
     const before = beginComponentScope({ instance: fakeInstance() });
     setStateIndex(5);
 
-    const previous = enterDomCommitScope(fakeInstance());
+    const commitScope = enterDomCommitScope(fakeInstance());
     setStateIndex(11);
-    restoreDomCommitScope(previous);
+    restoreDomCommitScope(commitScope);
 
-    // enterDomCommitScope saves only `currentInstance`, so the cursor stays
-    // where the inner scope left it.
-    expect(getCurrentStateIndex()).toBe(11);
+    // Previously enterDomCommitScope saved only the instance, so the cursor
+    // stayed at 11 and belonged to a different component than the one the
+    // validation table was keyed on.
+    expect(getCurrentStateIndex()).toBe(5);
     endComponentScope(before);
   });
 
-  it('should clear the current instance when leaving an execution scope', () => {
+  it('should restore the outer instance when leaving an execution scope', () => {
     const outer = fakeInstance();
     const before = beginComponentScope({ instance: outer });
 
-    const savedPortalScope = enterComponentExecutionScope(fakeInstance());
-    exitComponentExecutionScope(savedPortalScope);
+    const executionScope = enterComponentExecutionScope(fakeInstance());
+    exitComponentExecutionScope(executionScope);
 
-    // The outer instance is not restored; the scope is nulled instead.
-    expect(getCurrentComponentInstance()).toBeNull();
+    // Previously this nulled the instance unconditionally, losing the outer
+    // scope rather than restoring it.
+    expect(getCurrentComponentInstance()).toBe(outer);
     endComponentScope(before);
   });
 });
