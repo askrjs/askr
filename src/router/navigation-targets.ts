@@ -82,6 +82,11 @@ export function isStaleRouteRequest(requestId: number): boolean {
   return requestId !== activeRouteRequestId;
 }
 
+/**
+ * @internal Teardown-only cancellation. Prefer aborting through the signal
+ * returned by `beginRouteRequest()`; this exists for registry teardown, where
+ * no request owns the abort.
+ */
 export function cancelRouteRequests(): void {
   activeRouteRequestId += 1;
   activeRouteRequestController?.abort();
