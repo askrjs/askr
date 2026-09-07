@@ -701,6 +701,24 @@ describe('architecture boundaries', () => {
     ]);
   });
 
+  it('should export bench instrumentation from its diagnostics owner', () => {
+    // control/for-state.ts re-exported seven bench symbols it does not own, so
+    // the barrel and every consumer reached them through the For state machine.
+    // Only the owning module, and the runtime barrel, may export them onward.
+    const owner = 'src/runtime/diagnostics/for-bench.ts';
+    const permitted = new Set([owner, 'src/runtime/index.ts']);
+    const launderers = edges
+      .filter(
+        (edge) =>
+          relative(edge.to) === owner &&
+          edge.kind === 'export' &&
+          !permitted.has(relative(edge.from))
+      )
+      .map(format)
+      .sort();
+    expect(launderers).toEqual([]);
+  });
+
   it('should keep subsystem imports on explicit runtime capability entrypoints', () => {
     const entrypoints = new Set([
       'src/runtime/index.ts',
