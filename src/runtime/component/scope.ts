@@ -9,7 +9,7 @@ import type { ComponentInstance } from './instance';
 import type { AppRenderRuntime } from '../../common/app-render-runtime';
 import { getOwnershipSignal } from '../ownership/record';
 
-type ComponentScopeSnapshot = {
+export type ComponentScopeSnapshot = {
   instance: ComponentInstance | null;
   portalScope: object | null;
   stateIndex: number;
@@ -52,6 +52,61 @@ function restoreScope(snapshot: ComponentScopeSnapshot): void {
   currentInstance = snapshot.instance;
   currentPortalScope = snapshot.portalScope;
   stateIndex = snapshot.stateIndex;
+}
+
+/**
+ * Fields to install on entry. An omitted field is left as it is; `portalScope`
+ * additionally defaults to the entered instance's own portal scope.
+ */
+type ComponentScopeEntry = {
+  instance?: ComponentInstance | null;
+  portalScope?: object | null;
+  stateIndex?: number;
+};
+
+/**
+ * Enter a component scope, returning the snapshot that restores it.
+ *
+ * The entry describes only what changes; the snapshot always carries all three
+ * ambient fields, and `endComponentScope` always restores all three. Callers
+ * therefore cannot introduce a variant that saves a subset and leaves the rest
+ * pointing at the previous component, which is what the older enter/exit pairs
+ * each did differently.
+ *
+ * Prefer `withComponentScope`. Use this pair directly only where the scope
+ * genuinely cannot be expressed as a closure, such as a span across two
+ * separately invoked lifecycle phases.
+ */
+export function beginComponentScope(
+  entry: ComponentScopeEntry
+): ComponentScopeSnapshot {
+  const snapshot = captureScope();
+  if ('instance' in entry) {
+    const instance = entry.instance ?? null;
+    currentInstance = instance;
+    currentPortalScope = instance?.portalScope ?? snapshot.portalScope;
+  }
+  if ('portalScope' in entry) currentPortalScope = entry.portalScope ?? null;
+  if (entry.stateIndex !== undefined) stateIndex = entry.stateIndex;
+  return snapshot;
+}
+
+/** Restore every ambient scope field captured by `beginComponentScope`. */
+export function endComponentScope(snapshot: ComponentScopeSnapshot): void {
+  restoreScope(snapshot);
+}
+
+/** Run `fn` inside a component scope, restoring the previous scope on any exit. */
+export function withComponentScope<T>(
+  entry: ComponentScopeEntry,
+  fn: () => T
+): T {
+  const snapshot = beginComponentScope(entry);
+  try {
+    return fn();
+  } finally {
+    endComponentScope(snapshot);
+  }
 }
 
 function captureInstancePortalScope(): InstancePortalScopeSnapshot {
