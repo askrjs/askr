@@ -20,12 +20,12 @@ import {
   processFragmentChildren,
   retainHostOwnerChain,
   smartUpdateElement,
-  tagNamesEqualIgnoreCase,
   tryFirstRenderKeyedChildren,
   updateElementChildren,
   updateForBoundaryChildren,
 } from './reconcile';
 import { _isDOMElement, type DOMElement } from '../types';
+import { tagNamesEqualIgnoreCase } from '../utils';
 import { __CONTROL_BOUNDARY__ } from '../../common/vnode';
 
 export { clearDOMRange } from './range';
