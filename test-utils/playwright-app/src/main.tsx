@@ -32,7 +32,7 @@ import { globalScheduler } from '../../../src/runtime/scheduler';
 import {
   getBenchMetrics,
   resetBenchMetrics,
-} from '../../../src/runtime/control/for';
+} from '../../../src/runtime/diagnostics/for-bench';
 import {
   getPerfMetrics,
   resetPerfMetrics,
