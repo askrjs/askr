@@ -34,7 +34,14 @@ export function canSyncKeyedMapMutate(
   return true;
 }
 
-export function getOrBuildDomKeyMap(
+/**
+ * Key map over the parent's raw element children.
+ *
+ * Shares the `keyedElements` cache with `getOrBuildLogicalChildKeyMap` in
+ * children/element-children.ts, which walks logical child hosts and steps over
+ * range interiors. See the note there.
+ */
+export function getOrBuildElementChildKeyMap(
   parent: Element
 ): Map<string | number, Element> | undefined {
   let keyMap = keyedElements.get(parent);
