@@ -609,6 +609,38 @@ describe('architecture boundaries', () => {
     }).toEqual({ unexpected: [], staleEntries: [] });
   });
 
+  it('should declare shared renderer host shapes once', () => {
+    // Consumers narrow the one host contract instead of restating its method
+    // shapes. A second declaration is how the copies drifted: the boundary
+    // host's local ElementWithContext silently dropped the symbol index
+    // signature that the renderer's carries.
+    const governed = new Set([
+      'ElementWithContext',
+      'SyncComponentElement',
+      'UpdateElementFromVnode',
+      'NativeDOMHost',
+    ]);
+    const declared = new Map<string, string[]>();
+    for (const { file, relative, source } of sources) {
+      if (area(file) !== 'renderer') continue;
+      const visit = (node: ts.Node): void => {
+        const name =
+          (ts.isTypeAliasDeclaration(node) ||
+            ts.isInterfaceDeclaration(node)) &&
+          node.name
+            ? node.name.text
+            : undefined;
+        if (name && governed.has(name))
+          declared.set(name, [...(declared.get(name) ?? []), relative]);
+        ts.forEachChild(node, visit);
+      };
+      visit(source);
+    }
+    expect(
+      [...declared.entries()].filter(([, sites]) => sites.length > 1)
+    ).toEqual([]);
+  });
+
   it('should keep subsystem imports on explicit runtime capability entrypoints', () => {
     const entrypoints = new Set([
       'src/runtime/index.ts',
