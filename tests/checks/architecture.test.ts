@@ -641,6 +641,29 @@ describe('architecture boundaries', () => {
     ).toEqual([]);
   });
 
+  it('should keep renderer modules free of import-time configuration', () => {
+    // Wiring a host is composition. Doing it at module scope means importing a
+    // renderer module for a type mutates global renderer state, and the order
+    // of unrelated imports decides whether a host is installed.
+    const violations: string[] = [];
+    for (const { file, relative, source } of sources) {
+      if (area(file) !== 'renderer') continue;
+      for (const statement of source.statements) {
+        if (
+          ts.isExpressionStatement(statement) &&
+          ts.isCallExpression(statement.expression)
+        )
+          violations.push(
+            `${relative}:${
+              source.getLineAndCharacterOfPosition(statement.getStart()).line +
+              1
+            } ${statement.expression.getText(source).slice(0, 40)}`
+          );
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+
   it('should keep subsystem imports on explicit runtime capability entrypoints', () => {
     const entrypoints = new Set([
       'src/runtime/index.ts',
