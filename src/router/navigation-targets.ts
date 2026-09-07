@@ -482,11 +482,12 @@ function commitNavigationRoots(
       reportRouteCleanupErrors(errors);
     },
     complete() {
+      // A superseded request must not publish: returning from inside the try
+      // below would still run the finally and release staged root state.
+      if (isStaleRouteRequest(requestId)) return;
       try {
-        if (isStaleRouteRequest(requestId)) return;
         updateHistory();
         setCurrentRouteLocation(pathname, href);
-        for (const root of roots) root.prepared.publish();
         syncRegisteredRouteSnapshot();
         reconcileNavigationMetadata(targets);
         updateScroll();
@@ -494,6 +495,7 @@ function commitNavigationRoots(
         completionFailure = { error };
         throw error;
       } finally {
+        // Publishes once on both the success and failure paths.
         for (const root of roots) root.prepared.publish();
       }
     },
