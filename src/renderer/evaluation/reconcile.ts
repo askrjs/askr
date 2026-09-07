@@ -1,9 +1,7 @@
 import { writeHostOwners } from '../ownership/nodes';
 import { logger } from '../../common/logger';
 import { getRuntimeEnv } from '../env';
-import type { Props } from '../../common/props';
 import type { ComponentInstance } from '../../runtime';
-import { elementListeners, updateElementRef } from '../ownership/cleanup';
 import { keyedElements } from '../reconciliation/keyed';
 import {
   createElementForNamespace,
@@ -29,18 +27,7 @@ import {
 } from '../children/element-children';
 import { setDevValue, incDevCounter } from '../../runtime';
 import { isFragmentType } from '../../common/jsx';
-import {
-  createWrappedHandler,
-  extractKey,
-  getMaterializedKey,
-  getEventListenerKey,
-  getEventListenerOptions,
-  isSkippedProp,
-  parseEventProp,
-  setRenderedAttribute,
-  tagNamesEqualIgnoreCase as sharedTagNamesEqualIgnoreCase,
-  writeElementClassName,
-} from '../utils';
+import { extractKey, getMaterializedKey } from '../utils';
 import { runRetainedElementUpdate } from '../ownership/retained-element';
 import { tryAdoptMatchingIntrinsicSubtree } from '../hydration/adoption';
 import { getLogicalChildHosts } from '../ownership/ranges';
@@ -93,10 +80,6 @@ interface NotSimpleTextResult {
 }
 
 type TextCheckResult = SimpleTextResult | NotSimpleTextResult;
-
-export function tagNamesEqualIgnoreCase(a: string, b: string): boolean {
-  return sharedTagNamesEqualIgnoreCase(a, b);
-}
 
 function checkSimpleText(vnodeChildren: unknown): TextCheckResult {
   if (!Array.isArray(vnodeChildren)) {
@@ -431,47 +414,6 @@ export function processFragmentChildren(
   updateElementChildren(target, childArray, cleanupRangeNode);
 }
 
-function applyPropsToElement(el: Element, props: Props): void {
-  for (const [key, value] of Object.entries(props)) {
-    if (key === 'ref') {
-      updateElementRef(el, value);
-      continue;
-    }
-
-    if (isSkippedProp(key)) continue;
-    if (value === undefined || value === null || value === false) continue;
-
-    const eventProp = parseEventProp(key);
-    if (eventProp) {
-      const { eventName, capture } = eventProp;
-      const wrappedHandler = createWrappedHandler(value as EventListener, true);
-      const options = getEventListenerOptions(eventName, capture);
-      const listenerKey = getEventListenerKey(eventName, capture);
-
-      if (options !== undefined)
-        el.addEventListener(eventName, wrappedHandler, options);
-      else el.addEventListener(eventName, wrappedHandler);
-
-      if (!elementListeners.has(el)) elementListeners.set(el, new Map());
-      elementListeners.get(el)!.set(listenerKey, {
-        handler: wrappedHandler,
-        original: value as EventListener,
-        eventName,
-        options,
-      });
-      continue;
-    }
-
-    if (key === 'class' || key === 'className') {
-      writeElementClassName(el, String(value));
-    } else if (key === 'value' || key === 'checked') {
-      (el as HTMLElement & Props)[key] = value;
-    } else {
-      setRenderedAttribute(el, key, String(value));
-    }
-  }
-}
-
 export function tryFirstRenderKeyedChildren(
   target: Element,
   vnode: DOMElement
@@ -487,7 +429,9 @@ export function tryFirstRenderKeyedChildren(
   );
   target.appendChild(el);
 
-  applyPropsToElement(el, vnode.props || {});
+  // Props go through the renderer's prop binding owner, not a local subset:
+  // children are committed below, so this applies props only.
+  getRendererDOMHost().updateElementFromVnode(el, vnode, false);
 
   const newKeyMap = reconcileKeyedChildren(el, children, undefined);
   keyedElements.set(el, newKeyMap);

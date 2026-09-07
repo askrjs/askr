@@ -1,6 +1,7 @@
 import { retireNodeSubtree } from '../ownership/cleanup';
 import { getRendererDOMHost } from '../dom-host';
-import { smartUpdateElement, tagNamesEqualIgnoreCase } from './reconcile';
+import { smartUpdateElement } from './reconcile';
+import { tagNamesEqualIgnoreCase } from '../utils';
 import { _isDOMElement } from '../types';
 import {
   createEmptyRange,

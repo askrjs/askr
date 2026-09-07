@@ -528,6 +528,35 @@ describe('architecture boundaries', () => {
     expect(found).toEqual(expected);
   });
 
+  it('should declare governed renderer operations on a single owner', () => {
+    // Each name here is an operation that must have exactly one implementation.
+    // A second declaration is how a lossy parallel path gets reintroduced.
+    const governed = new Set(['applyPropsToElement']);
+    const owners = new Map<string, string[]>();
+    for (const { file, relative, source } of sources) {
+      if (area(file) !== 'renderer') continue;
+      const visit = (node: ts.Node): void => {
+        const name =
+          ts.isFunctionDeclaration(node) && node.name
+            ? node.name.text
+            : ts.isVariableDeclaration(node) &&
+                ts.isIdentifier(node.name) &&
+                node.initializer &&
+                (ts.isArrowFunction(node.initializer) ||
+                  ts.isFunctionExpression(node.initializer))
+              ? node.name.text
+              : undefined;
+        if (name && governed.has(name))
+          owners.set(name, [...(owners.get(name) ?? []), relative]);
+        ts.forEachChild(node, visit);
+      };
+      visit(source);
+    }
+    expect(Object.fromEntries(owners)).toEqual({
+      applyPropsToElement: ['src/renderer/props/bindings.ts'],
+    });
+  });
+
   it('should keep subsystem imports on explicit runtime capability entrypoints', () => {
     const entrypoints = new Set([
       'src/runtime/index.ts',
