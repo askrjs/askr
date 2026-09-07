@@ -1,8 +1,3 @@
-import {
-  DOM_HOST_UNCONFIGURED,
-  type ElementWithContext,
-  type NativeDOMHost,
-} from '../dom-host';
 import { writeScopeHost } from '../ownership/scope-host';
 import { isFragmentType } from '../../common/jsx';
 import type { DOMRange } from '../../common/dom-range';
@@ -25,16 +20,34 @@ import {
 import { getVNodeComponentInstance } from '../component/host-instances';
 import { normalizeComponentChildren } from '../children/child-shape';
 import { getParentNamespace } from '../intrinsic/namespaces';
-import { _isDOMElement, type VNode } from '../types';
+import { _isDOMElement, type DOMElement, type VNode } from '../types';
 import { isHydrationAdoptionScopeActive } from '../hydration/adoption';
 
-export type BoundaryRangeDOMHost = Pick<
-  NativeDOMHost,
-  | 'createDOMNode'
-  | 'createResultNodeWithBlueprint'
-  | 'syncComponentElement'
-  | 'updateElementFromVnode'
->;
+export type BoundaryRangeDOMHost = {
+  createDOMNode(vnode: unknown, parentNamespace?: string): Node | null;
+  createResultNodeWithBlueprint(
+    owner: object,
+    vnode: unknown,
+    parentNamespace?: string
+  ): Node | null;
+  syncComponentElement(
+    currentDom: Node | null,
+    node: DOMElement,
+    type: ComponentFunction,
+    props: Record<string, unknown>,
+    parentNamespace?: string,
+    forceChildrenUpdate?: boolean,
+    retainedHostInstances?: Iterable<ComponentInstance>,
+    hydrationRangeEnd?: Node | null,
+    preserveHydrationCursorOnEmpty?: boolean
+  ): Node | null;
+  updateElementFromVnode(
+    el: Element,
+    vnode: VNode,
+    updateChildren?: boolean,
+    forceChildrenUpdate?: boolean
+  ): void;
+};
 
 let boundaryRangeHost: BoundaryRangeDOMHost | null = null;
 
@@ -44,7 +57,7 @@ export function configureBoundaryRangeHost(host: BoundaryRangeDOMHost): void {
 
 export function getBoundaryRangeHost(): BoundaryRangeDOMHost {
   if (!boundaryRangeHost) {
-    throw new Error(DOM_HOST_UNCONFIGURED);
+    throw new Error('[askr] Control boundary DOM host is not configured.');
   }
   return boundaryRangeHost;
 }
@@ -124,9 +137,7 @@ export function adoptHydratedRange(
     if (typeof expected.type === 'function') {
       const synced = host.syncComponentElement(
         actual,
-        // A control-boundary vnode may carry symbol-keyed context frames; the
-        // local host type used to omit that, which hid the difference.
-        expected as ElementWithContext,
+        expected,
         expected.type as ComponentFunction,
         ((expected.props ?? {}) as Record<string, unknown>) || {},
         getBoundaryParentNamespace(parent)
@@ -205,12 +216,12 @@ export function materializeChildScopeRange(
   scope?: ChildScope,
   scopeAlreadyActive = false
 ): DOMRange {
-  // One predicate for entry and restoration: repeating it invites the two
-  // sides to disagree, which leaks the commit scope silently.
-  const shouldEnterScope = Boolean(scope) && !scopeAlreadyActive;
-  const previousInstance = shouldEnterScope
-    ? enterDomCommitScope(scope!.componentInstance)
-    : null;
+  // One nullable snapshot is the single source of truth for "did we enter",
+  // so entry and restoration cannot disagree about the condition.
+  const commitScope =
+    scope && !scopeAlreadyActive
+      ? enterDomCommitScope(scope.componentInstance)
+      : null;
   let dom: Node | null;
   try {
     const host = getBoundaryRangeHost();
@@ -225,7 +236,7 @@ export function materializeChildScopeRange(
           )
         : host.createDOMNode(vnode, parentNamespace);
   } finally {
-    if (shouldEnterScope) restoreDomCommitScope(previousInstance);
+    if (commitScope) restoreDomCommitScope(commitScope);
   }
   if (!dom) return createEmptyRange(document, scope).range;
   if (!(dom instanceof DocumentFragment))
