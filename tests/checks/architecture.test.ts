@@ -745,6 +745,54 @@ describe('architecture boundaries', () => {
     expect(violations).toEqual([]);
   });
 
+  it('should mutate ambient component scope only through its primitive', () => {
+    // The three ambient scope fields must be assigned only by the snapshot
+    // primitive. Any other assignment is a scope variant that saves a subset
+    // and leaves the rest pointing at the previous component.
+    const ambient = new Set([
+      'currentInstance',
+      'currentPortalScope',
+      'stateIndex',
+    ]);
+    const owners = new Set([
+      'beginComponentScope',
+      'captureScope',
+      'restoreScope',
+      // Legacy named setter kept while its public re-export is frozen.
+      'setCurrentComponentInstance',
+      'resetStateIndex',
+      'setStateIndex',
+      'getNextStateIndex',
+    ]);
+    const scopeFile = sources.find(
+      ({ relative }) => relative === 'src/runtime/component/scope.ts'
+    )!;
+    const violations: string[] = [];
+    const enclosing = (node: ts.Node): string => {
+      for (let at: ts.Node | undefined = node; at; at = at.parent)
+        if (ts.isFunctionDeclaration(at) && at.name) return at.name.text;
+      return '<module>';
+    };
+    const visit = (node: ts.Node): void => {
+      if (
+        ts.isBinaryExpression(node) &&
+        node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+        ts.isIdentifier(node.left) &&
+        ambient.has(node.left.text) &&
+        !owners.has(enclosing(node))
+      )
+        violations.push(
+          `${enclosing(node)}:${node.left.text} @ ${scopeFile.relative}:${
+            scopeFile.source.getLineAndCharacterOfPosition(node.getStart())
+              .line + 1
+          }`
+        );
+      ts.forEachChild(node, visit);
+    };
+    visit(scopeFile.source);
+    expect(violations).toEqual([]);
+  });
+
   it('should keep subsystem imports on explicit runtime capability entrypoints', () => {
     const entrypoints = new Set([
       'src/runtime/index.ts',
