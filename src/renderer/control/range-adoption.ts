@@ -216,10 +216,12 @@ export function materializeChildScopeRange(
   scope?: ChildScope,
   scopeAlreadyActive = false
 ): DOMRange {
-  const previousInstance =
-    scope && !scopeAlreadyActive
-      ? enterDomCommitScope(scope.componentInstance)
-      : null;
+  // One predicate for entry and restoration: repeating it invites the two
+  // sides to disagree, which leaks the commit scope silently.
+  const shouldEnterScope = Boolean(scope) && !scopeAlreadyActive;
+  const previousInstance = shouldEnterScope
+    ? enterDomCommitScope(scope!.componentInstance)
+    : null;
   let dom: Node | null;
   try {
     const host = getBoundaryRangeHost();
@@ -234,7 +236,7 @@ export function materializeChildScopeRange(
           )
         : host.createDOMNode(vnode, parentNamespace);
   } finally {
-    if (scope && !scopeAlreadyActive) restoreDomCommitScope(previousInstance);
+    if (shouldEnterScope) restoreDomCommitScope(previousInstance);
   }
   if (!dom) return createEmptyRange(document, scope).range;
   if (!(dom instanceof DocumentFragment))

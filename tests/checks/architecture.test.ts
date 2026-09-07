@@ -557,6 +557,58 @@ describe('architecture boundaries', () => {
     });
   });
 
+  it('should create renderer DOM nodes through the configured host seam', () => {
+    // Node construction belongs to the DOM host. Files in `pending` still build
+    // nodes directly; that list must shrink, never grow. A file that stops
+    // bypassing the seam has to be removed from it, or this fails.
+    const factories = new Set([
+      'createElement',
+      'createElementNS',
+      'createTextNode',
+      'createComment',
+      'createDocumentFragment',
+    ]);
+    const permitted = new Set([
+      // Owns the native host implementation.
+      'src/renderer/dom-internal.ts',
+      // Failure-path UI: the fallback has to render when the renderer pipeline
+      // is the thing that failed, so it deliberately avoids the seam.
+      'src/renderer/component/error-boundary.ts',
+    ]);
+    const pending = new Set([
+      'src/renderer/children/children.ts',
+      'src/renderer/children/element-children.ts',
+      'src/renderer/children/reactive-children.ts',
+      'src/renderer/component/host-fresh-chain.ts',
+      'src/renderer/component/host-results.ts',
+      'src/renderer/control/materialization.ts',
+      'src/renderer/evaluation/range.ts',
+      'src/renderer/reconciliation/reconcile-commit.ts',
+    ]);
+    const bypassing = new Set<string>();
+    for (const { file, relative, source } of sources) {
+      if (area(file) !== 'renderer') continue;
+      const visit = (node: ts.Node): void => {
+        if (ts.isTypeNode(node)) return;
+        if (
+          ts.isPropertyAccessExpression(node) &&
+          ts.isIdentifier(node.expression) &&
+          node.expression.text === 'document' &&
+          factories.has(node.name.text)
+        )
+          bypassing.add(relative);
+        ts.forEachChild(node, visit);
+      };
+      visit(source);
+    }
+    expect({
+      unexpected: [...bypassing].filter(
+        (file) => !permitted.has(file) && !pending.has(file)
+      ),
+      staleEntries: [...pending].filter((file) => !bypassing.has(file)),
+    }).toEqual({ unexpected: [], staleEntries: [] });
+  });
+
   it('should keep subsystem imports on explicit runtime capability entrypoints', () => {
     const entrypoints = new Set([
       'src/runtime/index.ts',
