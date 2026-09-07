@@ -719,6 +719,37 @@ describe('architecture boundaries', () => {
     expect(launderers).toEqual([]);
   });
 
+  it('should reach the scheduler through runtime state, not the singleton', () => {
+    // globalScheduler is the default value of defaultRuntimeState.scheduler,
+    // not a second way to obtain one. Closing over it hardcodes the default and
+    // ignores a runtime constructed with its own scheduler. scheduler.ts may
+    // declare it; only runtime-state.ts may name it.
+    const violations: string[] = [];
+    for (const { file, relative, source } of sources) {
+      if (area(file) !== 'runtime') continue;
+      if (relative === 'src/runtime/runtime-state.ts') continue;
+      const visit = (node: ts.Node): void => {
+        const isDeclarationName =
+          node.parent &&
+          ts.isVariableDeclaration(node.parent) &&
+          node.parent.name === node;
+        if (
+          ts.isIdentifier(node) &&
+          node.text === 'globalScheduler' &&
+          !isDeclarationName
+        )
+          violations.push(
+            `${relative}:${
+              source.getLineAndCharacterOfPosition(node.getStart()).line + 1
+            }`
+          );
+        ts.forEachChild(node, visit);
+      };
+      visit(source);
+    }
+    expect(violations).toEqual([]);
+  });
+
   it('should keep subsystem imports on explicit runtime capability entrypoints', () => {
     const entrypoints = new Set([
       'src/runtime/index.ts',
