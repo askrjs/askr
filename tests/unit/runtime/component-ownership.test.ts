@@ -3,7 +3,7 @@ import { createComponentInstance } from '../../../src/runtime/component/instance
 import { cleanupComponent } from '../../../src/runtime/component/cleanup';
 import {
   getCurrentComponentInstance,
-  setCurrentComponentInstance,
+  beginComponentScope,
 } from '../../../src/runtime/component/scope';
 import {
   attachOwnership,
@@ -25,14 +25,14 @@ describe('component lifetime ownership', () => {
         throw new Error('configuration failed');
       },
     });
-    setCurrentComponentInstance(outer);
+    beginComponentScope({ instance: outer });
     try {
       expect(() => cleanupComponent(root)).toThrow('configuration failed');
       expect(getCurrentComponentInstance()).toBe(outer);
       expect(cleaned).toBe(true);
       expect(signal.aborted).toBe(true);
     } finally {
-      setCurrentComponentInstance(null);
+      beginComponentScope({ instance: null });
       cleanupComponent(outer);
     }
   });
@@ -92,7 +92,7 @@ describe('component lifetime ownership', () => {
           calls.push('grandchild');
         });
       }
-      setCurrentComponentInstance(outer);
+      beginComponentScope({ instance: outer });
       try {
         expect(() => cleanupComponent(root)).toThrow();
         expect(calls).toEqual([
@@ -110,7 +110,7 @@ describe('component lifetime ownership', () => {
         cleanupComponent(root);
         expect(calls).toHaveLength(count);
       } finally {
-        setCurrentComponentInstance(null);
+        beginComponentScope({ instance: null });
         cleanupComponent(outer);
       }
     }
@@ -177,11 +177,11 @@ describe('component lifetime ownership', () => {
     let child: ReturnType<typeof createComponentInstance>;
     let sibling: ReturnType<typeof createComponentInstance>;
     try {
-      setCurrentComponentInstance(root);
+      beginComponentScope({ instance: root });
       child = createComponentInstance('child', () => null, {}, null);
       sibling = createComponentInstance('sibling', () => null, {}, null);
     } finally {
-      setCurrentComponentInstance(null);
+      beginComponentScope({ instance: null });
     }
     child.cleanupStrict = true;
     sibling.cleanupStrict = true;
@@ -217,14 +217,14 @@ describe('component lifetime ownership', () => {
     });
     try {
       for (let index = 0; index < 10_000; index++) {
-        setCurrentComponentInstance(parent);
+        beginComponentScope({ instance: parent });
         parent = createComponentInstance(String(index), () => null, {}, null);
         ownCleanup(parent.owner, () => {
           cleaned++;
         });
       }
     } finally {
-      setCurrentComponentInstance(null);
+      beginComponentScope({ instance: null });
     }
     expect(() => cleanupComponent(root)).not.toThrow();
     expect(cleaned).toBe(10_001);

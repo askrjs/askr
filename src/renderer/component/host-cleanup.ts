@@ -1,7 +1,7 @@
 import { clearHostOwners, writeHostOwners } from '../ownership/nodes';
 import {
   cleanupComponent,
-  getCurrentInstance,
+  getCurrentComponentInstance,
   incDevCounter,
 } from '../../runtime';
 import {
@@ -36,7 +36,9 @@ export function retireComponentOwnersForIntrinsicReuse(
     // a slot-level path. Preserve that active owner and its outer wrappers;
     // owners before it belong to the departed nested component branch.
     const activeOwner =
-      retainedOwner === undefined ? getCurrentInstance() : retainedOwner;
+      retainedOwner === undefined
+        ? getCurrentComponentInstance()
+        : retainedOwner;
     const activeOwnerIndex = activeOwner ? instances.indexOf(activeOwner) : -1;
     const retainedInstances =
       activeOwnerIndex >= 0

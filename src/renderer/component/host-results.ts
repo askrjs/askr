@@ -3,7 +3,7 @@ import { isSSRPortalHydrationAnchor } from '../../common/portal';
 import {
   enterDomCommitScope,
   mountInstanceInline,
-  restoreDomCommitScope,
+  endComponentScope,
   type ComponentInstance,
 } from '../../runtime';
 import { isTransparentComponentResult } from '../children/child-shape';
@@ -122,7 +122,7 @@ export function materializeComponentResultNode(
       parentNamespace
     );
   } finally {
-    restoreDomCommitScope(previousInstance);
+    endComponentScope(previousInstance);
   }
 
   return materializeResolvedComponentResultNode(childInstance, result, dom);

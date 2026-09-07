@@ -1,5 +1,8 @@
 import { ownCleanup } from '../ownership/record';
-import { claimHookIndex, getCurrentInstance } from '../component/scope';
+import {
+  claimHookIndex,
+  getCurrentComponentInstance,
+} from '../component/scope';
 import { type ComponentInstance } from '../component/instance';
 import { requestRuntimeWork, getRuntimeFlushVersion } from '../access';
 import { ScheduledWork } from '../scheduled-work';
@@ -292,7 +295,7 @@ export function derive<TIn, TOut>(
   source: SnapshotSource<TIn> | TIn | (() => TIn),
   map?: (value: TIn) => TOut
 ): Derived<TOut | null> | Derived<TIn> {
-  const instance = getCurrentInstance();
+  const instance = getCurrentComponentInstance();
   if (!instance) {
     throw new Error(
       'derive() can only be called during component render execution. ' +

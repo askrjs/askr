@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vite-plus/test';
 import {
   createComponentInstance,
-  getCurrentInstance,
+  getCurrentComponentInstance,
   mountInstanceInline,
   type ComponentInstance,
 } from '../../../src/runtime';
@@ -128,7 +128,7 @@ describe('dom-range ownership reassignment (regression for #357)', () => {
   it('should release disposed component indexes and reject stale host publication', () => {
     let owner!: ComponentInstance;
     function Child() {
-      owner = getCurrentInstance()!;
+      owner = getCurrentComponentInstance()!;
       return jsx('span', { children: 'owned' });
     }
     const view = render(() => jsx(Child, {}));

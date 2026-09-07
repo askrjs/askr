@@ -4,7 +4,7 @@ import {
   beginCommitTransaction,
   discardTransaction,
   commitTransaction,
-  getCurrentInstance,
+  getCurrentComponentInstance,
   isBenchMetricScopeActive,
   recordBenchCounter,
 } from '../runtime';
@@ -410,8 +410,8 @@ function applyElementUpdateFromVnode(
     rememberDeferredHydrationVNode(
       el,
       vnode,
-      getCurrentInstance(),
-      getCurrentInstance()?.ownerFrame ?? null
+      getCurrentComponentInstance(),
+      getCurrentComponentInstance()?.ownerFrame ?? null
     );
     clearHydrationDeferredSubtree(el);
     return;

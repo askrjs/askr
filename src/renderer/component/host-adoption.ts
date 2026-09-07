@@ -2,7 +2,7 @@ import { isPromiseLike } from '../../common/promise';
 import { isSSRPortalHydrationAnchor } from '../../common/portal';
 import {
   createComponentInstance,
-  getCurrentInstance,
+  getCurrentComponentInstance,
   mountInstanceInline,
   renderComponentInline,
   type ComponentFunction,
@@ -84,12 +84,12 @@ export function adoptComponentHost(
   setComponentOwnershipIdentity(
     hydrationInstance,
     node,
-    getCurrentInstance(),
+    getCurrentComponentInstance(),
     0
   );
   hydrationInstance.isRoot = isRouteRootComponentVNode(node);
   hydrationInstance.portalScope =
-    getCurrentInstance()?.portalScope ?? hydrationInstance.portalScope;
+    getCurrentComponentInstance()?.portalScope ?? hydrationInstance.portalScope;
   inheritComponentCleanupStrict(hydrationInstance);
 
   const previousVNodeInstance = getVNodeComponentInstance(node);

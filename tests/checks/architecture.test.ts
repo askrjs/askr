@@ -758,10 +758,6 @@ describe('architecture boundaries', () => {
       'beginComponentScope',
       'captureScope',
       'restoreScope',
-      // Legacy named setter kept while its public re-export is frozen.
-      'setCurrentComponentInstance',
-      'resetStateIndex',
-      'setStateIndex',
       'getNextStateIndex',
     ]);
     const scopeFile = sources.find(
@@ -791,6 +787,40 @@ describe('architecture boundaries', () => {
     };
     visit(scopeFile.source);
     expect(violations).toEqual([]);
+  });
+
+  it('should not duplicate runtime accessors under a second name', () => {
+    // Two exported functions with the same body and the same declared return
+    // type are one operation wearing two names; callers then split arbitrarily
+    // between them, as getCurrentInstance and getCurrentComponentInstance did.
+    const bodies = new Map<string, string[]>();
+    for (const { file, relative, source } of sources) {
+      if (area(file) !== 'runtime') continue;
+      for (const statement of source.statements) {
+        if (
+          !ts.isFunctionDeclaration(statement) ||
+          !statement.name ||
+          !statement.body ||
+          !statement.modifiers?.some(
+            (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword
+          )
+        )
+          continue;
+        const body = statement.body.getText(source).replace(/\s+/g, ' ');
+        if (body === '{ }' || body === '{}') continue;
+        // Same body under a different declared return type is interface
+        // segregation over one value, not an alias, so keep the type in the key.
+        const returns = statement.type?.getText(source) ?? '';
+        const key = `${body} @@ ${statement.parameters.length} @@ ${returns}`;
+        bodies.set(key, [
+          ...(bodies.get(key) ?? []),
+          `${relative}:${statement.name.text}`,
+        ]);
+      }
+    }
+    expect([...bodies.values()].filter((sites) => sites.length > 1)).toEqual(
+      []
+    );
   });
 
   it('should keep subsystem imports on explicit runtime capability entrypoints', () => {

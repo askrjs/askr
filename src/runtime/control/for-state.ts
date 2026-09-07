@@ -16,7 +16,7 @@ import {
  */
 
 import { type ComponentInstance } from '../component/instance';
-import { getCurrentInstance } from '../component/scope';
+import { getCurrentComponentInstance } from '../component/scope';
 import { claimHookIndex } from '../component/scope';
 import type { VNode } from '../../common/vnode';
 import {
@@ -173,7 +173,7 @@ export function createForState<T>(
   renderFn: ForRenderItem<T>,
   fallback: VNode | null
 ): ForState<T> {
-  const parentInstance = getCurrentInstance();
+  const parentInstance = getCurrentComponentInstance();
   const scopeOwner = new OwnershipRecord();
   const scopeOwnership: ChildScopeOwnership = {
     add: (scope) => ownChild(scopeOwner, scope),
@@ -238,7 +238,7 @@ export function useForState<T>(
   renderFn: ForRenderItem<T>,
   fallback: VNode | null
 ): ForState<T> {
-  const instance = getCurrentInstance();
+  const instance = getCurrentComponentInstance();
   if (!instance) {
     throw new Error(
       'For can only be created during component render execution.'

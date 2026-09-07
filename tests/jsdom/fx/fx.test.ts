@@ -19,7 +19,7 @@ import {
   createComponentInstance,
   mountInstanceInline,
   registerMountOperation,
-  setCurrentComponentInstance,
+  beginComponentScope,
   type ComponentFunction,
 } from '../../../src/runtime';
 
@@ -32,7 +32,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   // Clear current instance
-  setCurrentComponentInstance(null);
+  beginComponentScope({ instance: null });
 });
 
 describe('FX layer', () => {
@@ -104,12 +104,12 @@ describe('FX layer', () => {
 
     // FX scheduling must not happen during render.
     // Simulate an effect/mount operation that runs after the first commit.
-    setCurrentComponentInstance(inst);
+    beginComponentScope({ instance: inst });
     registerMountOperation(() => {
       const cancel = scheduleTimeout(100, spy);
       return cancel;
     });
-    setCurrentComponentInstance(null);
+    beginComponentScope({ instance: null });
 
     // First mount executes mount operations and records cleanup.
     mountInstanceInline(inst, target);
@@ -164,7 +164,7 @@ describe('FX layer', () => {
   it('should be inert during SSR (handlers)', () => {
     const inst = createComponentInstance('id', noop, {}, null);
     inst.ssr = true;
-    setCurrentComponentInstance(inst);
+    beginComponentScope({ instance: inst });
 
     const spy = vi.fn();
     const deb = debounceEvent(100, spy);
@@ -173,19 +173,19 @@ describe('FX layer', () => {
     globalScheduler.flush();
     expect(spy).not.toHaveBeenCalled();
 
-    setCurrentComponentInstance(null);
+    beginComponentScope({ instance: null });
   });
 
   it('should throw when called during render (dev-only)', () => {
     // simulate render context
     const inst = createComponentInstance('id', noop, {}, null);
-    setCurrentComponentInstance(inst);
+    beginComponentScope({ instance: inst });
 
     const spy = vi.fn();
     const deb = debounceEvent(100, spy);
 
     expect(() => deb(new Event('x'))).toThrow();
 
-    setCurrentComponentInstance(null);
+    beginComponentScope({ instance: null });
   });
 });

@@ -2,7 +2,7 @@ import { isFragmentType, STATIC_CHILDREN } from '../../common/jsx';
 import { __CONTROL_BOUNDARY__ } from '../../common/vnode';
 import { hasTransparentComponentResult } from '../../common/control';
 import { logger } from '../../common/logger';
-import { getCurrentInstance } from '../../runtime';
+import { getCurrentComponentInstance } from '../../runtime';
 import { getRuntimeEnv } from '../env';
 import { _isDOMElement, type DOMElement } from '../types';
 import { isSkippedProp, parseEventName } from '../utils';
@@ -72,7 +72,7 @@ function warnMissingKeys(children: unknown[]): void {
   }
 
   if (elementCount > 1 && !hasKeys) {
-    const inst = getCurrentInstance();
+    const inst = getCurrentComponentInstance();
     const warnings = inst ? (inst.devWarningsEmitted ??= new Set()) : null;
     if (warnings?.has('missing-keys')) return;
     warnings?.add('missing-keys');

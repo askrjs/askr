@@ -5,7 +5,7 @@ import {
   rerenderChildScope,
   type ChildScope,
 } from '../../runtime';
-import { getCurrentInstance } from '../../runtime';
+import { getCurrentComponentInstance } from '../../runtime';
 import { incDevCounter } from '../../runtime';
 import {
   createFineGrainedEffect,
@@ -299,7 +299,7 @@ function setupReactiveChildBoundary(
   host: ReactiveChildDOMHost
 ): { cleanup: () => void; updateFn: (nextValue: unknown) => void } {
   let currentChildFn = childFn;
-  const parentInstance = getCurrentInstance();
+  const parentInstance = getCurrentComponentInstance();
   const entry: { scope: ChildScope; nodes: Node[] } = {
     scope: createChildScope(
       parentInstance,
@@ -360,7 +360,7 @@ function setupReactiveChildBoundarySequence(
   host: ReactiveChildDOMHost
 ): { cleanup: () => void; updateFn: (nextValue: unknown) => void } {
   let currentSource = source;
-  const parentInstance = getCurrentInstance();
+  const parentInstance = getCurrentComponentInstance();
   const entries: ReactiveChildBoundarySequenceEntry[] = [];
   const dynamicEntries: Array<{
     index: number;

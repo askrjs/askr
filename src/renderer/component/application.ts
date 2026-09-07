@@ -5,7 +5,7 @@ import {
   getRuntimeEvaluation,
   getRuntimeCleanup,
   enterDomCommitScope,
-  restoreDomCommitScope,
+  endComponentScope,
   getExecutionContextFrame,
   withContext,
   type ComponentInstance,
@@ -132,6 +132,6 @@ export function applyComponentResult(
       return true;
     });
   } finally {
-    restoreDomCommitScope(previousScope);
+    endComponentScope(previousScope);
   }
 }

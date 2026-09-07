@@ -22,18 +22,15 @@ export {
 } from './component/instance';
 export {
   claimHookIndex,
+  beginComponentScope,
+  endComponentScope,
   enterDomCommitScope,
   getCurrentComponentInstance,
   getCurrentAppRenderRuntime,
-  getCurrentInstance,
   getCurrentPortalScope,
   getCurrentStateIndex,
   getNextStateIndex,
   getSignal,
-  resetStateIndex,
-  restoreDomCommitScope,
-  setCurrentComponentInstance,
-  setStateIndex,
   withAppRenderRuntime,
 } from './component/scope';
 export {

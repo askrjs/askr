@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { state, type State } from '../../../src/runtime/reactivity/state';
 import {
-  getCurrentInstance,
+  getCurrentComponentInstance,
   type ComponentInstance,
 } from '../../../src/runtime';
 import { render } from '../../../src/testing';
@@ -15,7 +15,7 @@ describe('commit publication boundary', () => {
     let owner!: ComponentInstance;
     const view = render(() => <Child />);
     function Child() {
-      owner = getCurrentInstance()!;
+      owner = getCurrentComponentInstance()!;
       visible = state(false);
       return visible() ? <button>{'ready'}</button> : null;
     }
@@ -55,7 +55,7 @@ describe('commit publication boundary', () => {
     let retired = 0;
     let child!: ComponentInstance;
     function Previous() {
-      child = getCurrentInstance()!;
+      child = getCurrentComponentInstance()!;
       task(() => () => {
         retired++;
       });
@@ -109,7 +109,7 @@ describe('commit publication boundary', () => {
     const clicks: boolean[] = [];
     const refs: Array<[boolean, Element | null]> = [];
     function Child() {
-      owner = getCurrentInstance()!;
+      owner = getCurrentComponentInstance()!;
       phase = state(false);
       previousSource = state(1);
       nextSource = state(2);
