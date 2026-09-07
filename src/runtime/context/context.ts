@@ -388,42 +388,8 @@ function ContextFunctionChildInvoker(props: {
 }
 
 /**
- * Push a new context frame (for render entry)
- * Called by component runtime when render starts
- */
-export function pushContextFrame(): ContextFrame {
-  // Lazily allocate the `values` map to avoid per-render allocations when
-  // components do not use context. The map will be created when a provider
-  // sets a value or when a read discovers no map and needs to behave as empty.
-  const frame: ContextFrame = {
-    parent: currentContextFrame,
-    values: null,
-  };
-  currentContextFrame = frame;
-  return frame;
-}
-
-/**
- * Pop context frame (for render exit)
- * Called by component runtime when render ends
- */
-export function popContextFrame(): void {
-  if (currentContextFrame) {
-    currentContextFrame = currentContextFrame.parent;
-  }
-}
-
-/**
  * Get the current context frame for inspection (used by tests/diagnostics only)
  */
 export function getCurrentContextFrame(): ContextFrame | null {
-  return currentContextFrame;
-}
-
-/**
- * Get the top of the context snapshot stack (used by runtime when deciding
- * how to link snapshots for async continuations). Returns null if stack empty.
- */
-export function getTopContextSnapshot(): ContextFrame | null {
   return currentContextFrame;
 }

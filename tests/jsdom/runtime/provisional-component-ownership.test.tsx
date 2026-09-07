@@ -12,7 +12,7 @@ import {
   _resetDefaultPortal,
 } from '../../../src/foundations/structures/portal';
 import { getSignal, resource, task } from '../../../src/resources';
-import { getCurrentInstance } from '../../../src/runtime';
+import { getCurrentComponentInstance } from '../../../src/runtime';
 import {
   beginCommitTransaction,
   discardTransaction,
@@ -68,7 +68,7 @@ describe('provisional component ownership rollback', () => {
     function DeepOwner() {
       trackOwner('deep');
       if (shouldFail) {
-        const instance = getCurrentInstance()!;
+        const instance = getCurrentComponentInstance()!;
         instance.cleanupStrict = true;
         (instance.owner.cleanups ??= []).push(() => {
           throw new Error('deep cleanup failed');
@@ -172,7 +172,7 @@ describe('provisional component ownership rollback', () => {
     function IncomingInner() {
       trackIncoming('inner');
       if (incomingShouldFail) {
-        const instance = getCurrentInstance()!;
+        const instance = getCurrentComponentInstance()!;
         instance.cleanupStrict = true;
         (instance.owner.cleanups ??= []).push(() => {
           throw new Error('incoming cleanup failed');

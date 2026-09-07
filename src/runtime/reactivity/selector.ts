@@ -1,5 +1,8 @@
 import { ownCleanup } from '../ownership/record';
-import { claimHookIndex, getCurrentInstance } from '../component/scope';
+import {
+  claimHookIndex,
+  getCurrentComponentInstance,
+} from '../component/scope';
 import { type ComponentInstance } from '../component/instance';
 import {
   clearDerivedDependencySubscriptions,
@@ -590,7 +593,7 @@ export function selector<T>(
 ): Selector<T> {
   markReadableUsage(source);
 
-  const instance = getCurrentInstance();
+  const instance = getCurrentComponentInstance();
   if (!instance) {
     throw new Error(
       'selector() can only be called during component render execution. ' +

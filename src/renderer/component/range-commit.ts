@@ -5,7 +5,7 @@ import {
 import {
   enterDomCommitScope,
   getVNodeContextFrame,
-  restoreDomCommitScope,
+  endComponentScope,
   type ComponentFunction,
   type ComponentInstance,
 } from '../../runtime';
@@ -93,7 +93,7 @@ function replaceComponentRangeInTransaction(
         normalizeComponentChildren(wrapperResult.result) as VNode[]
       );
     } finally {
-      restoreDomCommitScope(previousInstance);
+      endComponentScope(previousInstance);
     }
     retainReplacementOwnerChain(host, instance, retainedInstances);
     pruneComponentHostInstances(host, retainedInstances);
@@ -210,7 +210,7 @@ function replaceComponentRangeInTransaction(
         return placeholder;
       }
     } finally {
-      restoreDomCommitScope(previousInstance);
+      endComponentScope(previousInstance);
     }
   }
 

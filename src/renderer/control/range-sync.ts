@@ -4,7 +4,7 @@ import { joinChildScopePreparation } from '../../runtime/ownership/child-scope';
 import type { DOMRange } from '../../common/dom-range';
 import {
   enterDomCommitScope,
-  restoreDomCommitScope,
+  endComponentScope,
   type ChildScope,
   type ComponentFunction,
 } from '../../runtime';
@@ -216,6 +216,6 @@ export function syncControlBoundaryScopeDom(
     if (!registered) removeRange(previousRange, teardownBoundaryRangeNode);
     return nextRange;
   } finally {
-    restoreDomCommitScope(previousInstance);
+    endComponentScope(previousInstance);
   }
 }

@@ -104,10 +104,6 @@ export function getCurrentComponentInstance(): ComponentInstance | null {
   return currentInstance;
 }
 
-export function getCurrentInstance(): ComponentInstance | null {
-  return currentInstance;
-}
-
 export function getCurrentAppRenderRuntime(): AppRenderRuntime | undefined {
   let instance = currentInstance;
   while (instance) {
@@ -129,13 +125,6 @@ export function withAppRenderRuntime<T>(
   } finally {
     scopedAppRenderRuntime = previous;
   }
-}
-
-export function setCurrentComponentInstance(
-  instance: ComponentInstance | null
-): void {
-  currentInstance = instance;
-  currentPortalScope = instance?.portalScope ?? null;
 }
 
 export function getCurrentPortalScope(): object | null {
@@ -216,20 +205,8 @@ export function enterRenderScopedComponent(
   return beginComponentScope({ instance, stateIndex: startStateIndex });
 }
 
-export function restoreRenderScopedComponent(
-  snapshot: ComponentScopeSnapshot
-): void {
-  endComponentScope(snapshot);
-}
-
 export function captureInlineComponentScope(): ComponentScopeSnapshot {
   return beginComponentScope({});
-}
-
-export function restoreInlineComponentScope(
-  snapshot: ComponentScopeSnapshot
-): void {
-  endComponentScope(snapshot);
 }
 
 export function enterComponentExecutionScope(
@@ -238,30 +215,14 @@ export function enterComponentExecutionScope(
   return beginComponentScope({ instance, stateIndex: 0 });
 }
 
-export function exitComponentExecutionScope(
-  snapshot: ComponentScopeSnapshot
-): void {
-  endComponentScope(snapshot);
-}
-
 export function enterDomCommitScope(
   instance: ComponentInstance
 ): ComponentScopeSnapshot {
   return beginComponentScope({ instance });
 }
 
-export function restoreDomCommitScope(snapshot: ComponentScopeSnapshot): void {
-  endComponentScope(snapshot);
-}
-
 export function clearCurrentComponentScope(): ComponentScopeSnapshot {
   return beginComponentScope({ instance: null, portalScope: null });
-}
-
-export function restoreCurrentComponentScope(
-  snapshot: ComponentScopeSnapshot
-): void {
-  endComponentScope(snapshot);
 }
 
 export function getNextStateIndex(): number {
@@ -314,12 +275,4 @@ export function claimHookIndex(
 
 export function getCurrentStateIndex(): number {
   return stateIndex;
-}
-
-export function resetStateIndex(): void {
-  stateIndex = 0;
-}
-
-export function setStateIndex(value: number): void {
-  stateIndex = value;
 }

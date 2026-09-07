@@ -13,7 +13,10 @@ import {
   renderScopedComponent,
   type ComponentInstance,
 } from '../component/instance';
-import { getCurrentInstance, getCurrentStateIndex } from '../component/scope';
+import {
+  getCurrentComponentInstance,
+  getCurrentStateIndex,
+} from '../component/scope';
 import { finalizeInlineReadSubscriptions } from '../component/lifecycle';
 import { clearRenderTracking } from '../component/scope';
 import { isDevelopmentEnvironment } from '../../common/env';
@@ -88,7 +91,7 @@ const childScopesByInstance = new WeakMap<
 >();
 
 function executeChildScopeComponent(): VNode {
-  const instance = getCurrentInstance();
+  const instance = getCurrentComponentInstance();
   const scope = instance ? childScopesByInstance.get(instance) : undefined;
   if (!scope?._renderFn) {
     return null;

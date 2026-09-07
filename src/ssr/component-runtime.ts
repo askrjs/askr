@@ -16,7 +16,7 @@ import {
 } from '../runtime';
 import {
   enterRenderScopedComponent,
-  restoreRenderScopedComponent,
+  endComponentScope,
 } from '../runtime/component/scope';
 import type { ContextFrame } from '../runtime';
 import {
@@ -139,7 +139,7 @@ export function executeComponentSync(
         | VNode
         | JSXElement;
     } finally {
-      restoreRenderScopedComponent(previous);
+      endComponentScope(previous);
     }
   } finally {
     if (process.env.NODE_ENV !== 'production') popSSRStrictPurityGuard();

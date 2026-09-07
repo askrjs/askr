@@ -15,7 +15,7 @@ export { ScheduledWork } from './scheduled-work';
 export { SCHEDULER_LANES } from './scheduler';
 import {
   clearCurrentComponentScope,
-  restoreCurrentComponentScope,
+  endComponentScope,
 } from './component/scope';
 
 type RuntimeTask = () => void;
@@ -75,7 +75,7 @@ export function runRuntimeHandlerScope<T>(
   try {
     return getRuntimeScheduler().runInHandlerScope(fn, flushMode);
   } finally {
-    restoreCurrentComponentScope(savedScope);
+    endComponentScope(savedScope);
   }
 }
 

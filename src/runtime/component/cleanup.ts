@@ -1,10 +1,7 @@
 import { isDevelopmentEnvironment } from '../../common/env';
 import { logger } from '../../common/logger';
 import type { ComponentInstance } from './instance';
-import {
-  clearCurrentComponentScope,
-  restoreCurrentComponentScope,
-} from './scope';
+import { clearCurrentComponentScope, endComponentScope } from './scope';
 import { cleanupReadableSubscriptionSources } from '../reactivity/readable';
 import { untrackRouteGeneration } from '../diagnostics/ownership-diagnostics';
 import { warnUnusedStateReads } from '../diagnostics/state-diagnostics';
@@ -72,7 +69,7 @@ function componentDisposalPhases(owner: OwnershipRecord): DisposalPhases {
             `Cleanup failed for component ${instance.id}`
           );
       } finally {
-        restoreCurrentComponentScope(savedScope);
+        endComponentScope(savedScope);
       }
     },
   };

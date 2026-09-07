@@ -3,7 +3,7 @@ import { isFragmentType } from '../../common/jsx';
 import type { DOMRange } from '../../common/dom-range';
 import {
   enterDomCommitScope,
-  restoreDomCommitScope,
+  endComponentScope,
   type ChildScope,
   type ComponentFunction,
   type ComponentInstance,
@@ -236,7 +236,7 @@ export function materializeChildScopeRange(
           )
         : host.createDOMNode(vnode, parentNamespace);
   } finally {
-    if (commitScope) restoreDomCommitScope(commitScope);
+    if (commitScope) endComponentScope(commitScope);
   }
   if (!dom) return createEmptyRange(document, scope).range;
   if (!(dom instanceof DocumentFragment))

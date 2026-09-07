@@ -2,7 +2,10 @@ import { setComponentVNodeIdentity } from '../../runtime/component/capabilities'
 import { ROUTE_ROOT_COMPONENT } from '../../common/router-internal';
 import type { Props } from '../../common/props';
 import { isProductionEnvironment } from '../../common/env';
-import { getCurrentInstance, type ComponentInstance } from '../../runtime';
+import {
+  getCurrentComponentInstance,
+  type ComponentInstance,
+} from '../../runtime';
 import { getDevValue, incDevCounter } from '../../runtime';
 import { getOwnedRange, RANGE_START_MARKER } from '../ownership/ranges';
 import type { InstanceHostNode } from '../dom-host';
@@ -23,7 +26,7 @@ export function isRouteRootComponentVNode(node: unknown): boolean {
 export function inheritComponentCleanupStrict(
   instance: ComponentInstance
 ): void {
-  const owner = getCurrentInstance();
+  const owner = getCurrentComponentInstance();
   if (owner) {
     instance.cleanupStrict = owner.cleanupStrict;
   }

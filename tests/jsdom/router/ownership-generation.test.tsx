@@ -13,7 +13,7 @@ import { task } from '../../../src/runtime/operations';
 import { definePortal, Portal } from '../../../src/runtime/portal/portal';
 import {
   defineScope,
-  getCurrentInstance,
+  getCurrentComponentInstance,
   readScope,
   type ComponentInstance,
 } from '../../../src/runtime';
@@ -127,7 +127,7 @@ describe('route ownership generations', () => {
     const cleanupCounts = new Map<ComponentInstance, number>();
 
     const recordInstance = (routeName: string): void => {
-      const instance = getCurrentInstance();
+      const instance = getCurrentComponentInstance();
       expect(instance).not.toBeNull();
       const instances = routeInstances.get(routeName) ?? new Set();
       instances.add(instance!);
@@ -245,7 +245,7 @@ describe('route ownership generations', () => {
     const routeInstances = new Map<string, Set<ComponentInstance>>();
 
     const recordInstance = (routeName: string): void => {
-      const instance = getCurrentInstance()!;
+      const instance = getCurrentComponentInstance()!;
       const instances = routeInstances.get(routeName) ?? new Set();
       instances.add(instance);
       routeInstances.set(routeName, instances);
@@ -819,7 +819,7 @@ describe('route ownership generations', () => {
 
     route('/a', () => {
       departed = state(0);
-      const instance = getCurrentInstance()!;
+      const instance = getCurrentComponentInstance()!;
       (instance.owner.cleanups ??= []).push(() => departed!.set(1));
       return <p>{String(departed())}</p>;
     });

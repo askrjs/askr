@@ -12,7 +12,7 @@ import {
   type ChildScope,
   type ChildScopeTransactionSnapshot,
 } from '../ownership/child-scope';
-import { getCurrentInstance } from '../component/scope';
+import { getCurrentComponentInstance } from '../component/scope';
 import { type ComponentInstance } from '../component/instance';
 import type { ForState } from './for';
 import { registerCommitParticipant } from '../transactions/access';
@@ -311,7 +311,7 @@ export function createShowState(
     fallbackScope: null,
     lastRemovedNodes: [],
     lastRemovedRanges: [],
-    parentInstance: getCurrentInstance(),
+    parentInstance: getCurrentComponentInstance(),
     _enqueueBoundaryCommit: null,
     _hasPendingBoundaryCommit: false,
     _transaction: null,
@@ -406,7 +406,7 @@ export function createCaseState(
     lastRemovedNodes: [],
     lastRemovedRanges: [],
     matches,
-    parentInstance: getCurrentInstance(),
+    parentInstance: getCurrentComponentInstance(),
     _enqueueBoundaryCommit: null,
     _hasPendingBoundaryCommit: false,
     _transaction: null,
