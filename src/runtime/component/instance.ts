@@ -57,14 +57,11 @@ import {
   clearRenderTracking,
   enterComponentExecutionScope,
   enterRenderScopedComponent,
-  exitComponentExecutionScope,
+  endComponentScope,
   getCurrentComponentInstance,
-  getCurrentInstance,
   getCurrentPortalScope,
   resetRenderState,
-  restoreInlineComponentScope,
   restoreInlineRenderTracking,
-  restoreRenderScopedComponent,
 } from './scope';
 import { DIRECT_RANGE_OWNER } from '../../common/dom-range';
 
@@ -137,7 +134,7 @@ export function createComponentInstance(
   target: Element | null,
   lifetimeParent?: OwnershipRecord | null
 ): ComponentInstance {
-  const parentInstance = getCurrentInstance();
+  const parentInstance = getCurrentComponentInstance();
   const portalScope = parentInstance?.portalScope ?? getCurrentPortalScope();
   const instance: ComponentInstance & { __proto__: object } = {
     __proto__: componentRecordPrototype,
@@ -258,7 +255,7 @@ export function renderScopedComponent<T>(
     if (!didComplete) {
       clearRenderTracking(instance);
     }
-    restoreRenderScopedComponent(savedScope);
+    endComponentScope(savedScope);
   }
 }
 
@@ -308,7 +305,7 @@ export function renderComponentInline(
   } finally {
     // Restore previous token/read states for nested inline render scenarios
     restoreInlineRenderTracking(instance, trackingSnapshot);
-    restoreInlineComponentScope(scopeSnapshot);
+    endComponentScope(scopeSnapshot);
   }
 }
 
@@ -373,7 +370,7 @@ function executeComponentSync(
       discardCommitOperations(instance);
     }
     // Synchronous path: we did not push a fresh frame, so nothing to pop here.
-    exitComponentExecutionScope(savedPortalScope);
+    endComponentScope(savedPortalScope);
   }
 }
 

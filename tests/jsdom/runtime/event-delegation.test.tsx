@@ -35,7 +35,7 @@ import { state } from '../../../src/runtime/reactivity/state';
 import {
   enterDomCommitScope,
   getCurrentComponentInstance,
-  restoreDomCommitScope,
+  endComponentScope,
   type ComponentInstance,
 } from '../../../src/runtime';
 
@@ -326,7 +326,7 @@ describe('event delegation', () => {
       try {
         container.querySelector<HTMLButtonElement>('#commit-event')!.click();
       } finally {
-        restoreDomCommitScope(previousInstance);
+        endComponentScope(previousInstance);
       }
       flushScheduler();
 

@@ -4,7 +4,7 @@ import { createIsland, createSPA, cleanupApp, hasApp } from '@askrjs/askr/boot';
 import { state, type State } from '../../../src';
 import { Link } from '../../../src/components/link';
 import { getSignal } from '../../../src/resources';
-import { getCurrentInstance } from '../../../src/runtime';
+import { getCurrentComponentInstance } from '../../../src/runtime';
 import { isRoutePathActive, onRouteChange } from '../../../src/router/activity';
 import { navigate } from '../../../src/router/navigate';
 import {
@@ -127,7 +127,7 @@ describe('multi-root SPA isolation', () => {
             getSignal().addEventListener('abort', () => {
               candidateAborts += 1;
             });
-            const instance = getCurrentInstance()!;
+            const instance = getCurrentComponentInstance()!;
             (instance.owner.cleanups ??= []).push(() => {
               candidateCleanups += 1;
               candidateState.set(1);

@@ -2,9 +2,9 @@ import { isPromiseLike } from '../../common/promise';
 import {
   prepareRetainedComponentUpdate,
   enterDomCommitScope,
-  getCurrentInstance,
+  getCurrentComponentInstance,
   renderComponentInline,
-  restoreDomCommitScope,
+  endComponentScope,
   type ComponentFunction,
   type ComponentInstance,
 } from '../../runtime';
@@ -76,7 +76,7 @@ export function updateRetainedComponentHost(
     props || {},
     node,
     extractComponentIdentityKey,
-    getCurrentInstance(),
+    getCurrentComponentInstance(),
     isRouteRootComponentVNode,
     snapshot
   );
@@ -109,7 +109,7 @@ export function updateRetainedComponentHost(
         normalizeComponentChildren(wrapperResult.result) as VNode[]
       );
     } finally {
-      restoreDomCommitScope(previousInstance);
+      endComponentScope(previousInstance);
     }
     pruneComponentHostInstances(existingHost, liveRetainedInstances);
     return existingHost;
@@ -175,7 +175,7 @@ export function updateRetainedComponentHost(
         forceChildrenUpdate || existingInstance.owner.mounted === false
       );
     } finally {
-      restoreDomCommitScope(previousInstance);
+      endComponentScope(previousInstance);
     }
   }
   if (didSyncResolvedRange) {

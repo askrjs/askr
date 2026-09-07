@@ -3,7 +3,7 @@ import type { Props } from '../../common/props';
 import {
   captureInlineRenderSnapshot,
   createComponentInstance,
-  getCurrentInstance,
+  getCurrentComponentInstance,
   renderComponentInline,
   type ComponentFunction,
 } from '../../runtime';
@@ -60,7 +60,7 @@ export function createComponentElement(
   }
 
   const previousVNodeInstance = getVNodeComponentInstance(node);
-  const currentParent = getCurrentInstance();
+  const currentParent = getCurrentComponentInstance();
   let childInstance =
     previousVNodeInstance &&
     hasComponentOwnershipIdentity(
@@ -95,8 +95,13 @@ export function createComponentElement(
     }
 
     childInstance.portalScope =
-      getCurrentInstance()?.portalScope ?? childInstance.portalScope;
-    setComponentOwnershipIdentity(childInstance, node, getCurrentInstance(), 0);
+      getCurrentComponentInstance()?.portalScope ?? childInstance.portalScope;
+    setComponentOwnershipIdentity(
+      childInstance,
+      node,
+      getCurrentComponentInstance(),
+      0
+    );
 
     childInstance.props = props || {};
     childInstance.isRoot = isRouteRootComponentVNode(node);

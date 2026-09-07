@@ -3,7 +3,7 @@ import {
   runCommitOperation,
 } from '../../runtime/transactions/access';
 import {
-  getCurrentInstance,
+  getCurrentComponentInstance,
   type ComponentFunction,
   type ComponentInstance,
 } from '../../runtime';
@@ -83,14 +83,14 @@ function syncComponentElementInTransaction(
           existingHost,
           type,
           node,
-          getCurrentInstance(),
+          getCurrentComponentInstance(),
           0
         )
       : findHostInstanceByType(
           existingHost,
           type,
           node,
-          getCurrentInstance(),
+          getCurrentComponentInstance(),
           0
         )
     : null;

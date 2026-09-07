@@ -11,7 +11,10 @@
  * - state.set() callback (notifyUpdate) always available
  */
 
-import { claimHookIndex, getCurrentInstance } from '../component/scope';
+import {
+  claimHookIndex,
+  getCurrentComponentInstance,
+} from '../component/scope';
 import { type ComponentInstance } from '../component/instance';
 import { deferCommitNotification } from '../transactions/access';
 import { isProductionEnvironment } from '../../common/env';
@@ -82,7 +85,7 @@ export type StateTuple<T> = [get: State<T>, set: StateSetter<T>] & State<T>;
  */
 export function state<T>(initialValue: T): StateTuple<T> {
   // INVARIANT: state() must be called during component render
-  const instance = getCurrentInstance();
+  const instance = getCurrentComponentInstance();
   if (!instance) {
     throw new Error(
       'state() can only be called during component render execution. ' +
@@ -158,7 +161,7 @@ function createStateCell<T>(
   read.set = (newValueOrUpdater: T | ((prev: T) => T)): void => {
     // INVARIANT: State cannot be mutated during component render
     // (when currentInstance is non-null). It must be scheduled for consistency.
-    const currentInst = getCurrentInstance();
+    const currentInst = getCurrentComponentInstance();
     if (currentInst !== null) {
       throw new Error(
         `[Askr] state.set() cannot be called during component render. ` +

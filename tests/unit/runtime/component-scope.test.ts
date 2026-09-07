@@ -17,11 +17,9 @@ import {
   endComponentScope,
   enterComponentExecutionScope,
   enterDomCommitScope,
-  exitComponentExecutionScope,
   getCurrentComponentInstance,
   getCurrentStateIndex,
-  restoreDomCommitScope,
-  setStateIndex,
+  getNextStateIndex,
   withComponentScope,
   type ComponentScopeSnapshot,
 } from '../../../src/runtime/component/scope';
@@ -57,7 +55,7 @@ describe('component scope primitive (RUNTIME)', () => {
     const before = beginComponentScope({ stateIndex: 3 });
 
     withComponentScope({ instance: fakeInstance() }, () => {
-      setStateIndex(99);
+      getNextStateIndex();
     });
 
     // The entry named only `instance`, but restoration still owns all three.
@@ -95,11 +93,11 @@ describe('component scope primitive (RUNTIME)', () => {
 describe('scope pairs built on the primitive (RUNTIME)', () => {
   it('should restore the hook cursor after a DOM commit scope', () => {
     const before = beginComponentScope({ instance: fakeInstance() });
-    setStateIndex(5);
+    for (let i = 0; i < 5; i += 1) getNextStateIndex();
 
     const commitScope = enterDomCommitScope(fakeInstance());
-    setStateIndex(11);
-    restoreDomCommitScope(commitScope);
+    getNextStateIndex();
+    endComponentScope(commitScope);
 
     // Previously enterDomCommitScope saved only the instance, so the cursor
     // stayed at 11 and belonged to a different component than the one the
@@ -113,7 +111,7 @@ describe('scope pairs built on the primitive (RUNTIME)', () => {
     const before = beginComponentScope({ instance: outer });
 
     const executionScope = enterComponentExecutionScope(fakeInstance());
-    exitComponentExecutionScope(executionScope);
+    endComponentScope(executionScope);
 
     // Previously this nulled the instance unconditionally, losing the outer
     // scope rather than restoring it.
