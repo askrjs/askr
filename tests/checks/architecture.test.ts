@@ -502,6 +502,32 @@ describe('architecture boundaries', () => {
     expect(violations).toEqual([]);
   });
 
+  it('should own router request cancellation in one module', () => {
+    // Navigation cancellation belongs to the module owning the request
+    // lifetime. resolution.ts keeps one documented never-aborting stand-in for
+    // callers that supply no signal; anything else is a second, silent
+    // cancellation channel.
+    const expected = {
+      'src/router/navigation-targets.ts': 1,
+      'src/router/resolution.ts': 1,
+    };
+    const found: Record<string, number> = {};
+    for (const { file, relative, source } of sources) {
+      if (area(file) !== 'router') continue;
+      const visit = (node: ts.Node): void => {
+        if (
+          ts.isNewExpression(node) &&
+          ts.isIdentifier(node.expression) &&
+          node.expression.text === 'AbortController'
+        )
+          found[relative] = (found[relative] ?? 0) + 1;
+        ts.forEachChild(node, visit);
+      };
+      visit(source);
+    }
+    expect(found).toEqual(expected);
+  });
+
   it('should keep subsystem imports on explicit runtime capability entrypoints', () => {
     const entrypoints = new Set([
       'src/runtime/index.ts',

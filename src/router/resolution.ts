@@ -339,6 +339,15 @@ function resolveMatchedRoute(
     : continueResolution(decision);
 }
 
+/**
+ * Callers may omit `signal`, and `RouteRequestOptions.signal` is optional in the
+ * published contract. Route context still needs an `AbortSignal`, so this stands
+ * in for "this caller supplied no cancellation". It never aborts: a route loader
+ * receiving it cannot be cancelled through `context.signal`. Prefer passing a
+ * real signal.
+ */
+const NEVER_ABORTED: AbortSignal = new AbortController().signal;
+
 /** Resolve `target` against a route registry, applying auth/policies to produce a render/redirect/deny result. */
 export function resolveRouteRequest(
   target: string,
@@ -356,9 +365,7 @@ export function resolveRouteRequest(
     if (!match) return null;
     const mode = options.mode ?? getDefaultRouteMode();
     const signal =
-      options.signal ??
-      getActiveRenderContext()?.signal ??
-      new AbortController().signal;
+      options.signal ?? getActiveRenderContext()?.signal ?? NEVER_ABORTED;
     const authOptions = getActiveRouteAuthOptions(
       options.auth ?? options.registry.manifest.auth
     );
