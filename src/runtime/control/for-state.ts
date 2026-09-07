@@ -50,18 +50,6 @@ import {
 declare const __ASKR_BENCH_BUILD__: boolean;
 const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
 
-export {
-  getBenchMetrics,
-  isBenchMetricScopeActive,
-  recordBenchEvent,
-  recordBenchCounter,
-  recordBenchTiming,
-  resetBenchMetrics,
-  withBenchMetricScope,
-} from '../diagnostics/for-bench';
-
-export { reconcileForItems };
-
 export type ForCommitStrategy =
   | 'APPEND'
   | 'INSERT_ONE'

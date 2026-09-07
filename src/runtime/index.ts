@@ -52,6 +52,15 @@ export {
 } from './component/lifecycle';
 export * from './control/branches';
 export * from './diagnostics/dev-namespace';
+export {
+  getBenchMetrics,
+  isBenchMetricScopeActive,
+  recordBenchEvent,
+  recordBenchCounter,
+  recordBenchTiming,
+  resetBenchMetrics,
+  withBenchMetricScope,
+} from './diagnostics/for-bench';
 export * from './reactivity/derive';
 export * from './reactivity/effect';
 export * from './component/error-boundary';
