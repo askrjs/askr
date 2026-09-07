@@ -277,7 +277,14 @@ function restoreFormControl(
   }
 }
 
-function applyRefValue<T>(ref: unknown, value: T | null): void {
+/**
+ * Restore a ref during rollback, discarding any error it raises.
+ *
+ * Distinct from `applyRefValue` in ownership/cleanup.ts, which lets the error
+ * propagate. Rollback runs while an earlier render error is being handled, so a
+ * failing ref must not replace it.
+ */
+function applyRefValueForRollback<T>(ref: unknown, value: T | null): void {
   try {
     setRef(ref as Ref<T>, value);
   } catch {
@@ -290,11 +297,11 @@ function restoreRef(element: Element, snapshot: RetainedElementSnapshot): void {
   if (currentRef === snapshot.ref) return;
 
   if (currentRef !== snapshot.ref) {
-    applyRefValue(currentRef, null);
+    applyRefValueForRollback(currentRef, null);
   }
 
   if (snapshot.ref) {
-    applyRefValue(snapshot.ref, element);
+    applyRefValueForRollback(snapshot.ref, element);
     replaceElementRefBookkeeping(element, snapshot.ref);
   } else {
     replaceElementRefBookkeeping(element, undefined);

@@ -32,7 +32,14 @@ import { getControlBoundaryState } from '../control/state';
 import { registerControlBoundaryRangeCommitOwner } from '../control/commit-owner';
 import { _isDOMElement, type VNode } from '../types';
 
-export function captureRangeFocus(
+/**
+ * Capture focus anywhere inside `parent`, restoring it against the range child
+ * that held it.
+ *
+ * Distinct from `captureRangeFocus` in ownership/ranges.ts, which captures only
+ * when the active element is inside the range itself.
+ */
+export function captureParentFocus(
   range: DOMRange,
   parent: Element
 ): () => void {
@@ -441,7 +448,7 @@ export function syncTransparentRange(
     return false;
   }
 
-  const restoreFocus = captureRangeFocus(range, parent);
+  const restoreFocus = captureParentFocus(range, parent);
   const normalizedChildren = normalizeComponentChildren(result) as VNode[];
   const preserveForeignHosts = Array.isArray(result);
   const staging = createAttributeFreeStagingHost(parent);
