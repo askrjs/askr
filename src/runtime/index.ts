@@ -87,10 +87,6 @@ export {
   type RenderDiagnosticsOptions,
 } from './diagnostics/render-diagnostics';
 export type { RendererCapabilities } from './renderer-capabilities';
-export {
-  scheduleEventHandler,
-  type Scheduler,
-  type SchedulerLane,
-} from './scheduler';
+export { type Scheduler, type SchedulerLane } from './scheduler';
 export * from './reactivity/selector';
 export * from './reactivity/state';
