@@ -664,6 +664,43 @@ describe('architecture boundaries', () => {
     expect(violations).toEqual([]);
   });
 
+  it('should not declare one renderer operation name in two modules', () => {
+    // Two functions sharing a name across modules read as one operation. That
+    // hid a real difference: both key-map builders wrote the same
+    // `keyedElements` cache while traversing the DOM by different rules.
+    const declared = new Map<string, string[]>();
+    for (const { file, relative, source } of sources) {
+      if (area(file) !== 'renderer') continue;
+      for (const statement of source.statements) {
+        const name = ts.isFunctionDeclaration(statement)
+          ? statement.name?.text
+          : undefined;
+        if (!name) continue;
+        const sites = declared.get(name) ?? [];
+        if (!sites.includes(relative)) declared.set(name, [...sites, relative]);
+      }
+    }
+    const shared = [...declared.entries()]
+      .filter(([, sites]) => sites.length > 1)
+      .map(([name, sites]) => `${name}: ${sites.join(', ')}`)
+      .sort();
+    // Names still shared across renderer modules. This list must shrink.
+    // Each entry is one operation name with two module-local definitions, so a
+    // reader cannot tell which one a call site means. The key-map builders used
+    // to be a tenth entry, and they differed: one walked logical child hosts and
+    // stepped over range interiors, the other walked raw element children, and
+    // both wrote the same `keyedElements` cache.
+    expect(shared).toEqual([
+      'applyRefValue: src/renderer/ownership/cleanup.ts, src/renderer/ownership/retained-element.ts',
+      'captureRangeFocus: src/renderer/component/fragment-range.ts, src/renderer/ownership/ranges.ts',
+      'getPassiveOptions: src/renderer/props/events.ts, src/renderer/utils.ts',
+      'isControlBoundaryVNode: src/renderer/children/element-children.ts, src/renderer/reconciliation/reconcile-resolution.ts',
+      'tagsEqualIgnoreCase: src/renderer/children/children-fastpath.ts, src/renderer/children/static-reuse.ts',
+      'updateElementChildren: src/renderer/children/element-children.ts, src/renderer/evaluation/reconcile.ts',
+      'upperCommonTagName: src/renderer/children/children-fastpath.ts, src/renderer/children/static-reuse.ts',
+    ]);
+  });
+
   it('should keep subsystem imports on explicit runtime capability entrypoints', () => {
     const entrypoints = new Set([
       'src/runtime/index.ts',

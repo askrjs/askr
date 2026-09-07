@@ -135,7 +135,7 @@ export function updateElementChildren(
     }
 
     if (hasKeyedVNodeChildren(normalizedChildren)) {
-      const oldKeyMap = getOrBuildDomKeyMap(el);
+      const oldKeyMap = getOrBuildLogicalChildKeyMap(el);
       const newKeyMap = reconcileKeyedChildren(
         el,
         normalizedChildren,
@@ -480,7 +480,16 @@ function replaceHydratedRangeInSnapshot(
   nodes.splice(index, Math.max(1, endIndex - index), rangeStart);
 }
 
-function getOrBuildDomKeyMap(
+/**
+ * Key map over the parent's *logical* child hosts, which steps over range
+ * interiors rather than into them.
+ *
+ * Shares the `keyedElements` cache with `getOrBuildElementChildKeyMap`, which
+ * walks raw element children instead. For a parent holding control-boundary
+ * ranges the two produce different maps, and whichever runs first is the one
+ * that gets cached. They were both named `getOrBuildElementChildKeyMap`, which hid that.
+ */
+function getOrBuildLogicalChildKeyMap(
   parent: Element
 ): Map<string | number, Element> | undefined {
   let keyMap = keyedElements.get(parent);
