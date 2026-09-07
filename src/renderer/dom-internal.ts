@@ -511,5 +511,3 @@ export function ensureNativeDOMHost(): void {
     tryPatchStableForDirtyItem,
   });
 }
-
-ensureNativeDOMHost();

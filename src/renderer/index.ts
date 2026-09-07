@@ -50,9 +50,13 @@ import { getScopeRange } from './control/range-adoption';
 import { applyComponentResult } from './component/application';
 import { classifyUpdate } from './component/fast-path';
 import { recordInlineComponentHost } from './ownership/nodes';
+import { ensureNativeDOMHost } from './dom-internal';
 import type { RendererCapabilities } from '../runtime';
 
 export function createRendererCapabilities(): RendererCapabilities {
+  // Installing the native host is composition, not a side effect of importing a
+  // module for its types. `ensureNativeDOMHost` is idempotent.
+  ensureNativeDOMHost();
   return {
     captureComponentHost: captureOwnerRange,
     releaseComponentHost: releaseOwnerRange,
