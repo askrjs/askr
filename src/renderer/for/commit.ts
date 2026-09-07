@@ -23,7 +23,7 @@ import { keyedElements } from '../reconciliation/keyed';
 import type { VNode } from '../types';
 import {
   canSyncKeyedMapMutate,
-  getOrBuildDomKeyMap,
+  getOrBuildElementChildKeyMap,
   hydrateExistingForDomInOrder,
   syncKeyedMapFromForState,
 } from './dom-map';
@@ -164,7 +164,7 @@ function commitForStateBoundaryChildrenImpl(
       return;
     }
 
-    const domKeyMap = getOrBuildDomKeyMap(parent);
+    const domKeyMap = getOrBuildElementChildKeyMap(parent);
     if (!domKeyMap) {
       return;
     }
