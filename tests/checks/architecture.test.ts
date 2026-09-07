@@ -691,13 +691,8 @@ describe('architecture boundaries', () => {
     // stepped over range interiors, the other walked raw element children, and
     // both wrote the same `keyedElements` cache.
     expect(shared).toEqual([
-      'applyRefValue: src/renderer/ownership/cleanup.ts, src/renderer/ownership/retained-element.ts',
-      'captureRangeFocus: src/renderer/component/fragment-range.ts, src/renderer/ownership/ranges.ts',
-      'getPassiveOptions: src/renderer/props/events.ts, src/renderer/utils.ts',
       'isControlBoundaryVNode: src/renderer/children/element-children.ts, src/renderer/reconciliation/reconcile-resolution.ts',
-      'tagsEqualIgnoreCase: src/renderer/children/children-fastpath.ts, src/renderer/children/static-reuse.ts',
       'updateElementChildren: src/renderer/children/element-children.ts, src/renderer/evaluation/reconcile.ts',
-      'upperCommonTagName: src/renderer/children/children-fastpath.ts, src/renderer/children/static-reuse.ts',
     ]);
   });
 
