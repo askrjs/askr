@@ -1,3 +1,4 @@
+import { type ElementWithContext } from '../dom-host';
 import { writeScopeHost } from '../ownership/scope-host';
 import { joinChildScopePreparation } from '../../runtime/ownership/child-scope';
 import type { DOMRange } from '../../common/dom-range';
@@ -29,7 +30,7 @@ import { teardownBoundaryRangeNode } from './range-cleanup';
 import { retireComponentOwnersForIntrinsicReuse } from '../component/host-cleanup';
 import { isHydrationAdoptionScopeActive } from '../hydration/adoption';
 import { tagNamesEqualIgnoreCase } from '../utils';
-import { _isDOMElement, type DOMElement, type VNode } from '../types';
+import { _isDOMElement, type VNode } from '../types';
 import { syncTransparentRange } from '../component/fragment-range';
 
 export function syncControlBoundaryScopeDom(
@@ -85,7 +86,7 @@ export function syncControlBoundaryScopeDom(
           : null);
       const synced = host.syncComponentElement(
         componentHost,
-        vnode as DOMElement,
+        vnode as ElementWithContext,
         vnode.type as ComponentFunction,
         ((vnode.props ?? {}) as Record<string, unknown>) || {},
         getBoundaryParentNamespace(parent),

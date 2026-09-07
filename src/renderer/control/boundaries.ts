@@ -1,5 +1,5 @@
+import { DOM_HOST_UNCONFIGURED, type NativeDOMHost } from '../dom-host';
 import { __CONTROL_BOUNDARY__ } from '../../common/vnode';
-import type { ComponentFunction, ComponentInstance } from '../../runtime';
 import { type ControlBoundaryState } from '../../runtime';
 import { recordBenchEvent } from '../../runtime';
 import { retireNodeSubtree } from '../ownership/cleanup';
@@ -57,36 +57,14 @@ export {
 } from './state';
 export { createForBoundary } from './materialization';
 
-type ElementWithContext = DOMElement & {
-  __instance?: ComponentInstance;
-};
-
-export interface BoundaryDOMHost {
-  createDOMNode(vnode: unknown, parentNamespace?: string): Node | null;
-  createResultNodeWithBlueprint(
-    owner: object,
-    vnode: unknown,
-    parentNamespace?: string
-  ): Node | null;
-  syncComponentElement(
-    currentDom: Node | null,
-    node: ElementWithContext,
-    type: ComponentFunction,
-    props: Record<string, unknown>,
-    parentNamespace?: string,
-    forceChildrenUpdate?: boolean,
-    retainedHostInstances?: Iterable<ComponentInstance>,
-    hydrationRangeEnd?: Node | null,
-    preserveHydrationCursorOnEmpty?: boolean
-  ): Node | null;
-  updateElementFromVnode(
-    el: Element,
-    vnode: VNode,
-    updateChildren?: boolean,
-    forceChildrenUpdate?: boolean
-  ): void;
-  tryPatchStableForDirtyItem(scope: { dom?: Node; vnode?: VNode }): boolean;
-}
+export type BoundaryDOMHost = Pick<
+  NativeDOMHost,
+  | 'createDOMNode'
+  | 'createResultNodeWithBlueprint'
+  | 'syncComponentElement'
+  | 'updateElementFromVnode'
+  | 'tryPatchStableForDirtyItem'
+>;
 
 let boundaryDOMHost: BoundaryDOMHost | null = null;
 
@@ -98,7 +76,7 @@ export function configureBoundaryDOMHost(host: BoundaryDOMHost): void {
 
 function getBoundaryDOMHost(): BoundaryDOMHost {
   if (!boundaryDOMHost) {
-    throw new Error('[askr] Control boundary DOM host is not configured.');
+    throw new Error(DOM_HOST_UNCONFIGURED);
   }
   return boundaryDOMHost;
 }
