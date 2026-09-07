@@ -11,7 +11,6 @@
 
 import { isDevelopmentEnvironment } from '../common/env';
 import { assertSchedulingPrecondition, invariant } from '../common/invariant';
-import { logger } from '../common/logger';
 import { recordSchedulerFlushTaskCount } from './diagnostics/perf-metrics';
 import { adjustOwnershipDiagnostic } from './diagnostics/ownership-diagnostics';
 import { SchedulerScopes } from './scheduler-scopes';
@@ -474,19 +473,3 @@ export class Scheduler {
 }
 
 export const globalScheduler = new Scheduler();
-
-export function isSchedulerExecuting(): boolean {
-  return globalScheduler.isExecuting();
-}
-
-export function scheduleEventHandler(handler: EventListener): EventListener {
-  return (event: Event) => {
-    try {
-      globalScheduler.runInHandlerScope(() => {
-        handler.call(null, event);
-      });
-    } catch (error) {
-      logger.error('[Askr] Event handler error:', error);
-    }
-  };
-}

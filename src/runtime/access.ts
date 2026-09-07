@@ -1,3 +1,4 @@
+import { logger } from '../common/logger';
 import type { ReadableSource } from './reactivity/readable';
 import { defaultRuntimeState } from './runtime-state';
 import type {
@@ -106,4 +107,23 @@ export function markRuntimeReactivePropsDirtySource(
   source: ReadableSource<unknown>
 ): void {
   getRuntimeReactivity().markReactivePropsDirtySource(source);
+}
+
+/**
+ * Wrap an event listener so its work runs inside a scheduler handler scope.
+ *
+ * Resolves the active scheduler per call rather than closing over the module
+ * singleton, so a runtime constructed with its own scheduler schedules its own
+ * handlers.
+ */
+export function scheduleEventHandler(handler: EventListener): EventListener {
+  return (event: Event) => {
+    try {
+      getRuntimeScheduler().runInHandlerScope(() => {
+        handler.call(null, event);
+      });
+    } catch (error) {
+      logger.error('[Askr] Event handler error:', error);
+    }
+  };
 }

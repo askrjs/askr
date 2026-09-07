@@ -8,11 +8,8 @@ import {
 } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { resource } from '../../../src/resources';
-import {
-  globalScheduler,
-  scheduleEventHandler,
-  Scheduler,
-} from '../../../src/runtime/scheduler';
+import { globalScheduler, Scheduler } from '../../../src/runtime/scheduler';
+import { scheduleEventHandler } from '../../../src/runtime/access';
 import {
   createTestContainer,
   flushScheduler,
