@@ -5,41 +5,11 @@
 import { hasMatchingStaticProps } from '../props/attributes';
 import { isFragmentVNode } from './child-shape';
 import { _isDOMElement, type DOMElement } from '../types';
-import { tagNamesEqualIgnoreCase } from '../utils';
+// One tag matcher, owned by the fast-path module; this used to be a verbatim
+// copy of it plus its upperCommonTagName helper.
+import { tagsEqualIgnoreCase } from './children-fastpath';
 
-function upperCommonTagName(tag: string): string | null {
-  switch (tag) {
-    case 'div':
-      return 'DIV';
-    case 'span':
-      return 'SPAN';
-    case 'p':
-      return 'P';
-    case 'a':
-      return 'A';
-    case 'button':
-      return 'BUTTON';
-    case 'input':
-      return 'INPUT';
-    case 'ul':
-      return 'UL';
-    case 'ol':
-      return 'OL';
-    case 'li':
-      return 'LI';
-    default:
-      return null;
-  }
-}
-
-export function tagsEqualIgnoreCase(
-  elementTagName: string,
-  vnodeType: string
-): boolean {
-  const upperCommon = upperCommonTagName(vnodeType);
-  if (upperCommon !== null && elementTagName === upperCommon) return true;
-  return tagNamesEqualIgnoreCase(elementTagName, vnodeType);
-}
+export { tagsEqualIgnoreCase };
 
 type StaticChildSlot =
   | { kind: 'text'; value: string }

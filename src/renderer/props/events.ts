@@ -16,6 +16,7 @@ import {
 } from '../../runtime';
 import type { AppRenderRuntime } from '../../common/app-render-runtime';
 import { logger } from '../../common/logger';
+import { getPassiveOptions } from '../utils';
 import { incrementPerfMetric } from '../../runtime';
 import { incDevCounter } from '../../runtime';
 
@@ -403,15 +404,6 @@ function setDelegatedHandlerForElement(
   next.set(existing.eventName, existing);
   next.set(entry.eventName, entry);
   setDelegatedHandlerStore(element, next);
-}
-
-function getPassiveOptions(
-  eventName: string
-): AddEventListenerOptions | undefined {
-  if (eventName === 'scroll') {
-    return { passive: true };
-  }
-  return undefined;
 }
 
 export function addDelegatedListener(

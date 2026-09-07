@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { For, Show, state } from '../../../src';
 import { cleanupApp, createIsland } from '../../../src/boot';
-import { captureRangeFocus } from '../../../src/renderer/component/fragment-range';
+import { captureParentFocus } from '../../../src/renderer/component/fragment-range';
 import { getCurrentComponentInstance } from '../../../src/runtime';
 import { flushScheduler } from '../../../test-utils/render/test-renderer';
 
@@ -224,7 +224,10 @@ describe('component fragment structure', () => {
         return nextSibling.call(this);
       });
 
-    const restoreFocus = captureRangeFocus({ start, end, single: false }, root);
+    const restoreFocus = captureParentFocus(
+      { start, end, single: false },
+      root
+    );
     nextSiblingSpy.mockRestore();
 
     expect(nextSiblingReads).toBe(0);
@@ -241,7 +244,7 @@ describe('component fragment structure', () => {
     vi.stubGlobal('HTMLElement', undefined);
 
     expect(() =>
-      captureRangeFocus({ start, end, single: false }, root!)
+      captureParentFocus({ start, end, single: false }, root!)
     ).not.toThrow();
   });
 
@@ -254,7 +257,10 @@ describe('component fragment structure', () => {
     root.append(start, input, end);
     input.focus();
 
-    const restoreFocus = captureRangeFocus({ start, end, single: false }, root);
+    const restoreFocus = captureParentFocus(
+      { start, end, single: false },
+      root
+    );
     input.blur();
     const nativeFocus = input.focus.bind(input);
     const focusSpy = vi
@@ -282,7 +288,10 @@ describe('component fragment structure', () => {
     root.append(start, input, end, destination);
     input.focus();
 
-    const restoreFocus = captureRangeFocus({ start, end, single: false }, root);
+    const restoreFocus = captureParentFocus(
+      { start, end, single: false },
+      root
+    );
     destination.focus();
     restoreFocus();
 
@@ -303,7 +312,10 @@ describe('component fragment structure', () => {
     root.append(start, input, end, destination);
     input.focus();
 
-    const restoreFocus = captureRangeFocus({ start, end, single: false }, root);
+    const restoreFocus = captureParentFocus(
+      { start, end, single: false },
+      root
+    );
     destination.focus();
     restoreFocus();
 
