@@ -1,9 +1,11 @@
 /** Published compatibility boundary. Implementations own execution; contracts own consumer types. */
 import * as implementation from '../../boot/index';
+import { composeBrowserRuntime } from '../../boot/composition';
 import { installOwnershipViews } from '../ownership';
 import type * as Contract from '../contracts/boot/index';
 export type * from '../contracts/boot/index';
 
+composeBrowserRuntime();
 installOwnershipViews();
 
 const public_cleanupApp: typeof Contract.cleanupApp = implementation.cleanupApp;

@@ -1,4 +1,5 @@
 import { ownCleanup } from '../ownership/record';
+import { notifyReadableSource } from './notify';
 import {
   claimHookIndex,
   getCurrentComponentInstance,
@@ -8,9 +9,6 @@ import { requestRuntimeWork, getRuntimeFlushVersion } from '../access';
 import { ScheduledWork } from '../scheduled-work';
 import {
   clearDerivedDependencySubscriptions,
-  markReadableDerivedSubscribersDirty,
-  markReactivePropsDirtySource,
-  notifyReadableReaders,
   recordReadableRead,
   syncDerivedDependencySubscriptions,
   type DerivedSubscriber,
@@ -147,9 +145,7 @@ function recomputeDerivedCell<T>(
   cell._lastRecomputeFlushVersion = getRuntimeFlushVersion();
 
   if (valueChanged && notifyDownstream) {
-    markReadableDerivedSubscribersDirty(cell, true);
-    markReactivePropsDirtySource(cell);
-    notifyReadableReaders(cell);
+    notifyReadableSource(cell, { skipCurrentDerivedSubscriber: true });
   }
 
   return cell._value;

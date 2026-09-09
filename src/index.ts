@@ -4,10 +4,6 @@
  * Public API surface — only users should import from here
  */
 
-import { installRendererBridge } from './boot/runtime-wiring';
-
-installRendererBridge();
-
 export { createRuntime, getDefaultRuntime } from './compatibility/runtime';
 export { createDOMRendererHost } from './compatibility/dom-renderer';
 export type {

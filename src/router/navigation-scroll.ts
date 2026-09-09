@@ -324,3 +324,12 @@ export function configureScrollRestoration(
     }
   }
 }
+
+/** @internal Drop recorded scroll offsets and focus intent. Part of the router-wide reset. */
+export function resetNavigationScroll(): void {
+  scrollRestorationOptions = normalizeScrollRestorationOptions(undefined);
+  scrollPositions.clear();
+  capturedActivationFocus = undefined;
+  pendingNavigationFocus = undefined;
+  focusAtHistoryNavigationStart = null;
+}

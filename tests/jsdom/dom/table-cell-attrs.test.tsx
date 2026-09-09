@@ -76,8 +76,10 @@ describe('table cell attributes', () => {
 
     expect(html).toContain('scope="col"');
     expect(html).toContain('abbr="User name"');
-    expect(html).toContain('colSpan="2"');
-    expect(html).toContain('rowSpan="1"');
+    // SSR renders the HTML attribute name, matching what the DOM renderer
+    // writes and what the parser produces from this markup.
+    expect(html).toContain('colspan="2"');
+    expect(html).toContain('rowspan="1"');
     expect(html).toContain('headers="user-name"');
   });
 });

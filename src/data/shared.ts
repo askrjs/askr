@@ -1,19 +1,11 @@
-import {
-  markReadableDerivedSubscribersDirty,
-  markReactivePropsDirtySource,
-  notifyReadableReaders,
-  type ReadableSource,
-} from '../runtime';
+import { notifyReadableSource, type ReadableSource } from '../runtime';
 
 export function createReadableSource(): ReadableSource<unknown> {
   return (() => undefined) as ReadableSource<unknown>;
 }
 
-export function notifySource(source: ReadableSource<unknown>): void {
-  markReadableDerivedSubscribersDirty(source);
-  markReactivePropsDirtySource(source);
-  notifyReadableReaders(source);
-}
+/** Re-exported so data cells keep their existing name for the shared fan-out. */
+export const notifySource = notifyReadableSource;
 
 export function isAbortError(error: unknown, signal: AbortSignal): boolean {
   return (

@@ -1,12 +1,9 @@
-import { isPromiseLike } from '../../common/promise';
+import { renderComponentInScope } from './render-scope';
 import type { Props } from '../../common/props';
 import {
   captureInlineRenderSnapshot,
   createComponentInstance,
   getVNodeContextFrame,
-  markVNodeTreeWithContextFrame,
-  renderComponentInline,
-  withContext,
   type ComponentFunction,
   type ComponentInstance,
   type ContextFrame,
@@ -148,19 +145,10 @@ export function resolveFreshNestedComponentResult(
       nestedInstance.props = ((nestedVNode.props ?? {}) as Props) || {};
       if (nestedSnapshot) nestedInstance.ownerFrame = nestedSnapshot;
 
-      const nextResult = withContext(nestedSnapshot ?? null, () =>
-        renderComponentInline(nestedInstance)
-      );
-      if (isPromiseLike(nextResult)) {
-        throw new Error(
-          'Async components are not supported. Components must return synchronously.'
-        );
-      }
-
       activeParent = nestedInstance;
       activeSnapshot = nestedSnapshot ?? null;
-      currentResult = markVNodeTreeWithContextFrame(
-        nextResult,
+      currentResult = renderComponentInScope(
+        nestedInstance,
         activeSnapshot
       ) as VNode;
       resolution.entries.push({

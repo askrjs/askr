@@ -1,5 +1,4 @@
 import { commitForStrategy, isExactRemovedBoundary } from './strategies';
-import { writeScopeHost } from '../ownership/scope-host';
 import type { ChildScope } from '../../runtime';
 import {
   beginForStateTransaction,
@@ -7,6 +6,7 @@ import {
   captureForFallbackTransactionSnapshot,
   captureForItemTransactionSnapshot,
   clearForDomUpdateState,
+  FOR_STRATEGY_TRAITS,
   registerForStateTransaction,
   recordBenchCounter,
   recordBenchEvent,
@@ -22,9 +22,8 @@ import { teardownNodeSubtree } from '../ownership/cleanup';
 import { keyedElements } from '../reconciliation/keyed';
 import type { VNode } from '../types';
 import {
+  adoptExistingForDom,
   canSyncKeyedMapMutate,
-  getOrBuildElementChildKeyMap,
-  hydrateExistingForDomInOrder,
   syncKeyedMapFromForState,
 } from './dom-map';
 import { replaceChildrenInOrder } from './reorder';
@@ -97,6 +96,144 @@ export function commitForStateBoundaryChildren(
   });
 }
 
+/**
+ * Commit a list that has become empty.
+ *
+ * The only thing left to place is the fallback, if the boundary declares one.
+ * Whatever the previous rows left behind is either consumed wholesale — when
+ * the removed nodes are exactly the parent's children, one `replaceChildren`
+ * does it — or removed and deferred for teardown.
+ */
+function commitEmptyForBoundary(
+  parent: Element,
+  forState: ForState<unknown>,
+  childrenVNodes: VNode[],
+  runtime: ForCommitRuntime,
+  preResolvedRanges: ReturnType<
+    typeof prepareForCommitRanges
+  >['preResolvedRanges']
+): void {
+  const previousBoundaryNodes = Array.from(parent.childNodes);
+  const fallbackScope = forState.fallbackScope;
+  const fallbackVNode = childrenVNodes[0];
+  if (
+    fallbackScope &&
+    (fallbackScope.needsDomUpdate || fallbackScope.hydrationPending)
+  ) {
+    captureForFallbackTransactionSnapshot(forState, fallbackScope);
+  }
+  const fallbackRange =
+    fallbackScope && fallbackVNode !== undefined
+      ? preResolvedRanges.has(fallbackScope)
+        ? (preResolvedRanges.get(fallbackScope) ?? null)
+        : runtime.syncForItemRange(parent, fallbackScope, fallbackVNode)
+      : null;
+  const nextDom = fallbackRange?.single ? fallbackRange.start : null;
+
+  let removedBoundaryConsumed = false;
+  if (nextDom && isExactRemovedBoundary(parent, forState.lastRemovedNodes)) {
+    recordBenchEvent('domRemove', forState.lastRemovedNodes.length);
+    parent.replaceChildren(nextDom);
+    removedBoundaryConsumed = true;
+  } else {
+    removeForBoundaryNodes(parent, forState.lastRemovedNodes, {
+      teardown: false,
+    });
+  }
+
+  if (nextDom) {
+    if (
+      parent.childNodes.length !== 1 ||
+      parent.firstChild !== nextDom ||
+      (forState.lastRemovedNodes.length > 0 && !removedBoundaryConsumed)
+    ) {
+      parent.replaceChildren(nextDom);
+    }
+  } else if (parent.firstChild) {
+    parent.textContent = '';
+  }
+
+  const retainedBoundaryNodes = new Set(parent.childNodes);
+  deferBoundaryNodeFinalization(
+    previousBoundaryNodes.filter((node) => !retainedBoundaryNodes.has(node)),
+    forState
+  );
+
+  keyedElements.delete(parent);
+  forState._hasResolvedItemDom = false;
+}
+
+/** Close out a commit: record its cost and drop the pending DOM-update state. */
+function finishForCommit(
+  forState: ForState<unknown>,
+  domCommitStart: number
+): void {
+  if (BENCH_BUILD_ENABLED) {
+    recordBenchTiming('domCommit', performance.now() - domCommitStart);
+  }
+  clearForDomUpdateState(forState);
+}
+
+/**
+ * Force the parent's children to match the list exactly.
+ *
+ * The strategies report whether they left the boundary exact; when one cannot
+ * promise that, this rebuilds the expected order and hands anything displaced
+ * to deferred teardown. It resolves each item's DOM the same way the strategies
+ * do, so an item that never got a node during the commit gets one here.
+ */
+function syncExactForBoundaryChildren(
+  parent: Element,
+  forState: ForState<unknown>,
+  childrenVNodes: VNode[],
+  syncItemDom: (
+    item: (typeof forState.orderedItems)[number],
+    vnode: VNode
+  ) => Node | null
+): void {
+  const expectedNodes: Node[] = [];
+
+  for (let i = 0; i < forState.orderedKeys.length; i++) {
+    const itemInstance = forState.orderedItems[i];
+    if (!itemInstance) {
+      continue;
+    }
+
+    const dom =
+      itemInstance.scope.dom && !itemInstance.scope.needsDomUpdate
+        ? itemInstance.scope.dom
+        : syncItemDom(itemInstance, childrenVNodes[i]);
+    if (dom) {
+      expectedNodes.push(dom);
+    }
+  }
+
+  const currentNodes = Array.from(parent.childNodes);
+  if (
+    currentNodes.length === expectedNodes.length &&
+    currentNodes.every((node, index) => node === expectedNodes[index])
+  ) {
+    return;
+  }
+
+  const expectedNodeSet = new Set(expectedNodes);
+  const displacedNodes: Node[] = [];
+  for (const currentNode of currentNodes) {
+    if (expectedNodeSet.has(currentNode)) {
+      continue;
+    }
+
+    if (currentNode.parentNode === parent) {
+      recordBenchEvent('domRemove');
+      currentNode.remove();
+    }
+    displacedNodes.push(currentNode);
+  }
+
+  replaceChildrenInOrder(parent, expectedNodes, true);
+  deferBoundaryNodeFinalization(displacedNodes, forState);
+}
+
 function commitForStateBoundaryChildrenImpl(
   parent: Element,
   forState: ForState<unknown>,
@@ -121,6 +258,8 @@ function commitForStateBoundaryChildrenImpl(
       preResolvedRanges,
       previousRanges
     );
+    // Anchored ranges own their own pending state, so this exit records the
+    // cost without clearing it the way finishForCommit would.
     if (BENCH_BUILD_ENABLED) {
       recordBenchTiming('domCommit', performance.now() - domCommitStart);
     }
@@ -150,100 +289,20 @@ function commitForStateBoundaryChildrenImpl(
     return range?.single ? range.start : null;
   };
 
-  const hydrateExistingForDom = (): void => {
-    if (parent.children.length === forState.orderedKeys.length) {
-      for (let index = 0; index < forState.orderedItems.length; index++) {
-        const item = forState.orderedItems[index];
-        if (item) {
-          captureForItemTransactionSnapshot(forState, item);
-        }
-      }
-    }
-
-    if (hydrateExistingForDomInOrder(parent, forState)) {
-      return;
-    }
-
-    const domKeyMap = getOrBuildElementChildKeyMap(parent);
-    if (!domKeyMap) {
-      return;
-    }
-
-    for (let i = 0; i < forState.orderedKeys.length; i++) {
-      const itemKey = forState.orderedKeys[i];
-      const itemInstance = forState.items.get(itemKey);
-      if (!itemInstance || itemInstance.scope.dom) {
-        continue;
-      }
-
-      const existingDom = domKeyMap.get(itemKey);
-      if (!existingDom) {
-        continue;
-      }
-
-      captureForItemTransactionSnapshot(forState, itemInstance);
-      writeScopeHost(itemInstance.scope, undefined, existingDom);
-      itemInstance.scope.needsDomUpdate = true;
-    }
-  };
-
   if (forState.orderedKeys.length === 0) {
-    const previousBoundaryNodes = Array.from(parent.childNodes);
-    const fallbackScope = forState.fallbackScope;
-    const fallbackVNode = childrenVNodes[0];
-    if (
-      fallbackScope &&
-      (fallbackScope.needsDomUpdate || fallbackScope.hydrationPending)
-    ) {
-      captureForFallbackTransactionSnapshot(forState, fallbackScope);
-    }
-    const fallbackRange =
-      fallbackScope && fallbackVNode !== undefined
-        ? preResolvedRanges.has(fallbackScope)
-          ? (preResolvedRanges.get(fallbackScope) ?? null)
-          : runtime.syncForItemRange(parent, fallbackScope, fallbackVNode)
-        : null;
-    const nextDom = fallbackRange?.single ? fallbackRange.start : null;
-
-    if (nextDom && isExactRemovedBoundary(parent, forState.lastRemovedNodes)) {
-      recordBenchEvent('domRemove', forState.lastRemovedNodes.length);
-      parent.replaceChildren(nextDom);
-      removedBoundaryConsumed = true;
-    } else {
-      removeForBoundaryNodes(parent, forState.lastRemovedNodes, {
-        teardown: false,
-      });
-    }
-
-    if (nextDom) {
-      if (
-        parent.childNodes.length !== 1 ||
-        parent.firstChild !== nextDom ||
-        (forState.lastRemovedNodes.length > 0 && !removedBoundaryConsumed)
-      ) {
-        parent.replaceChildren(nextDom);
-      }
-    } else if (parent.firstChild) {
-      parent.textContent = '';
-    }
-
-    const retainedBoundaryNodes = new Set(parent.childNodes);
-    deferBoundaryNodeFinalization(
-      previousBoundaryNodes.filter((node) => !retainedBoundaryNodes.has(node)),
-      forState
+    commitEmptyForBoundary(
+      parent,
+      forState,
+      childrenVNodes,
+      runtime,
+      preResolvedRanges
     );
-
-    keyedElements.delete(parent);
-    forState._hasResolvedItemDom = false;
-    if (BENCH_BUILD_ENABLED) {
-      recordBenchTiming('domCommit', performance.now() - domCommitStart);
-    }
-    clearForDomUpdateState(forState);
+    finishForCommit(forState, domCommitStart);
     return;
   }
 
   if (!forState._hasResolvedItemDom && parent.childNodes.length > 0) {
-    hydrateExistingForDom();
+    adoptExistingForDom(parent, forState);
   }
 
   const getDirtyForIndices = (): number[] => {
@@ -273,12 +332,10 @@ function commitForStateBoundaryChildrenImpl(
     return dirtyIndicesCache;
   };
 
-  const dirtyIndices =
-    forState.lastCommitStrategy === 'NO_REORDER' ||
-    forState.lastCommitStrategy === 'REMOVE_ONE' ||
-    forState.lastCommitStrategy === 'TRUNCATE'
-      ? ensureDirtyIndices()
-      : [];
+  const dirtyIndices = FOR_STRATEGY_TRAITS[forState.lastCommitStrategy]
+    .needsDirtyIndices
+    ? ensureDirtyIndices()
+    : [];
   let boundaryChildrenExact = false;
 
   const applyStrategy = (
@@ -310,47 +367,23 @@ function commitForStateBoundaryChildrenImpl(
   if (isLocalOnlyDirtyCommit) {
     applyStrategy('NO_REORDER');
     syncKeyedMapFromForState(parent, forState, 'NO_REORDER', []);
-
-    if (BENCH_BUILD_ENABLED) {
-      recordBenchTiming('domCommit', performance.now() - domCommitStart);
-    }
-    clearForDomUpdateState(forState);
+    finishForCommit(forState, domCommitStart);
     return;
   }
 
-  switch (forState.lastCommitStrategy) {
-    case 'NO_REORDER':
-      applyStrategy('NO_REORDER');
-      break;
-    case 'REMOVE_ONE':
-      // Physically remove the node for the removed key first: commitDirtyNoReorder
-      // anchors dirty items via `parent.childNodes[i]`, and `i` is the item's
-      // POST-removal index. Computing that anchor while the removed node is
-      // still attached reads the wrong sibling for every dirty index at or
-      // after the removed slot, which can silently reorder unrelated rows.
-      removeForBoundaryNodes(parent, forState.lastRemovedNodes, {
-        teardown: false,
-      });
-      removedBoundaryConsumed = true;
-      applyStrategy('NO_REORDER');
-      break;
-    case 'TRUNCATE':
-      applyStrategy('NO_REORDER');
-      break;
-    case 'APPEND':
-      applyStrategy('APPEND');
-      break;
-    case 'INSERT_ONE':
-      applyStrategy('INSERT_ONE');
-      break;
-    case 'SWAP':
-      applyStrategy('SWAP');
-      break;
-    case 'FULL_KEYED':
-    default:
-      applyStrategy('FULL_KEYED');
-      break;
+  if (forState.lastCommitStrategy === 'REMOVE_ONE') {
+    // Physically remove the node for the removed key first: commitDirtyNoReorder
+    // anchors dirty items via `parent.childNodes[i]`, and `i` is the item's
+    // POST-removal index. Computing that anchor while the removed node is
+    // still attached reads the wrong sibling for every dirty index at or
+    // after the removed slot, which can silently reorder unrelated rows.
+    removeForBoundaryNodes(parent, forState.lastRemovedNodes, {
+      teardown: false,
+    });
+    removedBoundaryConsumed = true;
   }
+
+  applyStrategy(FOR_STRATEGY_TRAITS[forState.lastCommitStrategy].planKind);
 
   if (!removedBoundaryConsumed) {
     removeForBoundaryNodes(parent, forState.lastRemovedNodes, {
@@ -364,56 +397,9 @@ function commitForStateBoundaryChildrenImpl(
     forState.lastRemovedNodes
   );
 
-  const syncExactForBoundaryChildren = (): void => {
-    const expectedNodes: Node[] = [];
-
-    for (let i = 0; i < forState.orderedKeys.length; i++) {
-      const itemInstance = forState.orderedItems[i];
-      if (!itemInstance) {
-        continue;
-      }
-
-      const dom =
-        itemInstance.scope.dom && !itemInstance.scope.needsDomUpdate
-          ? itemInstance.scope.dom
-          : syncItemDom(itemInstance, childrenVNodes[i]);
-      if (dom) {
-        expectedNodes.push(dom);
-      }
-    }
-
-    const currentNodes = Array.from(parent.childNodes);
-    if (
-      currentNodes.length === expectedNodes.length &&
-      currentNodes.every((node, index) => node === expectedNodes[index])
-    ) {
-      return;
-    }
-
-    const expectedNodeSet = new Set(expectedNodes);
-    const displacedNodes: Node[] = [];
-    for (const currentNode of currentNodes) {
-      if (expectedNodeSet.has(currentNode)) {
-        continue;
-      }
-
-      if (currentNode.parentNode === parent) {
-        recordBenchEvent('domRemove');
-        currentNode.remove();
-      }
-      displacedNodes.push(currentNode);
-    }
-
-    replaceChildrenInOrder(parent, expectedNodes, true);
-    deferBoundaryNodeFinalization(displacedNodes, forState);
-  };
-
   if (!boundaryChildrenExact) {
-    syncExactForBoundaryChildren();
+    syncExactForBoundaryChildren(parent, forState, childrenVNodes, syncItemDom);
   }
   forState._hasResolvedItemDom = true;
-  if (BENCH_BUILD_ENABLED) {
-    recordBenchTiming('domCommit', performance.now() - domCommitStart);
-  }
-  clearForDomUpdateState(forState);
+  finishForCommit(forState, domCommitStart);
 }

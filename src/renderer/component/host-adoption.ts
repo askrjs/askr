@@ -1,19 +1,15 @@
-import { isPromiseLike } from '../../common/promise';
+import { renderComponentInScope } from './render-scope';
 import { isSSRPortalHydrationAnchor } from '../../common/portal';
 import {
+  type ContextFrame,
+  withContext,
   createComponentInstance,
   getCurrentComponentInstance,
   mountInstanceInline,
-  renderComponentInline,
   type ComponentFunction,
   type ComponentInstance,
 } from '../../runtime';
-import {
-  getCurrentContextFrame,
-  getVNodeContextFrame,
-  markVNodeTreeWithContextFrame,
-  withContext,
-} from '../../runtime';
+import { getCurrentContextFrame, getVNodeContextFrame } from '../../runtime';
 import { materializeKey } from '../props/attributes';
 import { isTransparentComponentRangeResult } from '../children/child-shape';
 import {
@@ -36,7 +32,7 @@ import {
   setComponentOwnershipIdentity,
   setVNodeComponentInstance,
 } from './host-instances';
-import { _isDOMElement, type DOMElement } from '../types';
+import { _isDOMElement } from '../types';
 import { tagNamesEqualIgnoreCase } from '../utils';
 import {
   beginComponentHostReplacement,
@@ -52,6 +48,104 @@ import {
   retainMaterializedReplacementOwnerChain,
 } from './host-results';
 import { resolveHostNestedComponentResult } from './host-nested-results';
+
+/**
+ * The parts of one adoption attempt the two result-handling passes share.
+ *
+ * `adoptComponentHost` evaluates a component, then evaluates again after
+ * resolving nested component results, and offers each result the same two
+ * chances to reuse existing DOM. Both chances were written out twice.
+ */
+interface HostAdoption {
+  readonly existingHost: InstanceHostNode;
+  readonly node: ElementWithContext;
+  readonly props: Record<string, unknown>;
+  readonly instance: ComponentInstance;
+  readonly retained: Set<ComponentInstance>;
+  readonly snapshot: ContextFrame | null;
+  readonly hydrationRangeEnd: Node | null | undefined;
+  readonly markedHydrationEnd: Comment | null;
+  readonly forceChildrenUpdate: boolean;
+}
+
+/** Whether the commit should re-apply children rather than trust the markup. */
+function shouldForceChildren(adoption: HostAdoption): boolean {
+  return (
+    adoption.forceChildrenUpdate || adoption.instance.owner.mounted === false
+  );
+}
+
+/**
+ * Claim the server-rendered nodes spanning this component, if `result` is a
+ * shape that occupies a range rather than a single element.
+ */
+function tryAdoptHydratedRange(
+  adoption: HostAdoption,
+  result: unknown
+): Node | null {
+  const { existingHost, markedHydrationEnd, hydrationRangeEnd } = adoption;
+  if (
+    hydrationRangeEnd === undefined ||
+    !(
+      isTransparentComponentRangeResult(result) ||
+      (markedHydrationEnd &&
+        (result === null || result === undefined || result === false))
+    )
+  ) {
+    return null;
+  }
+
+  return markedHydrationEnd
+    ? adoptMarkedHydratedComponentRange(
+        existingHost as Comment,
+        markedHydrationEnd,
+        adoption.instance,
+        result,
+        shouldForceChildren(adoption),
+        adoption.retained
+      )
+    : adoptHydratedComponentRange(
+        existingHost as Element | Comment,
+        adoption.instance,
+        result,
+        hydrationRangeEnd,
+        shouldForceChildren(adoption),
+        adoption.retained
+      );
+}
+
+/**
+ * Keep the server-rendered element when the component resolved to an intrinsic
+ * of the same tag, updating it in place instead of replacing it.
+ */
+function tryReuseIntrinsicHost(
+  adoption: HostAdoption,
+  result: unknown
+): Node | null {
+  const { existingHost, node, props, snapshot } = adoption;
+  if (
+    !(existingHost instanceof Element) ||
+    !_isDOMElement(result) ||
+    typeof result.type !== 'string' ||
+    !tagNamesEqualIgnoreCase(existingHost.tagName, result.type)
+  ) {
+    return null;
+  }
+
+  withContext(snapshot, () => {
+    getRendererDOMHost().updateElementFromVnode(
+      existingHost,
+      inheritComponentKey(result, node),
+      true,
+      shouldForceChildren(adoption)
+    );
+    materializeKey(existingHost, node, props);
+  });
+  mountInstanceInline(adoption.instance, existingHost);
+  itemInstanceHydrationComplete(existingHost);
+  return existingHost;
+}
+
 export function adoptComponentHost(
   existingHost: InstanceHostNode,
   node: ElementWithContext,
@@ -64,8 +158,6 @@ export function adoptComponentHost(
   markedHydrationEnd: Comment | null,
   preserveHydrationCursorOnEmpty: boolean
 ): Node | null {
-  const domHost = getRendererDOMHost();
-
   if (
     !(existingHost instanceof Element) &&
     !isSSRPortalHydrationAnchor(existingHost) &&
@@ -97,6 +189,17 @@ export function adoptComponentHost(
     hydrationInstance,
     retainedHostInstances
   );
+  const adoption: HostAdoption = {
+    existingHost,
+    node,
+    props,
+    instance: hydrationInstance,
+    retained: liveRetainedInstances,
+    snapshot,
+    hydrationRangeEnd,
+    markedHydrationEnd,
+    forceChildrenUpdate,
+  };
   pruneComponentHostInstances(existingHost, liveRetainedInstances);
   const replacement = beginComponentHostReplacement(
     existingHost,
@@ -118,19 +221,7 @@ export function adoptComponentHost(
       hydrationInstance.ownerFrame = snapshot;
     }
 
-    const result = withContext(snapshot, () =>
-      renderComponentInline(hydrationInstance)
-    );
-    if (isPromiseLike(result)) {
-      throw new Error(
-        'Async components are not supported. Components must return synchronously.'
-      );
-    }
-
-    const scopedResult = markVNodeTreeWithContextFrame(
-      result,
-      snapshot ?? null
-    );
+    const scopedResult = renderComponentInScope(hydrationInstance, snapshot);
 
     const emptyPlaceholder = materializeEmptyHydrationPlaceholder(
       existingHost,
@@ -143,59 +234,14 @@ export function adoptComponentHost(
       return emptyPlaceholder;
     }
 
-    if (
-      hydrationRangeEnd !== undefined &&
-      (isTransparentComponentRangeResult(scopedResult) ||
-        (markedHydrationEnd &&
-          (scopedResult === null ||
-            scopedResult === undefined ||
-            scopedResult === false)))
-    ) {
-      const adoptedHost = markedHydrationEnd
-        ? adoptMarkedHydratedComponentRange(
-            existingHost as Comment,
-            markedHydrationEnd,
-            hydrationInstance,
-            scopedResult,
-            forceChildrenUpdate || hydrationInstance.owner.mounted === false,
-            liveRetainedInstances
-          )
-        : adoptHydratedComponentRange(
-            existingHost as Element | Comment,
-            hydrationInstance,
-            scopedResult,
-            hydrationRangeEnd,
-            forceChildrenUpdate || hydrationInstance.owner.mounted === false,
-            liveRetainedInstances
-          );
-      if (adoptedHost) {
-        return adoptedHost;
-      }
+    const adoptedRange = tryAdoptHydratedRange(adoption, scopedResult);
+    if (adoptedRange) {
+      return adoptedRange;
     }
 
-    if (
-      existingHost instanceof Element &&
-      scopedResult &&
-      typeof scopedResult === 'object' &&
-      'type' in (scopedResult as DOMElement) &&
-      typeof (scopedResult as DOMElement).type === 'string' &&
-      tagNamesEqualIgnoreCase(
-        existingHost.tagName,
-        (scopedResult as DOMElement).type as string
-      )
-    ) {
-      withContext(snapshot, () => {
-        domHost.updateElementFromVnode(
-          existingHost,
-          inheritComponentKey(scopedResult as DOMElement, node),
-          true,
-          forceChildrenUpdate || hydrationInstance.owner.mounted === false
-        );
-        materializeKey(existingHost, node, props);
-      });
-      mountInstanceInline(hydrationInstance, existingHost);
-      itemInstanceHydrationComplete(existingHost);
-      return existingHost;
+    const reusedHost = tryReuseIntrinsicHost(adoption, scopedResult);
+    if (reusedHost) {
+      return reusedHost;
     }
 
     const resolvedResult = resolveHostNestedComponentResult(
@@ -215,53 +261,20 @@ export function adoptComponentHost(
     ) {
       return existingHost;
     }
-    if (
-      hydrationRangeEnd !== undefined &&
-      (isTransparentComponentRangeResult(resolvedResult.result) ||
-        (markedHydrationEnd &&
-          (resolvedResult.result === null ||
-            resolvedResult.result === undefined ||
-            resolvedResult.result === false)))
-    ) {
-      const adoptedHost = markedHydrationEnd
-        ? adoptMarkedHydratedComponentRange(
-            existingHost as Comment,
-            markedHydrationEnd,
-            hydrationInstance,
-            resolvedResult.result,
-            forceChildrenUpdate || hydrationInstance.owner.mounted === false,
-            liveRetainedInstances
-          )
-        : adoptHydratedComponentRange(
-            existingHost as Element | Comment,
-            hydrationInstance,
-            resolvedResult.result,
-            hydrationRangeEnd,
-            forceChildrenUpdate || hydrationInstance.owner.mounted === false,
-            liveRetainedInstances
-          );
-      if (adoptedHost) {
-        return adoptedHost;
-      }
+    const adoptedResolvedRange = tryAdoptHydratedRange(
+      adoption,
+      resolvedResult.result
+    );
+    if (adoptedResolvedRange) {
+      return adoptedResolvedRange;
     }
-    if (
-      existingHost instanceof Element &&
-      _isDOMElement(resolvedResult.result) &&
-      typeof resolvedResult.result.type === 'string' &&
-      tagNamesEqualIgnoreCase(existingHost.tagName, resolvedResult.result.type)
-    ) {
-      withContext(snapshot, () => {
-        domHost.updateElementFromVnode(
-          existingHost,
-          inheritComponentKey(resolvedResult.result as DOMElement, node),
-          true,
-          forceChildrenUpdate || hydrationInstance.owner.mounted === false
-        );
-        materializeKey(existingHost, node, props);
-      });
-      mountInstanceInline(hydrationInstance, existingHost);
-      itemInstanceHydrationComplete(existingHost);
-      return existingHost;
+
+    const reusedResolvedHost = tryReuseIntrinsicHost(
+      adoption,
+      resolvedResult.result
+    );
+    if (reusedResolvedHost) {
+      return reusedResolvedHost;
     }
 
     const nextDom = replacement.replace(

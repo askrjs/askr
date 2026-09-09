@@ -1,13 +1,10 @@
 import type { Route, RouteManifest, RouteRegistry } from '../src/common/router';
-import {
-  clearRouteState,
-  getRouteList,
-  getRouteRecords,
-} from '../src/router/store';
+import { getRouteList, getRouteRecords } from '../src/router/store';
+import { resetRouterState } from '../src/router/reset';
 import { createRouteRegistry, route } from '../src/router/route';
 
 export function resetRouteState(): void {
-  clearRouteState();
+  resetRouterState();
 }
 
 export function currentRouteManifest(): RouteManifest {

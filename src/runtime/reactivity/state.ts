@@ -18,13 +18,8 @@ import {
 import { type ComponentInstance } from '../component/instance';
 import { deferCommitNotification } from '../transactions/access';
 import { isProductionEnvironment } from '../../common/env';
-import {
-  recordReadableRead,
-  type ReadableSource,
-  markReadableDerivedSubscribersDirty,
-  markReactivePropsDirtySource,
-  notifyReadableReaders,
-} from './readable';
+import { notifyReadableSource } from './notify';
+import { recordReadableRead, type ReadableSource } from './readable';
 
 /**
  * State value holder - callable to read, has set method to update
@@ -191,9 +186,7 @@ function createStateCell<T>(
   };
 
   function notify(): void {
-    markReadableDerivedSubscribersDirty(read as State<T>);
-    markReactivePropsDirtySource(read as State<T>);
-    void notifyReadableReaders(read as State<T>);
+    notifyReadableSource(read as State<T>);
   }
 
   // Allow destructuring assignment: const [get, set] = state(0);

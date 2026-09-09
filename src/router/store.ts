@@ -16,29 +16,56 @@ import type {
   RegistrationScope,
 } from './internal-types';
 
-const routes: InternalRoute[] = [];
-const records: InternalRouteRecord[] = [];
-const namespaces = new Set<string>();
-const routesByDepth = new Map<number, Route[]>();
-
-const registrationScopeStack: RegistrationScope[] = [];
-
-let registrationLocked = false;
-let defaultRouteAuthOptions: RouteAuthOptions | undefined;
-let activeClientRouteAuthOptions: RouteAuthOptions | undefined;
-let defaultRouteBasePath = '';
-
-type RouteStateSnapshot = {
-  routes: InternalRoute[];
-  records: InternalRouteRecord[];
-  namespaces: string[];
+/**
+ * One route table: everything `route()`, `page()` and `group()` write to.
+ *
+ * The registration DSL is a set of bare functions, so it has to write somewhere
+ * ambient. Naming that target makes it swappable: building a registry now runs
+ * the definition against a table of its own instead of clearing the live one,
+ * saving a snapshot, and restoring it afterwards. That dance was reentrant only
+ * by accident and would have interleaved badly the moment two registries were
+ * built concurrently.
+ */
+export interface RouteTable {
+  readonly routes: InternalRoute[];
+  readonly records: InternalRouteRecord[];
+  readonly namespaces: Set<string>;
+  readonly routesByDepth: Map<number, Route[]>;
+  readonly registrationScopeStack: RegistrationScope[];
   registrationLocked: boolean;
   defaultRouteAuthOptions: RouteAuthOptions | undefined;
   activeClientRouteAuthOptions: RouteAuthOptions | undefined;
   defaultRouteBasePath: string;
-  routesByDepth: Array<[number, Route[]]>;
-  registrationScopeStack: RegistrationScope[];
-};
+}
+
+export function createRouteTable(): RouteTable {
+  return {
+    routes: [],
+    records: [],
+    namespaces: new Set<string>(),
+    routesByDepth: new Map<number, Route[]>(),
+    registrationScopeStack: [],
+    registrationLocked: false,
+    defaultRouteAuthOptions: undefined,
+    activeClientRouteAuthOptions: undefined,
+    defaultRouteBasePath: '',
+  };
+}
+
+/** The application's own table, used whenever no other one is active. */
+const defaultTable = createRouteTable();
+let activeTable: RouteTable = defaultTable;
+
+/** Run `fn` with `table` as the registration target, then restore the previous one. */
+export function withRouteTable<T>(table: RouteTable, fn: () => T): T {
+  const previous = activeTable;
+  activeTable = table;
+  try {
+    return fn();
+  } finally {
+    activeTable = previous;
+  }
+}
 
 function getDepth(path: string): number {
   const normalized =
@@ -47,37 +74,37 @@ function getDepth(path: string): number {
 }
 
 export function getRouteRecords(): readonly InternalRouteRecord[] {
-  return records;
+  return activeTable.records;
 }
 
 export function isRouteStoreRoutes(routeList: readonly Route[]): boolean {
-  return routeList === routes;
+  return routeList === activeTable.routes;
 }
 
 export function insertRecordSorted(record: InternalRouteRecord): void {
   let lo = 0;
-  let hi = records.length;
+  let hi = activeTable.records.length;
   while (lo < hi) {
     const mid = (lo + hi) >>> 1;
-    if (records[mid].rank >= record.rank) lo = mid + 1;
+    if (activeTable.records[mid].rank >= record.rank) lo = mid + 1;
     else hi = mid;
   }
-  records.splice(lo, 0, record);
+  activeTable.records.splice(lo, 0, record);
 }
 
 export function addRouteToStores(routeObj: InternalRoute): void {
-  routes.push(routeObj);
+  activeTable.routes.push(routeObj);
 
   const depth = getDepth(routeObj.path);
-  let depthRoutes = routesByDepth.get(depth);
+  let depthRoutes = activeTable.routesByDepth.get(depth);
   if (!depthRoutes) {
     depthRoutes = [];
-    routesByDepth.set(depth, depthRoutes);
+    activeTable.routesByDepth.set(depth, depthRoutes);
   }
   depthRoutes.push(routeObj);
 
   if (routeObj.namespace) {
-    namespaces.add(routeObj.namespace);
+    activeTable.namespaces.add(routeObj.namespace);
   }
 }
 
@@ -86,7 +113,7 @@ export function getActiveRoutes(): readonly Route[] {
   return (
     renderContext?.routes ??
     getCurrentAppRenderRuntime()?.routeRegistry?.routes ??
-    routes
+    activeTable.routes
   );
 }
 
@@ -103,31 +130,34 @@ export function getActiveRouteAuthOptions(
   const appRuntime = getCurrentAppRenderRuntime();
   if (appRuntime) return appRuntime.routeAuth;
 
-  return activeClientRouteAuthOptions ?? defaultRouteAuthOptions;
+  return (
+    activeTable.activeClientRouteAuthOptions ??
+    activeTable.defaultRouteAuthOptions
+  );
 }
 
 export function _setActiveRouteAuthOptions(
   auth: RouteAuthOptions | undefined
 ): void {
-  activeClientRouteAuthOptions = auth;
+  activeTable.activeClientRouteAuthOptions = auth;
 }
 
 export function getDefaultRouteAuthOptions(): RouteAuthOptions | undefined {
-  return defaultRouteAuthOptions;
+  return activeTable.defaultRouteAuthOptions;
 }
 
 export function setDefaultRouteAuthOptions(
   auth: RouteAuthOptions | undefined
 ): void {
-  defaultRouteAuthOptions = auth;
+  activeTable.defaultRouteAuthOptions = auth;
 }
 
 export function getDefaultRouteBasePath(): string {
-  return defaultRouteBasePath;
+  return activeTable.defaultRouteBasePath;
 }
 
 export function setDefaultRouteBasePath(basePath: string): void {
-  defaultRouteBasePath = basePath;
+  activeTable.defaultRouteBasePath = basePath;
 }
 
 export function getActiveRouteBasePath(): string {
@@ -141,13 +171,13 @@ export function getActiveRouteBasePath(): string {
     return appRegistry.manifest.basePath ?? '';
   }
 
-  return defaultRouteBasePath;
+  return activeTable.defaultRouteBasePath;
 }
 
 export function getCurrentLayoutChain(): LayoutScopeRecord[] {
   const layoutChain: LayoutScopeRecord[] = [];
 
-  for (const scope of registrationScopeStack) {
+  for (const scope of activeTable.registrationScopeStack) {
     if (scope.layout) {
       layoutChain.push({ component: scope.layout });
     }
@@ -159,7 +189,7 @@ export function getCurrentLayoutChain(): LayoutScopeRecord[] {
 export function getCurrentPageChain(): PageScopeRecord[] {
   const pageChain: PageScopeRecord[] = [];
 
-  for (const scope of registrationScopeStack) {
+  for (const scope of activeTable.registrationScopeStack) {
     if (scope.page) {
       pageChain.push({ component: scope.page });
     }
@@ -169,12 +199,16 @@ export function getCurrentPageChain(): PageScopeRecord[] {
 }
 
 export function hasActivePageScope(): boolean {
-  return registrationScopeStack.some((scope) => !!scope.page);
+  return activeTable.registrationScopeStack.some((scope) => !!scope.page);
 }
 
 export function getCurrentPageScope(): RegistrationScope | null {
-  for (let index = registrationScopeStack.length - 1; index >= 0; index -= 1) {
-    const scope = registrationScopeStack[index];
+  for (
+    let index = activeTable.registrationScopeStack.length - 1;
+    index >= 0;
+    index -= 1
+  ) {
+    const scope = activeTable.registrationScopeStack[index];
     if (scope.kind === 'page') {
       return scope;
     }
@@ -185,20 +219,24 @@ export function getCurrentPageScope(): RegistrationScope | null {
 
 export function getCurrentScopeKind(): RegistrationScope['kind'] | null {
   return (
-    registrationScopeStack[registrationScopeStack.length - 1]?.kind ?? null
+    activeTable.registrationScopeStack[
+      activeTable.registrationScopeStack.length - 1
+    ]?.kind ?? null
   );
 }
 
 export function getCurrentPathPrefix(): string {
   return (
-    registrationScopeStack[registrationScopeStack.length - 1]?.pathPrefix ?? ''
+    activeTable.registrationScopeStack[
+      activeTable.registrationScopeStack.length - 1
+    ]?.pathPrefix ?? ''
   );
 }
 
 export function getCurrentInheritedPolicies(): RoutePolicy[] {
   const policies: RoutePolicy[] = [];
 
-  for (const scope of registrationScopeStack) {
+  for (const scope of activeTable.registrationScopeStack) {
     if (scope.policies.length > 0) {
       policies.push(...scope.policies);
     }
@@ -208,13 +246,13 @@ export function getCurrentInheritedPolicies(): RoutePolicy[] {
 }
 
 export function getCurrentInheritedAuthRequirements(): AuthRequirement[] {
-  return registrationScopeStack.flatMap((scope) =>
+  return activeTable.registrationScopeStack.flatMap((scope) =>
     scope.auth ? [scope.auth] : []
   );
 }
 
 export function getCurrentInheritedMeta(): RouteMetaSource[] {
-  return registrationScopeStack.flatMap((scope) =>
+  return activeTable.registrationScopeStack.flatMap((scope) =>
     scope.meta ? [scope.meta] : []
   );
 }
@@ -223,28 +261,28 @@ export function pushRegistrationScope(
   scope: RegistrationScope,
   fn: RouteDefinition
 ): void {
-  registrationScopeStack.push(scope);
+  activeTable.registrationScopeStack.push(scope);
   try {
     fn();
   } finally {
-    registrationScopeStack.pop();
+    activeTable.registrationScopeStack.pop();
   }
 }
 
 export function lockRouteRegistration(): void {
-  registrationLocked = true;
+  activeTable.registrationLocked = true;
 }
 
 export function _lockRouteRegistrationForTests(): void {
-  registrationLocked = true;
+  activeTable.registrationLocked = true;
 }
 
 export function _unlockRouteRegistrationForTests(): void {
-  registrationLocked = false;
+  activeTable.registrationLocked = false;
 }
 
 export function assertRouteRegistrationUnlocked(): void {
-  if (registrationLocked) {
+  if (activeTable.registrationLocked) {
     throw new Error(
       'Route registration is locked after app startup. ' +
         'Register routes at module load time before calling createSPA or createSSR.'
@@ -253,27 +291,27 @@ export function assertRouteRegistrationUnlocked(): void {
 }
 
 export function getRouteList(): Route[] {
-  return [...routes];
+  return [...activeTable.routes];
 }
 
 export function hasRegisteredRoutes(): boolean {
-  return routes.length > 0 || records.length > 0;
+  return activeTable.routes.length > 0 || activeTable.records.length > 0;
 }
 
 export function getNamespaceRoutes(namespace: string): Route[] {
-  return routes.filter((route) => route.namespace === namespace);
+  return activeTable.routes.filter((route) => route.namespace === namespace);
 }
 
 export function unloadNamespace(namespace: string): number {
-  const before = routes.length;
+  const before = activeTable.routes.length;
 
-  for (let i = routes.length - 1; i >= 0; i--) {
-    if (routes[i].namespace === namespace) {
-      const removed = routes[i];
-      routes.splice(i, 1);
+  for (let i = activeTable.routes.length - 1; i >= 0; i--) {
+    if (activeTable.routes[i].namespace === namespace) {
+      const removed = activeTable.routes[i];
+      activeTable.routes.splice(i, 1);
 
       const depth = getDepth(removed.path);
-      const depthRoutes = routesByDepth.get(depth);
+      const depthRoutes = activeTable.routesByDepth.get(depth);
       if (depthRoutes) {
         const idx = depthRoutes.indexOf(removed);
         if (idx >= 0) depthRoutes.splice(idx, 1);
@@ -281,71 +319,28 @@ export function unloadNamespace(namespace: string): number {
     }
   }
 
-  for (let i = records.length - 1; i >= 0; i--) {
-    if (records[i].options.namespace === namespace) {
-      records.splice(i, 1);
+  for (let i = activeTable.records.length - 1; i >= 0; i--) {
+    if (activeTable.records[i].options.namespace === namespace) {
+      activeTable.records.splice(i, 1);
     }
   }
 
-  namespaces.delete(namespace);
-  return before - routes.length;
+  activeTable.namespaces.delete(namespace);
+  return before - activeTable.routes.length;
 }
 
 export function getLoadedNamespaces(): string[] {
-  return Array.from(namespaces);
+  return Array.from(activeTable.namespaces);
 }
 
 export function clearRouteState(): void {
-  routes.length = 0;
-  records.length = 0;
-  namespaces.clear();
-  routesByDepth.clear();
-  registrationScopeStack.length = 0;
-  registrationLocked = false;
-  defaultRouteAuthOptions = undefined;
-  activeClientRouteAuthOptions = undefined;
-  defaultRouteBasePath = '';
-}
-
-export function snapshotRouteState(): RouteStateSnapshot {
-  return {
-    routes: [...routes],
-    records: [...records],
-    namespaces: [...namespaces],
-    registrationLocked,
-    defaultRouteAuthOptions,
-    activeClientRouteAuthOptions,
-    defaultRouteBasePath,
-    routesByDepth: [...routesByDepth.entries()].map(([depth, depthRoutes]) => [
-      depth,
-      [...depthRoutes],
-    ]),
-    registrationScopeStack: [...registrationScopeStack],
-  };
-}
-
-export function restoreRouteState(snapshot: RouteStateSnapshot): void {
-  routes.length = 0;
-  routes.push(...snapshot.routes);
-
-  records.length = 0;
-  records.push(...snapshot.records);
-
-  namespaces.clear();
-  for (const namespace of snapshot.namespaces) {
-    namespaces.add(namespace);
-  }
-
-  routesByDepth.clear();
-  for (const [depth, depthRoutes] of snapshot.routesByDepth) {
-    routesByDepth.set(depth, [...depthRoutes]);
-  }
-
-  registrationScopeStack.length = 0;
-  registrationScopeStack.push(...snapshot.registrationScopeStack);
-
-  registrationLocked = snapshot.registrationLocked;
-  defaultRouteAuthOptions = snapshot.defaultRouteAuthOptions;
-  activeClientRouteAuthOptions = snapshot.activeClientRouteAuthOptions;
-  defaultRouteBasePath = snapshot.defaultRouteBasePath;
+  activeTable.routes.length = 0;
+  activeTable.records.length = 0;
+  activeTable.namespaces.clear();
+  activeTable.routesByDepth.clear();
+  activeTable.registrationScopeStack.length = 0;
+  activeTable.registrationLocked = false;
+  activeTable.defaultRouteAuthOptions = undefined;
+  activeTable.activeClientRouteAuthOptions = undefined;
+  activeTable.defaultRouteBasePath = '';
 }

@@ -6,16 +6,15 @@ import type {
 } from '../common/router';
 import {
   addRouteToStores,
-  clearRouteState,
+  createRouteTable,
   getDefaultRouteAuthOptions,
   getRouteRecords,
   getRouteList,
   insertRecordSorted,
-  restoreRouteState,
   setDefaultRouteAuthOptions,
   getDefaultRouteBasePath,
   setDefaultRouteBasePath,
-  snapshotRouteState,
+  withRouteTable,
 } from './store';
 import type { InternalRouteRecord } from './internal-types';
 import { normalizeRouteBasePath } from './base-path';
@@ -58,20 +57,15 @@ export function createRouteRegistry(
   definition: RouteDefinition,
   options: RouteRegistryOptions = {}
 ): RouteRegistry {
-  const previous = snapshotRouteState();
-  clearRouteState();
-
-  try {
+  // Built against a table of its own, so declaring a registry never disturbs
+  // the application's routes and two registries can be built independently.
+  return withRouteTable(createRouteTable(), () => {
     setDefaultRouteAuthOptions(options.auth);
     setDefaultRouteBasePath(normalizeRouteBasePath(options.basePath));
     definition();
-    const manifest = createRouteManifest();
-    const registry = Object.freeze({
-      manifest,
+    return Object.freeze({
+      manifest: createRouteManifest(),
       routes: getRouteList(),
     }) as unknown as RouteRegistry;
-    return registry;
-  } finally {
-    restoreRouteState(previous);
-  }
+  });
 }

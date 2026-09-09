@@ -72,6 +72,203 @@ import { addPerfDuration, incrementPerfMetric } from '../runtime';
  * console.log(`Generated ${result.successful}/${result.totalRoutes} routes`);
  * ```
  */
+
+interface AssembleRouteResultsInput {
+  selected: SelectedRoute[];
+  renderedByRouteId: Map<string, RouteRenderResult>;
+  /** Filled in place, so callers keep the ordering they established. */
+  routeResultsById: Map<string, RouteRenderResult>;
+  dataMap: ReturnType<typeof resolveSsgData>;
+  effectiveMode: SSGMode;
+  outputDir: string;
+}
+
+/**
+ * Turn selected routes and their renders into results and manifest entries.
+ *
+ * A route arrives in one of three states: unchanged and therefore skipped,
+ * rendered successfully, or rendered with an error. Each produces a different
+ * result shape and a different manifest entry, and a successful render is only
+ * written when its HTML actually differs from what the previous build left.
+ */
+function assembleRouteResults({
+  selected,
+  renderedByRouteId,
+  routeResultsById,
+  dataMap,
+  effectiveMode,
+  outputDir,
+}: AssembleRouteResultsInput): {
+  cacheHits: number;
+  nextManifestRoutes: IncrementalManifestRouteEntry[];
+} {
+  let cacheHits = 0;
+  const nextManifestRoutes: IncrementalManifestRouteEntry[] = [];
+
+  for (const entry of selected) {
+    const { descriptor, previous, reason } = entry;
+    const resolvedData = resolveSsgRouteData(
+      dataMap,
+      descriptor.route.path,
+      descriptor.path
+    );
+    const baseData = resolvedData.hasData ? resolvedData.data : undefined;
+    const resourceCount =
+      resolvedData.hasData && baseData ? Object.keys(baseData).length : 0;
+
+    if (reason === 'unchanged') {
+      routeResultsById.set(descriptor.routeId, {
+        path: descriptor.path,
+        filePath: descriptor.filePath,
+        html: '',
+        fileSize:
+          previous?.htmlHash !== null && previous !== null
+            ? getExistingOutputFileSize(outputDir, descriptor.filePath)
+            : 0,
+        renderDuration: 0,
+        resourceCount,
+        status: 'skipped',
+        reason: 'unchanged',
+        written: false,
+      });
+
+      if (previous) {
+        nextManifestRoutes.push({
+          ...previous,
+          path: descriptor.path,
+          filePath: descriptor.filePath,
+          invalidationKeys: descriptor.invalidationKeys.slice(),
+        });
+      }
+      continue;
+    }
+
+    const rendered = renderedByRouteId.get(descriptor.routeId);
+    if (!rendered) {
+      throw new Error(`Missing rendered result for route "${descriptor.path}"`);
+    }
+
+    const nextResult: RouteRenderResult = {
+      ...rendered,
+      path: descriptor.path,
+      filePath: descriptor.filePath,
+      resourceCount,
+      reason,
+      written: false,
+    };
+
+    if (nextResult.status === 'success') {
+      const htmlDigest = hashHtml(nextResult.html);
+      const shouldWrite =
+        effectiveMode === 'full' ||
+        !previous ||
+        previous.htmlHash !== htmlDigest ||
+        !outputFileExists(outputDir, descriptor.filePath);
+
+      nextResult.written = shouldWrite;
+      if (!shouldWrite) {
+        cacheHits += 1;
+      }
+
+      nextManifestRoutes.push({
+        routeId: descriptor.routeId,
+        path: descriptor.path,
+        filePath: descriptor.filePath,
+        invalidationKeys: descriptor.invalidationKeys.slice(),
+        htmlHash: htmlDigest,
+        lastStatus: 'success',
+      });
+    } else {
+      nextManifestRoutes.push({
+        routeId: descriptor.routeId,
+        path: descriptor.path,
+        filePath: descriptor.filePath,
+        invalidationKeys: descriptor.invalidationKeys.slice(),
+        htmlHash: previous?.htmlHash ?? null,
+        lastStatus: 'error',
+      });
+    }
+
+    routeResultsById.set(descriptor.routeId, nextResult);
+  }
+
+  return { cacheHits, nextManifestRoutes };
+}
+
+interface PublishGenerationInput {
+  routeResults: RouteRenderResult[];
+  nextManifestRoutes: IncrementalManifestRouteEntry[];
+  effectiveMode: SSGMode;
+  seed: number;
+  concurrency: number;
+  outputDir: string;
+  assets: SSGOptions['assets'];
+  metadata: ReturnType<typeof resultToMetadata>;
+}
+
+/**
+ * Write a completed generation to disk.
+ *
+ * A full build is all-or-nothing, so it writes into a sibling staging directory
+ * and swaps it into place only once every file, the metadata and the manifest
+ * have landed; a failure removes the staging directory and rethrows. Incremental
+ * builds write in place, because they are already only touching routes that
+ * changed.
+ */
+async function publishGeneration({
+  routeResults,
+  nextManifestRoutes,
+  effectiveMode,
+  seed,
+  concurrency,
+  outputDir,
+  assets,
+  metadata,
+}: PublishGenerationInput): Promise<void> {
+  const targetOutputDir =
+    effectiveMode === 'full'
+      ? await createStagingDirectory(outputDir)
+      : outputDir;
+
+  try {
+    // Write HTML, metadata, and the manifest into the same target. Full
+    // builds use a sibling staging directory; incremental builds retain
+    // their existing per-route behavior.
+    const writeStartTime = performance.now();
+    await writeStaticFiles(routeResults, targetOutputDir, {
+      concurrency,
+    });
+    addPerfDuration('ssgWriteTimeMs', performance.now() - writeStartTime);
+
+    await writeMetadata(metadata, targetOutputDir);
+
+    await writeIncrementalManifest(
+      {
+        schemaVersion: SSG_MANIFEST_SCHEMA_VERSION,
+        seed,
+        mode: effectiveMode,
+        routes: nextManifestRoutes,
+      },
+      targetOutputDir
+    );
+
+    await copyStaticAssets(assets, targetOutputDir);
+
+    if (effectiveMode === 'full') {
+      await replaceOutputDirectory(targetOutputDir, outputDir);
+    }
+  } catch (error) {
+    if (effectiveMode === 'full') {
+      try {
+        await fs.rm(targetOutputDir, { recursive: true, force: true });
+      } catch {
+        // Preserve the failure that initiated staging cleanup.
+      }
+    }
+    throw error;
+  }
+}
+
 export function createStaticGen(options: SSGOptions) {
   let result: SSGResult | null = null;
   if (!options || !('registry' in options) || !options.registry) {
@@ -182,100 +379,14 @@ export function createStaticGen(options: SSGOptions) {
           );
         }
 
-        let cacheHits = 0;
-        const nextManifestRoutes: IncrementalManifestRouteEntry[] = [];
-
-        for (const entry of selected) {
-          const { descriptor, previous, reason } = entry;
-          const resolvedData = resolveSsgRouteData(
-            dataMap,
-            descriptor.route.path,
-            descriptor.path
-          );
-          const baseData = resolvedData.hasData ? resolvedData.data : undefined;
-          const resourceCount =
-            resolvedData.hasData && baseData ? Object.keys(baseData).length : 0;
-
-          if (reason === 'unchanged') {
-            routeResultsById.set(descriptor.routeId, {
-              path: descriptor.path,
-              filePath: descriptor.filePath,
-              html: '',
-              fileSize:
-                previous?.htmlHash !== null && previous !== null
-                  ? getExistingOutputFileSize(
-                      options.outputDir,
-                      descriptor.filePath
-                    )
-                  : 0,
-              renderDuration: 0,
-              resourceCount,
-              status: 'skipped',
-              reason: 'unchanged',
-              written: false,
-            });
-
-            if (previous) {
-              nextManifestRoutes.push({
-                ...previous,
-                path: descriptor.path,
-                filePath: descriptor.filePath,
-                invalidationKeys: descriptor.invalidationKeys.slice(),
-              });
-            }
-            continue;
-          }
-
-          const rendered = renderedByRouteId.get(descriptor.routeId);
-          if (!rendered) {
-            throw new Error(
-              `Missing rendered result for route "${descriptor.path}"`
-            );
-          }
-
-          const nextResult: RouteRenderResult = {
-            ...rendered,
-            path: descriptor.path,
-            filePath: descriptor.filePath,
-            resourceCount,
-            reason,
-            written: false,
-          };
-
-          if (nextResult.status === 'success') {
-            const htmlDigest = hashHtml(nextResult.html);
-            const shouldWrite =
-              effectiveMode === 'full' ||
-              !previous ||
-              previous.htmlHash !== htmlDigest ||
-              !outputFileExists(options.outputDir, descriptor.filePath);
-
-            nextResult.written = shouldWrite;
-            if (!shouldWrite) {
-              cacheHits += 1;
-            }
-
-            nextManifestRoutes.push({
-              routeId: descriptor.routeId,
-              path: descriptor.path,
-              filePath: descriptor.filePath,
-              invalidationKeys: descriptor.invalidationKeys.slice(),
-              htmlHash: htmlDigest,
-              lastStatus: 'success',
-            });
-          } else {
-            nextManifestRoutes.push({
-              routeId: descriptor.routeId,
-              path: descriptor.path,
-              filePath: descriptor.filePath,
-              invalidationKeys: descriptor.invalidationKeys.slice(),
-              htmlHash: previous?.htmlHash ?? null,
-              lastStatus: 'error',
-            });
-          }
-
-          routeResultsById.set(descriptor.routeId, nextResult);
-        }
+        const { cacheHits, nextManifestRoutes } = assembleRouteResults({
+          selected,
+          renderedByRouteId,
+          routeResultsById,
+          dataMap,
+          effectiveMode,
+          outputDir: options.outputDir,
+        });
 
         const removedResults = collectRemovedRouteResults(
           previousManifest,
@@ -309,49 +420,16 @@ export function createStaticGen(options: SSGOptions) {
           return result;
         }
 
-        const targetOutputDir =
-          effectiveMode === 'full'
-            ? await createStagingDirectory(options.outputDir)
-            : options.outputDir;
-
-        try {
-          // Write HTML, metadata, and the manifest into the same target. Full
-          // builds use a sibling staging directory; incremental builds retain
-          // their existing per-route behavior.
-          const writeStartTime = performance.now();
-          await writeStaticFiles(routeResults, targetOutputDir, {
-            concurrency: resolvedConcurrency,
-          });
-          addPerfDuration('ssgWriteTimeMs', performance.now() - writeStartTime);
-
-          const metadata = resultToMetadata(result);
-          await writeMetadata(metadata, targetOutputDir);
-
-          await writeIncrementalManifest(
-            {
-              schemaVersion: SSG_MANIFEST_SCHEMA_VERSION,
-              seed,
-              mode: effectiveMode,
-              routes: nextManifestRoutes,
-            },
-            targetOutputDir
-          );
-
-          await copyStaticAssets(options.assets, targetOutputDir);
-
-          if (effectiveMode === 'full') {
-            await replaceOutputDirectory(targetOutputDir, options.outputDir);
-          }
-        } catch (error) {
-          if (effectiveMode === 'full') {
-            try {
-              await fs.rm(targetOutputDir, { recursive: true, force: true });
-            } catch {
-              // Preserve the failure that initiated staging cleanup.
-            }
-          }
-          throw error;
-        }
+        await publishGeneration({
+          routeResults,
+          nextManifestRoutes,
+          effectiveMode,
+          seed,
+          concurrency: resolvedConcurrency,
+          outputDir: options.outputDir,
+          assets: options.assets,
+          metadata: resultToMetadata(result),
+        });
 
         return result;
       });

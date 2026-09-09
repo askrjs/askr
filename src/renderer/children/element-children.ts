@@ -10,10 +10,14 @@ import {
   getDirectControlBoundaryVNode,
   registerControlBoundaryCommitOwner,
   syncControlBoundaryInMixedParent,
-  trySyncControlBoundaryChild,
 } from '../control/boundaries';
 import { isBulkTextFastPathEligible, performBulkTextReplace } from './children';
-import { isFragmentVNode, normalizeComponentChildren } from './child-shape';
+import {
+  isEmptyChild,
+  isFragmentVNode,
+  isScalarChild,
+  normalizeComponentChildren,
+} from './child-shape';
 import { retireNodeSubtree } from '../ownership/cleanup';
 import { retireComponentOwnersForIntrinsicReuse } from '../component/host-cleanup';
 import { getRendererDOMHost, type ElementWithContext } from '../dom-host';
@@ -26,6 +30,7 @@ import {
 } from './reactive-children';
 import { reconcileKeyedChildren } from '../reconciliation/reconcile';
 import { tagsEqualIgnoreCase } from './static-reuse';
+import { updateUnkeyedChildren } from './unkeyed';
 import { _isDOMElement, type DOMElement, type VNode } from '../types';
 import { extractKey } from '../utils';
 import {
@@ -95,10 +100,7 @@ export function updateElementChildren(
     return;
   }
 
-  if (
-    !Array.isArray(children) &&
-    (typeof children === 'string' || typeof children === 'number')
-  ) {
+  if (!Array.isArray(children) && isScalarChild(children)) {
     if (el.childNodes.length === 1 && el.firstChild?.nodeType === 3) {
       const s = String(children);
       const t = el.firstChild as Text;
@@ -233,7 +235,7 @@ function consumeUnmatchedTailAtCursor(
 }
 
 function nodeMatchesFollowingVNode(node: Node, vnode: VNode): boolean {
-  if (typeof vnode === 'string' || typeof vnode === 'number') {
+  if (isScalarChild(vnode)) {
     return node.nodeType === Node.TEXT_NODE;
   }
   if (!_isDOMElement(vnode)) return false;
@@ -401,11 +403,7 @@ export function updateMixedControlChildren(
       cursor = removeRangeAtCursor(parent, cursor);
     }
 
-    if (
-      cursor &&
-      (typeof child === 'string' || typeof child === 'number') &&
-      cursor.nodeType === 3
-    ) {
+    if (cursor && isScalarChild(child) && cursor.nodeType === 3) {
       (cursor as Text).data = String(child);
       cursor = cursor.nextSibling;
       continue;
@@ -462,24 +460,6 @@ export function updateMixedControlChildren(
   }
 }
 
-function isEmptyChild(child: unknown): boolean {
-  return child === null || child === undefined || child === false;
-}
-
-function replaceHydratedRangeInSnapshot(
-  nodes: Node[],
-  index: number,
-  rangeStart: Comment,
-  fallbackEndIndex: number
-): void {
-  const rangeEnd = findRangeEnd(rangeStart);
-  const following = rangeEnd?.nextSibling ?? null;
-  const followingIndex =
-    following === null ? nodes.length : nodes.indexOf(following, index);
-  const endIndex = followingIndex >= index ? followingIndex : fallbackEndIndex;
-  nodes.splice(index, Math.max(1, endIndex - index), rangeStart);
-}
-
 /**
  * Key map over the parent's *logical* child hosts, which steps over range
  * interiors rather than into them.
@@ -507,326 +487,4 @@ function getOrBuildLogicalChildKeyMap(
   return keyMap.size > 0 ? keyMap : undefined;
 }
 
-export function updateUnkeyedChildren(
-  parent: Element,
-  newChildren: unknown[],
-  forceUpdate = false
-): void {
-  const parentNamespace = getParentNamespace(parent);
-  const domHost = getRendererDOMHost();
-
-  const trySyncComponentChild = (
-    currentDom: Node,
-    next: DOMElement,
-    hydrationRangeEnd?: Node | null
-  ): Node | null => {
-    if (typeof next.type !== 'function') {
-      return null;
-    }
-
-    return domHost.syncComponentElement(
-      currentDom,
-      next as ElementWithContext,
-      next.type as ComponentFunction,
-      (((next as DOMElement).props ?? {}) as Record<string, unknown>) || {},
-      parentNamespace,
-      forceUpdate,
-      undefined,
-      hydrationRangeEnd,
-      true
-    );
-  };
-
-  const hasText = newChildren.some(
-    (c) => typeof c === 'string' || typeof c === 'number'
-  );
-  const hasElements = newChildren.some((c) => _isDOMElement(c));
-  const hasEmptyChildren = newChildren.some(isEmptyChild);
-  const hasComponentChildren = newChildren.some(
-    (c) => _isDOMElement(c) && typeof (c as DOMElement).type === 'function'
-  );
-  const hasNonElementDomChildren =
-    parent.childNodes.length !== parent.children.length;
-
-  if (
-    !hasEmptyChildren &&
-    !hasText &&
-    !hasComponentChildren &&
-    !hasNonElementDomChildren &&
-    hasElements &&
-    parent.children.length === newChildren.length
-  ) {
-    const c = parent.children;
-    for (let i = 0; i < newChildren.length; i++) {
-      const next = newChildren[i];
-      const current = c[i];
-      if (!current || next === undefined) continue;
-      if (_isDOMElement(next) && typeof next.type === 'string') {
-        if (tagsEqualIgnoreCase(current.tagName, next.type)) {
-          domHost.updateElementFromVnode(current, next, true, forceUpdate);
-          retireComponentOwnersForIntrinsicReuse(current);
-        } else {
-          const dom = domHost.createDOMNode(next, parentNamespace);
-          if (dom) {
-            retireNodeSubtree(current);
-            parent.replaceChild(dom, current);
-          }
-        }
-      } else if (_isDOMElement(next)) {
-        if (trySyncControlBoundaryChild(parent, current, next)) {
-          continue;
-        }
-
-        const synced = trySyncComponentChild(current, next);
-        if (!synced) {
-          const dom = domHost.createDOMNode(next, parentNamespace);
-          if (dom) {
-            retireNodeSubtree(current);
-            if (current.parentNode === parent) {
-              parent.replaceChild(dom, current);
-            } else if (dom.parentNode !== parent) {
-              parent.insertBefore(dom, parent.children[i] ?? null);
-            }
-          }
-        }
-      } else {
-        const dom = domHost.createDOMNode(next, parentNamespace);
-        if (dom) {
-          retireNodeSubtree(current);
-          parent.replaceChild(dom, current);
-        }
-      }
-    }
-    return;
-  }
-
-  const existing = Array.from(parent.children);
-
-  if (
-    hasText ||
-    hasComponentChildren ||
-    hasEmptyChildren ||
-    hasNonElementDomChildren
-  ) {
-    const allNodes: Node[] = Array.from(parent.childNodes);
-    for (let i = 0; i < Math.max(allNodes.length, newChildren.length); i += 1) {
-      const currentNode = allNodes[i];
-      const next = newChildren[i];
-      const nextIsEmpty = isEmptyChild(next);
-
-      if (nextIsEmpty && currentNode) {
-        retireNodeSubtree(currentNode);
-        currentNode.parentNode?.removeChild(currentNode);
-        continue;
-      }
-
-      if (!currentNode && !nextIsEmpty) {
-        const dom = domHost.createDOMNode(next, parentNamespace);
-        if (dom) parent.appendChild(dom);
-        continue;
-      }
-
-      if (!currentNode || nextIsEmpty) continue;
-
-      if (typeof next === 'string' || typeof next === 'number') {
-        if (currentNode.nodeType === 3) {
-          (currentNode as Text).data = String(next);
-        } else {
-          const textNode = document.createTextNode(String(next));
-          retireNodeSubtree(currentNode);
-          parent.replaceChild(textNode, currentNode);
-        }
-      } else if (_isDOMElement(next)) {
-        if (currentNode.nodeType === 1) {
-          const currentEl = currentNode as Element;
-          if (typeof next.type === 'string') {
-            if (tagsEqualIgnoreCase(currentEl.tagName, next.type)) {
-              domHost.updateElementFromVnode(
-                currentEl,
-                next,
-                true,
-                forceUpdate
-              );
-              retireComponentOwnersForIntrinsicReuse(currentEl);
-            } else {
-              const dom = domHost.createDOMNode(next, parentNamespace);
-              if (dom) {
-                retireNodeSubtree(currentEl);
-                if (currentNode.parentNode === parent) {
-                  parent.replaceChild(dom, currentNode);
-                } else if (dom.parentNode !== parent) {
-                  parent.insertBefore(dom, parent.childNodes[i] ?? null);
-                }
-              }
-            }
-          } else {
-            if (trySyncControlBoundaryChild(parent, currentNode, next)) {
-              continue;
-            }
-
-            const remainingExpected = newChildren.length - i - 1;
-            const hydrationRangeEndIndex = allNodes.length - remainingExpected;
-            const hydrationRangeEnd =
-              hydrationRangeEndIndex > i
-                ? (allNodes[hydrationRangeEndIndex] ?? null)
-                : undefined;
-            const synced = trySyncComponentChild(
-              currentEl,
-              next,
-              hydrationRangeEnd
-            );
-            if (synced && isRangeStart(synced)) {
-              replaceHydratedRangeInSnapshot(
-                allNodes,
-                i,
-                synced,
-                hydrationRangeEndIndex
-              );
-              continue;
-            }
-            if (
-              synced &&
-              synced !== currentNode &&
-              synced.nextSibling === currentNode
-            ) {
-              allNodes.splice(i, 0, synced);
-              continue;
-            }
-            if (!synced) {
-              const dom = domHost.createDOMNode(next, parentNamespace);
-              if (dom) {
-                retireNodeSubtree(currentEl);
-                parent.replaceChild(dom, currentNode);
-              }
-            }
-          }
-        } else {
-          if (typeof next.type === 'function') {
-            const remainingExpected = newChildren.length - i - 1;
-            const hydrationRangeEndIndex = allNodes.length - remainingExpected;
-            const hydrationRangeEnd =
-              hydrationRangeEndIndex > i
-                ? (allNodes[hydrationRangeEndIndex] ?? null)
-                : undefined;
-            const synced = trySyncComponentChild(
-              currentNode,
-              next,
-              hydrationRangeEnd
-            );
-            if (synced && isRangeStart(synced)) {
-              replaceHydratedRangeInSnapshot(
-                allNodes,
-                i,
-                synced,
-                hydrationRangeEndIndex
-              );
-              continue;
-            }
-            if (
-              synced &&
-              synced !== currentNode &&
-              synced.nextSibling === currentNode
-            ) {
-              allNodes.splice(i, 0, synced);
-              continue;
-            }
-            if (synced) {
-              continue;
-            }
-          }
-          const dom = domHost.createDOMNode(next, parentNamespace);
-          if (dom) {
-            retireNodeSubtree(currentNode);
-            parent.replaceChild(dom, currentNode);
-          }
-        }
-      }
-    }
-    return;
-  }
-
-  if (
-    newChildren.length === 1 &&
-    existing.length === 0 &&
-    parent.childNodes.length === 1
-  ) {
-    const firstNewChild = newChildren[0];
-    const firstExisting = parent.firstChild;
-    if (
-      (typeof firstNewChild === 'string' ||
-        typeof firstNewChild === 'number') &&
-      firstExisting?.nodeType === 3
-    ) {
-      (firstExisting as Text).data = String(firstNewChild);
-      return;
-    }
-  }
-
-  if (existing.length === 0 && parent.childNodes.length > 0) {
-    for (let n = parent.firstChild; n;) {
-      const next = n.nextSibling;
-      retireNodeSubtree(n);
-      n = next;
-    }
-    parent.textContent = '';
-  }
-  const max = Math.max(existing.length, newChildren.length);
-
-  for (let i = 0; i < max; i++) {
-    const current = existing[i];
-    const next = newChildren[i];
-    const nextIsEmpty = isEmptyChild(next);
-
-    if (nextIsEmpty && current) {
-      retireNodeSubtree(current);
-      current.remove();
-      continue;
-    }
-
-    if (!current && !nextIsEmpty) {
-      const dom = domHost.createDOMNode(next, parentNamespace);
-      if (dom) parent.appendChild(dom);
-      continue;
-    }
-
-    if (!current || nextIsEmpty) continue;
-
-    if (typeof next === 'string' || typeof next === 'number') {
-      const textNode = document.createTextNode(String(next));
-      retireNodeSubtree(current);
-      parent.replaceChild(textNode, current);
-    } else if (_isDOMElement(next)) {
-      if (typeof next.type === 'string') {
-        if (tagsEqualIgnoreCase(current.tagName, next.type)) {
-          domHost.updateElementFromVnode(current, next, true, forceUpdate);
-          retireComponentOwnersForIntrinsicReuse(current);
-        } else {
-          const dom = domHost.createDOMNode(next, parentNamespace);
-          if (dom) {
-            retireNodeSubtree(current);
-            parent.replaceChild(dom, current);
-          }
-        }
-      } else {
-        const synced = trySyncComponentChild(current, next);
-        if (!synced) {
-          const dom = domHost.createDOMNode(next, parentNamespace);
-          if (dom) {
-            retireNodeSubtree(current);
-            if (current.parentNode === parent) {
-              parent.replaceChild(dom, current);
-            } else if (dom.parentNode !== parent) {
-              parent.insertBefore(dom, parent.children[i] ?? null);
-            }
-          }
-        }
-      }
-    } else {
-      const dom = domHost.createDOMNode(next);
-      if (dom) {
-        retireNodeSubtree(current);
-        parent.replaceChild(dom, current);
-      }
-    }
-  }
-}
+export { updateUnkeyedChildren };

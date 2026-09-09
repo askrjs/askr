@@ -35,6 +35,59 @@ function hydrationVerificationSnapshot<T>(): ResourceResult<T> {
   }) as ResourceResult<T>;
 }
 
+/**
+ * What resource data, if any, the current render was given.
+ *
+ * Both the outside-a-component path and the in-component path asked this
+ * question, each spelling out the same two-part test by hand. One answer keeps
+ * the "is this a hydrating render with preloaded values" decision from drifting
+ * between them.
+ */
+function resolveResourceRenderData(): {
+  renderData: Record<string, unknown> | undefined;
+  hasPreloadedData: boolean;
+} {
+  const renderData = getCurrentRenderData()?.resources;
+  const hasPreloadedData = Boolean(
+    renderData &&
+    (getActiveRenderContext()?.resourceDataProvided ||
+      Object.keys(renderData).some((key) => key.startsWith('r:')))
+  );
+  return { renderData, hasPreloadedData };
+}
+
+/**
+ * Resolve a resource declared outside any component instance.
+ *
+ * Only legitimate during a synchronous SSR render that already carries resolved
+ * data; every other caller is creating a resource where it cannot be owned.
+ */
+function resolveResourceWithoutInstance<T>(): ResourceResult<T> {
+  const { renderData, hasPreloadedData } = resolveResourceRenderData();
+  if (renderData && hasPreloadedData) {
+    const key = getNextRenderKey();
+    if (!(key in renderData)) {
+      throwSSRDataMissing();
+    }
+    return brandSnapshotSource({
+      value: renderData[key] as T,
+      pending: false,
+      error: null,
+      refresh: () => {},
+    }) as ResourceResult<T>;
+  }
+
+  // An SSR render pass without supplied data: say so rather than fetching.
+  if (getActiveRenderContext()) {
+    throwSSRDataMissing();
+  }
+
+  throw new Error(
+    '[Askr] resource() must be called during component render inside an app. ' +
+      'Do not create resources at module scope or outside render.'
+  );
+}
+
 /** Creates a render-scoped async resource with cancellation and refresh; SSR has special data rules. */
 export function resource<T, const TDeps extends readonly unknown[]>(
   fn: (opts: { signal: AbortSignal }) => PromiseLike<T> | T,
@@ -61,38 +114,7 @@ export function resource<T>(
   const inst = instance as ComponentInstance;
 
   if (!instance) {
-    // If we're in a synchronous SSR render that has resolved data, use it.
-    const renderData = getCurrentRenderData()?.resources;
-    if (
-      renderData &&
-      (getActiveRenderContext()?.resourceDataProvided ||
-        Object.keys(renderData).some((key) => key.startsWith('r:')))
-    ) {
-      const key = getNextRenderKey();
-      if (!(key in renderData)) {
-        throwSSRDataMissing();
-      }
-      const val = renderData[key] as T;
-      return brandSnapshotSource({
-        value: val,
-        pending: false,
-        error: null,
-        refresh: () => {},
-      }) as ResourceResult<T>;
-    }
-
-    // If we are in an SSR render pass without supplied data, throw for clarity.
-    const ssrCtx = getActiveRenderContext();
-    if (ssrCtx) {
-      throwSSRDataMissing();
-    }
-
-    // No active component instance and not in SSR render with data.
-    // Autopilot invariant: resources must be created during render within an app.
-    throw new Error(
-      '[Askr] resource() must be called during component render inside an app. ' +
-        'Do not create resources at module scope or outside render.'
-    );
+    return resolveResourceWithoutInstance<T>();
   }
 
   // Internal ResourceCell — pure state machine now moved to its own module
@@ -102,12 +124,8 @@ export function resource<T>(
   // Allocate one deterministic key for SSR resources and client hydration
   // resources backed by preloaded data. Verification snapshots and preloaded
   // values must consult the same key so mixed pages stay aligned.
-  const renderData = getCurrentRenderData()?.resources;
-  const hasPreloadedResourceData = Boolean(
-    renderData &&
-    (getActiveRenderContext()?.resourceDataProvided ||
-      Object.keys(renderData).some((key) => key.startsWith('r:')))
-  );
+  const { renderData, hasPreloadedData: hasPreloadedResourceData } =
+    resolveResourceRenderData();
   const renderKey =
     inst.ssr || hasPreloadedResourceData ? getNextRenderKey() : null;
   const verificationSnapshot = renderKey

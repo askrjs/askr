@@ -1,4 +1,5 @@
-import { isPromiseLike } from '../../common/promise';
+import { scopeComponentResult } from './render-scope';
+import { ASYNC_COMPONENT_MESSAGE } from '../../common/promise';
 import type { Props } from '../../common/props';
 import {
   captureInlineRenderSnapshot,
@@ -10,7 +11,6 @@ import {
 import {
   getCurrentContextFrame,
   getVNodeContextFrame,
-  markVNodeTreeWithContextFrame,
   withContext,
 } from '../../runtime';
 import { materializeFreshKey } from '../props/attributes';
@@ -54,9 +54,7 @@ export function createComponentElement(
   const isAsync = componentFn.constructor.name === 'AsyncFunction';
 
   if (isAsync) {
-    throw new Error(
-      'Async components are not supported. Use resource() for async work.'
-    );
+    throw new Error(ASYNC_COMPONENT_MESSAGE);
   }
 
   const previousVNodeInstance = getVNodeComponentInstance(node);
@@ -111,18 +109,12 @@ export function createComponentElement(
       childInstance.ownerFrame = snapshot;
     }
 
-    const result = snapshot
-      ? withContext(snapshot, () => renderComponentInline(childInstance))
-      : renderComponentInline(childInstance);
-
-    if (isPromiseLike(result)) {
-      throw new Error(
-        'Async components are not supported. Components must return synchronously.'
-      );
-    }
-
-    const scopedResult = markVNodeTreeWithContextFrame(
-      result,
+    // Without a snapshot this deliberately keeps the ambient context frame,
+    // rather than clearing it the way renderComponentInScope would.
+    const scopedResult = scopeComponentResult(
+      snapshot
+        ? withContext(snapshot, () => renderComponentInline(childInstance))
+        : renderComponentInline(childInstance),
       snapshot ?? null
     );
 

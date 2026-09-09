@@ -26,12 +26,8 @@ import type { BootAppRouteSource } from './types';
 import { resolveRootElement } from './root-element';
 import { validateCspNonce } from '../csp-nonce';
 import { wrapRootRouteHandler } from './root-handler';
-import { installRootUpdateHost } from './root-update';
-import { installRendererBridge } from './runtime-wiring';
+import { ensureBrowserRuntime } from './composition';
 import { restartComponentGeneration } from '../runtime/component/generation';
-
-installRendererBridge();
-installRootUpdateHost();
 
 let componentIdCounter = 0;
 
@@ -177,6 +173,7 @@ export function mountOrUpdate(
     cspNonce?: string;
   }
 ) {
+  ensureBrowserRuntime();
   const nonce = validateCspNonce(options?.cspNonce);
   const wrappedFn = wrapRootRouteHandler(componentFn, nonce);
 
@@ -273,6 +270,7 @@ export async function registerAppNavigation(
   path: string,
   source: BootAppRouteSource
 ) {
+  ensureBrowserRuntime();
   const instance = instancesByRoot.get(rootElement);
   if (!instance) throw new Error('Internal error: app instance missing');
   routedRoots.add(rootElement);

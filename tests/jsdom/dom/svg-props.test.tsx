@@ -136,4 +136,12 @@ describe('SVG intrinsic prop normalization', () => {
     flushScheduler();
     expect(input.checked).toBe(false);
   });
+
+  it('should preserve custom CSS property names in SSR output', async () => {
+    // The DOM renderer writes `--myVar` verbatim; SSR used to kebab-case it to
+    // `--my-var`, which is a different (case-sensitive) custom property.
+    expect(
+      await captureSSRSnapshot(() => <div style={{ '--myVar': 'red' }} />)
+    ).toContain('--myVar:red');
+  });
 });
