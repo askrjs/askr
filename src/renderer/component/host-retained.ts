@@ -1,9 +1,8 @@
-import { isPromiseLike } from '../../common/promise';
+import { renderComponentInScope } from './render-scope';
 import {
   prepareRetainedComponentUpdate,
   enterDomCommitScope,
   getCurrentComponentInstance,
-  renderComponentInline,
   endComponentScope,
   type ComponentFunction,
   type ComponentInstance,
@@ -11,7 +10,6 @@ import {
 import {
   getCurrentContextFrame,
   getVNodeContextFrame,
-  markVNodeTreeWithContextFrame,
   withContext,
 } from '../../runtime';
 import { materializeKey } from '../props/attributes';
@@ -81,15 +79,7 @@ export function updateRetainedComponentHost(
     snapshot
   );
 
-  const result = withContext(snapshot, () =>
-    renderComponentInline(existingInstance)
-  );
-  if (isPromiseLike(result)) {
-    throw new Error(
-      'Async components are not supported. Components must return synchronously.'
-    );
-  }
-  const scopedResult = markVNodeTreeWithContextFrame(result, snapshot ?? null);
+  const scopedResult = renderComponentInScope(existingInstance, snapshot);
 
   if (
     existingHost instanceof Element &&

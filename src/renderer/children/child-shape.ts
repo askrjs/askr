@@ -11,6 +11,65 @@ export type StaticCreateChildShape = {
   textContent: string | null;
 };
 
+/**
+ * The kinds of value a child list can hold.
+ *
+ * Child classification used to be answered ad hoc: `isEmptyChild` was private
+ * to element-children.ts, the scalar test was written out at every site, and
+ * "is this a component" was `_isDOMElement(c) && typeof c.type === 'function'`
+ * repeated by hand. Naming the kinds keeps the answers in one place and lets a
+ * caller collect them in a single pass.
+ */
+
+/** A child that renders nothing. `0` and `''` are values, and do render. */
+export function isEmptyChild(child: unknown): boolean {
+  return child === null || child === undefined || child === false;
+}
+
+/** A child that renders as text. */
+export function isScalarChild(child: unknown): child is string | number {
+  return typeof child === 'string' || typeof child === 'number';
+}
+
+/** A vnode whose type is a component function rather than a tag name. */
+export function isComponentChild(child: unknown): child is DOMElement {
+  return (
+    _isDOMElement(child) && typeof (child as DOMElement).type === 'function'
+  );
+}
+
+/** Which kinds a child list contains. `element` covers intrinsics and components. */
+export interface ChildKinds {
+  empty: boolean;
+  scalar: boolean;
+  element: boolean;
+  component: boolean;
+}
+
+/** Collect {@link ChildKinds} in one pass rather than one scan per question. */
+export function collectChildKinds(children: readonly unknown[]): ChildKinds {
+  const kinds: ChildKinds = {
+    empty: false,
+    scalar: false,
+    element: false,
+    component: false,
+  };
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i];
+    if (isEmptyChild(child)) {
+      kinds.empty = true;
+    } else if (isScalarChild(child)) {
+      kinds.scalar = true;
+    } else if (_isDOMElement(child)) {
+      kinds.element = true;
+      if (typeof (child as DOMElement).type === 'function') {
+        kinds.component = true;
+      }
+    }
+  }
+  return kinds;
+}
+
 export function isFragmentVNode(node: unknown): node is DOMElement {
   return _isDOMElement(node) && isFragmentType((node as DOMElement).type);
 }

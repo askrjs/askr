@@ -1,9 +1,7 @@
+import { notifyReadableSource } from '../reactivity/notify';
 import type { ChildScope } from '../ownership/child-scope';
 import { type ComponentInstance } from '../component/instance';
 import {
-  markReactivePropsDirtySource,
-  markReadableDerivedSubscribersDirty,
-  notifyReadableReaders,
   recordReadableRead,
   shouldCoalesceFineGrainedItemReads,
   type ReadableSource,
@@ -80,9 +78,7 @@ export function notifyForSignalReaders(
   skipInstance?: ComponentInstance | null,
   skipOwnedBy?: ComponentInstance | null
 ): void {
-  markReadableDerivedSubscribersDirty(source);
-  markReactivePropsDirtySource(source);
-  notifyReadableReaders(source, skipInstance, skipOwnedBy);
+  notifyReadableSource(source, { skipInstance, skipOwnedBy });
 }
 
 export function createForIndexSignal(initialIndex: number): ForIndexSignal {

@@ -1,3 +1,5 @@
+import type { ForCommitStrategy } from '../control/for-state';
+
 declare const __ASKR_BENCH_BUILD__: boolean;
 
 // This identifier is replaced with a boolean literal by every supported build
@@ -255,7 +257,7 @@ const recordBenchEventLive = (event: BenchEvent, delta = 1): void => {
   }
 };
 
-const recordBenchFastLaneLive = (name: string): void => {
+const recordBenchFastLaneLive = (name: ForCommitStrategy): void => {
   if (!isBenchRuntimeEnabled() || !benchMetrics) {
     return;
   }
@@ -344,7 +346,7 @@ export const recordBenchEvent = BENCH_BUILD_ENABLED
 
 export const recordBenchFastLane = BENCH_BUILD_ENABLED
   ? recordBenchFastLaneLive
-  : (_name: string): void => {};
+  : (_name: ForCommitStrategy): void => {};
 
 export const recordBenchTiming = BENCH_BUILD_ENABLED
   ? recordBenchTimingLive

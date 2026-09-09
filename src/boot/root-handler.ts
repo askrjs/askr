@@ -1,5 +1,5 @@
 import type { ComponentFunction } from '../common/component';
-import { isPromiseLike } from '../common/promise';
+import { assertSyncComponentResult } from '../common/promise';
 import { getDefaultPortalHost } from '../common/default-portal-runtime';
 import { ELEMENT_TYPE, Fragment } from '../jsx';
 import { CspNonceScope } from '../csp-nonce';
@@ -10,11 +10,7 @@ export function wrapRootRouteHandler(
 ): ComponentFunction {
   const wrappedFn: ComponentFunction = (props, ctx) => {
     const out = componentFn(props, ctx);
-    if (isPromiseLike(out)) {
-      throw new Error(
-        'Async components are not supported. Components must return synchronously.'
-      );
-    }
+    assertSyncComponentResult(out);
     const portalVNode = {
       $$typeof: ELEMENT_TYPE,
       type: getDefaultPortalHost(),

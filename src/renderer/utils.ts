@@ -11,6 +11,7 @@ import {
 import type { AppRenderRuntime } from '../common/app-render-runtime';
 import { logger } from '../common/logger';
 import { getPublicAttributeName } from '../common/attr-names';
+import { isSkippedProp as isSkippedPropShared } from '../common/prop-classification';
 import { getRuntimeEnv } from './env';
 import { setDevValue, incDevCounter } from '../runtime';
 
@@ -252,14 +253,7 @@ export function createMutableWrappedHandler(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Props that should be skipped during attribute processing */
-export function isSkippedProp(key: string): boolean {
-  return (
-    key === 'children' ||
-    key === 'imperativeChildren' ||
-    key === 'key' ||
-    key === 'ref'
-  );
-}
+export const isSkippedProp = isSkippedPropShared;
 
 /** Check if prop should be ignored for prop-change detection */
 export function isIgnoredForPropChanges(key: string): boolean {

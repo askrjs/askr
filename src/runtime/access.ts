@@ -24,6 +24,14 @@ export function getRuntimeScheduler(): Scheduler {
   return defaultRuntimeState.scheduler;
 }
 
+/**
+ * The whole capability record.
+ *
+ * Production code must not use this — `tests/checks/architecture.test.ts`
+ * rejects any import of it from `src/runtime` or `src/renderer`, so that call
+ * sites depend on the one role they need. It exists for tests that need to
+ * stand in for, or assert on, the installed renderer as a whole.
+ */
 export function getRuntimeRenderer(): RendererCapabilities {
   return defaultRuntimeState.renderer;
 }
@@ -40,7 +48,8 @@ export function getRuntimeScopes(): ScopeRendering {
 export function getRuntimeKeys(): KeyedRendering {
   return defaultRuntimeState.renderer;
 }
-export function getRuntimeReactivity(): ReactiveRendering {
+/** Not exported: `markRuntimeReactivePropsDirtySource` is its only caller. */
+function getRuntimeReactivity(): ReactiveRendering {
   return defaultRuntimeState.renderer;
 }
 

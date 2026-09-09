@@ -52,13 +52,25 @@ export type {
 export type { NavigateOptions };
 
 let navigationInitialized = false;
+let navigationRegistryHosted = false;
 
-configureNavigationRegistryHost({
-  cancelRouteRequests,
-});
+/**
+ * Publish request cancellation to the navigation registry.
+ *
+ * The registry cannot import this module (it is imported *by* it), so the
+ * capability is injected. Doing that at module scope meant whether an app
+ * could cancel its in-flight route requests depended on whether anything had
+ * imported this module yet; every entry point that can navigate composes it.
+ */
+function ensureNavigationRegistryHost(): void {
+  if (navigationRegistryHosted) return;
+  navigationRegistryHosted = true;
+  configureNavigationRegistryHost({ cancelRouteRequests });
+}
 
 /** Navigate the client-side router to `path` using the History API. */
 export function navigate(path: string, options: NavigateOptions = {}): void {
+  ensureNavigationRegistryHost();
   if (typeof window === 'undefined') {
     return;
   }
@@ -201,6 +213,7 @@ function handlePopState(event: PopStateEvent): void {
 }
 
 export function initializeNavigation(): void {
+  ensureNavigationRegistryHost();
   if (typeof window === 'undefined' || navigationInitialized) {
     return;
   }
@@ -212,6 +225,7 @@ export function initializeNavigation(): void {
 }
 
 export function cleanupNavigation(): void {
+  ensureNavigationRegistryHost();
   cancelRouteRequests();
 
   if (typeof window === 'undefined' || !navigationInitialized) {

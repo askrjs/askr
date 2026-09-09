@@ -1,4 +1,9 @@
 import { sanitizeCssValue } from '../../common/css';
+import {
+  booleanAttributeValue,
+  isAriaAttribute,
+  normalizeStylePropertyName,
+} from '../../common/prop-classification';
 import { isUnsafeUrlAttribute } from '../../common/url';
 import { isDevelopmentEnvironment } from '../../common/env';
 import { logger } from '../../common/logger';
@@ -15,6 +20,18 @@ import {
   tagNamesEqualIgnoreCase,
   writeElementClassName,
 } from '../utils';
+
+/** Props whose live DOM property must be synced alongside the attribute. */
+function isFormControlProp(key: string): boolean {
+  return key === 'value' || key === 'checked' || key === 'selected';
+}
+
+/** Attribute text for a scalar prop, rendering HTML booleans bare. */
+function renderedScalarValue(el: Element, key: string, value: unknown): string {
+  return value === true
+    ? booleanAttributeValue(getRenderedAttributeName(el, key))
+    : String(value);
+}
 
 export function isDangerousInnerHTMLPayload(
   value: unknown
@@ -47,10 +64,6 @@ type ClassTokenDescriptor = {
 };
 
 type StyleEntries = Map<string, string>;
-
-function isAriaAttribute(key: string): boolean {
-  return key.length > 5 && key.slice(0, 5).toLowerCase() === 'aria-';
-}
 
 type Ref<T> =
   | ((value: T | null) => void)
@@ -100,6 +113,26 @@ export function applyFormControlProp(
     return;
   }
 
+  if (key === 'selected') {
+    // Mirrors `checked`: the property is the live selection state, the
+    // attribute is what SSR emits and what hydration compares against.
+    const selected = Boolean(value);
+    if (tagNamesEqualIgnoreCase(tagName, 'option')) {
+      const option = el as HTMLOptionElement;
+      if (option.selected !== selected) {
+        option.selected = selected;
+      }
+    }
+    if (selected) {
+      if (!el.hasAttribute('selected')) {
+        el.setAttribute('selected', '');
+      }
+    } else if (el.hasAttribute('selected')) {
+      el.removeAttribute('selected');
+    }
+    return;
+  }
+
   if (key === 'checked') {
     if (tagNamesEqualIgnoreCase(tagName, 'input')) {
       const checked = Boolean(value);
@@ -126,14 +159,6 @@ export function applyFormControlProp(
       }
     }
   }
-}
-
-function normalizeStylePropertyName(propertyName: string): string {
-  if (propertyName.startsWith('--')) {
-    return propertyName;
-  }
-
-  return propertyName.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
 }
 
 function collectCurrentStyleEntries(el: Element): StyleEntries {
@@ -272,14 +297,14 @@ export function applyStaticScalarPropsToElement(
       writeElementClassName(el, String(value));
     } else if (key === 'style') {
       applyStylePropValue(el, value);
-    } else if (key === 'value' || key === 'checked') {
+    } else if (isFormControlProp(key)) {
       applyFormControlProp(el, key, value, tagName);
     } else if (key === 'dangerouslySetInnerHTML') {
       applyDangerousInnerHTMLValue(el, value);
     } else if (isUnsafeUrlAttribute(key, value)) {
       removeRenderedAttribute(el, key);
     } else {
-      setRenderedAttribute(el, key, String(value));
+      setRenderedAttribute(el, key, renderedScalarValue(el, key, value));
     }
   }
 }
@@ -422,7 +447,7 @@ export function applyScalarPropValue(
       }
     } else if (key === 'value') {
       applyFormControlProp(el, key, '', tagName);
-    } else if (key === 'checked') {
+    } else if (key === 'checked' || key === 'selected') {
       applyFormControlProp(el, key, false, tagName);
     } else if (key === 'style') {
       applyStylePropValue(el, null);
@@ -436,15 +461,16 @@ export function applyScalarPropValue(
     applyClassPropValue(el, value, previousValue, descriptor);
   } else if (key === 'style') {
     applyStylePropValue(el, value);
-  } else if (key === 'value' || key === 'checked') {
+  } else if (isFormControlProp(key)) {
     applyFormControlProp(el, key, value, tagName);
   } else if (key === 'dangerouslySetInnerHTML') {
     applyDangerousInnerHTMLValue(el, value);
   } else if (isUnsafeUrlAttribute(key, value)) {
     removeRenderedAttribute(el, key);
   } else {
-    const nextValue = String(value);
     const attributeName = getRenderedAttributeName(el, key);
+    const nextValue =
+      value === true ? booleanAttributeValue(attributeName) : String(value);
     if (el.getAttribute(attributeName) === nextValue) {
       incrementPerfMetric('skippedDomPropWrites');
       return;

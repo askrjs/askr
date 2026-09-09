@@ -171,6 +171,7 @@ export function createRenderContext(
  * Concurrency-safe in Node.js via AsyncLocalStorage.
  */
 export function withRenderContext<T>(ctx: RenderContext, fn: () => T): T {
+  ensureRenderContextProvider();
   ensureRenderContextAccessor();
   if (renderContextAccessor) {
     return renderContextAccessor.run(ctx, fn);
@@ -218,6 +219,7 @@ export async function withRenderContextAsync<T>(
   ctx: RenderContext,
   fn: () => T | PromiseLike<T>
 ): Promise<T> {
+  ensureRenderContextProvider();
   const accessor = await getAsyncRenderContextAccessor();
   if (accessor) return accessor.run(ctx, () => Promise.resolve(fn()));
   throw new Error(FALLBACK_ASYNC_CONTEXT_ERROR);
@@ -235,9 +237,22 @@ export function getRenderContext(): RenderContext | null {
   return fallbackStack;
 }
 
-configureRenderContextProvider({
-  getRenderContext,
-});
+let renderContextProvided = false;
+
+/**
+ * Publish this module's render-context accessor to `common/render-context`.
+ *
+ * Runtime code (resources, portals, deferred routes) asks that module for the
+ * active SSR context, and it cannot import SSR. Installing the accessor at
+ * module scope meant the answer depended on whether anything had imported this
+ * module; entering a render context composes it instead. Consumers only ever
+ * observe a context from inside one, so this covers every reader.
+ */
+function ensureRenderContextProvider(): void {
+  if (renderContextProvided) return;
+  renderContextProvided = true;
+  configureRenderContextProvider({ getRenderContext });
+}
 
 /**
  * Centralized SSR enforcement helper — throws a consistent error when async

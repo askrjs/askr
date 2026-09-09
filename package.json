@@ -30,7 +30,8 @@
   ],
   "type": "module",
   "sideEffects": [
-    "./dist/index.js"
+    "./dist/index.js",
+    "./dist/boot/index.js"
   ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

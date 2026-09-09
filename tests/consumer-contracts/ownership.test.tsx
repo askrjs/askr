@@ -6,6 +6,7 @@ import {
   state,
   type RuntimeRendererHost,
 } from '@askrjs/askr';
+import '@askrjs/askr/boot';
 import { render } from '@askrjs/askr/testing';
 
 type Owner = NonNullable<Parameters<RuntimeRendererHost['evaluate']>[3]>;

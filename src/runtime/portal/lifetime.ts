@@ -1,7 +1,5 @@
+import { notifyReadableSource } from '../reactivity/notify';
 import {
-  markReactivePropsDirtySource,
-  markReadableDerivedSubscribersDirty,
-  notifyReadableReaders,
   recordReadableRead,
   type ReadableSource,
 } from '../reactivity/readable';
@@ -59,9 +57,7 @@ function createPortalSlot<T>(): {
       }
 
       currentValue = value;
-      markReadableDerivedSubscribersDirty(source);
-      markReactivePropsDirtySource(source);
-      notifyReadableReaders(source);
+      notifyReadableSource(source);
     },
     getOwner() {
       return currentOwner;

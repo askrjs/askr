@@ -20,3 +20,8 @@ export function setCurrentAuth(context: AuthContext): void {
   const render = getActiveRenderContext();
   if (render) render.authContext = context;
 }
+
+/** @internal Drop the client identity. Part of the router-wide reset. */
+export function resetClientAuth(): void {
+  clientAuth = anonymous;
+}

@@ -1,6 +1,8 @@
 import { writeScopeHost } from '../ownership/scope-host';
+import { captureForItemTransactionSnapshot } from '../../runtime';
 import {
   recordBenchCounter,
+  resolveForKeyMapEffect,
   type ForCommitStrategy,
   type ForState,
 } from '../../runtime';
@@ -18,20 +20,10 @@ export function canSyncKeyedMapMutate(
   strategy: ForCommitStrategy,
   removedNodes: Node[]
 ): boolean {
-  if (strategy === 'SWAP' && existing) return false;
-  if (strategy === 'FULL_KEYED' && existing && removedNodes.length === 0) {
-    return false;
-  }
-  if (strategy === 'NO_REORDER' && existing && removedNodes.length === 0) {
-    return false;
-  }
-  if (strategy === 'REMOVE_ONE') {
-    return Boolean(existing && forState.pendingRemovedKey !== null);
-  }
-  if (strategy === 'TRUNCATE' && forState.orderedKeys.length === 0) {
-    return Boolean(existing);
-  }
-  return true;
+  return (
+    resolveForKeyMapEffect(existing, forState, strategy, removedNodes) !==
+    'none'
+  );
 }
 
 /**
@@ -95,40 +87,34 @@ export function syncKeyedMapFromForState(
   removedNodes: Node[]
 ): void {
   const existing = keyedElements.get(parent);
+  const effect = resolveForKeyMapEffect(
+    existing,
+    forState,
+    strategy,
+    removedNodes
+  );
 
-  if (strategy === 'SWAP') {
-    if (existing) {
-      return;
-    }
-  }
-
-  if (strategy === 'FULL_KEYED' && existing && removedNodes.length === 0) {
+  if (effect === 'none') {
     return;
   }
 
-  if (strategy === 'NO_REORDER') {
-    if (existing && removedNodes.length === 0) {
-      return;
+  if (effect === 'prune' && existing) {
+    for (const [mapKey, element] of existing) {
+      if (element.parentNode !== parent) {
+        existing.delete(mapKey);
+      }
     }
 
-    if (existing) {
-      for (const [mapKey, element] of existing) {
-        if (element.parentNode !== parent) {
-          existing.delete(mapKey);
-        }
-      }
-
-      if (existing.size > 0) {
-        keyedElements.set(parent, existing);
-      } else {
-        keyedElements.delete(parent);
-      }
-      return;
+    if (existing.size > 0) {
+      keyedElements.set(parent, existing);
+    } else {
+      keyedElements.delete(parent);
     }
+    return;
   }
 
-  if (strategy === 'REMOVE_ONE') {
-    if (existing && forState.pendingRemovedKey !== null) {
+  if (effect === 'delete-one' && existing) {
+    if (forState.pendingRemovedKey !== null) {
       if (existing.delete(forState.pendingRemovedKey)) {
         if (BENCH_BUILD_ENABLED) {
           recordBenchCounter('keyedMapEntriesDeleted');
@@ -139,7 +125,7 @@ export function syncKeyedMapFromForState(
     return;
   }
 
-  if (strategy === 'TRUNCATE' && forState.orderedKeys.length === 0) {
+  if (effect === 'clear') {
     if (existing) {
       existing.clear();
     }
@@ -147,7 +133,7 @@ export function syncKeyedMapFromForState(
     return;
   }
 
-  if (strategy === 'APPEND' && existing) {
+  if (effect === 'append' && existing) {
     for (let i = 0; i < forState.orderedKeys.length; i++) {
       const key = forState.orderedKeys[i];
       if (key === null || existing.has(key)) continue;
@@ -181,5 +167,53 @@ export function syncKeyedMapFromForState(
     keyedElements.set(parent, nextMap);
   } else {
     keyedElements.delete(parent);
+  }
+}
+
+/**
+ * Claim the DOM a server render already produced for this list.
+ *
+ * Runs once per boundary, before the first commit can resolve its own nodes.
+ * The ordered walk is tried first because it is exact; otherwise each item is
+ * matched to an existing element by key, and anything unmatched is left for the
+ * commit to build.
+ */
+export function adoptExistingForDom(
+  parent: Element,
+  forState: ForState<unknown>
+): void {
+  if (parent.children.length === forState.orderedKeys.length) {
+    for (let index = 0; index < forState.orderedItems.length; index++) {
+      const item = forState.orderedItems[index];
+      if (item) {
+        captureForItemTransactionSnapshot(forState, item);
+      }
+    }
+  }
+
+  if (hydrateExistingForDomInOrder(parent, forState)) {
+    return;
+  }
+
+  const domKeyMap = getOrBuildElementChildKeyMap(parent);
+  if (!domKeyMap) {
+    return;
+  }
+
+  for (let i = 0; i < forState.orderedKeys.length; i++) {
+    const itemKey = forState.orderedKeys[i];
+    const itemInstance = forState.items.get(itemKey);
+    if (!itemInstance || itemInstance.scope.dom) {
+      continue;
+    }
+
+    const existingDom = domKeyMap.get(itemKey);
+    if (!existingDom) {
+      continue;
+    }
+
+    captureForItemTransactionSnapshot(forState, itemInstance);
+    writeScopeHost(itemInstance.scope, undefined, existingDom);
+    itemInstance.scope.needsDomUpdate = true;
   }
 }

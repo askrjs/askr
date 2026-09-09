@@ -1,6 +1,8 @@
-import { isPromiseLike } from '../../common/promise';
+import { renderComponentInScope } from './render-scope';
+import { assertSyncComponentResult } from '../../common/promise';
 import type { Props } from '../../common/props';
 import {
+  markVNodeTreeWithContextFrame,
   captureInlineRenderSnapshot,
   cleanupComponent,
   createComponentInstance,
@@ -11,7 +13,6 @@ import {
 } from '../../runtime';
 import {
   getVNodeContextFrame,
-  markVNodeTreeWithContextFrame,
   withContext,
   type ContextFrame,
 } from '../../runtime';
@@ -86,11 +87,7 @@ export function resolveNestedComponentResult(
       nextResult = withContext(nestedSnapshot ?? null, () =>
         renderComponentInline(nestedInstance)
       );
-      if (isPromiseLike(nextResult)) {
-        throw new Error(
-          'Async components are not supported. Components must return synchronously.'
-        );
-      }
+      assertSyncComponentResult(nextResult);
     } catch (error) {
       cleanupProvisionalComponentInstance(nestedInstance);
       throw error;
@@ -169,20 +166,11 @@ export function resolveHostNestedComponentResult(
       nestedInstance.props = ((nestedVNode.props ?? {}) as Props) || {};
       if (nestedSnapshot) nestedInstance.ownerFrame = nestedSnapshot;
 
-      const nextResult = withContext(nestedSnapshot ?? null, () =>
-        renderComponentInline(nestedInstance)
-      );
-      if (isPromiseLike(nextResult)) {
-        throw new Error(
-          'Async components are not supported. Components must return synchronously.'
-        );
-      }
-
       retainedInstances.add(nestedInstance);
       activeParent = nestedInstance;
       activeSnapshot = nestedSnapshot ?? null;
-      currentResult = markVNodeTreeWithContextFrame(
-        nextResult,
+      currentResult = renderComponentInScope(
+        nestedInstance,
         activeSnapshot
       ) as VNode;
       depth += 1;
@@ -249,18 +237,10 @@ export function resolveWrapperHostResult(
     inheritComponentCleanupStrict(nestedInstance);
     if (nestedSnapshot) nestedInstance.ownerFrame = nestedSnapshot;
 
-    const nextResult = withContext(nestedSnapshot ?? null, () =>
-      renderComponentInline(nestedInstance)
-    );
-    if (isPromiseLike(nextResult)) {
-      throw new Error(
-        'Async components are not supported. Components must return synchronously.'
-      );
-    }
     retainedInstances.add(nestedInstance);
     activeParent = nestedInstance;
     activeSnapshot = nestedSnapshot ?? null;
-    currentResult = markVNodeTreeWithContextFrame(nextResult, activeSnapshot);
+    currentResult = renderComponentInScope(nestedInstance, activeSnapshot);
     depth += 1;
     nestedVNode = getNestedComponentVNode(currentResult);
   }

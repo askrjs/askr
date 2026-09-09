@@ -3,14 +3,23 @@ import type { CommitParticipant, CommitTransaction } from './coordinator';
 
 export type { CommitParticipant, CommitTransaction } from './coordinator';
 
-const commits = defaultRuntimeState.commits;
+/**
+ * Resolved per call rather than captured at import time.
+ *
+ * Binding the coordinator once when this module is first evaluated meant these
+ * helpers could never follow a runtime whose state was replaced afterwards —
+ * the import order of an unrelated module decided which coordinator they used.
+ */
+function commitCoordinator(): typeof defaultRuntimeState.commits {
+  return defaultRuntimeState.commits;
+}
 
 export function beginCommitTransaction(): CommitTransaction {
-  return commits.begin();
+  return commitCoordinator().begin();
 }
 
 export function getCurrentCommitTransaction(): CommitTransaction | null {
-  const transaction = commits.current;
+  const transaction = commitCoordinator().current;
   return transaction?.active ? transaction : null;
 }
 
@@ -18,32 +27,32 @@ export function deferCommitNotification(
   key: object,
   notify: () => void
 ): boolean {
-  return commits.deferCompletion(key, notify);
+  return commitCoordinator().deferCompletion(key, notify);
 }
 
 export function commitTransaction(transaction: CommitTransaction): void {
-  commits.commit(transaction);
+  commitCoordinator().commit(transaction);
 }
 
 export function discardTransaction(transaction: CommitTransaction): void {
-  commits.discard(transaction);
+  commitCoordinator().discard(transaction);
 }
 
 export function suspendTransaction(transaction: CommitTransaction): void {
-  commits.suspend(transaction);
+  commitCoordinator().suspend(transaction);
 }
 
 export function applyTransaction<T>(
   transaction: CommitTransaction,
   operation: () => T
 ): T {
-  return commits.apply(transaction, operation);
+  return commitCoordinator().apply(transaction, operation);
 }
 
 export function registerCommitParticipant(
   participant: CommitParticipant
 ): boolean {
-  return commits.register(participant);
+  return commitCoordinator().register(participant);
 }
 
 export function registerCommitEffect(

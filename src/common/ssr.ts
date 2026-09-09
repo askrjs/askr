@@ -2,6 +2,8 @@
  * Common call contracts: SSR types
  */
 
+import { isPromiseLike } from './promise';
+
 /** Arbitrary serializable data attached to an SSR render pass (e.g. loader output). */
 export type SSRData = Record<string, unknown>;
 
@@ -81,12 +83,7 @@ export function renderDocument(
   const html: unknown = document(args);
 
   if (typeof html !== 'string') {
-    const isPromiseLike =
-      typeof html === 'object' &&
-      html !== null &&
-      'then' in html &&
-      typeof html.then === 'function';
-    const received = isPromiseLike
+    const received = isPromiseLike(html)
       ? 'a Promise-like value'
       : html === null
         ? 'null'

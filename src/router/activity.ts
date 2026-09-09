@@ -14,9 +14,7 @@ import {
   registerCommitOperation,
 } from '../runtime';
 import {
-  markReadableDerivedSubscribersDirty,
-  markReactivePropsDirtySource,
-  notifyReadableReaders,
+  notifyReadableSource,
   recordReadableRead,
   type ReadableSource,
 } from '../runtime';
@@ -203,9 +201,7 @@ function setCurrentRouteSnapshot(
   );
 
   const instance = getCurrentComponentInstance();
-  markReadableDerivedSubscribersDirty(currentRouteSource);
-  markReactivePropsDirtySource(currentRouteSource);
-  notifyReadableReaders(currentRouteSource, instance);
+  notifyReadableSource(currentRouteSource, { skipInstance: instance });
 }
 
 function normalizeRouteActivityPath(path: string): string {
@@ -358,4 +354,10 @@ export function syncCurrentRouteSnapshot(
   activityMatches?: readonly RouteMatch[]
 ): void {
   setCurrentRouteSnapshot(pathname, search, hash, activityMatches);
+}
+
+/** @internal Return route activity to its initial location. Part of the router-wide reset. */
+export function resetRouteActivity(): void {
+  serverLocation = null;
+  currentRouteSnapshot = buildRouteSnapshot('/', '', '');
 }
