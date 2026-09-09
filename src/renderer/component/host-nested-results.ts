@@ -1,4 +1,4 @@
-import { isPromiseLike } from '../../common/promise';
+import { assertSyncComponentResult } from '../../common/promise';
 import type { Props } from '../../common/props';
 import {
   captureInlineRenderSnapshot,
@@ -86,11 +86,7 @@ export function resolveNestedComponentResult(
       nextResult = withContext(nestedSnapshot ?? null, () =>
         renderComponentInline(nestedInstance)
       );
-      if (isPromiseLike(nextResult)) {
-        throw new Error(
-          'Async components are not supported. Components must return synchronously.'
-        );
-      }
+      assertSyncComponentResult(nextResult);
     } catch (error) {
       cleanupProvisionalComponentInstance(nestedInstance);
       throw error;
@@ -172,11 +168,7 @@ export function resolveHostNestedComponentResult(
       const nextResult = withContext(nestedSnapshot ?? null, () =>
         renderComponentInline(nestedInstance)
       );
-      if (isPromiseLike(nextResult)) {
-        throw new Error(
-          'Async components are not supported. Components must return synchronously.'
-        );
-      }
+      assertSyncComponentResult(nextResult);
 
       retainedInstances.add(nestedInstance);
       activeParent = nestedInstance;
@@ -252,11 +244,7 @@ export function resolveWrapperHostResult(
     const nextResult = withContext(nestedSnapshot ?? null, () =>
       renderComponentInline(nestedInstance)
     );
-    if (isPromiseLike(nextResult)) {
-      throw new Error(
-        'Async components are not supported. Components must return synchronously.'
-      );
-    }
+    assertSyncComponentResult(nextResult);
     retainedInstances.add(nestedInstance);
     activeParent = nestedInstance;
     activeSnapshot = nestedSnapshot ?? null;

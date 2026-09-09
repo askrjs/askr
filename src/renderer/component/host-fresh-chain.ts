@@ -1,4 +1,4 @@
-import { isPromiseLike } from '../../common/promise';
+import { assertSyncComponentResult } from '../../common/promise';
 import type { Props } from '../../common/props';
 import {
   captureInlineRenderSnapshot,
@@ -151,11 +151,7 @@ export function resolveFreshNestedComponentResult(
       const nextResult = withContext(nestedSnapshot ?? null, () =>
         renderComponentInline(nestedInstance)
       );
-      if (isPromiseLike(nextResult)) {
-        throw new Error(
-          'Async components are not supported. Components must return synchronously.'
-        );
-      }
+      assertSyncComponentResult(nextResult);
 
       activeParent = nestedInstance;
       activeSnapshot = nestedSnapshot ?? null;

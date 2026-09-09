@@ -7,6 +7,7 @@ import {
   captureForFallbackTransactionSnapshot,
   captureForItemTransactionSnapshot,
   clearForDomUpdateState,
+  FOR_STRATEGY_TRAITS,
   registerForStateTransaction,
   recordBenchCounter,
   recordBenchEvent,
@@ -273,12 +274,10 @@ function commitForStateBoundaryChildrenImpl(
     return dirtyIndicesCache;
   };
 
-  const dirtyIndices =
-    forState.lastCommitStrategy === 'NO_REORDER' ||
-    forState.lastCommitStrategy === 'REMOVE_ONE' ||
-    forState.lastCommitStrategy === 'TRUNCATE'
-      ? ensureDirtyIndices()
-      : [];
+  const dirtyIndices = FOR_STRATEGY_TRAITS[forState.lastCommitStrategy]
+    .needsDirtyIndices
+    ? ensureDirtyIndices()
+    : [];
   let boundaryChildrenExact = false;
 
   const applyStrategy = (
@@ -318,39 +317,19 @@ function commitForStateBoundaryChildrenImpl(
     return;
   }
 
-  switch (forState.lastCommitStrategy) {
-    case 'NO_REORDER':
-      applyStrategy('NO_REORDER');
-      break;
-    case 'REMOVE_ONE':
-      // Physically remove the node for the removed key first: commitDirtyNoReorder
-      // anchors dirty items via `parent.childNodes[i]`, and `i` is the item's
-      // POST-removal index. Computing that anchor while the removed node is
-      // still attached reads the wrong sibling for every dirty index at or
-      // after the removed slot, which can silently reorder unrelated rows.
-      removeForBoundaryNodes(parent, forState.lastRemovedNodes, {
-        teardown: false,
-      });
-      removedBoundaryConsumed = true;
-      applyStrategy('NO_REORDER');
-      break;
-    case 'TRUNCATE':
-      applyStrategy('NO_REORDER');
-      break;
-    case 'APPEND':
-      applyStrategy('APPEND');
-      break;
-    case 'INSERT_ONE':
-      applyStrategy('INSERT_ONE');
-      break;
-    case 'SWAP':
-      applyStrategy('SWAP');
-      break;
-    case 'FULL_KEYED':
-    default:
-      applyStrategy('FULL_KEYED');
-      break;
+  if (forState.lastCommitStrategy === 'REMOVE_ONE') {
+    // Physically remove the node for the removed key first: commitDirtyNoReorder
+    // anchors dirty items via `parent.childNodes[i]`, and `i` is the item's
+    // POST-removal index. Computing that anchor while the removed node is
+    // still attached reads the wrong sibling for every dirty index at or
+    // after the removed slot, which can silently reorder unrelated rows.
+    removeForBoundaryNodes(parent, forState.lastRemovedNodes, {
+      teardown: false,
+    });
+    removedBoundaryConsumed = true;
   }
+
+  applyStrategy(FOR_STRATEGY_TRAITS[forState.lastCommitStrategy].planKind);
 
   if (!removedBoundaryConsumed) {
     removeForBoundaryNodes(parent, forState.lastRemovedNodes, {

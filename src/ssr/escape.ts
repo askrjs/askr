@@ -4,6 +4,7 @@
  * Centralizes text and attribute escaping to avoid duplication
  * between sync and streaming SSR renderers.
  */
+import { normalizeStylePropertyName } from '../common/prop-classification';
 import { sanitizeCssValue } from '../common/css';
 
 // HTML5 void elements that don't have closing tags
@@ -45,7 +46,7 @@ const _textEscapeMap = (ch: string): string => {
 function toKebabCached(prop: string): string {
   const cached = STYLE_PROP_CACHE.get(prop);
   if (cached !== undefined) return cached;
-  const kebab = prop.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+  const kebab = normalizeStylePropertyName(prop);
   if (STYLE_PROP_CACHE.size < MAX_STYLE_PROP_CACHE_SIZE) {
     STYLE_PROP_CACHE.set(prop, kebab);
   }

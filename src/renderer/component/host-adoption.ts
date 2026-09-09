@@ -1,4 +1,4 @@
-import { isPromiseLike } from '../../common/promise';
+import { assertSyncComponentResult } from '../../common/promise';
 import { isSSRPortalHydrationAnchor } from '../../common/portal';
 import {
   createComponentInstance,
@@ -121,11 +121,7 @@ export function adoptComponentHost(
     const result = withContext(snapshot, () =>
       renderComponentInline(hydrationInstance)
     );
-    if (isPromiseLike(result)) {
-      throw new Error(
-        'Async components are not supported. Components must return synchronously.'
-      );
-    }
+    assertSyncComponentResult(result);
 
     const scopedResult = markVNodeTreeWithContextFrame(
       result,

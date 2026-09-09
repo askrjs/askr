@@ -1,6 +1,7 @@
 import { writeScopeHost } from '../ownership/scope-host';
 import {
   recordBenchCounter,
+  resolveForKeyMapEffect,
   type ForCommitStrategy,
   type ForState,
 } from '../../runtime';
@@ -18,20 +19,10 @@ export function canSyncKeyedMapMutate(
   strategy: ForCommitStrategy,
   removedNodes: Node[]
 ): boolean {
-  if (strategy === 'SWAP' && existing) return false;
-  if (strategy === 'FULL_KEYED' && existing && removedNodes.length === 0) {
-    return false;
-  }
-  if (strategy === 'NO_REORDER' && existing && removedNodes.length === 0) {
-    return false;
-  }
-  if (strategy === 'REMOVE_ONE') {
-    return Boolean(existing && forState.pendingRemovedKey !== null);
-  }
-  if (strategy === 'TRUNCATE' && forState.orderedKeys.length === 0) {
-    return Boolean(existing);
-  }
-  return true;
+  return (
+    resolveForKeyMapEffect(existing, forState, strategy, removedNodes) !==
+    'none'
+  );
 }
 
 /**
@@ -95,40 +86,34 @@ export function syncKeyedMapFromForState(
   removedNodes: Node[]
 ): void {
   const existing = keyedElements.get(parent);
+  const effect = resolveForKeyMapEffect(
+    existing,
+    forState,
+    strategy,
+    removedNodes
+  );
 
-  if (strategy === 'SWAP') {
-    if (existing) {
-      return;
-    }
-  }
-
-  if (strategy === 'FULL_KEYED' && existing && removedNodes.length === 0) {
+  if (effect === 'none') {
     return;
   }
 
-  if (strategy === 'NO_REORDER') {
-    if (existing && removedNodes.length === 0) {
-      return;
+  if (effect === 'prune' && existing) {
+    for (const [mapKey, element] of existing) {
+      if (element.parentNode !== parent) {
+        existing.delete(mapKey);
+      }
     }
 
-    if (existing) {
-      for (const [mapKey, element] of existing) {
-        if (element.parentNode !== parent) {
-          existing.delete(mapKey);
-        }
-      }
-
-      if (existing.size > 0) {
-        keyedElements.set(parent, existing);
-      } else {
-        keyedElements.delete(parent);
-      }
-      return;
+    if (existing.size > 0) {
+      keyedElements.set(parent, existing);
+    } else {
+      keyedElements.delete(parent);
     }
+    return;
   }
 
-  if (strategy === 'REMOVE_ONE') {
-    if (existing && forState.pendingRemovedKey !== null) {
+  if (effect === 'delete-one' && existing) {
+    if (forState.pendingRemovedKey !== null) {
       if (existing.delete(forState.pendingRemovedKey)) {
         if (BENCH_BUILD_ENABLED) {
           recordBenchCounter('keyedMapEntriesDeleted');
@@ -139,7 +124,7 @@ export function syncKeyedMapFromForState(
     return;
   }
 
-  if (strategy === 'TRUNCATE' && forState.orderedKeys.length === 0) {
+  if (effect === 'clear') {
     if (existing) {
       existing.clear();
     }
@@ -147,7 +132,7 @@ export function syncKeyedMapFromForState(
     return;
   }
 
-  if (strategy === 'APPEND' && existing) {
+  if (effect === 'append' && existing) {
     for (let i = 0; i < forState.orderedKeys.length; i++) {
       const key = forState.orderedKeys[i];
       if (key === null || existing.has(key)) continue;

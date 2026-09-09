@@ -1,4 +1,4 @@
-import { isPromiseLike } from '../../common/promise';
+import { assertSyncComponentResult } from '../../common/promise';
 import {
   enqueueRuntimeTask,
   getRuntimeEvaluation,
@@ -36,10 +36,7 @@ export function runScheduledComponent(
   let fast = false;
   try {
     result = execute(instance);
-    if (isPromiseLike(result))
-      throw new Error(
-        'Async components are not supported. Components must be synchronous.'
-      );
+    assertSyncComponentResult(result);
     finalizeInlineReadSubscriptions(
       instance,
       token,

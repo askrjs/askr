@@ -1,3 +1,4 @@
+import { isAriaAttribute } from '../../common/prop-classification';
 import { getDelegatedHandlersForElement } from './events';
 import { applyScalarPropValue, removeStaleAttributes } from './attributes';
 import {
@@ -118,7 +119,15 @@ export function applyPropsToElement(
       applyScalarPropValue(el, key, value, tagName);
       continue;
     }
-    if (value === undefined || value === null || value === false) continue;
+    // `aria-*` state is a string enum, so `false` is meaningful and still
+    // renders; every other falsy-by-absence prop is skipped. Matches
+    // applyScalarPropValue and the SSR attribute path.
+    if (
+      value === undefined ||
+      value === null ||
+      (value === false && !isAriaAttribute(key))
+    )
+      continue;
 
     const eventProp = parseEventProp(key);
     if (eventProp) {

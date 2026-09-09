@@ -3,6 +3,7 @@ import {
   captureForFallbackTransactionSnapshot,
   captureForItemTransactionSnapshot,
   clearForDomUpdateState,
+  FOR_STRATEGY_TRAITS,
   recordBenchEvent,
   registerCommitEffect,
   type ChildScope,
@@ -138,7 +139,7 @@ export function prepareForCommitRanges(
     if (
       !forState._hasResolvedItemDom ||
       isHydrationAdoptionScopeActive() ||
-      forState.lastCommitStrategy === 'FULL_KEYED'
+      FOR_STRATEGY_TRAITS[forState.lastCommitStrategy].rangeBreadth === 'all'
     ) {
       for (let index = 0; index < forState.orderedItems.length; index += 1) {
         resolveItemAt(index);

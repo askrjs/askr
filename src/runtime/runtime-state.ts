@@ -3,6 +3,23 @@ import type { RendererCapabilities } from './renderer-capabilities';
 import { CommitCoordinator } from './transactions/coordinator';
 import { logger } from '../common/logger';
 
+/**
+ * The renderer host for an environment that has no DOM renderer.
+ *
+ * This is not only a pre-boot placeholder: SSR and SSG never install a renderer,
+ * so it is the live host for the whole life of every server render. It
+ * therefore has to be usable, not merely loud, and it follows one rule:
+ *
+ * - Bookkeeping degrades. Capturing, releasing and inspecting hosts, scopes and
+ *   key maps answer as though nothing is mounted, because during a server
+ *   render nothing is.
+ * - Anything that would produce or destroy DOM throws. Reaching `evaluate`,
+ *   `replaceComponentRange` or a teardown without a renderer means execution
+ *   believed it had one, which is a bug worth surfacing rather than silently
+ *   dropping the output.
+ *
+ * Browser composition replaces this through `installRuntimeRenderer`.
+ */
 function createMissingRendererHost(): RendererCapabilities {
   const noop = () => undefined;
   const missing = (method: string): never => {
@@ -41,8 +58,11 @@ function createMissingRendererHost(): RendererCapabilities {
       instance.target = target;
     },
     applyComponentResult(instance) {
-      if (instance.target || instance._placeholder)
-        missing('applyComponentResult');
+      // Only a mounted instance could have had a result applied; an unmounted
+      // one legitimately has nothing to apply.
+      if (instance.target || instance._placeholder) {
+        return missing('applyComponentResult');
+      }
       return false;
     },
     classifyComponentUpdate() {

@@ -9,6 +9,7 @@ import {
   type RuntimeRendererHost,
   type State,
 } from '@askrjs/askr';
+import '@askrjs/askr/boot';
 import { watch } from '@askrjs/askr/resources';
 import { render, type RenderResult } from '@askrjs/askr/testing';
 

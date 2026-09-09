@@ -93,6 +93,10 @@ describe('SSG hydration bundle', () => {
       0
     );
 
-    expect(initialBytes).toBeLessThanOrEqual(256 * 1024);
+    // 257 KiB, raised from 256 KiB when the DOM and SSR renderers were given a
+    // shared prop-classification table (boolean HTML attributes and camelCase
+    // attribute names) so the two sides agree on what they emit. That data is
+    // ~940 bytes and is required for hydration parity, not optional weight.
+    expect(initialBytes).toBeLessThanOrEqual(257 * 1024);
   });
 });

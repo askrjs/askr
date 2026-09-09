@@ -1,4 +1,7 @@
-import { isPromiseLike } from '../../common/promise';
+import {
+  ASYNC_COMPONENT_MESSAGE,
+  assertSyncComponentResult,
+} from '../../common/promise';
 import type { Props } from '../../common/props';
 import {
   captureInlineRenderSnapshot,
@@ -54,9 +57,7 @@ export function createComponentElement(
   const isAsync = componentFn.constructor.name === 'AsyncFunction';
 
   if (isAsync) {
-    throw new Error(
-      'Async components are not supported. Use resource() for async work.'
-    );
+    throw new Error(ASYNC_COMPONENT_MESSAGE);
   }
 
   const previousVNodeInstance = getVNodeComponentInstance(node);
@@ -115,11 +116,7 @@ export function createComponentElement(
       ? withContext(snapshot, () => renderComponentInline(childInstance))
       : renderComponentInline(childInstance);
 
-    if (isPromiseLike(result)) {
-      throw new Error(
-        'Async components are not supported. Components must return synchronously.'
-      );
-    }
+    assertSyncComponentResult(result);
 
     const scopedResult = markVNodeTreeWithContextFrame(
       result,

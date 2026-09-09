@@ -1,5 +1,13 @@
 import { afterEach, beforeEach } from 'vite-plus/test';
 import { logger } from '../src/common/logger';
+import { ensureRendererBridge } from '../src/boot/runtime-wiring';
+
+// The jsdom suite is a browser environment, so it composes the renderer.
+// Tests that drive the runtime or renderer directly, rather than mounting
+// through boot, depend on this the same way a real page depends on createSPA.
+// Root lifetimes stay uncomposed here so boot installs that host from the
+// importing test's own module graph, which is what module mocks patch.
+ensureRendererBridge();
 
 // Ensure tests run in a deterministic dev-like environment regardless of
 // the shell's NODE_ENV (bench/profiling commands may set it to 'production').

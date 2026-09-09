@@ -1,4 +1,4 @@
-import { isPromiseLike } from '../../common/promise';
+import { assertSyncComponentResult } from '../../common/promise';
 import {
   prepareRetainedComponentUpdate,
   enterDomCommitScope,
@@ -84,11 +84,7 @@ export function updateRetainedComponentHost(
   const result = withContext(snapshot, () =>
     renderComponentInline(existingInstance)
   );
-  if (isPromiseLike(result)) {
-    throw new Error(
-      'Async components are not supported. Components must return synchronously.'
-    );
-  }
+  assertSyncComponentResult(result);
   const scopedResult = markVNodeTreeWithContextFrame(result, snapshot ?? null);
 
   if (

@@ -48,7 +48,20 @@ descriptors._ownedChildScopes = {
     setOwnedChildScopes(this.owner, scopes);
   },
 };
+let ownershipViewsInstalled = false;
+
+/**
+ * Publish the legacy ownership property views onto the execution record.
+ *
+ * Called at module scope from the published entry barrels: an entry barrel
+ * exists to compose the surface a consumer imports, so wiring there is the
+ * composition root rather than accidental import-order coupling. It latches so
+ * that importing several entries, or adapting a renderer host afterwards,
+ * redefines nothing.
+ */
 export function installOwnershipViews(): void {
+  if (ownershipViewsInstalled) return;
+  ownershipViewsInstalled = true;
   Object.defineProperties(componentRecordPrototype, descriptors);
 }
 

@@ -67,6 +67,11 @@ export {
   prepareForCommitPlan,
   type ForCommitPlan,
 } from './control/for-commit-plan';
+export {
+  FOR_STRATEGY_TRAITS,
+  resolveForKeyMapEffect,
+  type ForKeyMapEffect,
+} from './control/for-strategy-table';
 export type {
   ForEachSource,
   ForKeySelector,

@@ -40,7 +40,34 @@ interface ForStrategyInputs {
   captureItemBeforeCommit(item: ForCommitPlan['items'][number]): void;
   syncItemDom(item: ForCommitPlan['items'][number], vnode: VNode): Node | null;
 }
-export function commitForStrategy(
+
+/**
+ * What a strategy leaves behind for the caller.
+ *
+ * Strategies return this instead of writing shared state, so each one is a
+ * self-contained function rather than a closure over the commit in progress.
+ * The caller only reads these fields, so the three outcomes are shared
+ * constants rather than fresh objects on every commit.
+ */
+export interface ForStrategyResult {
+  readonly boundaryChildrenExact: boolean;
+  readonly removedBoundaryConsumed: boolean;
+}
+
+const NEITHER: ForStrategyResult = {
+  boundaryChildrenExact: false,
+  removedBoundaryConsumed: false,
+};
+const EXACT: ForStrategyResult = {
+  boundaryChildrenExact: true,
+  removedBoundaryConsumed: false,
+};
+const EXACT_CONSUMED: ForStrategyResult = {
+  boundaryChildrenExact: true,
+  removedBoundaryConsumed: true,
+};
+
+function commitDirtyNoReorder(
   plan: ForCommitPlan,
   {
     parent,
@@ -49,350 +76,335 @@ export function commitForStrategy(
     captureItemBeforeCommit,
     syncItemDom,
   }: ForStrategyInputs
-): { boundaryChildrenExact: boolean; removedBoundaryConsumed: boolean } {
+): ForStrategyResult {
+  if (plan.kind !== 'NO_REORDER') return NEITHER;
+  const dirtyIndices = plan.dirtyIndices;
+  if (dirtyIndices.length === 0) {
+    return EXACT;
+  }
+
   const childrenVNodes = plan.vnodes;
-  let boundaryChildrenExact = false;
-  let removedBoundaryConsumed = false;
-  const commitDirtyNoReorder = (dirtyIndices: readonly number[]): void => {
-    if (dirtyIndices.length === 0) {
-      boundaryChildrenExact = true;
-      return;
+  const orderedItems = plan.items;
+  const childNodes = parent.childNodes;
+  const canPatchStableDirtyItems = plan.allowStablePatch;
+
+  for (let dirtyIndex = 0; dirtyIndex < dirtyIndices.length; dirtyIndex++) {
+    const i = dirtyIndices[dirtyIndex];
+    const itemInstance = orderedItems[i];
+    if (!itemInstance) {
+      continue;
     }
 
-    if (plan.kind !== 'NO_REORDER') return;
-    const orderedItems = plan.items;
-    const childNodes = parent.childNodes;
-    const canPatchStableDirtyItems = plan.allowStablePatch;
-
-    for (let dirtyIndex = 0; dirtyIndex < dirtyIndices.length; dirtyIndex++) {
-      const i = dirtyIndices[dirtyIndex];
-      const itemInstance = orderedItems[i];
-      if (!itemInstance) {
-        continue;
-      }
-
-      captureItemBeforeCommit(itemInstance);
-      if (
-        canPatchStableDirtyItems &&
-        !preResolvedRanges.has(itemInstance.scope) &&
-        runtime.tryPatchStableForDirtyItem(itemInstance.scope)
-      ) {
-        if (BENCH_BUILD_ENABLED) {
-          recordBenchCounter('itemDomSyncCalls');
-        }
-        continue;
-      }
-
-      const dom = syncItemDom(itemInstance, childrenVNodes[i]);
-      if (!dom) {
-        continue;
-      }
-
-      const anchor = childNodes[i] ?? null;
-      if (dom.parentNode !== parent || dom !== anchor) {
-        recordBenchEvent('domInsert');
-        parent.insertBefore(dom, anchor);
-      }
-    }
-
-    boundaryChildrenExact = true;
-  };
-
-  const commitAppend = (): void => {
-    if (plan.kind !== 'APPEND') return;
-    const canHydrateInPlace =
-      plan.canHydrate &&
-      plan.removedNodes.length === 0 &&
-      parent.childNodes.length === plan.items.length;
-    if (canHydrateInPlace) {
-      let exactOrder = true;
-      let currentNode = parent.firstChild;
-
-      for (let i = 0; i < plan.items.length; i++) {
-        const itemInstance = plan.items[i];
-        if (!itemInstance) {
-          exactOrder = false;
-          currentNode = currentNode?.nextSibling ?? null;
-          continue;
-        }
-
-        const dom = syncItemDom(itemInstance, childrenVNodes[i]);
-        if (!dom || dom.parentNode !== parent || dom !== currentNode) {
-          exactOrder = false;
-        }
-
-        currentNode = currentNode?.nextSibling ?? null;
-      }
-
-      if (exactOrder) {
-        boundaryChildrenExact = true;
-        return;
-      }
-    }
-
-    const appendColdRows = (): void => {
-      const pendingAppend: Node[] = [];
-      const appendStart = plan.appendStart ?? 0;
-      const hasDetachedSuffix =
-        plan.appendStart !== null && parent.childNodes.length === appendStart;
-
-      for (let i = appendStart; i < plan.items.length; i++) {
-        const itemInstance = plan.items[i];
-        if (!itemInstance) {
-          continue;
-        }
-
-        if (
-          !hasDetachedSuffix &&
-          itemInstance.scope.dom?.parentNode === parent &&
-          !itemInstance.scope.needsDomUpdate
-        ) {
-          continue;
-        }
-
-        const dom = syncItemDom(itemInstance, childrenVNodes[i]);
-        if (!dom) {
-          continue;
-        }
-
-        if (hasDetachedSuffix || dom.parentNode !== parent) {
-          if (BENCH_BUILD_ENABLED) {
-            recordBenchEvent('domInsert');
-          }
-          pendingAppend.push(dom);
-        }
-      }
-
-      if (pendingAppend.length > 0) {
-        const fragment = parent.ownerDocument.createDocumentFragment();
-        if (canUseDirectReplaceChildrenSpread(pendingAppend.length)) {
-          fragment.append(...pendingAppend);
-        } else {
-          for (const node of pendingAppend) {
-            fragment.appendChild(node);
-          }
-        }
-        parent.appendChild(fragment);
-      }
-    };
-
-    if (BENCH_BUILD_ENABLED) {
-      withBenchMetricScope('coldCreate', appendColdRows);
-    } else {
-      appendColdRows();
-    }
-
-    boundaryChildrenExact = parent.childNodes.length === plan.items.length;
-  };
-
-  const commitInsertOne = (): void => {
-    if (plan.kind !== 'INSERT_ONE') return;
-    const index = plan.index;
-    const item = index === null ? undefined : plan.items[index];
-
+    captureItemBeforeCommit(itemInstance);
     if (
-      index === null ||
-      !item ||
-      parent.childNodes.length !== plan.items.length - 1
+      canPatchStableDirtyItems &&
+      !preResolvedRanges.has(itemInstance.scope) &&
+      runtime.tryPatchStableForDirtyItem(itemInstance.scope)
     ) {
-      commitReorder();
-      return;
+      if (BENCH_BUILD_ENABLED) {
+        recordBenchCounter('itemDomSyncCalls');
+      }
+      continue;
     }
 
-    const anchor = parent.childNodes[index] ?? null;
-    const dom = syncItemDom(item, childrenVNodes[index]);
-    if (dom && (dom.parentNode !== parent || dom !== anchor)) {
+    const dom = syncItemDom(itemInstance, childrenVNodes[i]);
+    if (!dom) {
+      continue;
+    }
+
+    const anchor = childNodes[i] ?? null;
+    if (dom.parentNode !== parent || dom !== anchor) {
       recordBenchEvent('domInsert');
       parent.insertBefore(dom, anchor);
     }
-    boundaryChildrenExact = true;
+  }
+
+  return EXACT;
+}
+
+function commitAppend(
+  plan: ForCommitPlan,
+  inputs: ForStrategyInputs
+): ForStrategyResult {
+  if (plan.kind !== 'APPEND') return NEITHER;
+  const { parent, syncItemDom } = inputs;
+  const childrenVNodes = plan.vnodes;
+  const canHydrateInPlace =
+    plan.canHydrate &&
+    plan.removedNodes.length === 0 &&
+    parent.childNodes.length === plan.items.length;
+  if (canHydrateInPlace) {
+    let exactOrder = true;
+    let currentNode = parent.firstChild;
+
+    for (let i = 0; i < plan.items.length; i++) {
+      const itemInstance = plan.items[i];
+      if (!itemInstance) {
+        exactOrder = false;
+        currentNode = currentNode?.nextSibling ?? null;
+        continue;
+      }
+
+      const dom = syncItemDom(itemInstance, childrenVNodes[i]);
+      if (!dom || dom.parentNode !== parent || dom !== currentNode) {
+        exactOrder = false;
+      }
+
+      currentNode = currentNode?.nextSibling ?? null;
+    }
+
+    if (exactOrder) {
+      return EXACT;
+    }
+  }
+
+  const appendColdRows = (): void => {
+    const pendingAppend: Node[] = [];
+    const appendStart = plan.appendStart ?? 0;
+    const hasDetachedSuffix =
+      plan.appendStart !== null && parent.childNodes.length === appendStart;
+
+    for (let i = appendStart; i < plan.items.length; i++) {
+      const itemInstance = plan.items[i];
+      if (!itemInstance) {
+        continue;
+      }
+
+      if (
+        !hasDetachedSuffix &&
+        itemInstance.scope.dom?.parentNode === parent &&
+        !itemInstance.scope.needsDomUpdate
+      ) {
+        continue;
+      }
+
+      const dom = syncItemDom(itemInstance, childrenVNodes[i]);
+      if (!dom) {
+        continue;
+      }
+
+      if (hasDetachedSuffix || dom.parentNode !== parent) {
+        if (BENCH_BUILD_ENABLED) {
+          recordBenchEvent('domInsert');
+        }
+        pendingAppend.push(dom);
+      }
+    }
+
+    if (pendingAppend.length > 0) {
+      const fragment = parent.ownerDocument.createDocumentFragment();
+      if (canUseDirectReplaceChildrenSpread(pendingAppend.length)) {
+        fragment.append(...pendingAppend);
+      } else {
+        for (const node of pendingAppend) {
+          fragment.appendChild(node);
+        }
+      }
+      parent.appendChild(fragment);
+    }
   };
 
-  const commitSwap = (): void => {
-    if (plan.kind !== 'SWAP') return;
-    const swapIndices = plan.indices;
-    if (!swapIndices) {
-      return;
-    }
+  if (BENCH_BUILD_ENABLED) {
+    withBenchMetricScope('coldCreate', appendColdRows);
+  } else {
+    appendColdRows();
+  }
 
-    let [firstIndex, secondIndex] = swapIndices;
-    if (firstIndex === secondIndex) {
-      return;
-    }
+  return parent.childNodes.length === plan.items.length ? EXACT : NEITHER;
+}
 
-    if (firstIndex > secondIndex) {
-      [firstIndex, secondIndex] = [secondIndex, firstIndex];
-    }
+function commitInsertOne(
+  plan: ForCommitPlan,
+  inputs: ForStrategyInputs
+): ForStrategyResult {
+  if (plan.kind !== 'INSERT_ONE') return NEITHER;
+  const { parent, syncItemDom } = inputs;
+  const childrenVNodes = plan.vnodes;
+  const index = plan.index;
+  const item = index === null ? undefined : plan.items[index];
 
-    const firstItem = plan.items[firstIndex];
-    const secondItem = plan.items[secondIndex];
+  if (
+    index === null ||
+    !item ||
+    parent.childNodes.length !== plan.items.length - 1
+  ) {
+    return commitReorder(plan, inputs);
+  }
 
-    if (!firstItem || !secondItem) {
-      commitReorder();
-      return;
-    }
+  const anchor = parent.childNodes[index] ?? null;
+  const dom = syncItemDom(item, childrenVNodes[index]);
+  if (dom && (dom.parentNode !== parent || dom !== anchor)) {
+    recordBenchEvent('domInsert');
+    parent.insertBefore(dom, anchor);
+  }
+  return EXACT;
+}
 
-    const firstDom = syncItemDom(firstItem, childrenVNodes[firstIndex]);
-    const secondDom = syncItemDom(secondItem, childrenVNodes[secondIndex]);
+function commitSwap(
+  plan: ForCommitPlan,
+  inputs: ForStrategyInputs
+): ForStrategyResult {
+  if (plan.kind !== 'SWAP') return NEITHER;
+  const { parent, syncItemDom } = inputs;
+  const childrenVNodes = plan.vnodes;
+  const swapIndices = plan.indices;
+  if (!swapIndices) {
+    return NEITHER;
+  }
 
-    if (!firstDom || !secondDom) {
-      commitReorder();
-      return;
-    }
+  let [firstIndex, secondIndex] = swapIndices;
+  if (firstIndex === secondIndex) {
+    return NEITHER;
+  }
 
-    if (firstDom.parentNode !== parent || secondDom.parentNode !== parent) {
-      commitReorder();
-      return;
-    }
+  if (firstIndex > secondIndex) {
+    [firstIndex, secondIndex] = [secondIndex, firstIndex];
+  }
 
-    const firstBeforeSecond =
-      (firstDom.compareDocumentPosition(secondDom) &
-        Node.DOCUMENT_POSITION_FOLLOWING) !==
-      0;
-    if (firstBeforeSecond) {
-      boundaryChildrenExact = true;
-      return;
-    }
+  const firstItem = plan.items[firstIndex];
+  const secondItem = plan.items[secondIndex];
 
-    const firstNextSibling = firstDom.nextSibling;
-    recordBenchEvent('domMove');
-    parent.insertBefore(firstDom, secondDom);
-    recordBenchEvent('domMove');
-    parent.insertBefore(secondDom, firstNextSibling);
+  if (!firstItem || !secondItem) {
+    return commitReorder(plan, inputs);
+  }
 
-    boundaryChildrenExact = true;
-  };
+  const firstDom = syncItemDom(firstItem, childrenVNodes[firstIndex]);
+  const secondDom = syncItemDom(secondItem, childrenVNodes[secondIndex]);
 
-  const commitReorder = (): void => {
-    const items = plan.items;
-    const count = items.length;
+  if (!firstDom || !secondDom) {
+    return commitReorder(plan, inputs);
+  }
 
-    if (plan.moveOnly && plan.removedNodes.length === 0) {
-      const nodes = Array<Node>(count);
-      let movedCount = 0;
-      let insertedCount = 0;
+  if (firstDom.parentNode !== parent || secondDom.parentNode !== parent) {
+    return commitReorder(plan, inputs);
+  }
 
-      for (let i = 0; i < count; i++) {
-        const itemInstance = items[i];
-        if (!itemInstance) {
-          return;
-        }
+  const firstBeforeSecond =
+    (firstDom.compareDocumentPosition(secondDom) &
+      Node.DOCUMENT_POSITION_FOLLOWING) !==
+    0;
+  if (firstBeforeSecond) {
+    return EXACT;
+  }
 
-        const scope = itemInstance.scope;
-        const dom =
-          scope.dom && !scope.needsDomUpdate
-            ? scope.dom
-            : syncItemDom(itemInstance, childrenVNodes[i]);
+  const firstNextSibling = firstDom.nextSibling;
+  recordBenchEvent('domMove');
+  parent.insertBefore(firstDom, secondDom);
+  recordBenchEvent('domMove');
+  parent.insertBefore(secondDom, firstNextSibling);
 
-        if (!dom) {
-          return;
-        }
+  return EXACT;
+}
 
-        if (dom.parentNode === parent) {
-          movedCount++;
-        } else {
-          insertedCount++;
-        }
-        nodes[i] = dom;
+function commitReorder(
+  plan: ForCommitPlan,
+  { parent, syncItemDom }: ForStrategyInputs
+): ForStrategyResult {
+  const childrenVNodes = plan.vnodes;
+  const items = plan.items;
+  const count = items.length;
+
+  if (plan.moveOnly && plan.removedNodes.length === 0) {
+    const nodes = Array<Node>(count);
+    let movedCount = 0;
+    let insertedCount = 0;
+
+    for (let i = 0; i < count; i++) {
+      const itemInstance = items[i];
+      if (!itemInstance) {
+        return NEITHER;
       }
 
-      if (insertedCount > 0) {
-        if (movedCount > 0) {
-          recordBenchEvent('domMove', movedCount);
-        }
-        recordBenchEvent('domInsert', insertedCount);
-        replaceChildrenInOrder(
-          parent,
-          nodes,
-          canUseDirectReplaceChildrenSpread(count)
-        );
-        boundaryChildrenExact = true;
-        return;
+      const scope = itemInstance.scope;
+      const dom =
+        scope.dom && !scope.needsDomUpdate
+          ? scope.dom
+          : syncItemDom(itemInstance, childrenVNodes[i]);
+
+      if (!dom) {
+        return NEITHER;
       }
 
-      if (count > 1 && commitMoveOnlyReorder(parent, nodes)) {
-        boundaryChildrenExact = true;
-        return;
+      if (dom.parentNode === parent) {
+        movedCount++;
+      } else {
+        insertedCount++;
       }
+      nodes[i] = dom;
+    }
 
+    if (insertedCount > 0) {
       if (movedCount > 0) {
         recordBenchEvent('domMove', movedCount);
       }
-      if (insertedCount > 0) {
-        recordBenchEvent('domInsert', insertedCount);
-      }
-
-      replaceChildrenInOrder(parent, nodes, true);
-      boundaryChildrenExact = true;
-      return;
-    }
-
-    let hasExistingChild = false;
-    for (let i = 0; i < count; i++) {
-      const itemInstance = items[i];
-      if (itemInstance?.scope.dom?.parentNode === parent) {
-        hasExistingChild = true;
-        break;
-      }
-    }
-
-    if (!hasExistingChild) {
-      const canConsumeRemovedBoundary = isExactRemovedBoundary(
+      recordBenchEvent('domInsert', insertedCount);
+      replaceChildrenInOrder(
         parent,
-        plan.removedNodes
+        nodes,
+        canUseDirectReplaceChildrenSpread(count)
       );
-      const replaceColdRows = (): void => {
-        const nodes: Node[] = [];
-        for (let i = 0; i < count; i++) {
-          const itemInstance = items[i];
-          if (!itemInstance) continue;
-          const dom = syncItemDom(itemInstance, childrenVNodes[i]);
-          if (dom) {
-            if (BENCH_BUILD_ENABLED) {
-              recordBenchEvent('domInsert');
-            }
-            nodes.push(dom);
-          }
-        }
-        if (BENCH_BUILD_ENABLED) {
-          recordBenchCounter('replaceChildrenCommits');
-        }
-        replaceChildrenInOrder(parent, nodes, canConsumeRemovedBoundary);
-      };
-
-      if (BENCH_BUILD_ENABLED) {
-        withBenchMetricScope('coldCreate', replaceColdRows);
-      } else {
-        replaceColdRows();
-      }
-
-      removedBoundaryConsumed = canConsumeRemovedBoundary;
-      boundaryChildrenExact = true;
-      return;
+      return EXACT;
     }
 
-    if (plan.removedNodes.length === 0) {
-      const nodes: Node[] = [];
+    if (count > 1 && commitMoveOnlyReorder(parent, nodes)) {
+      return EXACT;
+    }
 
+    if (movedCount > 0) {
+      recordBenchEvent('domMove', movedCount);
+    }
+    if (insertedCount > 0) {
+      recordBenchEvent('domInsert', insertedCount);
+    }
+
+    replaceChildrenInOrder(parent, nodes, true);
+    return EXACT;
+  }
+
+  let hasExistingChild = false;
+  for (let i = 0; i < count; i++) {
+    const itemInstance = items[i];
+    if (itemInstance?.scope.dom?.parentNode === parent) {
+      hasExistingChild = true;
+      break;
+    }
+  }
+
+  if (!hasExistingChild) {
+    const canConsumeRemovedBoundary = isExactRemovedBoundary(
+      parent,
+      plan.removedNodes
+    );
+    const replaceColdRows = (): void => {
+      const nodes: Node[] = [];
       for (let i = 0; i < count; i++) {
         const itemInstance = items[i];
-        if (!itemInstance) {
-          continue;
-        }
-
+        if (!itemInstance) continue;
         const dom = syncItemDom(itemInstance, childrenVNodes[i]);
-        if (!dom) {
-          continue;
+        if (dom) {
+          if (BENCH_BUILD_ENABLED) {
+            recordBenchEvent('domInsert');
+          }
+          nodes.push(dom);
         }
-
-        recordBenchEvent(dom.parentNode === parent ? 'domMove' : 'domInsert');
-        nodes.push(dom);
       }
+      if (BENCH_BUILD_ENABLED) {
+        recordBenchCounter('replaceChildrenCommits');
+      }
+      replaceChildrenInOrder(parent, nodes, canConsumeRemovedBoundary);
+    };
 
-      replaceChildrenInOrder(parent, nodes, false);
-      boundaryChildrenExact = true;
-      return;
+    if (BENCH_BUILD_ENABLED) {
+      withBenchMetricScope('coldCreate', replaceColdRows);
+    } else {
+      replaceColdRows();
     }
+
+    return canConsumeRemovedBoundary ? EXACT_CONSUMED : EXACT;
+  }
+
+  if (plan.removedNodes.length === 0) {
+    const nodes: Node[] = [];
 
     for (let i = 0; i < count; i++) {
       const itemInstance = items[i];
@@ -405,32 +417,49 @@ export function commitForStrategy(
         continue;
       }
 
-      const anchor = parent.childNodes[i] ?? null;
-      if (dom !== anchor) {
-        recordBenchEvent('domMove');
-        parent.insertBefore(dom, anchor);
-      }
+      recordBenchEvent(dom.parentNode === parent ? 'domMove' : 'domInsert');
+      nodes.push(dom);
     }
 
-    boundaryChildrenExact = true;
-  };
+    replaceChildrenInOrder(parent, nodes, false);
+    return EXACT;
+  }
 
+  for (let i = 0; i < count; i++) {
+    const itemInstance = items[i];
+    if (!itemInstance) {
+      continue;
+    }
+
+    const dom = syncItemDom(itemInstance, childrenVNodes[i]);
+    if (!dom) {
+      continue;
+    }
+
+    const anchor = parent.childNodes[i] ?? null;
+    if (dom !== anchor) {
+      recordBenchEvent('domMove');
+      parent.insertBefore(dom, anchor);
+    }
+  }
+
+  return EXACT;
+}
+
+export function commitForStrategy(
+  plan: ForCommitPlan,
+  inputs: ForStrategyInputs
+): ForStrategyResult {
   switch (plan.kind) {
     case 'NO_REORDER':
-      commitDirtyNoReorder(plan.dirtyIndices);
-      break;
+      return commitDirtyNoReorder(plan, inputs);
     case 'APPEND':
-      commitAppend();
-      break;
+      return commitAppend(plan, inputs);
     case 'INSERT_ONE':
-      commitInsertOne();
-      break;
+      return commitInsertOne(plan, inputs);
     case 'SWAP':
-      commitSwap();
-      break;
+      return commitSwap(plan, inputs);
     case 'FULL_KEYED':
-      commitReorder();
-      break;
+      return commitReorder(plan, inputs);
   }
-  return { boundaryChildrenExact, removedBoundaryConsumed };
 }

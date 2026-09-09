@@ -4,6 +4,11 @@
 
 import type { Props } from '../common/props';
 import { getPublicAttributeName } from '../common/attr-names';
+import {
+  booleanAttributeValue,
+  isAriaAttribute,
+  isSkippedProp,
+} from '../common/prop-classification';
 import { isUnsafeUrlAttribute } from '../common/url';
 import type { RenderSink } from './sink';
 import { escapeAttr, needsEscapeAttr, styleObjToCss } from './escape';
@@ -19,10 +24,6 @@ const escapedAttrValueCache = new Map<string, string>();
 
 function isEventHandler(key: string): boolean {
   return key.length >= 2 && key.slice(0, 2).toLowerCase() === 'on';
-}
-
-function isAriaAttribute(key: string): boolean {
-  return key.length > 5 && key.slice(0, 5).toLowerCase() === 'aria-';
 }
 
 function assertAttributeName(name: string): void {
@@ -67,14 +68,7 @@ export function renderAttrsDirect(
     const value = propsObj[key];
 
     // Skip special props
-    if (
-      key === 'children' ||
-      key === 'imperativeChildren' ||
-      key === 'key' ||
-      key === 'ref' ||
-      key === 'dangerouslySetInnerHTML'
-    )
-      continue;
+    if (isSkippedProp(key) || key === 'dangerouslySetInnerHTML') continue;
 
     // Skip event handlers
     if (isEventHandler(key)) continue;
@@ -101,10 +95,16 @@ export function renderAttrsDirect(
       continue;
     }
 
-    // Boolean attributes
+    // Boolean attributes render bare; ARIA state and data payloads keep "true".
     if (value === true) {
       sink.write(' ');
       sink.write(attrName);
+      const booleanValue = booleanAttributeValue(attrName);
+      if (booleanValue) {
+        sink.write('="');
+        sink.write(booleanValue);
+        sink.write('"');
+      }
       continue;
     }
 
@@ -154,11 +154,8 @@ export function renderAttrs(
   for (const key in propsObj) {
     const value = propsObj[key];
 
-    // Skip children in attrs
-    if (key === 'children' || key === 'imperativeChildren') continue;
-
-    // Skip internal identity refs (framework-only)
-    if (key === 'key' || key === 'ref') continue;
+    // Skip children and the framework-only identity refs
+    if (isSkippedProp(key)) continue;
 
     // Handle dangerouslySetInnerHTML
     if (key === 'dangerouslySetInnerHTML') {
@@ -186,9 +183,12 @@ export function renderAttrs(
       continue;
     }
 
-    // Boolean attributes
+    // Boolean attributes render bare; ARIA state and data payloads keep "true".
     if (value === true) {
-      attrParts.push(` ${attrName}`);
+      const booleanValue = booleanAttributeValue(attrName);
+      attrParts.push(
+        booleanValue ? ` ${attrName}="${booleanValue}"` : ` ${attrName}`
+      );
     } else if (
       value === null ||
       value === undefined ||
