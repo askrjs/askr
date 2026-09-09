@@ -84,6 +84,7 @@ export {
 } from './diagnostics/ownership-diagnostics';
 export * from './diagnostics/perf-metrics';
 export * from './reactivity/readable';
+export * from './reactivity/notify';
 export {
   configureRenderDiagnostics,
   type RenderDiagnosticsOptions,

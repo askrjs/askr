@@ -370,177 +370,209 @@ export class CommitCoordinator {
     try {
       const parent = state.parent;
       if (parent?.active) {
-        const parentState = transactionState(parent);
-        let needsMerge = false;
-        let changedIdentity = false;
+        this.joinParentTransaction(transaction, state, parent);
+        return;
+      }
+
+      this.applyAndSettle(transaction, state);
+    } finally {
+      state.committing = false;
+    }
+  }
+
+  /**
+   * Fold a nested transaction into its still-open parent.
+   *
+   * Nothing is applied here: the child's participants, index, resources and
+   * identity set move to the parent, which will run them when it commits. The
+   * work is in reconciling identity — a participant may already exist in the
+   * parent under the same key, in which case the two have to be merged, and a
+   * merge can register further participants of its own, so it runs with its own
+   * failure ownership.
+   */
+  private joinParentTransaction(
+    transaction: CommitTransaction,
+    state: TransactionState,
+    parent: CommitTransaction
+  ): void {
+    const parentState = transactionState(parent);
+    let needsMerge = false;
+    let changedIdentity = false;
+    for (const participant of state.participants) {
+      // Retained keyed records are indexed, not tracked in seen. A keyed
+      // member in seen may have been registered before its key was assigned.
+      if (participant.key && state.seen?.has(participant))
+        changedIdentity = true;
+      if (parentState.seen?.has(participant)) continue;
+      const previous = participant.key
+        ? parent.participant(participant.key, participant.kind)
+        : undefined;
+      if (previous) {
+        this.validateCollision(previous, participant);
+        if (previous !== participant && participant.collision !== 'keep-first')
+          needsMerge = true;
+      }
+    }
+    for (const [kind, index] of state.index?.entries() ?? []) {
+      index.forEach((participant, key) => {
+        if (participant.key !== key || participant.kind !== kind)
+          changedIdentity = true;
+      });
+      if (changedIdentity) break;
+    }
+    if (needsMerge || changedIdentity) {
+      // Merges can register further work. Keep their dynamic traversal and
+      // failure ownership separate from callback-free membership transfer.
+      try {
         for (const participant of state.participants) {
-          // Retained keyed records are indexed, not tracked in seen. A keyed
-          // member in seen may have been registered before its key was assigned.
-          if (participant.key && state.seen?.has(participant))
-            changedIdentity = true;
           if (parentState.seen?.has(participant)) continue;
           const previous = participant.key
             ? parent.participant(participant.key, participant.kind)
             : undefined;
-          if (previous) {
-            this.validateCollision(previous, participant);
-            if (
-              previous !== participant &&
-              participant.collision !== 'keep-first'
-            )
-              needsMerge = true;
-          }
-        }
-        for (const [kind, index] of state.index?.entries() ?? []) {
-          index.forEach((participant, key) => {
-            if (participant.key !== key || participant.kind !== kind)
-              changedIdentity = true;
-          });
-          if (changedIdentity) break;
-        }
-        if (needsMerge || changedIdentity) {
-          // Merges can register further work. Keep their dynamic traversal and
-          // failure ownership separate from callback-free membership transfer.
-          try {
-            for (const participant of state.participants) {
-              if (parentState.seen?.has(participant)) continue;
-              const previous = participant.key
-                ? parent.participant(participant.key, participant.kind)
-                : undefined;
-              if (previous && previous !== participant) {
-                if (participant.collision !== 'keep-first')
-                  participant.merge!(previous);
-                if (!parent.active) this.discard(transaction);
-                if (!transaction.active) return;
-                (parentState.seen ??= new Set()).add(participant);
-              }
-            }
-          } catch (error) {
-            this.discardMergedTransactions(transaction, parent);
-            throw error;
-          }
-          // A changed key can leave the same record in multiple child slots.
-          // Registration preserves identity deduplication in that uncommon case.
-          for (const participant of state.participants) {
-            if (
-              !participant.key ||
-              !parent.participant(participant.key, participant.kind)
-            )
-              this.add(parent, participant);
-          }
-        } else {
-          for (const participant of state.participants) {
-            if (parentState.seen?.has(participant)) {
-              if (participant.key)
-                state.index!.get(participant.kind)!.delete(participant.key);
-              continue;
-            }
-            if (participant.key) {
-              const previous = parent.participant(
-                participant.key,
-                participant.kind
-              );
-              if (previous) {
-                if (previous !== participant)
-                  (state.seen ??= new Set()).add(participant);
-                continue;
-              }
-            }
-            parentState.participants.push(participant);
-          }
-
-          // Inner indexes have no independent owner. Keep the larger allocation;
-          // parent entries retain collision ownership regardless of map choice.
-          // Child release drops only the outer index after ownership transfers.
-          for (const [kind, index] of state.index?.entries() ?? []) {
-            if (!index.size) continue;
-            const kinds = (parentState.index ??= new Map<
-              object | undefined,
-              Map<object, CommitParticipant>
-            >());
-            kinds.set(kind, mergeEarlierEntries(kinds.get(kind), index));
-          }
-        }
-        if (state.resources)
-          parentState.resources = mergeEarlierEntries(
-            parentState.resources,
-            state.resources,
-            !needsMerge && !changedIdentity
-          );
-        if (state.seen) {
-          // The joined child relinquishes its set. Reuse the larger allocation
-          // while retaining identities coalesced in either frame.
-          if (!parentState.seen) parentState.seen = state.seen;
-          else if (parentState.seen.size < state.seen.size) {
-            for (const participant of parentState.seen)
-              state.seen.add(participant);
-            parentState.seen = state.seen;
-          } else {
-            for (const participant of state.seen)
-              parentState.seen.add(participant);
-          }
-        }
-        this.mergeCompletions(transaction, parent);
-        state.phase = 'joined';
-        this.suspend(transaction);
-        this.release(transaction);
-        return;
-      }
-
-      const previous = this.frame;
-      this.frame = transaction;
-      let applied = 0;
-      let published = 0;
-      try {
-        // A nested render from an application hook can append participants.
-        // Apply those before allowing their publication, including additions
-        // made while another participant is publishing framework bookkeeping.
-        while (
-          applied < state.participants.length ||
-          published < state.participants.length
-        ) {
-          state.phase = 'applying';
-          while (applied < state.participants.length) {
-            state.participants[applied++]!.apply?.();
+          if (previous && previous !== participant) {
+            if (participant.collision !== 'keep-first')
+              participant.merge!(previous);
+            if (!parent.active) this.discard(transaction);
             if (!transaction.active) return;
+            (parentState.seen ??= new Set()).add(participant);
           }
-          state.phase = 'publishing';
-          if (published < state.participants.length)
-            state.participants[published++]!.publish?.();
-          if (!transaction.active) return;
         }
       } catch (error) {
-        this.discard(transaction);
+        this.discardMergedTransactions(transaction, parent);
         throw error;
-      } finally {
-        this.frame = this.liveFrame(
-          previous === transaction ? state.parent : previous
-        );
       }
-
-      state.phase = 'settling';
-      try {
-        for (const phase of ['settle', 'activate', 'complete'] as const) {
-          for (const participant of state.participants) {
-            try {
-              participant[phase]?.();
-            } catch (error) {
-              (state.errors ??= []).push(error);
-            }
+      // A changed key can leave the same record in multiple child slots.
+      // Registration preserves identity deduplication in that uncommon case.
+      for (const participant of state.participants) {
+        if (
+          !participant.key ||
+          !parent.participant(participant.key, participant.kind)
+        )
+          this.add(parent, participant);
+      }
+    } else {
+      for (const participant of state.participants) {
+        if (parentState.seen?.has(participant)) {
+          if (participant.key)
+            state.index!.get(participant.kind)!.delete(participant.key);
+          continue;
+        }
+        if (participant.key) {
+          const previous = parent.participant(
+            participant.key,
+            participant.kind
+          );
+          if (previous) {
+            if (previous !== participant)
+              (state.seen ??= new Set()).add(participant);
+            continue;
           }
         }
-        this.complete(transaction, (error) =>
-          (state.errors ??= []).push(error)
-        );
-        state.phase = 'committed';
-        if (state.errors?.length)
-          this.options.settlementErrors?.(state.errors, transaction);
-      } finally {
-        state.phase = 'committed';
-        this.release(transaction);
+        parentState.participants.push(participant);
       }
+
+      // Inner indexes have no independent owner. Keep the larger allocation;
+      // parent entries retain collision ownership regardless of map choice.
+      // Child release drops only the outer index after ownership transfers.
+      for (const [kind, index] of state.index?.entries() ?? []) {
+        if (!index.size) continue;
+        const kinds = (parentState.index ??= new Map<
+          object | undefined,
+          Map<object, CommitParticipant>
+        >());
+        kinds.set(kind, mergeEarlierEntries(kinds.get(kind), index));
+      }
+    }
+    if (state.resources)
+      parentState.resources = mergeEarlierEntries(
+        parentState.resources,
+        state.resources,
+        !needsMerge && !changedIdentity
+      );
+    if (state.seen) {
+      // The joined child relinquishes its set. Reuse the larger allocation
+      // while retaining identities coalesced in either frame.
+      if (!parentState.seen) parentState.seen = state.seen;
+      else if (parentState.seen.size < state.seen.size) {
+        for (const participant of parentState.seen) state.seen.add(participant);
+        parentState.seen = state.seen;
+      } else {
+        for (const participant of state.seen) parentState.seen.add(participant);
+      }
+    }
+    this.mergeCompletions(transaction, parent);
+    state.phase = 'joined';
+    this.suspend(transaction);
+    this.release(transaction);
+    return;
+  }
+
+  /**
+   * Run a root transaction to completion.
+   *
+   * Apply and publish interleave because an application hook can render during
+   * either, appending participants that must themselves be applied before
+   * anything else publishes. Settlement then runs each remaining phase over
+   * every participant, collecting failures rather than stopping, so one broken
+   * cleanup cannot strand the rest.
+   *
+   * A participant that deactivates the transaction returns early from here,
+   * which deliberately skips settlement — the `finally` blocks still restore
+   * the frame and release.
+   */
+  private applyAndSettle(
+    transaction: CommitTransaction,
+    state: TransactionState
+  ): void {
+    const previous = this.frame;
+    this.frame = transaction;
+    let applied = 0;
+    let published = 0;
+    try {
+      // A nested render from an application hook can append participants.
+      // Apply those before allowing their publication, including additions
+      // made while another participant is publishing framework bookkeeping.
+      while (
+        applied < state.participants.length ||
+        published < state.participants.length
+      ) {
+        state.phase = 'applying';
+        while (applied < state.participants.length) {
+          state.participants[applied++]!.apply?.();
+          if (!transaction.active) return;
+        }
+        state.phase = 'publishing';
+        if (published < state.participants.length)
+          state.participants[published++]!.publish?.();
+        if (!transaction.active) return;
+      }
+    } catch (error) {
+      this.discard(transaction);
+      throw error;
     } finally {
-      state.committing = false;
+      this.frame = this.liveFrame(
+        previous === transaction ? state.parent : previous
+      );
+    }
+
+    state.phase = 'settling';
+    try {
+      for (const phase of ['settle', 'activate', 'complete'] as const) {
+        for (const participant of state.participants) {
+          try {
+            participant[phase]?.();
+          } catch (error) {
+            (state.errors ??= []).push(error);
+          }
+        }
+      }
+      this.complete(transaction, (error) => (state.errors ??= []).push(error));
+      state.phase = 'committed';
+      if (state.errors?.length)
+        this.options.settlementErrors?.(state.errors, transaction);
+    } finally {
+      state.phase = 'committed';
+      this.release(transaction);
     }
   }
 

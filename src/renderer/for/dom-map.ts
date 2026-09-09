@@ -1,4 +1,5 @@
 import { writeScopeHost } from '../ownership/scope-host';
+import { captureForItemTransactionSnapshot } from '../../runtime';
 import {
   recordBenchCounter,
   resolveForKeyMapEffect,
@@ -166,5 +167,53 @@ export function syncKeyedMapFromForState(
     keyedElements.set(parent, nextMap);
   } else {
     keyedElements.delete(parent);
+  }
+}
+
+/**
+ * Claim the DOM a server render already produced for this list.
+ *
+ * Runs once per boundary, before the first commit can resolve its own nodes.
+ * The ordered walk is tried first because it is exact; otherwise each item is
+ * matched to an existing element by key, and anything unmatched is left for the
+ * commit to build.
+ */
+export function adoptExistingForDom(
+  parent: Element,
+  forState: ForState<unknown>
+): void {
+  if (parent.children.length === forState.orderedKeys.length) {
+    for (let index = 0; index < forState.orderedItems.length; index++) {
+      const item = forState.orderedItems[index];
+      if (item) {
+        captureForItemTransactionSnapshot(forState, item);
+      }
+    }
+  }
+
+  if (hydrateExistingForDomInOrder(parent, forState)) {
+    return;
+  }
+
+  const domKeyMap = getOrBuildElementChildKeyMap(parent);
+  if (!domKeyMap) {
+    return;
+  }
+
+  for (let i = 0; i < forState.orderedKeys.length; i++) {
+    const itemKey = forState.orderedKeys[i];
+    const itemInstance = forState.items.get(itemKey);
+    if (!itemInstance || itemInstance.scope.dom) {
+      continue;
+    }
+
+    const existingDom = domKeyMap.get(itemKey);
+    if (!existingDom) {
+      continue;
+    }
+
+    captureForItemTransactionSnapshot(forState, itemInstance);
+    writeScopeHost(itemInstance.scope, undefined, existingDom);
+    itemInstance.scope.needsDomUpdate = true;
   }
 }

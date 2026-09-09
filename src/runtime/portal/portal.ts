@@ -1,10 +1,8 @@
+import { notifyReadableSource } from '../reactivity/notify';
 import { ownCleanup } from '../ownership/record';
 import type { RenderableChild } from '../../common/vnode';
 import type { JSXElement } from '../../common/jsx';
 import {
-  markReactivePropsDirtySource,
-  markReadableDerivedSubscribersDirty,
-  notifyReadableReaders,
   recordReadableRead,
   type ReadableSource,
 } from '../reactivity/readable';
@@ -138,9 +136,7 @@ function readExplicitDefaultPortalHosts(state: DefaultPortalState): number {
 function notifyExplicitDefaultPortalHostReaders(
   state: DefaultPortalState
 ): void {
-  markReadableDerivedSubscribersDirty(state.explicitHostSource);
-  markReactivePropsDirtySource(state.explicitHostSource);
-  notifyReadableReaders(state.explicitHostSource);
+  notifyReadableSource(state.explicitHostSource);
 }
 
 function setDefaultPortalOwner(
@@ -155,9 +151,7 @@ function setDefaultPortalOwner(
   }
   state.owner = owner;
   state.ownerVersion += 1;
-  markReadableDerivedSubscribersDirty(state.ownerSource);
-  markReactivePropsDirtySource(state.ownerSource);
-  notifyReadableReaders(state.ownerSource);
+  notifyReadableSource(state.ownerSource);
 }
 
 function createDefaultPortalState(): DefaultPortalState {

@@ -1,4 +1,5 @@
 import { ownCleanup } from '../ownership/record';
+import { notifyReadableSource } from './notify';
 import {
   claimHookIndex,
   getCurrentComponentInstance,
@@ -6,10 +7,7 @@ import {
 import { type ComponentInstance } from '../component/instance';
 import {
   clearDerivedDependencySubscriptions,
-  markReadableDerivedSubscribersDirty,
   markReadableUsage,
-  markReactivePropsDirtySource,
-  notifyReadableReaders,
   recordReadableRead,
   syncDerivedDependencySubscriptions,
   withDerivedReadTracking,
@@ -287,9 +285,7 @@ function notifySelectorSource(source: SelectorCandidateSource<unknown>): void {
   if (PERF_BUILD_ENABLED) {
     incrementPerfMetric('selectorInvalidations');
   }
-  markReadableDerivedSubscribersDirty(source, true);
-  markReactivePropsDirtySource(source);
-  notifyReadableReaders(source);
+  notifyReadableSource(source, { skipCurrentDerivedSubscriber: true });
 }
 
 function notifyAllSelectorSources<T>(lane: SelectorLane<T>): void {

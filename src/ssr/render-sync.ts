@@ -27,7 +27,7 @@ import {
   resolveErrorBoundaryFallbackNode,
   withControlBoundaryChildren,
 } from './boundaries';
-import { renderAttrs, renderAttrsDirect } from './attrs';
+import { renderAttrsDirect } from './attrs';
 import { VOID_ELEMENTS, escapeText } from './escape';
 import { serializeHydrationRenderData } from './hydration-data';
 import { startRenderPhase, stopRenderPhase } from './render-keys';
@@ -44,15 +44,6 @@ const __SSR_DEBUG =
 const RANGE_START = '<!--askr-range-start-->';
 const RANGE_END = '<!--askr-range-end-->';
 
-function renderDeferredBoundarySync(
-  node: VNode | JSXElement,
-  ctx: RenderContext
-): string {
-  const id = String(node.props?.['id'] ?? '');
-  const pending = node.props?.['pending'];
-  return `<askr-resolve data-askr-deferred="${id}">${renderRenderableSync(pending, ctx)}</askr-resolve>`;
-}
-
 function isMultiRangeChild(child: unknown): boolean {
   if (Array.isArray(child)) return true;
   if (!child || typeof child !== 'object' || !('type' in child)) {
@@ -60,52 +51,6 @@ function isMultiRangeChild(child: unknown): boolean {
   }
   const vnode = child as VNode;
   return isFragmentType(vnode.type);
-}
-
-function renderForRangeChildSync(child: unknown, ctx: RenderContext): string {
-  if (
-    child &&
-    typeof child === 'object' &&
-    'type' in child &&
-    typeof (child as VNode).type === 'function'
-  ) {
-    const vnode = child as VNode | JSXElement;
-    const result = executeComponentSync(
-      vnode.type as Component,
-      vnode.props,
-      ctx,
-      getVNodeContextFrame(vnode) ?? null
-    );
-    return renderForRangeChildSync(inheritRenderableKey(vnode, result), ctx);
-  }
-
-  const rendered = renderChildSync(child, ctx);
-  return isMultiRangeChild(child)
-    ? `${RANGE_START}${rendered}${RANGE_END}`
-    : rendered;
-}
-
-function renderControlChildrenSync(
-  node: VNode | JSXElement,
-  ctx: RenderContext
-): string {
-  const controlState = getControlBoundaryState(node);
-
-  return withControlBoundaryChildren(node, (children) => {
-    const values = children ?? [];
-    if (controlState?.kind === 'for') {
-      return values
-        .map((child) => renderForRangeChildSync(child, ctx))
-        .join('');
-    }
-
-    const rendered = renderChildrenSync(values, ctx);
-    return values.length === 1 && isMultiRangeChild(values[0])
-      ? `${RANGE_START}${rendered}${RANGE_END}`
-      : values.length !== 1
-        ? `${RANGE_START}${rendered}${RANGE_END}`
-        : rendered;
-  });
 }
 
 export function inheritRenderableKey(
@@ -142,15 +87,18 @@ export function inheritRenderableKey(
   return result;
 }
 
-function renderRenderableSync(value: unknown, ctx: RenderContext): string {
-  if (typeof value === 'string') return escapeText(value);
-  if (typeof value === 'number') return escapeText(String(value));
-  if (value === null || value === undefined || value === false) return '';
-  if (Array.isArray(value)) return renderChildrenSync(value, ctx);
-  if (value && typeof value === 'object' && 'type' in value) {
-    return renderNodeSync(value as VNode, ctx);
-  }
-  return '';
+/**
+ * Render a value to a string through the streaming renderer.
+ *
+ * Portal resolution splices content into the finished document by token, so it
+ * genuinely needs a string — but it gets one from the same renderer everything
+ * else uses rather than from a second implementation.
+ */
+function renderRenderableToString(value: unknown, ctx: RenderContext): string {
+  const sink = new StringSink();
+  renderRenderableSyncToSink(value, sink, ctx);
+  sink.end();
+  return sink.toString();
 }
 
 function resolveSSRPortals(html: string, ctx: RenderContext): string {
@@ -175,7 +123,7 @@ function resolveSSRPortals(html: string, ctx: RenderContext): string {
         foundHost = true;
         const content =
           activeHosts.has(host.token) && slot.hasValue
-            ? renderRenderableSync(slot.value, ctx)
+            ? renderRenderableToString(slot.value, ctx)
             : '';
         resolved = resolved.replace(host.token, () =>
           host.automatic &&
@@ -228,17 +176,52 @@ class SSRPortalSink {
   }
 }
 
-function renderChildSync(child: unknown, ctx: RenderContext): string {
-  return renderRenderableSync(child, ctx);
+/** The streaming target: `write` plus the optional batched and portal writes. */
+type SinkTarget = {
+  write(html: string): void;
+  write2?: (a: string, b: string) => void;
+  write3?: (a: string, b: string, c: string) => void;
+  writePortalHost?: (token: string) => void;
+};
+
+/**
+ * Collects writes so they can be published to a real sink, or dropped.
+ *
+ * An ErrorBoundary is transactional: markup its subtree produced before a
+ * descendant threw must never reach the response, or the fallback lands inside
+ * a half-written element. A sink cannot take output back, so the protected
+ * subtree renders into one of these first.
+ *
+ * Portal host writes are recorded rather than flattened, because reaching the
+ * real sink through `writePortalHost` is what puts it into portal-resolving
+ * mode; replaying them preserves both that signal and the original order.
+ */
+class BufferedSink {
+  private readonly operations: Array<{ portalHost: boolean; text: string }> =
+    [];
+
+  write(html: string): void {
+    if (html) this.operations.push({ portalHost: false, text: html });
+  }
+
+  writePortalHost(token: string): void {
+    this.operations.push({ portalHost: true, text: token });
+  }
+
+  publishTo(sink: SinkTarget): void {
+    for (const operation of this.operations) {
+      if (operation.portalHost && sink.writePortalHost) {
+        sink.writePortalHost(operation.text);
+      } else {
+        sink.write(operation.text);
+      }
+    }
+  }
 }
 
 export function renderRenderableSyncToSink(
   value: unknown,
-  sink: {
-    write(html: string): void;
-    write2?: (a: string, b: string) => void;
-    write3?: (a: string, b: string, c: string) => void;
-  },
+  sink: SinkTarget,
   ctx: RenderContext
 ): void {
   if (value === null || value === undefined || value === false) return;
@@ -261,52 +244,103 @@ export function renderRenderableSyncToSink(
 
 function renderChildSyncToSink(
   child: unknown,
-  sink: { write(html: string): void },
+  sink: SinkTarget,
   ctx: RenderContext
 ): void {
   renderRenderableSyncToSink(child, sink, ctx);
 }
 
-function renderChildrenSync(
-  children: unknown[] | undefined,
+/**
+ * Write a deferred boundary's pending content inside its resolve wrapper.
+ *
+ * The wrapper is known from the node's props, so the children stream into the
+ * sink between the two markers rather than being rendered to a string first.
+ */
+function renderDeferredBoundaryToSink(
+  node: VNode | JSXElement,
+  sink: SinkTarget,
   ctx: RenderContext
-): string {
-  if (!children || !Array.isArray(children) || children.length === 0) return '';
-  if (children.length === 1) return renderChildSync(children[0], ctx);
-
-  if (children.length <= 8) {
-    let result = '';
-    for (const child of children) result += renderChildSync(child, ctx);
-    return result;
-  }
-
-  const parts = Array.from({ length: children.length }, (_, index) =>
-    renderChildSync(children[index], ctx)
-  );
-  return parts.join('');
+): void {
+  const id = String(node.props?.['id'] ?? '');
+  sink.write(`<askr-resolve data-askr-deferred="${id}">`);
+  renderRenderableSyncToSink(node.props?.['pending'], sink, ctx);
+  sink.write('</askr-resolve>');
 }
 
-function renderErrorBoundaryFallbackValue(
-  fallback: unknown,
-  error: unknown,
-  reset: () => void,
+/** Write one `For` row, bracketing it with range markers when it spans several nodes. */
+function renderForRangeChildToSink(
+  child: unknown,
+  sink: SinkTarget,
   ctx: RenderContext
-): string {
-  const nextValue = resolveErrorBoundaryFallbackNode(fallback, error, reset);
+): void {
+  if (
+    child &&
+    typeof child === 'object' &&
+    'type' in child &&
+    typeof (child as VNode).type === 'function'
+  ) {
+    const vnode = child as VNode | JSXElement;
+    const result = executeComponentSync(
+      vnode.type as Component,
+      vnode.props,
+      ctx,
+      getVNodeContextFrame(vnode) ?? null
+    );
+    renderForRangeChildToSink(inheritRenderableKey(vnode, result), sink, ctx);
+    return;
+  }
 
-  return Array.isArray(nextValue)
-    ? renderChildrenSync(normalizeRenderableChildren(nextValue), ctx)
-    : renderChildSync(nextValue, ctx);
+  const spansRange = isMultiRangeChild(child);
+  if (spansRange) sink.write(RANGE_START);
+  renderChildSyncToSink(child, sink, ctx);
+  if (spansRange) sink.write(RANGE_END);
+}
+
+/**
+ * Write a control boundary's children.
+ *
+ * Whether the boundary needs range markers is decided from the children
+ * themselves, before any of them render, so the decision costs nothing and the
+ * subtree can stream out as it is produced.
+ */
+function renderControlChildrenToSink(
+  node: VNode | JSXElement,
+  sink: SinkTarget,
+  ctx: RenderContext
+): void {
+  const controlState = getControlBoundaryState(node);
+
+  withControlBoundaryChildren<void>(node, (children) => {
+    const values = children ?? [];
+
+    if (controlState?.kind === 'for') {
+      for (let index = 0; index < values.length; index += 1) {
+        renderForRangeChildToSink(values[index], sink, ctx);
+      }
+      return;
+    }
+
+    const spansRange = values.length !== 1 || isMultiRangeChild(values[0]);
+    if (spansRange) sink.write(RANGE_START);
+    renderChildrenSyncToSink(values, sink, ctx);
+    if (spansRange) sink.write(RANGE_END);
+  });
 }
 
 function renderErrorBoundaryFallbackValueToSink(
   fallback: unknown,
   error: unknown,
   reset: () => void,
-  sink: { write(html: string): void },
+  sink: SinkTarget,
   ctx: RenderContext
 ): void {
-  sink.write(renderErrorBoundaryFallbackValue(fallback, error, reset, ctx));
+  const nextValue = resolveErrorBoundaryFallbackNode(fallback, error, reset);
+
+  if (Array.isArray(nextValue)) {
+    renderChildrenSyncToSink(normalizeRenderableChildren(nextValue), sink, ctx);
+    return;
+  }
+  renderChildSyncToSink(nextValue, sink, ctx);
 }
 
 function renderChildrenSyncToSink(
@@ -357,117 +391,9 @@ function sinkWrite3(
   sink.write(c);
 }
 
-function renderNodeSync(node: VNode | JSXElement, ctx: RenderContext): string {
-  const { type, props } = node;
-
-  /* istanbul ignore if - dev-only debug */
-  if (__SSR_DEBUG) {
-    try {
-      logger.warn('[SSR] renderNodeSync type:', typeof type, type);
-    } catch {}
-  }
-
-  if (typeof type === 'function') {
-    const result = executeComponentSync(
-      type as Component,
-      props,
-      ctx,
-      getVNodeContextFrame(node) ?? null
-    );
-    return renderRenderableSync(inheritRenderableKey(node, result), ctx);
-  }
-
-  if (typeof type === 'symbol') {
-    if (type === SSR_PORTAL_HOST) {
-      return String(props?.token ?? '');
-    }
-    if (type === SSR_PORTAL_ANCHOR) {
-      return String(props?.token ?? '');
-    }
-    if (isFragmentType(type)) {
-      const childrenArr = getRenderableChildren(node);
-      /* istanbul ignore if - dev-only debug */
-      if (__SSR_DEBUG) {
-        try {
-          logger.warn('[SSR] fragment children length:', childrenArr?.length);
-        } catch {
-          // Ignore
-        }
-      }
-      return renderChildrenSync(childrenArr, ctx);
-    }
-    if (type === __CONTROL_BOUNDARY__) {
-      return renderControlChildrenSync(node, ctx);
-    }
-    if (type === DEFERRED_BOUNDARY) {
-      return renderDeferredBoundarySync(node, ctx);
-    }
-    if (type === __ERROR_BOUNDARY__) {
-      const boundaryState = getErrorBoundaryState(node);
-      const fallback = props?.fallback;
-      const reset = createErrorBoundaryReset(node);
-
-      if (boundaryState?.error != null) {
-        return renderErrorBoundaryFallbackValue(
-          fallback,
-          boundaryState.error,
-          reset,
-          ctx
-        );
-      }
-
-      try {
-        return renderChildrenSync(
-          normalizeRenderableChildren(props?.children),
-          ctx
-        );
-      } catch (error) {
-        if (boundaryState) {
-          boundaryState.error = error;
-          boundaryState.notified = true;
-        }
-        logger.error('[Askr] ErrorBoundary caught render error:', error);
-        return renderErrorBoundaryFallbackValue(fallback, error, reset, ctx);
-      }
-    }
-    throw new Error(
-      `renderNodeSync: unsupported VNode symbol type: ${String(type)}`
-    );
-  }
-
-  const typeStr = type as string;
-  assertElementName(typeStr);
-  if (VOID_ELEMENTS.has(typeStr)) {
-    const attrs = renderAttrs(props);
-    return `<${typeStr}${attrs} />`;
-  }
-
-  const maybeDangerous = (
-    props as unknown as { dangerouslySetInnerHTML?: unknown }
-  )?.dangerouslySetInnerHTML;
-  if (maybeDangerous !== undefined && maybeDangerous !== null) {
-    const { attrs, dangerousHtml } = renderAttrs(props, {
-      returnDangerousHtml: true,
-    });
-    if (dangerousHtml !== undefined) {
-      return `<${typeStr}${attrs}>${dangerousHtml}</${typeStr}>`;
-    }
-    const childrenHtml = renderChildrenSync(getRenderableChildren(node), ctx);
-    return `<${typeStr}${attrs}>${childrenHtml}</${typeStr}>`;
-  }
-
-  const attrs = renderAttrs(props);
-  const childrenHtml = renderChildrenSync(getRenderableChildren(node), ctx);
-  return `<${typeStr}${attrs}>${childrenHtml}</${typeStr}>`;
-}
-
 function renderNodeSyncToSink(
   node: VNode | JSXElement,
-  sink: {
-    write(html: string): void;
-    write2?: (a: string, b: string) => void;
-    write3?: (a: string, b: string, c: string) => void;
-  },
+  sink: SinkTarget,
   ctx: RenderContext
 ): void {
   const { type, props } = node;
@@ -506,12 +432,11 @@ function renderNodeSyncToSink(
       return;
     }
     if (type === __CONTROL_BOUNDARY__) {
-      const rendered = renderControlChildrenSync(node, ctx);
-      sink.write(rendered);
+      renderControlChildrenToSink(node, sink, ctx);
       return;
     }
     if (type === DEFERRED_BOUNDARY) {
-      sink.write(renderDeferredBoundarySync(node, ctx));
+      renderDeferredBoundaryToSink(node, sink, ctx);
       return;
     }
     if (type === __ERROR_BOUNDARY__) {
@@ -530,10 +455,13 @@ function renderNodeSyncToSink(
         return;
       }
 
+      // Buffered so a failure part-way through discards everything the
+      // subtree already produced instead of appending the fallback to it.
+      const protectedOutput = new BufferedSink();
       try {
         renderChildrenSyncToSink(
           normalizeRenderableChildren(props?.children),
-          sink,
+          protectedOutput,
           ctx
         );
       } catch (error) {
@@ -549,7 +477,13 @@ function renderNodeSyncToSink(
           sink,
           ctx
         );
+        return;
       }
+
+      // Publishing sits outside the guard: only a failure *while rendering* is
+      // recoverable, and replaying a completed subtree must not be able to
+      // append a fallback to markup it has already handed over.
+      protectedOutput.publishTo(sink);
       return;
     }
     throw new Error(

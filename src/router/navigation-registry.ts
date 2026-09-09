@@ -192,3 +192,16 @@ export function unregisterAppInstance(instance: ComponentInstance): void {
     syncCurrentRouteSnapshot('/', '', '', []);
   }
 }
+
+/**
+ * @internal Forget every registered app and the current location.
+ *
+ * Deliberately leaves `navigationRegistryHost` in place: that is composition,
+ * installed once by the navigation entry points, not per-run state.
+ */
+export function resetNavigationRegistry(): void {
+  registeredApps.length = 0;
+  currentInstance = null;
+  currentPathname = '/';
+  currentHref = '/';
+}

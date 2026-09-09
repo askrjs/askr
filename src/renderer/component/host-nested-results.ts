@@ -1,6 +1,8 @@
+import { renderComponentInScope } from './render-scope';
 import { assertSyncComponentResult } from '../../common/promise';
 import type { Props } from '../../common/props';
 import {
+  markVNodeTreeWithContextFrame,
   captureInlineRenderSnapshot,
   cleanupComponent,
   createComponentInstance,
@@ -11,7 +13,6 @@ import {
 } from '../../runtime';
 import {
   getVNodeContextFrame,
-  markVNodeTreeWithContextFrame,
   withContext,
   type ContextFrame,
 } from '../../runtime';
@@ -165,16 +166,11 @@ export function resolveHostNestedComponentResult(
       nestedInstance.props = ((nestedVNode.props ?? {}) as Props) || {};
       if (nestedSnapshot) nestedInstance.ownerFrame = nestedSnapshot;
 
-      const nextResult = withContext(nestedSnapshot ?? null, () =>
-        renderComponentInline(nestedInstance)
-      );
-      assertSyncComponentResult(nextResult);
-
       retainedInstances.add(nestedInstance);
       activeParent = nestedInstance;
       activeSnapshot = nestedSnapshot ?? null;
-      currentResult = markVNodeTreeWithContextFrame(
-        nextResult,
+      currentResult = renderComponentInScope(
+        nestedInstance,
         activeSnapshot
       ) as VNode;
       depth += 1;
@@ -241,14 +237,10 @@ export function resolveWrapperHostResult(
     inheritComponentCleanupStrict(nestedInstance);
     if (nestedSnapshot) nestedInstance.ownerFrame = nestedSnapshot;
 
-    const nextResult = withContext(nestedSnapshot ?? null, () =>
-      renderComponentInline(nestedInstance)
-    );
-    assertSyncComponentResult(nextResult);
     retainedInstances.add(nestedInstance);
     activeParent = nestedInstance;
     activeSnapshot = nestedSnapshot ?? null;
-    currentResult = markVNodeTreeWithContextFrame(nextResult, activeSnapshot);
+    currentResult = renderComponentInScope(nestedInstance, activeSnapshot);
     depth += 1;
     nestedVNode = getNestedComponentVNode(currentResult);
   }

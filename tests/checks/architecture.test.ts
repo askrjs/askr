@@ -577,7 +577,6 @@ describe('architecture boundaries', () => {
     ]);
     const pending = new Set([
       'src/renderer/children/children.ts',
-      'src/renderer/children/element-children.ts',
       'src/renderer/children/reactive-children.ts',
       'src/renderer/component/host-fresh-chain.ts',
       'src/renderer/component/host-results.ts',

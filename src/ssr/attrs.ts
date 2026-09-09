@@ -13,12 +13,6 @@ import { isUnsafeUrlAttribute } from '../common/url';
 import type { RenderSink } from './sink';
 import { escapeAttr, needsEscapeAttr, styleObjToCss } from './escape';
 
-/** Result of renderAttrs including any raw HTML from dangerouslySetInnerHTML */
-export type AttrsResult = {
-  attrs: string;
-  dangerousHtml?: string;
-};
-
 const ESCAPED_ATTR_VALUE_CACHE_LIMIT = 512;
 const escapedAttrValueCache = new Map<string, string>();
 
@@ -126,86 +120,4 @@ export function renderAttrsDirect(
     sink.write(getEscapedAttrValue(strValue));
     sink.write('"');
   }
-}
-
-/**
- * Render attributes to HTML string, excluding event handlers
- * Optimized for minimal allocations using push-based approach
- *
- * Returns both the attribute string and any dangerouslySetInnerHTML content.
- */
-export function renderAttrs(props?: Props): string;
-export function renderAttrs(
-  props: Props | undefined,
-  opts: { returnDangerousHtml: true }
-): AttrsResult;
-export function renderAttrs(
-  props?: Props,
-  opts?: { returnDangerousHtml?: boolean }
-): string | AttrsResult {
-  if (!props || typeof props !== 'object') {
-    return opts?.returnDangerousHtml ? { attrs: '' } : '';
-  }
-
-  const attrParts: string[] = [];
-  let dangerousHtml: string | undefined;
-
-  const propsObj = props as Record<string, unknown>;
-  for (const key in propsObj) {
-    const value = propsObj[key];
-
-    // Skip children and the framework-only identity refs
-    if (isSkippedProp(key)) continue;
-
-    // Handle dangerouslySetInnerHTML
-    if (key === 'dangerouslySetInnerHTML') {
-      if (value && typeof value === 'object' && '__html' in (value as object)) {
-        dangerousHtml = String((value as { __html: unknown }).__html);
-      }
-      continue;
-    }
-
-    // Skip event handlers
-    if (isEventHandler(key)) continue;
-
-    // Skip internal props
-    if (key.charCodeAt(0) === 95) continue; // '_'
-
-    // Normalize public JSX prop names to their rendered HTML attribute names.
-    const attrName = key === 'class' ? 'class' : getPublicAttributeName(key);
-    assertAttributeName(attrName);
-
-    // Handle style objects
-    if (attrName === 'style') {
-      const css = typeof value === 'string' ? value : styleObjToCss(value);
-      if (css === null || css === '') continue;
-      attrParts.push(` style="${getEscapedAttrValue(css)}"`);
-      continue;
-    }
-
-    // Boolean attributes render bare; ARIA state and data payloads keep "true".
-    if (value === true) {
-      const booleanValue = booleanAttributeValue(attrName);
-      attrParts.push(
-        booleanValue ? ` ${attrName}="${booleanValue}"` : ` ${attrName}`
-      );
-    } else if (
-      value === null ||
-      value === undefined ||
-      (value === false && !isAriaAttribute(attrName))
-    ) {
-      continue;
-    } else {
-      const strValue = String(value);
-      if (isUnsafeUrlAttribute(attrName, strValue)) continue;
-      attrParts.push(` ${attrName}="${getEscapedAttrValue(strValue)}"`);
-    }
-  }
-
-  const result = attrParts.join('');
-
-  if (opts?.returnDangerousHtml) {
-    return { attrs: result, dangerousHtml };
-  }
-  return result;
 }

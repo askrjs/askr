@@ -168,3 +168,8 @@ export function _drainLazy(
   if (combined.size === 0) return Promise.resolve();
   return Promise.allSettled(combined).then(() => undefined);
 }
+
+/** @internal Forget in-flight lazy loads. Part of the router-wide reset. */
+export function resetLazyRoutes(): void {
+  pendingLazy.clear();
+}
