@@ -4,6 +4,11 @@
 
 ## 0.3.0 — 2026-09-11
 
+- refactor(internal): rename `src/compatibility/` to names that describe what it
+  is — `src/public-contracts/`, `src/renderer/`, `src/runtime/` — and drop the
+  re-export shims under `src/compatibility/entries/`. The published `exports`
+  map is unchanged; every public subpath resolves exactly as before. This is
+  breaking only for code deep-importing `dist/` internals.
 - feat(runtime): add a single component scope primitive.
 - fix(runtime): reuse a context-free default abort reason during component
   teardown so retained signals do not retain departed component generations.
