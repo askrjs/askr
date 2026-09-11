@@ -25,7 +25,7 @@ playwright install chromium firefox webkit
   serialization, error handling, and public API edge cases.
 - Use `tests/jsdom` for DOM-like behavior: component rendering, event handler
   wiring, simple DOM updates, forms, conditionals, lists, lifecycle, and basic
-  hydration smoke coverage.
+  hydration coverage.
 - Use `tests/browser/*.test.ts` when the browser matters: SSR-to-hydration
   correctness, navigation, guarded routes, focus, keyboard navigation, overlays,
   layout-sensitive components, browser event loop behavior, and real CSS.
@@ -34,10 +34,8 @@ playwright install chromium firefox webkit
   components, semantic forms, and async data through `resource()`. Tests should
   drive these pages through roles, labels, URL changes, and network interception
   rather than mutating app state through test-only bridges.
-- Use `tests/browser/browser-perf-smoke.test.ts` for coarse browser performance
-  smoke assertions.
 - Use `benches/*` for performance. Do not hide performance checks inside normal
-  tests unless they are coarse smoke assertions.
+  tests.
 
 When in doubt, start lower. Move up only when the lower layer cannot observe the
 behavior honestly.

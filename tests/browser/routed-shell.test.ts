@@ -49,7 +49,7 @@ function installCustomerSearchMock(): void {
 }
 
 test.describe('real routed app shell workflow', () => {
-  test('should keep the shell and search focus during same-route query updates @smoke', async () => {
+  test('should keep the shell and search focus during same-route query updates', async () => {
     installCustomerSearchMock();
     setBrowserLocation('/customers/search');
     const app = await loadBrowserHarness();

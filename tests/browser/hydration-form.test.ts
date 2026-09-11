@@ -52,7 +52,7 @@ test.describe('hydrated signup form workflow', () => {
     await app.mountSignupHydrationScenario();
   });
 
-  test('should attach hydrated form listeners and submit controlled values @smoke', async () => {
+  test('should attach hydrated form listeners and submit controlled values', async () => {
     let releaseSignup!: () => void;
     const signupReleased = new Promise<void>((resolve) => {
       releaseSignup = resolve;

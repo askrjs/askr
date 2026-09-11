@@ -9,7 +9,7 @@ test.describe('real browser interaction behavior', () => {
     app.mountInteractionScenario();
   });
 
-  test('should support navigation and keyboard focus in the browser @smoke', async () => {
+  test('should support navigation and keyboard focus in the browser', async () => {
     const settingsLink = page.getByTestId('settings-link');
     await settingsLink.click();
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();

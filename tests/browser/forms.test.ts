@@ -8,7 +8,7 @@ test.describe('account settings form workflow', () => {
     app.mountAccountSettingsScenario();
   });
 
-  test('should edit, submit, and reset a controlled settings form @smoke', async () => {
+  test('should edit, submit, and reset a controlled settings form', async () => {
     await page.getByLabelText('Full name').fill('Ada Lovelace');
     await page.getByLabelText('Email address').fill('ada@example.com');
     await page

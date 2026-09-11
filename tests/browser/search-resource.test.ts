@@ -153,7 +153,7 @@ test.describe('customer search with route-driven resources', () => {
       .toBe(0);
   });
 
-  test('should load from the route query and refresh as the user searches @smoke', async () => {
+  test('should load from the route query and refresh as the user searches', async () => {
     const queries: string[] = [];
     installCustomerSearchMock({}, (query) => {
       queries.push(query);
