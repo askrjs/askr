@@ -406,12 +406,12 @@ function ManyHandlers() {
 
 ### Hydration Cost
 
-Event listener attachment is fast:
+Approximate figures from the project's own local benchmarks (not independently verified, and not a guarantee for any given device or app):
 
 - **100 listeners**: ~2-5ms
 - **1000 listeners**: ~20-30ms
 
-With **event delegation** enabled (default), the cost is even lower:
+With **event delegation** enabled (default), measured cost is lower in the same benchmarks:
 
 - **100 delegated listeners**: ~1-2ms
 - **1000 delegated listeners**: ~5-10ms
