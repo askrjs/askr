@@ -68,7 +68,6 @@ describe('Bench tier conventions', () => {
           `${relativePath}: Tier 2 files must use the tier2-subsystem-* naming convention`
         );
       }
-
     }
 
     expect(failures).toEqual([]);
