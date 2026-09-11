@@ -2,18 +2,18 @@ import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import {
   AskrRuntime,
   getDefaultRuntime,
-} from '../../src/compatibility/runtime';
+} from '../../src/runtime/public-runtime';
 import {
   adaptRendererHost,
   rendererHostView,
-} from '../../src/compatibility/renderer';
+} from '../../src/renderer/host-adapter';
 import { createRuntimeState } from '../../src/runtime/runtime-state';
 import {
   getRuntimeRenderer,
   getRuntimeScheduler,
 } from '../../src/runtime/access';
 import { createChildScope } from '../../src/runtime/ownership/child-scope';
-import type { RuntimeRendererHost } from '../../src/compatibility/contracts/core';
+import type { RuntimeRendererHost } from '../../src/public-contracts/core';
 
 const originalHost = getDefaultRuntime().renderer;
 afterEach(() => getDefaultRuntime().configureRenderer(originalHost));

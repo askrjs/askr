@@ -48,9 +48,9 @@ export default defineConfig({
     dts: false,
     copy: [
       {
-        from: 'src/compatibility/contracts/**/*.d.ts',
+        from: 'src/public-contracts/**/*.d.ts',
         rename: (_name, _extension, fullPath) =>
-          relative(resolve('src/compatibility/contracts'), fullPath),
+          relative(resolve('src/public-contracts'), fullPath),
       },
     ],
     // Keep maps for diagnostics without publishing dangling sourceMappingURL

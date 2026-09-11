@@ -1,11 +1,11 @@
 import {
   captureOwnerRange,
   releaseOwnerRange,
-} from '../renderer/ownership/ranges';
+} from './ownership/ranges';
 import {
   detachPortalHostOutput,
   isComponentHostDetached,
-} from '../renderer/ownership/portal-host';
+} from './ownership/portal-host';
 import {
   clearChildScopeHost,
   captureChildScopeHost,
@@ -14,17 +14,17 @@ import {
   recordRemovedScopeBoundary,
   teardownScopeHost,
   hasUnmountedComponentHost,
-} from '../renderer/ownership/scope-host';
+} from './ownership/scope-host';
 import type { RendererCapabilities } from '../runtime/renderer-capabilities';
-import type { RuntimeRendererHost } from './contracts/core';
-import { applyComponentResult } from '../renderer/component/application';
-import { classifyUpdate } from '../renderer/component/fast-path';
-import { recordInlineComponentHost } from '../renderer/ownership/nodes';
+import type { RuntimeRendererHost } from '../public-contracts/core';
+import { applyComponentResult } from './component/application';
+import { classifyUpdate } from './component/fast-path';
+import { recordInlineComponentHost } from './ownership/nodes';
 import {
   componentView,
   executionRecord,
   installOwnershipViews,
-} from './ownership';
+} from '../runtime/public-ownership';
 
 const nativeHosts = new WeakMap<RuntimeRendererHost, RendererCapabilities>();
 

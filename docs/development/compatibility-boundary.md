@@ -1,35 +1,27 @@
-# Public compatibility boundary
+# Public implementation boundary
 
-`src/compatibility/contracts/` owns the published TypeScript contracts. These
-declarations originate from the verified `0.2.4` package and include types
-reachable through callbacks, state reader maps, JSX, and control metadata.
-Their filenames and import names are stable source names. They are maintained
-source contracts, not declarations regenerated from the current implementation.
-Package builds copy this declaration tree unchanged, preserving public symbol
-names, class metadata, and documentation consumed by editors and API tooling.
-Implementation declarations and compatibility binding names are not published.
+`src/public-contracts/` owns the published TypeScript contracts. These
+declarations include types reachable through callbacks, state reader maps, JSX,
+and control metadata. Their filenames and import names are stable source names
+and are checked directly against the implementation. Package builds copy this
+declaration tree unchanged, preserving public symbol names, class metadata, and
+documentation consumed by editors and API tooling.
 
-`src/compatibility/entries/` binds each public value to its implementation and
-ascribes its published contract. Bindings preserve function, constructor, and
-cross-subpath identity and add no function invocation to the ordinary path.
-Package JavaScript builds and source consumer tests use these entries. The internal
+Public entrypoints bind directly to their implementations. Package JavaScript
+builds and source consumer tests use those direct entrypoints; the internal
 benchmark entry remains separate.
 
-The ascriptions are an explicit compatibility boundary. They let private owner,
-control, and request representations change without redefining consumer types.
-Structurally compatible bindings remain checked assignments. Explicit casts are
-limited to bindings whose legacy owner or nominal types differ at the boundary.
-They do not prove that an implementation satisfies its behavioral contract.
-Frozen consumer examples, packed behavior fixtures, declaration snapshots, and
-the runtime suites provide that evidence. Do not regenerate contracts or relax
-fixtures to conceal an implementation mismatch. Public changes require updating
-the contract, behavior, documentation, and consumer evidence together.
+The public contracts are an explicit boundary around private owner, control, and
+request representations. Frozen consumer examples, packed behavior fixtures,
+declaration snapshots, and the runtime suites provide behavioral evidence.
+Public changes require updating the contract, behavior, documentation, and
+consumer evidence together.
 
 ## Runtime and renderer wiring
 
 `runtime/runtime-state.ts` owns scheduler and renderer wiring. Execution reads
 this internal state through `runtime/access.ts`. The public `AskrRuntime` object
-is implemented in `compatibility/runtime.ts`; it retains the existing scheduler,
+is implemented in `runtime/public-runtime.ts`; it retains the existing scheduler,
 renderer getter, constructor options, and renderer replacement method.
 
 The process default runtime shares one wiring record with execution. Additional
@@ -46,7 +38,7 @@ boot and testing entries install lifetime property views for state reader maps.
 Inbound extension operations adopt consumer-created owner records when necessary;
 ordinary owners already carry their authoritative lifetime.
 
-Custom hosts enter through `compatibility/renderer.ts`. Calls retain the original
+Custom hosts enter through `renderer/host-adapter.ts`. Calls retain the original
 host as `this`, preserve arguments, and observe method replacement. Component,
 scope, and readable identities cross this boundary unchanged. Legacy component
 lifetime properties are views backed by the runtime ownership record, including
