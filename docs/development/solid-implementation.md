@@ -1,8 +1,16 @@
 # SOLID remediation status
 
 Baseline: `aa45809160de0127f1548761dda8261a5baad2cb`.
-The historical audit remains in `solid-audit-2026-09-05.md`; source links now
-target that immutable revision so structural moves do not change its evidence.
+This document is the permanent record of a self-commissioned adversarial audit
+of the runtime against that baseline revision, and its remediation. The audit
+found nineteen issues, five with executable failure evidence (SSG worker
+lifetime, duplicate commit participants silently losing work, a stable-patch
+fallback that could mutate before declining, timing-wrapper return types that
+did not match their declared contracts, and composed-ref cleanup stopping at a
+throwing callback); it also found that the public runtime-isolation
+documentation overstated what mounting supports. Source links target the
+immutable audited revision so later structural moves do not change the
+evidence.
 
 All nineteen findings are implemented and reviewed. Final performance
 qualification passes; see [accepted evidence](../benchmarks/solid-accepted-497b494.json).
