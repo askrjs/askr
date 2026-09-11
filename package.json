@@ -1,6 +1,6 @@
 {
   "name": "@askrjs/askr",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "description": "Lane-scheduled deterministic UI framework",
   "keywords": [
     "askr",
@@ -140,11 +140,9 @@
     "pack:check": "node tests/package-artifacts.js",
     "check": "npm run release:verify && npm run pack:check",
     "test:unit": "vp test run -c vitest.test.unit.config.ts",
-    "bench": "npm run bench:tier1 && npm run bench:tier2 && npm run bench:tier3 && npm run bench:tier4",
+    "bench": "npm run bench:tier1 && npm run bench:tier2",
     "bench:tier1": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier1.config.ts",
     "bench:tier2": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier2.config.ts",
-    "bench:tier3": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier3.config.ts",
-    "bench:tier4": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier4.config.ts",
     "prepack": "npm run build",
     "prepublishOnly": "npm run check"
   },
@@ -162,8 +160,7 @@
     "publint": "^0.3.24",
     "tsd": "^0.33.0",
     "typescript": "^7.0.2",
-    "vite": "^8.2.2",
-    "vite-plus": "^0.3.0"
+    "vite-plus": "^0.3.1"
   },
   "tsd": {
     "compilerOptions": {

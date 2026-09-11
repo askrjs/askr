@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+## 0.3.0 — 2026-09-11
+
+- feat(runtime): add a single component scope primitive.
 - fix(runtime): reuse a context-free default abort reason during component
   teardown so retained signals do not retain departed component generations.
 

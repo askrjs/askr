@@ -40,9 +40,9 @@ describe('Bench tier conventions', () => {
       const content = fs.readFileSync(file, 'utf8');
       const category = relativePath.split('/')[1];
 
-      if (!['shared', 'tier1', 'tier2', 'tier3', 'tier4'].includes(category)) {
+      if (!['shared', 'tier1', 'tier2'].includes(category)) {
         failures.push(
-          `${relativePath}: Benchmarks must live under benches/tier1, benches/tier2, benches/tier3, benches/tier4, or benches/shared`
+          `${relativePath}: Benchmarks must live under benches/tier1, benches/tier2, or benches/shared`
         );
       }
 
@@ -68,24 +68,6 @@ describe('Bench tier conventions', () => {
           `${relativePath}: Tier 2 files must use the tier2-subsystem-* naming convention`
         );
       }
-
-      if (
-        /\/tier3\//.test(relativePath) &&
-        !path.basename(file).startsWith('tier3-system-')
-      ) {
-        failures.push(
-          `${relativePath}: Tier 3 files must use the tier3-system-* naming convention`
-        );
-      }
-
-      if (
-        /\/tier4\//.test(relativePath) &&
-        !path.basename(file).startsWith('tier4-integration-')
-      ) {
-        failures.push(
-          `${relativePath}: Tier 4 files must use the tier4-integration-* naming convention`
-        );
-      }
     }
 
     expect(failures).toEqual([]);
@@ -97,12 +79,8 @@ describe('Bench tier conventions', () => {
     expect(typeof scripts.bench).toBe('string');
     expect(typeof scripts['bench:tier1']).toBe('string');
     expect(typeof scripts['bench:tier2']).toBe('string');
-    expect(typeof scripts['bench:tier3']).toBe('string');
-    expect(typeof scripts['bench:tier4']).toBe('string');
     expect(scripts['bench:tier1']).toContain('vitest.bench.tier1.config.ts');
     expect(scripts['bench:tier2']).toContain('vitest.bench.tier2.config.ts');
-    expect(scripts['bench:tier3']).toContain('vitest.bench.tier3.config.ts');
-    expect(scripts['bench:tier4']).toContain('vitest.bench.tier4.config.ts');
   });
 
   it('should keep normal captures production-pure and diagnostics opt-in', () => {
