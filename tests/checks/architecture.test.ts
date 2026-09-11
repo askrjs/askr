@@ -192,7 +192,9 @@ function findCycles(): string[] {
   const graph = new Map<string, Set<string>>();
   for (const edge of edges.filter(
     (edge) =>
-      !edge.typeOnly && !isPublicBoundary(edge.from) && !isPublicBoundary(edge.to),
+      !edge.typeOnly &&
+      !isPublicBoundary(edge.from) &&
+      !isPublicBoundary(edge.to)
   )) {
     const from = area(edge.from);
     const to = area(edge.to);
@@ -345,12 +347,16 @@ describe('architecture boundaries', () => {
   });
   it('should keep runtime and renderer implementation value dependencies acyclic', () => {
     expect(
-      findModuleCycles().filter((group) =>
-        !group.some((file) => isPublicBoundary(path.resolve(rootDir, file))) &&
-        group.some(
-          (file) =>
-            file.startsWith('src/runtime/') || file.startsWith('src/renderer/')
-        )
+      findModuleCycles().filter(
+        (group) =>
+          !group.some((file) =>
+            isPublicBoundary(path.resolve(rootDir, file))
+          ) &&
+          group.some(
+            (file) =>
+              file.startsWith('src/runtime/') ||
+              file.startsWith('src/renderer/')
+          )
       )
     ).toEqual([]);
   });

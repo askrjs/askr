@@ -1,35 +1,23 @@
 export const packageAliasEntries = [
   ['@askrjs/askr/components', 'src/components/index.ts'],
   ['@askrjs/askr/jsx-runtime', 'src/jsx-runtime.ts'],
-  [
-    '@askrjs/askr/jsx-dev-runtime',
-    'src/jsx-dev-runtime.ts',
-  ],
+  ['@askrjs/askr/jsx-dev-runtime', 'src/jsx-dev-runtime.ts'],
   ['@askrjs/askr/boot', 'src/boot/index.ts'],
   ['@askrjs/askr/control', 'src/control/index.ts'],
   ['@askrjs/askr/data', 'src/data/index.ts'],
   ['@askrjs/askr/testing', 'src/testing/index.ts'],
   ['@askrjs/askr/foundations', 'src/foundations/index.ts'],
-  [
-    '@askrjs/askr/foundations/utilities',
-    'src/foundations/utilities/index.ts',
-  ],
+  ['@askrjs/askr/foundations/utilities', 'src/foundations/utilities/index.ts'],
   [
     '@askrjs/askr/foundations/interactions',
     'src/foundations/interactions/index.ts',
   ],
-  [
-    '@askrjs/askr/foundations/state',
-    'src/foundations/state/index.ts',
-  ],
+  ['@askrjs/askr/foundations/state', 'src/foundations/state/index.ts'],
   [
     '@askrjs/askr/foundations/structures',
     'src/foundations/structures/index.ts',
   ],
-  [
-    '@askrjs/askr/foundations/icon',
-    'src/foundations/icon/index.ts',
-  ],
+  ['@askrjs/askr/foundations/icon', 'src/foundations/icon/index.ts'],
   ['@askrjs/askr/resources', 'src/resources/index.ts'],
   ['@askrjs/askr/fx', 'src/fx/index.ts'],
   ['@askrjs/askr/router', 'src/router/index.ts'],
@@ -47,19 +35,10 @@ export const buildInputEntries = [
   ['data/index', 'src/data/index.ts'],
   ['testing/index', 'src/testing/index.ts'],
   ['foundations/index', 'src/foundations/index.ts'],
-  [
-    'foundations/utilities/index',
-    'src/foundations/utilities/index.ts',
-  ],
-  [
-    'foundations/interactions/index',
-    'src/foundations/interactions/index.ts',
-  ],
+  ['foundations/utilities/index', 'src/foundations/utilities/index.ts'],
+  ['foundations/interactions/index', 'src/foundations/interactions/index.ts'],
   ['foundations/state/index', 'src/foundations/state/index.ts'],
-  [
-    'foundations/structures/index',
-    'src/foundations/structures/index.ts',
-  ],
+  ['foundations/structures/index', 'src/foundations/structures/index.ts'],
   ['foundations/icon/index', 'src/foundations/icon/index.ts'],
   ['resources/index', 'src/resources/index.ts'],
   ['fx/index', 'src/fx/index.ts'],

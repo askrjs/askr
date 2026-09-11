@@ -5,7 +5,10 @@ import {
   type RuntimeState,
 } from '../runtime/runtime-state';
 import { adaptRendererHost, rendererHostView } from '../renderer/host-adapter';
-import type { AskrRuntimeOptions, RuntimeRendererHost } from '../public-contracts/core';
+import type {
+  AskrRuntimeOptions,
+  RuntimeRendererHost,
+} from '../public-contracts/core';
 import type { RendererCapabilities } from '../runtime/renderer-capabilities';
 
 export type {

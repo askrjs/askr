@@ -41,9 +41,7 @@ descriptors._ownedChildScopes = {
   },
   set(
     this: ExecutionRecord,
-    scopes:
-      | Set<import('./ownership/record').OwnedChildScope>
-      | undefined
+    scopes: Set<import('./ownership/record').OwnedChildScope> | undefined
   ) {
     setOwnedChildScopes(this.owner, scopes);
   },

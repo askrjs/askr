@@ -25,13 +25,13 @@ publish. Do not "fix" it by loosening ranges back to the previous major.
 Ordered by runtime and peer edges. Everything in a wave can publish in parallel;
 a wave cannot start until the previous one is fully on npm.
 
-| Wave | Packages |
-| ---- | -------- |
-| 1 | `auth`, `fetch`, `orm`, `otel`, `schema`, `testing`, examples |
-| 2 | `askr` |
-| 3 | `charts`, `cli`, `i18n`, `logos`, `lucide`, `monaco`, `server`, `ui` |
-| 4 | `node`, `themes` |
-| 5 | `vite`, destroyer, website |
+| Wave | Packages                                                             |
+| ---- | -------------------------------------------------------------------- |
+| 1    | `auth`, `fetch`, `orm`, `otel`, `schema`, `testing`, examples        |
+| 2    | `askr`                                                               |
+| 3    | `charts`, `cli`, `i18n`, `logos`, `lucide`, `monaco`, `server`, `ui` |
+| 4    | `node`, `themes`                                                     |
+| 5    | `vite`, destroyer, website                                           |
 
 Regenerate the table after any dependency change:
 

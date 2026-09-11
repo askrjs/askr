@@ -1,7 +1,4 @@
-import {
-  captureOwnerRange,
-  releaseOwnerRange,
-} from './ownership/ranges';
+import { captureOwnerRange, releaseOwnerRange } from './ownership/ranges';
 import {
   detachPortalHostOutput,
   isComponentHostDetached,
