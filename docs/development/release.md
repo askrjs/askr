@@ -104,5 +104,6 @@ before retrying publish.
 
 ## See also
 
+- [Coordinated release](./coordinated-release.md)
 - [Repo structure](./repo-structure.md)
 - [Contributing](./contributing.md)
