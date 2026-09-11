@@ -12,8 +12,7 @@ layer that can prove the behavior.
   real focus, browser timing, or CSS engine behavior.
 - `tests/browser`: user-centric real-browser behavior such as routing,
   hydration, focus, keyboard flow, overlays, browser event loop behavior, and
-  CSS-sensitive UI. Browser performance smoke checks live here as
-  browser performance coverage.
+  CSS-sensitive UI. Browser performance coverage lives here.
 
 Shared test harness code lives outside the suite layers:
 
@@ -42,7 +41,7 @@ paths.
 
 jsdom tests cover component rendering, event wiring, simple DOM updates,
 form/input behavior, conditional/list rendering, lifecycle behavior, and basic
-hydration smoke tests. Do not use jsdom for layout, paint, animation, browser
+hydration tests. Do not use jsdom for layout, paint, animation, browser
 timing correctness, or realistic focus behavior.
 
 Playwright tests cover behavior that needs an actual browser. Use semantic
