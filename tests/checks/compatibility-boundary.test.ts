@@ -8,7 +8,7 @@ import {
 } from '../../tooling/platform-contract';
 
 const root = path.resolve(import.meta.dirname, '../..');
-const contracts = path.join(root, 'src/compatibility/contracts');
+const contracts = path.join(root, 'src/public-contracts');
 
 it('should preserve public symbol names and documentation for consumer tooling', () => {
   const entry = path.join(root, 'dist/index.d.ts');
@@ -67,12 +67,12 @@ it('should resolve published contracts without any implementation declarations',
   expect(implementations).toEqual([]);
 });
 
-it('should use the same compatibility entrypoints for packages and source consumer tests', () => {
+it('should use direct implementation entrypoints for packages and source consumer tests', () => {
   const published = buildInputEntries
     .filter(([name]) => name !== 'benchmark')
     .map(([, source]) => source);
   expect(
-    published.every((source) => source.startsWith('src/compatibility/entries/'))
+    published.every((source) => !source.startsWith('src/compatibility/'))
   ).toBe(true);
   expect(new Set(packageAliasEntries.map(([, source]) => source))).toEqual(
     new Set(published)

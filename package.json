@@ -147,8 +147,8 @@
     "prepublishOnly": "npm run check"
   },
   "dependencies": {
-    "@askrjs/auth": ">=0.2.0 <0.3.0",
-    "@askrjs/schema": ">=0.2.0 <0.3.0"
+    "@askrjs/auth": ">=0.3.0 <0.4.0",
+    "@askrjs/schema": ">=0.3.0 <0.4.0"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",

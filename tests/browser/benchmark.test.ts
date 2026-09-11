@@ -8,7 +8,7 @@ test.describe('benchmark browser behavior', () => {
     app.mountBenchmarkScenario();
   });
 
-  test('should apply row selection through a real browser click @smoke', async () => {
+  test('should apply row selection through a real browser click', async () => {
     const secondRow = page.getByRole('row').nth(1);
     await expect(page.getByText('Item 2')).toBeVisible();
 

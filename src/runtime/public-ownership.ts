@@ -3,10 +3,10 @@ import {
   OwnershipRecord,
   getOwnedChildScopes,
   setOwnedChildScopes,
-} from '../runtime/ownership/record';
-import type { ComponentInstance as ExecutionRecord } from '../runtime/component/instance';
-import type { RuntimeRendererHost } from './contracts/core';
-import { bindComponentOwnership } from '../runtime/component/cleanup';
+} from './ownership/record';
+import type { ComponentInstance as ExecutionRecord } from './component/instance';
+import type { RuntimeRendererHost } from '../public-contracts/core';
+import { bindComponentOwnership } from './component/cleanup';
 
 type ComponentInstance = NonNullable<
   Parameters<RuntimeRendererHost['evaluate']>[3]
@@ -41,9 +41,7 @@ descriptors._ownedChildScopes = {
   },
   set(
     this: ExecutionRecord,
-    scopes:
-      | Set<import('../runtime/ownership/record').OwnedChildScope>
-      | undefined
+    scopes: Set<import('./ownership/record').OwnedChildScope> | undefined
   ) {
     setOwnedChildScopes(this.owner, scopes);
   },

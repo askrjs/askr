@@ -4,8 +4,8 @@
  * Public API surface — only users should import from here
  */
 
-export { createRuntime, getDefaultRuntime } from './compatibility/runtime';
-export { createDOMRendererHost } from './compatibility/dom-renderer';
+export { createRuntime, getDefaultRuntime } from './runtime/public-runtime';
+export { createDOMRendererHost } from './renderer/public-dom-host';
 export type {
   DOMComponentOwner,
   DOMChildScope,
@@ -17,15 +17,15 @@ export type {
   DOMRendererKeys,
   DOMRendererReactivity,
   DOMRendererHost,
-} from './compatibility/dom-renderer';
+} from './renderer/public-dom-host';
 export { configureRenderDiagnostics } from './runtime';
 export type {
   AskrRuntimeOptions,
   RuntimeRendererHost,
   RuntimeKeyedReorderDecision,
-} from './compatibility/runtime';
+} from './runtime/public-runtime';
 export type { RenderDiagnosticsOptions } from './runtime';
-export { AskrRuntime } from './compatibility/runtime';
+export { AskrRuntime } from './runtime/public-runtime';
 
 // Runtime primitives
 export { derive, getSignal, selector, state } from './runtime';

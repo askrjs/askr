@@ -8,7 +8,7 @@ test.describe('ErrorBoundary browser behavior', () => {
     app.mountErrorBoundaryScenario();
   });
 
-  test('should render a visible fallback and recover from the fallback UI @smoke', async () => {
+  test('should render a visible fallback and recover from the fallback UI', async () => {
     await expect(page.getByTestId('boundary-fallback')).toBeVisible();
     await expect
       .element(page.getByTestId('boundary-message'))

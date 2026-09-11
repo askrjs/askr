@@ -1,13 +1,13 @@
-import { ensureNativeDOMHost } from '../renderer/dom-internal';
-import { createRendererCapabilities } from '../renderer';
-import { rendererHostView } from './renderer';
-import type { RuntimeRendererHost } from './contracts/core';
+import { ensureNativeDOMHost } from './dom-internal';
+import { createRendererCapabilities } from './index';
+import { rendererHostView } from './host-adapter';
+import type { RuntimeRendererHost } from '../public-contracts/core';
 import type {
   DOMComponentOwner,
   DOMChildScope,
   DOMReactiveSource,
   DOMRendererHost,
-} from './contracts/dom-renderer';
+} from '../public-contracts/dom-renderer';
 export type {
   DOMComponentOwner,
   DOMChildScope,
@@ -19,7 +19,7 @@ export type {
   DOMRendererKeys,
   DOMRendererReactivity,
   DOMRendererHost,
-} from './contracts/dom-renderer';
+} from '../public-contracts/dom-renderer';
 
 function handles<RecordType extends object, Handle extends object>() {
   const outward = new WeakMap<RecordType, Handle>();

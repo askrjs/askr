@@ -3,7 +3,7 @@ import { page } from 'vite-plus/test/browser/context';
 import { loadBrowserHarness, setBrowserLocation } from './_helpers';
 
 test.describe('guarded browser routing', () => {
-  test('should redirect anonymous users to login and return them to the original target @smoke', async () => {
+  test('should redirect anonymous users to login and return them to the original target', async () => {
     setBrowserLocation('/');
     const app = await loadBrowserHarness();
     await app.mountGuardedRouterScenario();

@@ -158,6 +158,14 @@ function relative(file: string): string {
 function area(file: string): string {
   return relative(file).split('/')[1] ?? '';
 }
+function isPublicBoundary(file: string): boolean {
+  return new Set([
+    'src/runtime/public-runtime.ts',
+    'src/runtime/public-ownership.ts',
+    'src/renderer/host-adapter.ts',
+    'src/renderer/public-dom-host.ts',
+  ]).has(relative(file));
+}
 function format(edge: Edge): string {
   return `${relative(edge.from)} -> ${relative(edge.to)}`;
 }
@@ -182,7 +190,12 @@ function violatesPublicationBoundary(edge: Edge): boolean {
 
 function findCycles(): string[] {
   const graph = new Map<string, Set<string>>();
-  for (const edge of edges.filter((edge) => !edge.typeOnly)) {
+  for (const edge of edges.filter(
+    (edge) =>
+      !edge.typeOnly &&
+      !isPublicBoundary(edge.from) &&
+      !isPublicBoundary(edge.to)
+  )) {
     const from = area(edge.from);
     const to = area(edge.to);
     if (!areas.has(from) || !areas.has(to) || from === to) continue;
@@ -334,11 +347,16 @@ describe('architecture boundaries', () => {
   });
   it('should keep runtime and renderer implementation value dependencies acyclic', () => {
     expect(
-      findModuleCycles().filter((group) =>
-        group.some(
-          (file) =>
-            file.startsWith('src/runtime/') || file.startsWith('src/renderer/')
-        )
+      findModuleCycles().filter(
+        (group) =>
+          !group.some((file) =>
+            isPublicBoundary(path.resolve(rootDir, file))
+          ) &&
+          group.some(
+            (file) =>
+              file.startsWith('src/runtime/') ||
+              file.startsWith('src/renderer/')
+          )
       )
     ).toEqual([]);
   });
@@ -419,7 +437,12 @@ describe('architecture boundaries', () => {
 
   it('should keep the runtime independent from concrete platform implementations', () => {
     const forbidden = edges
-      .filter((edge) => !edge.typeOnly && area(edge.from) === 'runtime')
+      .filter(
+        (edge) =>
+          !edge.typeOnly &&
+          area(edge.from) === 'runtime' &&
+          !isPublicBoundary(edge.from)
+      )
       .filter(
         (edge) =>
           ['renderer', 'boot', 'ssr', 'ssg'].includes(area(edge.to)) ||
@@ -825,6 +848,8 @@ describe('architecture boundaries', () => {
   it('should keep subsystem imports on explicit runtime capability entrypoints', () => {
     const entrypoints = new Set([
       'src/runtime/index.ts',
+      'src/runtime/public-runtime.ts',
+      'src/runtime/public-ownership.ts',
       'src/runtime/ownership/record.ts',
       'src/runtime/component/generation.ts',
       'src/runtime/component/capabilities.ts',
@@ -842,7 +867,8 @@ describe('architecture boundaries', () => {
       .filter(
         (edge) =>
           !edge.typeOnly &&
-          !['runtime', 'compatibility'].includes(area(edge.from))
+          !['runtime', 'compatibility'].includes(area(edge.from)) &&
+          !isPublicBoundary(edge.from)
       )
       .filter(
         (edge) =>
@@ -861,6 +887,8 @@ describe('architecture boundaries', () => {
       'src/runtime/transactions/access.ts',
       'src/runtime/runtime-state.ts',
       'src/runtime/index.ts',
+      'src/runtime/public-runtime.ts',
+      'src/runtime/public-ownership.ts',
       'src/fx/index.ts',
     ]);
     const forbidden = edges

@@ -8,7 +8,7 @@ test.describe('order management table workflow', () => {
     app.mountOrdersScenario();
   });
 
-  test('should preserve selected row and row note across sorting @smoke', async () => {
+  test('should preserve selected row and row note across sorting', async () => {
     await page.getByRole('button', { name: 'Select order 1001' }).click();
     await page.getByLabelText('Note for order 1001').fill('Follow up tomorrow');
     await page.getByRole('button', { name: 'Sort by total' }).click();
