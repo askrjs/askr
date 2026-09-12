@@ -19,6 +19,7 @@ import {
 } from '../common/render-context';
 import {
   applySelectiveHydration,
+  adoptSsrStyleCarriers,
   applyDeferredStreamPatches,
   markSkippedElements,
   shouldVerifyHydrationMarkup,
@@ -84,6 +85,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   );
   try {
     applyDeferredStreamPatches(rootElement);
+    adoptSsrStyleCarriers(rootElement);
     const hydrationRenderData = takeHydrationRenderData(rootElement);
     const hydrationQueryCache = hydrationRenderData?.resources;
     if (hydrationQueryCache) {

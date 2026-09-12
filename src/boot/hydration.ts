@@ -14,6 +14,7 @@ import type { AppRenderRuntime } from '../common/app-render-runtime';
 import type { HydrationInteractionReplay } from './hydration-interaction-replay';
 
 const DEFERRED_PAYLOAD = '__askr_deferred__';
+const SSR_STYLE_REGISTRY_ATTR = 'data-askr-style-registry';
 
 export function applyDeferredStreamPatches(rootElement: Element): void {
   const patches = Array.from(
@@ -80,6 +81,32 @@ export type HydrationRuntimeHooks = {
     boundary: Element
   ) => boolean;
 };
+
+/**
+ * Relocate the SSR style registry carrier out of the hydration root.
+ *
+ * `@askrjs/server` prepends the collected styles to the page body, so they land
+ * as a direct child of the mount root. That extra element makes the root's
+ * child list disagree with the rendered tree, which costs the app in-place
+ * adoption and discards the carried CSS during reconciliation. The carrier is
+ * transport rather than application markup, so move it into `<head>`, where it
+ * still applies and no longer participates in reconciliation.
+ *
+ * Deferred style patches resolve the carrier with a document-wide query, so
+ * they keep working from its new position.
+ */
+export function adoptSsrStyleCarriers(rootElement: Element): void {
+  const head = document.head;
+  if (!head) return;
+  for (const child of Array.from(rootElement.children)) {
+    if (
+      child instanceof HTMLStyleElement &&
+      child.hasAttribute(SSR_STYLE_REGISTRY_ATTR)
+    ) {
+      head.append(child);
+    }
+  }
+}
 
 export function takeHydrationRenderData(
   rootElement: Element
