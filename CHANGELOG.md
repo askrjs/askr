@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.3.1 — 2026-09-12
+
 - fix(boot): move the SSR style registry carrier out of the hydration root
   before mounting. `@askrjs/server` prepends the collected styles to the page
   body, so they arrive as the first child of the mount root; that extra element
