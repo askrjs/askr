@@ -123,3 +123,6 @@ test-results/
 .vitest-attachments/
 __screenshots__/
 .askr-quality-traces/
+
+# Local agent state and worktrees
+.claude/
