@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- fix(boot): move the SSR style registry carrier out of the hydration root
+  before mounting. `@askrjs/server` prepends the collected styles to the page
+  body, so they arrive as the first child of the mount root; that extra element
+  made the root's child list disagree with the rendered tree, which both cost
+  the app in-place hydration (the server node was replaced rather than adopted)
+  and discarded the carried CSS during reconciliation. The carrier now moves to
+  `<head>`, where it still applies and no longer participates in reconciliation.
+
 ## 0.3.0 — 2026-09-11
 
 - refactor(internal): rename `src/compatibility/` to names that describe what it
@@ -12,6 +20,15 @@
 - feat(runtime): add a single component scope primitive.
 - fix(runtime): reuse a context-free default abort reason during component
   teardown so retained signals do not retain departed component generations.
+
+## 0.2.4 — 2026-08-28
+
+- feat(router): expose entry-local history state on `RouteSnapshot` as `state`,
+  with `hasState` distinguishing an omitted state from an explicit `undefined`.
+  Both are required members, so code that constructs a `RouteSnapshot` by hand
+  (test fixtures, adapters) must supply them; code that only reads snapshots is
+  unaffected.
+- chore: refresh dependencies.
 
 ## 0.2.3 — 2026-08-25
 
