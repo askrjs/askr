@@ -133,10 +133,10 @@ function resolveSSRRouteRender(
   const cspNonce = validateCspNonce(opts.cspNonce);
   const routeTable = resolveSSRRouteSource(opts);
   const resolvedRoute = resolvePolicyAwareSSRRoute(opts, routeTable);
-  const requestUrl = new URL(resolvedRoute.url, 'http://localhost');
+  const requestUrl = new URL(opts.url, 'http://localhost');
 
   const ctx = createRenderContext(seed, {
-    url: resolvedRoute.url,
+    url: opts.url,
     basePath: opts.registry.manifest.basePath,
     data,
     params: resolvedRoute.params,
@@ -151,7 +151,7 @@ function resolveSSRRouteRender(
   });
 
   return {
-    url: resolvedRoute.url,
+    url: opts.url,
     requestUrl,
     route: resolvedRoute.route,
     params: resolvedRoute.params,

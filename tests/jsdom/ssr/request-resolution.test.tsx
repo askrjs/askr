@@ -4,14 +4,31 @@ import { requireAnonymous, requireRole, requireUser } from '@askrjs/auth';
 import {
   createRouteRegistry,
   fallback,
+  lazy,
   page,
   resolveRouteRequest,
   route,
 } from '../../../src/router/route';
 import { deny } from '../../../src/router/policy';
-import { renderToString, resolveRequest } from '../../../src/ssr';
+import {
+  renderRouteRequestToString,
+  renderToStream,
+  renderToString,
+  resolveRequest,
+  SSRAccessDecisionError,
+  SSRDataMissingError,
+} from '../../../src/ssr';
 import { renderResolvedToStringSync } from '../../../src/ssr/render-resolved';
 import { getCurrentRenderData } from '../../../src/ssr/render-keys';
+
+function captureError(fn: () => unknown): unknown {
+  try {
+    fn();
+  } catch (error) {
+    return error;
+  }
+  throw new Error('expected the call to throw');
+}
 
 describe('SSR request resolution', () => {
   beforeEach(() => {
@@ -113,7 +130,7 @@ describe('SSR request resolution', () => {
     expect(ssr).toEqual(spa);
   });
 
-  it('should render denied SSR requests without invoking protected content', () => {
+  it('should return denied sync SSR requests to the caller without rendering', () => {
     let renderedProtectedContent = false;
 
     const registry = createRouteRegistry(() => {
@@ -127,23 +144,34 @@ describe('SSR request resolution', () => {
       );
     });
 
-    const html = renderToString({
-      url: '/private',
-      registry,
-    });
+    const error = captureError(() =>
+      renderToString({
+        url: '/private',
+        registry,
+      })
+    ) as { code?: string; decision?: unknown };
 
     expect(renderedProtectedContent).toBe(false);
-    expect(html).toBe('<div data-route-denied="403">403</div>');
+    expect(error).toBeInstanceOf(SSRAccessDecisionError);
+    expect(error.code).toBe('SSR_ACCESS_DECISION');
+    expect(error.decision).toEqual({ kind: 'deny', status: 403 });
   });
 
-  it('should render redirected SSR requests at the redirect target', () => {
+  it('should return redirected sync SSR requests to the caller without rendering the target', () => {
     let renderedDashboard = false;
+    let renderedLogin = false;
+    const chunks: string[] = [];
 
     const registry = createRouteRegistry(
       () => {
-        route('/login', () => <div>{'login-page'}</div>, {
-          auth: requireAnonymous(),
-        });
+        route(
+          '/login',
+          () => {
+            renderedLogin = true;
+            return <div>{'login-page'}</div>;
+          },
+          { auth: requireAnonymous() }
+        );
         route(
           '/dashboard',
           () => {
@@ -166,15 +194,133 @@ describe('SSR request resolution', () => {
       }
     );
 
-    const html = renderToString({
-      url: '/dashboard?tab=usage',
+    const error = captureError(() =>
+      renderToString({
+        url: '/dashboard?tab=usage',
+        registry,
+      })
+    ) as { code?: string; decision?: unknown };
+    const streamError = captureError(() =>
+      renderToStream({
+        url: '/dashboard?tab=usage',
+        registry,
+        onChunk: (chunk) => chunks.push(chunk),
+        onComplete: () => undefined,
+      })
+    ) as { decision?: unknown };
+
+    expect(renderedDashboard).toBe(false);
+    expect(renderedLogin).toBe(false);
+    expect(chunks).toEqual([]);
+    expect(error).toBeInstanceOf(SSRAccessDecisionError);
+    expect(error.code).toBe('SSR_ACCESS_DECISION');
+    expect(error.decision).toEqual({
+      kind: 'redirect',
+      to: '/login?next=%2Fdashboard%3Ftab%3Dusage',
+      replace: false,
+    });
+    expect(streamError.decision).toEqual(error.decision);
+  });
+
+  // @askr-allow-real-timers -- Node reports unhandled rejections only after a
+  // macrotask checkpoint.
+  it('should reject sync SSR of loader routes without starting the loader', async () => {
+    const unhandled = vi.fn();
+    process.on('unhandledRejection', unhandled);
+    const loader = vi.fn(async () => {
+      throw new Error('loader failed');
+    });
+    const registry = createRouteRegistry(() => {
+      route('/posts/{slug}', () => <div>{'post'}</div>, { loader });
+    });
+
+    try {
+      const error = captureError(() =>
+        renderToString({ url: '/posts/intro', registry })
+      ) as Error;
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(loader).not.toHaveBeenCalled();
+      expect(unhandled).not.toHaveBeenCalled();
+      expect(error).toBeInstanceOf(SSRDataMissingError);
+      expect(error.message).toContain('/posts/{slug}');
+      expect(error.message).toContain('loader');
+      expect(error.message).toContain('renderRouteRequest');
+    } finally {
+      process.off('unhandledRejection', unhandled);
+    }
+  });
+
+  it('should reject loader routes before starting their preload or lazy import', () => {
+    const loader = vi.fn(() => ({ ready: true }));
+    const preload = vi.fn(() => undefined);
+    const factory = vi.fn(async () => ({
+      default: () => <div>{'lazy-post'}</div>,
+    }));
+    const registry = createRouteRegistry(() => {
+      route('/preloaded', () => <div>{'preloaded'}</div>, {
+        loader,
+        preload,
+      });
+      route('/lazy', lazy(factory), { loader });
+    });
+
+    for (const url of ['/preloaded', '/lazy']) {
+      const error = captureError(() =>
+        renderToString({ url, registry })
+      ) as Error;
+
+      expect(error).toBeInstanceOf(SSRDataMissingError);
+      expect(error.message).toContain(`route ${url} declares a loader`);
+      expect(error.message).toContain('renderRouteRequest');
+    }
+    expect(loader).not.toHaveBeenCalled();
+    expect(preload).not.toHaveBeenCalled();
+    expect(factory).not.toHaveBeenCalled();
+  });
+
+  it('should render lazy routes synchronously once their component is loaded', async () => {
+    const registry = createRouteRegistry(() => {
+      route(
+        '/lazy',
+        lazy(async () => ({ default: () => <div>{'lazy-page'}</div> }))
+      );
+    });
+
+    const rendered = await renderRouteRequestToString({
+      url: '/lazy',
       registry,
     });
 
-    expect(renderedDashboard).toBe(false);
-    expect(html).toBe(
-      '<div>login-page</div><script type="application/json" data-askr-render-data="true">{"version":1,"resources":{},"framework":{"hu":"/login?next=%2Fdashboard%3Ftab%3Dusage"}}</script>'
+    expect(rendered.kind).toBe('render');
+    expect(renderToString({ url: '/lazy', registry })).toContain(
+      '<div>lazy-page</div>'
     );
+  });
+
+  // @askr-allow-real-timers -- Node reports unhandled rejections only after a
+  // macrotask checkpoint.
+  it('should reject async sync-SSR route resolution without leaking an unhandled rejection', async () => {
+    const unhandled = vi.fn();
+    process.on('unhandledRejection', unhandled);
+    const registry = createRouteRegistry(() => {
+      route('/private', () => <div>{'private'}</div>, {
+        policies: [() => Promise.reject(new Error('policy failed'))],
+      });
+    });
+
+    try {
+      const error = captureError(() =>
+        renderToString({ url: '/private', registry })
+      ) as Error;
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(unhandled).not.toHaveBeenCalled();
+      expect(error).toBeInstanceOf(SSRDataMissingError);
+      expect(error.message).toContain('renderRouteRequest');
+    } finally {
+      process.off('unhandledRejection', unhandled);
+    }
   });
 
   it('should reject plain route tables without a registry', async () => {
