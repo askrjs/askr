@@ -64,7 +64,7 @@ export function onRouteChange(
   const instance = getCurrentComponentInstance();
   if (!instance) return;
   const route = currentRoute();
-  const index = claimHookIndex(instance, 'route-change');
+  const index = claimHookIndex(instance, 'onRouteChange');
   const slot = getComponentLifecycleSlot<RouteChangeSlot>(
     instance,
     index,

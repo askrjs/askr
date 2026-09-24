@@ -31,7 +31,7 @@ export function restartComponentGeneration(
   instance.owner = createComponentOwnership(instance);
   instance.fn = fn;
   instance.evaluationGeneration++;
-  instance.expectedStateIndices = [];
+  instance.expectedHookKinds = [];
   instance.firstRenderComplete = false;
   if (!preserveState) {
     resetComponentWork(instance);
@@ -74,7 +74,7 @@ export function captureComponentGeneration(
       instance.props = props;
       resetComponentWork(instance);
       instance.stateValues = [];
-      instance.expectedStateIndices = [];
+      instance.expectedHookKinds = [];
       instance.firstRenderComplete = false;
       instance.stateIndexCheck = -1;
       instance.evaluationGeneration++;

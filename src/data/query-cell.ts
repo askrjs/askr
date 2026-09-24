@@ -562,7 +562,7 @@ function createLegacyQuery<T extends {}>(
     return cell as unknown as Query<T>;
   }
 
-  const hookIndex = claimHookIndex(instance, 'query');
+  const hookIndex = claimHookIndex(instance, 'createQuery');
   ensureQueryCleanup(runtimeState, instance);
 
   const slotStore = getQuerySlotStore(runtimeState, instance);

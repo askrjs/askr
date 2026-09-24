@@ -14,6 +14,13 @@
   development when a query has no registered server handler. The
   skipped-preload warning is tracked per runtime outside the frozen
   `DataRuntime`, so it logs once per query key and resolves `false` as intended.
+- fix(runtime): hook-order enforcement now catches a render that claims fewer
+  hooks than the first render, and a slot whose hook kind changes (for example
+  `derive()` where the first render called `state()`). Previously only extra
+  hooks threw; skipped or swapped hooks passed silently. Messages name hooks by
+  their public API (`createQuery()`, `onRouteChange()`, `<For>`). The unreachable
+  monotonic index check is removed, and the internal `ComponentInstance`
+  field `expectedStateIndices` is replaced by `expectedHookKinds`.
 - fix(router): `currentAuth()` no longer falls back to the process-wide client
   identity during server rendering. A server render without request auth now
   sees an anonymous identity, and server-mode route resolution no longer writes

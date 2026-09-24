@@ -8,9 +8,12 @@ Fix: call `state()` at the top level of a component function.
 
 ## Hook/state order violations
 
-Cause: calling `state()` inside `if`, loops, or nested functions.
+Cause: calling `state()` or another render-scoped hook inside `if`, loops, or
+nested functions, or skipping an eager control primitive such as `<For>` with a
+plain conditional. Adding, removing, or swapping a hook after the first render
+all throw a `Hook order violation` error.
 
-Fix: keep state declarations in stable order on every render.
+Fix: keep hook calls and control boundaries in stable order on every render.
 
 ## `createIsland` with routes
 

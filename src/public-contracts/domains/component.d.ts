@@ -16,6 +16,21 @@ interface AppRenderRuntime {
   routeAuth?: RouteAuthOptions;
 }
 
+type HookKind =
+  | 'state'
+  | 'derive'
+  | 'selector'
+  | 'For'
+  | 'on'
+  | 'watch'
+  | 'task'
+  | 'stream'
+  | 'timer'
+  | 'createQuery'
+  | 'createQueryCollection'
+  | 'createMutation'
+  | 'onRouteChange';
+
 interface ComponentInstance {
   id: string;
   fn: ComponentFunction;
@@ -36,7 +51,7 @@ interface ComponentInstance {
   _pendingRunTask?: () => void;
   _enqueueRun?: () => void;
   stateIndexCheck: number;
-  expectedStateIndices?: number[];
+  expectedHookKinds?: HookKind[];
   firstRenderComplete: boolean;
   mountOperations?: Array<
     () => void | (() => void) | PromiseLike<void | (() => void)>
