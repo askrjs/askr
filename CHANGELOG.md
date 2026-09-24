@@ -21,6 +21,13 @@
   their public API (`createQuery()`, `onRouteChange()`, `<For>`). The unreachable
   monotonic index check is removed, and the internal `ComponentInstance`
   field `expectedStateIndices` is replaced by `expectedHookKinds`.
+- fix(renderer): re-renders no longer strip attributes, class tokens and inline
+  styles added by other code (focus traps setting `aria-hidden`/`inert`,
+  animation libraries setting `style.transform`, tooltips adding `data-*`,
+  `classList.add`). Prop reconciliation now diffs against the props Askr last
+  applied to each element instead of the live DOM, so only what Askr rendered is
+  removed or patched.
+
 - fix(router): `currentAuth()` no longer falls back to the process-wide client
   identity during server rendering. A server render without request auth now
   sees an anonymous identity, and server-mode route resolution no longer writes

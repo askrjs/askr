@@ -97,6 +97,11 @@ describe('SSG hydration bundle', () => {
     // shared prop-classification table (boolean HTML attributes and camelCase
     // attribute names) so the two sides agree on what they emit. That data is
     // ~940 bytes and is required for hydration parity, not optional weight.
-    expect(initialBytes).toBeLessThanOrEqual(257 * 1024);
+    // 259 KiB, raised again when prop reconciliation started diffing against
+    // the props Askr last applied (instead of the live DOM) so attributes,
+    // class tokens and style properties written by other code survive
+    // re-renders. That ownership tracking, including its rollback snapshots,
+    // is ~1.7 KB of core renderer code.
+    expect(initialBytes).toBeLessThanOrEqual(259 * 1024);
   });
 });

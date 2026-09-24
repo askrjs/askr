@@ -16,6 +16,11 @@ import {
 } from './cleanup';
 import { keyedElements } from '../reconciliation/keyed';
 import {
+  getAppliedProps,
+  restoreAppliedProps,
+  type AppliedProps,
+} from '../props/attributes';
+import {
   getCurrentCommitTransaction,
   beginCommitTransaction,
   applyTransaction,
@@ -53,6 +58,7 @@ interface TextSnapshot {
 }
 
 export interface RetainedElementSnapshot {
+  appliedProps: AppliedProps | undefined;
   attributes: ReadonlyArray<[string, string]>;
   childNodes: readonly Node[];
   delegatedListeners: readonly DelegatedListenerEntrySnapshot[];
@@ -196,6 +202,7 @@ export function snapshotRetainedElement(
   const keyedMap = keyedElements.get(element);
 
   return {
+    appliedProps: getAppliedProps(element),
     attributes: bindingsOnly
       ? EMPTY_SNAPSHOT_ENTRIES
       : copyRetainedAttributes(element.attributes),
@@ -562,6 +569,7 @@ export function restoreRetainedElement(
           () => restoreAttributes(element, snapshot),
         ]
       : []),
+    () => restoreAppliedProps(element, snapshot.appliedProps),
     () => restoreReactiveProps(element, snapshot),
     () => restoreRef(element, snapshot),
     () => restoreListeners(element, snapshot),

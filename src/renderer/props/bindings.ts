@@ -1,6 +1,13 @@
 import { isAriaAttribute } from '../../common/prop-classification';
 import { getDelegatedHandlersForElement } from './events';
-import { applyScalarPropValue, removeStaleAttributes } from './attributes';
+import {
+  applyScalarPropValue,
+  getAppliedProps,
+  getPreviousAppliedValue,
+  isRenderedPropValue,
+  recordAppliedProps,
+  removeStaleAttributes,
+} from './attributes';
 import {
   elementListeners,
   elementRefs,
@@ -196,6 +203,7 @@ export function syncElementPropBindings(
 ): void {
   const existingListeners = elementListeners.get(el);
   const existingReactiveProps = getElementReactivePropsCleanupMap(el);
+  const previousProps = getAppliedProps(el);
   let desiredListenerKeys: Set<string> | null = null;
   let desiredDelegatedEventNames: Set<string> | null = null;
   let desiredReactivePropNames: Set<string> | null = null;
@@ -219,13 +227,28 @@ export function syncElementPropBindings(
 
     if (value === undefined || value === null || value === false) {
       if (
-        !(
-          listenerKey &&
-          removeElementListener(el, existingListeners, listenerKey)
-        ) &&
-        !removeReactivePropBinding(existingReactiveProps, key)
-      )
-        applyScalarPropValue(el, key, value, domVNode.type as string);
+        listenerKey &&
+        removeElementListener(el, existingListeners, listenerKey)
+      ) {
+        continue;
+      }
+      removeReactivePropBinding(existingReactiveProps, key);
+      // Skip props Askr did not render last time: whatever sits under that
+      // name now belongs to other code.
+      const previousValue = getPreviousAppliedValue(previousProps, key);
+      if (
+        previousProps === undefined ||
+        previousValue !== null ||
+        isRenderedPropValue(key, value)
+      ) {
+        applyScalarPropValue(
+          el,
+          key,
+          value,
+          domVNode.type as string,
+          previousValue
+        );
+      }
       continue;
     }
     if (typeof value === 'function' && !eventProp && key !== 'ref') {
@@ -258,11 +281,18 @@ export function syncElementPropBindings(
         (desiredDelegatedEventNames ??= new Set()).add(eventProp.eventName);
       }
     } else {
-      applyScalarPropValue(el, key, value, domVNode.type as string);
+      applyScalarPropValue(
+        el,
+        key,
+        value,
+        domVNode.type as string,
+        getPreviousAppliedValue(previousProps, key)
+      );
     }
   }
 
-  removeStaleAttributes(el, domVNode, props);
+  removeStaleAttributes(el, domVNode, props, previousProps);
+  recordAppliedProps(el, props);
   pruneElementListeners(
     el,
     existingListeners,

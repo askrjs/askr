@@ -1,5 +1,10 @@
 import { expect, test } from 'vite-plus/test';
 import { state, type State } from '../../../src';
+import {
+  getAppliedProps,
+  recordAppliedProps,
+} from '../../../src/renderer/props/attributes';
+import { captureRootHost } from '../../../src/renderer/ownership/root-snapshot';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -262,4 +267,80 @@ test('should restore owned values that other code overwrote', () => {
   } finally {
     cleanup();
   }
+});
+
+test('should restore the applied-props baseline when a render rolls back', () => {
+  const { container, cleanup } = createTestContainer();
+  let step!: State<number>;
+  function Child({ step }: { step: number }) {
+    if (step === 1) throw new Error('child failed');
+    return <span>{step}</span>;
+  }
+  const classes = ['a', 'b', 'c'];
+  function App() {
+    step = state(0);
+    const s = step();
+    return (
+      <button
+        disabled={s === 0}
+        class={classes[s]}
+        title={s === 0 ? 'x' : undefined}
+      >
+        <Child step={s} />
+      </button>
+    );
+  }
+  try {
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    expect(() => {
+      step.set(1);
+      flushScheduler();
+    }).toThrow('child failed');
+    const button = container.querySelector('button')!;
+    expect(button.getAttribute('class')).toBe('a');
+    step.set(2);
+    flushScheduler();
+    expect(container.querySelector('button')).toBe(button);
+    expect(button.getAttribute('class')).toBe('c');
+    expect(button.hasAttribute('disabled')).toBe(false);
+    expect(button.hasAttribute('title')).toBe(false);
+  } finally {
+    cleanup();
+  }
+});
+
+test('should restore applied-props records with a root host snapshot', () => {
+  const root = document.createElement('div');
+  const child = document.createElement('p');
+  const fresh = document.createElement('span');
+  root.append(child, fresh);
+  recordAppliedProps(child, { class: 'a', title: 'x' });
+  const before = getAppliedProps(child);
+  const snapshot = captureRootHost(root);
+  recordAppliedProps(child, { class: 'b' });
+  recordAppliedProps(fresh, { title: 'y' });
+  expect(snapshot.restore()).toEqual([]);
+  expect(getAppliedProps(child)).toBe(before);
+  expect(getAppliedProps(fresh)).toBeUndefined();
+});
+
+test('should record only rendered attribute props, without children or closures', () => {
+  const element = document.createElement('p');
+  const onClick = () => {};
+  const title = () => 'reactive';
+  recordAppliedProps(element, {
+    children: [<span>child</span>],
+    key: 1,
+    ref: () => {},
+    onClick,
+    title,
+    class: 'a',
+    hidden: false,
+    'aria-hidden': false,
+    'data-empty': null,
+  });
+  const record = getAppliedProps(element)!;
+  expect(Object.keys(record)).toEqual(['title', 'class', 'aria-hidden']);
+  expect(Object.values(record)).not.toContain(title);
 });

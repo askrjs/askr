@@ -1,8 +1,14 @@
 import { teardownNodeSubtree } from './cleanup';
+import {
+  getAppliedProps,
+  restoreAppliedProps,
+  type AppliedProps,
+} from '../props/attributes';
 type RootNodeSnapshot = {
   node: Node;
   children: Node[];
   attributes: Array<[string, string]> | null;
+  appliedProps: AppliedProps | undefined;
   nodeValue: string | null;
 };
 
@@ -28,6 +34,7 @@ function captureRootTree(root: Element | null): RootHostTreeSnapshot | null {
               attribute.value,
             ])
           : null,
+      appliedProps: node instanceof Element ? getAppliedProps(node) : undefined,
       nodeValue: node.nodeValue,
     });
 
@@ -90,6 +97,7 @@ function restoreRootTree(snapshot: RootHostTreeSnapshot | null): unknown[] {
             node.setAttribute(name, value);
           }
         }
+        restoreAppliedProps(node, entry.appliedProps);
       } else if (!(node instanceof Element)) {
         node.nodeValue = entry.nodeValue;
       }

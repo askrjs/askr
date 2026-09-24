@@ -338,11 +338,19 @@ flowchart LR
   class token patching, style string/object/null handling, form `value` and
   `checked`, stale attribute removal, static scalar props, and key
   materialization.
+  Each element records the props Askr last applied (at creation, blueprint
+  materialization, hydration adoption, and every prop sync; retained-element
+  and root-host rollback snapshots restore it). The record keeps only rendered
+  attribute-bearing props, with reactive bindings as a marker, so it holds no
+  children or closures. Removals, class
+  token patches and style patches diff against that record, so attributes,
+  class tokens and style properties written by other code are preserved.
   Retained scalar attributes and nonempty classes are compared with the live DOM
   before writing, so equal values avoid redundant mutations and external changes
-  are still repaired. Empty class handling retains HTML/SVG differences. Stale
-  attribute cleanup snapshots the original attribute objects before removal
-  callbacks can change the collection.
+  to owned values are still repaired. Empty class handling retains HTML/SVG
+  differences. Elements with no record (unadopted server markup) fall back to
+  live-DOM stale attribute cleanup, which snapshots the original attribute
+  objects before removal callbacks can change the collection.
 - `src/renderer/props/bindings.ts` orchestrates initial prop application and
   update-time prop/listener diffing in the existing execution order.
 - `src/renderer/props/listeners.ts` owns tracked listener registration, direct
