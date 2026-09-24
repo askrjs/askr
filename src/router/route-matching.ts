@@ -9,9 +9,11 @@ import { normalizeRouteBasePath, removeRouteBasePath } from './base-path';
 import { deepFreeze, parseLocation } from './route-context';
 import {
   compareRouteSpecificity,
+  formatCatchAllCapture,
   matchSegments,
   parseSegments,
   splitPathSegments,
+  staticSegmentMatches,
 } from './match';
 import type { InternalRoute, InternalRouteRecord } from './internal-types';
 import { getRouteRecords, isRouteStoreRoutes } from './store';
@@ -49,48 +51,19 @@ function matchFallbackPrefix(
   pathname: string,
   fallbackPrefix: string
 ): Record<string, string> | null {
-  const normalizedPath =
-    pathname.endsWith('/') && pathname !== '/'
-      ? pathname.slice(0, -1)
-      : pathname;
-  const normalizedPrefix =
-    fallbackPrefix.endsWith('/') && fallbackPrefix !== '/'
-      ? fallbackPrefix.slice(0, -1)
-      : fallbackPrefix;
-
-  if (normalizedPrefix === '/') {
-    const urlParts = splitPathSegments(normalizedPath);
-    return {
-      '*':
-        urlParts.length === 0
-          ? '/'
-          : urlParts.length === 1
-            ? urlParts[0]
-            : '/' + urlParts.join('/'),
-    };
-  }
-
-  if (
-    normalizedPath !== normalizedPrefix &&
-    !normalizedPath.startsWith(`${normalizedPrefix}/`)
-  ) {
+  const urlParts = splitPathSegments(pathname);
+  const prefixParts = splitPathSegments(fallbackPrefix);
+  if (urlParts.length < prefixParts.length) {
     return null;
   }
 
-  const remainder =
-    normalizedPath === normalizedPrefix
-      ? '/'
-      : normalizedPath.slice(normalizedPrefix.length);
-  const remainderParts = splitPathSegments(remainder);
+  for (let i = 0; i < prefixParts.length; i++) {
+    if (!staticSegmentMatches(prefixParts[i], urlParts[i])) {
+      return null;
+    }
+  }
 
-  return {
-    '*':
-      remainderParts.length === 0
-        ? '/'
-        : remainderParts.length === 1
-          ? remainderParts[0]
-          : '/' + remainderParts.join('/'),
-  };
+  return { '*': formatCatchAllCapture(urlParts.slice(prefixParts.length)) };
 }
 
 function findBestResolvedRouteFromRoutes(

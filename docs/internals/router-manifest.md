@@ -153,10 +153,12 @@ flat route tables (SSR) and manifest records are sorted by, so SPA, SSR and SSG
 all pick the same route. `rank` encodes the same order as a number (higher =
 more specific, `/*` is `-1`) for inspection only.
 
-Static segments are compared against decoded URL segments, so `/café`, `/a b`
-and `/@team` match `/caf%C3%A9`, `/a%20b` and `/%40team`. Malformed encodings
-are compared as written and never throw. An encoded slash (`%2F`) stays inside
-its segment.
+Static segments and `fallback()` prefixes are compared against decoded URL
+segments, so `/café`, `/a b` and `/@team` match `/caf%C3%A9`, `/a%20b` and
+`/%40team`. Captures are decoded segment by segment, including the `*` capture
+of wildcards, catch-alls and fallbacks. Malformed encodings are compared and
+captured as written and never throw. An encoded slash (`%2F`) stays inside its
+segment when matching.
 
 ## How each mode consumes the manifest
 

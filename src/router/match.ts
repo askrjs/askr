@@ -155,6 +155,25 @@ function decodeRouteParam(part: string): string {
 }
 
 /**
+ * Compare a static route segment with a URL segment. URL parts arrive
+ * percent-encoded (`caf%C3%A9`), so decoded forms are compared and `/café`,
+ * `/a b` and reserved-character routes match.
+ */
+export function staticSegmentMatches(value: string, part: string): boolean {
+  return value === part || decodeRouteParam(value) === decodeRouteParam(part);
+}
+
+/**
+ * Format the `*` capture of a catch-all or fallback from the remaining URL
+ * parts, decoding each segment like param and splat captures.
+ */
+export function formatCatchAllCapture(parts: string[]): string {
+  if (parts.length === 0) return '/';
+  if (parts.length === 1) return decodeRouteParam(parts[0]);
+  return '/' + parts.map(decodeRouteParam).join('/');
+}
+
+/**
  * Match pre-split URL parts against pre-parsed route segments.
  *
  * This is the hot-path matcher used by `resolveRoute` and
@@ -172,14 +191,7 @@ export function matchSegments(
 ): Record<string, string> | null {
   // catch-all /* — matches every URL at any depth
   if (segments.length === 1 && segments[0].kind === 'catchall') {
-    return {
-      '*':
-        urlParts.length === 0
-          ? '/'
-          : urlParts.length === 1
-            ? urlParts[0]
-            : '/' + urlParts.join('/'),
-    };
+    return { '*': formatCatchAllCapture(urlParts) };
   }
 
   const splatIndex = segments.findIndex((segment) => segment.kind === 'splat');
@@ -212,14 +224,7 @@ export function matchSegments(
     const seg = segments[i];
     const part = urlParts[i];
     if (seg.kind === 'static') {
-      // URL parts arrive percent-encoded (`caf%C3%A9`); compare decoded forms
-      // so `/café`, `/a b` and reserved-character routes match.
-      if (
-        seg.value !== part &&
-        decodeRouteParam(seg.value) !== decodeRouteParam(part)
-      ) {
-        return null;
-      }
+      if (!staticSegmentMatches(seg.value, part)) return null;
     } else if (seg.kind === 'splat') {
       if (params === null) params = {};
       params[seg.value] = normalizeCapturedSplatParts(
@@ -232,7 +237,7 @@ export function matchSegments(
         params[seg.value] = decodeRouteParam(part);
       } else {
         // wildcard
-        params['*'] = part;
+        params['*'] = decodeRouteParam(part);
       }
     }
   }
