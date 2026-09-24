@@ -11,7 +11,15 @@ import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
-import { createRouteRegistry, route } from '../../../src/router/route';
+import {
+  createRouteRegistry,
+  currentRoute,
+  fallback,
+  index,
+  page,
+  route,
+} from '../../../src/router/route';
+import { Outlet } from '../../../src/router/rendering';
 import { renderToString } from '../../../src/ssr';
 import { resetRouteState } from '../../router-test-utils';
 
@@ -31,6 +39,20 @@ function createRegistry() {
     route('/café', () => <main>{'cafe'}</main>);
     route('/a b', () => <main>{'space'}</main>);
     route('/@team', () => <main>{'reserved'}</main>);
+    route('/files/*', () => (
+      <main>{`file:${currentRoute().params['*']}`}</main>
+    ));
+    page(
+      '/menü',
+      () => <Outlet />,
+      () => {
+        index(() => <main>{'menu'}</main>);
+        fallback(() => (
+          <main>{`menu-missing:${currentRoute().params['*']}`}</main>
+        ));
+      }
+    );
+    fallback(() => <main>{`root-missing:${currentRoute().params['*']}`}</main>);
   });
 }
 
@@ -39,6 +61,10 @@ const cases = [
   { url: '/caf%C3%A9', expected: 'cafe' },
   { url: '/a%20b', expected: 'space' },
   { url: '/%40team', expected: 'reserved' },
+  { url: '/files/caf%C3%A9', expected: 'file:café' },
+  { url: '/men%C3%BC', expected: 'menu' },
+  { url: '/men%C3%BC/a%20b/c', expected: 'menu-missing:/a b/c' },
+  { url: '/nowhere/caf%C3%A9/x', expected: 'root-missing:/nowhere/café/x' },
 ] as const;
 
 describe('route matching parity (client, SSR)', () => {

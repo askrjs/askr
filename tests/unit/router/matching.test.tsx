@@ -222,4 +222,26 @@ describe('route matching (ROUTER)', () => {
       expect(match('/caf%C3', '/caf%C3').matched).toBe(true);
     });
   });
+  describe('percent-encoded wildcard captures', () => {
+    it('should decode single-segment wildcard captures', () => {
+      expect(match('/files/caf%C3%A9', '/files/*').params).toEqual({
+        '*': 'café',
+      });
+      expect(match('/files/a%20b', '/files/*').params).toEqual({ '*': 'a b' });
+    });
+
+    it('should decode root catch-all captures segment by segment', () => {
+      expect(match('/caf%C3%A9/a%20b', '/*').params).toEqual({
+        '*': '/café/a b',
+      });
+      expect(match('/caf%C3%A9', '/*').params).toEqual({ '*': 'café' });
+    });
+
+    it('should keep malformed wildcard captures as written', () => {
+      expect(() => match('/files/%E0%A4%A', '/files/*')).not.toThrow();
+      expect(match('/files/%E0%A4%A', '/files/*').params).toEqual({
+        '*': '%E0%A4%A',
+      });
+    });
+  });
 });
