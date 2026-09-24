@@ -131,6 +131,46 @@ export function escapeText(text: string): string {
 }
 
 /**
+ * Elements whose content the HTML parser reads as raw text: entities are not
+ * decoded, so their text must be emitted verbatim rather than entity-escaped.
+ */
+export type RawTextElement = 'script' | 'style';
+
+/** Return the raw text element kind for a tag name, if it is one. */
+export function getRawTextElement(tag: string): RawTextElement | null {
+  if (tag.length !== 5 && tag.length !== 6) return null;
+  const lower = tag.toLowerCase();
+  return lower === 'script' || lower === 'style' ? lower : null;
+}
+
+const SCRIPT_RAW_TEXT_RE = /<(\/?script|!--)/gi;
+const STYLE_RAW_TEXT_RE = /<\/style/gi;
+
+/**
+ * Make text safe to emit verbatim inside a raw text element.
+ *
+ * Only the sequences that let the parser leave the element are rewritten, so
+ * ordinary text reaches the DOM unchanged and matches what the client renders:
+ * - `<style>`: `</style` becomes `<\/style` (a CSS escape of `/`).
+ * - `<script>`: `</script` becomes `<\/script`, and `<script` / `<!--` get
+ *   their `<` written as `\x3C`, which keeps the parser out of the script
+ *   data (double) escaped states. Inside JS string, template and regex
+ *   literals each rewrite denotes the original characters.
+ *
+ * The whole text must be escaped at once: a sequence split across children
+ * only forms once they are concatenated.
+ */
+export function escapeRawText(text: string, element: RawTextElement): string {
+  if (!text.includes('<')) return text;
+  if (element === 'style') {
+    return text.replace(STYLE_RAW_TEXT_RE, (match) => `<\\${match.slice(1)}`);
+  }
+  return text.replace(SCRIPT_RAW_TEXT_RE, (_match, rest: string) =>
+    rest[0] === '/' ? `<\\${rest}` : `\\x3C${rest}`
+  );
+}
+
+/**
  * Escape HTML special characters in attribute values.
  * Single-pass scan: returns the original string unchanged when no special
  * characters are found, so callers can drop separate needsEscapeAttr checks.

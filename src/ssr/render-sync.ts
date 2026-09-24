@@ -29,7 +29,13 @@ import {
   withControlBoundaryChildren,
 } from './boundaries';
 import { renderAttrsDirect } from './attrs';
-import { VOID_ELEMENTS, escapeText } from './escape';
+import {
+  VOID_ELEMENTS,
+  escapeRawText,
+  escapeText,
+  getRawTextElement,
+  type RawTextElement,
+} from './escape';
 import { serializeHydrationRenderData } from './hydration-data';
 import { startRenderPhase, stopRenderPhase } from './render-keys';
 import type { RouteAppRenderInput } from './route-render';
@@ -392,6 +398,63 @@ function sinkWrite3(
   sink.write(c);
 }
 
+/**
+ * Gather the text content of a raw text element (`<script>`, `<style>`).
+ *
+ * The parser does not decode entities there, so the text is collected
+ * unescaped and neutralized as a whole by `escapeRawText`. Components and
+ * fragments may produce the text; element children have no raw text form,
+ * so they are rejected rather than serialized as markup the client would
+ * render differently.
+ */
+function collectRawText(
+  value: unknown,
+  element: RawTextElement,
+  ctx: RenderContext
+): string {
+  if (value === null || value === undefined || typeof value === 'boolean') {
+    return '';
+  }
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return String(value);
+  if (Array.isArray(value)) {
+    let text = '';
+    for (let i = 0; i < value.length; i++) {
+      text += collectRawText(value[i], element, ctx);
+    }
+    return text;
+  }
+  if (value && typeof value === 'object' && 'type' in value) {
+    const node = value as VNode | JSXElement;
+    if (typeof node.type === 'function') {
+      return collectRawText(
+        executeComponentSync(
+          node.type as Component,
+          node.props,
+          ctx,
+          getVNodeContextFrame(node) ?? null
+        ),
+        element,
+        ctx
+      );
+    }
+    if (isFragmentType(node.type)) {
+      return collectRawText(getRenderableChildren(node), element, ctx);
+    }
+  }
+  throw new Error(
+    `<${element}> children must be text; received ${describeRawTextChild(value)}.`
+  );
+}
+
+function describeRawTextChild(value: unknown): string {
+  if (value && typeof value === 'object' && 'type' in value) {
+    const type = (value as VNode).type;
+    return typeof type === 'string' ? `<${type}>` : String(type);
+  }
+  return typeof value;
+}
+
 function renderNodeSyncToSink(
   node: VNode | JSXElement,
   sink: SinkTarget,
@@ -524,6 +587,17 @@ function renderNodeSyncToSink(
   }
 
   const children = getRenderableChildren(node);
+
+  const rawTextElement = getRawTextElement(typeStr);
+  if (rawTextElement !== null) {
+    const text = collectRawText(children, rawTextElement, ctx);
+    sinkWrite2(sink, '<', typeStr);
+    renderAttrsDirect(props, sink);
+    sink.write('>');
+    sink.write(escapeRawText(text, rawTextElement));
+    sinkWrite3(sink, '</', typeStr, '>');
+    return;
+  }
 
   if (!children || (Array.isArray(children) && children.length === 0)) {
     sinkWrite2(sink, '<', typeStr);

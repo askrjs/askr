@@ -129,6 +129,27 @@ wrapping it. Full-stack applications instead return the route-request Web
 stream to `@askrjs/vite/server`, which composes template prefix, app chunks,
 and suffix without buffering the complete response.
 
+### Text inside `<script>` and `<style>`
+
+The HTML parser does not decode entities inside `<script>` and `<style>`, so
+SSR writes their text children verbatim instead of entity-escaping them. CSS
+such as `ul > li` and scripts such as `a < b && c > d` reach the browser
+unchanged and match the text the client renderer creates, so hydration adopts
+the element in place.
+
+Only sequences that would end the element early are rewritten. Inside
+`<style>`, `</style` becomes `<\/style`. Inside `<script>`, `</script` becomes
+`<\/script`, and the `<` of `<script` and `<!--` is written as `\x3C`. Matching
+is case-insensitive, and applies to the concatenated text of all children, so
+a closing tag split across children is caught. Within JavaScript string,
+template, and regular-expression literals these rewrites denote the original
+characters.
+
+Children of `<script>` and `<style>` may be strings, numbers, fragments, and
+components that return text. Element children throw during SSR, because they
+have no raw text form. `dangerouslySetInnerHTML` is still written as given and
+is not rewritten.
+
 ### Client hydration
 
 ```ts

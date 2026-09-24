@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- fix(ssr): text children of `<script>` and `<style>` are written verbatim
+  instead of entity-escaped, so `a > b` no longer becomes `a &gt; b` and breaks
+  the CSS or JavaScript. Only `</script`, `<script` and `<!--` inside scripts
+  and `</style` inside styles are rewritten (case-insensitively) so content
+  cannot end the element early. Element children inside these elements now
+  throw during SSR.
 - fix(resources): a resource hydrated from preloaded data keeps its value on
   later re-renders instead of resetting to pending and refetching. The preloaded
   value now seeds the resource, so `refresh()` and `deps` changes also work
