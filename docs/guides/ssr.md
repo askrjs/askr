@@ -28,7 +28,10 @@ deferred values returns its complete `html` and no `stream`. A deferred route
 also returns `stream`; use `result.stream ?? result.html` as the response body.
 The stream emits fallback markup first, then ordered boundary templates and
 settled hydration data. Request abort and response cancellation stop unresolved
-boundary work.
+boundary work. Each boundary template renders with the request's route state
+and identity: `currentRoute()`, `Link` and route activity inside `Resolve` see
+the request URL, route table, base path and matched params, and `currentAuth()`
+sees the request's identity.
 
 ```tsx
 import { defer, Resolve, route, routeData } from '@askrjs/askr/router';

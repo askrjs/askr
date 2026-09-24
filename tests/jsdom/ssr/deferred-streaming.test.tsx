@@ -5,6 +5,8 @@ import {
   currentAuth,
   route,
 } from '../../../src/router/route';
+import { currentRoute } from '../../../src/router/activity';
+import { Link } from '../../../src/components/link';
 import { defer, Resolve, routeData } from '../../../src/router/deferred';
 import { state } from '../../../src/runtime/reactivity/state';
 import {
@@ -113,6 +115,74 @@ describe('deferred route streaming', () => {
     const patch = new TextDecoder().decode((await reader.read()).value);
     expect(patch).toContain('<p id="identity">alice</p>');
     expect(patch).not.toContain('bob');
+  });
+
+  it('should render deferred boundaries with the request route, base path and params', async () => {
+    const { container, cleanup } = createTestContainer();
+    let release!: (value: string) => void;
+    const pending = new Promise<string>((resolve) => {
+      release = resolve;
+    });
+    function RouteProbe({ message }: { message: string }) {
+      const snapshot = currentRoute<{ id: string }>();
+      return (
+        <p id="route">
+          {`${message}|${snapshot.path}|${snapshot.params.id ?? ''}|${
+            snapshot.query.get('tab') ?? ''
+          }|${String(snapshot.matches.length)}`}
+          <Link href="/r/7">next</Link>
+        </p>
+      );
+    }
+    const registry = createRouteRegistry(
+      () => {
+        route(
+          '/r/{id}',
+          () => {
+            const data = routeData<DeferredPageData>();
+            return (
+              <main>
+                <Resolve value={data.message} pending={<p>loading</p>}>
+                  {(message) => <RouteProbe message={message} />}
+                </Resolve>
+              </main>
+            );
+          },
+          { loader: () => ({ message: defer(pending) }) }
+        );
+      },
+      { basePath: '/app' }
+    );
+    const url = '/app/r/42?tab=info';
+
+    try {
+      const result = await renderRouteRequest({ url, registry });
+      if (result.kind !== 'render' || !result.stream)
+        throw new Error('expected stream');
+      release('ready');
+      const streamedHtml = await new Response(result.stream).text();
+      expect(streamedHtml).toContain(
+        '<p id="route">ready|/r/42|42|info|1<a href="/app/r/7"'
+      );
+
+      window.history.replaceState({}, '', url);
+      container.innerHTML = streamedHtml;
+      await hydrateSPA({
+        root: container,
+        registry,
+        hydrate: { verifyMarkup: true },
+      });
+
+      expect(container.querySelector('#route')?.textContent).toBe(
+        'ready|/r/42|42|info|1next'
+      );
+      expect(container.querySelector('a')?.getAttribute('href')).toBe(
+        '/app/r/7'
+      );
+    } finally {
+      window.history.replaceState({}, '', '/');
+      cleanup();
+    }
   });
 
   it('should flush fallback first and then emit a deterministic fulfilled patch', async () => {
