@@ -7,15 +7,16 @@ import type { OwnershipRecord } from '../ownership/record';
 import type { AppRenderRuntime } from '../../common/app-render-runtime';
 import type { DOMRange } from '../../common/dom-range';
 import type { ComponentInstance } from './instance';
+import type { HookKind } from './scope';
 
 /** Views share the flat execution record; no wrapper objects or new identities. */
 export interface ComponentHooks {
   /** Persistent state storage across renders. */
   stateValues?: State<unknown>[];
-  /** Tracks hook indices to catch conditional calls. */
+  /** Highest hook index claimed by the current render, or -1 before any. */
   stateIndexCheck: number;
-  /** Expected hook index sequence, frozen after the first render. */
-  expectedStateIndices?: number[];
+  /** Hook kind claimed at each slot, frozen after the first render. */
+  expectedHookKinds?: HookKind[];
   firstRenderComplete: boolean;
   /** Operations activated when the component mounts. */
   mountOperations?: Array<
@@ -106,7 +107,7 @@ export function captureGenerationExecution(instance: ComponentInstance) {
     owner: instance.owner,
     fn: instance.fn,
     props: instance.props,
-    expectedStateIndices: instance.expectedStateIndices,
+    expectedHookKinds: instance.expectedHookKinds,
     firstRenderComplete: instance.firstRenderComplete,
     stateIndexCheck: instance.stateIndexCheck,
     errorBoundaryState: instance.errorBoundaryState,

@@ -188,7 +188,7 @@ export function createMutation<TInput, TResult>(
     >;
   }
 
-  const hookIndex = claimHookIndex(instance, 'mutation');
+  const hookIndex = claimHookIndex(instance, 'createMutation');
   ensureMutationCleanup(runtimeState, instance);
 
   const slotStore = getMutationSlotStore(runtimeState, instance);

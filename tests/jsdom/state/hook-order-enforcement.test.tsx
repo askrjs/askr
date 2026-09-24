@@ -1,6 +1,6 @@
 // tests/state/hook_order_enforcement.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
-import { For, state } from '../../../src/index';
+import { derive, For, state } from '../../../src/index';
 import { createIsland } from '@askrjs/askr/boot';
 import {
   createTestContainer,
@@ -200,5 +200,122 @@ describe('hook order enforcement (STATE)', () => {
       flushScheduler();
     }).not.toThrow();
     expect(container.textContent).toBe('');
+  });
+  it('should throw when a render claims fewer hooks than the first render', () => {
+    let flag: ReturnType<typeof state<boolean>> | null = null;
+
+    const Component = () => {
+      flag = state(true);
+      if (flag()) {
+        state(0)();
+      }
+      return <div>{flag() ? 'on' : 'off'}</div>;
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+    expect(container.textContent).toBe('on');
+
+    expect(() => {
+      flag!.set(false);
+      flushScheduler();
+    }).toThrow(/hook order violation.*1 hook.*first render.*2.*state\(\)/is);
+
+    expect(() => {
+      flag!.set(true);
+      flushScheduler();
+    }).not.toThrow();
+    expect(container.textContent).toBe('on');
+  });
+
+  it('should throw when a hook slot changes kind between renders', () => {
+    let flag: ReturnType<typeof state<boolean>> | null = null;
+
+    const Component = () => {
+      flag = state(true);
+      if (flag()) {
+        state(0)();
+      } else {
+        derive(() => 0)();
+      }
+      return <div>{flag() ? 'on' : 'off'}</div>;
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+    expect(container.textContent).toBe('on');
+
+    expect(() => {
+      flag!.set(false);
+      flushScheduler();
+    }).toThrow(/hook order violation.*derive\(\).*index 1.*state\(\)/is);
+
+    expect(() => {
+      flag!.set(true);
+      flushScheduler();
+    }).not.toThrow();
+    expect(container.textContent).toBe('on');
+  });
+
+  it('should throw when a conditional control boundary is skipped after the first render', () => {
+    let open: ReturnType<typeof state<boolean>> | null = null;
+
+    const Component = () => {
+      open = state(true);
+      return (
+        <div>
+          {open() ? (
+            <For each={['first', 'second']} by={(item) => item}>
+              {(item) => <span>{item}</span>}
+            </For>
+          ) : null}
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+    expect(container.textContent).toBe('firstsecond');
+
+    expect(() => {
+      open!.set(false);
+      flushScheduler();
+    }).toThrow(
+      expect.objectContaining({
+        message: expect.stringMatching(
+          /<For> at index 1 was skipped.*conditional subtree.*control boundary/is
+        ),
+      })
+    );
+  });
+
+  it('should accept the same hook sequence on every render', () => {
+    let count: ReturnType<typeof state<number>> | null = null;
+
+    const Component = () => {
+      count = state(0);
+      const doubled = derive(() => count!() * 2);
+      const open = state(true);
+      return (
+        <div>
+          {doubled()}
+          {open() ? 'y' : 'n'}
+          <For each={[count()]} by={(item) => item}>
+            {(item) => <span>{item}</span>}
+          </For>
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    for (let i = 1; i <= 3; i++) {
+      expect(() => {
+        count!.set(i);
+        flushScheduler();
+      }).not.toThrow();
+    }
+    expect(container.textContent).toBe('6y3');
   });
 });

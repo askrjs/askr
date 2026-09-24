@@ -42,6 +42,16 @@ Render-scoped hooks and eager control primitives must be evaluated in the same
 order every render. This includes `state()`, `derive()`, lifecycle operations,
 `<For>`, and the other primitives that retain render-owned state.
 
+The first completed render records which hook claimed each slot. Every later
+render is checked against that sequence in both directions:
+
+- claiming a hook the first render did not claim (an extra hook) throws when
+  the hook is called;
+- claiming a different kind of hook at a slot (for example `derive()` where the
+  first render called `state()`) throws when the hook is called;
+- claiming fewer hooks than the first render (a skipped hook) throws when the
+  render returns.
+
 ### Caught at Runtime
 
 ```tsx
