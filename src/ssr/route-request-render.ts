@@ -13,6 +13,7 @@ import { resolveRouteRequest } from '../router/resolution';
 import {
   createRenderContext,
   withRenderContextAsync,
+  type RenderRouteState,
   type SSRData,
 } from './context';
 import { renderSSRRouteAppToSink } from './render-sync';
@@ -100,7 +101,8 @@ function renderBoundary(
   seed: number | undefined,
   data: PageRenderEnvelope | null,
   cspNonce: string | undefined,
-  authContext: AuthContext | undefined
+  authContext: AuthContext | undefined,
+  route: RenderRouteState
 ): { html: string; styles: SSRStyleRegistration[] } {
   const styles: SSRStyleRegistration[] = [];
   const html = renderToStringSync(
@@ -114,6 +116,7 @@ function renderBoundary(
       envelope: data ?? undefined,
       cspNonce,
       authContext,
+      route,
       onContext: (context) => styles.push(...context.ssrStyles.values()),
     }
   );
@@ -159,7 +162,8 @@ function createDeferredRenderStream(
   data: PageRenderEnvelope | null,
   runtime: DataRuntime,
   cspNonce: string | undefined,
-  authContext: AuthContext | undefined
+  authContext: AuthContext | undefined,
+  route: RenderRouteState
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   const local = new AbortController();
@@ -205,7 +209,8 @@ function createDeferredRenderStream(
               seed,
               data,
               cspNonce,
-              authContext
+              authContext,
+              route
             );
             controller.enqueue(
               encoder.encode(
@@ -231,7 +236,8 @@ function createDeferredRenderStream(
               seed,
               data,
               cspNonce,
-              authContext
+              authContext,
+              route
             );
             controller.enqueue(
               encoder.encode(
@@ -358,7 +364,13 @@ async function renderRouteRequestInternal(
                 context.hydrationData,
                 runtime,
                 cspNonce,
-                context.authContext
+                context.authContext,
+                {
+                  url: context.url,
+                  routes: context.routes,
+                  basePath: context.basePath,
+                  params: context.params,
+                }
               ),
             }
           : {}),

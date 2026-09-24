@@ -104,6 +104,12 @@ function ensureRenderContextAccessor(): void {
 }
 
 /** Build a fresh SSR render context (data cache, routes, seed) for a render pass. */
+/** @internal Request-local route state carried into deferred SSR passes. */
+export type RenderRouteState = Pick<
+  RenderContext,
+  'url' | 'routes' | 'basePath' | 'params'
+>;
+
 export function createRenderContext(
   seed = 12345,
   opts: {

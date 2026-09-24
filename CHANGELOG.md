@@ -6,6 +6,10 @@
   later re-renders instead of resetting to pending and refetching. The preloaded
   value now seeds the resource, so `refresh()` and `deps` changes also work
   after hydration.
+- fix(ssr): deferred `Resolve` boundaries now render with the request URL, route
+  table, base path and params. Previously the streamed boundary saw the root
+  path with empty params, so `currentRoute()` and `Link` produced the wrong HTML
+  and hydration reported a markup mismatch.
 - fix(router): `currentAuth()` no longer falls back to the process-wide client
   identity during server rendering. A server render without request auth now
   sees an anonymous identity, and server-mode route resolution no longer writes

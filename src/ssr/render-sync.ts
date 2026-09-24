@@ -9,6 +9,7 @@ import {
   createRenderContext,
   withRenderContext,
   type RenderContext,
+  type RenderRouteState,
   type SSRData,
 } from './context';
 import {
@@ -575,6 +576,8 @@ export function renderToStringSync(
     cspNonce?: string;
     /** @internal Request-local authentication for deferred SSR passes. */
     authContext?: import('@askrjs/auth').AuthContext;
+    /** @internal Request-local route state for deferred SSR passes. */
+    route?: RenderRouteState;
     /** @internal Capture request-local registrations produced by this pass. */
     onContext?: (ctx: RenderContext) => void;
   }
@@ -586,6 +589,7 @@ export function renderToStringSync(
     envelope: options?.envelope,
     cspNonce: nonce,
     authContext: options?.authContext,
+    ...options?.route,
   });
 
   return withRenderContext(ctx, () => {
