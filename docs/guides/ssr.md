@@ -130,9 +130,42 @@ at either `/website` or `/` by changing `basePath` at build time. Bundler asset
 prefixes are configured separately.
 
 When you pass a registry, URL-based SSR applies the registry's synchronous route
-auth and policy decisions before rendering. Denied routes render the same
-denial marker used by client startup and hydration, and redirects render the
-final target route.
+auth and policy decisions before rendering. A redirect or deny decision is not
+rendered: `renderToString()` and `renderToStream()` throw
+`SSRAccessDecisionError`, whose `decision` is the same redirect or deny result
+that `renderRouteRequest()` returns, so the server can send the matching
+response:
+
+```ts
+import type { RouteRegistry } from '@askrjs/askr/router';
+import { renderToString, SSRAccessDecisionError } from '@askrjs/askr/ssr';
+
+function respond(url: string, registry: RouteRegistry): Response {
+  try {
+    return new Response(renderToString({ url, registry }), {
+      headers: { 'content-type': 'text/html' },
+    });
+  } catch (error) {
+    if (!(error instanceof SSRAccessDecisionError)) throw error;
+    const { decision } = error;
+    return decision.kind === 'redirect'
+      ? new Response(null, {
+          status: decision.status ?? 302,
+          headers: { location: decision.to },
+        })
+      : new Response(null, { status: decision.status });
+  }
+}
+```
+
+The synchronous helpers do not run route loaders. Rendering a route that
+declares a `loader` throws `SSRDataMissingError` before any resolution work
+starts, so its auth, policies, `preload`, lazy import, and loader are not run.
+A route whose auth, policies, `preload`, or not-yet-loaded lazy component
+resolve asynchronously also throws `SSRDataMissingError`; once a lazy route's
+component has loaded, it renders synchronously. Use `renderRouteRequest()` for
+those routes; it awaits resolution and loaders and returns redirect and deny
+decisions as results.
 
 ## Document rendering boundary
 
