@@ -591,13 +591,13 @@ describe('component fragment structure', () => {
     function Content() {
       const showRows = state(true);
       replace = () => showRows.set(false);
-      return showRows() ? (
+      // The For boundary claims a hook slot, so it is created on every render.
+      const rows = (
         <For each={[1, 2]} by={(value) => value}>
           {(value) => <span data-row={value}>{value}</span>}
         </For>
-      ) : (
-        <strong>Done</strong>
       );
+      return showRows() ? rows : <strong>Done</strong>;
     }
 
     root = document.createElement('div');
