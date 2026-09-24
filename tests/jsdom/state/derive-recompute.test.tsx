@@ -16,16 +16,22 @@ describe('derive() recompute / re-run timing (B2)', () => {
   afterEach(() => cleanup());
 
   // A derived whose value does NOT change after an upstream write must not
-  // re-render the consuming component (fine-grained memoization).
+  // re-render a consuming component (fine-grained memoization). The consumer
+  // is not the owner: an owner that reads its own derive re-renders to
+  // evaluate the fresh closure (#428), so the cutoff applies to other readers.
   it('should not re-render the consumer when the derived value is unchanged', () => {
     let renders = 0;
     let count!: ReturnType<typeof state<number>>;
 
-    const Component = () => {
+    const Consumer = (props: { positive: () => boolean }) => {
       renders += 1;
+      return <div>{props.positive() ? 'yes' : 'no'}</div>;
+    };
+
+    const Component = () => {
       count = state(0);
       const positive = derive(() => count() > 0);
-      return <div>{positive() ? 'yes' : 'no'}</div>;
+      return <Consumer positive={positive} />;
     };
 
     createIsland({ root: container, component: Component });

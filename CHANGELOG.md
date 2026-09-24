@@ -14,6 +14,14 @@
   development when a query has no registered server handler. The
   skipped-preload warning is tracked per runtime outside the frozen
   `DataRuntime`, so it logs once per query key and resolves `false` as intended.
+- fix(runtime): `derive()` no longer serves a value computed by a previous
+  render's closure. Each render evaluates the function it passes, and a derive
+  that its own component reads is evaluated by the component's re-render instead
+  of eagerly, once per change. That component now re-renders whenever such a
+  derive's sources change, even if the derived value is unchanged; other readers
+  still skip unchanged values. A render-time recompute of `derive()` or
+  `selector()` now notifies downstream readers, so derived values in other
+  components no longer stay one update behind.
 - fix(router): `currentAuth()` no longer falls back to the process-wide client
   identity during server rendering. A server render without request auth now
   sees an anonymous identity, and server-mode route resolution no longer writes

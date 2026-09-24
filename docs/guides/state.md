@@ -51,6 +51,13 @@ function CounterSummary() {
 ```
 
 `derive()` returns a callable getter derived from other reactive inputs.
+The function may also close over plain render locals such as props or values
+read from other derives. Each render evaluates the function it passes, so
+captured locals are never stale. When a source of a derive that the component
+itself reads changes, the component re-renders and that render evaluates the
+derive once; the component re-renders even if the derived value turns out to be
+unchanged. Other readers, such as a child component or a derive in another
+component, are only notified when the value actually changes.
 
 Resource snapshots from `resource()` are not readable sources. Use
 `derive(snapshot, map)` or read `resource.value` in JSX; resource updates still

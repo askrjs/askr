@@ -255,13 +255,19 @@ describe('derive reactivity', () => {
     let countState!: ReturnType<typeof state<number>>;
     let renders = 0;
 
-    const App = () => {
+    // Read through a child: an owner that reads its own derive re-renders to
+    // evaluate the fresh closure (#428), so the cutoff applies to other readers.
+    const Subject = (props: { label: () => string }) => {
       renders += 1;
+      return <div id="subject">{props.label()}</div>;
+    };
+
+    const App = () => {
       countState = state(0);
       const parity = derive(() => countState() % 2 === 0);
       const label = derive(() => (parity() ? 'even' : 'odd'));
 
-      return <div id="subject">{label()}</div>;
+      return <Subject label={label} />;
     };
 
     createIsland({ root: container, component: App });
