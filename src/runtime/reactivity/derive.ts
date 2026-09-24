@@ -5,7 +5,12 @@ import {
   getCurrentComponentInstance,
 } from '../component/scope';
 import { type ComponentInstance } from '../component/instance';
-import { requestRuntimeWork, getRuntimeFlushVersion } from '../access';
+import {
+  getRuntimeFlushVersion,
+  getRuntimeScheduler,
+  requestRuntimeWork,
+} from '../access';
+import { createFlushLoopGuard } from '../flush-loop-guard';
 import { ScheduledWork } from '../scheduled-work';
 import {
   clearDerivedDependencySubscriptions,
@@ -49,7 +54,8 @@ type SnapshotSource<T> = {
 
 const deriveCells = new WeakMap<object, Map<number, DerivedCell<unknown>>>();
 const dirtyDerivedCells = new Set<DerivedCell<unknown>>();
-const derivedWork = new ScheduledWork(flushDirtyDerivedCells);
+const derivedWork = new ScheduledWork(flushDirtyDerivedCells, true);
+const derivedLoopGuard = createFlushLoopGuard<DerivedCell<unknown>>('derive()');
 
 function getDeriveStore(
   instance: ComponentInstance
@@ -78,6 +84,7 @@ function flushDirtyDerivedCells(): void {
   }
 
   const pending = dirtyDerivedCells.values();
+  const scheduler = getRuntimeScheduler();
   let failures: unknown[] | null = null;
   let next = pending.next();
 
@@ -86,6 +93,15 @@ function flushDirtyDerivedCells(): void {
     dirtyDerivedCells.delete(cell);
     cell._pending = false;
     if (!cell._dirty) {
+      next = pending.next();
+      continue;
+    }
+    // The dirty set is iterated live, so a cycle of writing derives would
+    // never leave this walk. Skip a looping cell; it stays dirty and
+    // recomputes on its next read.
+    const loop = derivedLoopGuard(scheduler, cell);
+    if (loop) {
+      if (loop !== true) (failures ??= []).push(loop);
       next = pending.next();
       continue;
     }

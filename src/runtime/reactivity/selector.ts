@@ -23,6 +23,8 @@ import {
   takeDirtySelectorRecords,
 } from './selector-store';
 import { adjustOwnershipDiagnostic } from '../diagnostics/ownership-diagnostics';
+import { getRuntimeScheduler } from '../access';
+import { createFlushLoopGuard } from '../flush-loop-guard';
 
 declare const __ASKR_BENCH_BUILD__: boolean;
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
@@ -109,13 +111,23 @@ function markSelectorRecordDirty(record: SelectorSourceRecord<unknown>): void {
   markDirtySelectorRecord(record, flushDirtySelectorRecords);
 }
 
+const selectorLoopGuard =
+  createFlushLoopGuard<SelectorSourceRecord<unknown>>('selector()');
+
 function flushDirtySelectorRecords(): void {
+  const scheduler = getRuntimeScheduler();
   let failures: unknown[] | null = null;
   for (const record of takeDirtySelectorRecords<
     SelectorSourceRecord<unknown>
   >()) {
     record._pending = false;
     if (!record._dirty) {
+      continue;
+    }
+    // Skip a looping record; it stays dirty and recomputes on its next read.
+    const loop = selectorLoopGuard(scheduler, record);
+    if (loop) {
+      if (loop !== true) (failures ??= []).push(loop);
       continue;
     }
     try {

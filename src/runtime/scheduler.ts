@@ -14,11 +14,10 @@ import { assertSchedulingPrecondition, invariant } from '../common/invariant';
 import { recordSchedulerFlushTaskCount } from './diagnostics/perf-metrics';
 import { adjustOwnershipDiagnostic } from './diagnostics/ownership-diagnostics';
 import { SchedulerScopes } from './scheduler-scopes';
-import { ScheduledWork } from './scheduled-work';
+import { isBatchScheduledTask, ScheduledWork } from './scheduled-work';
+import { getLoopGuardThreshold, MAX_FLUSH_DEPTH } from './flush-loop-guard';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
-
-const MAX_FLUSH_DEPTH = 50;
 
 type Task = () => void;
 export type SchedulerLane = 'derived' | 'component' | 'reactive' | 'post';
@@ -102,6 +101,18 @@ export class Scheduler {
     return total;
   }
 
+  // A discarded copy must not reset its owner's pending state while another
+  // copy of the same task is still queued to deliver that update.
+  private releaseUnlessQueued(task: Task): void {
+    for (const lane of SCHEDULER_LANES) {
+      const queue = this.lanes[lane];
+      for (let index = queue.head; index < queue.tasks.length; index++) {
+        if (queue.tasks[index] === task) return;
+      }
+    }
+    ScheduledWork.release(task);
+  }
+
   private compactLane(queue: LaneQueue): void {
     if (queue.head >= queue.tasks.length) {
       queue.tasks.length = 0;
@@ -163,7 +174,7 @@ export class Scheduler {
 
     // Strict rule: during bulk commit, only allow enqueues if runWithSyncProgress enabled
     if (this.isBulkCommitActive() && !this.scopes.allowSyncProgress) {
-      ScheduledWork.release(task);
+      this.releaseUnlessQueued(task);
       if (isDevelopmentEnvironment()) {
         throw new Error(
           '[Scheduler] enqueue() during bulk commit (not allowed)'
@@ -201,8 +212,8 @@ export class Scheduler {
     this.depth = 0;
     const failures: unknown[] = [];
     let executedTaskCount = 0;
-    const checkFlushDepth = isDevelopmentEnvironment();
-    const executionsByTask = checkFlushDepth ? new Map<Task, number>() : null;
+    const loopGuardThreshold = getLoopGuardThreshold();
+    let executionsByTask: Map<Task, number> | null = null;
 
     try {
       while (true) {
@@ -217,14 +228,28 @@ export class Scheduler {
             if (__ASKR_DEVELOPMENT_BUILD__) {
               adjustOwnershipDiagnostic('queuedSchedulerWork', -1);
             }
-            if (executionsByTask) {
+            if (
+              executedTaskCount >= loopGuardThreshold &&
+              !isBatchScheduledTask(task)
+            ) {
+              executionsByTask ??= new Map<Task, number>();
               const taskExecutions = (executionsByTask.get(task) ?? 0) + 1;
               executionsByTask.set(task, taskExecutions);
               this.depth = Math.max(this.depth, taskExecutions);
               if (taskExecutions > MAX_FLUSH_DEPTH) {
-                throw new Error(
-                  `[Scheduler] exceeded MAX_FLUSH_DEPTH (${MAX_FLUSH_DEPTH}). Likely infinite update loop.`
-                );
+                // Drop the looping task instead of aborting the drain so
+                // earlier failures are still reported and sibling work in
+                // later lanes is not stranded without a flush.
+                this.releaseUnlessQueued(task);
+                if (taskExecutions === MAX_FLUSH_DEPTH + 1) {
+                  failures.push(
+                    new Error(
+                      `[Scheduler] exceeded MAX_FLUSH_DEPTH (${MAX_FLUSH_DEPTH}). Likely infinite update loop.`
+                    )
+                  );
+                }
+                executedInLane++;
+                continue;
               }
             }
 

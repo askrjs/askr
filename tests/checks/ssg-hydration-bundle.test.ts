@@ -97,6 +97,9 @@ describe('SSG hydration bundle', () => {
     // shared prop-classification table (boolean HTML attributes and camelCase
     // attribute names) so the two sides agree on what they emit. That data is
     // ~940 bytes and is required for hydration parity, not optional weight.
-    expect(initialBytes).toBeLessThanOrEqual(257 * 1024);
+    // 258 KiB: production builds now keep the scheduler update-loop guard
+    // (previously compiled out, so loops hung the page) plus the release
+    // hooks that keep dropped work reschedulable, about 670 bytes.
+    expect(initialBytes).toBeLessThanOrEqual(258 * 1024);
   });
 });
