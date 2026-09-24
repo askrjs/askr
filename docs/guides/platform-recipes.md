@@ -181,6 +181,20 @@ Lifecycle and cleanup:
 - Use a request-owned runtime for SSR and a build-entry-owned runtime for SSG.
   Do not share server request caches.
 - The component-owned `createQuery()` reader detaches on unmount.
+- Hydrated data is consumed once. The first client reader for a key seeds its
+  query with the hydrated value, shows it as `fresh` without fetching, and
+  removes the entry from `runtime.queryData`. After the last reader unmounts,
+  the next reader fetches again rather than reviving the original server value.
+  Server renders read hydrated data without consuming it, so
+  `dehydrateDataRuntime()` still sees it after rendering.
+- Prefetches, including route `preload`, skip keys that a mounted query
+  already owns or that already hold data. A prefetch whose key gains a mounted
+  reader while it is in flight is discarded if that reader is still mounted
+  when it resolves, so it cannot replace newer data on a later mount.
+- In the browser, at most 50 unread prefetched entries are kept per runtime;
+  prefetching more evicts the oldest unread entry. Payload building outside
+  the browser (SSR, SSG, or the `createPayload()` sequence above in any mode)
+  keeps every prefetched entry so `dehydrateDataRuntime()` sees them all.
 - `invalidate(prefix, { runtime })` replaces stale work for the selected
   runtime.
 

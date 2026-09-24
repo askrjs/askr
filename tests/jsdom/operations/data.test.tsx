@@ -7,12 +7,18 @@ import {
   createDataRuntime,
   createQuery,
   createMutation,
+  createQueryPrefetchContext,
   defineQuery,
+  getDefaultDataRuntime,
+  hydrateDataRuntime,
   invalidate,
   invalidateOnInterval,
+  prefetchQuery,
   queryScope,
   type Query,
+  type QueryPrefetchContext,
 } from '../../../src/data';
+import { PREFETCHED_QUERY_DATA_LIMIT } from '../../../src/data/data-runtime';
 import { cleanupApp, createSPA } from '@askrjs/askr/boot';
 import { createInvalidationRecorder } from '../../../src/testing';
 import { addInvalidationListener } from '../../../src/data/testing';
@@ -681,6 +687,289 @@ describe('data layer', () => {
       resolvers[1]?.('Grace');
       await settle();
       expect(container.textContent).toBe('Grace');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should refetch after remount instead of reviving consumed hydrated data', async () => {
+    const runtime = createDataRuntime();
+    runtime.queryData.set('users:hydrated', { name: 'ssr' });
+    let fetchCount = 0;
+    const loadUser = vi.fn(async () => {
+      fetchCount += 1;
+      return { name: `server-${fetchCount}` };
+    });
+    const userQuery = defineQuery({
+      key: () => 'users:hydrated',
+      fetch: loadUser,
+    });
+    let query!: Query<{ name: string }>;
+    let setVisible!: (value: boolean) => void;
+
+    const UserCard = (): JSXElement => {
+      query = createQuery(userQuery, {}, { runtime });
+      return <span>{query.data?.name ?? 'loading'}</span>;
+    };
+
+    const App = (): JSXElement => {
+      const visible = state(true);
+      setVisible = visible.set;
+      return (
+        <section>
+          <Show when={visible()}>
+            <UserCard />
+          </Show>
+        </section>
+      );
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+
+      expect(container.textContent).toBe('ssr');
+      expect(loadUser).not.toHaveBeenCalled();
+
+      await query.refresh();
+      await settle();
+      expect(container.textContent).toBe('server-1');
+
+      setVisible(false);
+      flushScheduler();
+      expect(runtime.queryCache.has('users:hydrated')).toBe(false);
+
+      setVisible(true);
+      flushScheduler();
+
+      expect(container.textContent).not.toBe('ssr');
+      await settle();
+      expect(loadUser).toHaveBeenCalledTimes(2);
+      expect(container.textContent).toBe('server-2');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should release hydrated query data once a client reader consumes it', async () => {
+    const runtime = createDataRuntime();
+    const userQuery = defineQuery({
+      key: ({ id }: { id: number }) => `users:${id}`,
+      fetch: async ({ id }: { id: number; signal: AbortSignal }) => ({ id }),
+    });
+    let setId!: (value: number) => void;
+
+    const UserCard = ({ id }: { id: number }): JSXElement => {
+      const query = createQuery(userQuery, { id }, { runtime });
+      return <span>{query.data?.id ?? 'loading'}</span>;
+    };
+
+    const App = (): JSXElement => {
+      const id = state(0);
+      setId = id.set;
+      return <UserCard id={id()} />;
+    };
+
+    for (let id = 0; id < 50; id += 1) {
+      runtime.queryData.set(`users:${id}`, { id });
+    }
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+
+      for (let id = 1; id < 50; id += 1) {
+        setId(id);
+        flushScheduler();
+        await settle();
+        expect(container.textContent).toBe(String(id));
+      }
+
+      expect(runtime.queryData.size).toBe(0);
+      expect(runtime.queryCache.size).toBe(1);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should not refetch route preloads while a live reader owns the query', async () => {
+    const shared = defineQuery({
+      key: () => 'preloaded:shared',
+      fetch: vi.fn(async () => ({ value: 'loaded' })),
+    });
+    const Page = (): JSXElement => {
+      const query = createQuery(shared, {});
+      return <p>{query.data?.value ?? 'loading'}</p>;
+    };
+    const { container, cleanup } = createTestContainer();
+
+    try {
+      resetExecutionModel();
+      resetRouteState();
+      getDefaultDataRuntime().queryData.clear();
+      window.history.replaceState({}, '', '/a');
+      const preload = ({ data }: { data: QueryPrefetchContext }) =>
+        prefetchQuery(data, shared, {});
+      route('/a', Page, { preload });
+      route('/b', Page, { preload });
+
+      await createSPA({ root: container, registry: currentRouteRegistry() });
+      await settle();
+      expect(container.textContent).toBe('loaded');
+
+      for (const path of ['/b', '/a', '/b']) {
+        navigate(path);
+        await settle();
+        await settle();
+        expect(container.textContent).toBe('loaded');
+      }
+
+      expect(shared.fetch).toHaveBeenCalledTimes(1);
+    } finally {
+      cleanupApp(container);
+      cleanup();
+      resetRouteState();
+      getDefaultDataRuntime().queryData.clear();
+      window.history.replaceState({}, '', '/');
+      resetExecutionModel();
+    }
+  });
+
+  it('should not seed a test override reader from hydrated query data', () => {
+    const runtime = createDataRuntime();
+    runtime.queryData.set('users:override', { name: 'ssr' });
+    const override = { data: { name: 'override' } } as unknown as Query<{
+      name: string;
+    }>;
+    runtime.queryTestOverrides.set('users:override', override);
+    const userQuery = defineQuery({
+      key: () => 'users:override',
+      fetch: async () => ({ name: 'server' }),
+    });
+
+    const App = (): JSXElement => {
+      const query = createQuery(userQuery, {}, { runtime });
+      return <span>{query.data?.name}</span>;
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      expect(container.textContent).toBe('override');
+      expect(runtime.queryData.get('users:override')).toEqual({ name: 'ssr' });
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should cap unread client prefetched query data', async () => {
+    const runtime = createDataRuntime();
+    const context = createQueryPrefetchContext({ runtime, mode: 'spa' });
+    const userQuery = defineQuery({
+      key: ({ id }: { id: number }) => `prefetched-users:${id}`,
+      fetch: async ({ id }: { id: number; signal: AbortSignal }) => ({ id }),
+    });
+    hydrateDataRuntime(runtime, { 'hydrated:user': { id: 'h' } });
+
+    await prefetchQuery(context, userQuery, { id: 0 });
+    await prefetchQuery(context, userQuery, { id: 1 });
+    runtime.queryData.set('prefetched-users:1', { id: 'written' });
+    for (let id = 2; id < PREFETCHED_QUERY_DATA_LIMIT + 5; id += 1) {
+      await prefetchQuery(context, userQuery, { id });
+    }
+
+    expect(runtime.queryData.has('prefetched-users:0')).toBe(false);
+    expect(runtime.queryData.get('prefetched-users:1')).toEqual({
+      id: 'written',
+    });
+    expect(runtime.queryData.get('hydrated:user')).toEqual({ id: 'h' });
+    expect(runtime.queryData.size).toBe(PREFETCHED_QUERY_DATA_LIMIT + 2);
+  });
+
+  it('should prefetch into a hand-built data runtime in the browser', async () => {
+    const runtime = {
+      queryCache: new Map<string, unknown>(),
+      queryData: new Map<string, unknown>(),
+      queryTestOverrides: new Map<string, unknown>(),
+      mutationTestOverrides: new Map<string, unknown>(),
+    };
+    const userQuery = defineQuery({
+      key: () => 'plain-runtime:user',
+      fetch: async () => ({ id: 1 }),
+    });
+
+    await prefetchQuery(
+      createQueryPrefetchContext({ runtime, mode: 'spa' }),
+      userQuery,
+      {}
+    );
+
+    expect(runtime.queryData.get('plain-runtime:user')).toEqual({ id: 1 });
+  });
+
+  it('should not store a prefetch that resolves after a reader mounted', async () => {
+    const runtime = createDataRuntime();
+    let fetchCount = 0;
+    let resolvePrefetch!: (value: { name: string }) => void;
+    const userQuery = defineQuery({
+      key: () => 'users:late-prefetch',
+      fetch: () => {
+        fetchCount += 1;
+        if (fetchCount === 1) {
+          return new Promise<{ name: string }>((resolve) => {
+            resolvePrefetch = resolve;
+          });
+        }
+        return Promise.resolve({ name: `f${fetchCount}` });
+      },
+    });
+    const context = createQueryPrefetchContext({ runtime, mode: 'spa' });
+    const pending = prefetchQuery(context, userQuery, {});
+    let query!: Query<{ name: string }>;
+    let setVisible!: (value: boolean) => void;
+
+    const UserCard = (): JSXElement => {
+      query = createQuery(userQuery, {}, { runtime });
+      return <span>{query.data?.name ?? 'loading'}</span>;
+    };
+    const App = (): JSXElement => {
+      const visible = state(true);
+      setVisible = visible.set;
+      return (
+        <section>
+          <Show when={visible()}>
+            <UserCard />
+          </Show>
+        </section>
+      );
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+      expect(container.textContent).toBe('f2');
+
+      await query.refresh();
+      await settle();
+      expect(container.textContent).toBe('f3');
+
+      resolvePrefetch({ name: 'f1' });
+      await pending;
+
+      setVisible(false);
+      flushScheduler();
+      setVisible(true);
+      flushScheduler();
+      expect(container.textContent).not.toBe('f1');
+      await settle();
+      expect(container.textContent).toBe('f4');
     } finally {
       cleanup();
     }

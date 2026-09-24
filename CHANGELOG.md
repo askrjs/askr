@@ -32,6 +32,15 @@
   `data` attributes (for example `<iframe src>` and `<object data>`) on both
   client and server. `data:`, `blob:` and custom-scheme resource URLs are
   unchanged.
+- fix(data): hydrated or prefetched query data is now consumed by the first
+  client reader for its key instead of staying in `runtime.queryData` forever.
+  After a `refresh()` and a remount, the query fetches again instead of
+  reviving the original server value as fresh, and consumed entries no longer
+  accumulate on the default runtime. Server renders still read without
+  consuming. Prefetches (including route `preload`) skip keys a mounted query
+  already owns and discard results that resolve after a reader mounted. The
+  browser keeps at most 50 unread prefetched entries per runtime, evicting the
+  oldest; server and SSG payload building is not capped.
 
 ## 0.3.1 — 2026-09-12
 
