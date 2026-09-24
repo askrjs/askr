@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- fix(router): route precedence is decided segment by segment, as documented:
+  the first segment where two routes differ picks static > param > wildcard >
+  splat, so `/docs/{*rest}` now beats `/{lang}/{page}` for `/docs/intro`
+  instead of losing on a summed score. SPA, SSR and SSG share the ordering.
+  `RouteRecord.rank` now encodes this order and its numeric values changed.
+- fix(router): static route segments are compared against decoded URL
+  segments, so routes such as `/café` and `/a b` match `/caf%C3%A9` and
+  `/a%20b` on the client, in SSR and in SSG. Malformed encodings do not throw.
 - fix(resources): a resource hydrated from preloaded data keeps its value on
   later re-renders instead of resetting to pending and refetching. The preloaded
   value now seeds the resource, so `refresh()` and `deps` changes also work

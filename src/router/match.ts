@@ -62,22 +62,72 @@ export function parseSegments(path: string): ParsedSegment[] {
 }
 
 /**
+ * Per-segment specificity weights. Routes are compared segment by segment and
+ * the first differing segment decides: static > param > wildcard > (end of
+ * route) > splat. "End of route" only ever meets a splat at the same position
+ * for routes that match the same URL, so an exact route beats an empty splat.
+ */
+const SEGMENT_WEIGHT: Record<ParsedSegment['kind'], number> = {
+  static: 4,
+  param: 3,
+  wildcard: 2,
+  splat: 0,
+  // Only ever the sole segment of `/*`, which is ordered separately.
+  catchall: 0,
+};
+const END_OF_ROUTE_WEIGHT = 1;
+const RANK_BASE = 8;
+
+function segmentWeight(segment: ParsedSegment | undefined): number {
+  if (segment === undefined) return END_OF_ROUTE_WEIGHT;
+  return SEGMENT_WEIGHT[segment.kind];
+}
+
+function isCatchAll(segments: ParsedSegment[]): boolean {
+  return segments.length === 1 && segments[0].kind === 'catchall';
+}
+
+/**
+ * Order two parsed routes by specificity: negative when `a` is more specific
+ * than `b`, positive when less, `0` when they tie (declaration order decides).
+ *
+ * Segments are compared left to right and the first differing segment decides
+ * (static > param > wildcard > splat); the bare `/*` catch-all is always last.
+ */
+export function compareRouteSpecificity(
+  a: ParsedSegment[],
+  b: ParsedSegment[]
+): number {
+  const aCatchAll = isCatchAll(a);
+  const bCatchAll = isCatchAll(b);
+  if (aCatchAll || bCatchAll) return Number(aCatchAll) - Number(bCatchAll);
+
+  const length = Math.max(a.length, b.length);
+  for (let i = 0; i < length; i++) {
+    const difference = segmentWeight(b[i]) - segmentWeight(a[i]);
+    if (difference !== 0) return difference;
+  }
+  return 0;
+}
+
+/**
  * Compute a numeric specificity rank from a parsed segment list.
  *
- * Scoring: static = 3, param = 2, wildcard = 1, catchall = 0.
- * Higher rank wins when multiple routes match the same path.
+ * The rank encodes the segment-by-segment order of
+ * {@link compareRouteSpecificity} as base-8 digits (higher = more specific);
+ * the bare `/*` catch-all is `-1`. It is informational: route ordering uses
+ * `compareRouteSpecificity` so arbitrarily deep routes compare exactly.
  */
 export function computeRank(segments: ParsedSegment[]): number {
-  if (segments.length === 1 && segments[0].kind === 'catchall') return -1;
-  let score = 0;
-  for (const seg of segments) {
-    if (seg.kind === 'static') score += 3;
-    else if (seg.kind === 'param') score += 2;
-    else if (seg.kind === 'wildcard') score += 1;
-    else if (seg.kind === 'splat') score -= 0.5;
-    // catchall contributes 0 per segment but is handled above
+  if (isCatchAll(segments)) return -1;
+  let rank = 0;
+  let scale = 1;
+  for (const segment of segments) {
+    scale /= RANK_BASE;
+    rank += segmentWeight(segment) * scale;
   }
-  return score;
+  // Remaining positions are "end of route": sum of END weight * scale / 8^k.
+  return rank + (END_OF_ROUTE_WEIGHT * scale) / (RANK_BASE - 1);
 }
 
 /** Reused frozen empty params object — returned for purely-static (no-capture) routes. */
@@ -91,6 +141,7 @@ const noMatch: MatchResult = Object.freeze({
   params: emptyParams,
 });
 
+/** Decode a path segment, keeping malformed encodings as written. */
 function decodeRouteParam(part: string): string {
   if (!part.includes('%')) {
     return part;
@@ -161,7 +212,14 @@ export function matchSegments(
     const seg = segments[i];
     const part = urlParts[i];
     if (seg.kind === 'static') {
-      if (seg.value !== part) return null;
+      // URL parts arrive percent-encoded (`caf%C3%A9`); compare decoded forms
+      // so `/café`, `/a b` and reserved-character routes match.
+      if (
+        seg.value !== part &&
+        decodeRouteParam(seg.value) !== decodeRouteParam(part)
+      ) {
+        return null;
+      }
     } else if (seg.kind === 'splat') {
       if (params === null) params = {};
       params[seg.value] = normalizeCapturedSplatParts(

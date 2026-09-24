@@ -59,7 +59,7 @@ The authoring flow is:
 2. Each `route(path, Component, options?)` call:
    - Validates the path (rejects `:name` syntax, requires `/` prefix)
    - Parses the path into a `ParsedSegment[]` list via `parseSegments()`
-   - Computes a deterministic `rank` (specificity score) via `computeRank()`
+   - Computes a deterministic `rank` (specificity key) via `computeRank()`
    - Snapshots the current layout scope stack as the route's `layoutChain`
    - Auto-composes a `RouteHandler` that renders the page inside the layout chain
 
@@ -122,7 +122,7 @@ interface RouteRecord {
   path: string; // e.g. '/posts/{slug}'
   component: RouteComponent; // the page function
   segments: ParsedSegment[]; // [{kind:'static',...}, {kind:'param',...}]
-  rank: number; // precomputed specificity score
+  rank: number; // numeric encoding of the specificity order
   layoutChain: LayoutScopeRecord[]; // outermost -> innermost
   options: RouteOptions; // load, entries, guard, title, namespace
   isFallback: boolean; // true only for '/*'
@@ -130,16 +130,33 @@ interface RouteRecord {
 }
 ```
 
-## Specificity scoring
+## Specificity ordering
 
-| Segment kind       | Points |
-| ------------------ | ------ |
-| `static` (literal) | 3      |
-| `param` (`{name}`) | 2      |
-| `wildcard` (`*`)   | 1      |
-| `catchall` (`/*`)  | 0      |
+Routes are compared segment by segment, left to right, and the first segment
+that differs decides:
 
-Sum of segment scores = route rank. Higher rank wins when multiple routes match a path.
+| Segment kind       | Order   |
+| ------------------ | ------- |
+| `static` (literal) | highest |
+| `param` (`{name}`) |         |
+| `wildcard` (`*`)   |         |
+| end of route       |         |
+| splat (`{*name}`)  | lowest  |
+
+The bare catch-all `/*` always sorts last. "End of route" only meets a splat at
+the same position for routes that match the same URL, so `/docs` beats
+`/docs/{*rest}` for `/docs`, while `/docs/{*rest}` beats `/{lang}/{page}` for
+`/docs/intro` because its first segment is static.
+
+`compareRouteSpecificity()` implements this order and is what the record list,
+flat route tables (SSR) and manifest records are sorted by, so SPA, SSR and SSG
+all pick the same route. `rank` encodes the same order as a number (higher =
+more specific, `/*` is `-1`) for inspection only.
+
+Static segments are compared against decoded URL segments, so `/café`, `/a b`
+and `/@team` match `/caf%C3%A9`, `/a%20b` and `/%40team`. Malformed encodings
+are compared as written and never throw. An encoded slash (`%2F`) stays inside
+its segment.
 
 ## How each mode consumes the manifest
 
@@ -191,7 +208,7 @@ The SSG pipeline walks `RouteManifest.records`. Records with `options.entries` a
 ## Invariants
 
 - Route records are always produced in **declaration order** (insertion order within scope).
-- Equal-rank routes are resolved by insertion order (first declared wins).
+- Routes with equal specificity are resolved by insertion order (first declared wins).
 - The internal route-state reset clears the flat routes, records, namespace set, auth defaults,
   registration stacks, lazy import tracking, and registration lock.
 - Registration is locked after `createSPA` / `hydrateSPA` in production (not in tests).

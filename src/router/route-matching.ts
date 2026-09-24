@@ -8,7 +8,7 @@ import type {
 import { normalizeRouteBasePath, removeRouteBasePath } from './base-path';
 import { deepFreeze, parseLocation } from './route-context';
 import {
-  computeRank,
+  compareRouteSpecificity,
   matchSegments,
   parseSegments,
   splitPathSegments,
@@ -17,7 +17,6 @@ import type { InternalRoute, InternalRouteRecord } from './internal-types';
 import { getRouteRecords, isRouteStoreRoutes } from './store';
 
 const routeSegsCache = new WeakMap<Route, ReturnType<typeof parseSegments>>();
-const routeRankCache = new WeakMap<Route, number>();
 const sortedListCache = new WeakMap<
   ReadonlyArray<Route>,
   ReadonlyArray<Route>
@@ -32,21 +31,15 @@ function cachedSegs(route: Route): ReturnType<typeof parseSegments> {
   return segments;
 }
 
-function cachedRank(route: Route): number {
-  let rank = routeRankCache.get(route);
-  if (rank === undefined) {
-    rank = computeRank(cachedSegs(route));
-    routeRankCache.set(route, rank);
-  }
-  return rank;
-}
-
 function cachedSortedList(
   routeList: ReadonlyArray<Route>
 ): ReadonlyArray<Route> {
   let sorted = sortedListCache.get(routeList);
   if (!sorted) {
-    sorted = [...routeList].sort((a, b) => cachedRank(b) - cachedRank(a));
+    // Array#sort is stable, so declaration order breaks specificity ties.
+    sorted = [...routeList].sort((a, b) =>
+      compareRouteSpecificity(cachedSegs(a), cachedSegs(b))
+    );
     sortedListCache.set(routeList, sorted);
   }
   return sorted;
@@ -110,31 +103,17 @@ function findBestResolvedRouteFromRoutes(
       : pathname;
   const urlParts = splitPathSegments(normalized);
 
-  const sorted = cachedSortedList(routeList);
-  let bestRoute: Route | null = null;
-  let bestParams: Record<string, string> = {};
-  let bestRank = -Infinity;
-
-  for (const route of sorted) {
+  // Sorted most specific first, so the first match is the best match.
+  for (const route of cachedSortedList(routeList)) {
     const internalRoute = route as InternalRoute;
     if (internalRoute.fallbackPrefix) {
       continue;
     }
 
-    const rank = cachedRank(route);
-    if (rank < bestRank) break;
-    if (bestRoute !== null && rank === bestRank) continue;
-
     const params = matchSegments(urlParts, cachedSegs(route));
     if (params !== null) {
-      bestRoute = route;
-      bestParams = params;
-      bestRank = rank;
+      return { route, params };
     }
-  }
-
-  if (bestRoute !== null) {
-    return { route: bestRoute, params: bestParams };
   }
 
   let bestFallback: InternalRoute | null = null;

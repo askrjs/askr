@@ -318,7 +318,14 @@ Path syntax rules:
 - Single-segment wildcard: `/files/*`
 - Catch-all fallback: `/*`
 
-Specificity order: static > param > wildcard > catch-all.
+Specificity order: static > param > wildcard > named splat > catch-all,
+compared segment by segment: the first segment where two routes differ decides.
+For `/docs/intro`, `/docs/{*rest}` beats `/{lang}/{page}` because its first
+segment is static; declaration order breaks exact ties.
+
+Static segments match the decoded URL, so `route('/café', ...)` and
+`route('/a b', ...)` match `/caf%C3%A9` and `/a%20b`. Malformed percent
+encodings are compared as written.
 
 Auth requirements, auth resolvers, access policies, and redirect path resolvers
 may return native promises or compatible promise-like values. Decisions are
