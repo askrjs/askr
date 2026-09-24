@@ -145,6 +145,11 @@ const html = renderToStringSync(Page, undefined, {
 
 Resource keys are assigned in render order (`r:0`, `r:1`, ...).
 
+When the client hydrates with the same data, the preloaded value seeds the
+resource: it is not pending and its loader does not run. Later re-renders keep
+that value while `deps` are unchanged; a `deps` change or `refresh()` fetches as
+usual.
+
 ## Combining resources with `derive()`
 
 A resource snapshot is not a `ReadableSource`. Reading `user.value` inside

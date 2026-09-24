@@ -414,6 +414,106 @@ describe('hydrated resource search app flow', () => {
     expect(container.textContent).not.toContain('Ada Lovelace');
   });
 
+  it('should keep a hydrated resource value across re-renders with unchanged deps', async () => {
+    const starts: string[] = [];
+    const seen: string[] = [];
+
+    function ProfilePage() {
+      const clicks = state(0);
+      const profile = resource<string>(() => {
+        starts.push('loader');
+        return 'Client';
+      }, ['const']);
+      seen.push(`${profile.value}|pending=${profile.pending}`);
+
+      return (
+        <main>
+          <p role="status">
+            {profile.pending ? 'Loading...' : (profile.value ?? 'Empty')}
+          </p>
+          <button type="button" onClick={() => clicks.set(clicks() + 1)}>
+            Clicked {clicks()}
+          </button>
+        </main>
+      );
+    }
+
+    const registry = routeRegistryFromTable([
+      { path: '/', handler: ProfilePage },
+    ]);
+    container.innerHTML = renderToString({
+      url: '/',
+      registry,
+      data: { 'r:0': 'SSR' },
+    });
+    const startsAfterServer = starts.length;
+
+    await hydrateSPA({ root: container, registry });
+    await settleAsyncWork();
+    seen.length = 0;
+
+    container.querySelector('button')!.click();
+    flushScheduler();
+    await settleAsyncWork();
+
+    expect(container.querySelector('button')?.textContent).toBe('Clicked 1');
+    expect(seen).toEqual(['SSR|pending=false']);
+    expect(container.querySelector('[role="status"]')?.textContent).toBe('SSR');
+    expect(starts.length).toBe(startsAfterServer);
+  });
+
+  it('should refetch a hydrated resource on refresh()', async () => {
+    const starts: string[] = [];
+    const request = createControlledDeferred<string>();
+
+    function ProfilePage() {
+      const profile = resource<string>(() => {
+        starts.push('loader');
+        return request.promise;
+      }, ['const']);
+
+      return (
+        <main>
+          <p role="status">
+            {profile.pending ? 'Loading...' : (profile.value ?? 'Empty')}
+          </p>
+          <button type="button" onClick={() => profile.refresh()}>
+            Refresh
+          </button>
+        </main>
+      );
+    }
+
+    const registry = routeRegistryFromTable([
+      { path: '/', handler: ProfilePage },
+    ]);
+    container.innerHTML = renderToString({
+      url: '/',
+      registry,
+      data: { 'r:0': 'SSR' },
+    });
+
+    await hydrateSPA({ root: container, registry });
+    await settleAsyncWork();
+    expect(starts).toEqual([]);
+
+    container.querySelector('button')!.click();
+    flushScheduler();
+
+    expect(starts).toEqual(['loader']);
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      'Loading...'
+    );
+
+    request.resolve('Fresh');
+    await settleAsyncWork();
+
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      'Fresh'
+    );
+    expect(starts).toEqual(['loader']);
+  });
+
   it.each([
     {
       label: 'a direct snapshot conditional',

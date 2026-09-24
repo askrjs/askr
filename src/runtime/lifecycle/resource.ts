@@ -133,36 +133,18 @@ export function resource<T>(
     : null;
 
   // A concrete preloaded value is authoritative even if stale framework
-  // metadata also contains a verification snapshot for the same key.
-  if (
+  // metadata also contains a verification snapshot for the same key. It seeds
+  // the cell below so later renders, which no longer see the hydration data,
+  // keep the value instead of resetting to pending and refetching.
+  const preloaded =
     renderData &&
     hasPreloadedResourceData &&
     renderKey &&
     renderKey in renderData
-  ) {
-    const val = renderData[renderKey] as T;
+      ? { value: renderData[renderKey] as T, pending: false }
+      : null;
 
-    const holder = state<{
-      cell?: ResourceCell<T>;
-      snapshot: ResourceResult<T>;
-    }>({
-      cell: undefined,
-      snapshot: brandSnapshotSource({
-        value: val,
-        pending: false,
-        error: null,
-        refresh: () => {},
-      }) as ResourceResult<T>,
-    });
-
-    const h = holder();
-    h.snapshot.value = val;
-    h.snapshot.pending = false;
-    h.snapshot.error = null;
-    return h.snapshot;
-  }
-
-  if (isHydrationVerificationRender() && verificationSnapshot) {
+  if (!preloaded && isHydrationVerificationRender() && verificationSnapshot) {
     const result = hydrationVerificationSnapshot<T>();
     result.value = verificationSnapshot.value as T;
     result.pending = verificationSnapshot.pending;
@@ -172,6 +154,7 @@ export function resource<T>(
   // During actual client hydration, only a server-recorded verification
   // snapshot may identify an intentionally browser-only missing entry.
   if (
+    !preloaded &&
     renderData &&
     hasPreloadedResourceData &&
     renderKey &&
@@ -181,17 +164,23 @@ export function resource<T>(
   }
 
   const ssrRenderKey = inst.ssr ? renderKey : null;
-  const clientHydrationSnapshot = inst.ssr ? null : verificationSnapshot;
+  let seed: { value: T; pending: boolean } | null = null;
+  if (preloaded) {
+    seed = preloaded;
+  } else if (!inst.ssr && verificationSnapshot) {
+    seed = {
+      value: verificationSnapshot.value as T,
+      pending: verificationSnapshot.pending,
+    };
+  }
 
   // Persist a holder so the snapshot identity is stable across renders.
   const holder = state<{ cell?: ResourceCell<T>; snapshot: ResourceResult<T> }>(
     {
       cell: undefined,
       snapshot: brandSnapshotSource({
-        value: clientHydrationSnapshot
-          ? (clientHydrationSnapshot.value as T)
-          : null,
-        pending: clientHydrationSnapshot?.pending ?? true,
+        value: seed ? seed.value : null,
+        pending: seed?.pending ?? true,
         error: null,
         refresh: () => {},
       }) as ResourceResult<T>,
@@ -204,11 +193,11 @@ export function resource<T>(
   if (!h.cell) {
     const frame = getCurrentContextFrame();
     const cell = new ResourceCell<T>(fn, deps, frame);
-    if (clientHydrationSnapshot) {
-      cell.value = clientHydrationSnapshot.value as T;
-      cell.pending = clientHydrationSnapshot.pending;
-      cell.snapshot.value = clientHydrationSnapshot.value as T;
-      cell.snapshot.pending = clientHydrationSnapshot.pending;
+    if (seed) {
+      cell.value = seed.value;
+      cell.pending = seed.pending;
+      cell.snapshot.value = seed.value;
+      cell.snapshot.pending = seed.pending;
     }
     // Attach debug label (component name) for richer logs
     cell.ownerName = inst.fn?.name || '<anonymous>';
@@ -235,7 +224,9 @@ export function resource<T>(
 
     // Render invariant: do NOT start async work during render on the client.
     // SSR remains strict/synchronous and must throw immediately if async is encountered.
-    if (inst.ssr) {
+    // A preloaded value is already resolved, so neither side runs the loader
+    // here; refresh() and later deps changes fetch on demand.
+    if (!preloaded && inst.ssr) {
       // SSR: must run synchronously so missing data throws during render
       cell.start(true, false);
       if (!cell.pending) {
@@ -250,7 +241,7 @@ export function resource<T>(
           pending: cell.pending,
         });
       }
-    } else {
+    } else if (!preloaded) {
       // Client loaders belong to the successful render transaction. A post
       // scheduler task can outlive a failed render and start work for DOM that
       // was rolled back; commit operations are discarded with that render.
