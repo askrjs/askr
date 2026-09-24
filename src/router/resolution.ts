@@ -381,7 +381,7 @@ export function resolveRouteRequest(
           }
         : result;
     const finalize = (authContext: AuthContext) => {
-      if (!signal.aborted) setCurrentAuth(authContext);
+      if (!signal.aborted) setCurrentAuth(authContext, mode);
       const result = resolveMatchedRoute(
         match.record,
         match.params,

@@ -16,6 +16,21 @@ import {
 
 const DEFERRED_PAYLOAD = '__askr_deferred__';
 
+/** Client-visible reason for a rejected deferred value that did not opt in to exposure. */
+export const REDACTED_DEFERRED_ERROR = 'Deferred value rejected.';
+
+/**
+ * Rejection reasons reach the page only when the error opts in with
+ * `expose: true`. Anything else can carry server internals (connection
+ * strings, hosts, SQL) into public HTML.
+ */
+function exposedDeferredError(error: unknown): string {
+  return error instanceof Error &&
+    (error as Error & { expose?: unknown }).expose === true
+    ? error.message
+    : REDACTED_DEFERRED_ERROR;
+}
+
 function hydrationReplacer(_key: string, value: unknown): unknown {
   if (!isDeferred(value)) return value;
   if (value.state === 'fulfilled') {
@@ -24,10 +39,7 @@ function hydrationReplacer(_key: string, value: unknown): unknown {
   if (value.state === 'rejected') {
     return {
       [DEFERRED_PAYLOAD]: 'rejected',
-      error:
-        value.error instanceof Error
-          ? value.error.message
-          : String(value.error),
+      error: exposedDeferredError(value.error),
     };
   }
   return { [DEFERRED_PAYLOAD]: 'pending' };

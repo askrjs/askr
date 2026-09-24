@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- fix(router): `currentAuth()` no longer falls back to the process-wide client
+  identity during server rendering. A server render without request auth now
+  sees an anonymous identity, and server-mode route resolution no longer writes
+  the client identity, so one request cannot observe another request's user.
+- fix(ssr): rejected `defer()` values no longer serialize the server error
+  message into the hydration payload. The client receives a generic reason
+  unless the error sets `expose: true`.
+- fix(renderer,ssr): drop `javascript:` and `vbscript:` URLs from `src` and
+  `data` attributes (for example `<iframe src>` and `<object data>`) on both
+  client and server. `data:`, `blob:` and custom-scheme resource URLs are
+  unchanged.
+
 ## 0.3.1 — 2026-09-12
 
 - fix(boot): move the SSR style registry carrier out of the hydration root

@@ -279,6 +279,19 @@ objects to transport objects in `dehydrate`; omit credentials, tokens, private
 records, and server-only helpers there rather than relying on `JSON.stringify`
 to drop them.
 
+A rejected `defer()` value crosses to the client with a generic reason
+(`"Deferred value rejected."`), not the server error's message, so connection
+strings and other server detail never reach the page. The server-side
+`rejected` render still receives the original error. To send a message the
+user should see, reject with an `Error` that sets `expose: true`:
+
+```ts
+throw Object.assign(new Error('Report is still generating.'), { expose: true });
+```
+
+If `rejected` renders the error text, only exposed errors hydrate with the same
+text the server rendered.
+
 ```tsx
 const reportRoute = route('/report', ReportPage, {
   loader: () => ({ summary: defer(loadSummary()) }),
@@ -312,8 +325,11 @@ may return native promises or compatible promise-like values. Decisions are
 awaited in declaration order. During client navigation, an auth result that
 settles after its request was aborted by a newer navigation is discarded, so
 `currentAuth()` continues to describe the navigation that actually committed.
-During server rendering it is scoped to the request render context, including
-deferred streaming boundaries, so concurrent requests cannot replace it.
+During server rendering it reads only the request render context, including
+deferred streaming boundaries, so concurrent requests cannot replace it. A
+server render without request auth, such as `renderToString(Component)`, sees
+an anonymous identity; server-side route resolution never updates the
+browser-wide identity.
 
 ## `fallback(Component)`
 
