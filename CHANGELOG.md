@@ -10,6 +10,10 @@
   table, base path and params. Previously the streamed boundary saw the root
   path with empty params, so `currentRoute()` and `Link` produced the wrong HTML
   and hydration reported a markup mismatch.
+- fix(data): SSR `prefetchQuery()` no longer throws a `TypeError` in
+  development when a query has no registered server handler. The
+  skipped-preload warning is tracked per runtime outside the frozen
+  `DataRuntime`, so it logs once per query key and resolves `false` as intended.
 - fix(router): `currentAuth()` no longer falls back to the process-wide client
   identity during server rendering. A server render without request auth now
   sees an anonymous identity, and server-mode route resolution no longer writes
