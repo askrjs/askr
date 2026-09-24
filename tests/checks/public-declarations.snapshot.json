@@ -135,7 +135,7 @@
         "interface QueryCollectionOptions<TInput, TResult extends {}, TKey extends QueryCollectionKey = string> {\n    readonly query: QueryDefinition<TInput, TResult>;\n    readonly inputs: () => readonly TInput[];\n    readonly key: (input: TInput) => TKey;\n    readonly concurrency?: number;\n    readonly runtime?: DataRuntime;\n}"
       ],
       "QueryDefinition": [
-        "interface QueryDefinition<TInput, TResult extends {}> {\n    readonly key: (input: TInput) => string;\n    readonly fetch: (context: TInput & {\n        signal: AbortSignal;\n    }) => Promise<TResult>;\n    readonly isConsistent?: (data: TResult) => boolean;\n    readonly reconcile?: (data: TResult, context: {\n        key: string;\n    }) => Promise<boolean> | boolean;\n}"
+        "interface QueryDefinition<TInput, TResult extends {}> {\n    readonly key: (input: TInput) => string;\n    readonly fetch: (input: TInput, context: {\n        signal: AbortSignal;\n    }) => Promise<TResult>;\n    readonly isConsistent?: (data: TResult) => boolean;\n    readonly reconcile?: (data: TResult, context: {\n        key: string;\n    }) => Promise<boolean> | boolean;\n}"
       ],
       "QueryPrefetchContext": [
         "interface QueryPrefetchContext {\n    readonly runtime: DataRuntime;\n    readonly request?: Request;\n    readonly signal: AbortSignal;\n    readonly mode: \"ssr\" | \"spa\";\n    prefetch<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>, input: TInput): Promise<boolean>;\n}"
@@ -637,7 +637,7 @@
         "type QueryConsistency = \"fresh\" | \"stale\" | \"refreshing\" | \"pending-write\";"
       ],
       "QueryDefinition": [
-        "interface QueryDefinition<TInput, TResult extends {}> {\n    readonly key: (input: TInput) => string;\n    readonly fetch: (context: TInput & {\n        signal: AbortSignal;\n    }) => Promise<TResult>;\n    readonly isConsistent?: (data: TResult) => boolean;\n    readonly reconcile?: (data: TResult, context: {\n        key: string;\n    }) => Promise<boolean> | boolean;\n}"
+        "interface QueryDefinition<TInput, TResult extends {}> {\n    readonly key: (input: TInput) => string;\n    readonly fetch: (input: TInput, context: {\n        signal: AbortSignal;\n    }) => Promise<TResult>;\n    readonly isConsistent?: (data: TResult) => boolean;\n    readonly reconcile?: (data: TResult, context: {\n        key: string;\n    }) => Promise<boolean> | boolean;\n}"
       ],
       "QueryKeyPart": [
         "type QueryKeyPart = string | number | boolean | null | undefined | readonly QueryKeyPart[] | {\n    readonly [key: string]: QueryKeyPart;\n};"
@@ -2182,7 +2182,7 @@
       "type QueryControls = {\n    refresh(): Promise<void>;\n};"
     ],
     "QueryDefinition": [
-      "interface QueryDefinition<TInput, TResult extends {}> {\n    readonly key: (input: TInput) => string;\n    readonly fetch: (context: TInput & {\n        signal: AbortSignal;\n    }) => Promise<TResult>;\n    readonly isConsistent?: (data: TResult) => boolean;\n    readonly reconcile?: (data: TResult, context: {\n        key: string;\n    }) => Promise<boolean> | boolean;\n}"
+      "interface QueryDefinition<TInput, TResult extends {}> {\n    readonly key: (input: TInput) => string;\n    readonly fetch: (input: TInput, context: {\n        signal: AbortSignal;\n    }) => Promise<TResult>;\n    readonly isConsistent?: (data: TResult) => boolean;\n    readonly reconcile?: (data: TResult, context: {\n        key: string;\n    }) => Promise<boolean> | boolean;\n}"
     ],
     "QueryFresh": [
       "type QueryFresh<T> = {\n    data: T;\n    error: null;\n    loading: false;\n    refreshing: false;\n    stale: false;\n    consistency: \"fresh\";\n    staleReason: null;\n};"

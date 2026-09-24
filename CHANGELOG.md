@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- breaking(data): `defineQuery()` fetchers now receive the input and the abort
+  signal as separate arguments, `fetch(input, { signal })`, instead of one
+  merged `{ ...input, signal }` object. The merged shape dropped primitive
+  inputs (a `QueryDefinition<number, ...>` fetcher only saw `{ signal }`) and
+  let the abort signal overwrite an input field named `signal`. Rewrite
+  `fetch: ({ id, signal }) => ...` as `fetch: ({ id }, { signal }) => ...`.
+  Inline `createQuery({ key, fetch })` fetchers are unchanged.
 - fix(resources): a resource hydrated from preloaded data keeps its value on
   later re-renders instead of resetting to pending and refetching. The preloaded
   value now seeds the resource, so `refresh()` and `deps` changes also work

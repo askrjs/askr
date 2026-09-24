@@ -111,7 +111,7 @@ export function createQueryPrefetchContext(
         }
         value = handler
           ? await handler({ input, request: options.request, signal })
-          : await query.fetch({ ...input, signal });
+          : await query.fetch(input, { signal });
         if (signal.aborted) return false;
         runtime.queryData.set(key, value);
         return true;

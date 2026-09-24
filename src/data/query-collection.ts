@@ -79,7 +79,7 @@ function createCellOptions<TInput, TResult extends {}>(
     key: queryKey,
     definitionIdentity: query,
     fetch: ({ signal }: { signal: AbortSignal }) =>
-      query.fetch({ ...input, signal }),
+      query.fetch(input, { signal }),
     isConsistent: query.isConsistent,
     reconcile: query.reconcile,
     initialData: runtimeState.queryData.get(queryKey) as TResult | undefined,
