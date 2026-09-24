@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- fix(resources): a resource hydrated from preloaded data keeps its value on
+  later re-renders instead of resetting to pending and refetching. The preloaded
+  value now seeds the resource, so `refresh()` and `deps` changes also work
+  after hydration.
 - fix(router): `currentAuth()` no longer falls back to the process-wide client
   identity during server rendering. A server render without request auth now
   sees an anonymous identity, and server-mode route resolution no longer writes
