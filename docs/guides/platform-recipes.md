@@ -172,6 +172,9 @@ async function createPayload() {
 For an SSR request, pass `mode: 'ssr'` and the matching
 `defineServerQueries()` registry, as the complete example does. SSG can run the
 same prefetch for each generated entry and embed that entry's serialized data.
+In SSR mode a query with no registered server handler is skipped:
+`prefetchQuery()` resolves `false`, and outside production the runtime logs one
+`[Askr] skipped SSR query preload: <key>` warning per query key and data runtime.
 
 Lifecycle and cleanup:
 

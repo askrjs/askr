@@ -57,6 +57,10 @@ export function defineQuery<TInput, TResult extends {}>(
   return Object.freeze({ ...definition });
 }
 
+// Query keys already reported as skipped SSR preloads, per runtime. Runtimes
+// are frozen, so the diagnostic state lives beside them rather than on them.
+const skippedPrefetchDiagnostics = new WeakMap<DataRuntime, Set<string>>();
+
 /**
  * Create a {@link QueryPrefetchContext} for prefetching query data ahead of
  * render, e.g. during SSR route resolution.
@@ -93,11 +97,11 @@ export function createQueryPrefetchContext(
             process.env.NODE_ENV !== 'production'
           ) {
             // One diagnostic per query/runtime, intentionally quiet for repeats.
-            const diagnostics =
-              (runtime as DataRuntime & { __skipped?: Set<string> })
-                .__skipped ?? new Set<string>();
-            (runtime as DataRuntime & { __skipped?: Set<string> }).__skipped =
-              diagnostics;
+            let diagnostics = skippedPrefetchDiagnostics.get(runtime);
+            if (!diagnostics) {
+              diagnostics = new Set<string>();
+              skippedPrefetchDiagnostics.set(runtime, diagnostics);
+            }
             if (!diagnostics.has(key)) {
               diagnostics.add(key);
               console.warn(`[Askr] skipped SSR query preload: ${key}`);
