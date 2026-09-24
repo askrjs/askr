@@ -11,6 +11,7 @@ import {
   renderRouteRequest,
   renderRouteRequestToString,
 } from '../../../src/ssr';
+import { REDACTED_DEFERRED_ERROR } from '../../../src/ssr/hydration-data';
 import type { AuthContext } from '@askrjs/auth';
 import {
   createTestContainer,
@@ -168,6 +169,42 @@ describe('deferred route streaming', () => {
     expect(html).toContain('"__askr_deferred__":"rejected"');
   });
 
+  it('should keep rejection reasons out of the hydration payload unless exposed', async () => {
+    const renderPayload = async (error: Error) => {
+      let reject!: (error: Error) => void;
+      const pending = new Promise<string>((_resolve, rejectPromise) => {
+        reject = rejectPromise;
+      });
+      const registry = createRouteRegistry(() => {
+        route('/', deferredPage, {
+          loader: () => ({ message: defer(pending) }),
+        });
+      });
+      const result = await renderRouteRequest({ url: '/', registry });
+      if (result.kind !== 'render' || !result.stream)
+        throw new Error('expected stream');
+      reject(error);
+      const html = await new Response(result.stream).text();
+      const payload =
+        /<script type="application\/json" data-askr-render-data="true">(.*?)<\/script>/s.exec(
+          html
+        )?.[1];
+      if (!payload) throw new Error('expected hydration payload');
+      return payload;
+    };
+
+    const hidden = await renderPayload(
+      new Error('DB password=hunter2 at 10.0.0.5')
+    );
+    expect(hidden).not.toContain('hunter2');
+    expect(hidden).toContain(`"error":"${REDACTED_DEFERRED_ERROR}"`);
+
+    const exposed = await renderPayload(
+      Object.assign(new Error('Try again later'), { expose: true })
+    );
+    expect(exposed).toContain('"error":"Try again later"');
+  });
+
   it('should close cleanly when the request is aborted', async () => {
     const pending = new Promise<string>(() => undefined);
     const controller = new AbortController();
@@ -287,6 +324,39 @@ describe('deferred route streaming', () => {
     }
   });
 
+  it('should hydrate an unexposed rejection with the redacted reason', async () => {
+    const { container, cleanup } = createTestContainer();
+    let reject!: (error: Error) => void;
+    const pending = new Promise<string>((_resolve, rejectPromise) => {
+      reject = rejectPromise;
+    });
+    const registry = createRouteRegistry(() => {
+      route('/', deferredPage, {
+        loader: () => ({ message: defer(pending) }),
+      });
+    });
+
+    try {
+      const result = await renderRouteRequest({ url: '/', registry });
+      if (result.kind !== 'render' || !result.stream)
+        throw new Error('expected stream');
+      reject(new Error('internal detail'));
+      container.innerHTML = await new Response(result.stream).text();
+
+      await hydrateSPA({
+        root: container,
+        registry,
+        hydrate: { verifyMarkup: false },
+      });
+
+      expect(container.querySelector('#rejected')?.textContent).toBe(
+        REDACTED_DEFERRED_ERROR
+      );
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should hydrate a rejected boundary without rerunning the loader', async () => {
     const { container, cleanup } = createTestContainer();
     let loads = 0;
@@ -307,7 +377,7 @@ describe('deferred route streaming', () => {
       const result = await renderRouteRequest({ url: '/', registry });
       if (result.kind !== 'render' || !result.stream)
         throw new Error('expected stream');
-      reject(new Error('adopted failure'));
+      reject(Object.assign(new Error('adopted failure'), { expose: true }));
       const streamedHtml = await new Response(result.stream).text();
       expect(streamedHtml.match(/data-askr-render-data/g)).toHaveLength(1);
       container.innerHTML = streamedHtml;
