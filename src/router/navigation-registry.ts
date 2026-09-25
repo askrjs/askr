@@ -84,6 +84,17 @@ export function isCurrentOrigin(target: URL): boolean {
  * string that the URL parser resolves elsewhere (`/\\evil.example`,
  * `//evil.example`) would otherwise turn an app path into an open redirect.
  */
+/**
+ * The absolute URL of a root-relative href on the current origin. Browsers
+ * read a root-relative `//host/x` as another host, so history writes and
+ * document loads never receive the root-relative form.
+ */
+export function toDocumentUrl(href: string): string {
+  const origin =
+    typeof window === 'undefined' ? undefined : window.location.origin;
+  return origin && origin !== 'null' ? `${origin}${href}` : href;
+}
+
 export function parseNavigationTarget(path: string): URL {
   return resolveNavigationUrl(path, parseTargetUrl('').href);
 }

@@ -153,7 +153,13 @@ a root-relative path always gains the base: under `/website`,
 `navigate('/website/news')` goes to `/website/website/news`. Development builds
 warn when a string equals the base or starts with it followed by `/`. Typed
 destinations from `to()` already carry the public URL, and all of these APIs
-accept them without prefixing again. To leave the mount for another app on the
+accept them without prefixing again. A redirect decision built from a
+destination (`redirect(to(route, params))`) records its public href under an
+own enumerable symbol key, so a spread copy such as
+`{ ...redirect(to(route, params)), status: 303 }` keeps it. The key shows up
+in `toEqual()` comparisons and `util.inspect()` output. `structuredClone()`
+and `JSON` drop it, and so does replacing `to`; the decision then counts as
+logical again and gains the base. To leave the mount for another app on the
 same origin, pass an absolute URL such as
 `` `${location.origin}/marketing` ``. The same registry must be used for server rendering
 and hydration. Use `basePath: ''` or omit it for an origin-root deployment.
@@ -403,7 +409,10 @@ load the same way, including a redirect taken while the app first loads. Only a
 target written with an explicit `http:` or `https:` scheme may leave the
 origin. A path-like string that the URL parser resolves to another host, such
 as `//evil.example`, `/\evil.example` or `\\evil.example`, throws a
-`TypeError`. The same rule applies to redirect decisions on the server
+`TypeError`. So does a same-origin path whose dot segments collapse to a
+leading `//` (`/.//evil.example`, `/%2e//evil.example`, `/x/..//evil.example`),
+because its root-relative form names another host. History entries and
+document loads always receive the absolute URL. The same rule applies to redirect decisions on the server
 (`resolveRouteRequest()`, `renderRouteRequest()`, `SSRAccessDecisionError`),
 to `loginPath`/`authenticatedRedirectTo`, and to `<Link href>`, which throws at
 render.
@@ -411,13 +420,14 @@ render.
 `navigate()` and `redirect()` are redirect sinks, and so is a server that copies
 `decision.to` into a `Location` header. Askr refuses path-like cross-origin
 targets, but an explicit `https://evil.example` is still followed. Validate
-untrusted input, such as a `?next=` query value, by parsing it and comparing
-origins, not by checking for a leading `/`:
+untrusted input, such as a `?next=` query value, by parsing it: a leading
+single `/` is not enough. Compare the parsed origin with your own, and reject a
+parsed pathname that starts with `//`, since dot segments can produce one:
 
 ```ts
 function safeNext(value: string | null): string {
   const url = new URL(value ?? '/', location.origin);
-  return url.origin === location.origin
+  return url.origin === location.origin && !url.pathname.startsWith('//')
     ? `${url.pathname}${url.search}${url.hash}`
     : '/';
 }

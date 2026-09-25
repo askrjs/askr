@@ -314,7 +314,10 @@ describe('route navigation (ROUTER)', () => {
         String(call[0]).includes('No route found')
       );
       expect(sawMissingRouteWarn).toBe(true);
-      expect(loadDocument).toHaveBeenCalledWith('/nonexistent', 'push');
+      expect(loadDocument).toHaveBeenCalledWith(
+        `${window.location.origin}/nonexistent`,
+        'push'
+      );
       warnSpy.mockRestore();
     });
 
@@ -427,7 +430,7 @@ describe('route navigation (ROUTER)', () => {
       expect(historyPushSpy).toHaveBeenCalledWith(
         expect.objectContaining({ path: '/page' }),
         '',
-        '/page'
+        `${window.location.origin}/page`
       );
 
       historyPushSpy.mockRestore();
@@ -447,7 +450,7 @@ describe('route navigation (ROUTER)', () => {
       expect(historyReplaceSpy).toHaveBeenCalledWith(
         expect.objectContaining({ path: '/page?tab=details' }),
         '',
-        '/page?tab=details'
+        `${window.location.origin}/page?tab=details`
       );
 
       historyReplaceSpy.mockRestore();

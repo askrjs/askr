@@ -20,17 +20,20 @@ const NAVIGATION_BASE = 'http://askr.invalid/';
  * written with an explicit `http:`/`https:` scheme may leave the base origin.
  * A path-like string that URL parsing resolves to another host
  * (`//evil.example`, `/\\evil.example`, `\\\\evil.example`) throws a
- * `TypeError`, so an app path can never become an open redirect. No window is
- * needed: the check holds for any base origin.
+ * `TypeError`, so an app path can never become an open redirect. So does a
+ * same-origin URL whose pathname starts with `//` (`/.//evil.example`,
+ * `/%2e//evil.example`): its root-relative form `//evil.example` would name
+ * another host. No window is needed: the check holds for any base origin.
  */
 export function resolveNavigationUrl(
   target: string,
   base: string = NAVIGATION_BASE
 ): URL {
   const url = new URL(target, base);
+  const sameOrigin = url.origin === new URL(base).origin;
   if (
-    url.origin !== new URL(base).origin &&
-    !EXPLICIT_HTTP_URL_RE.test(target)
+    (!sameOrigin && !EXPLICIT_HTTP_URL_RE.test(target)) ||
+    (sameOrigin && url.pathname.startsWith('//'))
   ) {
     throw new TypeError(
       `Navigation target ${JSON.stringify(target)} resolves to another origin without an explicit http: or https: scheme.`
@@ -58,7 +61,10 @@ export function formatNavigationUrl(
  * {@link isSafeHref}.
  */
 export function assertPathHrefStaysOnOrigin(value: string): void {
-  if (urlScheme(value) === undefined) resolveNavigationUrl(value);
+  const scheme = urlScheme(value);
+  if (scheme === undefined || scheme === 'http' || scheme === 'https') {
+    resolveNavigationUrl(value);
+  }
 }
 
 export function isSafeHref(value: string): boolean {

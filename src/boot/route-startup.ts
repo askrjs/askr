@@ -130,7 +130,7 @@ export async function resolveInitialRoute(
           askrIndex: readHistoryIndex(window.history.state),
         },
         '',
-        redirectHref
+        redirectTarget.href
       );
     }
     path = redirectTarget.pathname;

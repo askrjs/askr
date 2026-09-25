@@ -460,3 +460,91 @@ test('should refuse a path-like cross-origin redirect on first load', async () =
   expect(window.location.pathname).toBe('/private');
   expect(root.textContent).not.toContain('in-app evil page');
 });
+
+const DOT_SEGMENT_CROSS_ORIGIN = [
+  '/.//evil.example/x',
+  '/x/..//evil.example/x',
+  '/..//evil.example',
+  '/%2e//evil.example',
+  '/%2E%2E//evil.example',
+  '/./\\evil.example',
+];
+
+test.each(DOT_SEGMENT_CROSS_ORIGIN)(
+  'should refuse a navigate() target %j whose dot segments leave the origin',
+  async (target) => {
+    window.history.replaceState({}, '', '/home');
+    await createSPA({
+      root,
+      registry: createRouteRegistry(() => {
+        route('/home', () => <p>{'home page'}</p>);
+      }),
+    });
+
+    expect(() => navigate(target)).toThrow(TypeError);
+    await settle();
+
+    expect(documentLoads).toEqual([]);
+    expect(window.location.pathname).toBe('/home');
+    expect(root.textContent).toBe('home page');
+  }
+);
+
+test.each(DOT_SEGMENT_CROSS_ORIGIN)(
+  'should refuse to render a Link to %j whose dot segments leave the origin',
+  async (href) => {
+    window.history.replaceState({}, '', '/home');
+    await expect(
+      createSPA({
+        root,
+        registry: createRouteRegistry(() => {
+          route('/home', () => <Link href={href}>{'Evil'}</Link>);
+        }),
+      })
+    ).rejects.toThrow(TypeError);
+    expect(documentLoads).toEqual([]);
+  }
+);
+
+test('should refuse a first-load redirect whose dot segments leave the origin', async () => {
+  window.history.replaceState({}, '', '/private');
+  await expect(
+    createSPA({
+      root,
+      registry: createRouteRegistry(() => {
+        route('/private', () => <p>{'private page'}</p>, {
+          policies: [() => ({ kind: 'redirect', to: '/.//evil.example/x' })],
+        });
+      }),
+    })
+  ).rejects.toThrow(TypeError);
+  await settle();
+
+  expect(documentLoads).toEqual([]);
+  expect(window.location.pathname).toBe('/private');
+});
+
+test('should keep a Link click to an empty leading segment on the origin', async () => {
+  window.history.replaceState({}, '', '/home');
+  await createSPA({
+    root,
+    registry: createRouteRegistry(() => {
+      route('/home', () => <Link href="/a//b">{'Double slash'}</Link>);
+    }),
+  });
+
+  await page.getByRole('link', { name: 'Double slash' }).click();
+  await settle();
+
+  expect(documentLoads).toEqual([
+    { type: 'push', url: `${window.location.origin}/a//b` },
+  ]);
+});
+
+test.each(['java\nscript:alert(1)', ' javascript:alert(1)', 'jav\tascript:x'])(
+  'should reject control-character script scheme %j in navigate() and Link alike',
+  async (target) => {
+    expect(() => navigate(target)).toThrow(TypeError);
+    expect(() => Link({ href: target, children: 'x' })).toThrow(TypeError);
+  }
+);

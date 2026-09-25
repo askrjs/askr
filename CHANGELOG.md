@@ -19,7 +19,9 @@
   in server redirect decisions, for `loginPath` and at `<Link href>` render.
   A redirect to another origin during the first load is handed to the browser
   instead of rendering its path locally, and an absolute `loginPath` on
-  another origin keeps its origin when `next` is appended.
+  another origin keeps its origin when `next` is appended. Same-origin paths whose
+  dot segments collapse to a leading `//` (`/.//evil.example`) are refused
+  too, and history writes and document loads receive absolute URLs.
 - fix(renderer): props whose live state is not the attribute now set the DOM
   property. `<video muted>` sets `video.muted` (and keeps the attribute),
   `<input indeterminate>` sets `input.indeterminate` without an attribute, and

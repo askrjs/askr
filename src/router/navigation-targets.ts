@@ -27,6 +27,7 @@ import {
   parseNavigationTarget,
   parseTargetUrl,
   setCurrentRouteLocation,
+  toDocumentUrl,
   syncAppRegistrationLocation,
   syncRegisteredRouteSnapshot,
   type AppRegistration,
@@ -366,7 +367,7 @@ export function applyNavigationTargets(
       logger.warn(`No route found for path: ${path}`);
     }
     if (href !== getWindowHref()) {
-      loadDocument(href, getNavigationHistoryMode(options));
+      loadDocument(toDocumentUrl(href), getNavigationHistoryMode(options));
     }
     return;
   }
@@ -392,7 +393,7 @@ export function applyNavigationTargets(
           askrIndex: historyIndex,
         },
         '',
-        href
+        toDocumentUrl(href)
       );
       commitHistoryIndex(historyIndex);
     },

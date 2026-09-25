@@ -13,6 +13,9 @@ const PATH_LIKE_CROSS_ORIGIN = [
   '/\t/evil.example/x',
   '\\\\evil.example/x',
   ' //evil.example/x',
+  '/.//evil.example/x',
+  '/%2e//evil.example',
+  '/x/..//evil.example/x',
 ];
 
 describe('server redirect targets', () => {

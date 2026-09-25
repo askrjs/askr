@@ -230,7 +230,7 @@ describe('history integration (ROUTER)', () => {
       expect(pushStateSpy).toHaveBeenCalledWith(
         expect.objectContaining({ path: '/page1' }),
         '',
-        '/page1'
+        `${window.location.origin}/page1`
       );
 
       pushStateSpy.mockRestore();
@@ -829,7 +829,7 @@ describe('history integration (ROUTER)', () => {
       expect(pushStateSpy).toHaveBeenCalledWith(
         expect.objectContaining({ path: '/' }),
         '',
-        '/'
+        `${window.location.origin}/`
       );
 
       pushStateSpy.mockRestore();

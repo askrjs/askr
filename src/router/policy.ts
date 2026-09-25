@@ -15,7 +15,9 @@ import { addLogicalRouteBasePath } from './base-path';
 /**
  * Records the public href of a redirect built from `to()`. It is an own
  * enumerable symbol, so `{ ...redirect(to(route)), status: 303 }` keeps it;
- * it only applies while `to` still equals that href.
+ * it only applies while `to` still equals that href. Trade-off: the key is
+ * visible to `toEqual()` and `util.inspect()`, while `structuredClone()` and
+ * JSON drop it, so a cloned decision is treated as logical and re-prefixed.
  */
 const PUBLIC_REDIRECT_HREF = Symbol('askr.publicRedirectHref');
 
