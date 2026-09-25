@@ -14,6 +14,13 @@
   private fields, and the browser form tests wait on the
   pending render instead of wall-clock timing.
 
+- fix(ssr): `renderRouteRequest()` streams each deferred `Resolve` boundary as
+  soon as its value settles instead of awaiting boundaries one at a time in
+  declaration order, so a slow boundary no longer holds back faster ones.
+  Patches can arrive out of order; boundary ids stay deterministic. A `Resolve`
+  rendered inside a settled boundary's content now streams too (id `d:0.0`
+  under `d:0`) with the same request route state and auth, where its fallback
+  was previously never replaced.
 - fix(renderer): a failed render no longer leaves fine-grained bindings
   (function-valued props and children) stale. A binding whose function the
   render replaced kept the new value after the DOM rolled back, so later
