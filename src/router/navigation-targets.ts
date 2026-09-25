@@ -22,6 +22,7 @@ import {
   getCurrentHref,
   getCurrentPathname,
   getRegisteredAppsSnapshot,
+  getWindowHref,
   parseTargetUrl,
   setCurrentRouteLocation,
   syncAppRegistrationLocation,
@@ -43,9 +44,9 @@ import type { ComponentFunction } from '../common/component';
 import { registerCommitParticipant } from '../runtime/transactions/access';
 import { loadDocument, reloadDocument } from './document-navigation';
 import {
+  commitHistoryIndex,
   nextHistoryIndex,
-  returnToHistoryIndex,
-  setHistoryIndex,
+  returnToRenderedHistoryEntry,
 } from './history-index';
 
 /** Options for {@link navigate}. */
@@ -353,11 +354,15 @@ export function applyNavigationTargets(
   const matchedTargets = targets.filter((target) => target.resolved !== null);
   if (matchedTargets.length === 0) {
     // No registered app can render it (unmatched, or outside every basePath),
-    // so the browser must load it rather than the click doing nothing.
+    // so the browser must load it rather than the click doing nothing. The
+    // current URL is already loaded: reloading it could loop forever when
+    // unrouted code navigates on mount.
     if (isDevelopmentEnvironment()) {
       logger.warn(`No route found for path: ${path}`);
     }
-    loadDocument(href, getNavigationHistoryMode(options));
+    if (href !== getWindowHref()) {
+      loadDocument(href, getNavigationHistoryMode(options));
+    }
     return;
   }
 
@@ -384,7 +389,7 @@ export function applyNavigationTargets(
         '',
         href
       );
-      setHistoryIndex(historyIndex);
+      commitHistoryIndex(historyIndex);
     },
     () => {
       if (pathname !== previousPathname || parseTargetUrl(href).hash)
@@ -396,7 +401,7 @@ export function applyNavigationTargets(
 export function applyPopStateNavigationTargets(
   requestId: number,
   previousHref: string,
-  previousHistoryIndex: number | undefined,
+  historyIndex: number | undefined,
   pathname: string,
   href: string,
   state: unknown,
@@ -436,15 +441,16 @@ export function applyPopStateNavigationTargets(
     pathname,
     href,
     matchedTargets,
-    () => {},
+    () => commitHistoryIndex(historyIndex),
     () => applyHistoryScroll(href, state),
     () => {
       // A newer navigation owns history now.
       if (isStaleRouteRequest(requestId)) return;
-      // Traverse back to the departed entry rather than rewriting the entry
-      // the user landed on; if its position is unknown, the landed URL is
-      // the only truth left, so load it.
-      if (!returnToHistoryIndex(previousHistoryIndex)) reloadDocument();
+      // Traverse back to the entry whose page is still rendered, which may
+      // be several entries away when this traversal superseded a pending
+      // one, rather than rewriting the entry the user landed on. If either
+      // position is unknown, the landed URL is the only truth left: load it.
+      if (!returnToRenderedHistoryEntry()) reloadDocument();
     }
   );
 }

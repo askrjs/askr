@@ -32,11 +32,10 @@ import {
 } from './navigation-scroll';
 import { isRuntimeSchedulerExecuting } from '../runtime';
 import {
+  cancelHistoryReturn,
   consumeHistoryReturn,
-  getHistoryIndex,
   initializeHistoryIndex,
-  readHistoryIndex,
-  setHistoryIndex,
+  landOnHistoryEntry,
 } from './history-index';
 
 export { configureScrollRestoration } from './navigation-scroll';
@@ -84,6 +83,7 @@ export function navigate(path: string, options: NavigateOptions = {}): void {
   }
 
   prepareNavigationFocus();
+  cancelHistoryReturn();
 
   const targetPath = addRouteBasePath(path, getActiveRouteBasePath());
   const initialTarget = parseTargetUrl(targetPath);
@@ -169,18 +169,15 @@ function navigateWithRedirectState(
 }
 
 function handlePopState(event: PopStateEvent): void {
-  const historyIndex = readHistoryIndex(event.state);
   if (consumeHistoryReturn(event.state)) {
     // A failed traversal returning to the entry that is still rendered.
-    setHistoryIndex(historyIndex);
     syncRegisteredRouteSnapshot();
     return;
   }
   beginHistoryFocusRestoration();
   const request = beginRouteRequest();
   const previousHref = getCurrentHref();
-  const previousHistoryIndex = getHistoryIndex();
-  setHistoryIndex(historyIndex);
+  const historyIndex = landOnHistoryEntry(event.state);
   const pathname = window.location.pathname;
   const href = `${window.location.pathname}${window.location.search}${window.location.hash}`;
 
@@ -193,7 +190,7 @@ function handlePopState(event: PopStateEvent): void {
       applyPopStateNavigationTargets(
         request.id,
         previousHref,
-        previousHistoryIndex,
+        historyIndex,
         pathname,
         href,
         event.state,

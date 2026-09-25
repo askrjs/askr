@@ -40,9 +40,11 @@
   one outside the registry `basePath`, now loads the URL as a document, and
   Back/Forward to an unmatched entry reloads the page instead of leaving the old
   page mounted under the new URL. A `fallback()` route still renders in place.
-  A failed Back/Forward render now returns to the departed history entry with
-  `history.go()` instead of overwriting the entry the user landed on; Askr
-  stamps an `askrIndex` position into the history state it writes.
+  Navigating to the already-loaded URL with no route skips the load. A failed
+  Back/Forward render now returns with `history.go()` to the entry whose page
+  is still rendered instead of overwriting the entry the user landed on; Askr
+  stamps an `askrIndex` position into the history state it writes and reloads
+  when an entry written by other code makes positions unknown.
 - fix(resources): a resource hydrated from preloaded data keeps its value on
   later re-renders instead of resetting to pending and refetching. The preloaded
   value now seeds the resource, so `refresh()` and `deps` changes also work

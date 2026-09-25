@@ -8,6 +8,7 @@ import type {
 import { resolveRouteRequest } from '../router/route';
 import { reconcileRouteMeta, resolveRouteMeta } from '../router/metadata';
 import { getRouteRenderContext } from '../router/resolution';
+import { readHistoryIndex } from '../router/history-index';
 import type { ComponentFunction } from '../runtime';
 
 const MAX_INITIAL_ROUTE_REDIRECTS = 20;
@@ -91,7 +92,14 @@ export async function resolveInitialRoute(
 
     const redirectTarget = new URL(resolved.to, window.location.href);
     const redirectHref = `${redirectTarget.pathname}${redirectTarget.search}${redirectTarget.hash}`;
-    window.history.replaceState({ path: redirectHref }, '', redirectHref);
+    window.history.replaceState(
+      {
+        path: redirectHref,
+        askrIndex: readHistoryIndex(window.history.state),
+      },
+      '',
+      redirectHref
+    );
     path = redirectTarget.pathname;
     href = redirectHref;
   }

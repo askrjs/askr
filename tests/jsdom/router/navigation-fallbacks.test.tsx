@@ -119,6 +119,18 @@ describe('navigation the client router cannot render', () => {
     expect(loadDocument).toHaveBeenCalledWith('/legacy/report', 'replace');
   });
 
+  it('should not load the current URL again when no router can render it', () => {
+    window.history.replaceState({}, '', '/island?view=1');
+
+    // Unrouted code, such as an island, navigating on mount.
+    navigate('/island?view=1');
+
+    expect(loadDocument).not.toHaveBeenCalled();
+    expect(console.warn).toHaveBeenCalledWith(
+      expect.stringContaining('No route found')
+    );
+  });
+
   it('should render the fallback route for an unmatched Link target when one exists', async () => {
     window.history.replaceState({}, '', '/');
     await createSPA({

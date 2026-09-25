@@ -1,13 +1,14 @@
 /**
- * Position of the active entry in this document's session history.
+ * Positions in this document's session history.
  *
- * Askr stamps the index into every entry it writes so a failed back/forward
- * traversal can return the user to the entry they left with `history.go()`,
- * rather than rewriting the entry they landed on. The index is `undefined`
- * once the user reaches an entry Askr did not write, since its position is
- * then unknown.
+ * Askr stamps an index into every entry it writes. A failed back/forward
+ * traversal then returns with `history.go()` to the entry whose page is still
+ * rendered, instead of rewriting the entry the browser landed on. A position
+ * is `undefined` once it cannot be known, for example after other code pushed
+ * an entry; rollback then reloads rather than guess.
  */
-let currentHistoryIndex: number | undefined;
+let landedIndex: number | undefined;
+let renderedIndex: number | undefined;
 let pendingReturnIndex: number | undefined;
 let historyIndexInitialized = false;
 
@@ -17,18 +18,45 @@ export function readHistoryIndex(state: unknown): number | undefined {
   return typeof index === 'number' ? index : undefined;
 }
 
-export function getHistoryIndex(): number | undefined {
-  return currentHistoryIndex;
+function stampActiveEntry(state: unknown, index: number): void {
+  window.history.replaceState(
+    { ...(state && typeof state === 'object' ? state : {}), askrIndex: index },
+    '',
+    window.location.href
+  );
 }
 
-export function setHistoryIndex(index: number | undefined): void {
-  currentHistoryIndex = index;
-}
-
-/** The index an entry written with `mode` occupies. */
+/**
+ * The index an entry written with `mode` occupies. The active entry must still
+ * carry the index Askr last tracked; otherwise other code wrote an entry and
+ * positions are unknown from here on.
+ */
 export function nextHistoryIndex(mode: 'push' | 'replace'): number | undefined {
-  if (currentHistoryIndex === undefined) return undefined;
-  return mode === 'push' ? currentHistoryIndex + 1 : currentHistoryIndex;
+  if (readHistoryIndex(window.history.state) !== landedIndex) {
+    landedIndex = renderedIndex = undefined;
+  }
+  if (landedIndex === undefined) return undefined;
+  return mode === 'push' ? landedIndex + 1 : landedIndex;
+}
+
+/** Record that the entry at `index` is active and its page rendered. */
+export function commitHistoryIndex(index: number | undefined): void {
+  landedIndex = renderedIndex = index;
+}
+
+/**
+ * Record the entry a popstate landed on, before its page renders. An entry
+ * without an index was added by a fragment navigation from the entry the user
+ * was on, so it is stamped as the next position.
+ */
+export function landOnHistoryEntry(state: unknown): number | undefined {
+  let index = readHistoryIndex(state);
+  if (index === undefined && landedIndex !== undefined) {
+    index = landedIndex + 1;
+    stampActiveEntry(state, index);
+  }
+  landedIndex = index;
+  return index;
 }
 
 /**
@@ -40,7 +68,7 @@ export function initializeHistoryIndex(): void {
   const index = readHistoryIndex(state);
   if (index !== undefined) {
     historyIndexInitialized = true;
-    currentHistoryIndex = index;
+    commitHistoryIndex(index);
     return;
   }
   if (
@@ -49,41 +77,45 @@ export function initializeHistoryIndex(): void {
   )
     return;
   historyIndexInitialized = true;
-  currentHistoryIndex = 0;
-  window.history.replaceState(
-    { ...(state && typeof state === 'object' ? state : {}), askrIndex: 0 },
-    '',
-    window.location.href
-  );
+  commitHistoryIndex(0);
+  stampActiveEntry(state, 0);
 }
 
 /** @internal Forget tracked history positions, as a fresh document would. */
 export function resetHistoryIndex(): void {
-  currentHistoryIndex = undefined;
-  pendingReturnIndex = undefined;
+  landedIndex = renderedIndex = pendingReturnIndex = undefined;
   historyIndexInitialized = false;
 }
 
 /**
- * Traverse back to the entry at `index`. Returns false when either position
- * is unknown, leaving history untouched.
+ * Traverse back to the entry whose page is rendered. Returns false when either
+ * position is unknown, leaving history untouched.
  */
-export function returnToHistoryIndex(index: number | undefined): boolean {
-  if (index === undefined || currentHistoryIndex === undefined) return false;
-  const delta = index - currentHistoryIndex;
+export function returnToRenderedHistoryEntry(): boolean {
+  if (landedIndex === undefined || renderedIndex === undefined) return false;
+  const delta = renderedIndex - landedIndex;
   if (delta !== 0) {
-    pendingReturnIndex = index;
+    pendingReturnIndex = renderedIndex;
     window.history.go(delta);
   }
   return true;
 }
 
+/** A newer navigation owns history, so a pending return must not skip it. */
+export function cancelHistoryReturn(): void {
+  pendingReturnIndex = undefined;
+}
+
 /**
- * Whether this popstate completes a {@link returnToHistoryIndex} traversal,
- * whose destination is already rendered.
+ * Whether this popstate completes a {@link returnToRenderedHistoryEntry}
+ * traversal, whose destination is already rendered.
  */
 export function consumeHistoryReturn(state: unknown): boolean {
   const expected = pendingReturnIndex;
   pendingReturnIndex = undefined;
-  return expected !== undefined && readHistoryIndex(state) === expected;
+  if (expected === undefined || readHistoryIndex(state) !== expected) {
+    return false;
+  }
+  commitHistoryIndex(expected);
+  return true;
 }

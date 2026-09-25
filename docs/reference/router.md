@@ -366,12 +366,24 @@ it to the browser as a full document load (`location.assign()`, or
 not-found page in place instead. Back/Forward to such an entry reloads the
 document, so the old page never stays mounted under the new URL.
 
-If rendering a Back/Forward destination fails, Askr keeps the current page and
-returns the user to the entry they left with `history.go()`. The entry they
-landed on is left intact, so they can traverse to it again. Askr records each
-entry's position in the history state it writes; if the departed entry's
-position is unknown because other code wrote the entry, Askr reloads the landed
-URL instead.
+This also applies when no router is mounted: `navigate()` called from an island
+or other unrouted code loads the destination as a document. Navigating to the
+URL that is already loaded is skipped with a development warning instead, so
+code that navigates on mount cannot reload the page forever.
+
+If rendering a Back/Forward destination fails, Askr keeps the rendered page and
+uses `history.go()` to return to that page's entry. This can be more than one
+entry away when the failed traversal superseded one that was still loading.
+History entries are never rewritten, so the entry that failed stays in the
+stack and can be traversed to again. Navigating while that return is pending
+cancels it, and the returning traversal then renders normally.
+
+Askr records each entry's position (`askrIndex`) in the history state it
+writes. An entry added by a plain fragment link is placed after the entry it
+was followed from. If other code writes an entry, for example with
+`history.pushState()`, positions are unknown until the user returns to an entry
+Askr wrote, and a failed Back/Forward reloads the landed URL instead of guessing
+which entry to return to.
 
 ## `updateRouteQuery(updates, options)`
 

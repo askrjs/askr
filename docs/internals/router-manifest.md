@@ -52,7 +52,7 @@ across focused modules:
   and target application.
 - `route-query.ts` owns URL query update helpers.
 - `history-index.ts` tracks the position Askr stamps into the history entries
-  it writes, so a failed popstate can traverse back to the departed entry.
+  it writes, so a failed popstate can traverse back to the rendered entry.
 - `document-navigation.ts` hands URLs no registered app can render to the
   browser as a document load or reload.
 

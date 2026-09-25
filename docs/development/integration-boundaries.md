@@ -10,9 +10,9 @@ Push navigation and popstate use the same root transaction. Replacement roots
 render before same-path refreshes, preserving their scheduler ordering. Every
 root must apply successfully before route registration publishes. Failed
 pre-publication work restores all prepared roots and registrations through the
-shared coordinator. Popstate restoration also traverses back to the departed
-history entry with `history.go()` instead of rewriting the entry the user
-landed on. Retired generations drain during settlement; retained layouts and query
+shared coordinator. Popstate restoration also traverses with `history.go()`
+back to the entry whose page is still rendered, instead of rewriting the entry
+the user landed on. Retired generations drain during settlement; retained layouts and query
 refreshes keep their current lifetimes.
 
 History, reactive location, metadata, and scroll complete after lifecycle work.

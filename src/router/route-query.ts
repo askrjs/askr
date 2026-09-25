@@ -1,5 +1,5 @@
 import { saveScrollPosition } from './navigation-scroll';
-import { nextHistoryIndex, setHistoryIndex } from './history-index';
+import { commitHistoryIndex, nextHistoryIndex } from './history-index';
 import {
   getCurrentHref,
   getRegisteredAppsSnapshot,
@@ -115,7 +115,7 @@ export function updateRouteQuery(
     '',
     href
   );
-  setHistoryIndex(historyIndex);
+  commitHistoryIndex(historyIndex);
 
   setCurrentRouteLocation(url.pathname, href);
   for (const app of getRegisteredAppsSnapshot()) {
