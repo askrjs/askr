@@ -5,6 +5,8 @@ bridge it uses into the runtime.
 
 The [renderer source layout](../development/renderer-layout.md) maps the pipeline
 stages to their implementation directories.
+The [lazy control boundary baseline](lazy-control-boundary-baseline.md) records
+the #485 failure cases and the range-adoption gate for changing their ownership.
 
 ## Renderer bridge
 
