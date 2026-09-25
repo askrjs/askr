@@ -273,6 +273,10 @@ through the fresh-element cleanup path, while later bindings on the same
 element join the existing retained record. A blueprint's grouped bindings
 route errors like single reactive props: to the nearest `ErrorBoundary` of the
 component that rendered them, or thrown from the update when there is none.
+Reactive child functions (`{() => ...}`), grouped or not, route errors the same
+way. When their value changes the element's child structure, the update runs in
+a retained-element record, so a failed commit restores the previous children
+instead of leaving them half-applied.
 
 Retained-element snapshot preparation shares the update's transaction failure
 boundary. Preparation failures invoke the same error callback as update

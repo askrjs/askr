@@ -22,6 +22,7 @@ import {
 import {
   createReactiveScalarChildCleanupEntry,
   syncReactiveScalarChild,
+  updateReactiveChildElements,
   type ReactiveChildDOMHost,
 } from '../children/reactive-children';
 import {
@@ -145,7 +146,8 @@ function commitBlueprintBinding(
     const normalized = normalizeOwnedReactiveTextValue(value);
     if (normalized === null) {
       binding.textNode = null;
-      host.updateElementChildren(
+      updateReactiveChildElements(
+        host,
         binding.element,
         value as VNode | VNode[] | undefined
       );
@@ -156,7 +158,7 @@ function commitBlueprintBinding(
         binding.element.firstChild !== textNode ||
         binding.element.lastChild !== textNode
       ) {
-        host.updateElementChildren(binding.element, normalized);
+        updateReactiveChildElements(host, binding.element, normalized);
         textNode =
           binding.element.childNodes.length === 1 &&
           binding.element.firstChild?.nodeType === Node.TEXT_NODE
