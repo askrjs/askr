@@ -408,6 +408,13 @@ that ends in `:` (such as `invalidate('user:')`) matches every key below it.
 `queryScope()` keys and prefixes always end in `:`, and scoped keys encode
 segment boundaries so a `user` scope never invalidates a `users` scope.
 
+Only `:` is a segment boundary. Keys built with other separators no longer
+match by raw text: `invalidate('/api/users')` does not match `/api/users/1`,
+and `invalidate('a.b')` does not match `a.b.c`. Use `:`-delimited keys (or
+`queryScope()`) for anything you want to invalidate as a group. The same
+segment rule applies to `invalidateOnInterval(prefix)` and to the prefixes a
+mutation returns from `affects`.
+
 Invalidation listeners run synchronously and may invalidate a different prefix
 to form a short, acyclic cascade. Re-entering a prefix that is already active
 throws an Askr cyclic-cascade error naming that prefix. Cascades with changing
