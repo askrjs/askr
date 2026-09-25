@@ -270,4 +270,119 @@ describe('attribute name and value serialization', () => {
       expect(await captureSSRSnapshot(Plain)).toContain('<div title="t">');
     });
   });
+
+  describe('review follow-ups', () => {
+    it('should keep unitless and vendor-prefixed numeric style values bare on both sides', async () => {
+      const Unitless = () => (
+        <div
+          style={{
+            fontSizeAdjust: 0.5,
+            WebkitBoxFlex: 1,
+            boxFlexGroup: 2,
+            boxOrdinalGroup: 3,
+            shapeImageThreshold: 0.3,
+            maskBorderSlice: 4,
+            maskBorderOutset: 5,
+            maskBorderWidth: 6,
+            initialLetter: 2,
+            mathDepth: 1,
+            msFlexPositive: 1,
+            WebkitLineClamp: 3,
+            MozTabSize: 4,
+          }}
+        />
+      );
+
+      expect(await captureSSRSnapshot(Unitless)).toContain(
+        'style="font-size-adjust:0.5;-webkit-box-flex:1;box-flex-group:2;box-ordinal-group:3;shape-image-threshold:0.3;mask-border-slice:4;mask-border-outset:5;mask-border-width:6;initial-letter:2;math-depth:1;-ms-flex-positive:1;-webkit-line-clamp:3;-moz-tab-size:4;"'
+      );
+
+      renderDOM(Unitless);
+      const style = (container.firstElementChild as HTMLElement).style;
+      expect(style.getPropertyValue('-webkit-line-clamp')).not.toContain(
+        'px'
+      );
+      expect(style.cssText).not.toContain('px');
+    });
+
+    it('should map the SVG 2 presentation attributes maskType, textOverflow and whiteSpace', async () => {
+      const Svg2 = () => (
+        <svg>
+          <mask maskType="alpha" />
+          <text textOverflow="ellipsis" whiteSpace="pre">
+            x
+          </text>
+        </svg>
+      );
+
+      const html = await captureSSRSnapshot(Svg2);
+      expect(html).toContain('<mask mask-type="alpha">');
+      expect(html).toContain(
+        '<text text-overflow="ellipsis" white-space="pre">'
+      );
+
+      renderDOM(Svg2);
+      expect(container.querySelector('mask')!.getAttribute('mask-type')).toBe(
+        'alpha'
+      );
+      const text = container.querySelector('text')!;
+      expect(text.getAttribute('text-overflow')).toBe('ellipsis');
+      expect(text.getAttribute('white-space')).toBe('pre');
+    });
+
+    it('should not apply SVG name mapping to custom element attributes', async () => {
+      const Custom = () => (
+        <my-widget
+          strokeDasharray="4 2"
+          fontSize="large"
+          xlinkHref="#a"
+          className="w"
+          tabIndex={0}
+        />
+      );
+
+      const html = await captureSSRSnapshot(Custom);
+      expect(html).toContain(
+        '<my-widget strokeDasharray="4 2" fontSize="large" xlinkHref="#a" class="w" tabindex="0">'
+      );
+
+      renderDOM(Custom);
+      const el = container.querySelector('my-widget')!;
+      expect(el.getAttribute('strokedasharray')).toBe('4 2');
+      expect(el.getAttribute('fontsize')).toBe('large');
+      expect(el.getAttribute('xlinkhref')).toBe('#a');
+      expect(el.hasAttribute('stroke-dasharray')).toBe(false);
+      expect(el.hasAttribute('xlink:href')).toBe(false);
+      expect(el.getAttribute('class')).toBe('w');
+      expect(el.getAttribute('tabindex')).toBe('0');
+    });
+
+    it('should write xml: attributes on HTML elements without a namespace, as the HTML parser does', async () => {
+      const Html = () => <div xmlLang="en" />;
+
+      expect(await captureSSRSnapshot(Html)).toContain('<div xml:lang="en">');
+
+      renderDOM(Html);
+      const attribute = container.querySelector('div')!.attributes[0];
+      expect(attribute.name).toBe('xml:lang');
+      expect(attribute.namespaceURI).toBeNull();
+
+      const parsed = document.createElement('div');
+      parsed.innerHTML = '<div xml:lang="en"></div>';
+      expect(parsed.firstElementChild!.attributes[0].namespaceURI).toBeNull();
+    });
+
+    it('should render writingSuggestions={false} as "false" on both sides', async () => {
+      const Suggestions = () => <textarea writingSuggestions={false} />;
+
+      expect(await captureSSRSnapshot(Suggestions)).toContain(
+        '<textarea writingsuggestions="false">'
+      );
+
+      renderDOM(Suggestions);
+      expect(
+        container.querySelector('textarea')!.getAttribute('writingsuggestions')
+      ).toBe('false');
+    });
+  });
 });
