@@ -130,7 +130,9 @@ export function _preloadRouteRecord(record: RouteRecord): Promise<void> | null {
   ];
   const imports = components.flatMap((component) => {
     const state = lazyStates.get(component);
-    return state ? [startLazyLoad(state)] : [];
+    // An already-resolved component needs no import, so routes whose lazy
+    // components are loaded resolve synchronously.
+    return state && !state.resolved ? [startLazyLoad(state)] : [];
   });
   return imports.length > 0 ? Promise.all(imports).then(() => undefined) : null;
 }

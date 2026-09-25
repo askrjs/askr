@@ -21,6 +21,22 @@
   their public API (`createQuery()`, `onRouteChange()`, `<For>`). The unreachable
   monotonic index check is removed, and the internal `ComponentInstance`
   field `expectedStateIndices` is replaced by `expectedHookKinds`.
+- fix(ssr): sync `renderToString({ url, registry })`/`renderToStream()` no
+  longer follow auth redirects or render a denial marker with an implicit 200.
+  Redirect and deny decisions throw the new `SSRAccessDecisionError`, whose
+  `decision` matches what `renderRouteRequest()` returns. The sync path also no
+  longer starts route loaders: a loader route throws `SSRDataMissingError`
+  naming the route and pointing to `renderRouteRequest()`, and abandoned async
+  resolution no longer leaks an unhandled rejection.
+- breaking(ssr): sync `renderToString({ url, registry })`/`renderToStream()`
+  no longer follow auth redirects or render a denial marker with an implicit 200. Redirect and deny decisions throw the new `SSRAccessDecisionError`,
+  whose `decision` matches what `renderRouteRequest()` returns. The sync path
+  also no longer runs route loaders: any route that declares a loader, including
+  a synchronous one that previously rendered, now throws `SSRDataMissingError`
+  naming the route and pointing to `renderRouteRequest()`, before its preload,
+  lazy import, or loader starts. Abandoned async resolution no longer leaks an
+  unhandled rejection, and lazy routes whose component is already loaded now
+  resolve synchronously.
 - fix(router): `currentAuth()` no longer falls back to the process-wide client
   identity during server rendering. A server render without request auth now
   sees an anonymous identity, and server-mode route resolution no longer writes
