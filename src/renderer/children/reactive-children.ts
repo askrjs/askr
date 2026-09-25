@@ -35,6 +35,7 @@ import {
   teardownNodeSubtree,
   type ReactivePropCleanupEntry,
 } from '../ownership/cleanup';
+import { runRetainedElementUpdate } from '../ownership/retained-element';
 import { getParentNamespace } from '../intrinsic/namespaces';
 import type { VNode } from '../types';
 import {
@@ -122,7 +123,7 @@ export function trySyncScalarChildSequenceInPlace(
  * anything else to the nearest boundary above, and with no boundary the error
  * is thrown from the update that ran it.
  */
-function createReactiveChildErrorRouter(): (error: unknown) => void {
+function createReactiveChildErrorHandler(): (error: unknown) => void {
   const owner = getCurrentComponentInstance();
   const protectedByOwner =
     !!owner && isRenderingProtectedBoundaryContent(owner);
@@ -228,6 +229,17 @@ function readScalarSlots(source: ReactiveScalarChildSource): unknown {
   return values;
 }
 
+/** Structural child updates run in a retained record so failures roll back. */
+export function updateReactiveChildElements(
+  host: ReactiveChildDOMHost,
+  el: Element,
+  children: VNode | VNode[] | string | undefined
+): void {
+  runRetainedElementUpdate(el, teardownNodeSubtree, () =>
+    host.updateElementChildren(el, children as VNode | VNode[] | undefined)
+  );
+}
+
 function setupReactiveScalarChild(
   el: Element,
   source: ReactiveScalarChildSource,
@@ -235,7 +247,7 @@ function setupReactiveScalarChild(
 ): ScalarChildSetup {
   let currentSource = source;
   let upgradeSource = () => currentSource;
-  const routeReactiveChildError = createReactiveChildErrorRouter();
+  const onError = createReactiveChildErrorHandler();
   const owner = getCurrentComponentInstance();
   // Set when the first run, which happens during setup, needs a component.
   let upgradeDuringSetup = false;
@@ -283,7 +295,8 @@ function setupReactiveScalarChild(
 
         if (normalized === null) {
           ownedTextNode = null;
-          host.updateElementChildren(
+          updateReactiveChildElements(
+            host,
             el,
             value as unknown as VNode | VNode[] | undefined
           );
@@ -301,7 +314,7 @@ function setupReactiveScalarChild(
           el.childNodes.length !== 1 ||
           el.firstChild !== ownedTextNode
         ) {
-          host.updateElementChildren(el, normalized);
+          updateReactiveChildElements(host, el, normalized);
           ownedTextNode =
             el.childNodes.length === 1 &&
             el.firstChild?.nodeType === Node.TEXT_NODE
@@ -318,7 +331,7 @@ function setupReactiveScalarChild(
           incDevCounter('textNodeWrites');
         }
       },
-      onError: routeReactiveChildError,
+      onError,
     });
 
     settingUp = false;
@@ -384,15 +397,20 @@ function setupReactiveScalarChild(
         const nextChildren: VNode[] = [];
         collectReactiveChildValuesAsVNodes(values, nextChildren);
 
-        const boundaryHost = createReactiveChildBoundaryHost(el);
-        for (let node = el.firstChild; node;) {
-          const next = node.nextSibling;
-          boundaryHost.appendChild(node);
-          node = next;
-        }
+        runRetainedElementUpdate(el, teardownNodeSubtree, () => {
+          const boundaryHost = createReactiveChildBoundaryHost(el);
+          for (let node = el.firstChild; node;) {
+            const next = node.nextSibling;
+            boundaryHost.appendChild(node);
+            node = next;
+          }
 
-        host.updateElementChildren(boundaryHost, nextChildren);
-        syncReactiveChildExpectedNodes(el, Array.from(boundaryHost.childNodes));
+          host.updateElementChildren(boundaryHost, nextChildren);
+          syncReactiveChildExpectedNodes(
+            el,
+            Array.from(boundaryHost.childNodes)
+          );
+        });
       },
       equals: (previousValue, nextValue) => {
         if (!Array.isArray(previousValue) || !Array.isArray(nextValue)) {
@@ -419,7 +437,7 @@ function setupReactiveScalarChild(
 
         return true;
       },
-      onError: routeReactiveChildError,
+      onError,
     });
 
   settingUp = false;

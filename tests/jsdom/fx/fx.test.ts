@@ -189,3 +189,111 @@ describe('FX layer', () => {
     beginComponentScope({ instance: null });
   });
 });
+
+// Scheduled fx callbacks are handler-like: an exception is reported the way a
+// native listener's is (reportError) and later scheduled work still runs.
+describe('FX callback errors', () => {
+  let reportError: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    reportError = vi.fn();
+    vi.stubGlobal('reportError', reportError);
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('should report scheduleTimeout callback errors through reportError', () => {
+    const error = new Error('timeout failed');
+    const after = vi.fn();
+    scheduleTimeout(10, () => {
+      throw error;
+    });
+    scheduleTimeout(10, after);
+
+    vi.advanceTimersByTime(20);
+    globalScheduler.flush();
+
+    expect(reportError).toHaveBeenCalledTimes(1);
+    expect(reportError).toHaveBeenCalledWith(error);
+    expect(after).toHaveBeenCalledTimes(1);
+  });
+
+  it('should report scheduleIdle callback errors through reportError', () => {
+    const error = new Error('idle failed');
+    scheduleIdle(() => {
+      throw error;
+    });
+
+    vi.advanceTimersByTime(0);
+    globalScheduler.flush();
+
+    expect(reportError).toHaveBeenCalledTimes(1);
+    expect(reportError).toHaveBeenCalledWith(error);
+  });
+
+  it('should report debounceEvent handler errors through reportError', () => {
+    const error = new Error('debounced failed');
+    const deb = debounceEvent(10, () => {
+      throw error;
+    });
+
+    deb(new Event('x'));
+    vi.advanceTimersByTime(20);
+    globalScheduler.flush();
+
+    expect(reportError).toHaveBeenCalledTimes(1);
+    expect(reportError).toHaveBeenCalledWith(error);
+  });
+
+  it('should report a synchronous scheduleRetry throw through reportError', () => {
+    const error = new Error('retry failed');
+    const fn = vi.fn((): Promise<void> => {
+      throw error;
+    });
+    scheduleRetry(fn, { maxAttempts: 3, delayMs: 10 });
+
+    globalScheduler.flush();
+    vi.advanceTimersByTime(1000);
+    globalScheduler.flush();
+
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(reportError).toHaveBeenCalledTimes(1);
+    expect(reportError).toHaveBeenCalledWith(error);
+  });
+
+  it('should report the final scheduleRetry rejection through reportError', async () => {
+    const errors = [new Error('first'), new Error('last')];
+    let calls = 0;
+    const fn = vi.fn(() => Promise.reject(errors[calls++]));
+    scheduleRetry(fn, { maxAttempts: 2, delayMs: 10 });
+
+    globalScheduler.flush();
+    await vi.advanceTimersByTimeAsync(10);
+    globalScheduler.flush();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(fn).toHaveBeenCalledTimes(2);
+    expect(reportError).toHaveBeenCalledTimes(1);
+    expect(reportError).toHaveBeenCalledWith(errors[1]);
+  });
+
+  it('should report a throwing scheduleRetry backoff through reportError', async () => {
+    const error = new Error('backoff failed');
+    scheduleRetry(() => Promise.reject(new Error('attempt')), {
+      maxAttempts: 2,
+      backoff: () => {
+        throw error;
+      },
+    });
+
+    globalScheduler.flush();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(reportError).toHaveBeenCalledTimes(1);
+    expect(reportError).toHaveBeenCalledWith(error);
+  });
+});

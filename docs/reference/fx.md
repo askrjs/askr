@@ -56,6 +56,14 @@ unmount. A callback whose component unmounted before it ran is skipped.
 `scheduleRetry` stops without retrying when `fn` throws synchronously or does
 not return a promise.
 
+Errors thrown by `scheduleTimeout` and `scheduleIdle` callbacks, by handlers
+run later by `debounceEvent`, `throttleEvent`, and `rafEvent`, a synchronous
+`scheduleRetry` throw, the rejection of its last attempt, and a throwing
+`backoff` are reported with `reportError()`, like event
+handler errors: a `window` `error` event fires and the rest of the scheduler
+flush still runs. Hosts without `reportError()` (Node, jsdom) rethrow them from
+a microtask.
+
 `throttle(fn, ms, { leading: false })` waits the full `ms` after an idle gap
 before running the trailing call.
 

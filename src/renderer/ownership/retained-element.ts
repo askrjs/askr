@@ -494,7 +494,11 @@ function restoreReactiveProps(
       const currentEntry = currentMap.get(propName);
 
       if (currentEntry) {
-        currentEntry.updateFn?.(entry.fnRef);
+        // An unchanged binding has nothing to restore. Re-running it would
+        // recompute from current state and re-apply the update being undone.
+        if (currentEntry.fnRef !== entry.fnRef) {
+          currentEntry.updateFn?.(entry.fnRef);
+        }
         currentEntry.fnRef = entry.fnRef;
         currentMap.set(propName, currentEntry);
         continue;
