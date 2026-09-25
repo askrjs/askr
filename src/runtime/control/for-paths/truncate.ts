@@ -20,12 +20,12 @@ export function tryTruncatePath<T>(
   newArray: readonly T[],
   items: ForState<T>['items'],
   orderedKeys: Array<string | number>,
-  byFn: ForState<T>['byFn'],
+  keys: readonly (string | number)[],
   oldLen: number,
   newLen: number
 ): VNode[] | null {
   for (let i = 0; i < newLen; i++) {
-    const key = byFn(newArray[i], i);
+    const key = keys[i];
     if (key !== orderedKeys[i]) {
       return null;
     }

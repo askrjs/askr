@@ -127,9 +127,20 @@ describe('SSG hydration bundle', () => {
     // 264 KiB: #507 and #529 each fit 263 KiB alone but not together (the
     // production update-loop guard plus the derived-write guard; measured
     // 269,744 bytes on main after both merged).
+    // 265 KiB: #443 rolls fine-grained bindings back with a failed render and
+    // re-schedules their pending re-runs, so a failed render never leaves a
+    // binding stale (~1.4 KB; measured 270,755 bytes against 269,380 on main).
+    // Still within 264 KiB after For key and Case child validation started
+    // shipping in production and control boundaries began recording an output
+    // owner for ErrorBoundary routing (#441/#446, measured 269,556 bytes).
     // 265 KiB: client navigation tracks history entry indexes so a failed
     // back/forward returns to the rendered entry, and hands URLs no route can
     // render to the browser (~1.1 KB, #453-#455; measured 270,803 bytes).
-    expect(initialBytes).toBeLessThanOrEqual(265 * 1024);
+    // 267 KiB for the DOM property path (`muted`, `indeterminate`, custom
+    // element object props, `prop:`/`attr:`): the property table, resetting
+    // removed properties, the URL/raw-HTML guards and rollback snapshots add
+    // ~2.4 KB (measured 273,240 bytes). Without it those props cannot reach
+    // the element at all.
+    expect(initialBytes).toBeLessThanOrEqual(269 * 1024);
   });
 });
