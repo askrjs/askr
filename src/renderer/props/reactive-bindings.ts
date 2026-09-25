@@ -1,7 +1,8 @@
 import {
   createFineGrainedEffect,
   getCurrentComponentInstance,
-  routeComponentErrorToBoundary,
+  isRenderingProtectedBoundaryContent,
+  routeRenderedOutputErrorToBoundary,
   markFineGrainedEffectsDirtySource,
   type FineGrainedEffectHandle,
 } from '../../runtime';
@@ -59,8 +60,11 @@ function setupReactiveProp(
   };
 
   let effectHandle: FineGrainedEffectHandle<unknown> | null = null;
-  // Binding failures belong to the component that rendered the binding.
+  // Binding failures belong to the component that rendered the binding. An
+  // ErrorBoundary's own children are protected by it; its fallback is not.
   const owner = getCurrentComponentInstance();
+  const protectedByOwner =
+    !!owner && isRenderingProtectedBoundaryContent(owner);
 
   reactivePropRegistry.add(descriptor);
   effectHandle = createFineGrainedEffect({
@@ -87,7 +91,12 @@ function setupReactiveProp(
       return false;
     },
     onError: (err) => {
-      if (!owner || !routeComponentErrorToBoundary(owner, err)) throw err;
+      if (
+        !owner ||
+        !routeRenderedOutputErrorToBoundary(owner, err, protectedByOwner)
+      ) {
+        throw err;
+      }
     },
   });
 

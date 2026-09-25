@@ -95,6 +95,11 @@ it, in development and production builds. Other handlers for the same event
 still run, just as they would for native listeners. An `ErrorBoundary` does not
 catch handler errors; it only covers rendering.
 
+Hosts without `reportError()`, including Node and jsdom, rethrow the error from
+a microtask instead. In Node it arrives as an `uncaughtException`, and test
+runners that fail on unhandled errors report it. Stub `globalThis.reportError`
+in tests that throw from handlers on purpose.
+
 ## Performance Characteristics
 
 ### Benefits

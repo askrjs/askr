@@ -145,6 +145,130 @@ describe.each(['development', 'production'])(
       ).toBeTruthy();
     });
 
+    it('should route a binding that is a direct ErrorBoundary child to that boundary', () => {
+      let broken!: State<boolean>;
+      const onError = vi.fn();
+      const outerOnError = vi.fn();
+
+      const App = () => {
+        broken = state(false);
+        return (
+          <ErrorBoundary onError={outerOnError}>
+            <ErrorBoundary onError={onError}>
+              <div
+                id="bound"
+                title={() => {
+                  if (broken()) throw new Error('direct binding failed');
+                  return 'ok';
+                }}
+              />
+            </ErrorBoundary>
+          </ErrorBoundary>
+        );
+      };
+
+      createIsland({ root: container, component: App });
+      flushScheduler();
+
+      broken.set(true);
+      flushScheduler();
+
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect((onError.mock.calls[0][0] as Error).message).toBe(
+        'direct binding failed'
+      );
+      expect(outerOnError).not.toHaveBeenCalled();
+      expect(
+        container.querySelectorAll('[data-askr-error-boundary]')
+      ).toHaveLength(1);
+    });
+
+    it('should route a binding in a nested component to the innermost ErrorBoundary', () => {
+      let broken!: State<boolean>;
+      const innerOnError = vi.fn();
+      const outerOnError = vi.fn();
+
+      const Child = () => {
+        broken = state(false);
+        return (
+          <span
+            title={() => {
+              if (broken()) throw new Error('nested binding failed');
+              return 'ok';
+            }}
+          />
+        );
+      };
+
+      const App = () => (
+        <ErrorBoundary onError={outerOnError}>
+          <section>
+            <ErrorBoundary onError={innerOnError}>
+              <div>
+                <Child />
+              </div>
+            </ErrorBoundary>
+          </section>
+        </ErrorBoundary>
+      );
+
+      createIsland({ root: container, component: App });
+      flushScheduler();
+
+      broken.set(true);
+      flushScheduler();
+
+      expect(innerOnError).toHaveBeenCalledTimes(1);
+      expect(outerOnError).not.toHaveBeenCalled();
+    });
+
+    it('should route a binding inside a fallback to the enclosing ErrorBoundary', () => {
+      let fallbackBroken!: State<boolean>;
+      const innerOnError = vi.fn();
+      const outerOnError = vi.fn();
+
+      const Crash = (): never => {
+        throw new Error('child crash');
+      };
+
+      const App = () => {
+        fallbackBroken = state(false);
+        return (
+          <ErrorBoundary onError={outerOnError}>
+            <ErrorBoundary
+              onError={innerOnError}
+              fallback={() => (
+                <p
+                  id="inner-fallback"
+                  title={() => {
+                    if (fallbackBroken()) throw new Error('fallback failed');
+                    return 'fallback';
+                  }}
+                />
+              )}
+            >
+              <Crash />
+            </ErrorBoundary>
+          </ErrorBoundary>
+        );
+      };
+
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      expect(container.querySelector('#inner-fallback')).toBeTruthy();
+      expect(innerOnError).toHaveBeenCalledTimes(1);
+
+      fallbackBroken.set(true);
+      flushScheduler();
+
+      expect(innerOnError).toHaveBeenCalledTimes(1);
+      expect(outerOnError).toHaveBeenCalledTimes(1);
+      expect((outerOnError.mock.calls[0][0] as Error).message).toBe(
+        'fallback failed'
+      );
+      expect(container.querySelector('#inner-fallback')).toBeNull();
+    });
+
     it('should surface reactive prop binding errors without a boundary', () => {
       let broken!: State<boolean>;
 

@@ -5,9 +5,13 @@
 - fix(renderer): event handler errors are reported with `reportError()`, which
   dispatches a `window` `error` event, instead of only being logged. This covers
   delegated and direct listeners and `scheduleEventHandler`; the remaining
-  handlers for the event still run. Errors thrown by function-valued (reactive)
-  props now reach the owning `ErrorBoundary`, or are thrown from the update when
-  there is none. Previously they were a development-only warning and silent in
+  handlers for the event still run. Hosts without `reportError()` (Node, jsdom)
+  rethrow the error from a microtask, so it arrives as an `uncaughtException`
+  and test runners that fail on unhandled errors report it. Errors thrown by
+  function-valued (reactive) props now reach the nearest `ErrorBoundary`
+  (including one whose direct children contain the binding; bindings in a
+  fallback go to the boundary above), or are thrown from the update when there
+  is none. Previously they were a development-only warning and silent in
   production.
 - fix(renderer): keyed fast paths no longer catch errors and retry through a
   slower path. A row whose render throws now renders once per update instead of
