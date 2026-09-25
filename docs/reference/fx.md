@@ -35,7 +35,8 @@ and the existing debounce/throttle `cancel()` methods are unchanged.
 `throttle`: with both edges enabled, a single event runs the handler once, and
 the trailing call only runs when another event arrived after the leading call.
 `debounceEvent().flush()` runs only a pending trailing call. When created
-during a component render, these wrappers are cancelled when the component
+during a component render, or from a mounted component's `task()`, `watch()`
+callback, or event handler, these wrappers are cancelled when that component
 unmounts.
 
 `scheduleTimeout`, `scheduleIdle`, and `scheduleRetry` throw when called during
@@ -47,6 +48,10 @@ wrote the portal content. Handlers wrapped by `debounceEvent`, `throttleEvent`,
 component that created the wrapper) when they run later. Only the synchronous
 part of the task or callback is tracked, so work scheduled after an `await`, or
 outside any component, must be cancelled manually with the returned `cancel`.
+Callbacks run by `scheduleTimeout` and `scheduleIdle`, and each `scheduleRetry`
+attempt, run as the component that scheduled them, so work they schedule in
+turn (such as a polling loop that reschedules itself) is also cancelled on
+unmount. A callback whose component unmounted before it ran is skipped.
 `scheduleRetry` stops without retrying when `fn` throws synchronously or does
 not return a promise.
 

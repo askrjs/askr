@@ -58,8 +58,10 @@ const noopRelease = (): void => {};
  * (mount/commit operation, task, watch callback, or event handler) scheduled
  * it is cleaned up. Returns a release function for work that settles first.
  */
-function cancelWithLifecycleOwner(cancel: () => void): () => void {
-  const owner = getCurrentLifecycleOwner();
+function cancelWithLifecycleOwner(
+  owner: OwnershipRecord | null,
+  cancel: () => void
+): () => void {
   if (!owner) return noopRelease;
   const signal = getOwnershipSignal(owner);
   if (signal.aborted) {
@@ -117,12 +119,9 @@ export function debounceEvent(
   debounced.cancel = debouncer.cancel;
   debounced.flush = debouncer.flush;
 
-  // Auto-cleanup on component unmount
-  if (inst) {
-    ownCleanup(inst.owner, () => {
-      debounced.cancel();
-    });
-  }
+  // Auto-cleanup when the creating component (or committed work) unmounts
+  const owner = inst?.owner ?? getCurrentLifecycleOwner();
+  if (owner) ownCleanup(owner, debounced.cancel);
 
   return debounced;
 }
@@ -148,9 +147,8 @@ export function throttleEvent(
 
   throttled.cancel = throttler.cancel;
 
-  if (inst) {
-    ownCleanup(inst.owner, () => throttled.cancel());
-  }
+  const owner = inst?.owner ?? getCurrentLifecycleOwner();
+  if (owner) ownCleanup(owner, throttled.cancel);
 
   return throttled;
 }
@@ -212,7 +210,8 @@ export function rafEvent(
     lastOwner = null;
   };
 
-  if (inst) ownCleanup(inst.owner, () => fn.cancel());
+  const owner = inst?.owner ?? getCurrentLifecycleOwner();
+  if (owner) ownCleanup(owner, fn.cancel);
 
   return fn;
 }
@@ -226,15 +225,23 @@ export function rafEvent(
  */
 export function scheduleTimeout(ms: number, fn: () => void): CancelFn {
   throwIfDuringRender();
+  const owner = getCurrentLifecycleOwner();
   let release = noopRelease;
+  let settled = false;
+  const run = () => {
+    if (settled) return;
+    settled = true;
+    release();
+    withLifecycleOwner(owner, fn);
+  };
 
   let id: TimeoutHandle = setTimeout(() => {
     id = null;
-    release();
-    enqueueUserCallback(fn);
+    enqueueUserCallback(run);
   }, ms);
 
   const cancel = () => {
+    settled = true;
     if (id !== null) {
       clearTimeout(id);
       id = null;
@@ -242,7 +249,7 @@ export function scheduleTimeout(ms: number, fn: () => void): CancelFn {
     release();
   };
 
-  release = cancelWithLifecycleOwner(cancel);
+  release = cancelWithLifecycleOwner(owner, cancel);
   return cancel;
 }
 
@@ -256,7 +263,15 @@ export function scheduleIdle(
   options?: { timeout?: number }
 ): CancelFn {
   throwIfDuringRender();
+  const owner = getCurrentLifecycleOwner();
   let release = noopRelease;
+  let settled = false;
+  const run = () => {
+    if (settled) return;
+    settled = true;
+    release();
+    withLifecycleOwner(owner, fn);
+  };
 
   let id: IdleHandle = null;
   let usingRIC = false;
@@ -265,19 +280,18 @@ export function scheduleIdle(
     usingRIC = true;
     id = requestIdleCallback(() => {
       id = null;
-      release();
-      enqueueUserCallback(fn);
+      enqueueUserCallback(run);
     }, options);
   } else {
     // Fallback: schedule on next macrotask
     id = setTimeout(() => {
       id = null;
-      release();
-      enqueueUserCallback(fn);
+      enqueueUserCallback(run);
     }, 0);
   }
 
   const cancel = () => {
+    settled = true;
     if (id !== null) {
       // If using requestIdleCallback and available, call cancelIdleCallback for numeric ids.
       if (
@@ -294,7 +308,7 @@ export function scheduleIdle(
     release();
   };
 
-  release = cancelWithLifecycleOwner(cancel);
+  release = cancelWithLifecycleOwner(owner, cancel);
   return cancel;
 }
 
@@ -321,6 +335,7 @@ export function scheduleRetry<T>(
     backoff = (i: number) => delayMs * Math.pow(2, i),
   } = options || {};
 
+  const owner = getCurrentLifecycleOwner();
   let cancelled = false;
   let retryId: TimeoutHandle = null;
   let release = noopRelease;
@@ -338,7 +353,7 @@ export function scheduleRetry<T>(
       if (cancelled) return;
       let p: Promise<T>;
       try {
-        p = fn();
+        p = withLifecycleOwner(owner, fn);
       } catch (e) {
         settle();
         logger.error('[Askr] scheduleRetry error:', e);
@@ -373,7 +388,7 @@ export function scheduleRetry<T>(
     settle();
   };
 
-  release = cancelWithLifecycleOwner(cancel);
+  release = cancelWithLifecycleOwner(owner, cancel);
 
   // Start first attempt
   attempt(0);

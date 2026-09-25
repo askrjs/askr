@@ -236,6 +236,187 @@ describe('fx scheduled work ownership', () => {
     cleanup();
   });
 
+  it.each([
+    ['delegated', 'onClick'],
+    ['direct', 'onClickCapture'],
+  ] as const)(
+    'should move a stable %s portal handler to the writer that takes over',
+    (_mode, prop) => {
+      const { container, cleanup } = createTestContainer();
+      const fired = vi.fn();
+      const Overlay = definePortal();
+      let showA!: State<boolean>;
+      let showB!: State<boolean>;
+      const handler = () => {
+        scheduleTimeout(100, fired);
+      };
+      const content = () => (
+        <button id="portal-button" {...{ [prop]: handler }}>
+          {'go'}
+        </button>
+      );
+      const A = () => Overlay.render({ children: content() });
+      const B = () => Overlay.render({ children: content() });
+
+      createIsland({
+        root: container,
+        component: () => {
+          showA = state(true);
+          showB = state(false);
+          return (
+            <div>
+              <Overlay />
+              <Show when={() => showA()}>
+                <A />
+              </Show>
+              <Show when={() => showB()}>
+                <B />
+              </Show>
+            </div>
+          );
+        },
+      });
+      flushScheduler();
+      showB.set(true);
+      flushScheduler();
+      showA.set(false);
+      flushScheduler();
+
+      const button = () =>
+        container.querySelector('#portal-button') as HTMLElement;
+      button().click();
+      settle(200);
+      expect(fired).toHaveBeenCalledTimes(1);
+
+      button().click();
+      flushScheduler();
+      showB.set(false);
+      flushScheduler();
+      settle(200);
+      expect(fired).toHaveBeenCalledTimes(1);
+
+      cleanupApp(container);
+      cleanup();
+    }
+  );
+
+  it('should stop a polling loop rescheduled from its own callback on unmount', () => {
+    const { container, cleanup } = createTestContainer();
+    const tick = vi.fn();
+    let show!: State<boolean>;
+
+    function Poller() {
+      task(() => {
+        const loop = () => {
+          tick();
+          scheduleTimeout(100, loop);
+        };
+        scheduleTimeout(100, loop);
+      });
+      return <span />;
+    }
+
+    createIsland({
+      root: container,
+      component: () => {
+        show = state(true);
+        return (
+          <div>
+            <Show when={() => show()}>
+              <Poller />
+            </Show>
+          </div>
+        );
+      },
+    });
+    flushScheduler();
+    settle(150);
+    expect(tick).toHaveBeenCalledTimes(1);
+
+    show.set(false);
+    flushScheduler();
+    settle(1000);
+
+    expect(tick).toHaveBeenCalledTimes(1);
+    cleanupApp(container);
+    cleanup();
+  });
+
+  it('should own scheduleTimeout called from a scheduleRetry attempt', async () => {
+    const { container, cleanup } = createTestContainer();
+    const fired = vi.fn();
+    let show!: State<boolean>;
+
+    function Retrier() {
+      task(() => {
+        scheduleRetry(async () => {
+          scheduleTimeout(100, fired);
+        });
+      });
+      return <span />;
+    }
+
+    createIsland({
+      root: container,
+      component: () => {
+        show = state(true);
+        return (
+          <div>
+            <Show when={() => show()}>
+              <Retrier />
+            </Show>
+          </div>
+        );
+      },
+    });
+    flushScheduler();
+    show.set(false);
+    flushScheduler();
+    await vi.advanceTimersByTimeAsync(200);
+    flushScheduler();
+
+    expect(fired).not.toHaveBeenCalled();
+    cleanupApp(container);
+    cleanup();
+  });
+
+  it('should cancel a pending debounceEvent created in a task on unmount', () => {
+    const { container, cleanup } = createTestContainer();
+    const ran = vi.fn();
+    let debounced!: EventListener;
+    let show!: State<boolean>;
+
+    function Source() {
+      task(() => {
+        debounced = debounceEvent(10, ran);
+      });
+      return <span />;
+    }
+
+    createIsland({
+      root: container,
+      component: () => {
+        show = state(true);
+        return (
+          <div>
+            <Show when={() => show()}>
+              <Source />
+            </Show>
+          </div>
+        );
+      },
+    });
+    flushScheduler();
+    debounced(new Event('x'));
+    show.set(false);
+    flushScheduler();
+    settle(50);
+
+    expect(ran).not.toHaveBeenCalled();
+    cleanupApp(container);
+    cleanup();
+  });
+
   it('should not attribute unrelated queued work to a handler that flushes synchronously', () => {
     const { container, cleanup } = createTestContainer();
     const fired = vi.fn();

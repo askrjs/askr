@@ -153,7 +153,25 @@ export function withLifecycleOwner<T>(
  * when the writer is no longer live) before returning the content.
  */
 export function getCurrentLifecycleInstance(): ComponentInstance | null {
-  return currentInstance?._portalErrorParent || currentInstance;
+  return (
+    (currentInstance && getLivePortalErrorParent(currentInstance)) ??
+    currentInstance
+  );
+}
+
+/** @internal The live component that wrote a portal host's content, if any. */
+export function getLivePortalErrorParent(
+  instance: ComponentInstance
+): ComponentInstance | null {
+  const parent = instance._portalErrorParent;
+  if (
+    !parent ||
+    parent.owner.identity !== instance._portalErrorParentGeneration ||
+    parent.notifyUpdate === null
+  ) {
+    return null;
+  }
+  return parent;
 }
 
 /**

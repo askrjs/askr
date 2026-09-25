@@ -8,7 +8,10 @@
   callback, mount/commit operation or event handler bind to that component's
   lifetime, including portal content (owned by the writer) and handlers
   wrapped by `debounceEvent()`, `throttleEvent()`, `rafEvent()` or
-  `scheduleEventHandler()`. A synchronous scheduler flush inside a handler no
+  `scheduleEventHandler()`. Scheduled callbacks and retry attempts run as the
+  scheduling component, so work they reschedule (for example a polling loop)
+  also stops on unmount, and a stable portal handler follows the writer that
+  last rendered it. A synchronous scheduler flush inside a handler no
   longer runs unrelated queued work as that handler's component. Previously no
   cleanup was ever registered and timers fired after unmount. The unreachable
   SSR branches in these helpers are removed, and `scheduleRetry()` settles
