@@ -112,6 +112,9 @@ describe('SSG hydration bundle', () => {
     // Still within 263 KiB after production builds now keep the scheduler update-loop
     // guard (previously compiled out, so loops hung the page) plus the release
     // hooks that keep dropped work reschedulable, about 800 bytes.
-    expect(initialBytes).toBeLessThanOrEqual(263 * 1024);
+    // 264 KiB: #507 and #529 each fit 263 KiB alone but not together (the
+    // production update-loop guard plus the derived-write guard; measured
+    // 269,744 bytes on main after both merged).
+    expect(initialBytes).toBeLessThanOrEqual(264 * 1024);
   });
 });
