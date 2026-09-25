@@ -127,6 +127,9 @@ describe('SSG hydration bundle', () => {
     // 264 KiB: #507 and #529 each fit 263 KiB alone but not together (the
     // production update-loop guard plus the derived-write guard; measured
     // 269,744 bytes on main after both merged).
+    // 265 KiB: #443 rolls fine-grained bindings back with a failed render and
+    // re-schedules their pending re-runs, so a failed render never leaves a
+    // binding stale (~1.4 KB; measured 270,755 bytes against 269,380 on main).
     // Still within 264 KiB after For key and Case child validation started
     // shipping in production and control boundaries began recording an output
     // owner for ErrorBoundary routing (#441/#446, measured 269,556 bytes).
@@ -147,6 +150,8 @@ describe('SSG hydration bundle', () => {
     // 269 KiB: #459 also refuses dot-segment paths that collapse to `//host`
     // and writes absolute URLs to history, on top of #535's production
     // control validation (measured 274,824 bytes).
-    expect(initialBytes).toBeLessThanOrEqual(269 * 1024);
+    // 270 KiB: with #443 on main (274,990 bytes), #459's navigation target
+    // checks add ~1.2 KB (measured 276,199 bytes).
+    expect(initialBytes).toBeLessThanOrEqual(270 * 1024);
   });
 });
