@@ -405,6 +405,7 @@
     "DocumentRenderer",
     "RenderRouteRequestOptions",
     "RenderRouteRequestResult",
+    "SSRAccessDecisionError",
     "SSRComponent",
     "SSRDataMissingError",
     "SSRRoute",
