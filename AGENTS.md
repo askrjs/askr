@@ -26,9 +26,10 @@ tests/checks/ - repository validation helpers
 3. Do not modify unrelated files.
 4. Keep docs aligned with behavior changes.
 5. Prefer ASCII unless a file already requires Unicode.
-6. Avoid new or restored `scripts/*` automation in this repository. Prefer real tests (`tests/checks`, `tests/unit`, `tests/jsdom`, `tests/browser`) for validation and guardrails, and encode behavior contracts in test assets instead of one-off scripts.
-7. Avoid introducing workflow steps that execute `node`/`tsx` script files as ad-hoc policy, release, or benchmarking gates; prefer existing npm scripts and test assertions.
-8. Keep workflows intentionally simple: prefer explicit, readable steps using existing scripts, and avoid complex inline bash orchestration unless it materially reduces risk or duplication.
+6. Avoid new or restored `scripts/*` automation in this repository. Prefer real tests (`tests/checks`, `tests/unit`, `tests/jsdom`, `tests/browser`) for validation and guardrails, and encode behavior contracts in test assets instead of one-off scripts. The only exception is maintainer-run release tooling that works outside this checkout and so cannot be a test; each such script is listed here, and `tests/checks` fails on any unlisted file:
+   - `scripts/publish-order.mjs` prints the coordinated publish order from sibling `@askrjs` checkouts (see `docs/development/coordinated-release.md`).
+7. Avoid introducing workflow steps that execute `node`/`tsx` script files as ad-hoc policy, release, or benchmarking gates; prefer existing npm scripts and test assertions. Release tooling from rule 6 is run by maintainers, not by workflows.
+8. Keep workflows intentionally simple: prefer explicit, readable steps using existing scripts. Use a matrix rather than copy-pasted steps for repeated variants, and avoid complex inline bash orchestration unless it materially reduces risk or duplication.
 
 ## Required Validation
 

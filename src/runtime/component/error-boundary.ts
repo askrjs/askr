@@ -57,7 +57,7 @@ function findLiveErrorBoundary(
     }
     visited.add(instance);
 
-    if (instance.errorBoundaryState && instance.notifyUpdate !== null) {
+    if (isLiveErrorBoundary(instance)) {
       return instance;
     }
 
@@ -73,6 +73,10 @@ function findLiveErrorBoundary(
   );
 }
 
+function isLiveErrorBoundary(instance: ComponentInstance): boolean {
+  return !!instance.errorBoundaryState && instance.notifyUpdate !== null;
+}
+
 /** Route a scheduled component failure to its nearest live render boundary. */
 export function routeComponentErrorToBoundary(
   failedInstance: ComponentInstance,
@@ -82,7 +86,42 @@ export function routeComponentErrorToBoundary(
   if (!boundary) {
     return false;
   }
+  notifyErrorBoundary(boundary, error);
+  return true;
+}
 
+/**
+ * Whether output rendered in `owner`'s scope right now is protected by `owner`
+ * itself: true for an ErrorBoundary's children, false for its fallback (which
+ * belongs to the enclosing boundary) and for ordinary components.
+ */
+export function isRenderingProtectedBoundaryContent(
+  owner: ComponentInstance
+): boolean {
+  return !!owner.errorBoundaryState && owner.errorBoundaryState.error == null;
+}
+
+/**
+ * Route a failure from output rendered in `owner`'s scope. Output protected by
+ * `owner` (see isRenderingProtectedBoundaryContent) goes to `owner`; anything
+ * else goes to the nearest boundary above it.
+ */
+export function routeRenderedOutputErrorToBoundary(
+  owner: ComponentInstance,
+  error: unknown,
+  protectedByOwner: boolean
+): boolean {
+  if (protectedByOwner && isLiveErrorBoundary(owner)) {
+    notifyErrorBoundary(owner, error);
+    return true;
+  }
+  return routeComponentErrorToBoundary(owner, error);
+}
+
+function notifyErrorBoundary(
+  boundary: ComponentInstance,
+  error: unknown
+): void {
   const onError = boundary.props.onError;
   reportBoundaryError(
     boundary,
@@ -92,5 +131,4 @@ export function routeComponentErrorToBoundary(
       : undefined
   );
   boundary._enqueueRun?.();
-  return true;
 }

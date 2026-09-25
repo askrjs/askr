@@ -163,7 +163,10 @@ resources, and child-scope ownership are provisional until the outer commit
 succeeds. A failure discards lifecycle work and restores the previous DOM plus
 renderer metadata. Bulk replacement and clear paths may publish with one DOM
 operation only when their exact-boundary checks prove that no unrelated node
-can be claimed or removed.
+can be claimed or removed. Keyed fast paths decide eligibility before they
+mutate anything or run user render code. Once a fast path starts it owns the
+update: an error from a row's render propagates once and is never retried
+through another path.
 
 ```mermaid
 flowchart LR

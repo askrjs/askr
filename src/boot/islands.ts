@@ -35,7 +35,7 @@ export function createIsland(config: IslandConfig): void {
   // surprising partial router behavior.
   if (hasRegisteredRoutes()) {
     throw new Error(
-      'Routes are not supported with islands. Use createSPA (client) or createSSR (server) instead.'
+      'Routes are not supported with islands. Use createSPA or hydrateSPA with a route registry instead.'
     );
   }
 
