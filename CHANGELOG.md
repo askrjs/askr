@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- fix(data): an inline `createQuery({ key, fetch })` no longer warns about a
+  conflicting shared query definition on every re-render, and no longer keeps
+  the first render's `fetch` closure forever. The reader that defines a key
+  now replaces its `fetch`, `isConsistent`, and `reconcile` on each render;
+  only other readers of the same key with a different definition warn, after
+  the current render work settles (a keyed row replacing the owner does not
+  warn). When the defining reader unmounts, a remaining reader's definition
+  takes over immediately. An in-flight fetch is checked and reconciled with the
+  callbacks it started with. `createQueryCollection()` entries are redefined on
+  each update, so `retry()` fetches with the entry's current `input`.
 - fix(ssr): text children of HTML `<script>` and `<style>` are written verbatim
   instead of entity-escaped, so `a > b` no longer becomes `a &gt; b` and breaks
   the CSS or JavaScript. In styles every `<` becomes the CSS escape `\3c `; in
