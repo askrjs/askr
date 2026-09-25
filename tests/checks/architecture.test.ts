@@ -605,7 +605,6 @@ describe('architecture boundaries', () => {
       'src/renderer/component/host-results.ts',
       'src/renderer/control/materialization.ts',
       'src/renderer/evaluation/range.ts',
-      'src/renderer/reconciliation/reconcile-commit.ts',
     ]);
     const bypassing = new Set<string>();
     for (const { file, relative, source } of sources) {

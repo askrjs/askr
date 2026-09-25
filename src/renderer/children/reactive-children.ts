@@ -1,11 +1,14 @@
-import { logger } from '../../common/logger';
 import {
   createChildScope,
   disposeChildScope,
   rerenderChildScope,
   type ChildScope,
 } from '../../runtime';
-import { getCurrentComponentInstance } from '../../runtime';
+import {
+  getCurrentComponentInstance,
+  isRenderingProtectedBoundaryContent,
+  routeRenderedOutputErrorToBoundary,
+} from '../../runtime';
 import { incDevCounter } from '../../runtime';
 import {
   createFineGrainedEffect,
@@ -21,7 +24,7 @@ import {
   teardownNodeSubtree,
   type ReactivePropCleanupEntry,
 } from '../ownership/cleanup';
-import { getRuntimeEnvValue } from '../env';
+import { runRetainedElementUpdate } from '../ownership/retained-element';
 import { getParentNamespace } from '../intrinsic/namespaces';
 import type { VNode } from '../types';
 import {
@@ -103,6 +106,35 @@ export function trySyncScalarChildSequenceInPlace(
   return true;
 }
 
+/**
+ * Route a reactive child failure like a reactive prop binding: to the nearest
+ * ErrorBoundary of the component that rendered it, else thrown from the update.
+ */
+function createReactiveChildErrorHandler(): (error: unknown) => void {
+  const owner = getCurrentComponentInstance();
+  const protectedByOwner =
+    !!owner && isRenderingProtectedBoundaryContent(owner);
+  return (error) => {
+    if (
+      !owner ||
+      !routeRenderedOutputErrorToBoundary(owner, error, protectedByOwner)
+    ) {
+      throw error;
+    }
+  };
+}
+
+/** Structural child updates run in a retained record so failures roll back. */
+export function updateReactiveChildElements(
+  host: ReactiveChildDOMHost,
+  el: Element,
+  children: VNode | VNode[] | string | undefined
+): void {
+  runRetainedElementUpdate(el, teardownNodeSubtree, () =>
+    host.updateElementChildren(el, children as VNode | VNode[] | undefined)
+  );
+}
+
 function setupReactiveScalarChild(
   el: Element,
   source: ReactiveScalarChildSource,
@@ -112,6 +144,7 @@ function setupReactiveScalarChild(
   updateFn: (nextSource: ReactiveScalarChildSource) => void;
 } {
   let currentSource = source;
+  const onError = createReactiveChildErrorHandler();
 
   if (source.length === 1 && source[0]?.kind === 'dynamic') {
     // A stale owned text node after rollback is detected and replaced.
@@ -140,7 +173,8 @@ function setupReactiveScalarChild(
 
         if (normalized === null) {
           ownedTextNode = null;
-          host.updateElementChildren(
+          updateReactiveChildElements(
+            host,
             el,
             value as unknown as VNode | VNode[] | undefined
           );
@@ -158,7 +192,7 @@ function setupReactiveScalarChild(
           el.childNodes.length !== 1 ||
           el.firstChild !== ownedTextNode
         ) {
-          host.updateElementChildren(el, normalized);
+          updateReactiveChildElements(host, el, normalized);
           ownedTextNode =
             el.childNodes.length === 1 &&
             el.firstChild?.nodeType === Node.TEXT_NODE
@@ -175,11 +209,7 @@ function setupReactiveScalarChild(
           incDevCounter('textNodeWrites');
         }
       },
-      onError: (err) => {
-        if (getRuntimeEnvValue('NODE_ENV') !== 'production') {
-          logger.warn('[Askr] Reactive child update failed:', err);
-        }
-      },
+      onError,
     });
 
     return {
@@ -238,15 +268,20 @@ function setupReactiveScalarChild(
         const nextChildren: VNode[] = [];
         collectReactiveChildValuesAsVNodes(values, nextChildren);
 
-        const boundaryHost = createReactiveChildBoundaryHost(el);
-        for (let node = el.firstChild; node;) {
-          const next = node.nextSibling;
-          boundaryHost.appendChild(node);
-          node = next;
-        }
+        runRetainedElementUpdate(el, teardownNodeSubtree, () => {
+          const boundaryHost = createReactiveChildBoundaryHost(el);
+          for (let node = el.firstChild; node;) {
+            const next = node.nextSibling;
+            boundaryHost.appendChild(node);
+            node = next;
+          }
 
-        host.updateElementChildren(boundaryHost, nextChildren);
-        syncReactiveChildExpectedNodes(el, Array.from(boundaryHost.childNodes));
+          host.updateElementChildren(boundaryHost, nextChildren);
+          syncReactiveChildExpectedNodes(
+            el,
+            Array.from(boundaryHost.childNodes)
+          );
+        });
       },
       equals: (previousValue, nextValue) => {
         if (!Array.isArray(previousValue) || !Array.isArray(nextValue)) {
@@ -273,11 +308,7 @@ function setupReactiveScalarChild(
 
         return true;
       },
-      onError: (err) => {
-        if (getRuntimeEnvValue('NODE_ENV') !== 'production') {
-          logger.warn('[Askr] Reactive child update failed:', err);
-        }
-      },
+      onError,
     });
 
   return {
