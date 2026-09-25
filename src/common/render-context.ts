@@ -82,6 +82,31 @@ export function getActiveRenderContext(): ActiveRenderContext | null {
   return provider.getRenderContext();
 }
 
+const deferredBoundaryParents = new WeakMap<ActiveRenderContext, string>();
+
+/**
+ * Scope deferred boundaries registered in `context` under an already streamed
+ * parent boundary, so nested ids (`d:0.0`) never collide with top-level ones.
+ */
+export function setDeferredBoundaryParent(
+  context: ActiveRenderContext,
+  parentId: string
+): void {
+  deferredBoundaryParents.set(context, parentId);
+}
+
+/** Register a pending `Resolve` boundary for streaming and return its deterministic id. */
+export function registerDeferredBoundary(
+  context: ActiveRenderContext,
+  registration: Omit<DeferredBoundaryRegistration, 'id'>
+): string {
+  const parent = deferredBoundaryParents.get(context);
+  const index = context.deferredBoundaries.length;
+  const id = parent === undefined ? `d:${index}` : `${parent}.${index}`;
+  context.deferredBoundaries.push({ id, ...registration });
+  return id;
+}
+
 /** Register request-local CSS produced during SSR without importing the SSR renderer in clients. */
 export function registerSSRStyle(id: string, cssText: string): void {
   const context = getActiveRenderContext();

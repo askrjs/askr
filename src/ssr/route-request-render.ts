@@ -21,7 +21,11 @@ import { renderToStringSync } from './render-sync';
 import { StringSink } from './sink';
 import type { CoreTelemetry } from '../common/telemetry';
 import { withTelemetry } from '../common/telemetry';
-import type { DeferredBoundaryRegistration } from '../common/render-context';
+import {
+  getActiveRenderContext,
+  setDeferredBoundaryParent,
+  type DeferredBoundaryRegistration,
+} from '../common/render-context';
 import {
   serializeHydrationRenderData,
   withHydratedAuth,
@@ -97,33 +101,49 @@ function stripHydrationPayload(html: string): string {
   );
 }
 
+/** Request-local state every deferred boundary pass renders with. */
+interface BoundaryRenderPass {
+  seed: number | undefined;
+  data: PageRenderEnvelope | null;
+  cspNonce: string | undefined;
+  authContext: AuthContext | undefined;
+  route: RenderRouteState;
+}
+
 function renderBoundary(
   boundary: DeferredBoundaryRegistration,
   state: 'fulfilled' | 'rejected',
   payload: unknown,
-  seed: number | undefined,
-  data: PageRenderEnvelope | null,
-  cspNonce: string | undefined,
-  authContext: AuthContext | undefined,
-  route: RenderRouteState
-): { html: string; styles: SSRStyleRegistration[] } {
+  pass: BoundaryRenderPass
+): {
+  html: string;
+  styles: SSRStyleRegistration[];
+  boundaries: DeferredBoundaryRegistration[];
+} {
   const styles: SSRStyleRegistration[] = [];
+  const boundaries: DeferredBoundaryRegistration[] = [];
   const html = renderToStringSync(
-    () =>
-      (state === 'fulfilled'
+    () => {
+      const context = getActiveRenderContext();
+      if (context) setDeferredBoundaryParent(context, boundary.id);
+      return (state === 'fulfilled'
         ? boundary.fulfilled(payload)
-        : boundary.rejected(payload)) as unknown as import('./types').VNode,
+        : boundary.rejected(payload)) as unknown as import('./types').VNode;
+    },
     {},
     {
-      seed,
-      envelope: data ?? undefined,
-      cspNonce,
-      authContext,
-      route,
-      onContext: (context) => styles.push(...context.ssrStyles.values()),
+      seed: pass.seed,
+      envelope: pass.data ?? undefined,
+      cspNonce: pass.cspNonce,
+      authContext: pass.authContext,
+      route: pass.route,
+      onContext: (context) => {
+        styles.push(...context.ssrStyles.values());
+        boundaries.push(...context.deferredBoundaries);
+      },
     }
   );
-  return { html: stripHydrationPayload(html), styles };
+  return { html: stripHydrationPayload(html), styles, boundaries };
 }
 
 function escapeHtmlAttribute(value: string): string {
@@ -157,23 +177,24 @@ function patchChunk(
   );
 }
 
+/**
+ * Stream the shell, then one patch per boundary in the order boundaries
+ * settle. A boundary whose content renders another pending `Resolve` queues
+ * that nested boundary with the same request state; hydration data follows
+ * once every boundary, nested ones included, has been patched.
+ */
 function createDeferredRenderStream(
   initialHtml: string,
   boundaries: readonly DeferredBoundaryRegistration[],
   signal: AbortSignal,
-  seed: number | undefined,
-  data: PageRenderEnvelope | null,
-  runtime: DataRuntime,
-  cspNonce: string | undefined,
-  authContext: AuthContext | undefined,
-  route: RenderRouteState
+  pass: BoundaryRenderPass,
+  runtime: DataRuntime
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   const local = new AbortController();
   let cancelled = false;
   let closed = false;
-  let initialPending = true;
-  let boundaryIndex = 0;
+  let unsettled = 0;
   let controllerRef: ReadableStreamDefaultController<Uint8Array> | undefined;
   const cleanup = () => signal.removeEventListener('abort', abort);
   const close = (controller: ReadableStreamDefaultController<Uint8Array>) => {
@@ -182,86 +203,72 @@ function createDeferredRenderStream(
     cleanup();
     controller.close();
   };
+  const fail = (
+    controller: ReadableStreamDefaultController<Uint8Array>,
+    error: unknown
+  ) => {
+    if (closed) return;
+    closed = true;
+    cleanup();
+    local.abort(error);
+    controller.error(error);
+  };
   const abort = () => {
     local.abort(signal.reason);
     if (controllerRef) close(controllerRef);
   };
   signal.addEventListener('abort', abort, { once: true });
 
+  const streamBoundary = (
+    controller: ReadableStreamDefaultController<Uint8Array>,
+    boundary: DeferredBoundaryRegistration
+  ) => {
+    unsettled += 1;
+    void settleWithSignal(boundary.promise, local.signal)
+      .then(
+        (value) => ({ state: 'fulfilled' as const, payload: value }),
+        (error: unknown) => ({ state: 'rejected' as const, payload: error })
+      )
+      .then(({ state, payload }) => {
+        if (cancelled || closed || local.signal.aborted) return;
+        try {
+          const rendered = renderBoundary(boundary, state, payload, pass);
+          controller.enqueue(
+            encoder.encode(
+              patchChunk(
+                boundary.id,
+                rendered.html,
+                rendered.styles,
+                pass.cspNonce
+              )
+            )
+          );
+          for (const nested of rendered.boundaries) {
+            streamBoundary(controller, nested);
+          }
+          unsettled -= 1;
+          if (unsettled > 0) return;
+          const hydration = serializeHydrationRenderData(
+            pass.data ?? undefined,
+            runtime
+          );
+          if (hydration) controller.enqueue(encoder.encode(hydration));
+          close(controller);
+        } catch (error) {
+          fail(controller, error);
+        }
+      });
+  };
+
   return new ReadableStream<Uint8Array>({
     start(controller) {
       controllerRef = controller;
-    },
-    async pull(controller) {
-      if (cancelled || closed) return;
-      if (initialPending) {
-        initialPending = false;
-        controller.enqueue(encoder.encode(stripHydrationPayload(initialHtml)));
+      if (signal.aborted) {
+        abort();
         return;
       }
-      const boundary = boundaries[boundaryIndex];
-      if (boundary) {
-        boundaryIndex += 1;
-        try {
-          const value = await settleWithSignal(boundary.promise, local.signal);
-          if (!cancelled && !closed) {
-            const rendered = renderBoundary(
-              boundary,
-              'fulfilled',
-              value,
-              seed,
-              data,
-              cspNonce,
-              authContext,
-              route
-            );
-            controller.enqueue(
-              encoder.encode(
-                patchChunk(
-                  boundary.id,
-                  rendered.html,
-                  rendered.styles,
-                  cspNonce
-                )
-              )
-            );
-          }
-        } catch (error) {
-          if (local.signal.aborted) {
-            if (!cancelled && !closed) close(controller);
-            return;
-          }
-          if (!cancelled && !closed) {
-            const rendered = renderBoundary(
-              boundary,
-              'rejected',
-              error,
-              seed,
-              data,
-              cspNonce,
-              authContext,
-              route
-            );
-            controller.enqueue(
-              encoder.encode(
-                patchChunk(
-                  boundary.id,
-                  rendered.html,
-                  rendered.styles,
-                  cspNonce
-                )
-              )
-            );
-          }
-        }
-        return;
-      }
-      const hydration = serializeHydrationRenderData(
-        data ?? undefined,
-        runtime
-      );
-      if (hydration) controller.enqueue(encoder.encode(hydration));
-      close(controller);
+      controller.enqueue(encoder.encode(stripHydrationPayload(initialHtml)));
+      for (const boundary of boundaries) streamBoundary(controller, boundary);
     },
     cancel(reason) {
       cancelled = true;
@@ -370,17 +377,19 @@ async function renderRouteRequestInternal(
                 html,
                 boundaries,
                 signal,
-                options.seed,
-                context.hydrationData,
-                runtime,
-                cspNonce,
-                context.authContext,
                 {
-                  url: context.url,
-                  routes: context.routes,
-                  basePath: context.basePath,
-                  params: context.params,
-                }
+                  seed: options.seed,
+                  data: context.hydrationData,
+                  cspNonce,
+                  authContext: context.authContext,
+                  route: {
+                    url: context.url,
+                    routes: context.routes,
+                    basePath: context.basePath,
+                    params: context.params,
+                  },
+                },
+                runtime
               ),
             }
           : {}),
