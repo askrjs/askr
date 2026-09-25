@@ -320,4 +320,52 @@ describe('derive() owned by a component an ancestor is about to remove (#523)', 
     flushScheduler();
     expect(container.textContent).toBe('one');
   });
+
+  for (const depth of [2, 3]) {
+    it(`should not evaluate a <For> row derive when each reads a ${depth}-level derive chain`, () => {
+      const island = createTestContainer();
+      let setItems!: (v: Item[]) => void;
+      let items!: () => Item[];
+
+      function Row(props: { index: number }) {
+        const name = derive(() => items()[props.index].name);
+        return <li>{name()}</li>;
+      }
+
+      function List() {
+        const [it, si] = state<Item[]>([{ name: 'a' }, { name: 'b' }]);
+        items = it;
+        setItems = si;
+        // The row cells are dirtied before the chain reaches the For source:
+        // each level is re-marked only after the level below recomputes.
+        let chain: () => Item[] = derive(() =>
+          items().filter((item) => item.name !== 'z')
+        );
+        for (let level = 1; level < depth; level++) {
+          const below = chain;
+          chain = derive(() => below().slice());
+        }
+        const visible = chain;
+        return (
+          <ul>
+            <For each={() => visible()} by={(_, i) => i}>
+              {(_, i) => <Row index={i()} />}
+            </For>
+          </ul>
+        );
+      }
+
+      try {
+        createIsland({ root: island.container, component: List });
+        flushScheduler();
+        expect(island.container.textContent, `depth ${depth}`).toBe('ab');
+
+        setItems([{ name: 'c' }]);
+        flushScheduler();
+        expect(island.container.textContent, `depth ${depth}`).toBe('c');
+      } finally {
+        island.cleanup();
+      }
+    });
+  }
 });
