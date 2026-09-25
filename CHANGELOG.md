@@ -16,6 +16,17 @@
   `invalidate('/api/users')` no longer matches `/api/users/1`, and
   `invalidate('a.b')` no longer matches `a.b.c`. Move such keys to `:`
   delimiters or `queryScope()`.
+- fix(ssr): async render contexts resolve `AsyncLocalStorage` from
+  `globalThis.AsyncLocalStorage` or `process.getBuiltinModule('node:async_hooks')`
+  instead of `new Function('return require(...)')`. Previously synchronous
+  `withRenderContext()` could not accept async callbacks under Node ESM (where
+  that loader never resolved `require`), and async render contexts were
+  rejected under a CSP without `'unsafe-eval'` and on runtimes without
+  `process.versions.node`. Any runtime that provides `AsyncLocalStorage`
+  globally or via `process.getBuiltinModule` is now supported; see the SSR
+  guide.
+- fix(runtime): `cspNonce()` decides whether a render scope is active from
+  scope state instead of matching the text of `readScope()`'s error message.
 - fix(runtime): `state.set()` now throws when called inside a `derive()` or
   `selector()` computation, including recomputes in the derived lane where no
   component is rendering. Previously only render-time recomputes were caught
