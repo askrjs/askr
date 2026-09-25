@@ -2,7 +2,7 @@ import { resetRouteState, currentRouteRegistry } from '../../router-test-utils';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import type { JSXElement } from '../../../src/jsx/types';
 import { state } from '../../../src';
-import { Show } from '../../../src/control';
+import { For, Show } from '../../../src/control';
 import {
   createDataRuntime,
   createQuery,
@@ -1416,6 +1416,171 @@ describe('data layer', () => {
       expect(container.textContent).toBe('secondary');
     } finally {
       warnSpy.mockRestore();
+      cleanup();
+    }
+  });
+
+  it('should hand a shared query definition to a surviving reader that does not rerender', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let setShowPrimary: ((value: boolean) => void) | undefined;
+    const calls: string[] = [];
+
+    const Primary = () => {
+      createQuery({
+        key: 'users:handoff-idle',
+        fetch: async () => {
+          calls.push('dead');
+          return 'dead';
+        },
+      });
+      return null;
+    };
+
+    const Secondary = () => {
+      const query = createQuery({
+        key: 'users:handoff-idle',
+        fetch: async () => {
+          calls.push('survivor');
+          return 'survivor';
+        },
+      });
+      return <span>{query.data ?? 'loading'}</span>;
+    };
+
+    const PrimarySlot = () => {
+      const showPrimary = state(true);
+      setShowPrimary = showPrimary.set;
+      return (
+        <Show when={showPrimary()}>
+          <Primary />
+        </Show>
+      );
+    };
+
+    const App = (): JSXElement => (
+      <section>
+        <PrimarySlot />
+        <Secondary />
+      </section>
+    );
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+      expect(calls).toEqual(['dead']);
+
+      setShowPrimary?.(false);
+      flushScheduler();
+      await settle();
+
+      invalidate('users:handoff-idle');
+      flushScheduler();
+      await settle();
+
+      expect(calls).toEqual(['dead', 'survivor']);
+      expect(container.textContent).toBe('survivor');
+    } finally {
+      warnSpy.mockRestore();
+      cleanup();
+    }
+  });
+
+  it('should not warn and should use the new row definition when a keyed row replaces the owner', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let setRows: ((value: { id: number }[]) => void) | undefined;
+    const calls: number[] = [];
+
+    const Row = ({ id }: { id: number }) => {
+      const query = createQuery({
+        key: 'users:keyed-row',
+        fetch: async () => {
+          calls.push(id);
+          return String(id);
+        },
+      });
+      return <span>{query.data ?? 'loading'}</span>;
+    };
+
+    const App = (): JSXElement => {
+      const rows = state([{ id: 1 }]);
+      setRows = rows.set;
+      return (
+        <main>
+          <For each={rows} by={(row) => row.id}>
+            {(row) => <Row id={row.id} />}
+          </For>
+        </main>
+      );
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+      expect(calls).toEqual([1]);
+
+      setRows?.([{ id: 2 }]);
+      flushScheduler();
+      await settle();
+
+      invalidate('users:keyed-row');
+      flushScheduler();
+      await settle();
+
+      expect(warnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[askr] Conflicting shared query definition for key "users:keyed-row"'
+        )
+      );
+      expect(calls).toEqual([1, 2]);
+      expect(container.textContent).toBe('2');
+    } finally {
+      warnSpy.mockRestore();
+      cleanup();
+    }
+  });
+
+  it('should check an in-flight fetch with the callbacks it started with', async () => {
+    let setStrict: ((value: boolean) => void) | undefined;
+    let query: Query<string> | undefined;
+    let resolveFetch!: (value: string) => void;
+
+    const App = (): JSXElement => {
+      const strict = state(false);
+      setStrict = strict.set;
+      const rejectAll = strict();
+
+      query = createQuery({
+        key: 'users:in-flight-callbacks',
+        fetch: () =>
+          new Promise<string>((resolve) => {
+            resolveFetch = resolve;
+          }),
+        isConsistent: () => !rejectAll,
+      });
+
+      return <div>{query.consistency}</div>;
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+
+      setStrict?.(true);
+      flushScheduler();
+
+      resolveFetch('started-lenient');
+      await settle();
+
+      expect(query!.data).toBe('started-lenient');
+      expect(query!.consistency).toBe('fresh');
+      expect(container.textContent).toBe('fresh');
+    } finally {
       cleanup();
     }
   });
