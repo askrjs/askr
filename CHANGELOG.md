@@ -18,6 +18,28 @@
   including params and named splats, which previously decoded `%2F` to `/`:
   `/files/..%2F..%2Fetc` captures `..%2F..%2Fetc`, not `../../etc`. `to()`
   passes kept `%2F`/`%5C` through, so captures round-trip to their URL.
+- fix(renderer,ssr): camelCase SVG presentation props such as
+  `strokeDasharray`, `fillOpacity`, `stopColor` and `clipPath` now render as
+  their hyphenated attribute names, and `xlinkHref`/`xmlLang`/`xmlSpace`/
+  `xmlnsXlink` render as namespaced `xlink:`/`xml:`/`xmlns:` attributes (set
+  with `setAttributeNS` on SVG and MathML elements on the client). Previously
+  only five SVG names were mapped and the rest were written verbatim, which
+  browsers ignore. The mapping also applies to HTML elements, so a prop such
+  as `fontSize` or `pointerEvents` on a `<div>` now renders `font-size` or
+  `pointer-events` instead of `fontsize`. Custom elements (tag names with a
+  `-`) keep their prop names as before. The SVG prop types now list the
+  presentation attributes.
+- fix(renderer,ssr): numeric `style` values get a `px` unit on non-unitless
+  properties, so `style={{ width: 10 }}` renders `width:10px` instead of the
+  invalid `width:10`. Unitless properties (React's list plus
+  `font-size-adjust`, `initial-letter` and `math-depth`, with or without a
+  vendor prefix), `0` and custom properties are unchanged. `ms`-prefixed names
+  such as `msFlexPositive` now render as `-ms-flex-positive`.
+- fix(renderer,ssr): `false` renders `"false"` for the enumerated attributes
+  `draggable`, `spellCheck`, `contentEditable` and `writingSuggestions`
+  instead of removing them, so
+  `<img draggable={false}>` is no longer draggable. Their prop types now accept
+  booleans.
 - breaking(data): `defineQuery()` fetchers now receive the input and the abort
   signal as separate arguments, `fetch(input, { signal })`, instead of one
   merged `{ ...input, signal }` object. The merged shape dropped primitive
