@@ -150,7 +150,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         })
       );
 
-    let verifyClientMarkup: ((root: Element) => Promise<void>) | undefined;
+    let verifyClientMarkup: (() => Promise<void>) | undefined;
     if (shouldVerifyHydrationMarkup(config)) {
       const {
         captureServerHydrationMarkup,
@@ -184,12 +184,12 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         hydrationRenderDataForApp ?? undefined
       );
       if (serverMarkup !== null) {
-        verifyClientMarkup = async (root) => {
+        verifyClientMarkup = async () => {
           // Let the work the hydration commit scheduled settle first.
           await Promise.resolve();
-          if (!verifyClientHydrationMarkup(root, serverMarkup)) {
+          if (!verifyClientHydrationMarkup(rootElement, serverMarkup)) {
             throw new Error(
-              '[Askr] Hydration mismatch detected. Server HTML does not match the client-rendered output.'
+              '[Askr] Hydration mismatch detected between server and client markup.'
             );
           }
         };
@@ -223,7 +223,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
             stopHydrationRenderPhase();
           }
         }
-        await verifyClientMarkup?.(rootElement);
+        await verifyClientMarkup?.();
         interactionReplay.complete();
         return;
       }
@@ -257,7 +257,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         stopHydrationRenderPhase();
       }
     }
-    await verifyClientMarkup?.(rootElement);
+    await verifyClientMarkup?.();
     interactionReplay.complete();
     await registerAppNavigation(rootElement, path, {
       ...appRouteSource,
