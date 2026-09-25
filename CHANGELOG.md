@@ -6,8 +6,12 @@
   conflicting shared query definition on every re-render, and no longer keeps
   the first render's `fetch` closure forever. The reader that defines a key
   now replaces its `fetch`, `isConsistent`, and `reconcile` on each render;
-  only other readers of the same key with a different definition warn. When
-  the defining reader unmounts, a remaining reader takes over the definition.
+  only other readers of the same key with a different definition warn, after
+  the current render work settles (a keyed row replacing the owner does not
+  warn). When the defining reader unmounts, a remaining reader's definition
+  takes over immediately. An in-flight fetch is checked and reconciled with the
+  callbacks it started with. `createQueryCollection()` entries are redefined on
+  each update, so `retry()` fetches with the entry's current `input`.
 - breaking(data): `defineQuery()` fetchers now receive the input and the abort
   signal as separate arguments, `fetch(input, { signal })`, instead of one
   merged `{ ...input, signal }` object. The merged shape dropped primitive

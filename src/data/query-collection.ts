@@ -182,7 +182,7 @@ class QueryCollectionCell<
 
       if (previous?.queryKey === queryKey) {
         previous.input = input;
-        previous.cell.warnOnConflictingDefinition(cellOptions);
+        previous.cell.define(cellOptions, previous.owner, 0);
         record = previous;
       } else {
         if (previous) {
@@ -204,12 +204,11 @@ class QueryCollectionCell<
             cache
           );
           cache.set(queryKey, cell as QueryCell<unknown>);
-        } else {
-          cell.warnOnConflictingDefinition(cellOptions);
         }
 
         const owner = {};
         cell.attach(owner, 0);
+        cell.define(cellOptions, owner, 0);
         record = {
           key,
           input,
