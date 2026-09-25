@@ -449,6 +449,12 @@ export function claimHookIndex(
   instance: ComponentInstance,
   hookName: HookKind
 ): number {
+  if (instance._setupRenderActive) {
+    throw new Error(
+      `${formatHook(hookName)} cannot run inside a setup component's render callback. ` +
+        `Create lifecycle values in setup or inside a child component.`
+    );
+  }
   const index = getNextStateIndex();
   instance.stateIndexCheck = index;
 

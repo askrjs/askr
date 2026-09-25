@@ -58,6 +58,8 @@ export interface ComponentDiagnostics {
 }
 
 export interface ComponentExecution {
+  /** @internal #575 prototype: setup hooks are prohibited in the render callback. */
+  _setupRenderActive?: boolean;
   /**
    * @internal Set on the child scope of a function child bound beside
    * elements: asking for the current component during its render aborts the
