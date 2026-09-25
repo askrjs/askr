@@ -103,7 +103,6 @@ interface ForState<T> {
   _suspendSourceCommit: boolean;
   _enqueueBoundaryCommit?: (() => void) | null;
   _hasPendingBoundaryCommit?: boolean;
-  devKeyKinds?: Map<string | number, 'number' | 'string'>;
   _transaction?: ForTransaction<T> | null;
   _scopeOwnership: ChildScopeOwnership;
 }
@@ -146,7 +145,6 @@ interface ForTransaction<T> {
   pendingAppendStart: number | null;
   hasResolvedItemDom: boolean;
   needsSourceReconcile: boolean;
-  devKeyKinds?: Map<string | number, 'number' | 'string'>;
   itemSnapshots: Map<ForItemInstance<T>, ForItemTransactionSnapshot<T>> | null;
   unreadIndexSnapshots: Map<ForIndexSignal, number> | null;
   fallbackScopeSnapshot: ChildScopeTransactionSnapshot | null;
@@ -196,6 +194,7 @@ interface ShowState extends BranchControlStateBase {
 interface CaseState extends BranchControlStateBase {
   kind: 'case';
   fallback: (() => VNode) | null;
+  invalidChildError: Error | null;
   matches: MatchBranch[];
 }
 

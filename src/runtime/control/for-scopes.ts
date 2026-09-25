@@ -6,6 +6,7 @@ import type { DOMElement, VNode } from '../../common/vnode';
 import type { DOMRange } from '../../common/dom-range';
 import { isDevelopmentEnvironment } from '../../common/env';
 import { type ComponentInstance } from '../component/instance';
+import { bindControlScopeErrorOwner } from '../component/error-boundary';
 import {
   captureChildScopeTransactionSnapshot,
   createChildScope,
@@ -107,6 +108,7 @@ function createForOwnedChildScope<T>(
     enqueueForBoundaryScopeCommit,
     forState._scopeOwnership
   );
+  bindControlScopeErrorOwner(scope.componentInstance, forState);
   if (forState._contextFrame) {
     scope.componentInstance.ownerFrame = forState._contextFrame;
   }

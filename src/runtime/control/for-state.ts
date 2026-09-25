@@ -90,7 +90,6 @@ export interface ForState<T> {
   _suspendSourceCommit: boolean;
   _enqueueBoundaryCommit?: (() => void) | null;
   _hasPendingBoundaryCommit?: boolean;
-  devKeyKinds?: Map<string | number, 'number' | 'string'>;
   _transaction?: ForTransaction<T> | null;
   _scopeOwnership: ChildScopeOwnership;
 }
@@ -134,7 +133,6 @@ export interface ForTransaction<T> {
   pendingAppendStart: number | null;
   hasResolvedItemDom: boolean;
   needsSourceReconcile: boolean;
-  devKeyKinds?: Map<string | number, 'number' | 'string'>;
   itemSnapshots: Map<ForItemInstance<T>, ForItemTransactionSnapshot<T>> | null;
   unreadIndexSnapshots: Map<ForIndexSignal, number> | null;
   fallbackScopeSnapshot: ChildScopeTransactionSnapshot | null;
@@ -354,7 +352,6 @@ export function beginForStateTransaction<T>(
     pendingAppendStart: forState.pendingAppendStart,
     hasResolvedItemDom: forState._hasResolvedItemDom,
     needsSourceReconcile: forState._needsSourceReconcile,
-    devKeyKinds: forState.devKeyKinds,
     itemSnapshots: null,
     unreadIndexSnapshots: null,
     fallbackScopeSnapshot: null,
@@ -683,7 +680,6 @@ export function rollbackForStateTransaction<T>(
   forState.pendingAppendStart = transaction.pendingAppendStart;
   forState._hasResolvedItemDom = transaction.hasResolvedItemDom;
   forState._needsSourceReconcile = transaction.needsSourceReconcile;
-  forState.devKeyKinds = transaction.devKeyKinds;
   forState._transaction = null;
 
   if (rollbackCleanupErrors.length > 0) {
