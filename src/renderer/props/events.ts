@@ -12,7 +12,10 @@
 import { runRuntimeHandlerScope } from '../../runtime';
 import {
   getCurrentAppRenderRuntime,
+  getCurrentLifecycleInstance,
   withAppRenderRuntime,
+  withLifecycleOwner,
+  type ComponentInstance,
 } from '../../runtime';
 import type { AppRenderRuntime } from '../../common/app-render-runtime';
 import { logger } from '../../common/logger';
@@ -78,6 +81,7 @@ interface DelegatedHandler {
   handler: EventListener;
   original: EventListener;
   appRuntime?: AppRenderRuntime;
+  instance: ComponentInstance | null;
   container: Element;
   eventName: string;
   options?: AddEventListenerOptions;
@@ -339,7 +343,9 @@ function attachDelegatedListener(
         for (const { node, entry } of dispatchPath) {
           try {
             withAppRenderRuntime(entry.appRuntime, () =>
-              entry.handler(createDelegatedEventFacade(e, node))
+              withLifecycleOwner(entry.instance?.owner, () =>
+                entry.handler(createDelegatedEventFacade(e, node))
+              )
             );
           } catch (error) {
             logger.error('[Askr] Delegated event error:', error);
@@ -369,6 +375,7 @@ function attachDelegatedListener(
       handler,
       original: originalHandler,
       appRuntime: getCurrentAppRenderRuntime(),
+      instance: getCurrentLifecycleInstance(),
       container,
       eventName,
       options,
@@ -485,6 +492,7 @@ export function updateDelegatedListener(
   existing.handler = handler;
   existing.original = originalHandler;
   existing.appRuntime = getCurrentAppRenderRuntime();
+  existing.instance = getCurrentLifecycleInstance();
   existing.options = options;
   return true;
 }

@@ -3,6 +3,7 @@ import { ownCleanup } from '../ownership/record';
 import {
   claimHookIndex,
   getCurrentComponentInstance,
+  withLifecycleOwner,
 } from '../component/scope';
 import {
   registerCommitOperation,
@@ -103,11 +104,13 @@ function commitWatchSlot<TValue>(
 
     let result: ReturnType<WatchCallback<TValue>>;
     try {
-      result = slot.callback(value, {
-        initial,
-        previous,
-        signal: controller.signal,
-      });
+      result = withLifecycleOwner(instance.owner, () =>
+        slot.callback(value, {
+          initial,
+          previous,
+          signal: controller.signal,
+        })
+      );
     } catch (error) {
       reportWatchError(instance, error);
       return;
