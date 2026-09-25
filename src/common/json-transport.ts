@@ -98,18 +98,18 @@ export function validateJsonTransportValue(
       continue;
     }
 
-    // Deferred values carry a symbol marker; plain data has no symbols.
-    const hasSymbols = Object.getOwnPropertySymbols(object).length > 0;
-    if (hasSymbols && isDeferred(object)) {
-      stack.pop();
-      if (object.state === 'fulfilled') visit(object.value, frame, 'value');
-      continue;
-    }
-
     if (ancestors.has(object))
       fail(pathOf(frame), 'cyclic references are not supported');
     frame.seen = true;
     ancestors.add(object);
+
+    // Deferred values carry a symbol marker; plain data has no symbols. A
+    // deferred stays an ancestor while its value is walked.
+    const hasSymbols = Object.getOwnPropertySymbols(object).length > 0;
+    if (hasSymbols && isDeferred(object)) {
+      if (object.state === 'fulfilled') visit(object.value, frame, 'value');
+      continue;
+    }
 
     const array = Array.isArray(object) ? (object as unknown[]) : undefined;
     if (!array) {
