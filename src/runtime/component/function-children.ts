@@ -20,6 +20,7 @@ import {
 import { markTransparentComponentResult } from '../../common/control';
 import { readFunctionChildValue } from '../reactivity/readable';
 import { getCurrentComponentInstance } from './scope';
+import { cleanupComponent } from './cleanup';
 import type { ComponentInstance } from './instance';
 import {
   getVNodeContextFrame,
@@ -100,6 +101,13 @@ function renderNothingForFunction(item: unknown): unknown {
 export function FunctionChild(props: { read: () => unknown }): JSXElement {
   const owner = getCurrentComponentInstance();
   const generation = owner?._functionChildGeneration ?? 0;
+  // A body replaced by a remount rendered nothing, so no DOM teardown will
+  // reach it: dispose it here (its cleanups run, its subscriptions end).
+  const stale = owner?._staleFunctionChildBody;
+  if (owner && stale) {
+    owner._staleFunctionChildBody = undefined;
+    cleanupComponent(stale);
+  }
   return {
     $$typeof: ELEMENT_TYPE,
     type: FunctionChildBody,
@@ -115,7 +123,9 @@ type FunctionChildBodyProps = {
 
 function renderFunctionChildBody(props: FunctionChildBodyProps): JSXElement {
   const instance = getCurrentComponentInstance();
-  if (instance) instance._remountOnHookOrderChange = true;
+  if (instance) {
+    instance._remountOnHookOrderChange = true;
+  }
   // The value renders as a fragment, so it occupies a transparent range like
   // the item would in place, rather than a host element.
   return {
@@ -144,6 +154,7 @@ export function remountFunctionChild(instance: ComponentInstance): void {
   const owner = (instance.props as Partial<FunctionChildBodyProps>).owner;
   if (!owner) return;
   owner._functionChildGeneration = (owner._functionChildGeneration ?? 0) + 1;
+  owner._staleFunctionChildBody = instance;
   owner._enqueueRun?.();
 }
 

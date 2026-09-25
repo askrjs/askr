@@ -1250,6 +1250,59 @@ describe('SSR reactive values', () => {
       ],
     ];
 
+    it.each(positions)(
+      'should dispose the previous function child on each remount in %s',
+      async (_position, place) => {
+        let flag!: State<boolean>;
+        let runs = 0;
+        let mounts = 0;
+        let cleanups = 0;
+        const trackedTask = () =>
+          task(() => {
+            mounts += 1;
+            return () => {
+              cleanups += 1;
+            };
+          });
+        const Component = () => {
+          flag = state(false);
+          return place(() => {
+            runs += 1;
+            if (flag()) {
+              const [value] = state('B');
+              trackedTask();
+              return value();
+            }
+            trackedTask();
+            return 'A';
+          });
+        };
+
+        await createSPA({
+          root: container,
+          registry: routeRegistryFromTable([{ path: '/', handler: Component }]),
+        });
+        flushScheduler();
+
+        for (let toggle = 1; toggle <= 10; toggle += 1) {
+          runs = 0;
+          flag.set(toggle % 2 === 1);
+          flushScheduler();
+          await Promise.resolve();
+          flushScheduler();
+          expect(container.textContent).toContain(toggle % 2 === 1 ? 'B' : 'A');
+          // The remounted body runs; the disposed one does not run again.
+          expect(runs).toBeLessThanOrEqual(2);
+          expect(mounts - cleanups).toBe(1);
+        }
+
+        cleanupApp(container);
+        // A task's cleanup is recorded once its (async) run settles.
+        for (let tick = 0; tick < 5; tick += 1) await Promise.resolve();
+        expect(mounts - cleanups).toBe(0);
+      }
+    );
+
     for (const [position, place] of positions) {
       it.each(toggles)(
         `should toggle %s in ${position} without a hook-order error`,

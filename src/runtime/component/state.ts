@@ -70,6 +70,8 @@ export interface ComponentExecution {
   _hookOrderChanged?: boolean;
   /** @internal Bumped to remount a `FunctionChild`'s body. */
   _functionChildGeneration?: number;
+  /** @internal The body a remount replaced, disposed on the next render. */
+  _staleFunctionChildBody?: ComponentInstance;
   fn: ComponentFunction;
   props: Props;
   target: Element | null;
