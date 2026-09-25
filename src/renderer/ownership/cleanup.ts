@@ -4,7 +4,7 @@ import { cleanupComponentGeneration } from '../../runtime/component/cleanup';
 import type { OwnershipRecord } from '../../runtime/ownership/record';
 import { registerCommitEffect } from '../../runtime';
 import { registerCommitParticipant } from '../../runtime/transactions/access';
-import { reportUncaughtError } from '../../common/report-error';
+import { reportUncaughtErrorLater } from '../../common/report-error';
 import { incDevCounter } from '../../runtime';
 import {
   clearDelegatedHandlersForElement,
@@ -134,12 +134,17 @@ export function removeElementRef(element: Element): void {
     return;
   }
 
-  applyRefValue(ref, null);
-  const nextOwner = getElementRefOwner(ref);
-  if (typeof ref === 'function' && nextOwner && nextOwner !== element) {
-    applyRefValue(ref, nextOwner);
+  try {
+    applyRefValue(ref, null);
+  } finally {
+    // Retire the binding even when the callback throws, so a later teardown
+    // pass over the same element cannot run (and report) it again.
+    const nextOwner = getElementRefOwner(ref);
+    replaceElementRefBookkeeping(element, undefined);
+    if (typeof ref === 'function' && nextOwner && nextOwner !== element) {
+      applyRefValue(ref, nextOwner);
+    }
   }
-  replaceElementRefBookkeeping(element, undefined);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -150,8 +155,9 @@ export function removeElementRef(element: Element): void {
  * Surface failures collected while draining a teardown. Every step runs
  * before this is called. Strict callers receive the failures as a thrown
  * AggregateError. Otherwise the failures are reported like an uncaught
- * listener exception (`reportError`), in every build, so the caller's DOM
- * update continues: a single failure as-is, several as one AggregateError.
+ * listener exception (`reportError`), in every build, once the current task
+ * finishes, so the caller's DOM update continues and error handlers never run
+ * inside it: a single failure as-is, several as one AggregateError.
  */
 function surfaceTeardownErrors(
   errors: unknown[],
@@ -160,14 +166,9 @@ function surfaceTeardownErrors(
 ): void {
   if (errors.length === 0) return;
   if (strict) throw new AggregateError(errors, message);
-  reportUncaughtError(
+  reportUncaughtErrorLater(
     errors.length === 1 ? errors[0] : new AggregateError(errors, message)
   );
-}
-
-function throwCollectedErrors(errors: unknown[], message: string): void {
-  if (errors.length === 1) throw errors[0];
-  if (errors.length > 1) throw new AggregateError(errors, message);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -518,11 +519,11 @@ function drainElementReactiveProps(element: Element, errors: unknown[]) {
   elementReactivePropsCleanup.delete(element);
 }
 
-/** Run every reactive prop cleanup, then throw any failures. */
+/** Run every reactive prop cleanup, then report any failures. */
 export function removeElementReactiveProps(element: Element): void {
   const errors: unknown[] = [];
   drainElementReactiveProps(element, errors);
-  throwCollectedErrors(errors, 'Reactive prop cleanup failed');
+  surfaceTeardownErrors(errors, false, 'Reactive prop cleanup failed');
 }
 
 function drainElementListeners(element: Element, errors: unknown[]): void {
@@ -556,11 +557,11 @@ function drainElementListeners(element: Element, errors: unknown[]): void {
   }
 }
 
-/** Remove every tracked listener, then throw any failures. */
+/** Remove every tracked listener, then report any failures. */
 export function removeElementListeners(element: Element): void {
   const errors: unknown[] = [];
   drainElementListeners(element, errors);
-  throwCollectedErrors(errors, 'Listener cleanup failed');
+  surfaceTeardownErrors(errors, false, 'Listener cleanup failed');
 }
 
 /**

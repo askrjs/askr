@@ -1,5 +1,4 @@
-import { isDevelopmentEnvironment } from '../common/env';
-import { logger } from '../common/logger';
+import { reportUncaughtErrorLater } from '../common/report-error';
 import { disposeRegisteredDefaultPortalScope } from '../common/default-portal-runtime';
 import {
   initializeNavigation,
@@ -130,9 +129,12 @@ function cleanupRootInstance(
   if (errors.length > 0) {
     if (instance.cleanupStrict) {
       throw new AggregateError(errors, `cleanup failed for app root`);
-    } else if (isDevelopmentEnvironment()) {
-      for (const err of errors) logger.warn('[Askr] cleanup error:', err);
     }
+    reportUncaughtErrorLater(
+      errors.length === 1
+        ? errors[0]
+        : new AggregateError(errors, `cleanup failed for app root`)
+    );
   }
 }
 
@@ -211,9 +213,7 @@ export function mountOrUpdate(
       try {
         cleanupComponent(instance);
       } catch (e) {
-        if (isDevelopmentEnvironment()) {
-          logger.warn('[Askr] prior cleanup threw:', e);
-        }
+        reportUncaughtErrorLater(e);
       }
     }
 

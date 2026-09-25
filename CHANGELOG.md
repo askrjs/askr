@@ -12,6 +12,22 @@
   the update the component was due (a queued run, or a scheduled render it
   superseded), so the component renders again with the current state, as
   fine-grained bindings do since #546.
+- fix(runtime): cleanup failures are no longer swallowed in production. When
+  an update removes DOM or an app is cleaned up, a callback ref that throws on
+  `null`, a listener that cannot be removed, a throwing component cleanup
+  function (from a mount operation, task, or watch), or a failing root cleanup
+  callback was logged with a development-only warning. Every cleanup step still
+  runs, and the failures are now reported with `reportError()` in every build,
+  queued until the current task finishes: one report per removed subtree (a
+  single failure as-is, several as an `AggregateError`) and one per component.
+  Error handlers run after the update, can update state, and cannot roll it
+  back. A throwing ref is no longer called with `null` twice. With
+  `cleanupStrict: true`, `cleanupApp()` now throws the failures of descendant
+  refs, listeners, and components, including components rendered inside `For`,
+  `Show`, and `Case`, instead of dropping them. In hosts without
+  `reportError()`, such as jsdom and Node under Vitest, the failures surface as
+  unhandled errors; stub `globalThis.reportError` in tests that throw from
+  cleanup on purpose.
 
 - fix(hydration): markup verification (`hydrate: { verifyMarkup }`, on by
   default outside production) now also compares the server HTML with the DOM

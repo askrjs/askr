@@ -19,25 +19,34 @@ do not roll back an already successful render.
 
 When an update removes DOM, Askr tears down the removed subtree: callback refs
 receive `null`, listeners and fine-grained bindings are removed, and component
-lifetimes are disposed. Every one of these steps runs for every node in the
-subtree, even when an earlier one throws. After the whole subtree is torn down,
-the failures are reported with the platform `reportError()`, the same path
-[event handler errors](../advanced/event-delegation.md#handler-errors) take: a
-single failure as-is, several as one `AggregateError` in teardown order. This
-happens in development and production builds. The update is not rolled back,
-and the removed content is not restored.
+lifetimes are disposed, running their cleanup functions (returned by mount
+operations, tasks, and watches). Every one of these steps runs for every node in
+the subtree, even when an earlier one throws. Each step runs at most once: a
+callback ref that throws is not called with `null` again.
+
+Failures are reported with the platform `reportError()`, the same path
+[event handler errors](../advanced/event-delegation.md#handler-errors) take, in
+development and production builds. Reports are queued and delivered in order
+once the current task finishes (on the next microtask), after the DOM update is
+complete. An `error` handler can therefore update state, and a handler that
+throws cannot interrupt or roll back the update; Askr logs that failure with
+`console.error` instead. The update is not rolled back, and the removed content
+is not restored.
+
+Each removed subtree produces one report: a single failure as-is, several as one
+`AggregateError` in teardown order. Removing several subtrees in one update
+(for example, clearing a list whose rows each fail) produces one report per
+subtree. A component without `cleanupStrict` reports its own cleanup failures
+once, after its lifetime is fully disposed.
 
 An `ErrorBoundary` does not catch teardown errors: they are not render errors,
 and the nearest boundary is often part of the content being removed. Hosts
 without `reportError()`, including Node and jsdom, rethrow the error from a
-microtask; stub `globalThis.reportError` in tests that throw from cleanup on
-purpose.
+microtask, where Node and test runners treat it as an unhandled error. Stub
+`globalThis.reportError` in tests that throw from cleanup on purpose.
 
-A component's own cleanup functions (returned by mount operations, tasks, and
-watches) only warn in development unless the app sets `cleanupStrict: true`.
-With `cleanupStrict`, a component's cleanup failures reach teardown as an
-`AggregateError` and are reported the same way; `cleanupApp()` on a strict app
-throws them instead (see [cleanup](./runtime.md#cleanup)).
+`cleanupApp()` on an app created with `cleanupStrict: true` throws the failures
+instead of reporting them (see [cleanup](./runtime.md#cleanup)).
 
 ### Fine-grained bindings and rollback
 

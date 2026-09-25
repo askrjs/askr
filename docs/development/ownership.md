@@ -14,16 +14,27 @@ deep component chains without recursive disposal. Reparenting detaches the exact
 lifetime before attaching it to its new owner; a former parent's disposal cannot
 retire that retained child. Independent roots and server requests are explicitly
 detached from the surrounding execution scope.
-Strict component cleanup aggregates failures after disposal; ordinary cleanup
-retains the development warning behavior. Renderer teardown
-(`teardownNodeSubtree`, `cleanupInstanceIfPresent`, `removeAllListeners` in
-`renderer/ownership/cleanup.ts`) collects ref, listener, reactive binding, and
-component disposal failures while it drains the whole subtree, then surfaces
-them once: strict callers (`{ strict: true }`, used by root snapshot rollback
-and by `cleanupStrict` app cleanup) receive a thrown `AggregateError`; all
-other callers have them reported through `reportUncaughtError` (one error
-as-is, several as an `AggregateError`) so the DOM update or rollback that
-triggered teardown continues and keeps its own error. An inactive route detaches its reads
+Component cleanup collects failures while the lifetime drains. A strict
+component (`cleanupStrict`, inherited by descendants, including components
+rendered by control-flow child scopes) throws them to its disposer as one
+`AggregateError`. An ordinary component reports them through
+`reportUncaughtErrorLater` (one error as-is, several as an `AggregateError`),
+in every build. Child-scope records themselves stay non-strict, so disposing a
+`For` item or branch never throws a descendant's strict failure into the update
+that removed it. Renderer teardown (`teardownNodeSubtree`,
+`cleanupInstanceIfPresent`, `removeAllListeners`, and the single-element
+helpers in `renderer/ownership/cleanup.ts`) collects ref, listener, reactive
+binding, and component disposal failures while it drains the whole subtree,
+then surfaces them once: strict callers (`{ strict: true }`, used by root
+snapshot rollback and by `cleanupStrict` app cleanup) receive a thrown
+`AggregateError`; all other callers report them through
+`reportUncaughtErrorLater`. A ref binding is retired even when its callback
+throws, so a second teardown pass over the same element cannot report it again.
+`reportUncaughtErrorLater` queues reports and delivers them in order on the next
+microtask, after the render or commit that failed, so error handlers can write
+state and cannot interrupt or roll back that work. Every failure reaches
+exactly one channel: thrown to a strict caller or reported.
+An inactive route detaches its reads
 before user cleanup, so departed state cannot schedule its replacement.
 
 Lifecycle callbacks capture the lifetime that invoked them. A returned cleanup
