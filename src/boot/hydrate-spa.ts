@@ -121,16 +121,18 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     };
     _setActiveRouteAuthOptions(routeAuth);
 
-    const {
-      path,
-      href: currentUrl,
-      resolved,
-    } = await resolveInitialRoute(routeAuth, {
+    const initialRoute = await resolveInitialRoute(routeAuth, {
       registry: config.registry,
       load: false,
       authContext: hydratedAuth,
       dataRuntime,
     });
+    // A redirect left the origin; the browser is loading that document.
+    if (!initialRoute) {
+      interactionReplay.abort();
+      return;
+    }
+    const { path, href: currentUrl, resolved } = initialRoute;
     setServerLocation(currentUrl);
     if (isProductionEnvironment()) lockRouteRegistration();
 

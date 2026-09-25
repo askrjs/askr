@@ -31,7 +31,12 @@ import {
   type PreparedRouteHydrationData,
 } from './route-hydration';
 import { withPageFramework } from '../common/page-render-envelope';
-import { exposeRedirectDecision, redirectDecision } from './policy';
+import {
+  checkAccessDecision,
+  exposeRedirectDecision,
+  redirectDecision,
+} from './policy';
+import { formatNavigationUrl, resolveNavigationUrl } from '../common/url';
 import { normalizeRouteBasePath, removeRouteBasePath } from './base-path';
 
 export { resolveRoute } from './route-matching';
@@ -240,10 +245,10 @@ function runPolicies(
               dataRuntime,
               index + 1
             )
-          : decision
+          : checkAccessDecision(decision)
       );
     }
-    if (result.kind !== 'allow') return result;
+    if (result.kind !== 'allow') return checkAccessDecision(result);
   }
   return buildRenderResult(
     record,
@@ -270,9 +275,9 @@ function resolvePath(
 }
 
 function appendNext(path: string, href: string): string {
-  const target = new URL(path, 'http://localhost');
+  const target = resolveNavigationUrl(path);
   target.searchParams.set('next', href);
-  return `${target.pathname}${target.search}${target.hash}`;
+  return formatNavigationUrl(target);
 }
 
 function mapAuthDecision(

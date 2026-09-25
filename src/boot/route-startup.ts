@@ -10,6 +10,8 @@ import { resolveRouteRequest } from '../router/route';
 import { reconcileRouteMeta, resolveRouteMeta } from '../router/metadata';
 import { getRouteRenderContext } from '../router/resolution';
 import { readHistoryIndex } from '../router/history-index';
+import { loadDocument } from '../router/document-navigation';
+import { resolveNavigationUrl } from '../common/url';
 import type { ComponentFunction } from '../runtime';
 import type { DataRuntime } from '../data/types';
 
@@ -61,7 +63,8 @@ type InitialRouteResult = Exclude<RouteRequestResult, { kind: 'redirect' }>;
 /**
  * Resolve the route for the current location, following redirects (and
  * replacing the history entry for each) until a render, deny, or no-match
- * result is reached.
+ * result is reached. Returns `null` when a redirect leaves the origin: the
+ * browser is loading that document, so there is nothing to mount.
  */
 export async function resolveInitialRoute(
   auth?: RouteAuthOptions,
@@ -71,7 +74,11 @@ export async function resolveInitialRoute(
     authContext?: AuthContext;
     dataRuntime?: DataRuntime;
   }
-): Promise<{ path: string; href: string; resolved: InitialRouteResult }> {
+): Promise<{
+  path: string;
+  href: string;
+  resolved: InitialRouteResult;
+} | null> {
   let path = typeof window !== 'undefined' ? window.location.pathname : '/';
   let href =
     typeof window !== 'undefined'
@@ -103,12 +110,18 @@ export async function resolveInitialRoute(
       return { path, href, resolved };
     }
 
-    const redirectTarget = new URL(
-      resolved.to,
+    const base =
       typeof window !== 'undefined'
         ? window.location.href
-        : new URL(href, 'http://localhost').href
-    );
+        : new URL(href, 'http://localhost').href;
+    const redirectTarget = resolveNavigationUrl(resolved.to, base);
+    if (redirectTarget.origin !== new URL(base).origin) {
+      // Another origin: the router cannot render it, so the browser loads it
+      // in place of this entry.
+      if (typeof window !== 'undefined')
+        loadDocument(redirectTarget.href, 'replace');
+      return null;
+    }
     const redirectHref = `${redirectTarget.pathname}${redirectTarget.search}${redirectTarget.hash}`;
     if (typeof window !== 'undefined') {
       window.history.replaceState(

@@ -10,7 +10,7 @@ import { navigateToPublicHref } from '../router/navigate';
 import type { RouteDestination } from '../common/router';
 import { applyInteractionPolicy } from '../foundations/interactions';
 import { mergeProps } from '../foundations/utilities';
-import { isSafeHref } from '../common/url';
+import { assertPathHrefStaysOnOrigin, isSafeHref } from '../common/url';
 import { addLogicalRouteBasePath } from '../router/base-path';
 import { getActiveRouteBasePath } from '../router/store';
 
@@ -128,6 +128,7 @@ export function Link({
   if (!isSafeHref(href)) {
     throw new TypeError('Link href uses an unsafe URL scheme.');
   }
+  assertPathHrefStaysOnOrigin(href);
   const handleNavigation = (e: Event) => {
     if (e.defaultPrevented) {
       return;

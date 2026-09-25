@@ -420,3 +420,43 @@ test('should warn in development when a string target already starts with the ba
     warn.mockRestore();
   }
 });
+
+test('should hand a cross-origin redirect on first load to the browser', async () => {
+  window.history.replaceState({}, '', '/private');
+  await createSPA({
+    root,
+    registry: createRouteRegistry(() => {
+      route('/login', () => <p>{'local login page'}</p>);
+      route('/private', () => <p>{'private page'}</p>, {
+        policies: [() => redirect('https://auth.example/login')],
+      });
+    }),
+  });
+  await settle();
+
+  expect(documentLoads).toEqual([
+    { type: 'replace', url: 'https://auth.example/login' },
+  ]);
+  expect(window.location.pathname).toBe('/private');
+  expect(root.textContent).not.toContain('local login page');
+});
+
+test('should refuse a path-like cross-origin redirect on first load', async () => {
+  window.history.replaceState({}, '', '/private');
+  await expect(
+    createSPA({
+      root,
+      registry: createRouteRegistry(() => {
+        route('/evil.example/x', () => <p>{'in-app evil page'}</p>);
+        route('/private', () => <p>{'private page'}</p>, {
+          policies: [() => ({ kind: 'redirect', to: '/\\evil.example/x' })],
+        });
+      }),
+    })
+  ).rejects.toThrow(TypeError);
+  await settle();
+
+  expect(documentLoads).toEqual([]);
+  expect(window.location.pathname).toBe('/private');
+  expect(root.textContent).not.toContain('in-app evil page');
+});

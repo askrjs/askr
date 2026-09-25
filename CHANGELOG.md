@@ -15,7 +15,11 @@
   `to()`, whose public href is used as-is; `RouteDestination` is branded so
   only `to()` creates one. Only targets with an explicit `http:`/`https:`
   scheme may leave the origin: path-like strings that resolve to another host
-  (`//evil.example`, `/\evil.example`) throw a `TypeError`.
+  (`//evil.example`, `/\evil.example`) throw a `TypeError`, on the client,
+  in server redirect decisions, for `loginPath` and at `<Link href>` render.
+  A redirect to another origin during the first load is handed to the browser
+  instead of rendering its path locally, and an absolute `loginPath` on
+  another origin keeps its origin when `next` is appended.
 - fix(resources): a `resource()` deps change seen by a render that is rolled
   back (for example because a sibling component throws in the same render) no
   longer leaves the resource stuck `pending`. The new deps, loader and generation are

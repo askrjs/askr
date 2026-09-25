@@ -130,6 +130,10 @@ describe('SSG hydration bundle', () => {
     // 265 KiB: client navigation tracks history entry indexes so a failed
     // back/forward returns to the rendered entry, and hands URLs no route can
     // render to the browser (~1.1 KB, #453-#455; measured 270,803 bytes).
-    expect(initialBytes).toBeLessThanOrEqual(265 * 1024);
+    // 266 KiB: navigation targets are checked so a path-like string such as
+    // `/\\evil.example` cannot become an open redirect (navigate, Link, guard
+    // and first-load redirects), and cross-origin redirects on first load are
+    // handed to the browser (#459; measured 271,618 bytes).
+    expect(initialBytes).toBeLessThanOrEqual(266 * 1024);
   });
 });

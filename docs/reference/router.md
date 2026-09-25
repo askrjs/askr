@@ -399,14 +399,29 @@ Triggers client-side navigation. `target` is a logical path string or a typed
 destination from `to()`. A URL on another origin is not rendered by the
 router: Askr hands it to the browser with `location.assign()`, or
 `location.replace()` for replace history. Guard redirects to another origin
-load the same way. Only a target written with an explicit `http:` or `https:`
-scheme may leave the origin. A path-like string that the URL parser resolves to
-another host, such as `//evil.example` or `/\evil.example`, throws a
-`TypeError`.
+load the same way, including a redirect taken while the app first loads. Only a
+target written with an explicit `http:` or `https:` scheme may leave the
+origin. A path-like string that the URL parser resolves to another host, such
+as `//evil.example`, `/\evil.example` or `\\evil.example`, throws a
+`TypeError`. The same rule applies to redirect decisions on the server
+(`resolveRouteRequest()`, `renderRouteRequest()`, `SSRAccessDecisionError`),
+to `loginPath`/`authenticatedRedirectTo`, and to `<Link href>`, which throws at
+render.
 
-`navigate()` and `redirect()` are redirect sinks. Validate untrusted input, such
-as a `?next=` query value, before passing it: accept only paths that start with a
-single `/`, or compare the parsed origin with your own.
+`navigate()` and `redirect()` are redirect sinks, and so is a server that copies
+`decision.to` into a `Location` header. Askr refuses path-like cross-origin
+targets, but an explicit `https://evil.example` is still followed. Validate
+untrusted input, such as a `?next=` query value, by parsing it and comparing
+origins, not by checking for a leading `/`:
+
+```ts
+function safeNext(value: string | null): string {
+  const url = new URL(value ?? '/', location.origin);
+  return url.origin === location.origin
+    ? `${url.pathname}${url.search}${url.hash}`
+    : '/';
+}
+```
 
 When navigation replaces the active route,
 Askr disposes route-local component state, resources, tasks, and abort signals

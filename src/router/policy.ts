@@ -9,10 +9,28 @@ import type {
   RouteDestination,
   RoutePolicy,
 } from '../common/router';
+import { resolveNavigationUrl } from '../common/url';
 import { addLogicalRouteBasePath } from './base-path';
 
-/** Redirects whose `to` is already a public href from `to()`. */
-const publicRedirects = new WeakSet<AccessRedirectDecision>();
+/**
+ * Records the public href of a redirect built from `to()`. It is an own
+ * enumerable symbol, so `{ ...redirect(to(route)), status: 303 }` keeps it;
+ * it only applies while `to` still equals that href.
+ */
+const PUBLIC_REDIRECT_HREF = Symbol('askr.publicRedirectHref');
+
+type MarkedRedirectDecision = AccessRedirectDecision & {
+  [PUBLIC_REDIRECT_HREF]?: string;
+};
+
+/**
+ * Validate a non-allow access decision before it leaves route resolution: a
+ * redirect to a path-like target that resolves to another origin throws.
+ */
+export function checkAccessDecision<T extends AccessDecision>(decision: T): T {
+  if (decision.kind === 'redirect') resolveNavigationUrl(decision.to);
+  return decision;
+}
 
 /** Build a redirect decision; a typed destination's href is kept public. */
 export function redirectDecision(
@@ -20,14 +38,14 @@ export function redirectDecision(
   init: { status?: AccessRedirectStatus; replace?: boolean } = {},
   mapHref: (href: string) => string = (href) => href
 ): AccessRedirectDecision {
-  const decision: AccessRedirectDecision = {
+  const decision: MarkedRedirectDecision = {
     kind: 'redirect',
     to: mapHref(typeof to === 'string' ? to : to.href),
     ...(init.status ? { status: init.status } : {}),
     ...(init.replace !== undefined ? { replace: init.replace } : {}),
   };
-  if (typeof to !== 'string') publicRedirects.add(decision);
-  return decision;
+  if (typeof to !== 'string') decision[PUBLIC_REDIRECT_HREF] = decision.to;
+  return checkAccessDecision(decision);
 }
 
 /**
@@ -38,7 +56,8 @@ export function exposeRedirectDecision(
   decision: AccessRedirectDecision,
   basePath: string
 ): AccessRedirectDecision {
-  if (publicRedirects.has(decision)) return decision;
+  const publicHref = (decision as MarkedRedirectDecision)[PUBLIC_REDIRECT_HREF];
+  if (publicHref !== undefined && publicHref === decision.to) return decision;
   return { ...decision, to: addLogicalRouteBasePath(decision.to, basePath) };
 }
 

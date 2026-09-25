@@ -10,6 +10,57 @@ function urlScheme(value: string): string | undefined {
   return URL_SCHEME_RE.exec(compact)?.[1]?.toLowerCase();
 }
 
+// Leading C0 controls and spaces are ignored by the URL parser too.
+// eslint-disable-next-line no-control-regex -- matches what URL parsing ignores.
+const EXPLICIT_HTTP_URL_RE = /^[\u0000-\u0020]*https?:/i;
+const NAVIGATION_BASE = 'http://askr.invalid/';
+
+/**
+ * Resolve a navigation or redirect target against `base`. Only a target
+ * written with an explicit `http:`/`https:` scheme may leave the base origin.
+ * A path-like string that URL parsing resolves to another host
+ * (`//evil.example`, `/\\evil.example`, `\\\\evil.example`) throws a
+ * `TypeError`, so an app path can never become an open redirect. No window is
+ * needed: the check holds for any base origin.
+ */
+export function resolveNavigationUrl(
+  target: string,
+  base: string = NAVIGATION_BASE
+): URL {
+  const url = new URL(target, base);
+  if (
+    url.origin !== new URL(base).origin &&
+    !EXPLICIT_HTTP_URL_RE.test(target)
+  ) {
+    throw new TypeError(
+      `Navigation target ${JSON.stringify(target)} resolves to another origin without an explicit http: or https: scheme.`
+    );
+  }
+  return url;
+}
+
+/**
+ * The public form of a navigation target: root-relative for the base origin,
+ * absolute for an explicit URL on another origin.
+ */
+export function formatNavigationUrl(
+  url: URL,
+  base: string = NAVIGATION_BASE
+): string {
+  return url.origin === new URL(base).origin
+    ? `${url.pathname}${url.search}${url.hash}`
+    : url.href;
+}
+
+/**
+ * Reject a scheme-less href (`/\\evil.example`, `//evil.example`) that the
+ * browser would follow to another origin. Hrefs with a scheme are checked by
+ * {@link isSafeHref}.
+ */
+export function assertPathHrefStaysOnOrigin(value: string): void {
+  if (urlScheme(value) === undefined) resolveNavigationUrl(value);
+}
+
 export function isSafeHref(value: string): boolean {
   const scheme = urlScheme(value);
   return scheme === undefined || SAFE_URL_SCHEMES.has(scheme);
