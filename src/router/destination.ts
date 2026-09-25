@@ -6,6 +6,7 @@ import type {
   RouteSearchValue,
 } from '../common/router';
 import { addRouteBasePath } from './base-path';
+import { encodePathSegment } from './match';
 
 function routeParameterName(
   segment: string
@@ -19,12 +20,11 @@ function routeParameterName(
 }
 
 function encodeParameter(value: string, splat: boolean): string {
+  // Captures keep encoded separators (`%2F`, `%5C`) percent-encoded, and
+  // encodePathSegment passes them through so a capture round-trips.
   return splat
-    ? value
-        .split('/')
-        .map((part) => encodeURIComponent(part))
-        .join('/')
-    : encodeURIComponent(value);
+    ? value.split('/').map(encodePathSegment).join('/')
+    : encodePathSegment(value);
 }
 
 function buildPath<TParams extends RouteParams>(

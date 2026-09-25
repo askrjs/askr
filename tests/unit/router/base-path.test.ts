@@ -97,4 +97,27 @@ describe('route registry base paths', () => {
       'render'
     );
   });
+  it('should match a base path that needs percent-encoding', async () => {
+    expect(removeRouteBasePath('/caf%C3%A9/menu?q=1', '/café')).toBe(
+      '/menu?q=1'
+    );
+    expect(removeRouteBasePath('/caf%C3%A9', '/café')).toBe('/');
+    expect(removeRouteBasePath('/a%20b/', '/a b')).toBe('/');
+    expect(removeRouteBasePath('/cafe/menu', '/café')).toBeUndefined();
+    expect(addRouteBasePath('/caf%C3%A9/menu', '/café')).toBe(
+      '/caf%C3%A9/menu'
+    );
+
+    const registry = createRouteRegistry(
+      () => {
+        route('/menu', () => null);
+      },
+      { basePath: '/café' }
+    );
+    const resolved = await resolveRouteRequest('/caf%C3%A9/menu', {
+      registry,
+      mode: 'ssr',
+    });
+    expect(resolved?.kind).toBe('render');
+  });
 });
