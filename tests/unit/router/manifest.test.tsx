@@ -17,7 +17,6 @@ import {
   _applyManifest,
 } from '../../../src/router/route';
 import {
-  _resolveRouteMatchFromRoutes,
   computeMatchesFromRouteRecords,
   resolveRouteFromRoutes,
 } from '../../../src/router/route-matching';
@@ -674,20 +673,6 @@ describe('_applyManifest cross-mode parity', () => {
     expect(spaResult!.params).toEqual({ id: '7', pid: '99' });
     expect(ssrResult!.params).toEqual(spaResult!.params);
   });
-
-  it('should preserve declaration order tie-breaks after manifest replay', () => {
-    route('/a/{x}', () => 'first');
-    route('/a/{y}', () => 'second');
-
-    const manifest = currentManifest();
-
-    clearRouteState();
-    _applyManifest(manifest);
-
-    const replayed = resolveRoute('/a/value');
-    expect(replayed).not.toBeNull();
-    expect(replayed!.handler(replayed!.params)).toBe('first');
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -782,20 +767,12 @@ describe('route precedence', () => {
     expect(r!.handler({})).toBe('literal');
   });
 
-  it('should prefer param over wildcard at same depth', () => {
-    route('/items/*', () => 'wildcard');
-    route('/items/{id}', () => 'param');
+  it('should prefer param over wildcard at the first differing segment', () => {
+    route('/items/*/edit', () => 'wildcard');
+    route('/items/{id}/{action}', () => 'param');
 
-    const r = resolveRoute('/items/abc');
+    const r = resolveRoute('/items/abc/edit');
     expect(r!.handler({})).toBe('param');
-  });
-
-  it('should use declaration order to break rank ties', () => {
-    route('/a/{x}', () => 'first');
-    route('/a/{y}', () => 'second'); // same rank
-
-    const r = resolveRoute('/a/value');
-    expect(r!.handler({})).toBe('first'); // first declared wins
   });
 
   it('should use catch-all /* as last resort', () => {
@@ -865,10 +842,10 @@ describe('segment-by-segment precedence', () => {
       winner: '/posts/featured',
     },
     {
-      name: 'param beats wildcard at the same depth',
-      routes: ['/items/*', '/items/{id}'],
-      url: '/items/abc',
-      winner: '/items/{id}',
+      name: 'param beats wildcard at the first differing segment',
+      routes: ['/items/*/edit', '/items/{id}/{action}'],
+      url: '/items/abc/edit',
+      winner: '/items/{id}/{action}',
     },
     {
       name: 'param beats splat at the same depth',
@@ -894,12 +871,6 @@ describe('segment-by-segment precedence', () => {
       url: '/about',
       winner: '/{page}',
     },
-    {
-      name: 'declaration order breaks exact ties',
-      routes: ['/a/{x}', '/a/{y}'],
-      url: '/a/value',
-      winner: '/a/{x}',
-    },
   ];
 
   for (const testCase of cases) {
@@ -918,9 +889,6 @@ describe('segment-by-segment precedence', () => {
       // Plain route lists (SSR route tables).
       expect(
         resolveRouteFromRoutes(testCase.url, [...getRouteList()])?.handler({})
-      ).toBe(testCase.winner);
-      expect(
-        _resolveRouteMatchFromRoutes(testCase.url, registry.routes)?.route.path
       ).toBe(testCase.winner);
       // Registry manifest records (SSR request resolution, activity).
       expect(
@@ -944,5 +912,316 @@ describe('segment-by-segment precedence', () => {
       '/{lang}/{page}',
       '/*',
     ]);
+  });
+});
+
+describe('duplicate route paths', () => {
+  const Page = () => null;
+
+  const duplicates: Array<{
+    name: string;
+    define: () => void;
+    duplicate: string;
+    original: string;
+  }> = [
+    {
+      name: 'the same path twice',
+      define: () => {
+        route('/users', () => 'first');
+        route('/users', () => 'second');
+      },
+      duplicate: '/users',
+      original: '/users',
+    },
+    {
+      name: 'a trailing slash',
+      define: () => {
+        route('/users', () => 'first');
+        route('/users/', () => 'second');
+      },
+      duplicate: '/users',
+      original: '/users',
+    },
+    {
+      name: 'renamed parameters',
+      define: () => {
+        route('/users/{id}', () => 'first');
+        route('/users/{userId}', () => 'second');
+      },
+      duplicate: '/users/{userId}',
+      original: '/users/{id}',
+    },
+    {
+      name: 'renamed splats',
+      define: () => {
+        route('/files/{*path}', () => 'first');
+        route('/files/{*rest}', () => 'second');
+      },
+      duplicate: '/files/{*rest}',
+      original: '/files/{*path}',
+    },
+    {
+      name: 'a percent-encoded static segment',
+      define: () => {
+        route('/café', () => 'first');
+        route('/caf%C3%A9', () => 'second');
+      },
+      duplicate: '/caf%C3%A9',
+      original: '/café',
+    },
+    {
+      name: 'a wildcard after a param at the same position',
+      define: () => {
+        route('/users/{id}', () => 'first');
+        route('/users/*', () => 'second');
+      },
+      duplicate: '/users/*',
+      original: '/users/{id}',
+    },
+    {
+      name: 'a param after a wildcard at the same position',
+      define: () => {
+        route('/users/*', () => 'first');
+        route('/users/{id}', () => 'second');
+      },
+      duplicate: '/users/{id}',
+      original: '/users/*',
+    },
+    {
+      name: 'a page index and a route at the page path',
+      define: () => {
+        page('/users', Page, () => {
+          index(() => 'first');
+        });
+        route('/users', () => 'second');
+      },
+      duplicate: '/users',
+      original: '/users',
+    },
+    {
+      name: 'a relative child and an absolute route',
+      define: () => {
+        page('/users', Page, () => {
+          route('settings', () => 'first');
+        });
+        route('/users/settings', () => 'second');
+      },
+      duplicate: '/users/settings',
+      original: '/users/settings',
+    },
+    {
+      name: 'two root fallbacks',
+      define: () => {
+        fallback(() => 'first');
+        fallback(() => 'second');
+      },
+      duplicate: '/*',
+      original: '/*',
+    },
+    {
+      name: 'a /* route and a root fallback',
+      define: () => {
+        route('/*', () => 'first');
+        fallback(() => 'second');
+      },
+      duplicate: '/*',
+      original: '/*',
+    },
+    {
+      name: 'a splat route and a page fallback at the same prefix',
+      define: () => {
+        route('/users/{*rest}', () => 'first');
+        page('/users', Page, () => {
+          fallback(() => 'second');
+        });
+      },
+      duplicate: '/users/*',
+      original: '/users/{*rest}',
+    },
+  ];
+
+  for (const testCase of duplicates) {
+    it(`should reject ${testCase.name} when the registry is created`, () => {
+      expect(() => createRouteRegistry(testCase.define)).toThrow(
+        `Duplicate route path "${testCase.duplicate}": it matches the same URLs as "${testCase.original}", which is already registered.`
+      );
+      if (testCase.duplicate !== testCase.original) {
+        expect(() => createRouteRegistry(testCase.define)).not.toThrow(
+          /entries\(\)/
+        );
+      }
+    });
+  }
+
+  it('should point an identical template at entries() for several pages', () => {
+    expect(() =>
+      createRouteRegistry(() => {
+        route('/blog/{slug}', () => 'first');
+        route('/blog/{slug}', () => 'second');
+      })
+    ).toThrow(
+      'Duplicate route path "/blog/{slug}": it matches the same URLs as "/blog/{slug}", which is already registered. To generate several pages from one route template, declare it once and return each page\'s params from entries().'
+    );
+  });
+
+  it('should reject a duplicate in the application route table', () => {
+    route('/users', () => 'first');
+    expect(() => route('/users', () => 'second')).toThrow(
+      /Duplicate route path "\/users"/
+    );
+    expect(resolveRoute('/users')?.handler({})).toBe('first');
+  });
+
+  it('should accept routes that overlap without matching the same URLs', () => {
+    expect(() =>
+      createRouteRegistry(() => {
+        route('/users/{id}', () => 'param');
+        route('/users/{id}/*', () => 'wildcard');
+        route('/users/new', () => 'static');
+        route('/users/{id}/{*rest}', () => 'splat');
+        route('/*', () => 'catch-all');
+        page('/users', Page, () => {
+          index(() => 'index');
+          fallback(() => 'fallback');
+        });
+      })
+    ).not.toThrow();
+  });
+
+  it('should let separate registries declare the same path', () => {
+    const define = () => route('/users', () => 'users');
+    expect(() => createRouteRegistry(define)).not.toThrow();
+    expect(() => createRouteRegistry(define)).not.toThrow();
+  });
+});
+
+describe('scoped fallback precedence', () => {
+  const Page = () => null;
+  // Page-scoped handlers render through the page chain, so identify the
+  // winning fallback by its record path.
+  const pathOf = (handler: unknown) =>
+    getRouteRecords().find((record) => record.handler === handler)?.path;
+
+  // An encoded prefix is longer as a string but not deeper: the deepest
+  // matching prefix, counted in segments, must win.
+  const layouts: Array<{ name: string; define: () => void }> = [
+    {
+      name: 'encoded shallow prefix declared first',
+      define: () => {
+        page('/caf%C3%A9', Page, () => fallback(() => 'shallow'));
+        page('/café/x', Page, () => fallback(() => 'deep'));
+      },
+    },
+    {
+      name: 'decoded shallow prefix declared first',
+      define: () => {
+        page('/café', Page, () => fallback(() => 'shallow'));
+        page('/caf%C3%A9/x', Page, () => fallback(() => 'deep'));
+      },
+    },
+  ];
+
+  for (const layout of layouts) {
+    for (const url of ['/caf%C3%A9/x/missing', '/café/x/missing']) {
+      it(`should pick the deeper fallback for ${url}: ${layout.name}`, () => {
+        const registry = createRouteRegistry(layout.define);
+        layout.define();
+
+        // Client: registered route store records.
+        const deep = getRouteRecords().find((record) =>
+          record.path.endsWith('/x/*')
+        )!.path;
+        expect(pathOf(resolveRoute(url)?.handler)).toBe(deep);
+        // Plain route lists.
+        expect(
+          pathOf(resolveRouteFromRoutes(url, [...getRouteList()])?.handler)
+        ).toBe(deep);
+        // Registry manifest records (sync and async SSR, activity).
+        expect(
+          computeMatchesFromRouteRecords(url, registry.manifest.records)[0]
+            ?.path
+        ).toBe(deep);
+      });
+
+      it(`should still pick the shallow fallback outside the deeper prefix for ${url.replace('/x/', '/y/')}: ${layout.name}`, () => {
+        layout.define();
+        expect(
+          pathOf(resolveRoute(url.replace('/x/', '/y/'))?.handler)
+        ).not.toMatch(/\/x\/\*$/);
+        expect(resolveRoute(url.replace('/x/', '/y/'))).not.toBeNull();
+      });
+    }
+  }
+});
+
+describe('scoped fallbacks under parameterized pages', () => {
+  const Page = () => null;
+  const pathOf = (handler: unknown) =>
+    getRouteRecords().find((record) => record.handler === handler)?.path;
+
+  const define = () => {
+    page('/{lang}', Page, () => {
+      index(() => 'home');
+      fallback(() => 'missing');
+    });
+    page('/{lang}/docs', Page, () => {
+      fallback(() => 'docs-missing');
+    });
+    page('/en/blog', Page, () => {
+      fallback(() => 'en-blog-missing');
+    });
+    page('/{lang}/blog', Page, () => {
+      fallback(() => 'blog-missing');
+    });
+  };
+
+  const cases = [
+    {
+      url: '/en/nope',
+      winner: '/{lang}/*',
+      params: { lang: 'en', '*': 'nope' },
+    },
+    {
+      url: '/fr/docs/a/b',
+      winner: '/{lang}/docs/*',
+      params: { lang: 'fr', '*': '/a/b' },
+    },
+    {
+      url: '/caf%C3%A9/x',
+      winner: '/{lang}/*',
+      params: { lang: 'caf\u00e9', '*': 'x' },
+    },
+    { url: '/en/blog/x', winner: '/en/blog/*', params: { '*': 'x' } },
+    {
+      url: '/de/blog/x',
+      winner: '/{lang}/blog/*',
+      params: { lang: 'de', '*': 'x' },
+    },
+  ];
+
+  for (const testCase of cases) {
+    it(`should resolve ${testCase.url} to ${testCase.winner}`, () => {
+      const registry = createRouteRegistry(define);
+      define();
+
+      const resolved = resolveRoute(testCase.url);
+      expect(pathOf(resolved?.handler)).toBe(testCase.winner);
+      expect(resolved?.params).toEqual(testCase.params);
+      const listed = resolveRouteFromRoutes(testCase.url, [...getRouteList()]);
+      expect(pathOf(listed?.handler)).toBe(testCase.winner);
+      expect(listed?.params).toEqual(testCase.params);
+      const [match] = computeMatchesFromRouteRecords(
+        testCase.url,
+        registry.manifest.records
+      );
+      expect(match?.path).toBe(testCase.winner);
+      expect(match?.params).toEqual(testCase.params);
+    });
+  }
+
+  it('should not match a parameterized fallback prefix literally only', () => {
+    define();
+    expect(resolveRoute('/{lang}/nope')).not.toBeNull();
+    expect(resolveRoute('/')).toBeNull();
   });
 });

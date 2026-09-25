@@ -2,8 +2,11 @@
  * SSR Context Management
  *
  * Provides render-context storage for server-side rendering.
- * Node SSR lazily installs AsyncLocalStorage on first use; browser builds use
- * the fallback stack.
+ * The first render installs AsyncLocalStorage from `globalThis` or, on Node and
+ * Node-compatible runtimes (Deno, Bun, Workers with `nodejs_compat`), from
+ * `process.getBuiltinModule('node:async_hooks')`. Neither is a static import,
+ * so browser bundles never pull in the Node builtin. Runtimes without either
+ * use a synchronous fallback stack and reject async render contexts.
  */
 
 import { SSRDataMissingError } from './errors';
@@ -23,7 +26,7 @@ import type { PageRenderEnvelope } from '../common/page-render-envelope';
 import type { AuthContext } from '@askrjs/auth';
 
 const FALLBACK_ASYNC_CONTEXT_ERROR =
-  '[Askr] async SSR render context fallback is unsupported in this environment. Use synchronous SSR rendering or a runtime with AsyncLocalStorage.';
+  "[Askr] async SSR render context fallback is unsupported in this environment. Use synchronous SSR rendering or a runtime with AsyncLocalStorage (globalThis.AsyncLocalStorage or process.getBuiltinModule('node:async_hooks')).";
 
 export interface RenderContext {
   url: string;
@@ -56,17 +59,30 @@ type RenderContextAccessor = {
   run<R>(store: RenderContext, fn: () => R): R;
 };
 
-type AsyncHooksModule = {
-  AsyncLocalStorage?: new () => RenderContextAccessor;
+type AsyncLocalStorageConstructor = new () => RenderContextAccessor;
+
+type AsyncLocalStorageHost = {
+  AsyncLocalStorage?: AsyncLocalStorageConstructor;
+  process?: {
+    getBuiltinModule?: (
+      id: string
+    ) => { AsyncLocalStorage?: AsyncLocalStorageConstructor } | undefined;
+  };
 };
 
 let renderContextAccessor: RenderContextAccessor | null = null;
 let renderContextAccessorInitialized = false;
-let asyncRenderContextAccessor: Promise<RenderContextAccessor | null> | null =
-  null;
 
-// Fallback stack for non-Node environments
+// Fallback stack for runtimes without AsyncLocalStorage
 let fallbackStack: RenderContext | null = null;
+
+function resolveAsyncLocalStorage(): AsyncLocalStorageConstructor | undefined {
+  const host = globalThis as AsyncLocalStorageHost;
+  return (
+    host.AsyncLocalStorage ??
+    host.process?.getBuiltinModule?.('node:async_hooks')?.AsyncLocalStorage
+  );
+}
 
 function ensureRenderContextAccessor(): void {
   if (renderContextAccessorInitialized) {
@@ -74,32 +90,9 @@ function ensureRenderContextAccessor(): void {
   }
 
   renderContextAccessorInitialized = true;
-
-  if (typeof process === 'undefined' || !process.versions?.node) {
-    return;
-  }
-
-  try {
-    // Hide the Node builtin from browser dependency scanners.
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval
-    const loadAsyncHooks = new Function(
-      'return require(' + JSON.stringify('async_hooks') + ');'
-    ) as () => AsyncHooksModule;
-    const asyncHooks = loadAsyncHooks();
-
-    if (asyncHooks.AsyncLocalStorage) {
-      const asyncLocalStorage = new asyncHooks.AsyncLocalStorage();
-      renderContextAccessor = {
-        getStore() {
-          return asyncLocalStorage.getStore();
-        },
-        run<R>(store: RenderContext, fn: () => R): R {
-          return asyncLocalStorage.run(store, fn);
-        },
-      };
-    }
-  } catch {
-    // Keep the fallback stack when async_hooks is unavailable.
+  const AsyncLocalStorage = resolveAsyncLocalStorage();
+  if (AsyncLocalStorage) {
+    renderContextAccessor = new AsyncLocalStorage();
   }
 }
 
@@ -174,7 +167,8 @@ export function createRenderContext(
 
 /**
  * Run a function with the given render context.
- * Concurrency-safe in Node.js via AsyncLocalStorage.
+ * Concurrency-safe on runtimes with AsyncLocalStorage (Node.js, Deno, Bun,
+ * Workers with `nodejs_compat`); elsewhere only synchronous work is accepted.
  */
 export function withRenderContext<T>(ctx: RenderContext, fn: () => T): T {
   ensureRenderContextProvider();
@@ -196,38 +190,16 @@ export function withRenderContext<T>(ctx: RenderContext, fn: () => T): T {
   }
 }
 
-async function getAsyncRenderContextAccessor(): Promise<RenderContextAccessor | null> {
-  ensureRenderContextAccessor();
-  if (renderContextAccessor) return renderContextAccessor;
-  if (typeof process === 'undefined' || !process.versions?.node) return null;
-  asyncRenderContextAccessor ??= (async () => {
-    try {
-      const specifier = 'node:async_hooks';
-      const module = (await import(
-        /* @vite-ignore */ specifier
-      )) as AsyncHooksModule;
-      if (!module.AsyncLocalStorage) return null;
-      const storage = new module.AsyncLocalStorage();
-      renderContextAccessor = {
-        getStore: () => storage.getStore(),
-        run: <R>(store: RenderContext, fn: () => R) => storage.run(store, fn),
-      };
-      return renderContextAccessor;
-    } catch {
-      return null;
-    }
-  })();
-  return asyncRenderContextAccessor;
-}
-
 /** Run `fn` with `ctx` as the active SSR render context, using async-local storage. */
 export async function withRenderContextAsync<T>(
   ctx: RenderContext,
   fn: () => T | PromiseLike<T>
 ): Promise<T> {
   ensureRenderContextProvider();
-  const accessor = await getAsyncRenderContextAccessor();
-  if (accessor) return accessor.run(ctx, () => Promise.resolve(fn()));
+  ensureRenderContextAccessor();
+  if (renderContextAccessor) {
+    return renderContextAccessor.run(ctx, () => Promise.resolve(fn()));
+  }
   throw new Error(FALLBACK_ASYNC_CONTEXT_ERROR);
 }
 
