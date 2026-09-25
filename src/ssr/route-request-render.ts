@@ -22,7 +22,10 @@ import { StringSink } from './sink';
 import type { CoreTelemetry } from '../common/telemetry';
 import { withTelemetry } from '../common/telemetry';
 import type { DeferredBoundaryRegistration } from '../common/render-context';
-import { serializeHydrationRenderData } from './hydration-data';
+import {
+  serializeHydrationRenderData,
+  withHydratedAuth,
+} from './hydration-data';
 import type { PageRenderEnvelope } from '../common/page-render-envelope';
 import { validateCspNonce } from '../csp-nonce';
 import type { SSRStyleRegistration } from '../common/ssr';
@@ -339,6 +342,13 @@ async function renderRouteRequestInternal(
       if (!resolved) return { kind: 'no-match' };
       if (resolved.kind !== 'render') return resolved;
       context.params = resolved.params;
+      if (context.hydrationData) {
+        context.hydrationData = withHydratedAuth(
+          context.hydrationData,
+          options.auth ?? manifest.auth,
+          context.authContext
+        );
+      }
       const sink = new StringSink();
       renderSSRRouteAppToSink({
         route: { path: '', handler: resolved.handler },

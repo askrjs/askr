@@ -10,6 +10,15 @@
   only attribute-backed values; property-only values apply on hydration. Removed
   properties reset to their default, property writes roll back with a failed
   commit, and the escape hatches keep the URL and raw-HTML guards.
+- fix(router): `hydrateSPA()` no longer redirects a server-authorized page to
+  the login route when the browser cannot resolve the identity itself (for
+  example httpOnly-cookie sessions). Apps opt in with the new
+  `auth.dehydrate(context)` hook, which selects the minimal identity snapshot
+  (`authenticated`, `principal`, `tenant`, `scopes`; never the session)
+  serialized into the hydration payload. Hydration uses it for the initial
+  route; navigations use `auth.resolve`, or keep the snapshot when no resolver
+  is configured. Nothing about the identity is serialized without the hook.
+  `RouteAuthOptions.resolve` is now optional.
 - fix(fx): `scheduleTimeout()`, `scheduleIdle()` and `scheduleRetry()` now
   cancel pending work when the component that scheduled them unmounts, as
   documented. Calls made from a mounted component's `task()`, `watch()`
