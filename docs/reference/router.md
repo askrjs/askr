@@ -147,7 +147,21 @@ Route declarations, loader and metadata contexts, `currentRoute()`, activity
 checks, and SSG output paths remain logical (`/reviews/book`). Browser and SSR
 matching remove `/website` first; typed destinations, `<Link>`, `navigate()`,
 guard/auth redirects, popstate, and query updates use the public mounted URL
-(`/website/reviews/book`). The same registry must be used for server rendering
+(`/website/reviews/book`). String targets passed to `navigate()`, `<Link href>`,
+`redirect()`, `loginPath` and `authenticatedRedirectTo` are always logical, so
+a root-relative path always gains the base: under `/website`,
+`navigate('/website/news')` goes to `/website/website/news`. Development builds
+warn when a string equals the base or starts with it followed by `/`. Typed
+destinations from `to()` already carry the public URL, and all of these APIs
+accept them without prefixing again. A redirect decision built from a
+destination (`redirect(to(route, params))`) records its public href under an
+own enumerable symbol key, so a spread copy such as
+`{ ...redirect(to(route, params)), status: 303 }` keeps it. The key shows up
+in `toEqual()` comparisons and `util.inspect()` output. `structuredClone()`
+and `JSON` drop it, and so does replacing `to`; the decision then counts as
+logical again and gains the base. To leave the mount for another app on the
+same origin, pass an absolute URL such as
+`` `${location.origin}/marketing` ``. The same registry must be used for server rendering
 and hydration. Use `basePath: ''` or omit it for an origin-root deployment.
 Vite's `base` remains responsible for JavaScript, CSS, and other asset URLs.
 
@@ -385,9 +399,41 @@ Registers a pathful miss route.
 Inside a component, call `currentRoute()` to read the current route snapshot,
 including entry-local `state` and `hasState`.
 
-## `navigate(path)`
+## `navigate(target)`
 
-Triggers client-side navigation. When navigation replaces the active route,
+Triggers client-side navigation. `target` is a logical path string or a typed
+destination from `to()`. A URL on another origin is not rendered by the
+router: Askr hands it to the browser with `location.assign()`, or
+`location.replace()` for replace history. Guard redirects to another origin
+load the same way, including a redirect taken while the app first loads. Only a
+target written with an explicit `http:` or `https:` scheme may leave the
+origin. A path-like string that the URL parser resolves to another host, such
+as `//evil.example`, `/\evil.example` or `\\evil.example`, throws a
+`TypeError`. So does a same-origin path whose dot segments collapse to a
+leading `//` (`/.//evil.example`, `/%2e//evil.example`, `/x/..//evil.example`),
+because its root-relative form names another host. History entries and
+document loads always receive the absolute URL. The same rule applies to redirect decisions on the server
+(`resolveRouteRequest()`, `renderRouteRequest()`, `SSRAccessDecisionError`),
+to `loginPath`/`authenticatedRedirectTo`, and to `<Link href>`, which throws at
+render.
+
+`navigate()` and `redirect()` are redirect sinks, and so is a server that copies
+`decision.to` into a `Location` header. Askr refuses path-like cross-origin
+targets, but an explicit `https://evil.example` is still followed. Validate
+untrusted input, such as a `?next=` query value, by parsing it: a leading
+single `/` is not enough. Compare the parsed origin with your own, and reject a
+parsed pathname that starts with `//`, since dot segments can produce one:
+
+```ts
+function safeNext(value: string | null): string {
+  const url = new URL(value ?? '/', location.origin);
+  return url.origin === location.origin && !url.pathname.startsWith('//')
+    ? `${url.pathname}${url.search}${url.hash}`
+    : '/';
+}
+```
+
+When navigation replaces the active route,
 Askr disposes route-local component state, resources, tasks, and abort signals
 before mounting the replacement. Reconciliation can preserve shared layout DOM
 nodes, but state that must survive navigation belongs in a shared layout,
@@ -460,6 +506,11 @@ import { Link } from '@askrjs/askr/router';
 A left click on a same-origin `Link` navigates through `navigate()`. A target no
 registered app can render, such as another app on the same origin outside the
 `basePath`, falls back to a full document load, so the click is never dead.
+
+`Link` handles a plain left click on a same-origin `http`/`https` URL in the
+router. It leaves the click to the browser for modifier keys, `download`, other
+origins, and a `target` naming another browsing context (`_blank`, a frame
+name). `target="_self"` still navigates in the router.
 
 Raw `href` values may be relative URLs or use `http`, `https`, `mailto`,
 `sms`, or `tel`. `Link` rejects other explicit schemes, including executable

@@ -1,4 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vite-plus/test';
+import { ErrorBoundary } from '@askrjs/askr/components';
 import {
   DefaultPortal,
   Portal,
@@ -80,6 +88,93 @@ describe('SSR portal rendering', () => {
     expect(html).toBe(
       "<main><!--askr-portal-anchor:0--><div>cash $&amp; $1 $$ $` $'</div></main>"
     );
+  });
+
+  describe('inside an ErrorBoundary that renders its fallback', () => {
+    beforeEach(() => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    function Failure(): never {
+      throw new Error('ssr failure');
+    }
+
+    it('should not emit default portal content written by the failed subtree', () => {
+      const html = renderToStringSync(() => (
+        <main>
+          <DefaultPortal />
+          <ErrorBoundary fallback={<p>{'fallback'}</p>}>
+            <Portal>
+              <aside>{'leaked'}</aside>
+            </Portal>
+            <Failure />
+          </ErrorBoundary>
+        </main>
+      ));
+
+      expect(html).not.toContain('leaked');
+      expect(html).toContain('<p>fallback</p>');
+    });
+
+    it('should keep an earlier write from outside the boundary', () => {
+      const html = renderToStringSync(() => (
+        <main>
+          <DefaultPortal />
+          <Portal>
+            <aside>{'outer'}</aside>
+          </Portal>
+          <ErrorBoundary fallback={<p>{'fallback'}</p>}>
+            <Portal>
+              <aside>{'leaked'}</aside>
+            </Portal>
+            <Failure />
+          </ErrorBoundary>
+        </main>
+      ));
+
+      expect(html).not.toContain('leaked');
+      expect(html).toContain('<aside>outer</aside>');
+    });
+
+    it('should not emit named portal content written by the failed subtree', () => {
+      const Overlay = definePortal();
+      const Writer = () =>
+        Overlay.render({ children: <aside>{'leaked'}</aside> });
+      const html = renderToStringSync(() => (
+        <main>
+          <Overlay />
+          <ErrorBoundary fallback={<p>{'fallback'}</p>}>
+            <Writer />
+            <Failure />
+          </ErrorBoundary>
+        </main>
+      ));
+
+      expect(html).not.toContain('leaked');
+    });
+
+    it('should keep the portal claimed when the failed subtree held the only explicit host', () => {
+      // Matches the client: a host replaced by a fallback keeps the portal
+      // claimed, so content does not move to the automatic host.
+      const html = renderToStringSync(() => (
+        <main>
+          <Portal>
+            <aside>{'content'}</aside>
+          </Portal>
+          <ErrorBoundary fallback={<p>{'fallback'}</p>}>
+            <DefaultPortal />
+            <Failure />
+          </ErrorBoundary>
+        </main>
+      ));
+
+      expect(html).toContain('<p>fallback</p>');
+      expect(html).not.toContain('content');
+    });
   });
 
   it('should render a defined portal independent of host evaluation order', () => {

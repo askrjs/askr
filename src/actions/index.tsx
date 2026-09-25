@@ -9,6 +9,7 @@ import {
 } from '../data/data-runtime';
 import { readActionFramework } from './runtime';
 import { isCurrentAsyncGeneration } from '../data/shared';
+import { resolveNavigationUrl } from '../common/url';
 
 const actionSubmissionGenerations = new WeakMap<object, number>();
 
@@ -95,16 +96,22 @@ function initialStatus<TResult>(actionId: string): ActionStatus<TResult> {
   return replay ? { pending: false, error: replay } : { pending: false };
 }
 
+/**
+ * Validate an action redirect and return its absolute URL. Path-like targets
+ * that leave the origin, including dot segments that collapse to `//host`,
+ * are refused by {@link resolveNavigationUrl}; explicit URLs on another origin
+ * are refused here. The absolute form keeps `location.assign()` on the origin.
+ */
 function normalizeActionRedirect(value: string): string {
   const current = new URL(location.href);
-  const target = new URL(value, current);
+  const target = resolveNavigationUrl(value, current.href);
   if (
     (target.protocol !== 'http:' && target.protocol !== 'https:') ||
     target.origin !== current.origin
   ) {
     throw new TypeError('Action redirects must stay on the current origin.');
   }
-  return `${target.pathname}${target.search}${target.hash}`;
+  return target.href;
 }
 
 /** Returns a command handle, rather than a hook. */

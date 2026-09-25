@@ -12,6 +12,7 @@ import {
 } from '../component/scope';
 import { type ComponentInstance } from '../component/instance';
 import { getRuntimeCleanup } from '../access';
+import { findEnclosingFallbackBoundary } from '../component/error-boundary';
 import {
   adjustPortalRegistrations,
   clearPortalRegistrations,
@@ -29,6 +30,7 @@ import { createSSRPortalAnchor } from './ssr';
 import type { PortalOwner } from './lifetime';
 import { setPortalErrorParent } from './lifetime';
 import { definePortal } from './explicit';
+import { liftFunctionChildren } from '../component/function-children';
 export { definePortal } from './explicit';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
@@ -497,10 +499,16 @@ function registerExplicitDefaultPortalHost(
       }
 
       state.explicitHostCleanupOwners.delete(generation);
-      if (
-        state.explicitHostOwners.get(generation) === owner &&
-        state.explicitHostOwners.delete(generation)
-      ) {
+      if (state.explicitHostOwners.get(generation) !== owner) {
+        return;
+      }
+      // A host discarded by an ErrorBoundary fallback keeps the slot claimed
+      // for that boundary, so content does not move to the automatic host.
+      const boundary = findEnclosingFallbackBoundary(owner);
+      if (boundary) {
+        registerExplicitDefaultPortalHost(scope, state, boundary);
+      }
+      if (state.explicitHostOwners.delete(generation)) {
         if (__ASKR_DEVELOPMENT_BUILD__) {
           adjustPortalRegistrations(state, -1);
         }
@@ -581,6 +589,10 @@ export const DefaultPortal: Portal<RenderableChild> = (() => {
 
 /** Write children to the {@link DefaultPortal} host wherever it is rendered. */
 export function Portal(props: PortalProps): JSXElement | null {
+  // A function child renders at the host as it would in place.
+  const children = liftFunctionChildren(props.children);
+  if (children !== props.children)
+    props = { ...props, children } as PortalProps;
   if (writeSSRPortal(DEFAULT_SSR_PORTAL_KEY, props.children)) {
     return createSSRPortalAnchor();
   }

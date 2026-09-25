@@ -77,7 +77,10 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
       // Spec: missing-route warning should be suppressed in production.
       navigate('/missing');
       expect(warn).not.toHaveBeenCalled();
-      expect(loadDocument).toHaveBeenCalledWith('/missing', 'push');
+      expect(loadDocument).toHaveBeenCalledWith(
+        `${window.location.origin}/missing`,
+        'push'
+      );
 
       warn.mockRestore();
     } finally {

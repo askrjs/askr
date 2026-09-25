@@ -238,6 +238,12 @@ describe('renderer context frame invariants', () => {
     const Reader = () => {
       return <span id={'stable-row-theme'}>{readScope(ThemeScope)}</span>;
     };
+    // A stable row callback isolates the context-frame check: an inline
+    // callback is a new closure on every parent render and reruns its rows.
+    const renderRow = () => {
+      rowRenderCount += 1;
+      return <Reader />;
+    };
 
     const App = () => {
       const unrelated = state(0);
@@ -247,10 +253,7 @@ describe('renderer context frame invariants', () => {
         <div data-unrelated={String(unrelated())}>
           <ThemeScope value={'dark'}>
             <For each={items} by={(item) => item}>
-              {() => {
-                rowRenderCount += 1;
-                return <Reader />;
-              }}
+              {renderRow}
             </For>
           </ThemeScope>
         </div>

@@ -6,6 +6,7 @@ import { ELEMENT_TYPE, type JSXElement } from '../common/jsx';
 import { __ERROR_BOUNDARY__ } from '../common/vnode';
 import {
   getCurrentComponentInstance,
+  liftFunctionChildren,
   type ComponentInstance,
 } from '../runtime';
 
@@ -51,7 +52,8 @@ function createBoundaryVNode(
     $$typeof: ELEMENT_TYPE,
     type: __ERROR_BOUNDARY__,
     props: {
-      children: props.children,
+      // A function child is rendered reactively, as it would be anywhere.
+      children: liftFunctionChildren(props.children),
       fallback: props.fallback,
       onError: props.onError,
       resetKey: props.resetKey,

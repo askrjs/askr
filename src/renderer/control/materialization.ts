@@ -7,6 +7,7 @@ import {
   materializeChildScopeRange,
 } from './range-adoption';
 import { appendRange } from '../ownership/ranges';
+import { recordControlOutputOwner } from './commit-owner';
 import {
   clearControlBoundaryDomUpdateState,
   evaluateControlBoundaryState,
@@ -36,6 +37,9 @@ export function createForBoundary(
     return document.createDocumentFragment();
   }
 
+  // A boundary materialized without an element of its own (for example, one of
+  // several children of an ErrorBoundary) still records where it renders.
+  recordControlOutputOwner(controlState);
   const childrenVNodes = evaluateControlBoundaryState(controlState);
   const fragment = document.createDocumentFragment();
 

@@ -1,6 +1,6 @@
 # Askr
 
-[![CI](https://github.com/askrjs/askr/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/askrjs/askr/actions/workflows/ci.yml)
+[![CI](https://github.com/askrjs/askr/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/askrjs/askr/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/%40askrjs%2Faskr.svg)](https://www.npmjs.com/package/@askrjs/askr)
 
 Askr is a lane-scheduled UI runtime for TypeScript applications. Its

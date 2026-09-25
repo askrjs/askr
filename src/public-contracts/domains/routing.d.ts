@@ -155,10 +155,16 @@ interface RouteAuthOptions {
   dehydrate?: (context: AuthContext) => Omit<AuthContext, 'session'>;
   loginPath?:
     | string
-    | ((context: RouteContext) => string | PromiseLike<string>);
+    | RouteDestination
+    | ((
+        context: RouteContext
+      ) => string | RouteDestination | PromiseLike<string | RouteDestination>);
   authenticatedRedirectTo?:
     | string
-    | ((context: RouteContext) => string | PromiseLike<string>);
+    | RouteDestination
+    | ((
+        context: RouteContext
+      ) => string | RouteDestination | PromiseLike<string | RouteDestination>);
 }
 
 interface CommonAccessOptions {
@@ -273,9 +279,16 @@ type RouteRefSearch<TSchema extends ObjectSchema<RouteSearch> | undefined> = [
     ? InferSchema<TSchema>
     : RouteSearch;
 
-/** A resolved navigation target with a computed `href`, produced by {@link to}. */
+declare const routeDestinationBrand: unique symbol;
+
+/**
+ * A typed navigation target with a computed public `href`, produced by
+ * {@link to}. Branded so that only `to()` creates one: its `href` already
+ * includes the registry `basePath` and is never prefixed again.
+ */
 interface RouteDestination {
   readonly href: string;
+  readonly [routeDestinationBrand]: true;
 }
 
 /** Options accepted by the `page()` route-declaration helper. */

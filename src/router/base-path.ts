@@ -1,4 +1,7 @@
+import { isDevelopmentEnvironment } from '../common/env';
+import { logger } from '../common/logger';
 import { staticSegmentMatches } from './match';
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
 /** Normalize the public mount point used by one route registry. */
 export function normalizeRouteBasePath(value: string | undefined): string {
@@ -45,19 +48,43 @@ function stripRouteBasePath(
   return `/${pathParts.slice(baseParts.length).join('/')}`;
 }
 
-/** Add a registry mount point to one logical root-relative route target. */
+/**
+ * Add a registry mount point to one logical root-relative route target. The
+ * target is always logical, so `/app/settings` under `/app` becomes
+ * `/app/app/settings`; callers holding a public href must not pass it here.
+ */
 export function addRouteBasePath(target: string, basePath: string): string {
   if (!basePath || !target.startsWith('/') || target.startsWith('//')) {
     return target;
   }
   const parsed = parsedTarget(target);
-  if (
-    parsed.origin !== 'http://askr.invalid' ||
-    stripRouteBasePath(parsed.pathname, basePath) !== undefined
-  ) {
+  if (parsed.origin !== 'http://askr.invalid') {
     return target;
   }
   return `${basePath}${parsed.pathname}${parsed.search}${parsed.hash}`;
+}
+
+/**
+ * Add the mount point to an app-supplied string target (`navigate()`,
+ * `<Link href>`, `redirect()`). In development, warn when the target already
+ * starts with the base: strings are logical, so it gains the base again.
+ */
+export function addLogicalRouteBasePath(
+  target: string,
+  basePath: string
+): string {
+  const mounted = addRouteBasePath(target, basePath);
+  if (
+    __ASKR_DEVELOPMENT_BUILD__ &&
+    isDevelopmentEnvironment() &&
+    mounted !== target &&
+    stripRouteBasePath(parsedTarget(target).pathname, basePath) !== undefined
+  ) {
+    logger.warn(
+      `[Askr] ${JSON.stringify(target)} already starts with the registry basePath ${JSON.stringify(basePath)}. String targets are logical, so it resolves to ${JSON.stringify(mounted)}. Drop the prefix, or pass a to() destination for a public URL.`
+    );
+  }
+  return mounted;
 }
 
 /** Remove a registry mount point and retain query/hash for logical matching. */

@@ -15,6 +15,7 @@
 import {
   claimHookIndex,
   getCurrentComponentInstance,
+  hasCurrentRenderScope,
 } from '../component/scope';
 import { type ComponentInstance } from '../component/instance';
 import { deferCommitNotification } from '../transactions/access';
@@ -163,8 +164,8 @@ function createStateCell<T>(
     // (when currentInstance is non-null). It must be scheduled for consistency.
     // A derive()/selector() computation running inside a render is handled
     // by the derived-computation guard below instead.
-    const currentInst = getCurrentComponentInstance();
-    if (currentInst !== null && !isDerivedComputationActive()) {
+    // A function child's run counts as a render too.
+    if (hasCurrentRenderScope() && !isDerivedComputationActive()) {
       throw new Error(
         `[Askr] state.set() cannot be called during component render. ` +
           `State mutations during render break the actor model and cause infinite loops. ` +

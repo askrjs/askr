@@ -28,7 +28,9 @@ let activeBoundaryCommit: ControlBoundaryState | null = null;
  * materialized by another boundary's local commit) it inherits that
  * boundary's owner; a known owner is never cleared.
  */
-function recordControlOutputOwner(controlState: ControlBoundaryState): void {
+export function recordControlOutputOwner(
+  controlState: ControlBoundaryState
+): void {
   const instance = getCurrentComponentInstance();
   setControlOutputOwner(
     controlState,

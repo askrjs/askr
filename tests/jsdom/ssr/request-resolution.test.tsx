@@ -482,4 +482,54 @@ describe('SSR request resolution', () => {
 
     expect(receivedCatchAll).toBe('/a/b');
   });
+
+  describe('renderResolvedToStringSync', () => {
+    it('should render a param-less route when params are omitted', () => {
+      const Page = () => <main>{'public'}</main>;
+      const registry = createRouteRegistry(() => {
+        route('/public', Page);
+      });
+
+      const html = renderResolvedToStringSync({
+        url: '/public',
+        registry,
+        handler: Page,
+      });
+
+      expect(html).toContain('<main>public</main>');
+    });
+
+    it('should render a parameterized route with matching params', () => {
+      const Post = (params: { slug?: string }) => <main>{params.slug}</main>;
+      const registry = createRouteRegistry(() => {
+        route('/public', () => <main>{'public'}</main>);
+        route('/posts/{slug}', Post);
+      });
+
+      const html = renderResolvedToStringSync({
+        url: '/posts/intro',
+        registry,
+        handler: Post,
+        params: { slug: 'intro' },
+      });
+
+      expect(html).toContain('<main>intro</main>');
+    });
+
+    it('should reject params that do not match the url', () => {
+      const Post = (params: { slug?: string }) => <main>{params.slug}</main>;
+      const registry = createRouteRegistry(() => {
+        route('/posts/{slug}', Post);
+      });
+
+      expect(() =>
+        renderResolvedToStringSync({
+          url: '/posts/intro',
+          registry,
+          handler: Post,
+          params: { slug: 'other' },
+        })
+      ).toThrow(/no route found for url: \/posts\/intro/);
+    });
+  });
 });
