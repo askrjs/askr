@@ -31,6 +31,60 @@ async function settleCollection(collection: {
 }
 
 describe('query collections', () => {
+  it('should consume hydrated entries once and refetch after remount', async () => {
+    const runtime = createDataRuntime();
+    runtime.queryData.set('hydrated-schemas:postgres', { version: 'ssr' });
+    let fetchCount = 0;
+    const fetch = vi.fn(async () => {
+      fetchCount += 1;
+      return { version: `server-${fetchCount}` };
+    });
+    const schemaByDatabase = defineQuery({
+      key: ({ database }: { database: string }) =>
+        `hydrated-schemas:${database}`,
+      fetch,
+    });
+    let setVisible!: (value: boolean) => void;
+
+    const Schemas = (): JSXElement => {
+      const collection = createQueryCollection({
+        runtime,
+        query: schemaByDatabase,
+        inputs: () => [{ database: 'postgres' }],
+        key: ({ database }) => database,
+      });
+      return <span>{collection.results.get('postgres')?.version ?? '-'}</span>;
+    };
+
+    const App = (): JSXElement => {
+      const visible = state(true);
+      setVisible = visible.set;
+      return <div>{visible() ? <Schemas /> : null}</div>;
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+
+      expect(container.textContent).toBe('ssr');
+      expect(fetch).not.toHaveBeenCalled();
+      expect(runtime.queryData.has('hydrated-schemas:postgres')).toBe(false);
+
+      setVisible(false);
+      flushScheduler();
+      setVisible(true);
+      flushScheduler();
+      await settle();
+
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(container.textContent).toBe('server-1');
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should bound dynamic keyed work and aggregate query entries', async () => {
     const runtime = createDataRuntime();
     const started: string[] = [];

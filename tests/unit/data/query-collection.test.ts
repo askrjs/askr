@@ -4,7 +4,15 @@ import {
   normalizeQueryCollectionConcurrency,
 } from '../../../src/data/query-collection';
 import { createDataRuntime } from '../../../src/data/data-runtime';
-import { defineQuery } from '../../../src/data/query-registry';
+import {
+  createQueryPrefetchContext,
+  defineQuery,
+  defineServerQueries,
+  dehydrateDataRuntime,
+  hydrateDataRuntime,
+  prefetchQuery,
+  serveQuery,
+} from '../../../src/data/query-registry';
 import { renderToStringSync } from '../../../src/ssr';
 
 describe('query collection concurrency', () => {
@@ -46,5 +54,52 @@ describe('query collection concurrency', () => {
 
     expect(html).toContain('postgres');
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('should keep every prefetched entry when building a server payload', async () => {
+    const runtime = createDataRuntime();
+    const context = createQueryPrefetchContext({ runtime });
+    const query = defineQuery({
+      key: ({ id }: { id: number }) => `payload:${id}`,
+      fetch: async ({ id }: { id: number; signal: AbortSignal }) => ({ id }),
+    });
+
+    for (let id = 0; id < 200; id += 1) {
+      await prefetchQuery(context, query, { id });
+    }
+
+    expect(Object.keys(dehydrateDataRuntime(runtime))).toHaveLength(200);
+  });
+
+  it('should prefetch and hydrate into a hand-built data runtime', async () => {
+    const runtime = {
+      queryCache: new Map<string, unknown>(),
+      queryData: new Map<string, unknown>(),
+      queryTestOverrides: new Map<string, unknown>(),
+      mutationTestOverrides: new Map<string, unknown>(),
+    };
+    const query = defineQuery({
+      key: ({ id }: { id: number }) => `plain:${id}`,
+      fetch: async ({ id }: { id: number; signal: AbortSignal }) => ({ id }),
+    });
+    const registry = defineServerQueries(
+      serveQuery(query, ({ input }) => ({ id: input.id }))
+    );
+
+    await prefetchQuery(
+      createQueryPrefetchContext({ runtime, mode: 'ssr', registry }),
+      query,
+      { id: 1 }
+    );
+    await prefetchQuery(createQueryPrefetchContext({ runtime }), query, {
+      id: 2,
+    });
+    hydrateDataRuntime(runtime, { 'plain:3': { id: 3 } });
+
+    expect(dehydrateDataRuntime(runtime)).toEqual({
+      'plain:1': { id: 1 },
+      'plain:2': { id: 2 },
+      'plain:3': { id: 3 },
+    });
   });
 });
