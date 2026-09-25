@@ -1,3 +1,5 @@
+import { getPublicAttributeName } from './attr-names';
+
 const SAFE_URL_SCHEMES = new Set(['http', 'https', 'mailto', 'sms', 'tel']);
 const SCRIPT_URL_SCHEMES = new Set(['javascript', 'vbscript']);
 const URL_SCHEME_RE = /^([a-z][a-z0-9+.-]*):/i;
@@ -40,8 +42,9 @@ export const UNSAFE_URL_SCHEME_ATTRIBUTES = new Set([
  */
 export const SCRIPT_URL_RESOURCE_ATTRIBUTES = new Set(['src', 'data']);
 
+/** Accepts the JSX prop name (`xlinkHref`) or the rendered attribute name. */
 export function isUnsafeUrlAttribute(key: string, value: unknown): boolean {
-  const name = key.toLowerCase();
+  const name = getPublicAttributeName(key).toLowerCase();
   if (UNSAFE_URL_SCHEME_ATTRIBUTES.has(name)) return !isSafeHref(String(value));
   if (SCRIPT_URL_RESOURCE_ATTRIBUTES.has(name)) {
     return !isSafeResourceUrl(String(value));
