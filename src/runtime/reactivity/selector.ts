@@ -285,7 +285,11 @@ function notifySelectorSource(source: SelectorCandidateSource<unknown>): void {
   if (PERF_BUILD_ENABLED) {
     incrementPerfMetric('selectorInvalidations');
   }
-  notifyReadableSource(source, { skipCurrentDerivedSubscriber: true });
+  // The component currently rendering reads the new value directly.
+  notifyReadableSource(source, {
+    skipCurrentDerivedSubscriber: true,
+    skipInstance: getCurrentComponentInstance(),
+  });
 }
 
 function notifyAllSelectorSources<T>(lane: SelectorLane<T>): void {
@@ -551,7 +555,9 @@ function getOrCreateSelectorHook<T>(
         selectorRecords.set(source, record);
         existing._source = source;
         record._dirty = true;
-        recomputeSelectorSourceRecord(record, false);
+        // Rows that are not re-rendered by this render still read the old
+        // value, so a change here has to be published (#431).
+        recomputeSelectorSourceRecord(record, true);
         ensureSelectorHookBinding(existing);
       } else {
         detachSelectorHookBinding(existing);
