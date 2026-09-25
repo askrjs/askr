@@ -31,7 +31,8 @@ function getSSRPortalSlot(key: object) {
 
 function createSSRPortalHost(
   key: object,
-  automatic: boolean
+  automatic: boolean,
+  defaultPortal = false
 ): JSXElement | null {
   const current = getSSRPortalSlot(key);
   if (!current) {
@@ -41,7 +42,7 @@ function createSSRPortalHost(
   const token = createSSRPortalHostToken(
     current.context.ssrPortals.nextHostId++
   );
-  current.slot.hosts.push({ token, automatic });
+  current.slot.hosts.push({ token, automatic, defaultPortal });
   return {
     $$typeof: ELEMENT_TYPE,
     type: SSR_PORTAL_HOST,

@@ -348,7 +348,8 @@ export function adoptMarkedHydratedComponentRange(
   instance: ComponentInstance,
   result: unknown,
   forceChildrenUpdate: boolean,
-  retainedInstances: Iterable<ComponentInstance>
+  retainedInstances: Iterable<ComponentInstance>,
+  preserveInitialContent = false
 ): Comment | null {
   const parent = start.parentNode;
   if (
@@ -389,6 +390,7 @@ export function adoptMarkedHydratedComponentRange(
 
   try {
     if (
+      !preserveInitialContent &&
       !syncComponentFragmentRange(host, instance, result, forceChildrenUpdate)
     ) {
       throw new Error(

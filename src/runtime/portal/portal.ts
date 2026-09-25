@@ -546,7 +546,8 @@ export const DefaultPortal: Portal<RenderableChild> = (() => {
   function Host(props?: DefaultPortalHostProps) {
     const serverHost = createSSRPortalHost(
       DEFAULT_SSR_PORTAL_KEY,
-      props?.__askrAutoDefaultPortal === true
+      props?.__askrAutoDefaultPortal === true,
+      true
     );
     if (serverHost) {
       return serverHost;

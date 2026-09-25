@@ -50,6 +50,7 @@ import {
 } from './host-results';
 import { resolveHostNestedComponentResult } from './host-nested-results';
 import { isHydrationAdoptionScopeActive } from '../hydration/adoption';
+import { getDefaultPortalHost } from '../../common/default-portal-runtime';
 
 /**
  * The parts of one adoption attempt the two result-handling passes share.
@@ -123,7 +124,9 @@ function tryAdoptHydratedRange(
           adoption.instance,
           result,
           shouldForceChildren(adoption),
-          adoption.retained
+          adoption.retained,
+          adoption.instance.fn === getDefaultPortalHost() &&
+            (result === null || result === undefined || result === false)
         )
       : adoptHydratedComponentRange(
           existingHost as Element | Comment,
@@ -247,6 +250,21 @@ export function adoptComponentHost(
     }
 
     const scopedResult = renderComponentInScope(hydrationInstance, snapshot);
+
+    if (
+      type === getDefaultPortalHost() &&
+      markedHydrationEnd &&
+      (scopedResult === null ||
+        scopedResult === undefined ||
+        scopedResult === false)
+    ) {
+      const portalRange = tryAdoptHydratedRange(
+        adoption,
+        scopedResult,
+        hydrationInstance
+      );
+      if (portalRange) return portalRange;
+    }
 
     const emptyPlaceholder = materializeEmptyHydrationPlaceholder(
       existingHost,

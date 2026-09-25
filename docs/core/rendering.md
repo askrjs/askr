@@ -453,10 +453,10 @@ between routes or requests. Hydration adopts the server-rendered portal
 content and attaches its normal bindings.
 
 SSR and SSG retain internal comment anchors at default-portal writer positions
-and at a written automatic host whose current value is empty. Hydration adopts
-those anchors so adjacent application nodes keep their identity without a
-visible wrapper element. Unused or explicitly suppressed automatic hosts are
-omitted.
+and around default-portal host content. Hydration adopts the host range in
+place, including when an explicit host precedes its writer or has no content.
+The anchors keep adjacent application nodes in position without a visible
+wrapper element. Unused or explicitly suppressed automatic hosts are omitted.
 
 ## Static Site Generation (SSG)
 

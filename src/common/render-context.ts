@@ -18,6 +18,7 @@ export interface DeferredBoundaryRegistration {
 export interface SSRPortalHostRegistration {
   token: string;
   automatic: boolean;
+  defaultPortal?: boolean;
 }
 
 export interface SSRPortalSlot {

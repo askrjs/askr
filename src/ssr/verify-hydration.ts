@@ -15,7 +15,6 @@ import { currentAuth } from '../router/auth';
 
 const SSR_STYLE_REGISTRY_SELECTOR = 'style[data-askr-style-registry]';
 
-const SSR_PORTAL_MARKER = /<!--askr-portal(?:-anchor)?:\d+-->/;
 // Hydration and key bookkeeping the renderers write, not application markup.
 const RENDERER_BOOKKEEPING_ATTRS = [
   'data-skip-hydrate',
@@ -95,10 +94,8 @@ function clientRendersServerUrl(
 /**
  * Capture the server markup under `root` before the client renderer touches
  * it, normalized for {@link verifyClientHydrationMarkup}. Returns `null` when
- * the client output is not expected to reproduce it: the page is hydrated at
- * a different URL than it was rendered for, or it carries portal content,
- * which the client places through its own host lifecycle after the root
- * commits.
+ * the client output is not expected to reproduce it because the page is
+ * hydrated at a different URL than it was rendered for.
  */
 export function captureServerHydrationMarkup(
   root: Element,
@@ -106,7 +103,7 @@ export function captureServerHydrationMarkup(
   envelope?: PageRenderEnvelope
 ): string | null {
   const html = root.innerHTML;
-  if (!clientRendersServerUrl(url, envelope) || SSR_PORTAL_MARKER.test(html)) {
+  if (!clientRendersServerUrl(url, envelope)) {
     return null;
   }
   return normalizeHydrationHtml(html);

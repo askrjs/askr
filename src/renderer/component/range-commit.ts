@@ -43,6 +43,7 @@ import {
 import { getParentNamespace } from '../intrinsic/namespaces';
 import { getRetainedHostOwnerChain } from '../evaluation/reconcile';
 import { _isDOMElement, type VNode } from '../types';
+import { getDefaultPortalHost } from '../../common/default-portal-runtime';
 
 export function replaceComponentRange(
   instance: ComponentInstance,
@@ -194,6 +195,12 @@ function replaceComponentRangeInTransaction(
 
   const placeholder = host as Comment;
   if (syncComponentFragmentRange(placeholder, instance, result, false)) {
+    return placeholder;
+  }
+  if (
+    instance.fn === getDefaultPortalHost() &&
+    syncComponentFragmentRange(placeholder, instance, [result], false)
+  ) {
     return placeholder;
   }
 

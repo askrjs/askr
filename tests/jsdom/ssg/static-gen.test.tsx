@@ -390,12 +390,12 @@ describe('Static Site Generation', () => {
       expect(
         fs.readFileSync(path.join(tempDir, 'explicit', 'index.html'), 'utf8')
       ).toBe(
-        '<main><strong>explicit portal</strong><!--askr-portal-anchor:1--></main>'
+        '<main><!--askr-range-start--><strong>explicit portal</strong><!--askr-range-end--><!--askr-portal-anchor:1--></main>'
       );
       expect(
         fs.readFileSync(path.join(tempDir, 'automatic', 'index.html'), 'utf8')
       ).toBe(
-        '<main><!--askr-portal-anchor:0--></main><strong>automatic portal</strong>'
+        '<main><!--askr-portal-anchor:0--></main><!--askr-range-start--><strong>automatic portal</strong><!--askr-range-end-->'
       );
     });
 
