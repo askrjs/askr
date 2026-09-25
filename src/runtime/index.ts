@@ -27,11 +27,13 @@ export {
   enterDomCommitScope,
   getCurrentComponentInstance,
   getCurrentAppRenderRuntime,
+  getCurrentLifecycleOwner,
   getCurrentPortalScope,
   getCurrentStateIndex,
   getNextStateIndex,
   getSignal,
   withAppRenderRuntime,
+  withLifecycleOwner,
 } from './component/scope';
 export {
   beginCommitTransaction,

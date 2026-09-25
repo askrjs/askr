@@ -7,7 +7,7 @@
 import type { ReadableSource } from '../reactivity/readable';
 import type { ComponentInstance } from './instance';
 import type { AppRenderRuntime } from '../../common/app-render-runtime';
-import { getOwnershipSignal } from '../ownership/record';
+import { getOwnershipSignal, type OwnershipRecord } from '../ownership/record';
 
 export type ComponentScopeSnapshot = {
   instance: ComponentInstance | null;
@@ -24,6 +24,7 @@ type InlineRenderTrackingSnapshot = {
 let currentInstance: ComponentInstance | null = null;
 let currentPortalScope: object | null = null;
 let scopedAppRenderRuntime: AppRenderRuntime | undefined;
+let currentLifecycleOwner: OwnershipRecord | null = null;
 let stateIndex = 0;
 let globalRenderCounter = 0;
 
@@ -125,6 +126,29 @@ export function withAppRenderRuntime<T>(
   } finally {
     scopedAppRenderRuntime = previous;
   }
+}
+
+/**
+ * @internal Run committed lifecycle work (mount/commit operations, watch
+ * callbacks, event handlers) on behalf of `owner`, so post-render helpers can
+ * bind their own teardown to that component lifetime.
+ */
+export function withLifecycleOwner<T>(
+  owner: OwnershipRecord | null | undefined,
+  fn: () => T
+): T {
+  const previous = currentLifecycleOwner;
+  currentLifecycleOwner = owner ?? null;
+  try {
+    return fn();
+  } finally {
+    currentLifecycleOwner = previous;
+  }
+}
+
+/** @internal The component lifetime running the current committed work, if any. */
+export function getCurrentLifecycleOwner(): OwnershipRecord | null {
+  return currentLifecycleOwner;
 }
 
 export function getCurrentPortalScope(): object | null {

@@ -1,6 +1,7 @@
 import { isPromiseLike } from '../../common/promise';
 import { logger } from '../../common/logger';
 import type { ComponentInstance } from '../component/instance';
+import { withLifecycleOwner } from '../component/scope';
 import { ownCleanup, type OwnershipRecord } from '../ownership/record';
 import {
   getCurrentCommitTransaction,
@@ -150,7 +151,10 @@ function executeOwnedLifecycleOperations(
   for (const operations of [mounts, commits]) {
     for (const operation of operations ?? []) {
       try {
-        settleLifecycleOperationResult(owner, operation());
+        settleLifecycleOperationResult(
+          owner,
+          withLifecycleOwner(owner, operation)
+        );
       } catch (error) {
         errors.push(error);
       }

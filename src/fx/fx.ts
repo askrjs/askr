@@ -1,13 +1,18 @@
-import { ownCleanup } from '../runtime/ownership/record';
+import { getOwnershipSignal, ownCleanup } from '../runtime/ownership/record';
 import { enqueueRuntimeTask } from '../runtime';
-import { getCurrentComponentInstance } from '../runtime';
+import {
+  getCurrentComponentInstance,
+  getCurrentLifecycleOwner,
+} from '../runtime';
 import { logger } from '../common/logger';
 import { noopEventListener, noopEventListenerWithFlush } from './noop';
+import { createDebouncer, createThrottler } from './timing';
 
 export type CancelFn = () => void;
 
 // Platform-specific timer handle types
 type TimeoutHandle = ReturnType<typeof setTimeout> | null;
+type EventInvoke = (thisArg: unknown, args: unknown[]) => void;
 // rAF may fall back to setTimeout in some environments/tests, include both
 type RafHandle =
   | ReturnType<typeof requestAnimationFrame>
@@ -42,6 +47,31 @@ function enqueueUserCallback(fn: () => void) {
   });
 }
 
+const noopRelease = (): void => {};
+
+/**
+ * Cancel scheduled work when the component whose committed lifecycle
+ * (mount/commit operation, task, watch callback, or event handler) scheduled
+ * it is cleaned up. Returns a release function for work that settles first.
+ */
+function cancelWithLifecycleOwner(cancel: () => void): () => void {
+  const owner = getCurrentLifecycleOwner();
+  if (!owner) return noopRelease;
+  const signal = getOwnershipSignal(owner);
+  if (signal.aborted) {
+    cancel();
+    return noopRelease;
+  }
+  signal.addEventListener('abort', cancel, { once: true });
+  return () => signal.removeEventListener('abort', cancel);
+}
+
+function enqueueEventHandler(handler: EventListener): EventInvoke {
+  return (_thisArg, [event]) => {
+    enqueueUserCallback(() => handler.call(null, event as Event));
+  };
+}
+
 // ---------- Event handlers ----------
 
 /** Wrap an event handler so rapid events are coalesced and delayed by `ms`. */
@@ -50,64 +80,22 @@ export function debounceEvent(
   handler: EventListener,
   options?: { leading?: boolean; trailing?: boolean }
 ): EventListener & { cancel(): void; flush(): void } {
-  const { leading = false, trailing = true } = options || {};
-
   const inst = getCurrentComponentInstance();
   // On SSR, event handlers are inert
   if (inst && inst.ssr) {
     return noopEventListenerWithFlush;
   }
 
-  let timeoutId: TimeoutHandle = null;
-  let lastEvent: Event | null = null;
-  let lastCallTime = 0;
+  const debouncer = createDebouncer(enqueueEventHandler(handler), ms, options);
 
   const debounced = function (this: unknown, ev: Event) {
     // Disallow using returned handler during render
     throwIfDuringRender();
-
-    const now = Date.now();
-    lastEvent = ev;
-
-    if (timeoutId !== null) {
-      clearTimeout(timeoutId);
-      timeoutId = null;
-    }
-
-    if (leading && now - lastCallTime >= ms) {
-      enqueueUserCallback(() => handler.call(null, ev));
-      lastCallTime = now;
-    }
-
-    if (trailing) {
-      timeoutId = setTimeout(() => {
-        // Schedule through scheduler
-        if (lastEvent) {
-          enqueueUserCallback(() => handler.call(null, lastEvent!));
-        }
-        timeoutId = null;
-        lastCallTime = Date.now();
-      }, ms);
-    }
+    debouncer.call(null, [ev]);
   } as EventListener & { cancel(): void; flush(): void };
 
-  debounced.cancel = () => {
-    if (timeoutId !== null) {
-      clearTimeout(timeoutId);
-      timeoutId = null;
-    }
-    lastEvent = null;
-  };
-
-  debounced.flush = () => {
-    if (timeoutId !== null) {
-      clearTimeout(timeoutId);
-      const ev = lastEvent;
-      lastEvent = null;
-      timeoutId = null;
-      if (ev) enqueueUserCallback(() => handler.call(null, ev));
-    }
-  };
+  debounced.cancel = debouncer.cancel;
+  debounced.flush = debouncer.flush;
 
   // Auto-cleanup on component unmount
   if (inst) {
@@ -125,55 +113,19 @@ export function throttleEvent(
   handler: EventListener,
   options?: { leading?: boolean; trailing?: boolean }
 ): EventListener & { cancel(): void } {
-  const { leading = true, trailing = true } = options || {};
-
   const inst = getCurrentComponentInstance();
   if (inst && inst.ssr) {
     return noopEventListener;
   }
 
-  let lastCallTime = 0;
-  let timeoutId: TimeoutHandle = null;
-  let lastEvent: Event | null = null;
+  const throttler = createThrottler(enqueueEventHandler(handler), ms, options);
 
   const throttled = function (this: unknown, ev: Event) {
     throwIfDuringRender();
-
-    const now = Date.now();
-    lastEvent = ev;
-
-    if (leading && now - lastCallTime >= ms) {
-      enqueueUserCallback(() => handler.call(null, ev));
-      lastCallTime = now;
-      if (timeoutId !== null) {
-        clearTimeout(timeoutId);
-        timeoutId = null;
-      }
-    } else if (!leading && lastCallTime === 0) {
-      lastCallTime = now;
-    }
-
-    if (trailing && timeoutId === null) {
-      const wait = ms - (now - lastCallTime);
-      timeoutId = setTimeout(
-        () => {
-          if (lastEvent)
-            enqueueUserCallback(() => handler.call(null, lastEvent!));
-          lastCallTime = Date.now();
-          timeoutId = null;
-        },
-        Math.max(0, wait)
-      );
-    }
+    throttler.call(null, [ev]);
   } as EventListener & { cancel(): void };
 
-  throttled.cancel = () => {
-    if (timeoutId !== null) {
-      clearTimeout(timeoutId);
-      timeoutId = null;
-    }
-    lastEvent = null;
-  };
+  throttled.cancel = throttler.cancel;
 
   if (inst) {
     ownCleanup(inst.owner, () => throttled.cancel());
@@ -240,16 +192,18 @@ export function rafEvent(
 
 // ---------- Scheduled work ----------
 
-/** Schedule `fn` after `ms`, auto-cancelling on component cleanup; returns a cancel function. */
+/**
+ * Schedule `fn` after `ms`; returns a cancel function. Called from a mounted
+ * component's task, watch callback, or event handler, it is also cancelled
+ * when that component is cleaned up.
+ */
 export function scheduleTimeout(ms: number, fn: () => void): CancelFn {
   throwIfDuringRender();
-  const inst = getCurrentComponentInstance();
-  if (inst && inst.ssr) {
-    return () => {};
-  }
+  let release = noopRelease;
 
   let id: TimeoutHandle = setTimeout(() => {
     id = null;
+    release();
     enqueueUserCallback(fn);
   }, ms);
 
@@ -258,20 +212,24 @@ export function scheduleTimeout(ms: number, fn: () => void): CancelFn {
       clearTimeout(id);
       id = null;
     }
+    release();
   };
 
-  if (inst) ownCleanup(inst.owner, cancel);
+  release = cancelWithLifecycleOwner(cancel);
   return cancel;
 }
 
-/** Schedule `fn` during browser idle time, auto-cancelling on component cleanup. */
+/**
+ * Schedule `fn` during browser idle time; returns a cancel function. Called
+ * from a mounted component's task, watch callback, or event handler, it is
+ * also cancelled when that component is cleaned up.
+ */
 export function scheduleIdle(
   fn: () => void,
   options?: { timeout?: number }
 ): CancelFn {
   throwIfDuringRender();
-  const inst = getCurrentComponentInstance();
-  if (inst && inst.ssr) return () => {};
+  let release = noopRelease;
 
   let id: IdleHandle = null;
   let usingRIC = false;
@@ -280,12 +238,14 @@ export function scheduleIdle(
     usingRIC = true;
     id = requestIdleCallback(() => {
       id = null;
+      release();
       enqueueUserCallback(fn);
     }, options);
   } else {
     // Fallback: schedule on next macrotask
     id = setTimeout(() => {
       id = null;
+      release();
       enqueueUserCallback(fn);
     }, 0);
   }
@@ -304,9 +264,10 @@ export function scheduleIdle(
       }
       id = null;
     }
+    release();
   };
 
-  if (inst) ownCleanup(inst.owner, cancel);
+  release = cancelWithLifecycleOwner(cancel);
   return cancel;
 }
 
@@ -316,14 +277,16 @@ export interface RetryOptions {
   backoff?: (attemptIndex: number) => number;
 }
 
-/** Run `fn`, retrying with backoff on failure, auto-cancelling on component cleanup. */
+/**
+ * Run `fn`, retrying with backoff on failure. Called from a mounted
+ * component's task, watch callback, or event handler, pending attempts are
+ * also cancelled when that component is cleaned up.
+ */
 export function scheduleRetry<T>(
   fn: () => Promise<T>,
   options?: RetryOptions
 ): { cancel(): void } {
   throwIfDuringRender();
-  const inst = getCurrentComponentInstance();
-  if (inst && inst.ssr) return { cancel: () => {} };
 
   const {
     maxAttempts = 3,
@@ -332,41 +295,49 @@ export function scheduleRetry<T>(
   } = options || {};
 
   let cancelled = false;
+  let retryId: TimeoutHandle = null;
+  let release = noopRelease;
+
+  const settle = () => {
+    cancelled = true;
+    release();
+  };
 
   const attempt = (index: number) => {
+    retryId = null;
     if (cancelled) return;
     // Run user fn inside scheduler
     enqueueRuntimeTask(() => {
       if (cancelled) return;
       // Call fn (it may be async)
       const p = fn();
-      p.then(
-        () => {
-          // Completed successfully
-        },
-        () => {
-          if (cancelled) return;
-          if (index + 1 < maxAttempts) {
-            const delay = backoff(index);
-            // Schedule next attempt via setTimeout so it gets enqueued through scheduleTimeout
-            setTimeout(() => {
-              attempt(index + 1);
-            }, delay);
-          }
+      p.then(settle, () => {
+        if (cancelled) return;
+        if (index + 1 < maxAttempts) {
+          retryId = setTimeout(() => {
+            attempt(index + 1);
+          }, backoff(index));
+        } else {
+          settle();
         }
-      ).catch((e) => {
+      }).catch((e) => {
         logger.error('[Askr] scheduleRetry error:', e);
       });
     });
   };
 
+  const cancel = () => {
+    if (retryId !== null) {
+      clearTimeout(retryId);
+      retryId = null;
+    }
+    settle();
+  };
+
+  release = cancelWithLifecycleOwner(cancel);
+
   // Start first attempt
   attempt(0);
 
-  const cancel = () => {
-    cancelled = true;
-  };
-
-  if (inst) ownCleanup(inst.owner, cancel);
   return { cancel };
 }

@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- fix(fx): `scheduleTimeout()`, `scheduleIdle()` and `scheduleRetry()` now
+  cancel pending work when the component that scheduled them unmounts, as
+  documented. Calls made from a mounted component's `task()`, `watch()`
+  callback, mount/commit operation or event handler bind to that component's
+  lifetime; previously no cleanup was ever registered and timers fired after
+  unmount. The unreachable SSR branches in these helpers are removed.
+- fix(fx): `debounceEvent({ leading: true })` and the default
+  `throttleEvent()` no longer call the handler twice for a single event. The
+  trailing edge only runs when another event arrived after the leading call.
+  Both now share their edge logic with `debounce()` and `throttle()`, and
+  `debounceEvent().flush()` only runs a pending trailing call.
 - fix(resources): a resource hydrated from preloaded data keeps its value on
   later re-renders instead of resetting to pending and refetching. The preloaded
   value now seeds the resource, so `refresh()` and `deps` changes also work
