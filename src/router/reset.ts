@@ -1,5 +1,6 @@
 import { resetClientAuth } from './auth';
 import { resetRouteActivity } from './activity';
+import { resetHistoryIndex } from './history-index';
 import { resetLazyRoutes } from './lazy';
 import { resetNavigationRegistry } from './navigation-registry';
 import { resetNavigationScroll } from './navigation-scroll';
@@ -26,6 +27,7 @@ export function resetRouterState(): void {
   resetNavigationRegistry();
   resetRouteActivity();
   resetNavigationScroll();
+  resetHistoryIndex();
   resetLazyRoutes();
   resetClientAuth();
 }

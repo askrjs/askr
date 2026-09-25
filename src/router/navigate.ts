@@ -9,6 +9,7 @@ import {
   getCurrentHref,
   hasRegisteredApps,
   parseTargetUrl,
+  syncRegisteredRouteSnapshot,
 } from './navigation-registry';
 import {
   applyNavigationTargets,
@@ -30,6 +31,13 @@ import {
   releaseNavigationFocusCapture,
 } from './navigation-scroll';
 import { isRuntimeSchedulerExecuting } from '../runtime';
+import {
+  consumeHistoryReturn,
+  getHistoryIndex,
+  initializeHistoryIndex,
+  readHistoryIndex,
+  setHistoryIndex,
+} from './history-index';
 
 export { configureScrollRestoration } from './navigation-scroll';
 export type {
@@ -161,9 +169,18 @@ function navigateWithRedirectState(
 }
 
 function handlePopState(event: PopStateEvent): void {
+  const historyIndex = readHistoryIndex(event.state);
+  if (consumeHistoryReturn(event.state)) {
+    // A failed traversal returning to the entry that is still rendered.
+    setHistoryIndex(historyIndex);
+    syncRegisteredRouteSnapshot();
+    return;
+  }
   beginHistoryFocusRestoration();
   const request = beginRouteRequest();
   const previousHref = getCurrentHref();
+  const previousHistoryIndex = getHistoryIndex();
+  setHistoryIndex(historyIndex);
   const pathname = window.location.pathname;
   const href = `${window.location.pathname}${window.location.search}${window.location.hash}`;
 
@@ -176,7 +193,7 @@ function handlePopState(event: PopStateEvent): void {
       applyPopStateNavigationTargets(
         request.id,
         previousHref,
-        { path: previousHref },
+        previousHistoryIndex,
         pathname,
         href,
         event.state,
@@ -214,7 +231,12 @@ function handlePopState(event: PopStateEvent): void {
 
 export function initializeNavigation(): void {
   ensureNavigationRegistryHost();
-  if (typeof window === 'undefined' || navigationInitialized) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  initializeHistoryIndex();
+  if (navigationInitialized) {
     return;
   }
 

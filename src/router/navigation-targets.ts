@@ -41,6 +41,12 @@ import {
 } from '../common/root-update';
 import type { ComponentFunction } from '../common/component';
 import { registerCommitParticipant } from '../runtime/transactions/access';
+import { loadDocument, reloadDocument } from './document-navigation';
+import {
+  nextHistoryIndex,
+  returnToHistoryIndex,
+  setHistoryIndex,
+} from './history-index';
 
 /** Options for {@link navigate}. */
 export type NavigateOptions = {
@@ -346,9 +352,12 @@ export function applyNavigationTargets(
 
   const matchedTargets = targets.filter((target) => target.resolved !== null);
   if (matchedTargets.length === 0) {
+    // No registered app can render it (unmatched, or outside every basePath),
+    // so the browser must load it rather than the click doing nothing.
     if (isDevelopmentEnvironment()) {
       logger.warn(`No route found for path: ${path}`);
     }
+    loadDocument(href, getNavigationHistoryMode(options));
     return;
   }
 
@@ -363,19 +372,19 @@ export function applyNavigationTargets(
     matchedTargets,
     () => {
       saveScrollPosition(previousHref);
-      const historyMethod =
-        getNavigationHistoryMode(options) === 'replace'
-          ? 'replaceState'
-          : 'pushState';
-      window.history[historyMethod](
+      const historyMode = getNavigationHistoryMode(options);
+      const historyIndex = nextHistoryIndex(historyMode);
+      window.history[historyMode === 'replace' ? 'replaceState' : 'pushState'](
         {
           path: href,
           askrHasState: Object.prototype.hasOwnProperty.call(options, 'state'),
           askrState: options.state,
+          askrIndex: historyIndex,
         },
         '',
         href
       );
+      setHistoryIndex(historyIndex);
     },
     () => {
       if (pathname !== previousPathname || parseTargetUrl(href).hash)
@@ -387,7 +396,7 @@ export function applyNavigationTargets(
 export function applyPopStateNavigationTargets(
   requestId: number,
   previousHref: string,
-  previousState: unknown,
+  previousHistoryIndex: number | undefined,
   pathname: string,
   href: string,
   state: unknown,
@@ -400,9 +409,12 @@ export function applyPopStateNavigationTargets(
 
   const matchedTargets = targets.filter((target) => target.resolved !== null);
   if (matchedTargets.length === 0) {
+    // The browser already moved to this entry; only a document load can
+    // render it, so the old page does not stay mounted under the new URL.
     if (isDevelopmentEnvironment()) {
       logger.warn(`No route found for path: ${pathname}`);
     }
+    reloadDocument();
     return;
   }
 
@@ -427,8 +439,12 @@ export function applyPopStateNavigationTargets(
     () => {},
     () => applyHistoryScroll(href, state),
     () => {
-      window.history.replaceState(previousState, '', previousHref);
-      syncRegisteredRouteSnapshot();
+      // A newer navigation owns history now.
+      if (isStaleRouteRequest(requestId)) return;
+      // Traverse back to the departed entry rather than rewriting the entry
+      // the user landed on; if its position is unknown, the landed URL is
+      // the only truth left, so load it.
+      if (!returnToHistoryIndex(previousHistoryIndex)) reloadDocument();
     }
   );
 }

@@ -359,6 +359,20 @@ history entry without serializing it into the URL. Push, replace, redirects,
 and Back/Forward preserve entry ownership. The state is browser-only and is
 therefore absent from SSR and SSG snapshots.
 
+When no registered app can render the destination, because no route or
+`fallback()` matches it or it is outside every registry's `basePath`, Askr hands
+it to the browser as a full document load (`location.assign()`, or
+`location.replace()` for replace navigation). Declare a `fallback()` to render a
+not-found page in place instead. Back/Forward to such an entry reloads the
+document, so the old page never stays mounted under the new URL.
+
+If rendering a Back/Forward destination fails, Askr keeps the current page and
+returns the user to the entry they left with `history.go()`. The entry they
+landed on is left intact, so they can traverse to it again. Askr records each
+entry's position in the history state it writes; if the departed entry's
+position is unknown because other code wrote the entry, Askr reloads the landed
+URL instead.
+
 ## `updateRouteQuery(updates, options)`
 
 Updates the current URL query string without resolving or remounting the route.
@@ -388,6 +402,10 @@ import { Link } from '@askrjs/askr/router';
 ```
 
 `Link` accepts normal renderable child content. Imperative DOM `Node` children are not a supported public contract.
+
+A left click on a same-origin `Link` navigates through `navigate()`. A target no
+registered app can render, such as another app on the same origin outside the
+`basePath`, falls back to a full document load, so the click is never dead.
 
 Raw `href` values may be relative URLs or use `http`, `https`, `mailto`,
 `sms`, or `tel`. `Link` rejects other explicit schemes, including executable
