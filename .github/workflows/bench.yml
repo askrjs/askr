@@ -53,7 +53,7 @@ jobs:
       CONTROL: ${{ inputs.control }}
       BENCH_PATTERN: ${{ inputs.pattern || '.*' }}
       BENCH_FILE: ${{ inputs.file || '.' }}
-      BENCH_HARNESS_PATHS: benches vitest.bench.shared.ts vitest.bench.tier1.config.ts vitest.bench.tier2.config.ts tests/setup-bench-env.ts
+      BENCH_HARNESS_PATHS: benches vitest.bench.shared.ts vitest.bench.tier1.config.ts vitest.bench.tier2.config.ts tooling/askr-tooling.ts tests/setup-bench-env.ts
 
     steps:
       - name: Checkout repository

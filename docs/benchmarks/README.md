@@ -6,7 +6,7 @@ Askr benchmarks are organized by tier so each lane measures a different layer of
 
 | Lane    | Scope                                   | Runtime        |
 | ------- | --------------------------------------- | -------------- |
-| `tier1` | Hot-path primitives and tight loops     | Node           |
+| `tier1` | Hot-path primitives and tight loops     | Node and jsdom |
 | `tier2` | Runtime subsystems and shared behaviors | jsdom and Node |
 
 The browser-backed `tier3` and `tier4` lanes were removed in 0.3.0. Evidence
