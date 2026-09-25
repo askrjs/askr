@@ -76,7 +76,7 @@ function replaceComponentRangeInTransaction(
   ) {
     const retainedInstances = createRetainedHostInstanceSet(
       instance,
-      getRetainedHostOwnerChain(host as InstanceHostElement, instance)
+      (host as InstanceHostNode).__ASKR_INSTANCES
     );
     const snapshot =
       getVNodeContextFrame(result) ?? instance.ownerFrame ?? null;
@@ -125,12 +125,16 @@ function replaceComponentRangeInTransaction(
   ) {
     return null;
   }
-  // Only the instance and the owners wrapping it keep this host. Descendants
-  // that shared it belong to the previous result: a new result re-registers
-  // the ones it keeps, and the rest are cleaned up with the old host.
+  // Descendants that share this host (components rendering no DOM of their
+  // own) normally stay: the new result reuses them. An ErrorBoundary is
+  // different: it materializes its children or fallback afresh on every
+  // self re-render, so descendants of the swapped-out content must be
+  // cleaned up with the old host instead of surviving it.
   const retainedInstances = createRetainedHostInstanceSet(
     instance,
-    getRetainedHostOwnerChain(instanceHost as InstanceHostElement, instance)
+    instance.errorBoundaryState
+      ? getRetainedHostOwnerChain(instanceHost as InstanceHostElement, instance)
+      : instanceHost.__ASKR_INSTANCES
   );
   if (previousRange.single) {
     const emptyResult =

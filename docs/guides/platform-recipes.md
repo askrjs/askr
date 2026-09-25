@@ -297,13 +297,15 @@ Lifecycle and cleanup:
   includes components that render no DOM of their own and share the
   boundary's host node.
 - When the fallback replaces a `Portal` writer, the content it wrote leaves the
-  portal host and its cleanups run. If another live writer wrote to the same
-  portal earlier, the host shows that writer's latest content again; otherwise
-  the host is empty. Recovery (`reset()` or a new `resetKey`) renders the
-  writer again and it writes the portal again.
-- When the fallback replaces an explicit `DefaultPortal` host, the portal stays
-  claimed by the boundary: content does not move to the automatic host while
-  the fallback shows, and it returns to the host after recovery.
+  portal host and its cleanups run, as when the writer unmounts. Recovery
+  (`reset()` or a new `resetKey`) renders the writer again and it writes the
+  portal again. During SSR and SSG, portal content written by a subtree that
+  failed is not emitted.
+- When the fallback replaces an explicit `DefaultPortal` host, including one
+  inside a component or a `Show`/`For`/`Case`, the portal stays claimed by the
+  boundary: content does not move to the automatic host while the fallback
+  shows, and it returns to the host after recovery. SSR and SSG behave the
+  same way.
 
 Failure and empty states:
 

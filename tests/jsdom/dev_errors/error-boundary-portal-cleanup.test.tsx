@@ -308,57 +308,75 @@ describe('ErrorBoundary portal cleanup', () => {
     expect(portalContent('content')).not.toBeNull();
   });
 
-  it('should keep a host discarded by a boundary fallback from moving content to the automatic host', async () => {
-    const Failure = createFailures().render;
+  it.each(['direct child', 'inside Show', 'inside a component'] as const)(
+    'should keep a host discarded by a boundary fallback from moving content to the automatic host (%s)',
+    async (placement) => {
+      const Failure = createFailures().render;
 
-    function Writer() {
-      return (
-        <Portal>
-          <PortalContent label="content" />
-        </Portal>
+      function Layer() {
+        return <DefaultPortal />;
+      }
+
+      const renderHost = () =>
+        placement === 'direct child' ? (
+          <DefaultPortal />
+        ) : placement === 'inside Show' ? (
+          <Show when={() => true}>{() => <DefaultPortal />}</Show>
+        ) : (
+          <Layer />
+        );
+
+      function Writer() {
+        return (
+          <Portal>
+            <PortalContent label="content" />
+          </Portal>
+        );
+      }
+
+      const App = () => {
+        fail = state(false);
+        resetKey = state(0);
+        return (
+          <div>
+            <Writer />
+            <section id="host-area">
+              <ErrorBoundary
+                resetKey={resetKey()}
+                fallback={<p id="fallback">{'fallback'}</p>}
+              >
+                {renderHost()}
+                <Failure />
+              </ErrorBoundary>
+            </section>
+          </div>
+        );
+      };
+
+      createIsland({ root: container, component: App });
+      await settle();
+      expect(
+        container.querySelector('#host-area [data-portal-content="content"]')
+      ).not.toBeNull();
+
+      fail.set(true);
+      await settle();
+      expect(container.querySelector('#fallback')).not.toBeNull();
+      expect(portalContent('content')).toBeNull();
+
+      fail.set(false);
+      resetKey.set(1);
+      await settle();
+      expect(
+        container.querySelector('#host-area [data-portal-content="content"]')
+      ).not.toBeNull();
+      expect(container.querySelectorAll('[data-portal-content]').length).toBe(
+        1
       );
     }
+  );
 
-    const App = () => {
-      fail = state(false);
-      resetKey = state(0);
-      return (
-        <div>
-          <Writer />
-          <section id="host-area">
-            <ErrorBoundary
-              resetKey={resetKey()}
-              fallback={<p id="fallback">{'fallback'}</p>}
-            >
-              <DefaultPortal />
-              <Failure />
-            </ErrorBoundary>
-          </section>
-        </div>
-      );
-    };
-
-    createIsland({ root: container, component: App });
-    await settle();
-    expect(
-      container.querySelector('#host-area [data-portal-content="content"]')
-    ).not.toBeNull();
-
-    fail.set(true);
-    await settle();
-    expect(container.querySelector('#fallback')).not.toBeNull();
-    expect(portalContent('content')).toBeNull();
-
-    fail.set(false);
-    resetKey.set(1);
-    await settle();
-    expect(
-      container.querySelector('#host-area [data-portal-content="content"]')
-    ).not.toBeNull();
-    expect(container.querySelectorAll('[data-portal-content]').length).toBe(1);
-  });
-
-  it('should restore a live writer outside the boundary after the failed writer is discarded', async () => {
+  it('should release the slot owned by the failed writer while another writer is live', async () => {
     mountDefaultPortalWriter('render', { outerWriter: true });
     await settle();
     expect(portalContent('inner')).not.toBeNull();
@@ -367,9 +385,11 @@ describe('ErrorBoundary portal cleanup', () => {
     fail.set(true);
     await settle();
 
+    // Handing the slot to another writer is the multi-writer design (#495);
+    // releasing it matches an ordinary writer unmount.
     expect(container.querySelector('#fallback')).not.toBeNull();
-    expect(portalContent('inner')).toBeNull();
-    expect(portalContent('outer')).not.toBeNull();
+    expect(container.querySelectorAll('[data-portal-content]').length).toBe(0);
+    expect(cleanups.sort()).toEqual(['inner', 'writer']);
   });
 
   it('should keep the default portal released after the boundary is removed', async () => {

@@ -7,14 +7,13 @@
   a writer that returns only `<Portal>`) shared the boundary's host node and
   survived the fallback, so its `Portal` content stayed in the host, still
   mounted, and its cleanups never ran. The fallback now disposes every
-  component inside the boundary. When the `Portal` writer that owns the
-  portal content goes away (after a fallback or an ordinary unmount), the host
-  now shows the latest content of another live `Portal` writer instead of
-  always emptying. This applies to render,
-  function-valued prop and control-flow errors, and `reset()`/`resetKey`
-  recovery writes the portal again. An explicit `DefaultPortal` host replaced
-  by a fallback keeps the portal claimed, so its content does not move to the
-  automatic host.
+  component inside the boundary. This applies to render, function-valued prop
+  and control-flow errors, and `reset()`/`resetKey` recovery writes the portal
+  again. An explicit `DefaultPortal` host replaced by a fallback (directly, or
+  inside a component or `Show`/`For`/`Case`) keeps the portal claimed, so its
+  content does not move to the automatic host. During SSR and SSG, portal
+  writes made by a subtree whose boundary renders its fallback are discarded
+  instead of being emitted.
 - fix(renderer): a failed keyed reconciliation commit now propagates to the
   component update, which rolls the DOM back and routes the error to the
   nearest `ErrorBoundary` (or throws it from the flush). Previously any commit

@@ -12,6 +12,7 @@ import {
 } from '../component/scope';
 import { type ComponentInstance } from '../component/instance';
 import { getRuntimeCleanup } from '../access';
+import { findEnclosingFallbackBoundary } from '../component/error-boundary';
 import {
   adjustPortalRegistrations,
   clearPortalRegistrations,
@@ -47,18 +48,11 @@ export interface PortalProps {
   children?: RenderableChild;
 }
 
-type DefaultPortalWriter = {
-  owner: PortalOwner;
-  children: RenderableChild | undefined;
-};
-
 type DefaultPortalState = {
   portal: Portal<RenderableChild>;
   owner: PortalOwner | null;
   host: PortalOwner | null;
   cleanupOwners: WeakSet<object>;
-  // Last committed write of each live owned writer, oldest first.
-  writers: Map<object, DefaultPortalWriter>;
   explicitHostOwners: Map<object, ComponentInstance>;
   explicitHostCleanupOwners: WeakSet<object>;
   explicitHostSource: ReadableSource<number>;
@@ -167,7 +161,6 @@ function createDefaultPortalState(): DefaultPortalState {
     owner: null,
     host: null,
     cleanupOwners: new WeakSet<object>(),
-    writers: new Map<object, DefaultPortalWriter>(),
     explicitHostOwners: new Map<object, ComponentInstance>(),
     explicitHostCleanupOwners: new WeakSet<object>(),
     explicitHostSource: (() => 0) as ReadableSource<number>,
@@ -237,69 +230,6 @@ function applyDefaultPortalWrite(
   if (isEmptyPortalValue(children)) {
     detachDefaultPortalHostOutput(state);
   }
-}
-
-/**
- * Remember an owned writer's latest write once it commits, even when a later
- * write in the same batch wins the slot, so the slot can return to it.
- */
-function trackDefaultPortalWriter(
-  state: DefaultPortalState,
-  owner: PortalOwner,
-  children: RenderableChild | undefined
-): void {
-  const record = () => {
-    if (!state.cleanupOwners.has(owner.generation)) {
-      return;
-    }
-    state.writers.delete(owner.generation);
-    state.writers.set(owner.generation, { owner, children });
-  };
-  if (!registerCommitEffect({}, record, () => {})) {
-    record();
-  }
-}
-
-function isLivePortalOwner(owner: PortalOwner): boolean {
-  return (
-    owner.instance.owner.identity === owner.generation &&
-    owner.instance.notifyUpdate !== null
-  );
-}
-
-/** Hand the slot back to the most recent live writer, or clear it. */
-function releaseDefaultPortalWriter(state: DefaultPortalState): void {
-  const writers = Array.from(state.writers.values());
-  for (let index = writers.length - 1; index >= 0; index -= 1) {
-    const writer = writers[index]!;
-    if (isLivePortalOwner(writer.owner)) {
-      applyDefaultPortalWrite(state, writer.children, writer.owner);
-      return;
-    }
-  }
-  applyDefaultPortalWrite(state, undefined, null);
-}
-
-/**
- * The ErrorBoundary whose fallback is replacing `instance`'s subtree, if any.
- * Its fallback stands in for a portal host that the failure discarded.
- */
-function findFallbackBoundary(
-  instance: ComponentInstance
-): ComponentInstance | null {
-  for (
-    let current = instance.parentInstance;
-    current;
-    current = current.parentInstance
-  ) {
-    if (
-      current.errorBoundaryState?.error != null &&
-      current.notifyUpdate !== null
-    ) {
-      return current;
-    }
-  }
-  return null;
 }
 
 function isStaleDefaultPortalScope(scope: object): boolean {
@@ -374,9 +304,6 @@ function writeDefaultPortal(
   const capturedOwner = owner
     ? { instance: owner, generation: owner.owner.identity }
     : null;
-  if (capturedOwner) {
-    trackDefaultPortalWriter(state, capturedOwner, props.children);
-  }
   const batch = getCurrentCommitTransaction();
   if (batch) {
     let writes = _batchPortalWrites.get(batch);
@@ -530,13 +457,12 @@ function registerDefaultPortalOwner(owner: ComponentInstance): void {
       return;
     }
 
-    currentState.writers.delete(generation);
     if (
       currentState.owner?.instance === owner &&
       currentState.owner.generation === generation &&
       !hasPendingReplacementPortalOwner(currentState, owner, generation)
     ) {
-      releaseDefaultPortalWriter(currentState);
+      applyDefaultPortalWrite(currentState, undefined, null);
     }
     if (currentState.cleanupOwners.delete(generation)) {
       if (__ASKR_DEVELOPMENT_BUILD__) {
@@ -577,7 +503,7 @@ function registerExplicitDefaultPortalHost(
       }
       // A host discarded by an ErrorBoundary fallback keeps the slot claimed
       // for that boundary, so content does not move to the automatic host.
-      const boundary = findFallbackBoundary(owner);
+      const boundary = findEnclosingFallbackBoundary(owner);
       if (boundary) {
         registerExplicitDefaultPortalHost(scope, state, boundary);
       }
