@@ -29,6 +29,157 @@ type Scheduled<T extends AnyFn> = (
 ) => void;
 type CallableFn = (this: unknown, ...args: unknown[]) => unknown;
 
+type Invoke = (thisArg: unknown, args: unknown[]) => void;
+
+/**
+ * @internal Edge logic shared by {@link debounce} and fx `debounceEvent`.
+ * A trailing call only runs when a call arrived after the leading call.
+ */
+export function createDebouncer(
+  invoke: Invoke,
+  ms: number,
+  options?: DebounceOptions
+): {
+  call(thisArg: unknown, args: unknown[]): void;
+  cancel(): void;
+  flush(): void;
+} {
+  const { leading = false, trailing = true } = options || {};
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let lastArgs: unknown[] | null = null;
+  let lastThis: unknown = null;
+  let trailingPending = false;
+
+  const clearTimer = () => {
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+  };
+
+  const reset = () => {
+    trailingPending = false;
+    lastArgs = null;
+    lastThis = null;
+  };
+
+  const runTrailing = () => {
+    const pending = trailingPending;
+    const args = lastArgs;
+    const thisArg = lastThis;
+    reset();
+    if (pending) invoke(thisArg, args!);
+  };
+
+  return {
+    call(thisArg, args) {
+      const windowActive = timeoutId !== null;
+      clearTimer();
+
+      if (leading && !windowActive) {
+        reset();
+        invoke(thisArg, args);
+      } else if (trailing) {
+        lastArgs = args;
+        lastThis = thisArg;
+        trailingPending = true;
+      }
+
+      timeoutId = setTimeout(() => {
+        timeoutId = null;
+        runTrailing();
+      }, ms);
+    },
+    cancel() {
+      clearTimer();
+      reset();
+    },
+    flush() {
+      if (timeoutId === null) return;
+      clearTimer();
+      runTrailing();
+    },
+  };
+}
+
+/**
+ * @internal Edge logic shared by {@link throttle} and fx `throttleEvent`.
+ * A trailing call only runs when a call arrived after the leading call.
+ */
+export function createThrottler(
+  invoke: Invoke,
+  ms: number,
+  options?: ThrottleOptions
+): { call(thisArg: unknown, args: unknown[]): void; cancel(): void } {
+  const { leading = true, trailing = true } = options || {};
+  let lastCallTime: number | null = null;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let lastArgs: unknown[] | null = null;
+  let lastThis: unknown = null;
+
+  const clearTimer = () => {
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+  };
+
+  return {
+    call(thisArg, args) {
+      const callTime = Date.now();
+      const timeSinceLastCall =
+        lastCallTime === null
+          ? Number.POSITIVE_INFINITY
+          : callTime - lastCallTime;
+
+      if (leading && timeSinceLastCall >= ms) {
+        clearTimer();
+        lastArgs = null;
+        lastThis = null;
+        lastCallTime = callTime;
+        invoke(thisArg, args);
+        return;
+      }
+
+      if (!trailing) return;
+      lastArgs = args;
+      lastThis = thisArg;
+
+      // Without a leading edge, a call after an idle gap opens a full window.
+      if (!leading && timeSinceLastCall >= ms) {
+        lastCallTime = callTime;
+      }
+
+      if (timeoutId === null) {
+        timeoutId = setTimeout(
+          () => {
+            timeoutId = null;
+            lastCallTime = Date.now();
+            const pendingArgs = lastArgs;
+            const pendingThis = lastThis;
+            lastArgs = null;
+            lastThis = null;
+            invoke(pendingThis, pendingArgs!);
+          },
+          // Reaching here means a window is open, so lastCallTime is set.
+          Math.max(0, ms - (callTime - lastCallTime!))
+        );
+      }
+    },
+    cancel() {
+      clearTimer();
+      lastArgs = null;
+      lastThis = null;
+    },
+  };
+}
+
+const applyTo =
+  (callable: CallableFn): Invoke =>
+  (thisArg, args) => {
+    callable.apply(thisArg, args);
+  };
+
 /**
  * Debounce — delay execution, coalesce rapid calls
  *
@@ -51,46 +202,16 @@ export function debounce<T extends AnyFn>(
   ms: number,
   options?: DebounceOptions
 ): Scheduled<T> & { cancel(): void } {
-  const callable = fn as unknown as CallableFn;
-  let timeoutId: NodeJS.Timeout | null = null;
-  const { leading = false, trailing = true } = options || {};
-  let lastArgs: unknown[] | null = null;
-  let lastThis: unknown = null;
-  let trailingPending = false;
+  const debouncer = createDebouncer(
+    applyTo(fn as unknown as CallableFn),
+    ms,
+    options
+  );
 
   const debounced = function (this: unknown, ...args: unknown[]) {
-    const windowActive = timeoutId !== null;
-    lastArgs = args;
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    lastThis = this;
-
-    if (timeoutId !== null) {
-      clearTimeout(timeoutId);
-    }
-
-    if (leading && !windowActive) {
-      callable.apply(this, args);
-      trailingPending = false;
-    } else if (trailing) {
-      trailingPending = true;
-    }
-
-    timeoutId = setTimeout(() => {
-      if (trailingPending) {
-        callable.apply(lastThis, lastArgs!);
-      }
-      timeoutId = null;
-      trailingPending = false;
-    }, ms);
+    debouncer.call(this, args);
   };
-
-  debounced.cancel = () => {
-    if (timeoutId !== null) {
-      clearTimeout(timeoutId);
-      timeoutId = null;
-    }
-    trailingPending = false;
-  };
+  debounced.cancel = debouncer.cancel;
 
   return debounced as unknown as Scheduled<T> & { cancel(): void };
 }
@@ -117,55 +238,16 @@ export function throttle<T extends AnyFn>(
   ms: number,
   options?: ThrottleOptions
 ): Scheduled<T> & { cancel(): void } {
-  const callable = fn as unknown as CallableFn;
-  let lastCallTime: number | null = null;
-  let timeoutId: NodeJS.Timeout | null = null;
-  const { leading = true, trailing = true } = options || {};
-  let lastArgs: unknown[] | null = null;
-  let lastThis: unknown = null;
+  const throttler = createThrottler(
+    applyTo(fn as unknown as CallableFn),
+    ms,
+    options
+  );
 
   const throttled = function (this: unknown, ...args: unknown[]) {
-    const callTime = Date.now();
-    const timeSinceLastCall =
-      lastCallTime === null
-        ? Number.POSITIVE_INFINITY
-        : callTime - lastCallTime;
-    lastArgs = args;
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    lastThis = this;
-
-    if (leading && timeSinceLastCall >= ms) {
-      callable.apply(this, args);
-      lastCallTime = callTime;
-      if (timeoutId !== null) {
-        clearTimeout(timeoutId);
-        timeoutId = null;
-      }
-      return;
-    }
-
-    if (!leading && lastCallTime === null) {
-      lastCallTime = callTime;
-    }
-
-    if (trailing && timeoutId === null) {
-      timeoutId = setTimeout(
-        () => {
-          callable.apply(lastThis, lastArgs!);
-          lastCallTime = Date.now();
-          timeoutId = null;
-        },
-        lastCallTime === null ? ms : Math.max(0, ms - (callTime - lastCallTime))
-      );
-    }
+    throttler.call(this, args);
   };
-
-  throttled.cancel = () => {
-    if (timeoutId !== null) {
-      clearTimeout(timeoutId);
-      timeoutId = null;
-    }
-  };
+  throttled.cancel = throttler.cancel;
 
   return throttled as unknown as Scheduled<T> & { cancel(): void };
 }
