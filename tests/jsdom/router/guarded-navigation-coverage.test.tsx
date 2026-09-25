@@ -97,7 +97,7 @@ describe('guarded router navigation coverage', () => {
       expect(pushStateSpy).toHaveBeenCalledWith(
         expect.objectContaining({ path: '/login' }),
         '',
-        '/login'
+        `${window.location.origin}/login`
       );
       expect(replaceStateSpy).not.toHaveBeenCalledWith(
         expect.objectContaining({ path: '/login' }),

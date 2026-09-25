@@ -45,7 +45,9 @@ afterEach(() => {
 
 /** Start on a fresh entry at position 0, as a newly loaded document would. */
 function startAt(path: string): void {
-  window.history.replaceState({ askrIndex: 0 }, '', path);
+  // Other browser suites may have left entries in this shared test frame.
+  // Replacing their current entry can let a back() escape to an older route.
+  window.history.pushState({ askrIndex: 0 }, '', path);
 }
 
 function renderedPath(): string | null | undefined {
@@ -87,6 +89,7 @@ test('should keep the history stack intact when a back/forward render fails', as
   const length = window.history.length;
 
   window.history.back();
+  await expect.poll(() => window.location.pathname).toBe('/home');
   await expect.element(page.getByText('home page')).toBeVisible();
   expect(window.location.pathname).toBe('/home');
 

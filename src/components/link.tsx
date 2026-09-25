@@ -6,12 +6,12 @@ import '../jsx/types';
 import type { JSXElement } from '../common/jsx';
 import type { AnchorIntrinsicProps, Props } from '../common/props';
 import type { RenderableChild } from '../common/vnode';
-import { navigate } from '../router/navigate';
+import { navigateToPublicHref } from '../router/navigate';
 import type { RouteDestination } from '../common/router';
 import { applyInteractionPolicy } from '../foundations/interactions';
 import { mergeProps } from '../foundations/utilities';
-import { isSafeHref } from '../common/url';
-import { addRouteBasePath } from '../router/base-path';
+import { assertPathHrefStaysOnOrigin, isSafeHref } from '../common/url';
+import { addLogicalRouteBasePath } from '../router/base-path';
 import { getActiveRouteBasePath } from '../router/store';
 
 type LinkBaseProps = Omit<
@@ -118,14 +118,17 @@ export function Link({
   onClick,
   ...rest
 }: LinkProps): JSXElement {
-  const supplied = to?.href ?? suppliedHref;
-  const href = supplied
-    ? addRouteBasePath(supplied, getActiveRouteBasePath())
-    : supplied;
+  // A typed destination already carries its public href; a raw href is logical.
+  const href =
+    to?.href ??
+    (suppliedHref
+      ? addLogicalRouteBasePath(suppliedHref, getActiveRouteBasePath())
+      : suppliedHref);
   if (!href) throw new Error('Link requires href or to.');
   if (!isSafeHref(href)) {
     throw new TypeError('Link href uses an unsafe URL scheme.');
   }
+  assertPathHrefStaysOnOrigin(href);
   const handleNavigation = (e: Event) => {
     if (e.defaultPrevented) {
       return;
@@ -146,7 +149,10 @@ export function Link({
       return;
     }
 
-    if (target || !isSameOriginNavigableHref(href)) {
+    if (
+      (target && target.toLowerCase() !== '_self') ||
+      !isSameOriginNavigableHref(href)
+    ) {
       return;
     }
 
@@ -155,7 +161,7 @@ export function Link({
     }
 
     event.preventDefault();
-    navigate(href);
+    navigateToPublicHref(href);
   };
 
   const interaction = applyInteractionPolicy({

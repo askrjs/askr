@@ -277,9 +277,12 @@ declare class RouteDataLoadError extends Error {
 }
 /** Policy decision: allow the route to render. */
 declare function allow(): AccessAllowDecision;
-/** Policy decision: redirect the visitor to `to`. */
+/**
+ * Policy decision: redirect the visitor to `to`. A string is a logical path
+ * that gains the registry `basePath`; a `to()` destination is used as-is.
+ */
 declare function redirect(
-  to: string,
+  to: string | RouteDestination,
   init?: {
     status?: AccessRedirectStatus;
     replace?: boolean;

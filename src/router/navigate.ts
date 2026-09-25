@@ -9,6 +9,8 @@ import {
   getCurrentHref,
   getRegisteredAppsSnapshot,
   hasRegisteredApps,
+  isCurrentOrigin,
+  parseNavigationTarget,
   parseTargetUrl,
   syncRegisteredRouteSnapshot,
 } from './navigation-registry';
@@ -17,13 +19,16 @@ import {
   applyPopStateNavigationTargets,
   beginRouteRequest,
   cancelRouteRequests,
+  getNavigationHistoryMode,
   isStaleRouteRequest,
   resolveNavigationTargetsForApps,
   type AppNavigationTarget,
   type NavigateOptions,
   type NavigationRedirectState,
 } from './navigation-targets';
-import { addRouteBasePath } from './base-path';
+import type { RouteDestination } from '../common/router';
+import { addLogicalRouteBasePath } from './base-path';
+import { loadDocument } from './document-navigation';
 import { getActiveRouteBasePath } from './store';
 import {
   beginHistoryFocusRestoration,
@@ -78,8 +83,30 @@ function ensureNavigationRegistryHost(): void {
   configureNavigationRegistryHost({ cancelRouteRequests });
 }
 
-/** Navigate the client-side router to `path` using the History API. */
-export function navigate(path: string, options: NavigateOptions = {}): void {
+/**
+ * Navigate the client-side router using the History API.
+ *
+ * A string is a logical path: a root-relative path gains the registry
+ * `basePath`. A typed destination from `to()` already carries its public href.
+ * A target on another origin is handed to the browser.
+ */
+export function navigate(
+  target: string | RouteDestination,
+  options: NavigateOptions = {}
+): void {
+  navigateToPublicHref(
+    typeof target === 'string'
+      ? addLogicalRouteBasePath(target, getActiveRouteBasePath())
+      : target.href,
+    options
+  );
+}
+
+/** Navigate to a public (already mounted) href without adding the `basePath`. */
+export function navigateToPublicHref(
+  href: string,
+  options: NavigateOptions = {}
+): void {
   ensureNavigationRegistryHost();
   if (typeof window === 'undefined') {
     return;
@@ -88,8 +115,7 @@ export function navigate(path: string, options: NavigateOptions = {}): void {
   prepareNavigationFocus();
   cancelHistoryReturn();
 
-  const targetPath = addRouteBasePath(path, getActiveRouteBasePath());
-  const initialTarget = parseTargetUrl(targetPath);
+  const initialTarget = parseTargetUrl(href);
   const redirectState: NavigationRedirectState = {
     redirects: 0,
     visited: new Set([
@@ -99,12 +125,12 @@ export function navigate(path: string, options: NavigateOptions = {}): void {
 
   if (isRuntimeSchedulerExecuting()) {
     queueMicrotask(() => {
-      navigateWithRedirectState(targetPath, options, redirectState);
+      navigateWithRedirectState(href, options, redirectState);
     });
     return;
   }
 
-  navigateWithRedirectState(targetPath, options, redirectState);
+  navigateWithRedirectState(href, options, redirectState);
 }
 
 function navigateWithRedirectState(
@@ -118,7 +144,12 @@ function navigateWithRedirectState(
 
   const request = beginRouteRequest();
 
-  const target = parseTargetUrl(path);
+  const target = parseNavigationTarget(path);
+  if (!isCurrentOrigin(target)) {
+    // The router cannot render another origin; the browser loads it.
+    loadDocument(target.href, getNavigationHistoryMode(options));
+    return;
+  }
   const pathname = target.pathname;
   const href = `${target.pathname}${target.search}${target.hash}`;
   const resolvedTargets = resolveNavigationTargetsForApps(
@@ -198,7 +229,7 @@ function handlePopState(event: PopStateEvent): void {
         href,
         event.state,
         targets,
-        navigate
+        navigateToPublicHref
       );
     } catch (error) {
       logger.error('[Askr] popstate navigation failed:', error);

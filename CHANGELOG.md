@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+- fix(router): navigation edge cases. `navigate()` and guard redirects to
+  another origin now load that URL with `location.assign()` (or `replace()`)
+  instead of rendering its path in-app. A hash that is not valid
+  percent-encoding (`#%E0`) no longer throws after the history entry was
+  written. `<Link target="_self">` is handled by the router. String targets for
+  `navigate()`, `<Link href>` and `redirect()` are always logical below a
+  registry `basePath`: `/app/settings` under `/app` now goes to
+  `/app/app/settings` instead of being treated as already mounted, and
+  development builds warn about such strings. `navigate()`, `redirect()`,
+  `loginPath` and `authenticatedRedirectTo` accept a typed destination from
+  `to()`, whose public href is used as-is; `RouteDestination` is branded so
+  only `to()` creates one. Only targets with an explicit `http:`/`https:`
+  scheme may leave the origin: path-like strings that resolve to another host
+  (`//evil.example`, `/\evil.example`) throw a `TypeError`, on the client,
+  in server redirect decisions, for `loginPath` and at `<Link href>` render.
+  A redirect to another origin during the first load is handed to the browser
+  instead of rendering its path locally, and an absolute `loginPath` on
+  another origin keeps its origin when `next` is appended. Same-origin paths whose
+  dot segments collapse to a leading `//` (`/.//evil.example`) are refused
+  too, and history writes and document loads receive absolute URLs.
+  `history.pushState()`/`replaceState()` calls from `navigate()`, `<Link>`,
+  redirects and `updateRouteQuery()` now pass an absolute same-origin URL
+  (`https://site.example/page`) instead of a root-relative one, so code that
+  wraps or spies on them sees the full URL. Enhanced action redirects are
+  checked the same way and assigned as absolute URLs.
 - fix(resources): a synchronous `task()` registers its cleanup as it runs
   instead of one microtask later, so removing its owner right after mount
   (for example a function child remounting when its hooks change) runs the
