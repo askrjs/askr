@@ -447,4 +447,3 @@ describe('derive() evaluation counts', () => {
     expect(evaluations).toBe(102);
   });
 });
-
