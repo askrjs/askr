@@ -22,6 +22,7 @@ import {
   isSkippedProp as isSkippedPropShared,
   keepsFalseValue,
 } from '../common/prop-classification';
+import { matchesDomPropertyProp } from '../common/dom-properties';
 import { getRuntimeEnv } from './env';
 import { setDevValue, incDevCounter } from '../runtime';
 
@@ -290,6 +291,8 @@ export function hasPropChanged(
     if (key === 'value' || key === 'checked') {
       return (el as HTMLElement & Record<string, unknown>)[key] !== value;
     }
+    const propertyMatch = matchesDomPropertyProp(el, key, value, el.localName);
+    if (propertyMatch !== null) return !propertyMatch;
     const attributeName = getRenderedAttributeName(el, key);
     const attr = el.getAttribute(attributeName);
     if (

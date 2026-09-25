@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- fix(renderer): props whose live state is not the attribute now set the DOM
+  property. `<video muted>` sets `video.muted` (and keeps the attribute),
+  `<input indeterminate>` sets `input.indeterminate` without an attribute, and
+  object/array values on custom elements are assigned as properties. New
+  `prop:name` and `attr:name` escape hatches force either path. SSR renders
+  only attribute-backed values; property-only values apply on hydration. Removed
+  properties reset to their default, property writes roll back with a failed
+  commit, and the escape hatches keep the URL and raw-HTML guards.
 - fix(renderer): delegated event handlers now match native dispatch.
   Delegated listeners attach at each app root instead of `document.body`, so
   apps mounted in shadow roots or iframes receive events and nested apps each
