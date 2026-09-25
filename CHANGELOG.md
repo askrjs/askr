@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- feat(ssr): `escapeHtml()` from `@askrjs/askr/ssr` escapes `&`, `<`, `>`, `"`
+  and `'` for request-derived values interpolated into a hand-written
+  `document` renderer template. The SSR, SSG and rendering guides now use it.
+- docs: fix examples that failed at runtime. The API overview no longer calls
+  `state()` at module scope, the quick-start and resources `resource()`
+  examples check `error` before `pending || !value` so a failed first load no
+  longer shows "Loading..." forever, and the runtime-enforcement examples now
+  actually trigger the documented hook-order and render-mutation errors and
+  quote the real message. Doc fences tagged `run=<id>` are now imported and
+  exercised in jsdom by `npm run test:checks`
+  (`tests/checks/docs/runnable-snippets.test.ts`), not only type-checked.
 - fix(router): `hydrateSPA()` no longer redirects a server-authorized page to
   the login route when the browser cannot resolve the identity itself (for
   example httpOnly-cookie sessions). Apps opt in with the new

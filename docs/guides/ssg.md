@@ -77,6 +77,7 @@ should still write full HTML documents:
 
 ```ts
 import { createStaticGen } from '@askrjs/askr/ssg';
+import { escapeHtml } from '@askrjs/askr/ssr';
 import { registry } from './routes';
 
 const ssg = createStaticGen({
@@ -85,7 +86,7 @@ const ssg = createStaticGen({
   document: ({ appHtml, context }) => `<!doctype html>
 <html lang="en">
   <head>
-    <title>${context.pathname}</title>
+    <title>${escapeHtml(context.pathname)}</title>
   </head>
   <body>
     ${appHtml}
