@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- fix(resources): a `resource()` deps change seen by a render that is rolled
+  back (for example because a sibling component throws in the same render) no
+  longer leaves the resource stuck `pending`. The new deps and generation are
+  committed with the render, so the next committed render still starts the
+  fetch, and one back on the committed deps keeps the committed value.
+- fix(data): raw-string `invalidate(prefix)`, `invalidateOnInterval()` and
+  mutation `affects` prefixes now match whole `:`-delimited key segments.
+  `invalidate('user:1')` still matches `user:1` and `user:1:permissions` but no
+  longer matches `user:10`; prefixes ending in `:` (including every
+  `queryScope()` prefix) match as before.
 - fix(runtime): `state.set()` now throws when called inside a `derive()` or
   `selector()` computation, including recomputes in the derived lane where no
   component is rendering. Previously only render-time recomputes were caught

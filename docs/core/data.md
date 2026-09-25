@@ -84,6 +84,11 @@ The `signal` parameter is an `AbortSignal`. Pass it to `fetch()` and any other c
 APIs. When the component re-renders with new deps or unmounts, in-flight work is cancelled
 automatically.
 
+A deps change takes effect when the render that saw it commits. If that render
+is rolled back (for example because a sibling throws), the committed deps are
+unchanged, so the next committed render with the new deps still starts the
+fetch, and a render back on the committed deps keeps the committed value.
+
 ## Minimal data layer
 
 For app data, use the thin query and mutation primitives from `@askrjs/askr/data`.
@@ -395,12 +400,13 @@ const admin = queryScope('admin');
 admin.invalidate(['buckets', 'main']);
 ```
 
-The raw `invalidate(prefix)` API performs a literal string-prefix match. For
-example, `invalidate('user:1')` also matches `user:10` and
-`user:1:permissions`. Include an unambiguous delimiter in hand-built prefix
-schemes, or prefer `queryScope()` when key segments can share textual prefixes;
-scoped keys encode segment boundaries so a `user` scope never invalidates a
-`users` scope.
+The raw `invalidate(prefix)` API matches whole `:`-delimited key segments. A
+key matches when it equals the prefix or continues it at a `:` boundary, so
+`invalidate('user:1')` matches `user:1` and `user:1:permissions` but not
+`user:10`, and `invalidate('user')` matches `user:2` but not `users`. A prefix
+that ends in `:` (such as `invalidate('user:')`) matches every key below it.
+`queryScope()` keys and prefixes always end in `:`, and scoped keys encode
+segment boundaries so a `user` scope never invalidates a `users` scope.
 
 Invalidation listeners run synchronously and may invalidate a different prefix
 to form a short, acyclic cascade. Re-entering a prefix that is already active
