@@ -369,7 +369,8 @@ Registers a pathful miss route.
 - Inside `page()`, `fallback()` registers a miss route for that page subtree.
 - `fallback()` does not scope to `group()` because `group()` is pathless.
 - Inside a page subtree, `fallback()` must be declared directly in the `page()` scope.
-- Nearest pathful fallback wins.
+- Nearest pathful fallback wins: the one whose page prefix matches the most URL
+  segments, however those segments are percent-encoded.
 
 ## `currentRoute()`
 

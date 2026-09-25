@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- fix(router): when several page `fallback()`s match a URL, the deepest page
+  prefix (counted in segments) now wins on the client and in sync and async
+  SSR. Previously the longest prefix string won, so an encoded prefix such as
+  `/caf%C3%A9` could outrank a deeper `/café/x`.
 - fix(router): registering two routes that match the same URLs now throws
   `Duplicate route path` instead of silently shadowing the second. Routes are
   compared the way they match: parameter and splat names, trailing slashes and

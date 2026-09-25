@@ -89,65 +89,54 @@ function findBestResolvedRouteFromRoutes(
     }
   }
 
-  let bestFallback: InternalRoute | null = null;
-  let bestFallbackParams: Record<string, string> | null = null;
-  let bestPrefixLength = -1;
+  const fallback = findDeepestFallback(
+    normalized,
+    routeList as InternalRoute[]
+  );
+  return fallback ? { route: fallback.entry, params: fallback.params } : null;
+}
 
-  for (const route of routeList) {
-    const internalRoute = route as InternalRoute;
-    if (!internalRoute.fallbackPrefix) {
+/**
+ * Pick the scoped fallback whose prefix matches `pathname` with the most
+ * segments. Depth is counted in segments, not characters, so an encoded prefix
+ * such as `/caf%C3%A9` does not outrank a deeper `/café/x`.
+ */
+function findDeepestFallback<T extends { fallbackPrefix?: string }>(
+  pathname: string,
+  entries: readonly T[]
+): { entry: T; params: Record<string, string> } | null {
+  let best: { entry: T; params: Record<string, string> } | null = null;
+  let bestDepth = -1;
+
+  for (const entry of entries) {
+    if (!entry.fallbackPrefix) {
       continue;
     }
 
-    const params = matchFallbackPrefix(
-      normalized,
-      internalRoute.fallbackPrefix
-    );
+    const params = matchFallbackPrefix(pathname, entry.fallbackPrefix);
     if (params === null) {
       continue;
     }
 
-    if (internalRoute.fallbackPrefix.length > bestPrefixLength) {
-      bestFallback = internalRoute;
-      bestFallbackParams = params;
-      bestPrefixLength = internalRoute.fallbackPrefix.length;
+    const depth = splitPathSegments(entry.fallbackPrefix).length;
+    if (depth > bestDepth) {
+      best = { entry, params };
+      bestDepth = depth;
     }
   }
 
-  return bestFallback && bestFallbackParams
-    ? { route: bestFallback, params: bestFallbackParams }
-    : null;
+  return best;
 }
 
 function findBestScopedFallbackRecord(
   pathname: string,
   routeRecords: readonly RouteRecord[]
 ): { record: InternalRouteRecord; params: Record<string, string> } | null {
-  let bestRecord: InternalRouteRecord | null = null;
-  let bestParams: Record<string, string> | null = null;
-  let bestPrefixLength = -1;
-
-  for (const routeRecord of routeRecords) {
-    const record = routeRecord as InternalRouteRecord;
-    if (!record.fallbackPrefix) {
-      continue;
-    }
-
-    const params = matchFallbackPrefix(pathname, record.fallbackPrefix);
-    if (params === null) {
-      continue;
-    }
-
-    if (record.fallbackPrefix.length > bestPrefixLength) {
-      bestRecord = record;
-      bestParams = params;
-      bestPrefixLength = record.fallbackPrefix.length;
-    }
-  }
-
-  return bestRecord && bestParams
-    ? { record: bestRecord, params: bestParams }
-    : null;
+  const fallback = findDeepestFallback(
+    pathname,
+    routeRecords as readonly InternalRouteRecord[]
+  );
+  return fallback ? { record: fallback.entry, params: fallback.params } : null;
 }
 
 export function getMatchingRouteRecord(

@@ -1060,3 +1060,62 @@ describe('duplicate route paths', () => {
     expect(() => createRouteRegistry(define)).not.toThrow();
   });
 });
+
+describe('scoped fallback precedence', () => {
+  const Page = () => null;
+  // Page-scoped handlers render through the page chain, so identify the
+  // winning fallback by its record path.
+  const pathOf = (handler: unknown) =>
+    getRouteRecords().find((record) => record.handler === handler)?.path;
+
+  // An encoded prefix is longer as a string but not deeper: the deepest
+  // matching prefix, counted in segments, must win.
+  const layouts: Array<{ name: string; define: () => void }> = [
+    {
+      name: 'encoded shallow prefix declared first',
+      define: () => {
+        page('/caf%C3%A9', Page, () => fallback(() => 'shallow'));
+        page('/café/x', Page, () => fallback(() => 'deep'));
+      },
+    },
+    {
+      name: 'decoded shallow prefix declared first',
+      define: () => {
+        page('/café', Page, () => fallback(() => 'shallow'));
+        page('/caf%C3%A9/x', Page, () => fallback(() => 'deep'));
+      },
+    },
+  ];
+
+  for (const layout of layouts) {
+    for (const url of ['/caf%C3%A9/x/missing', '/café/x/missing']) {
+      it(`should pick the deeper fallback for ${url}: ${layout.name}`, () => {
+        const registry = createRouteRegistry(layout.define);
+        layout.define();
+
+        // Client: registered route store records.
+        const deep = getRouteRecords().find((record) =>
+          record.path.endsWith('/x/*')
+        )!.path;
+        expect(pathOf(resolveRoute(url)?.handler)).toBe(deep);
+        // Plain route lists.
+        expect(
+          pathOf(resolveRouteFromRoutes(url, [...getRouteList()])?.handler)
+        ).toBe(deep);
+        // Registry manifest records (sync and async SSR, activity).
+        expect(
+          computeMatchesFromRouteRecords(url, registry.manifest.records)[0]
+            ?.path
+        ).toBe(deep);
+      });
+
+      it(`should still pick the shallow fallback outside the deeper prefix for ${url.replace('/x/', '/y/')}: ${layout.name}`, () => {
+        layout.define();
+        expect(
+          pathOf(resolveRoute(url.replace('/x/', '/y/'))?.handler)
+        ).not.toMatch(/\/x\/\*$/);
+        expect(resolveRoute(url.replace('/x/', '/y/'))).not.toBeNull();
+      });
+    }
+  }
+});
