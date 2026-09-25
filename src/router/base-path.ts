@@ -1,3 +1,5 @@
+import { staticSegmentMatches } from './match';
+
 /** Normalize the public mount point used by one route registry. */
 export function normalizeRouteBasePath(value: string | undefined): string {
   if (value === undefined || value === '' || value === '/') return '';
@@ -25,6 +27,24 @@ function parsedTarget(target: string): URL {
   return new URL(target, 'http://askr.invalid');
 }
 
+/**
+ * Strip `basePath` from a pathname, comparing segments in decoded form so an
+ * encoded pathname (`/caf%C3%A9/menu`) matches its base (`/café`). Returns the
+ * remaining pathname (at least `/`), or `undefined` outside the base.
+ */
+function stripRouteBasePath(
+  pathname: string,
+  basePath: string
+): string | undefined {
+  const pathParts = pathname.split('/');
+  const baseParts = basePath.split('/');
+  if (pathParts.length < baseParts.length) return undefined;
+  for (let i = 1; i < baseParts.length; i++) {
+    if (!staticSegmentMatches(baseParts[i], pathParts[i])) return undefined;
+  }
+  return `/${pathParts.slice(baseParts.length).join('/')}`;
+}
+
 /** Add a registry mount point to one logical root-relative route target. */
 export function addRouteBasePath(target: string, basePath: string): string {
   if (!basePath || !target.startsWith('/') || target.startsWith('//')) {
@@ -33,8 +53,7 @@ export function addRouteBasePath(target: string, basePath: string): string {
   const parsed = parsedTarget(target);
   if (
     parsed.origin !== 'http://askr.invalid' ||
-    parsed.pathname === basePath ||
-    parsed.pathname.startsWith(`${basePath}/`)
+    stripRouteBasePath(parsed.pathname, basePath) !== undefined
   ) {
     return target;
   }
@@ -50,9 +69,7 @@ export function removeRouteBasePath(
   if (!basePath) {
     return `${parsed.pathname}${parsed.search}${parsed.hash}`;
   }
-  if (parsed.pathname === basePath || parsed.pathname === `${basePath}/`) {
-    return `/${parsed.search}${parsed.hash}`;
-  }
-  if (!parsed.pathname.startsWith(`${basePath}/`)) return undefined;
-  return `${parsed.pathname.slice(basePath.length)}${parsed.search}${parsed.hash}`;
+  const logicalPath = stripRouteBasePath(parsed.pathname, basePath);
+  if (logicalPath === undefined) return undefined;
+  return `${logicalPath}${parsed.search}${parsed.hash}`;
 }

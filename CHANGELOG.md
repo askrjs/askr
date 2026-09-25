@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- fix(router): route precedence is decided segment by segment, as documented:
+  the first segment where two routes differ picks static > param > wildcard >
+  splat, so `/docs/{*rest}` now beats `/{lang}/{page}` for `/docs/intro`
+  instead of losing on a summed score. SPA, SSR and SSG share the ordering.
+  `RouteRecord.rank` now encodes this order and its numeric values changed.
+- fix(router): static route segments, `fallback()` prefixes and registry
+  `basePath` values are compared against decoded URL segments, so routes such
+  as `/café` and `/a b` (and fallbacks or registries mounted under them) match
+  `/caf%C3%A9` and `/a%20b` on the client, in SSR and in SSG. Malformed
+  encodings do not throw.
+- fix(router): the `*` capture of wildcards, catch-alls and fallbacks is now
+  percent-decoded like param and splat captures (`café`, not `caf%C3%A9`).
+  Encoded separators `%2F` and `%5C` now stay encoded in every capture,
+  including params and named splats, which previously decoded `%2F` to `/`:
+  `/files/..%2F..%2Fetc` captures `..%2F..%2Fetc`, not `../../etc`. `to()`
+  passes kept `%2F`/`%5C` through, so captures round-trip to their URL.
 - fix(renderer,ssr): camelCase SVG presentation props such as
   `strokeDasharray`, `fillOpacity`, `stopColor` and `clipPath` now render as
   their hyphenated attribute names, and `xlinkHref`/`xmlLang`/`xmlSpace`/
