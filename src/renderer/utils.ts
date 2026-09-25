@@ -23,7 +23,7 @@ import {
   keepsFalseValue,
 } from '../common/prop-classification';
 import { matchesDomPropertyProp } from '../common/dom-properties';
-import { getRuntimeEnv } from './env';
+import { isRuntimeEnvFlagEnabled } from './env';
 import { setDevValue, incDevCounter } from '../runtime';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
@@ -507,8 +507,7 @@ export function logFastPathDebug(
   if (!DEVELOPMENT_BUILD_ENABLED) {
     return;
   }
-  const env = getRuntimeEnv();
-  if (env.ASKR_FASTPATH_DEBUG === '1' || env.ASKR_FASTPATH_DEBUG === 'true') {
+  if (isRuntimeEnvFlagEnabled('ASKR_FASTPATH_DEBUG')) {
     if (data !== undefined) {
       logger.warn(`[Askr][FASTPATH] ${message}`, indexOrData, data);
     } else if (indexOrData !== undefined) {

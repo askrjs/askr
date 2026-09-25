@@ -1,6 +1,7 @@
 import {
   getActiveRenderContext,
   getCurrentRenderData,
+  registerDeferredBoundary,
 } from '../common/render-context';
 import { getCurrentAppRenderRuntime } from '../runtime';
 import type { RenderableChild } from '../common/vnode';
@@ -119,9 +120,7 @@ export function Resolve<T>(props: ResolveProps<T>): JSXElement {
   }
   const renderContext = getActiveRenderContext();
   if (renderContext) {
-    const id = `d:${renderContext.deferredBoundaries.length}`;
-    renderContext.deferredBoundaries.push({
-      id,
+    const id = registerDeferredBoundary(renderContext, {
       promise: props.value.promise,
       fulfilled: (value) => props.children(value as T),
       rejected: (error) => rejectedChild(props, error),

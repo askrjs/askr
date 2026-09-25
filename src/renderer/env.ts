@@ -1,7 +1,6 @@
 export {
-  getRuntimeEnv,
+  getRuntimeEnvValue,
   isDevelopmentEnvironment,
   isProductionEnvironment,
   isRuntimeEnvFlagEnabled,
-  type RuntimeEnv,
 } from '../common/env';
