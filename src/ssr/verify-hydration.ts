@@ -15,7 +15,13 @@ import { currentAuth } from '../router/auth';
 
 const SSR_STYLE_REGISTRY_SELECTOR = 'style[data-askr-style-registry]';
 
-const HYDRATION_SKIP_ATTR = 'data-skip-hydrate';
+const SSR_PORTAL_MARKER = /<!--askr-portal(?:-anchor)?:\d+-->/;
+// Hydration and key bookkeeping the renderers write, not application markup.
+const RENDERER_BOOKKEEPING_ATTRS = [
+  'data-skip-hydrate',
+  'data-key',
+  'data-askr-key-kind',
+];
 
 /**
  * Parsed declarations in a canonical order. Each parsed longhand is unique, so
@@ -37,7 +43,7 @@ function normalizeStyleDeclarations(style: CSSStyleDeclaration): string {
 /**
  * Serialize markup in a form that is stable across the SSR serializer and the
  * DOM renderer: transport carriers, comments (range anchors) and the
- * `data-skip-hydrate` markers hydration itself adds are dropped, and style
+ * key and `data-skip-hydrate` bookkeeping the renderers add are dropped, and style
  * attributes are re-serialized through the CSSOM so `color:red;` and the
  * DOM's `color: red;` compare equal.
  */
@@ -51,10 +57,12 @@ function normalizeHydrationHtml(html: string): string {
   )) {
     carrier.remove();
   }
-  for (const element of Array.from(
-    template.content.querySelectorAll(`[${HYDRATION_SKIP_ATTR}]`)
-  )) {
-    element.removeAttribute(HYDRATION_SKIP_ATTR);
+  for (const name of RENDERER_BOOKKEEPING_ATTRS) {
+    for (const element of Array.from(
+      template.content.querySelectorAll(`[${name}]`)
+    )) {
+      element.removeAttribute(name);
+    }
   }
   for (const element of Array.from(
     template.content.querySelectorAll('[style]')
@@ -69,26 +77,52 @@ function normalizeHydrationHtml(html: string): string {
 }
 
 /**
- * Capture the server markup under `root` before the client renderer touches
- * it, normalized for {@link verifyClientHydrationMarkup}.
+ * Whether the client renders the same URL the server markup was rendered
+ * for. A static page opened with a client-only query or hash is verified
+ * against its queryless render URL, then hydration applies the browser URL on
+ * purpose, so its client output legitimately differs.
  */
-export function captureServerHydrationMarkup(root: Element): string {
-  return normalizeHydrationHtml(root.innerHTML);
+function clientRendersServerUrl(
+  url: string,
+  envelope: PageRenderEnvelope | undefined
+): boolean {
+  const live = new URL(url, 'http://localhost');
+  const renderUrl = getHydrationRenderUrl(envelope);
+  const rendered = new URL(renderUrl ?? live.pathname, 'http://localhost');
+  return rendered.search === live.search && rendered.hash === live.hash;
+}
+
+/**
+ * Capture the server markup under `root` before the client renderer touches
+ * it, normalized for {@link verifyClientHydrationMarkup}. Returns `null` when
+ * the client output is not expected to reproduce it: the page is hydrated at
+ * a different URL than it was rendered for, or it carries portal content,
+ * which the client places through its own host lifecycle after the root
+ * commits.
+ */
+export function captureServerHydrationMarkup(
+  root: Element,
+  url: string,
+  envelope?: PageRenderEnvelope
+): string | null {
+  const html = root.innerHTML;
+  if (!clientRendersServerUrl(url, envelope) || SSR_PORTAL_MARKER.test(html)) {
+    return null;
+  }
+  return normalizeHydrationHtml(html);
 }
 
 /**
  * Whether the markup the client renderer left under `root` after hydrating
  * matches the server markup captured before it ran. Hydration reconciles the
- * server DOM in place, so any SSR/client renderer divergence shows up as a
- * difference here.
+ * server DOM in place, so an SSR/client renderer divergence shows up here even
+ * when a fresh server render reproduces the server HTML exactly.
  */
 export function verifyClientHydrationMarkup(
   root: Element,
   serverMarkup: string
 ): boolean {
-  const __c = normalizeHydrationHtml(root.innerHTML);
-  if (__c !== serverMarkup) require('fs').appendFileSync('/private/tmp/claude-501/-Users-jrepanich-Code-askrjs/d4bd6e74-2aac-4d1f-ba19-d944836e3d93/scratchpad/mm.txt', (globalThis as any).expect?.getState?.().currentTestName + '\n S: ' + serverMarkup + '\n C: ' + __c + '\n R: ' + root.innerHTML + JSON.stringify(Array.from(root.firstChild!.childNodes).map((n: any) => [n.nodeName, n.data, n.outerHTML, n.parentNode === root.firstChild])) + '\n\n');
-  return __c === serverMarkup;
+  return normalizeHydrationHtml(root.innerHTML) === serverMarkup;
 }
 
 export function verifyHydrationSyncForUrl(opts: {

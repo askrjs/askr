@@ -140,6 +140,14 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       resolved.kind === 'deny'
         ? { handler: bindDeniedRouteHandler(resolved.status), params: {} }
         : resolved;
+    const mountHydratedRoot: typeof mountOrUpdate = (...args) =>
+      withIntrinsicHydrationAdoption(() =>
+        mountOrUpdate(args[0], args[1], {
+          ...args[2],
+          cspNonce: config.cspNonce,
+        })
+      );
+
     let verifyClientMarkup: ((root: Element) => Promise<void>) | undefined;
     if (shouldVerifyHydrationMarkup(config)) {
       const {
@@ -168,24 +176,23 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       // The server render above cannot see differences between the SSR
       // serializer and the DOM renderer, so also compare the server markup
       // with what the client renderer leaves after hydrating it.
-      const serverMarkup = captureServerHydrationMarkup(rootElement);
-      verifyClientMarkup = async (root) => {
-        await Promise.resolve();
-        if (!verifyClientHydrationMarkup(root, serverMarkup)) {
-          throw new Error(
-            '[Askr] Hydration mismatch detected. Server HTML does not match the client-rendered output.'
-          );
-        }
-      };
-    }
-
-    const mountHydratedRoot: typeof mountOrUpdate = (...args) =>
-      withIntrinsicHydrationAdoption(() =>
-        mountOrUpdate(args[0], args[1], {
-          ...args[2],
-          cspNonce: config.cspNonce,
-        })
+      const serverMarkup = captureServerHydrationMarkup(
+        rootElement,
+        currentUrl,
+        hydrationRenderDataForApp ?? undefined
       );
+      if (serverMarkup !== null) {
+        verifyClientMarkup = async (root) => {
+          // Let the work the hydration commit scheduled settle first.
+          await Promise.resolve();
+          if (!verifyClientHydrationMarkup(root, serverMarkup)) {
+            throw new Error(
+              '[Askr] Hydration mismatch detected. Server HTML does not match the client-rendered output.'
+            );
+          }
+        };
+      }
+    }
 
     const hydrateOptions = config.hydrate;
     if (hydrateOptions) {

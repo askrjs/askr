@@ -73,7 +73,11 @@ serialization. `boundaries.ts` owns error/control boundary state helpers,
 renderable child normalization, and default fallback construction. The client
 boot path calls `verify-hydration.ts` when markup verification is enabled; that
 helper renders the resolved route to a normalized string and compares it with
-the adopted DOM. Helper modules own escaping, attributes, sinks, render
+the adopted DOM, then compares the server markup with the DOM the client
+renderer leaves after the hydration commit, so SSR/client renderer divergences
+are reported too. Both comparisons normalize through the DOM: comments,
+transport carriers and renderer key/skip bookkeeping are dropped and style
+attributes are compared by their parsed declarations. Helper modules own escaping, attributes, sinks, render
 context, and resolved-route rendering.
 
 ```mermaid

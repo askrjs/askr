@@ -241,6 +241,22 @@ function BadComponent() {
 **Client render:** `<div>1709251201000</div>`  
 **Result:** Mismatch error, DOM replaced
 
+In development (or with `hydrate: { verifyMarkup: true }`), `hydrateSPA()`
+reports a mismatch with a `Hydration mismatch detected` error in two cases:
+
+- the server HTML differs from a fresh server render of the route (stale or
+  edited markup, different data), checked before hydration starts; and
+- the server HTML differs from what the client renderer produces while
+  hydrating it (an SSR/client renderer divergence), checked right after the
+  hydration commit. The client has already reconciled the DOM at that point.
+
+Both comparisons ignore comments and renderer bookkeeping attributes, and
+compare `style` attributes by their parsed declarations, so the server's
+`color:red;` and the DOM's `color: red;` are equal. The client-output check is
+skipped for a page hydrated at a different query or hash than it was rendered
+for, and for pages carrying server-rendered portal content, which the client
+places through its own portal hosts after the commit.
+
 ### Common Causes
 
 1. **Non-deterministic data**:
