@@ -254,7 +254,8 @@ Both comparisons ignore comments and renderer bookkeeping attributes, and
 compare `style` attributes by their parsed declarations, so the server's
 `color:red;` and the DOM's `color: red;` are equal. The client-output check is
 skipped for a page hydrated at a different query or hash than it was rendered
-for. Portal content is included in the client-output check.
+for. Portal content is included in the client-output check. Selective hydration
+skips that check while deferred regions remain.
 
 ### Common Causes
 

@@ -223,7 +223,9 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
             stopHydrationRenderPhase();
           }
         }
-        await verifyClientMarkup?.();
+        if (!rootElement.querySelector('[data-skip-hydrate]')) {
+          await verifyClientMarkup?.();
+        }
         interactionReplay.complete();
         return;
       }
