@@ -97,9 +97,7 @@ export class QueryCell<T> {
   private definitionOwnerHook = -1;
   // Reader conflicts are checked after the current render work settles, so a
   // reader replacing the owner (e.g. a keyed row swap) is not a conflict.
-  private readonly conflictCheck = new ScheduledWork(() =>
-    this.warnOnConflictingReaders()
-  );
+  private conflictCheck: ScheduledWork | null = null;
 
   private state: QueryState<T> = loadingQueryState<T>();
 
@@ -207,9 +205,26 @@ export class QueryCell<T> {
       return;
     }
 
-    if (this.getDefinitionConflicts(options).length > 0) {
-      requestRuntimeWork('component', this.conflictCheck);
+    if (!__ASKR_DEVELOPMENT_BUILD__) {
+      return;
     }
+    const conflicts = this.getDefinitionConflicts(options);
+    if (
+      conflicts.length === 0 ||
+      this.warnedDefinitionConflictKeys.has(conflicts.join(','))
+    ) {
+      return;
+    }
+    // Server renders never swap readers, and their cells are torn down before
+    // scheduled work would run.
+    if (isServerRender()) {
+      this.warnOnConflictingDefinition(options);
+      return;
+    }
+    this.conflictCheck ??= new ScheduledWork(() =>
+      this.warnOnConflictingReaders()
+    );
+    requestRuntimeWork('component', this.conflictCheck);
   }
 
   private warnOnConflictingReaders(): void {
@@ -629,6 +644,14 @@ export class QueryCell<T> {
   }
 }
 
+function isServerRender(): boolean {
+  const context = getActiveRenderContext() as { mode?: 'ssr' | 'spa' } | null;
+  return (
+    context?.mode === 'ssr' ||
+    (context?.mode === undefined && typeof window === 'undefined')
+  );
+}
+
 function createCell<T>(
   options: QueryCellOptions<T>,
   cache: Map<string, QueryCell<unknown>>
@@ -698,7 +721,6 @@ export function createDefinedQuery<TInput, TResult extends {}>(
   options: Omit<QueryOptions<TResult>, 'key' | 'fetch'> = {}
 ): Query<TResult> {
   const runtime = options.runtime;
-  const context = getActiveRenderContext() as { mode?: 'ssr' | 'spa' } | null;
   const key = definition.key(input);
   const dataRuntime =
     runtime ??
@@ -707,9 +729,7 @@ export function createDefinedQuery<TInput, TResult extends {}>(
       | undefined) ??
     getCurrentAppRenderRuntime()?.dataRuntime ??
     getDefaultDataRuntime();
-  const serverRender =
-    context?.mode === 'ssr' ||
-    (context?.mode === undefined && typeof window === 'undefined');
+  const serverRender = isServerRender();
   const runtimeState = resolveDataRuntimeState(dataRuntime);
   return createLegacyQuery({
     ...options,
