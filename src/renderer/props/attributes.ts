@@ -1,8 +1,9 @@
 import { sanitizeCssValue } from '../../common/css';
 import {
   booleanAttributeValue,
-  isAriaAttribute,
+  keepsFalseValue,
   normalizeStylePropertyName,
+  styleValueText,
 } from '../../common/prop-classification';
 import { isUnsafeUrlAttribute } from '../../common/url';
 import { isDevelopmentEnvironment } from '../../common/env';
@@ -18,6 +19,7 @@ import {
   removeRenderedAttribute,
   setRenderedAttribute,
   tagNamesEqualIgnoreCase,
+  writeAttribute,
   writeElementClassName,
 } from '../utils';
 
@@ -194,9 +196,12 @@ function normalizeStyleEntries(value: unknown): StyleEntries | null {
       continue;
     }
 
-    const safeValue = sanitizeCssValue(String(entryValue));
+    const propertyName = normalizeStylePropertyName(key);
+    const safeValue = sanitizeCssValue(
+      styleValueText(propertyName, entryValue)
+    );
     if (safeValue) {
-      entries.set(normalizeStylePropertyName(key), safeValue);
+      entries.set(propertyName, safeValue);
     }
   }
 
@@ -288,7 +293,7 @@ export function applyStaticScalarPropsToElement(
     if (
       value === undefined ||
       value === null ||
-      (value === false && !isAriaAttribute(key))
+      (value === false && !keepsFalseValue(key))
     ) {
       continue;
     }
@@ -432,7 +437,7 @@ export function applyScalarPropValue(
   if (
     value === undefined ||
     value === null ||
-    (value === false && !isAriaAttribute(key))
+    (value === false && !keepsFalseValue(key))
   ) {
     if (key === 'class' || key === 'className') {
       const previousTokens = descriptor?.lastClassTokens;
@@ -475,7 +480,7 @@ export function applyScalarPropValue(
       incrementPerfMetric('skippedDomPropWrites');
       return;
     }
-    el.setAttribute(attributeName, nextValue);
+    writeAttribute(el, attributeName, nextValue);
   }
 }
 
@@ -499,7 +504,7 @@ export function removeStaleAttributes(
     if (
       value === undefined ||
       value === null ||
-      (value === false && !isAriaAttribute(propName))
+      (value === false && !keepsFalseValue(propName))
     )
       continue;
 

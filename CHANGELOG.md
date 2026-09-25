@@ -2,6 +2,39 @@
 
 ## Unreleased
 
+- fix(renderer,ssr): camelCase SVG presentation props such as
+  `strokeDasharray`, `fillOpacity`, `stopColor` and `clipPath` now render as
+  their hyphenated attribute names, and `xlinkHref`/`xmlLang`/`xmlSpace`/
+  `xmlnsXlink` render as namespaced `xlink:`/`xml:`/`xmlns:` attributes (set
+  with `setAttributeNS` on SVG and MathML elements on the client). Previously
+  only five SVG names were mapped and the rest were written verbatim, which
+  browsers ignore. The mapping also applies to HTML elements, so a prop such
+  as `fontSize` or `pointerEvents` on a `<div>` now renders `font-size` or
+  `pointer-events` instead of `fontsize`. Custom elements (tag names with a
+  `-`) keep their prop names as before. The SVG prop types now list the
+  presentation attributes.
+- fix(renderer,ssr): numeric `style` values get a `px` unit on non-unitless
+  properties, so `style={{ width: 10 }}` renders `width:10px` instead of the
+  invalid `width:10`. Unitless properties (React's list plus
+  `font-size-adjust`, `initial-letter` and `math-depth`, with or without a
+  vendor prefix), `0` and custom properties are unchanged. `ms`-prefixed names
+  such as `msFlexPositive` now render as `-ms-flex-positive`.
+- fix(renderer,ssr): `false` renders `"false"` for the enumerated attributes
+  `draggable`, `spellCheck`, `contentEditable` and `writingSuggestions`
+  instead of removing them, so
+  `<img draggable={false}>` is no longer draggable. Their prop types now accept
+  booleans.
+- breaking(data): `defineQuery()` fetchers now receive the input and the abort
+  signal as separate arguments, `fetch(input, { signal })`, instead of one
+  merged `{ ...input, signal }` object. The merged shape dropped primitive
+  inputs (a `QueryDefinition<number, ...>` fetcher only saw `{ signal }`) and
+  let the abort signal overwrite an input field named `signal`. Rewrite
+  `fetch: ({ id, signal }) => ...` as `fetch: ({ id }, { signal }) => ...`.
+  Old-style fetchers with an annotated parameter
+  (`({ id, signal }: { id: string; signal: AbortSignal })`) still compile at
+  the `defineQuery()` definition but fail to typecheck at the `createQuery()`
+  call site; move `signal` to the second argument.
+  Inline `createQuery({ key, fetch })` fetchers are unchanged.
 - fix(resources): a resource hydrated from preloaded data keeps its value on
   later re-renders instead of resetting to pending and refetching. The preloaded
   value now seeds the resource, so `refresh()` and `deps` changes also work

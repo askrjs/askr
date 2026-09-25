@@ -11,7 +11,7 @@ type DatabaseSchema = {
 
 const schemaByDatabase = defineQuery({
   key: ({ database }: DatabaseInput) => `schemas:${database}`,
-  fetch: async ({ database, signal }) => {
+  fetch: async ({ database }, { signal }) => {
     const response = await fetch(`/api/databases/${database}/schema`, {
       signal,
     });

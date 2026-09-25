@@ -39,7 +39,7 @@ async function settle(): Promise<void> {
 const EXECUTION_MODEL_KEY = Symbol.for('__ASKR_EXECUTION_MODEL__');
 const rerenderedUserQuery = defineQuery({
   key: ({ id }: { id: string }) => `users:${id}`,
-  fetch: async ({ signal }: { id: string; signal: AbortSignal }) => {
+  fetch: async (_input: { id: string }, { signal }) => {
     signal.throwIfAborted();
     return { name: 'Ada' };
   },
@@ -1116,6 +1116,97 @@ describe('data layer', () => {
       warnSpy.mockRestore();
       cleanup();
     }
+  });
+
+  it('should pass a primitive defined query input to the fetcher', async () => {
+    const fetch = vi.fn(
+      async (_input: number, _ctx: { signal: AbortSignal }) => ({
+        ok: true,
+      })
+    );
+    const countQuery = defineQuery({
+      key: (count: number) => `inputs:count:${count}`,
+      fetch,
+    });
+
+    const App = (): JSXElement => {
+      const query = createQuery(countQuery, 7);
+      return <div>{query.data ? 'ready' : 'loading'}</div>;
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+
+      expect(container.textContent).toBe('ready');
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(fetch.mock.calls[0]![0]).toBe(7);
+      expect(fetch.mock.calls[0]![1].signal).toBeInstanceOf(AbortSignal);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should keep an input field named signal separate from the abort signal', async () => {
+    type Input = { id: string; signal: string };
+    const fetch = vi.fn(
+      async (_input: Input, _ctx: { signal: AbortSignal }) => ({
+        ok: true,
+      })
+    );
+    const signalFieldQuery = defineQuery({
+      key: ({ id }: Input) => `inputs:signal-field:${id}`,
+      fetch,
+    });
+
+    const App = (): JSXElement => {
+      const query = createQuery(signalFieldQuery, {
+        id: 'a',
+        signal: 'traffic-light',
+      });
+      return <div>{query.data ? 'ready' : 'loading'}</div>;
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+
+      expect(container.textContent).toBe('ready');
+      expect(fetch.mock.calls[0]![0]).toEqual({
+        id: 'a',
+        signal: 'traffic-light',
+      });
+      expect(fetch.mock.calls[0]![1].signal).toBeInstanceOf(AbortSignal);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should pass defined query inputs and the abort signal separately when prefetching', async () => {
+    const fetch = vi.fn(
+      async (_input: number, _ctx: { signal: AbortSignal }) => ({
+        ok: true,
+      })
+    );
+    const countQuery = defineQuery({
+      key: (count: number) => `inputs:prefetch:${count}`,
+      fetch,
+    });
+    const controller = new AbortController();
+    const context = createQueryPrefetchContext({
+      runtime: createDataRuntime(),
+      signal: controller.signal,
+    });
+
+    await expect(context.prefetch(countQuery, 3)).resolves.toBe(true);
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch.mock.calls[0]![0]).toBe(3);
+    expect(fetch.mock.calls[0]![1].signal).toBe(controller.signal);
   });
 
   it('should warn given different defined queries when they share a key', async () => {
