@@ -4,12 +4,19 @@ const HYDRATION_RENDER_URL = 'hu';
 export interface PageRenderEnvelope {
   readonly version: typeof PAGE_RENDER_ENVELOPE_VERSION;
   readonly resources: Readonly<Record<string, unknown>>;
+  /**
+   * Dehydrated data-runtime query entries. Kept apart from `resources` so a
+   * query key can never collide with a resource slot key such as `r:0`.
+   * Omitted when there are none.
+   */
+  readonly queries?: Readonly<Record<string, unknown>>;
   readonly route: unknown;
   readonly framework: Readonly<Record<string, unknown>>;
 }
 
 type PageRenderEnvelopeInput = {
   readonly resources?: Readonly<Record<string, unknown>> | null;
+  readonly queries?: Readonly<Record<string, unknown>> | null;
   readonly route?: unknown;
   readonly framework?: Readonly<Record<string, unknown>> | null;
 };
@@ -23,9 +30,11 @@ function ownedRecord(
 export function createPageRenderEnvelope(
   input: PageRenderEnvelopeInput = {}
 ): PageRenderEnvelope {
+  const queries = ownedRecord(input.queries);
   return Object.freeze({
     version: PAGE_RENDER_ENVELOPE_VERSION,
     resources: ownedRecord(input.resources),
+    ...(Object.keys(queries).length > 0 ? { queries } : {}),
     route: input.route,
     framework: ownedRecord(input.framework),
   });
@@ -69,6 +78,7 @@ export function replacePageRoute(
   const current = pageRenderEnvelope(value);
   return createPageRenderEnvelope({
     resources: current.resources,
+    queries: current.queries,
     route,
     framework: current.framework,
   });
@@ -81,6 +91,7 @@ export function withPageResources(
   const current = pageRenderEnvelope(value);
   return createPageRenderEnvelope({
     resources,
+    queries: current.queries,
     route: current.route,
     framework: current.framework,
   });
@@ -93,6 +104,7 @@ export function withPageFramework(
   const current = pageRenderEnvelope(value);
   return createPageRenderEnvelope({
     resources: current.resources,
+    queries: current.queries,
     route: current.route,
     framework,
   });
@@ -122,6 +134,7 @@ export function isEmptyPageRenderEnvelope(value: PageRenderEnvelope): boolean {
   return (
     value.route === undefined &&
     Object.keys(value.resources).length === 0 &&
+    Object.keys(value.queries ?? {}).length === 0 &&
     Object.keys(value.framework).length === 0
   );
 }
