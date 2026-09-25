@@ -11,7 +11,18 @@ function checkedFrom(event: Event): boolean {
   return (event.target as HTMLInputElement).checked;
 }
 
-export function AccountSettingsForm() {
+/** Persists the settings; resolves when the save has completed. */
+export type SaveAccountSettings = () => Promise<void>;
+
+function simulateSave(): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, 250));
+}
+
+export function AccountSettingsForm({
+  save = simulateSave,
+}: {
+  save?: SaveAccountSettings;
+}) {
   const [name, setName] = state('');
   const [email, setEmail] = state('');
   const [newsletter, setNewsletter] = state(false);
@@ -49,10 +60,10 @@ export function AccountSettingsForm() {
     setError('');
     setPending(true);
 
-    window.setTimeout(() => {
+    void save().then(() => {
       setPending(false);
       setMessage(`Saved account settings for ${name().trim()}.`);
-    }, 250);
+    });
   };
 
   return (
@@ -150,6 +161,9 @@ export function AccountSettingsForm() {
   );
 }
 
-export function mountFormsScenario(root: HTMLElement): void {
-  createIsland({ root, component: AccountSettingsForm });
+export function mountFormsScenario(
+  root: HTMLElement,
+  save?: SaveAccountSettings
+): void {
+  createIsland({ root, component: () => <AccountSettingsForm save={save} /> });
 }

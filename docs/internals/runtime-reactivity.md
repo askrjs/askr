@@ -161,6 +161,14 @@ flowchart LR
   reactive --> post
 ```
 
+A flush makes repeated passes over the lanes in that order until a pass runs
+no work. Within a pass each lane is drained completely, including tasks that
+its own tasks enqueue, before the next lane runs. Work enqueued mid-flush into
+a lane the pass has not reached yet runs later in the same pass; work enqueued
+into a lane the pass has already left (for example `derived` work queued by a
+component task) runs at the start of the next pass, still inside the same
+flush.
+
 ## Lifecycle-bound async resources
 
 Synchronous SSR rejects asynchronous resource loaders with `SSRDataMissingError`.

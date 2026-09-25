@@ -1,4 +1,4 @@
-import { getRuntimeEnv } from '../env';
+import { isRuntimeEnvFlagEnabled } from '../env';
 import { keyedElements } from '../reconciliation/keyed';
 import { retireNodeSubtree } from '../ownership/cleanup';
 import { retireComponentOwnersForIntrinsicReuse } from '../component/host-cleanup';
@@ -61,14 +61,8 @@ export function performBulkPositionalKeyedTextUpdate(
   let reused = 0;
   let updatedKeys = 0;
   const start = now();
-  const debugFastPath = DEVELOPMENT_BUILD_ENABLED
-    ? (() => {
-        const env = getRuntimeEnv();
-        return (
-          env.ASKR_FASTPATH_DEBUG === '1' || env.ASKR_FASTPATH_DEBUG === 'true'
-        );
-      })()
-    : false;
+  const debugFastPath =
+    DEVELOPMENT_BUILD_ENABLED && isRuntimeEnvFlagEnabled('ASKR_FASTPATH_DEBUG');
 
   for (let index = 0; index < total; index += 1) {
     const { key, vnode } = keyedVnodes[index];

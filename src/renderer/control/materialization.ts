@@ -1,6 +1,6 @@
 import type { DOMRange } from '../../common/dom-range';
 import { logger } from '../../common/logger';
-import { getRuntimeEnv } from '../env';
+import { getRuntimeEnvValue } from '../env';
 import {
   assignScopeRange,
   checkVNodeShapeChanged,
@@ -30,7 +30,7 @@ export function createForBoundary(
   const controlState = getControlBoundaryState(node);
 
   if (!controlState) {
-    if (getRuntimeEnv().NODE_ENV !== 'production') {
+    if (getRuntimeEnvValue('NODE_ENV') !== 'production') {
       logger.warn('[Askr] Control boundary missing state');
     }
     return document.createDocumentFragment();
