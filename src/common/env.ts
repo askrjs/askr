@@ -13,35 +13,55 @@ type BuildTimeEnv = Record<string, unknown> & {
   DEV?: unknown;
 };
 
-function normalizeEnv(source?: Record<string, unknown>): RuntimeEnv {
-  if (!source) {
-    return {};
+function normalizeEnvValue(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    return value;
   }
-
-  const normalized: RuntimeEnv = {};
-  for (const [key, value] of Object.entries(source)) {
-    if (typeof value === 'string') {
-      normalized[key] = value;
-    } else if (typeof value === 'boolean' || typeof value === 'number') {
-      normalized[key] = String(value);
-    }
+  if (typeof value === 'boolean' || typeof value === 'number') {
+    return String(value);
   }
+  return undefined;
+}
 
-  return normalized;
+function getBuildTimeMetaEnv(): BuildTimeEnv | undefined {
+  return (import.meta as ImportMeta & { env?: BuildTimeEnv }).env;
+}
+
+function getBuildTimeNodeEnv(
+  metaEnv: BuildTimeEnv | undefined
+): string | undefined {
+  const nodeEnv = normalizeEnvValue(metaEnv?.NODE_ENV);
+  if (nodeEnv != null || !metaEnv) {
+    return nodeEnv;
+  }
+  if (typeof metaEnv.MODE === 'string' && metaEnv.MODE.length > 0) {
+    return metaEnv.MODE;
+  }
+  if (metaEnv.PROD === true || metaEnv.PROD === 'true') {
+    return 'production';
+  }
+  if (metaEnv.DEV === true || metaEnv.DEV === 'true') {
+    return 'development';
+  }
+  return undefined;
 }
 
 function getBuildTimeEnv(): RuntimeEnv {
-  const metaEnv = (import.meta as ImportMeta & { env?: BuildTimeEnv }).env;
-  const normalized = normalizeEnv(metaEnv);
+  const metaEnv = getBuildTimeMetaEnv();
+  const normalized: RuntimeEnv = {};
+  if (!metaEnv) {
+    return normalized;
+  }
 
-  if (normalized.NODE_ENV == null && metaEnv) {
-    if (typeof metaEnv.MODE === 'string' && metaEnv.MODE.length > 0) {
-      normalized.NODE_ENV = metaEnv.MODE;
-    } else if (metaEnv.PROD === true || metaEnv.PROD === 'true') {
-      normalized.NODE_ENV = 'production';
-    } else if (metaEnv.DEV === true || metaEnv.DEV === 'true') {
-      normalized.NODE_ENV = 'development';
+  for (const [key, value] of Object.entries(metaEnv)) {
+    const normalizedValue = normalizeEnvValue(value);
+    if (normalizedValue !== undefined) {
+      normalized[key] = normalizedValue;
     }
+  }
+  const nodeEnv = getBuildTimeNodeEnv(metaEnv);
+  if (nodeEnv !== undefined) {
+    normalized.NODE_ENV = nodeEnv;
   }
 
   return normalized;
@@ -77,8 +97,25 @@ export function getRuntimeEnv(): RuntimeEnv {
   };
 }
 
+/**
+ * Resolves one variable exactly as `getRuntimeEnv()[name]` would, without
+ * copying the environment. Enumerating `process.env` is costly on some hosts
+ * (every enumeration copies the environment block on Windows), and these
+ * checks run on hot paths such as every component render.
+ */
+function getRuntimeEnvValue(name: string): string | undefined {
+  const processValue = (globalThis as RuntimeEnvGlobal).process?.env?.[name];
+  const metaEnv = getBuildTimeMetaEnv();
+
+  if (name === 'NODE_ENV') {
+    return resolveNodeEnv(processValue, getBuildTimeNodeEnv(metaEnv));
+  }
+
+  return normalizeEnvValue(metaEnv?.[name]) ?? processValue;
+}
+
 export function isProductionEnvironment(): boolean {
-  return getRuntimeEnv().NODE_ENV === 'production';
+  return getRuntimeEnvValue('NODE_ENV') === 'production';
 }
 
 export function isDevelopmentEnvironment(): boolean {
@@ -86,6 +123,6 @@ export function isDevelopmentEnvironment(): boolean {
 }
 
 export function isRuntimeEnvFlagEnabled(name: string): boolean {
-  const value = getRuntimeEnv()[name];
+  const value = getRuntimeEnvValue(name);
   return value === '1' || value === 'true';
 }
