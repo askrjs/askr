@@ -69,8 +69,9 @@ the root.
 - `@askrjs/askr/actions` - browser-safe `defineAction`, reactive `action`, and native-first `ActionForm`
 - `@askrjs/askr/control` - JSX control-flow helpers
   - For reactive list rows, see the [control-flow guide](../guides/control-flow.md)
-    for the `selector()` and thunk-prop patterns. A row callback is reconciled by
-    `<For>` and should not rely on plain closure captures of changing parent state.
+    for the `selector()` and thunk-prop patterns. Existing rows rerun with the
+    latest row callback when the parent rerenders, and a reactive read inside
+    the callback subscribes the row that made it.
 
 - `@askrjs/askr/data` - `createDataRuntime`, `getDefaultDataRuntime`, `createQuery`, `createQueryCollection`, `createMutation`, `invalidate`, and `invalidateOnInterval`
 - `@askrjs/askr/testing` - component harness helpers such as `render`, `mount`, `renderRoute`, `dispatch`, `flush`, and `cleanup`, plus query and router fixtures

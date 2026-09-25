@@ -14,6 +14,16 @@
   content does not move to the automatic host. During SSR and SSG, portal
   writes made by a subtree whose boundary renders its fallback are discarded
   instead of being emitted.
+- fix(control): existing `For` rows now render with the latest row callback.
+  A value the parent computed during render and captured in the callback (for
+  example `const current = selected()`) kept its first value in rows that were
+  already mounted. When the parent rerenders with a new callback, retained rows
+  rerun with it and keep their DOM, key, and local state; a stable callback
+  still skips them. A row that reruns on its own, because it read a reactive
+  value, now keeps its key: a component in that row previously lost its local
+  state when the row rendered again in the same flush. The docs now also state
+  that a reactive read inside the callback subscribes the row that made it
+  (they previously said it did not subscribe). See docs/guides/control-flow.md.
 - fix(renderer): a failed keyed reconciliation commit now propagates to the
   component update, which rolls the DOM back and routes the error to the
   nearest `ErrorBoundary` (or throws it from the flush). Previously any commit
