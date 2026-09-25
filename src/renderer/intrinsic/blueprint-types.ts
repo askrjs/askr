@@ -1,3 +1,4 @@
+import type { ComponentInstance, FunctionChildOwner } from '../../runtime';
 import type { FineGrainedEffectHandle } from '../../runtime';
 import type { ReactiveChildDOMHost } from '../children/reactive-children';
 import type { ReactivePropCleanupEntry } from '../ownership/cleanup';
@@ -65,6 +66,8 @@ export type BlueprintBinding = {
   tagName: string | null;
   textNode: Text | null;
   compute: () => unknown;
+  functionChildOwner: FunctionChildOwner | null;
+  readonly parentInstance: ComponentInstance | null;
   fnRef: unknown;
   groupedScalar: boolean;
   cleanup(): void;

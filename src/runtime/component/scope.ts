@@ -102,7 +102,45 @@ export function withComponentScope<T>(
 }
 
 export function getCurrentComponentInstance(): ComponentInstance | null {
+  if (currentInstance === null && pendingInstance !== null) {
+    materializePendingInstance();
+  }
   return currentInstance;
+}
+
+/**
+ * A component instance created only when something asks for one: a function
+ * child bound directly to the DOM runs without an instance until it calls a
+ * hook or creates a control boundary.
+ */
+let pendingInstance: (() => ComponentInstance) | null = null;
+
+function materializePendingInstance(): void {
+  const create = pendingInstance!;
+  pendingInstance = null;
+  // The enclosing withLazyComponentScope restores the outer scope.
+  beginComponentScope({ instance: create(), stateIndex: 0 });
+}
+
+/**
+ * Run `fn` as the render of `instance`, or, when there is none yet, with
+ * `create` supplying one the first time the render needs it. Hook slots start
+ * at 0 on every run.
+ */
+export function withLazyComponentScope<T>(
+  instance: ComponentInstance | null,
+  create: () => ComponentInstance,
+  fn: () => T
+): T {
+  const snapshot = beginComponentScope({ instance, stateIndex: 0 });
+  const previousPending = pendingInstance;
+  pendingInstance = instance ? null : create;
+  try {
+    return fn();
+  } finally {
+    pendingInstance = previousPending;
+    endComponentScope(snapshot);
+  }
 }
 
 export function getCurrentAppRenderRuntime(): AppRenderRuntime | undefined {

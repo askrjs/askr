@@ -189,6 +189,29 @@ renders `<>{props.children}</>`, and a function child of `ErrorBoundary`,
 render and update the same way. Both renderers follow these rules, so server
 markup and client output agree.
 
+Every function child renders as a small component of its own, in the
+context of the position it was written in, wherever it appears: inside an
+element, among a component's fragment or array items, or as `ErrorBoundary`
+children, on the server and on the client. It may call hooks such as
+`state()`, create `Show`, `For` and `Case`, and `readScope()` sees the
+providers around it. Hook slots follow the function's own call order, as in
+a component body, and persist across its re-runs. A function that only reads
+values creates no component instance, so plain reads such as
+`{() => count()}` stay as cheap as a direct text binding.
+
+```tsx
+<Theme value="dark">
+  <p>{() => readScope(Theme)}</p>
+  {() => (
+    <Show when={open} fallback={<em>closed</em>}>
+      <For each={items} by={(item) => item.id}>
+        {(item) => <Row item={item} />}
+      </For>
+    </Show>
+  )}
+</Theme>
+```
+
 A function child or prop that throws is a render error on both sides: the
 nearest `ErrorBoundary` renders its fallback, and without one the render (or
 the client update) throws.

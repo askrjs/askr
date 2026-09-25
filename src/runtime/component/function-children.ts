@@ -89,7 +89,7 @@ function renderNothingForFunction(item: unknown): unknown {
  * The value is wrapped in a fragment so it renders as a transparent range,
  * like the item would have in place, rather than in a host element.
  */
-function FunctionChild(props: { read: () => unknown }): JSXElement {
+export function FunctionChild(props: { read: () => unknown }): JSXElement {
   return {
     $$typeof: ELEMENT_TYPE,
     type: Fragment,

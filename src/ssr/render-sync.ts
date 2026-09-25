@@ -3,11 +3,7 @@ import { __CONTROL_BOUNDARY__ } from '../common/control';
 import type { DOMElement } from '../common/vnode';
 import { __ERROR_BOUNDARY__ } from '../common/vnode';
 import { logger } from '../common/logger';
-import {
-  getVNodeContextFrame,
-  readFunctionChildValue,
-  readUntracked,
-} from '../runtime';
+import { FunctionChild, getVNodeContextFrame } from '../runtime';
 import { SSR_PORTAL_ANCHOR, SSR_PORTAL_HOST } from '../common/portal';
 import {
   createRenderContext,
@@ -262,10 +258,8 @@ export function renderRenderableSyncToSink(
     return;
   }
   if (typeof value === 'function') {
-    // A function or readable child is reactive on the client; the server
-    // renders its current value once, without subscribing to it.
-    renderFunctionChildResultToSink(
-      readUntracked(() => readFunctionChildValue(value as () => unknown)),
+    renderRenderableSyncToSink(
+      renderFunctionChild(value as () => unknown, ctx),
       sink,
       ctx
     );
@@ -277,39 +271,21 @@ export function renderRenderableSyncToSink(
 }
 
 /**
- * The top-level items of a function child's result: array entries and
- * fragment children, flattened. As on the client, a function among them
- * (after one readable has been read) renders nothing, while elements keep
- * their own reactive children.
+ * Render a function or readable child. As on the client, it runs as a small
+ * component (`FunctionChild`) in the context it was written in, so hooks,
+ * `Show`/`For` and `readScope` work; the server reads it once and does not
+ * subscribe.
  */
-function getFunctionChildResultItems(value: unknown): unknown[] | null {
-  if (Array.isArray(value)) return value;
-  if (
-    value &&
-    typeof value === 'object' &&
-    'type' in value &&
-    isFragmentType((value as VNode).type)
-  ) {
-    return getRenderableChildren(value as VNode) ?? [];
-  }
-  return null;
-}
-
-/** Write what a function child produced (see `getFunctionChildResultItems`). */
-function renderFunctionChildResultToSink(
-  value: unknown,
-  sink: SinkTarget,
+function renderFunctionChild(
+  child: () => unknown,
   ctx: RenderContext
-): void {
-  if (typeof value === 'function') return;
-  const items = getFunctionChildResultItems(value);
-  if (items) {
-    for (let i = 0; i < items.length; i++) {
-      renderFunctionChildResultToSink(items[i], sink, ctx);
-    }
-    return;
-  }
-  renderRenderableSyncToSink(value, sink, ctx);
+): VNode | JSXElement {
+  return executeComponentSync(
+    FunctionChild as unknown as Component,
+    { read: child },
+    ctx,
+    getVNodeContextFrame(child) ?? null
+  );
 }
 
 function renderChildSyncToSink(
@@ -481,8 +457,8 @@ function collectRawText(
     return '';
   }
   if (typeof value === 'function') {
-    return collectFunctionChildRawText(
-      readUntracked(() => readFunctionChildValue(value as () => unknown)),
+    return collectRawText(
+      renderFunctionChild(value as () => unknown, ctx),
       element,
       ctx
     );
@@ -526,24 +502,6 @@ function collectRawText(
   throw new Error(
     `SSR: <${element}> children must be text, but received ${describeRawTextChild(value)}.`
   );
-}
-
-/** Raw text of a function child's result (see `getFunctionChildResultItems`). */
-function collectFunctionChildRawText(
-  value: unknown,
-  element: RawTextElement,
-  ctx: RenderContext
-): string {
-  if (typeof value === 'function') return '';
-  const items = getFunctionChildResultItems(value);
-  if (items) {
-    let text = '';
-    for (let i = 0; i < items.length; i++) {
-      text += collectFunctionChildRawText(items[i], element, ctx);
-    }
-    return text;
-  }
-  return collectRawText(value, element, ctx);
 }
 
 function collectErrorBoundaryRawText(

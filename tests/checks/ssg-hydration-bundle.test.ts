@@ -133,6 +133,11 @@ describe('SSG hydration bundle', () => {
     // small reactive component, binding setup for hydrated elements, and
     // error routing for function children. About 1.2 KB (measured 270,613
     // bytes, from 269,428 on main).
-    expect(initialBytes).toBeLessThanOrEqual(265 * 1024);
+    // 266 KiB: function children bound directly to the DOM now run as a
+    // lightweight component render (an instance created only when the
+    // function uses a hook or Show/For) in the context frame of their
+    // position, so hooks, Show/For and readScope behave the same in every
+    // position and on the server. About 1.2 KB more (measured 271,850 bytes).
+    expect(initialBytes).toBeLessThanOrEqual(266 * 1024);
   });
 });

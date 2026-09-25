@@ -15,7 +15,13 @@
   renders `<>{props.children}</>`), and a function child of `ErrorBoundary`,
   now render reactively on the client as they do on the server; the client
   dropped them. `ErrorBoundary` no longer wraps text or fragment content in a
-  `<div>` on the client. Hydrating an element returned by a function child now sets up that
+  `<div>` on the client. Every function child now renders as a lightweight
+  component in the context of its position, on both sides and in every
+  position: hooks (`state()`), `Show`/`For` and `readScope()` work inside
+  it. On the server these threw; on the client, a function child bound
+  directly to an element lost its hooks and read scopes from the wrong
+  provider. A function child that only reads values still creates no
+  component instance. Hydrating an element returned by a function child now sets up that
   element's own function children instead of clearing them. A function
   child that throws on the client now goes to the nearest `ErrorBoundary`,
   or is thrown from the update without one, like a reactive prop; it was

@@ -5,7 +5,9 @@ import {
   type ChildScope,
 } from '../../runtime';
 import {
+  createFunctionChildOwner,
   getCurrentComponentInstance,
+  getVNodeContextFrame,
   isRenderingProtectedBoundaryContent,
   readFunctionChildValue,
   routeRenderedOutputErrorToBoundary,
@@ -104,6 +106,12 @@ function createReactiveChildErrorRouter(): (error: unknown) => void {
   };
 }
 
+/** A function child's scope renders in the context of the position it was written in. */
+function setFunctionChildScopeFrame(scope: ChildScope, child: unknown): void {
+  const frame = getVNodeContextFrame(child);
+  if (frame) scope.componentInstance.ownerFrame = frame;
+}
+
 function setupReactiveScalarChild(
   el: Element,
   source: ReactiveScalarChildSource,
@@ -114,6 +122,9 @@ function setupReactiveScalarChild(
 } {
   let currentSource = source;
   const routeReactiveChildError = createReactiveChildErrorRouter();
+  const functionChildOwner = createFunctionChildOwner(
+    getCurrentComponentInstance()
+  );
 
   if (source.length === 1 && source[0]?.kind === 'dynamic') {
     let ownedTextNode =
@@ -132,7 +143,7 @@ function setupReactiveScalarChild(
             );
           }
 
-          const rawValue = readFunctionChildValue(currentSlot.compute);
+          const rawValue = functionChildOwner.read(currentSlot.compute);
           const normalized = normalizeOwnedReactiveTextValue(rawValue);
           return normalized ?? (rawValue as string);
         },
@@ -183,6 +194,7 @@ function setupReactiveScalarChild(
       cleanup: () => {
         effectHandle?.cleanup();
         effectHandle = null;
+        functionChildOwner.dispose();
       },
       updateFn: (nextSource: ReactiveScalarChildSource) => {
         if (!effectHandle) {
@@ -198,7 +210,7 @@ function setupReactiveScalarChild(
             );
           }
 
-          const rawValue = readFunctionChildValue(currentSlot.compute);
+          const rawValue = functionChildOwner.read(currentSlot.compute);
           const normalized = normalizeOwnedReactiveTextValue(rawValue);
           return normalized ?? (rawValue as string);
         });
@@ -213,7 +225,7 @@ function setupReactiveScalarChild(
         currentSource.map((slot) =>
           slot.kind === 'static'
             ? slot.value
-            : readFunctionChildValue(slot.compute)
+            : functionChildOwner.read(slot.compute)
         ),
       commit: (values) => {
         if (!Array.isArray(values)) {
@@ -273,6 +285,7 @@ function setupReactiveScalarChild(
     cleanup: () => {
       effectHandle?.cleanup();
       effectHandle = null;
+      functionChildOwner.dispose();
     },
     updateFn: (nextSource: ReactiveScalarChildSource) => {
       if (!effectHandle) {
@@ -284,7 +297,7 @@ function setupReactiveScalarChild(
         currentSource.map((slot) =>
           slot.kind === 'static'
             ? slot.value
-            : readFunctionChildValue(slot.compute)
+            : functionChildOwner.read(slot.compute)
         )
       );
     },
@@ -336,6 +349,7 @@ function setupReactiveChildBoundary(
     nodes: [],
   };
 
+  setFunctionChildScopeFrame(entry.scope, currentChildFn);
   entry.scope.render(() =>
     normalizeReactiveChildBoundaryVNode(
       readFunctionChildValue(currentChildFn) as VNode
@@ -365,6 +379,7 @@ function setupReactiveChildBoundary(
     },
     updateFn: (nextValue: unknown) => {
       currentChildFn = nextValue as () => VNode;
+      setFunctionChildScopeFrame(entry.scope, currentChildFn);
       rerenderChildScope(entry.scope);
       const expectedNodes = commitReactiveChildBoundaryEntryNodes(
         el,
@@ -446,6 +461,10 @@ function setupReactiveChildBoundarySequence(
   }
 
   for (const dynamicEntry of dynamicEntries) {
+    setFunctionChildScopeFrame(
+      dynamicEntry.entry.scope,
+      (currentSource[dynamicEntry.index] as { compute: () => VNode }).compute
+    );
     dynamicEntry.entry.scope.render(() =>
       normalizeReactiveChildBoundaryVNode(
         readFunctionChildValue(
@@ -489,6 +508,11 @@ function setupReactiveChildBoundarySequence(
     updateFn: (nextValue: unknown) => {
       currentSource = nextValue as ReactiveChildBoundarySequenceSource;
       for (const dynamicEntry of dynamicEntries) {
+        setFunctionChildScopeFrame(
+          dynamicEntry.entry.scope,
+          (currentSource[dynamicEntry.index] as { compute: () => VNode })
+            .compute
+        );
         rerenderChildScope(dynamicEntry.entry.scope);
       }
       syncSequence();

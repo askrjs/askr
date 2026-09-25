@@ -3,8 +3,10 @@ import {
   createOwnedFineGrainedEffect,
   incDevCounter,
   incrementPerfMetric,
-  readFunctionChildValue,
+  createFunctionChildOwner,
+  getCurrentComponentInstance,
   type FineGrainedEffectHandle,
+  type FunctionChildOwner,
 } from '../../runtime';
 import { applyScalarPropValue } from '../props/attributes';
 import {
@@ -46,6 +48,9 @@ export class BlueprintBinding implements ReactivePropCleanupEntry {
   hasValue = false;
   lastValue: unknown = undefined;
   nextValue: unknown = undefined;
+  /** Where a text binding's function child runs (created on first read). */
+  functionChildOwner: FunctionChildOwner | null = null;
+  readonly parentInstance = getCurrentComponentInstance();
 
   constructor(
     readonly kind: 'prop' | 'text',
@@ -74,6 +79,8 @@ export class BlueprintBinding implements ReactivePropCleanupEntry {
 
   cleanup(): void {
     if (this.group) cleanupGroupedBinding(this.group, this);
+    this.functionChildOwner?.dispose();
+    this.functionChildOwner = null;
   }
 
   readAppliedValue(): unknown {
@@ -220,7 +227,9 @@ function computeBlueprintBindings(
     if (binding.active) {
       binding.nextValue =
         binding.kind === 'text'
-          ? readFunctionChildValue(binding.compute)
+          ? (binding.functionChildOwner ??= createFunctionChildOwner(
+              binding.parentInstance
+            )).read(binding.compute)
           : binding.compute();
     }
   }

@@ -11,6 +11,8 @@ import { routeRegistryFromTable } from '../../router-test-utils';
 import { cleanupApp, createSPA, hydrateSPA } from '../../../src/boot';
 import { renderToStringSync } from '../../../src/ssr';
 import { ErrorBoundary } from '../../../src/components/error-boundary';
+import { For, Show } from '../../../src/control';
+import { defineScope, readScope } from '../../../src/runtime/context/context';
 import { derive, state, type State } from '../../../src/index';
 import {
   createTestContainer,
@@ -630,6 +632,126 @@ describe('SSR reactive values', () => {
       expect((onError.mock.calls[0][0] as Error).message).toBe('direct failed');
       expect(normalizeHtml(container.innerHTML)).toBe(
         '<div><em>fallback</em></div>'
+      );
+    });
+  });
+
+  describe('function children as components', () => {
+    const Theme = defineScope('light');
+    const bodies: Record<string, () => unknown> = {
+      Show: () => <Show when={() => true}>{'shown'}</Show>,
+      For: () => (
+        <For each={() => ['a', 'b']} by={(item: string) => item}>
+          {(item: string) => <i>{item}</i>}
+        </For>
+      ),
+      readScope: () => readScope(Theme),
+      'state()': () => {
+        const [value] = state('stateful');
+        return value();
+      },
+    };
+    const positions: Record<string, (child: () => unknown) => Page> = {
+      'an element': (child) => () => (
+        <Theme value={'dark'}>
+          <div>{child}</div>
+        </Theme>
+      ),
+      'an element with siblings': (child) => () => (
+        <Theme value={'dark'}>
+          <div>
+            <b>{'1'}</b>
+            {child}
+          </div>
+        </Theme>
+      ),
+      'a component fragment': (child) => {
+        const Layout = (props: { children?: unknown }) => <>{props.children}</>;
+        return () => (
+          <Theme value={'dark'}>
+            <div>
+              <Layout>{child}</Layout>
+            </div>
+          </Theme>
+        );
+      },
+      'an ErrorBoundary': (child) => () => (
+        <Theme value={'dark'}>
+          <div>
+            <ErrorBoundary fallback={() => <em>{'fallback'}</em>}>
+              {child}
+            </ErrorBoundary>
+          </div>
+        </Theme>
+      ),
+    };
+    const expectedText: Record<string, string> = {
+      Show: 'shown',
+      For: 'ab',
+      readScope: 'dark',
+      'state()': 'stateful',
+    };
+
+    const matrix: Array<[string, string, Page, string]> = [];
+    for (const [body, child] of Object.entries(bodies)) {
+      for (const [position, place] of Object.entries(positions)) {
+        matrix.push([body, position, place(child), expectedText[body]!]);
+      }
+    }
+
+    it.each(matrix)(
+      'should render %s in %s the same on server, client and hydration',
+      async (_body, position, Component, text) => {
+        const server = renderOnServer(Component);
+        const expectedServerText =
+          position === 'an element with siblings' ? `1${text}` : text;
+        const serverContainer = document.createElement('div');
+        serverContainer.innerHTML = server;
+        expect(serverContainer.textContent).toBe(expectedServerText);
+        expect(await renderOnClient(Component)).toBe(server);
+
+        container.innerHTML = renderToStringSync(Component);
+        const serverRoot = container.firstElementChild;
+        await hydrate(Component);
+        expect(container.firstElementChild).toBe(serverRoot);
+        expect(normalizeHtml(container.innerHTML)).toBe(server);
+      }
+    );
+
+    it('should keep Show and state() in an element function child reactive after hydration', async () => {
+      let visible!: State<boolean>;
+      let bump!: () => void;
+      const Component = () => {
+        visible = state(true);
+        return (
+          <div>
+            {() => (
+              <Show when={visible} fallback={<em>{'hidden'}</em>}>
+                {'shown'}
+              </Show>
+            )}
+            <p>
+              {() => {
+                const [count, setCount] = state(0);
+                bump = () => setCount((value) => value + 1);
+                return count();
+              }}
+            </p>
+          </div>
+        );
+      };
+
+      container.innerHTML = renderToStringSync(Component);
+      await hydrate(Component);
+      expect(normalizeHtml(container.innerHTML)).toBe(
+        '<div>shown<p>0</p></div>'
+      );
+
+      visible.set(false);
+      bump();
+      flushScheduler();
+      expect(normalizeHtml(container.innerHTML)).toBe(
+        '<div><em>hidden</em><p>1</p></div>'
       );
     });
   });
