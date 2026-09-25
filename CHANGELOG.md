@@ -33,8 +33,7 @@
   monotonic index check is removed, and the internal `ComponentInstance`
   field `expectedStateIndices` is replaced by `expectedHookKinds`.
 - breaking(ssr): sync `renderToString({ url, registry })`/`renderToStream()`
-  no longer follow auth redirects or render a denial marker with an implicit
-  200. Redirect and deny decisions throw the new `SSRAccessDecisionError`, whose
+  no longer follow auth redirects or render a denial marker with an implicit 200. Redirect and deny decisions throw the new `SSRAccessDecisionError`, whose
   `decision` matches what `renderRouteRequest()` returns. The sync path also no
   longer runs route loaders: any route that declares a loader, including
   a synchronous one that previously rendered, now throws `SSRDataMissingError`
