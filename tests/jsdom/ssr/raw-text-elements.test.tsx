@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vite-plus/test';
+import { parseFragment } from 'parse5';
 import { state } from '../../../src';
 import { hydrateSPA } from '../../../src/boot';
 import { For, Show } from '../../../src/control';
@@ -520,5 +521,140 @@ describe('SSR <script>/<style> in foreign content (SVG, MathML)', () => {
     ));
 
     expect(html).toContain('<style>a > b {}</style>');
+  });
+});
+
+type Parse5Node = {
+  nodeName: string;
+  childNodes?: Parse5Node[];
+  content?: Parse5Node;
+};
+
+/**
+ * Element names a spec-conformant parser (parse5, scripting enabled, as in a
+ * browser) builds from the markup. jsdom parses with scripting disabled, which
+ * would read `<noscript>` content as markup rather than raw text.
+ */
+function parsedElementNames(html: string): string[] {
+  const names: string[] = [];
+  const visit = (node: Parse5Node): void => {
+    if (!node.nodeName.startsWith('#')) names.push(node.nodeName);
+    for (const child of node.childNodes ?? []) visit(child);
+    if (node.content) visit(node.content);
+  };
+  visit(parseFragment(html, { scriptingEnabled: true }) as Parse5Node);
+  return names;
+}
+
+describe('SSR <script>/<style> under text-content ancestors', () => {
+  const ancestors = [
+    'noscript',
+    'iframe',
+    'xmp',
+    'noembed',
+    'noframes',
+    'textarea',
+    'title',
+    'plaintext',
+  ];
+  const cases = ancestors.flatMap((ancestor) =>
+    ['style', 'script'].flatMap((inner) =>
+      [
+        `</${ancestor}><img src=x onerror=alert(1)>`,
+        `</${ancestor.toUpperCase()}><img src=x onerror=alert(1)>`,
+        `</${inner}></${ancestor}><img src=x onerror=alert(1)>`,
+      ].map((payload) => [ancestor, inner, payload] as const)
+    )
+  );
+
+  it.each(cases)(
+    'should build no element from text inside <%s><%s> (%j)',
+    (ancestor, inner, payload) => {
+      const html = renderToStringSync(() =>
+        jsx('div', {
+          children: [
+            jsx(ancestor, { children: jsx(inner, { children: payload }) }),
+            jsx('p', { children: 'after' }),
+          ],
+        })
+      );
+
+      expect(parsedElementNames(html)).not.toContain('img');
+      expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;');
+    }
+  );
+
+  it('should still write raw text once the text-content ancestor has closed', () => {
+    const html = renderToStringSync(() => (
+      <div>
+        <noscript>
+          <style>{'a > b {}'}</style>
+        </noscript>
+        <style>{'a > b {}'}</style>
+      </div>
+    ));
+
+    expect(html).toContain(
+      '<noscript><style>a &gt; b {}</style></noscript><style>a > b {}</style>'
+    );
+  });
+
+  it('should neutralize every closing-tag opener in raw text', () => {
+    const html = renderToStringSync(() => (
+      <div>
+        <style>{'a</b></noscript></DIV>'}</style>
+        <script>{'var s = "</p></noscript>";'}</script>
+      </div>
+    ));
+
+    expect(html).toContain('<style>a<\\/b><\\/noscript><\\/DIV></style>');
+    expect(html).toContain('<script>var s = "<\\/p><\\/noscript>";</script>');
+    expect(parsedElementNames(html)).toEqual(['div', 'style', 'script']);
+  });
+
+  it.each([
+    ['svg', 'style'],
+    ['svg', 'script'],
+    ['math', 'style'],
+    ['math', 'script'],
+  ])(
+    'should build no element from text inside <%s><%s> (parse5)',
+    (foreign, inner) => {
+      const html = renderToStringSync(() =>
+        jsx(foreign, {
+          children: jsx(inner, {
+            children: `</${inner}></${foreign}><img src=x onerror=alert(1)>`,
+          }),
+        })
+      );
+
+      expect(parsedElementNames(html)).not.toContain('img');
+    }
+  );
+
+  it('should resolve the annotation-xml encoding like the parser: first attribute, any case', () => {
+    const payload = '<img src=x onerror=alert(1)>';
+    const render = (attrs: Record<string, string>) =>
+      renderToStringSync(() =>
+        jsx('math', {
+          children: jsx('annotation-xml', {
+            ...attrs,
+            children: jsx('style', { children: payload }),
+          }),
+        })
+      );
+
+    const mathFirst = render({
+      ENCODING: 'application/mathml+xml',
+      encoding: 'text/html',
+    });
+    expect(parsedElementNames(mathFirst)).not.toContain('img');
+    expect(mathFirst).toContain('&lt;img');
+
+    const htmlFirst = render({
+      ENCODING: 'Text/HTML',
+      encoding: 'application/mathml+xml',
+    });
+    expect(htmlFirst).toContain(`<style>${payload}</style>`);
   });
 });
