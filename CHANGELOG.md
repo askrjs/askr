@@ -17,6 +17,25 @@
   slower path. A row whose render throws now renders once per update instead of
   up to three times, and the error surfaces once. Production commits no longer
   capture an `Error().stack` for diagnostics.
+- fix(runtime): `state.set()` now throws when called inside a `derive()` or
+  `selector()` computation, including recomputes in the derived lane where no
+  component is rendering. Previously only render-time recomputes were caught
+  (by the render-mutation guard), so a derived-lane write went through
+  silently and could loop. A same-value (no-op) `set()` is still allowed.
+- fix(runtime): an error thrown by the renderer while marking reactive props
+  dirty is no longer swallowed. Component readers of the source are still
+  notified, then the error is rethrown to the writer (or aggregated by the
+  scheduler inside a flush). If notifying readers also fails, both errors are
+  thrown together as an `AggregateError`.
+- fix(router): `hydrateSPA()` no longer redirects a server-authorized page to
+  the login route when the browser cannot resolve the identity itself (for
+  example httpOnly-cookie sessions). Apps opt in with the new
+  `auth.dehydrate(context)` hook, which selects the minimal identity snapshot
+  (`authenticated`, `principal`, `tenant`, `scopes`; never the session)
+  serialized into the hydration payload. Hydration uses it for the initial
+  route; navigations use `auth.resolve`, or keep the snapshot when no resolver
+  is configured. Nothing about the identity is serialized without the hook.
+  `RouteAuthOptions.resolve` is now optional.
 - fix(fx): `scheduleTimeout()`, `scheduleIdle()` and `scheduleRetry()` now
   cancel pending work when the component that scheduled them unmounts, as
   documented. Calls made from a mounted component's `task()`, `watch()`
@@ -163,6 +182,15 @@
   lazy import, or loader starts. Abandoned async resolution no longer leaks an
   unhandled rejection, and lazy routes whose component is already loaded now
   resolve synchronously.
+- fix(runtime): an update loop that trips the scheduler's `MAX_FLUSH_DEPTH`
+  guard no longer aborts the flush. The looping task is dropped and its error is
+  reported together with earlier task failures, remaining queued work still
+  runs, a dropped component update re-renders on its next write, and
+  production builds now fail such a loop instead of hanging. Effects,
+  `derive()` and `selector()` are now each limited to 50 runs per flush,
+  counted across lanes, so a reactive cycle through them (including
+  derive-to-derive cycles that previously hung inside one batch) stops at the
+  looping entry without stranding sibling work.
 - fix(router): `currentAuth()` no longer falls back to the process-wide client
   identity during server rendering. A server render without request auth now
   sees an anonymous identity, and server-mode route resolution no longer writes

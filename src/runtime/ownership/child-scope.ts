@@ -1,6 +1,7 @@
 import { registerScopedOwnership, releaseOwnedChild } from './record';
 import { adoptComponentParent } from '../component/capabilities';
 import { getRuntimeScopes } from '../access';
+import { onScheduledTaskRelease } from '../scheduled-work';
 import type { ChildScopeHostSnapshot } from '../renderer-capabilities';
 import type { VNode } from '../../common/vnode';
 import { _isDOMElement } from '../../common/vnode';
@@ -105,7 +106,7 @@ function ensureChildScopeFlushTask(scope: MutableChildScope): void {
     return;
   }
 
-  instance._pendingFlushTask = () => {
+  const task = () => {
     instance.hasPendingUpdate = false;
     if (instance.notifyUpdate === null || instance.owner.disposed) {
       return;
@@ -135,6 +136,10 @@ function ensureChildScopeFlushTask(scope: MutableChildScope): void {
       suspendTransaction(transaction);
     }
   };
+  onScheduledTaskRelease(task, () => {
+    instance.hasPendingUpdate = false;
+  });
+  instance._pendingFlushTask = task;
 }
 
 class ChildScopeImpl implements MutableChildScope {
