@@ -131,24 +131,35 @@ and suffix without buffering the complete response.
 
 ### Text inside `<script>` and `<style>`
 
-The HTML parser does not decode entities inside `<script>` and `<style>`, so
-SSR writes their text children verbatim instead of entity-escaping them. CSS
-such as `ul > li` and scripts such as `a < b && c > d` reach the browser
-unchanged and match the text the client renderer creates, so hydration adopts
-the element in place.
+The HTML parser does not decode entities inside HTML `<script>` and `<style>`
+elements, so SSR writes their text children verbatim instead of
+entity-escaping them. CSS such as `ul > li` and scripts such as
+`a < b && c > d` reach the browser unchanged and match the text the client
+renderer creates, so hydration adopts the element in place.
 
 Only sequences that would end the element early are rewritten. Inside
 `<style>`, `</style` becomes `<\/style`. Inside `<script>`, `</script` becomes
-`<\/script`, and the `<` of `<script` and `<!--` is written as `\x3C`. Matching
-is case-insensitive, and applies to the concatenated text of all children, so
-a closing tag split across children is caught. Within JavaScript string,
-template, and regular-expression literals these rewrites denote the original
-characters.
+`<\/script`, and the `<` of `<script` and `<!--` is written as `\u003C`.
+Matching is case-insensitive and applies to the concatenated text of all
+children, so a closing tag split across children is caught. Within JavaScript
+string, template, and regular-expression literals, and within JSON strings
+(`type="application/json"`, `importmap`, `application/ld+json`), these rewrites
+denote the original characters, so the content stays valid.
 
-Children of `<script>` and `<style>` may be strings, numbers, fragments, and
-components that return text. Element children throw during SSR, because they
-have no raw text form. `dangerouslySetInnerHTML` is still written as given and
-is not rewritten.
+This applies only to HTML elements. Inside `<svg>` and `<math>` (foreign
+content), `<script>` and `<style>` are ordinary elements whose text the parser
+reads as markup, so SSR keeps it entity-escaped. HTML integration points such
+as SVG `<foreignObject>`, `<desc>`, and `<title>`, MathML `<annotation-xml>`
+with an HTML `encoding`, and MathML text elements (`<mi>`, `<mo>`, `<mn>`,
+`<ms>`, `<mtext>`) return their children to HTML. Portal content follows the
+context of the host it renders at.
+
+Children of `<script>` and `<style>` may be strings, numbers, fragments,
+components that return text, `Show`/`For`/`Case` boundaries, and error
+boundaries. Function children render nothing on the server, as they do in any
+other element. Element children throw during SSR, because they have no raw
+text form. `dangerouslySetInnerHTML` is still written as given and is not
+rewritten.
 
 ### Client hydration
 

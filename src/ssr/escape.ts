@@ -131,34 +131,35 @@ export function escapeText(text: string): string {
 }
 
 /**
- * Elements whose content the HTML parser reads as raw text: entities are not
+ * HTML elements whose content the parser reads as raw text: entities are not
  * decoded, so their text must be emitted verbatim rather than entity-escaped.
+ * This holds only for HTML elements; in SVG or MathML `<script>` / `<style>`
+ * are ordinary elements (see `./namespace`).
  */
 export type RawTextElement = 'script' | 'style';
 
-/** Return the raw text element kind for a tag name, if it is one. */
+/** Return the raw text element kind for a lower-case HTML tag name. */
 export function getRawTextElement(tag: string): RawTextElement | null {
-  if (tag.length !== 5 && tag.length !== 6) return null;
-  const lower = tag.toLowerCase();
-  return lower === 'script' || lower === 'style' ? lower : null;
+  return tag === 'script' || tag === 'style' ? tag : null;
 }
 
 const SCRIPT_RAW_TEXT_RE = /<(\/?script|!--)/gi;
 const STYLE_RAW_TEXT_RE = /<\/style/gi;
 
 /**
- * Make text safe to emit verbatim inside a raw text element.
+ * Make text safe to emit verbatim inside an HTML raw text element.
  *
  * Only the sequences that let the parser leave the element are rewritten, so
  * ordinary text reaches the DOM unchanged and matches what the client renders:
  * - `<style>`: `</style` becomes `<\/style` (a CSS escape of `/`).
  * - `<script>`: `</script` becomes `<\/script`, and `<script` / `<!--` get
- *   their `<` written as `\x3C`, which keeps the parser out of the script
+ *   their `<` written as `\u003C`, which keeps the parser out of the script
  *   data (double) escaped states. Inside JS string, template and regex
- *   literals each rewrite denotes the original characters.
+ *   literals, and inside JSON strings (`application/json`, `importmap`,
+ *   `application/ld+json`), each rewrite denotes the original characters.
  *
- * The whole text must be escaped at once: a sequence split across children
- * only forms once they are concatenated.
+ * Matching is case-insensitive. The whole text must be escaped at once: a
+ * sequence split across children only forms once they are concatenated.
  */
 export function escapeRawText(text: string, element: RawTextElement): string {
   if (!text.includes('<')) return text;
@@ -166,7 +167,7 @@ export function escapeRawText(text: string, element: RawTextElement): string {
     return text.replace(STYLE_RAW_TEXT_RE, (match) => `<\\${match.slice(1)}`);
   }
   return text.replace(SCRIPT_RAW_TEXT_RE, (_match, rest: string) =>
-    rest[0] === '/' ? `<\\${rest}` : `\\x3C${rest}`
+    rest[0] === '/' ? `<\\${rest}` : `\\u003C${rest}`
   );
 }
 
