@@ -71,6 +71,41 @@ The marker is renderer-only and is not emitted as an HTML attribute. Leave it
 off for normal declarative elements so removing JSX children continues to clear
 their DOM and lifecycle ownership normally.
 
+### Attributes and DOM properties
+
+Intrinsic props render as attributes, so SSR can serialize them and hydration
+can compare them. Form state is also synced to the live property: `value`,
+`checked` and `selected`. A few more props are written as DOM properties
+because their attribute does not control the live state:
+
+| Prop            | Element             | Written as                                       | SSR             |
+| --------------- | ------------------- | ------------------------------------------------ | --------------- |
+| `muted`         | `<video>`/`<audio>` | `el.muted` and the `muted` attribute             | renders `muted` |
+| `indeterminate` | `<input>`           | `el.indeterminate` only                          | not rendered    |
+| object/array    | custom elements     | `el[name]` (primitive values stay attributes)    | not rendered    |
+| `prop:name`     | any                 | `el.name`, assigned verbatim (including `false`) | not rendered    |
+| `attr:name`     | any                 | the `name` attribute, never a property           | renders `name`  |
+
+```tsx
+function Media(props: { muted: boolean; stream: MediaStream; rows: Row[] }) {
+  return (
+    <>
+      <video muted={props.muted} prop:srcObject={props.stream} />
+      <input type="checkbox" indeterminate={() => someChecked()} />
+      <data-grid rows={props.rows} attr:theme="dark" />
+    </>
+  );
+}
+```
+
+When one of these props is removed, `muted` and `indeterminate` reset to
+`false` and other properties are set to `undefined`. Values SSR cannot render
+are applied when the client hydrates. The escape hatches keep the usual guards:
+`attr:`/`prop:` still drop `javascript:` URLs, `attr:on*` never renders an
+inline handler, and `prop:innerHTML`/`prop:outerHTML` are ignored (use
+`dangerouslySetInnerHTML`). A function value is still a reactive binding, so
+pass a callback property as `prop:onSelect={() => handler}`.
+
 See [Runtime](./runtime.md) for boot APIs.
 
 ## Server-Side Rendering (SSR)

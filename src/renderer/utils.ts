@@ -11,6 +11,10 @@ import {
 import type { AppRenderRuntime } from '../common/app-render-runtime';
 import { logger } from '../common/logger';
 import { getPublicAttributeName } from '../common/attr-names';
+import {
+  getDomPropertyName,
+  isKnownBooleanProperty,
+} from '../common/dom-properties';
 import { isSkippedProp as isSkippedPropShared } from '../common/prop-classification';
 import { getRuntimeEnv } from './env';
 import { setDevValue, incDevCounter } from '../runtime';
@@ -277,6 +281,14 @@ export function hasPropChanged(
     }
     if (key === 'value' || key === 'checked') {
       return (el as HTMLElement & Record<string, unknown>)[key] !== value;
+    }
+    const propertyName = getDomPropertyName(el.localName, key, value);
+    if (propertyName !== null) {
+      const expected = isKnownBooleanProperty(key) ? Boolean(value) : value;
+      return !Object.is(
+        (el as Element & Record<string, unknown>)[propertyName],
+        expected
+      );
     }
     const attr = el.getAttribute(getRenderedAttributeName(el, key));
     if (value === undefined || value === null || value === false) {

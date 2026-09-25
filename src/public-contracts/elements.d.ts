@@ -109,6 +109,16 @@ interface IntrinsicProps extends IntrinsicEventProps {
   spellCheck?: ReactiveProp<IntrinsicTextValue>;
   [attr: `aria-${string}`]: ReactiveProp<IntrinsicAriaValue>;
   [attr: `data-${string}`]: ReactiveProp<IntrinsicDataValue>;
+  /**
+   * Assigns the DOM property after the prefix, verbatim (`prop:srcObject`).
+   * Never written as an attribute, and never rendered by SSR.
+   */
+  [prop: `prop:${string}`]: unknown;
+  /**
+   * Writes the attribute after the prefix as named, where Askr would otherwise
+   * set a property (`attr:config` on a custom element).
+   */
+  [attr: `attr:${string}`]: ReactiveProp<IntrinsicDataValue>;
 }
 /**
  * Fallback intrinsic props for arbitrary tag names and dynamic prop spreads.
@@ -219,6 +229,8 @@ interface InputIntrinsicProps extends IntrinsicProps {
   autocomplete?: ReactiveProp<IntrinsicTextValue>;
   checked?: ReactiveProp<IntrinsicBooleanValue>;
   disabled?: ReactiveProp<IntrinsicBooleanValue>;
+  /** Sets the `indeterminate` property; there is no attribute to render. */
+  indeterminate?: ReactiveProp<IntrinsicBooleanValue>;
   maxLength?: ReactiveProp<IntrinsicNumberValue>;
   maxlength?: ReactiveProp<IntrinsicNumberValue>;
   minLength?: ReactiveProp<IntrinsicNumberValue>;

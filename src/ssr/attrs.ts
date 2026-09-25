@@ -10,6 +10,7 @@ import {
   isSkippedProp,
 } from '../common/prop-classification';
 import { isUnsafeUrlAttribute } from '../common/url';
+import { isPropertyOnlyProp } from '../common/dom-properties';
 import type { RenderSink } from './sink';
 import { escapeAttr, needsEscapeAttr, styleObjToCss } from './escape';
 
@@ -50,10 +51,15 @@ function getEscapedAttrValue(value: string): string {
 /**
  * Render attributes directly to a sink without intermediate string allocations.
  * This is the hot path for streaming SSR.
+ *
+ * Props the DOM renderer writes only as properties (`prop:*`, `indeterminate`,
+ * object values on custom elements) have no markup and are left out; the
+ * client applies them when it hydrates.
  */
 export function renderAttrsDirect(
   props: Props | undefined,
-  sink: Pick<RenderSink, 'write'>
+  sink: Pick<RenderSink, 'write'>,
+  tagName: string
 ): void {
   if (!props || typeof props !== 'object') return;
 
@@ -70,8 +76,12 @@ export function renderAttrsDirect(
     // Skip internal props
     if (key.charCodeAt(0) === 95) continue; // '_'
 
+    if (isPropertyOnlyProp(tagName, key, value)) continue;
+
     // Normalize public JSX prop names to their rendered HTML attribute names.
     const attrName = getPublicAttributeName(key);
+    // `attr:` never smuggles an inline event handler past the check above.
+    if (attrName !== key && isEventHandler(attrName)) continue;
     assertAttributeName(attrName);
 
     // Handle style objects

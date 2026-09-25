@@ -31,5 +31,8 @@ const PUBLIC_ATTRIBUTE_NAME_MAP: Record<string, string> = {
 };
 
 export function getPublicAttributeName(propName: string): string {
+  // `attr:name` is the explicit attribute escape hatch: the name is used as
+  // written, never mapped and never routed to a DOM property.
+  if (propName.startsWith('attr:')) return propName.slice(5);
   return PUBLIC_ATTRIBUTE_NAME_MAP[propName] ?? propName;
 }

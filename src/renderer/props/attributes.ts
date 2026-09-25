@@ -5,6 +5,10 @@ import {
   normalizeStylePropertyName,
 } from '../../common/prop-classification';
 import { isUnsafeUrlAttribute } from '../../common/url';
+import {
+  ATTRIBUTE_PROP_PREFIX,
+  propertyReflectsAttribute,
+} from '../../common/dom-properties';
 import { isDevelopmentEnvironment } from '../../common/env';
 import { logger } from '../../common/logger';
 import { incrementPerfMetric } from '../../runtime';
@@ -20,10 +24,30 @@ import {
   tagNamesEqualIgnoreCase,
   writeElementClassName,
 } from '../utils';
+import {
+  applyDomPropertyProp,
+  hasStaleDomProperties,
+  matchesDomPropertyProp,
+} from './properties';
 
 /** Props whose live DOM property must be synced alongside the attribute. */
 function isFormControlProp(key: string): boolean {
   return key === 'value' || key === 'checked' || key === 'selected';
+}
+
+/**
+ * Attributes the renderer never writes: unsafe URLs, and inline event handler
+ * attributes requested through the `attr:` escape hatch (SSR skips those too).
+ */
+function isBlockedAttribute(key: string, value: unknown): boolean {
+  if (key.startsWith(ATTRIBUTE_PROP_PREFIX)) {
+    const name = key.slice(ATTRIBUTE_PROP_PREFIX.length);
+    return (
+      name.slice(0, 2).toLowerCase() === 'on' ||
+      isUnsafeUrlAttribute(name, value)
+    );
+  }
+  return isUnsafeUrlAttribute(key, value);
 }
 
 /** Attribute text for a scalar prop, rendering HTML booleans bare. */
@@ -285,6 +309,9 @@ export function applyStaticScalarPropsToElement(
     }
 
     const value = props[key];
+    if (applyDomPropertyProp(el, key, value, tagName)) {
+      continue;
+    }
     if (
       value === undefined ||
       value === null ||
@@ -301,7 +328,7 @@ export function applyStaticScalarPropsToElement(
       applyFormControlProp(el, key, value, tagName);
     } else if (key === 'dangerouslySetInnerHTML') {
       applyDangerousInnerHTMLValue(el, value);
-    } else if (isUnsafeUrlAttribute(key, value)) {
+    } else if (isBlockedAttribute(key, value)) {
       removeRenderedAttribute(el, key);
     } else {
       setRenderedAttribute(el, key, renderedScalarValue(el, key, value));
@@ -429,6 +456,10 @@ export function applyScalarPropValue(
     return;
   }
 
+  if (applyDomPropertyProp(el, key, value, tagName)) {
+    return;
+  }
+
   if (
     value === undefined ||
     value === null ||
@@ -465,7 +496,7 @@ export function applyScalarPropValue(
     applyFormControlProp(el, key, value, tagName);
   } else if (key === 'dangerouslySetInnerHTML') {
     applyDangerousInnerHTMLValue(el, value);
-  } else if (isUnsafeUrlAttribute(key, value)) {
+  } else if (isBlockedAttribute(key, value)) {
     removeRenderedAttribute(el, key);
   } else {
     const attributeName = getRenderedAttributeName(el, key);
@@ -601,6 +632,14 @@ function hasMatchingStaticPropsInternal(
       return false;
     }
 
+    const propertyMatch = matchesDomPropertyProp(el, key, value, vnodeType);
+    if (propertyMatch === false) {
+      return false;
+    }
+    if (propertyMatch === true && !propertyReflectsAttribute(key)) {
+      continue;
+    }
+
     if (key === 'class' || key === 'className') {
       if (readElementClassName(el) !== String(value)) {
         return false;
@@ -673,7 +712,10 @@ function hasMatchingStaticPropsInternal(
     staticPropCount += 1;
   }
 
-  return el.attributes.length === staticPropCount;
+  return (
+    el.attributes.length === staticPropCount &&
+    !hasStaleDomProperties(el, props)
+  );
 }
 
 export function hasMatchingStaticProps(

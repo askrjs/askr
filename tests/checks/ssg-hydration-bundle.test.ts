@@ -97,6 +97,9 @@ describe('SSG hydration bundle', () => {
     // shared prop-classification table (boolean HTML attributes and camelCase
     // attribute names) so the two sides agree on what they emit. That data is
     // ~940 bytes and is required for hydration parity, not optional weight.
-    expect(initialBytes).toBeLessThanOrEqual(257 * 1024);
+    // 259 KiB: the DOM property path (`muted`, `indeterminate`, custom
+    // element object props, `prop:`/`attr:`) adds ~1.6 KB; without it those
+    // props cannot reach the live element at all.
+    expect(initialBytes).toBeLessThanOrEqual(259 * 1024);
   });
 });

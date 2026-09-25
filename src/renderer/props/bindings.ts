@@ -1,6 +1,8 @@
 import { isAriaAttribute } from '../../common/prop-classification';
+import { PROPERTY_PROP_PREFIX } from '../../common/dom-properties';
 import { getDelegatedHandlersForElement } from './events';
 import { applyScalarPropValue, removeStaleAttributes } from './attributes';
+import { pruneStaleDomProperties } from './properties';
 import {
   elementListeners,
   elementRefs,
@@ -126,8 +128,13 @@ export function applyPropsToElement(
       value === undefined ||
       value === null ||
       (value === false && !isAriaAttribute(key))
-    )
+    ) {
+      // `prop:` assigns falsy values verbatim; they are not "absent".
+      if (key.startsWith(PROPERTY_PROP_PREFIX)) {
+        applyScalarPropValue(el, key, value, tagName);
+      }
       continue;
+    }
 
     const eventProp = parseEventProp(key);
     if (eventProp) {
@@ -263,6 +270,7 @@ export function syncElementPropBindings(
   }
 
   removeStaleAttributes(el, domVNode, props);
+  pruneStaleDomProperties(el, props);
   pruneElementListeners(
     el,
     existingListeners,

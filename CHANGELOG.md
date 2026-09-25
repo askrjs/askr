@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- fix(renderer): props whose live state is not the attribute now set the DOM
+  property. `<video muted>` sets `video.muted` (and keeps the attribute),
+  `<input indeterminate>` sets `input.indeterminate` without an attribute, and
+  object/array values on custom elements are assigned as properties. New
+  `prop:name` and `attr:name` escape hatches force either path. SSR renders
+  only attribute-backed values; property-only values apply on hydration.
 - breaking(data): `defineQuery()` fetchers now receive the input and the abort
   signal as separate arguments, `fetch(input, { signal })`, instead of one
   merged `{ ...input, signal }` object. The merged shape dropped primitive
