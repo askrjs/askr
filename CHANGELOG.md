@@ -4,11 +4,13 @@
 
 - fix(ssr): async render contexts resolve `AsyncLocalStorage` from
   `globalThis.AsyncLocalStorage` or `process.getBuiltinModule('node:async_hooks')`
-  instead of `new Function('return require(...)')`, which never loaded under
-  Node ESM and fails under a CSP without `'unsafe-eval'`. Async SSR now works
-  on Deno, Bun and Cloudflare Workers with `nodejs_compat`, and synchronous
-  entry via `withRenderContext()` gets concurrency-safe storage on first use.
-  Supported runtimes are documented in the SSR guide.
+  instead of `new Function('return require(...)')`. Previously synchronous
+  `withRenderContext()` could not accept async callbacks under Node ESM (where
+  that loader never resolved `require`), and async render contexts were
+  rejected under a CSP without `'unsafe-eval'` and on runtimes without
+  `process.versions.node`. Any runtime that provides `AsyncLocalStorage`
+  globally or via `process.getBuiltinModule` is now supported; see the SSR
+  guide.
 - fix(runtime): `cspNonce()` decides whether a render scope is active from
   scope state instead of matching the text of `readScope()`'s error message.
 - fix(router): `hydrateSPA()` no longer redirects a server-authorized page to

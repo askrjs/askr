@@ -26,11 +26,17 @@ promises with `defer()` and render them through `Resolve`.
 Synchronous rendering (`renderToString()`, `renderToStringSync()`) works on any
 JavaScript runtime. `renderRouteRequest()` and other async render work keep each
 request's render context in `AsyncLocalStorage` so concurrent requests stay
-isolated. Askr resolves it on first use, in this order:
+isolated. Async rendering is supported on runtimes that provide
+`AsyncLocalStorage` globally or via `process.getBuiltinModule`. Askr resolves
+it on first use, in this order:
 
-1. `globalThis.AsyncLocalStorage`, for runtimes that expose it globally.
-2. `process.getBuiltinModule('node:async_hooks')`: Node.js 24+, Deno, Bun,
-   and Cloudflare Workers with the `nodejs_compat` flag.
+1. `globalThis.AsyncLocalStorage`.
+2. `process.getBuiltinModule('node:async_hooks')`.
+
+Node.js 24+ (the supported Node range) provides the second. Other runtimes
+qualify when they implement either API; for example, recent Deno and Bun
+releases and Cloudflare Workers with Node.js compatibility enabled. Check your
+runtime's documentation for its current support.
 
 Neither path is a static import or evaluates code, so client bundles never pull
 in `node:async_hooks` and pages served under a CSP without `'unsafe-eval'` are
