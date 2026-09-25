@@ -1,134 +1,96 @@
 import { isPromiseLike } from '../common/promise';
-import type { AccessDenyStatus, RouteRequestResult } from '../common/router';
+import type { RouteRequestResult } from '../common/router';
 import * as RouteModule from '../router/route';
-import {
-  getRouteRenderContext,
-  resolvedRouteHasLoader,
-} from '../router/resolution';
+import { getRouteRenderContext } from '../router/resolution';
 import type { AuthContext } from '@askrjs/auth';
-import { _resolveRouteMatchFromRoutes } from '../router/route-matching';
-import { throwSSRDataMissing } from './context';
+import {
+  _resolveRouteMatchFromRoutes,
+  getMatchingRouteRecord,
+} from '../router/route-matching';
+import { SSRAccessDecisionError, SSRDataMissingError } from './errors';
 import type { RouteRenderOptions, SSRRoute } from './route-render';
 import {
   normalizeRouteBasePath,
   removeRouteBasePath,
 } from '../router/base-path';
 
-const MAX_SSR_REDIRECTS = 20;
-
 type ResolvedPolicyAwareSSRRoute = {
-  url: string;
   route: SSRRoute;
   params: Record<string, string>;
   authContext?: AuthContext;
 };
 
 function getRouteRequestResultSync(
-  result: RouteRequestResult | Promise<RouteRequestResult>
+  result: RouteRequestResult | Promise<RouteRequestResult>,
+  href: string
 ): RouteRequestResult {
   if (isPromiseLike(result)) {
-    throwSSRDataMissing();
+    // Sync SSR abandons this resolution; observe its outcome so a rejection
+    // does not surface as an unhandled rejection.
+    void Promise.resolve(result).catch(() => undefined);
+    throw new SSRDataMissingError(
+      `SSR: route resolution for ${href} is asynchronous (async auth, policy, lazy route, or preload). renderToString()/renderToStream() only resolve routes synchronously; use renderRouteRequest() to await route resolution.`
+    );
   }
 
   return result;
-}
-
-function buildDeniedRoute(route: SSRRoute, status: AccessDenyStatus): SSRRoute {
-  return {
-    ...route,
-    handler: () => ({
-      type: 'div',
-      props: {
-        'data-route-denied': String(status),
-      },
-      children: [String(status)],
-    }),
-  };
 }
 
 export function resolvePolicyAwareSSRRoute(
   opts: RouteRenderOptions,
   routeTable: SSRRoute[]
 ): ResolvedPolicyAwareSSRRoute {
-  const manifest = opts.registry.manifest;
+  const href = opts.url;
+  const logicalHref = removeRouteBasePath(
+    href,
+    normalizeRouteBasePath(opts.registry.manifest.basePath)
+  );
+  if (logicalHref === undefined) {
+    throw new Error(`SSR: no route found for url: ${href}`);
+  }
+  const logicalUrl = new URL(logicalHref, 'http://localhost');
+  const matched = _resolveRouteMatchFromRoutes(logicalUrl.pathname, routeTable);
 
-  let href = opts.url;
-  const visited = new Set<string>();
-
-  for (let redirects = 0; redirects <= MAX_SSR_REDIRECTS; redirects += 1) {
-    const logicalHref = removeRouteBasePath(
-      href,
-      normalizeRouteBasePath(manifest.basePath)
-    );
-    if (logicalHref === undefined) {
-      throw new Error(`SSR: no route found for url: ${href}`);
-    }
-    const logicalUrl = new URL(logicalHref, 'http://localhost');
-    const matched = _resolveRouteMatchFromRoutes(
-      logicalUrl.pathname,
-      routeTable
-    );
-
-    if (!matched) {
-      throw new Error(`SSR: no route found for url: ${href}`);
-    }
-
-    const resolved = getRouteRequestResultSync(
-      RouteModule.resolveRouteRequest(href, {
-        registry: opts.registry,
-        mode: 'ssr',
-        auth: opts.auth,
-        authContext: opts.authContext,
-        request: opts.request,
-        signal: opts.signal,
-      })
-    );
-
-    if (resolved === null) {
-      throw new Error(`SSR: no route found for url: ${href}`);
-    }
-
-    if (resolved.kind === 'redirect') {
-      const redirectTarget = new URL(resolved.to, 'http://localhost');
-      const redirectHref = `${redirectTarget.pathname}${redirectTarget.search}${redirectTarget.hash}`;
-
-      if (redirectHref === href || visited.has(redirectHref)) {
-        throw new Error(
-          `[Askr] SSR redirect cycle detected at ${redirectHref}.`
-        );
-      }
-
-      if (redirects >= MAX_SSR_REDIRECTS) {
-        throw new Error(
-          `[Askr] SSR redirect limit exceeded (${MAX_SSR_REDIRECTS}).`
-        );
-      }
-
-      visited.add(redirectHref);
-      href = redirectHref;
-      continue;
-    }
-
-    if (resolved.kind === 'deny') {
-      return {
-        url: href,
-        route: buildDeniedRoute(matched.route, resolved.status),
-        params: matched.params,
-      };
-    }
-
-    return {
-      url: href,
-      route: {
-        ...matched.route,
-        handler: resolvedRouteHasLoader(resolved)
-          ? resolved.handler
-          : matched.route.handler,
-      },
-      params: matched.params,
-      authContext: getRouteRenderContext(resolved)?.auth,
-    };
+  if (!matched) {
+    throw new Error(`SSR: no route found for url: ${href}`);
   }
 
-  throw new Error(`[Askr] SSR redirect limit exceeded (${MAX_SSR_REDIRECTS}).`);
+  // Reject loader routes before resolution starts, so neither the loader nor
+  // its preload or lazy import is started for a render that cannot use them.
+  const record = getMatchingRouteRecord(
+    logicalHref,
+    opts.registry.manifest.records
+  )?.record;
+  if (typeof record?.options?.loader === 'function') {
+    throw new SSRDataMissingError(
+      `SSR: route ${record.path} declares a loader, which renderToString()/renderToStream() do not run. Use renderRouteRequest() to await route loaders before rendering.`
+    );
+  }
+
+  const resolved = getRouteRequestResultSync(
+    RouteModule.resolveRouteRequest(href, {
+      registry: opts.registry,
+      mode: 'ssr',
+      auth: opts.auth,
+      authContext: opts.authContext,
+      request: opts.request,
+      signal: opts.signal,
+      load: false,
+    }),
+    href
+  );
+
+  if (resolved === null) {
+    throw new Error(`SSR: no route found for url: ${href}`);
+  }
+
+  if (resolved.kind === 'redirect' || resolved.kind === 'deny') {
+    throw new SSRAccessDecisionError(resolved);
+  }
+
+  return {
+    route: matched.route,
+    params: matched.params,
+    authContext: getRouteRenderContext(resolved)?.auth,
+  };
 }

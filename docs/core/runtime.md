@@ -53,10 +53,11 @@ Server renders to HTML string. Client hydrates with matching route state.
 
 ```tsx
 // server
-import { renderToString } from '@askrjs/askr/ssr';
+import { renderRouteRequest } from '@askrjs/askr/ssr';
 import { registry } from './routes';
 
-const html = renderToString({ url: req.url, registry });
+const result = await renderRouteRequest({ url: req.url, registry });
+// result.kind: 'render' | 'redirect' | 'deny' | 'no-match'
 
 // client
 import { hydrateSPA } from '@askrjs/askr/boot';
@@ -64,10 +65,12 @@ import { hydrateSPA } from '@askrjs/askr/boot';
 await hydrateSPA({ root: 'app', registry });
 ```
 
-The component render phase remains synchronous. Critical route-loader data is
-awaited first; `defer()` explicitly marks non-critical promises that may stream
+The component render phase remains synchronous. `renderRouteRequest()` awaits
+critical route-loader data first; `defer()` explicitly marks non-critical promises that may stream
 after fallback HTML. Async components and async `resource()` work during SSR
-still throw instead of being awaited.
+still throw instead of being awaited. The synchronous `renderToString({ url,
+registry })` does not run route loaders and throws `SSRDataMissingError` for a
+route that declares one.
 
 ## Runtime boundary
 

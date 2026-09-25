@@ -267,6 +267,9 @@ Collection identity and lifecycle are deterministic:
 - During SSR and SSG rendering, the collection reads hydrated query data but
   does not start client fetches. Prefetch the definition's inputs into the
   request-owned runtime before rendering.
+- On the client, a new collection entry consumes its hydrated query data the
+  same way a `createQuery()` reader does (see "Hydrated query data" in the
+  platform recipes guide).
 
 ### Query UI cookbook
 

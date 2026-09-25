@@ -11,6 +11,7 @@ import { renderSSRRouteAppToSink, renderToStringSync } from './render-sync';
 import type { VNode } from './types';
 
 export { SSRDataMissingError } from './context';
+export { SSRAccessDecisionError } from './errors';
 export type {
   DocumentRenderArgs,
   DocumentRenderContext,
