@@ -130,6 +130,11 @@ describe('SSG hydration bundle', () => {
     // 265 KiB: client navigation tracks history entry indexes so a failed
     // back/forward returns to the rendered entry, and hands URLs no route can
     // render to the browser (~1.1 KB, #453-#455; measured 270,803 bytes).
-    expect(initialBytes).toBeLessThanOrEqual(265 * 1024);
+    // 267 KiB for the DOM property path (`muted`, `indeterminate`, custom
+    // element object props, `prop:`/`attr:`): the property table, resetting
+    // removed properties, the URL/raw-HTML guards and rollback snapshots add
+    // ~2.4 KB (measured 273,240 bytes). Without it those props cannot reach
+    // the element at all.
+    expect(initialBytes).toBeLessThanOrEqual(267 * 1024);
   });
 });

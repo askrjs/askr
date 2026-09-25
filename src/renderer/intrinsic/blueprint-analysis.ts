@@ -1,3 +1,4 @@
+import { getDomPropertyName } from '../../common/dom-properties';
 import { applyScalarPropValue } from '../props/attributes';
 import { isFragmentVNode } from '../children/child-shape';
 import { _isDOMElement, type DOMElement } from '../types';
@@ -77,7 +78,11 @@ export function isBlueprintKeyProp(key: string): boolean {
   return key === 'key' || key === 'data-key' || key === 'data-askr-key-kind';
 }
 
-function classifyProp(value: unknown, key: string): BlueprintPropShape | null {
+function classifyProp(
+  value: unknown,
+  key: string,
+  tagName: string
+): BlueprintPropShape | null {
   if (key === 'ref') {
     return { kind: 'ref' };
   }
@@ -89,6 +94,11 @@ function classifyProp(value: unknown, key: string): BlueprintPropShape | null {
   }
   if (typeof value === 'function') {
     return { kind: 'reactive' };
+  }
+  // A cloned template carries attributes, not properties, so a prop written
+  // as a DOM property cannot be baked into the blueprint.
+  if (getDomPropertyName(tagName, key, value) !== null) {
+    return null;
   }
   if (value === undefined || value === null || value === false) {
     return { kind: 'empty' };
@@ -169,7 +179,7 @@ function buildElementShape(
   let propCount = 0;
   for (const key in props) {
     if (key === 'children' || isBlueprintKeyProp(key)) continue;
-    const propShape = classifyProp(props[key], key);
+    const propShape = classifyProp(props[key], key, vnode.type);
     if (!propShape) return null;
     propShapes[key] = propShape;
     propCount += 1;
