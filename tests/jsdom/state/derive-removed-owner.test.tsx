@@ -1,5 +1,18 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
-import { derive, state, type Derived } from '../../../src/index';
+import {
+  derive,
+  selector,
+  state,
+  Case,
+  For,
+  Match,
+  Show,
+  type Derived,
+} from '../../../src/index';
+import {
+  DefaultPortal,
+  Portal,
+} from '../../../src/foundations/structures/portal';
 import {
   createTestContainer,
   flushScheduler,
@@ -140,5 +153,171 @@ describe('derive() owned by a component an ancestor is about to remove (#523)', 
     setName('b');
     expect(() => flushScheduler()).toThrow('boom');
     expect(container.textContent).toBe('0B');
+  });
+
+  it('should not evaluate a removed row derive rendered through a portal', () => {
+    let setItems!: (v: Item[]) => void;
+    let items!: () => Item[];
+
+    function Row(props: { index: number }) {
+      const name = derive(() => items()[props.index].name);
+      return <li>{name()}</li>;
+    }
+
+    function Writer() {
+      const [it, si] = state<Item[]>([{ name: 'a' }, { name: 'b' }]);
+      items = it;
+      setItems = si;
+      return (
+        <Portal>
+          <ul>
+            {it().map((_, i) => (
+              <Row key={i} index={i} />
+            ))}
+          </ul>
+        </Portal>
+      );
+    }
+
+    const App = () => (
+      <>
+        <DefaultPortal />
+        <Writer />
+      </>
+    );
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    expect(container.textContent).toBe('ab');
+
+    setItems([{ name: 'c' }]);
+    flushScheduler();
+    expect(container.textContent).toBe('c');
+  });
+
+  it('should not evaluate a removed row selector() source with its stale props', () => {
+    let setItems!: (v: Item[]) => void;
+    let items!: () => Item[];
+
+    function Row(props: { index: number }) {
+      const isA = selector(() => items()[props.index].name);
+      return <li>{isA('a') ? 'A' : 'x'}</li>;
+    }
+
+    function List() {
+      const [it, si] = state<Item[]>([{ name: 'a' }, { name: 'b' }]);
+      items = it;
+      setItems = si;
+      return (
+        <ul>
+          {it().map((_, i) => (
+            <Row key={i} index={i} />
+          ))}
+        </ul>
+      );
+    }
+
+    createIsland({ root: container, component: List });
+    flushScheduler();
+    expect(container.textContent).toBe('Ax');
+
+    setItems([{ name: 'b' }]);
+    flushScheduler();
+    expect(container.textContent).toBe('x');
+  });
+
+  it('should not evaluate a derive in a <For> row the reconciliation removes', () => {
+    let setItems!: (v: Item[]) => void;
+    let items!: () => Item[];
+
+    function Row(props: { index: number }) {
+      const name = derive(() => items()[props.index].name);
+      return <li>{name()}</li>;
+    }
+
+    function List() {
+      const [it, si] = state<Item[]>([{ name: 'a' }, { name: 'b' }]);
+      items = it;
+      setItems = si;
+      return (
+        <ul>
+          <For each={() => items()} by={(_, i) => i}>
+            {(_, i) => <Row index={i()} />}
+          </For>
+        </ul>
+      );
+    }
+
+    createIsland({ root: container, component: List });
+    flushScheduler();
+    expect(container.textContent).toBe('ab');
+
+    setItems([{ name: 'c' }]);
+    flushScheduler();
+    expect(container.textContent).toBe('c');
+  });
+
+  it('should not evaluate a derive in a <Show> branch the control removes', () => {
+    let setItems!: (v: Item[]) => void;
+    let items!: () => Item[];
+
+    function Second() {
+      const name = derive(() => items()[1].name);
+      return <b>{name()}</b>;
+    }
+
+    function App() {
+      const [it, si] = state<Item[]>([{ name: 'a' }, { name: 'b' }]);
+      items = it;
+      setItems = si;
+      return (
+        <p>
+          <Show when={() => items().length > 1}>
+            <Second />
+          </Show>
+        </p>
+      );
+    }
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    expect(container.textContent).toBe('b');
+
+    setItems([{ name: 'c' }]);
+    flushScheduler();
+    expect(container.textContent).toBe('');
+  });
+
+  it('should not evaluate a derive in a <Case> branch the control removes', () => {
+    let setItems!: (v: Item[]) => void;
+    let items!: () => Item[];
+
+    function Second() {
+      const name = derive(() => items()[1].name);
+      return <b>{name()}</b>;
+    }
+
+    function App() {
+      const [it, si] = state<Item[]>([{ name: 'a' }, { name: 'b' }]);
+      items = it;
+      setItems = si;
+      return (
+        <p>
+          <Case fallback={<i>one</i>}>
+            <Match when={it().length > 1} key={'many'}>
+              <Second />
+            </Match>
+          </Case>
+        </p>
+      );
+    }
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    expect(container.textContent).toBe('b');
+
+    setItems([{ name: 'c' }]);
+    flushScheduler();
+    expect(container.textContent).toBe('one');
   });
 });
