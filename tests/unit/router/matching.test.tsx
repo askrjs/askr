@@ -126,7 +126,7 @@ describe('route matching (ROUTER)', () => {
     it('should decode named splat params segment by segment', () => {
       const result = match('/files/a%20b/%E0%A4%A/c%2Fd', '/files/{*path}');
       expect(result.matched).toBe(true);
-      expect(result.params).toEqual({ path: 'a b/%E0%A4%A/c/d' });
+      expect(result.params).toEqual({ path: 'a b/%E0%A4%A/c%2Fd' });
     });
   });
 
@@ -241,6 +241,47 @@ describe('route matching (ROUTER)', () => {
       expect(() => match('/files/%E0%A4%A', '/files/*')).not.toThrow();
       expect(match('/files/%E0%A4%A', '/files/*').params).toEqual({
         '*': '%E0%A4%A',
+      });
+    });
+  });
+  describe('encoded separators in captures', () => {
+    const traversal = '..%2F..%2Fetc%2Fpasswd';
+
+    it('should keep %2F encoded in wildcard captures', () => {
+      expect(match(`/files/${traversal}`, '/files/*').params).toEqual({
+        '*': traversal,
+      });
+    });
+
+    it('should keep %2F encoded in named splat captures', () => {
+      expect(match(`/files/${traversal}`, '/files/{*path}').params).toEqual({
+        path: traversal,
+      });
+    });
+
+    it('should keep %2F encoded in param captures', () => {
+      expect(match(`/posts/${traversal}`, '/posts/{slug}').params).toEqual({
+        slug: traversal,
+      });
+    });
+
+    it('should keep %2F encoded in catch-all captures', () => {
+      expect(match('/a%2Fb/c', '/*').params).toEqual({ '*': '/a%2Fb/c' });
+      expect(match(`/${traversal}`, '/*').params).toEqual({ '*': traversal });
+    });
+
+    it('should keep %5C encoded and normalize separator case', () => {
+      expect(match('/files/..%5c..%5cwin.ini', '/files/*').params).toEqual({
+        '*': '..%5C..%5Cwin.ini',
+      });
+      expect(match('/files/a%2fb', '/files/{*path}').params).toEqual({
+        path: 'a%2Fb',
+      });
+    });
+
+    it('should still decode other characters around a kept separator', () => {
+      expect(match('/files/caf%C3%A9%2Fa%20b', '/files/*').params).toEqual({
+        '*': 'café%2Fa b',
       });
     });
   });

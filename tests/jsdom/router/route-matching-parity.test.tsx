@@ -65,6 +65,8 @@ const cases = [
   { url: '/men%C3%BC', expected: 'menu' },
   { url: '/men%C3%BC/a%20b/c', expected: 'menu-missing:/a b/c' },
   { url: '/nowhere/caf%C3%A9/x', expected: 'root-missing:/nowhere/café/x' },
+  { url: '/files/..%2F..%2Fetc', expected: 'file:..%2F..%2Fetc' },
+  { url: '/men%C3%BC/x/..%2Fsecret', expected: 'menu-missing:/x/..%2Fsecret' },
 ] as const;
 
 describe('route matching parity (client, SSR)', () => {
