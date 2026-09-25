@@ -6,9 +6,11 @@ import {
 
 export default defineConfig({
   define: createNodeEnvDefine('development', { bench: true }),
-  esbuild: {
-    jsx: 'automatic',
-    jsxImportSource: '@askrjs/askr',
+  oxc: {
+    jsx: {
+      runtime: 'automatic',
+      importSource: '@askrjs/askr',
+    },
   },
   resolve: {
     alias: createPackageAliases(),
