@@ -118,6 +118,7 @@ export function renderAttrsDirect(
     // Skip internal props
     if (key.charCodeAt(0) === 95) continue; // '_'
 
+    const value = resolvePropValue(propsObj[key]);
     if (isPropertyOnlyProp(tagName, key, value)) continue;
     // `attr:` renders text only; objects (even `attr:style`) are left out on
     // both sides rather than serialized differently.
@@ -133,7 +134,6 @@ export function renderAttrsDirect(
     // `attr:` never smuggles an inline event handler past the check above.
     if (attrName !== key && isEventHandler(attrName)) continue;
     assertAttributeName(attrName);
-    const value = resolvePropValue(propsObj[key]);
 
     // Handle style objects
     if (attrName === 'style') {
