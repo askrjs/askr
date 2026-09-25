@@ -1,8 +1,10 @@
-import { logger } from '../../common/logger';
 import {
   createOwnedFineGrainedEffect,
+  getCurrentComponentInstance,
   incDevCounter,
   incrementPerfMetric,
+  isRenderingProtectedBoundaryContent,
+  routeRenderedOutputErrorToBoundary,
   type FineGrainedEffectHandle,
 } from '../../runtime';
 import { applyScalarPropValue } from '../props/attributes';
@@ -13,7 +15,6 @@ import {
   type ReactivePropCleanupEntry,
   teardownNodeSubtree,
 } from '../ownership/cleanup';
-import { getRuntimeEnv } from '../env';
 import {
   createReactivePropCleanupEntry,
   applyFreshElementBindings,
@@ -242,12 +243,18 @@ function blueprintBindingsChanged(
   return false;
 }
 
+// Same routing as a single reactive prop binding: the nearest ErrorBoundary
+// of the component that rendered the group, else thrown from the update.
 function reportBlueprintBindingError(
   this: BlueprintOwnedEffect,
   error: unknown
 ): void {
-  if (getRuntimeEnv().NODE_ENV !== 'production') {
-    logger.warn('[Askr] Blueprint reactive update failed:', error);
+  const { owner, protectedByOwner } = this._owner;
+  if (
+    !owner ||
+    !routeRenderedOutputErrorToBoundary(owner, error, protectedByOwner)
+  ) {
+    throw error;
   }
 }
 
@@ -257,12 +264,15 @@ export function mountBlueprintBindingGroup(
 ): void {
   if (bindings.length === 0) return;
 
+  const owner = getCurrentComponentInstance();
   const group: BlueprintBindingGroup = {
     _coalesceForItemReads: true,
     bindings,
     activeCount: bindings.length,
     effect: null,
     host,
+    owner,
+    protectedByOwner: !!owner && isRenderingProtectedBoundaryContent(owner),
   };
   const effect = createOwnedFineGrainedEffect(
     'reactive',
