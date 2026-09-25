@@ -1,4 +1,12 @@
-import { afterEach, beforeEach, expect, test, vi } from 'vite-plus/test';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  expect,
+  test,
+  vi,
+} from 'vite-plus/test';
 import { page } from 'vite-plus/test/browser/context';
 import { requireUser } from '@askrjs/auth';
 import { cleanupApp, createSPA } from '@askrjs/askr/boot';
@@ -14,6 +22,12 @@ import {
 
 // @askr-allow-real-timers -- browser navigations settle asynchronously.
 
+// WebKit throws SecurityError after 100 history.pushState/replaceState calls
+// in 10 seconds, for the whole page, so later test files would fail. Cases
+// share one app where they can, the URL is restored once per file, and the
+// total is checked below.
+const HISTORY_WRITE_BUDGET = 45;
+
 type NavigateEventLike = Event & {
   navigationType: string;
   destination: { url: string };
@@ -25,6 +39,7 @@ let errors: ReturnType<typeof vi.spyOn>;
 let documentLoads: { type: string; url: string }[] = [];
 
 let historyApiDepth = 0;
+let historyWrites = 0;
 const originalPushState = window.history.pushState;
 const originalReplaceState = window.history.replaceState;
 
@@ -34,6 +49,7 @@ function trackHistoryApi(
 ): typeof window.history.pushState {
   return function (this: History, ...args) {
     historyApiDepth += 1;
+    historyWrites += 1;
     try {
       return method.apply(this, args);
     } finally {
@@ -60,6 +76,15 @@ function browserNavigation(): EventTarget {
   return navigation;
 }
 
+beforeAll(() => {
+  originalUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+});
+
+afterAll(() => {
+  window.history.replaceState({}, '', originalUrl);
+  expect(historyWrites).toBeLessThanOrEqual(HISTORY_WRITE_BUDGET);
+});
+
 beforeEach(() => {
   documentLoads = [];
   window.history.pushState = trackHistoryApi(originalPushState);
@@ -67,7 +92,6 @@ beforeEach(() => {
   browserNavigation().addEventListener('navigate', cancelDocumentLoad);
   errors = vi.spyOn(console, 'error').mockImplementation(() => {});
   root = document.body.appendChild(document.createElement('div'));
-  originalUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
 });
 
 afterEach(() => {
@@ -77,7 +101,6 @@ afterEach(() => {
   errors.mockRestore();
   cleanupApp(root);
   root.remove();
-  window.history.replaceState({}, '', originalUrl);
 });
 
 async function settle(): Promise<void> {
@@ -278,31 +301,71 @@ test('should leave a Link that targets another browsing context to the browser',
   expect(window.location.pathname).toBe('/home');
 });
 
-test.each([
+const PATH_LIKE_CROSS_ORIGIN = [
   '/\\evil.example/x',
   '/\t/evil.example/x',
   '\\\\evil.example/x',
   ' //evil.example/x',
   '//evil.example/x',
-])(
-  'should refuse a path-like navigate() target %j that resolves to another origin',
-  async (target) => {
-    window.history.replaceState({}, '', '/home');
-    await createSPA({
-      root,
-      registry: createRouteRegistry(() => {
-        route('/home', () => <p>{'home page'}</p>);
-      }),
-    });
+];
 
-    expect(() => navigate(target)).toThrow(TypeError);
-    await settle();
+const DOT_SEGMENT_CROSS_ORIGIN = [
+  '/.//evil.example/x',
+  '/x/..//evil.example/x',
+  '/..//evil.example',
+  '/%2e//evil.example',
+  '/%2E%2E//evil.example',
+  '/./\\evil.example',
+];
 
-    expect(documentLoads).toEqual([]);
-    expect(window.location.pathname).toBe('/home');
-    expect(root.textContent).toBe('home page');
+test('should refuse navigate() targets that resolve to another origin without an explicit scheme', async () => {
+  window.history.replaceState({}, '', '/home');
+  await createSPA({
+    root,
+    registry: createRouteRegistry(() => {
+      route('/home', () => <p>{'home page'}</p>);
+    }),
+  });
+  const writesBefore = historyWrites;
+
+  for (const target of [
+    ...PATH_LIKE_CROSS_ORIGIN,
+    ...DOT_SEGMENT_CROSS_ORIGIN,
+  ]) {
+    expect(() => navigate(target), target).toThrow(TypeError);
   }
-);
+  await settle();
+
+  expect(documentLoads).toEqual([]);
+  expect(historyWrites).toBe(writesBefore);
+  expect(window.location.pathname).toBe('/home');
+  expect(root.textContent).toBe('home page');
+});
+
+test('should refuse Link hrefs that resolve to another origin without an explicit scheme', () => {
+  for (const href of [...PATH_LIKE_CROSS_ORIGIN, ...DOT_SEGMENT_CROSS_ORIGIN]) {
+    expect(() => Link({ href, children: 'Evil' }), href).toThrow(TypeError);
+  }
+});
+
+test('should write history once per navigation plus the departing scroll position', async () => {
+  window.history.replaceState({}, '', '/home');
+  await createSPA({
+    root,
+    registry: createRouteRegistry(() => {
+      route('/home', () => <p>{'home page'}</p>);
+      route('/next', () => <p>{'next page'}</p>);
+    }),
+  });
+  const writesBefore = historyWrites;
+
+  navigate('/next');
+  await expect.element(page.getByText('next page')).toBeVisible();
+
+  // One pushState for the entry and one replaceState saving the scroll
+  // position of the entry being left.
+  expect(historyWrites - writesBefore).toBe(2);
+});
 
 test('should refuse a path-like guard redirect that resolves to another origin', async () => {
   window.history.replaceState({}, '', '/home');
@@ -461,51 +524,6 @@ test('should refuse a path-like cross-origin redirect on first load', async () =
   expect(window.location.pathname).toBe('/private');
   expect(root.textContent).not.toContain('in-app evil page');
 });
-
-const DOT_SEGMENT_CROSS_ORIGIN = [
-  '/.//evil.example/x',
-  '/x/..//evil.example/x',
-  '/..//evil.example',
-  '/%2e//evil.example',
-  '/%2E%2E//evil.example',
-  '/./\\evil.example',
-];
-
-test.each(DOT_SEGMENT_CROSS_ORIGIN)(
-  'should refuse a navigate() target %j whose dot segments leave the origin',
-  async (target) => {
-    window.history.replaceState({}, '', '/home');
-    await createSPA({
-      root,
-      registry: createRouteRegistry(() => {
-        route('/home', () => <p>{'home page'}</p>);
-      }),
-    });
-
-    expect(() => navigate(target)).toThrow(TypeError);
-    await settle();
-
-    expect(documentLoads).toEqual([]);
-    expect(window.location.pathname).toBe('/home');
-    expect(root.textContent).toBe('home page');
-  }
-);
-
-test.each(DOT_SEGMENT_CROSS_ORIGIN)(
-  'should refuse to render a Link to %j whose dot segments leave the origin',
-  async (href) => {
-    window.history.replaceState({}, '', '/home');
-    await expect(
-      createSPA({
-        root,
-        registry: createRouteRegistry(() => {
-          route('/home', () => <Link href={href}>{'Evil'}</Link>);
-        }),
-      })
-    ).rejects.toThrow(TypeError);
-    expect(documentLoads).toEqual([]);
-  }
-);
 
 test('should refuse a first-load redirect whose dot segments leave the origin', async () => {
   window.history.replaceState({}, '', '/private');
