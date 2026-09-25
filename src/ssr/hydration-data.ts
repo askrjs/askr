@@ -51,8 +51,9 @@ function hydrationReplacer(_key: string, value: unknown): unknown {
 
 /**
  * Add the app's opted-in identity projection to a hydration envelope. Without
- * `auth.dehydrate`, nothing about the identity reaches the page. Only the
- * `AuthContext` fields of the projection are kept.
+ * `auth.dehydrate`, nothing about the identity reaches the page. The session is
+ * never sent; `authenticated`, `principal`, `tenant`, and `scopes` are sent
+ * verbatim.
  */
 export function withHydratedAuth(
   envelope: PageRenderEnvelope,
@@ -60,14 +61,13 @@ export function withHydratedAuth(
   context: AuthContext | undefined
 ): PageRenderEnvelope {
   if (!options?.dehydrate || !context) return envelope;
-  const { authenticated, principal, session, tenant, scopes } =
+  const { authenticated, principal, tenant, scopes } =
     options.dehydrate(context);
   return withPageFramework(envelope, {
     ...envelope.framework,
     [HYDRATED_AUTH]: {
       authenticated,
       principal,
-      session,
       tenant,
       ...(scopes ? { scopes } : {}),
     },

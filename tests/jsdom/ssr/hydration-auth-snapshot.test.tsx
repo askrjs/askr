@@ -17,6 +17,7 @@ import {
   route,
 } from '../../../src/router/route';
 import type { RouteAuthOptions } from '../../../src/common/router';
+import { getCurrentRenderData } from '../../../src/common/render-context';
 import {
   createTestContainer,
   flushScheduler,
@@ -47,9 +48,10 @@ const dehydrate: NonNullable<RouteAuthOptions['dehydrate']> = (auth) => ({
   principal: auth.principal
     ? { id: auth.principal.id, roles: auth.principal.roles }
     : null,
-  session: null,
   tenant: null,
 });
+
+let renderDataHasAuth = false;
 
 function createRegistry(auth: RouteAuthOptions) {
   return createRouteRegistry(
@@ -58,9 +60,15 @@ function createRegistry(auth: RouteAuthOptions) {
         auth: requireAnonymous(),
       });
       group({ auth: requireUser() }, () => {
-        route('/dashboard', () => (
-          <main>{`dashboard:${currentAuth().principal?.id ?? 'none'}`}</main>
-        ));
+        route('/dashboard', () => {
+          renderDataHasAuth ||= Object.prototype.hasOwnProperty.call(
+            getCurrentRenderData()?.framework ?? {},
+            'au'
+          );
+          return (
+            <main>{`dashboard:${currentAuth().principal?.id ?? 'none'}`}</main>
+          );
+        });
         route('/settings', () => <main>{'settings-page'}</main>);
       });
     },
@@ -93,6 +101,7 @@ describe('hydration auth snapshot', () => {
 
   beforeEach(() => {
     ({ container, cleanup } = createTestContainer());
+    renderDataHasAuth = false;
   });
 
   afterEach(() => {
@@ -196,7 +205,7 @@ describe('hydration auth snapshot', () => {
     expect(container.textContent).toBe('dashboard:user-1');
   });
 
-  it('should use the snapshot only for the initial route', async () => {
+  it('should resolve later navigations with the configured resolver', async () => {
     const resolve = vi.fn(() => anonymous);
     const registry = createRegistry({ resolve, dehydrate });
 
@@ -215,5 +224,76 @@ describe('hydration auth snapshot', () => {
 
     expect(resolve).toHaveBeenCalled();
     expect(container.textContent).toBe('login-page');
+  });
+
+  it('should keep the snapshot for navigations when no resolver is configured', async () => {
+    const registry = createRegistry({ dehydrate });
+
+    container.innerHTML = await serverRender(registry, '/dashboard');
+    window.history.replaceState({}, '', '/dashboard');
+
+    await hydrateSPA({ root: container, registry });
+    expect(container.textContent).toBe('dashboard:user-1');
+
+    navigate('/settings');
+    await vi.waitFor(async () => {
+      await settle();
+      expect(container.textContent).toBe('settings-page');
+    });
+    expect(window.location.pathname).toBe('/settings');
+
+    navigate('/dashboard');
+    await vi.waitFor(async () => {
+      await settle();
+      expect(container.textContent).toBe('dashboard:user-1');
+    });
+    expect(window.location.pathname).toBe('/dashboard');
+  });
+
+  it('should never serialize the session, even when dehydrate returns it', async () => {
+    const registry = createRegistry({ dehydrate: (auth) => auth });
+
+    const html = await serverRender(registry, '/dashboard');
+    const payload = html.slice(html.indexOf('<script type="application/json"'));
+    expect(payload).toContain('user-1');
+    expect(payload).not.toContain('session-secret-id');
+    expect(payload).not.toContain('"session"');
+
+    container.innerHTML = html;
+    window.history.replaceState({}, '', '/dashboard');
+    await hydrateSPA({ root: container, registry });
+    expect(currentAuth().session).toBeNull();
+  });
+
+  it('should not expose the snapshot through hydration render data', async () => {
+    const registry = createRegistry({ dehydrate });
+
+    container.innerHTML = await serverRender(registry, '/dashboard');
+    window.history.replaceState({}, '', '/dashboard');
+    await hydrateSPA({ root: container, registry });
+
+    expect(container.textContent).toBe('dashboard:user-1');
+    expect(renderDataHasAuth).toBe(false);
+  });
+
+  it.each([
+    ['a non-object principal', { principal: 'user-1' }],
+    ['a principal without a string id', { principal: { id: 1 } }],
+    ['non-string scopes', { scopes: [1] }],
+    ['a non-string tenant', { tenant: 5 }],
+  ])('should reject a snapshot with %s', async (_label, patch) => {
+    const registry = createRegistry({
+      dehydrate: (auth) =>
+        ({ ...dehydrate(auth), ...patch }) as unknown as ReturnType<
+          typeof dehydrate
+        >,
+    });
+
+    container.innerHTML = await serverRender(registry, '/dashboard');
+    window.history.replaceState({}, '', '/dashboard');
+
+    await expect(hydrateSPA({ root: container, registry })).rejects.toThrow(
+      /Malformed hydration auth snapshot/
+    );
   });
 });

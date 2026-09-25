@@ -111,26 +111,37 @@ const registry = createRouteRegistry(routes, {
       principal: auth.principal
         ? { id: auth.principal.id, roles: auth.principal.roles }
         : null,
-      session: null,
       tenant: null,
     }),
   },
 });
 ```
 
-- `dehydrate` runs on the server with the identity that authorized the page.
-  Return only the fields the initial render and the route's `auth`
-  requirements need. Only the `AuthContext` fields `authenticated`,
-  `principal`, `session`, `tenant`, and `scopes` of the returned object are
-  serialized; never return tokens or session secrets.
+- `dehydrate` runs on the server with the identity that authorized the page,
+  on every page render, including public pages visited anonymously (those
+  carry an anonymous stub: `authenticated: false`, `principal: null`).
+- `authenticated`, `principal`, `tenant`, and `scopes` of the returned object
+  are serialized **verbatim**, including every nested field. Build a new,
+  minimal `principal` with only what the client renders and what route `auth`
+  requirements check (typically `id` and `roles`). Never return the resolved
+  principal as-is: it can carry password hashes, tokens, or personal data.
+- The session is never serialized; its id is often the cookie value itself.
+  On the client `currentAuth().session` is always `null`.
 - The snapshot is JSON-encoded into the page's hydration payload with the same
-  escaping as route data, so it is readable by any script on the page.
-- `hydrateSPA()` uses the snapshot, instead of calling `auth.resolve`, only to
+  escaping as route data, and is readable by any script on the page.
+- A page carrying a dehydrated identity is personalized. Serve it with
+  `Cache-Control: private` (or `no-store`), never from a shared cache or CDN,
+  or one visitor's identity is served to another.
+- `hydrateSPA()` uses the snapshot, instead of calling `auth.resolve`, to
   resolve and render the initial route the server already authorized, so
-  `currentAuth()` matches the server render. Later navigations resolve the
-  identity with `auth.resolve`; without one they are anonymous. The snapshot
-  is not a credential and grants nothing: the server remains responsible for
-  authorizing requests and data.
+  `currentAuth()` matches the server render. Components cannot read the raw
+  snapshot from render data. When `auth.resolve` is configured, later
+  navigations resolve the identity with it. Without `auth.resolve`, the
+  snapshot stays the client identity for navigations until the next full page
+  load.
+- The snapshot is not a credential and grants nothing. Client route decisions
+  are presentation only; the server remains responsible for authorizing every
+  request and all data.
 - `auth.resolve` is optional, so an app whose identity is only visible to the
   server can configure `{ loginPath, dehydrate }` alone.
 

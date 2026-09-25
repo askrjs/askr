@@ -142,11 +142,13 @@ interface RouteAuthOptions {
   /**
    * Opt in to sending a minimal identity snapshot to the browser for
    * hydration. Called on the server with the identity that authorized the
-   * page; only the returned fields are serialized into the page. The client
-   * uses the snapshot solely to resolve and render the initial route, then
-   * resolves navigations with `resolve`. Nothing crosses without this hook.
+   * page. `authenticated`, `principal`, `tenant`, and `scopes` of the result
+   * are serialized verbatim into the page, so return only what the client
+   * needs; the session is never sent. The client uses the snapshot to resolve
+   * the initial route and, without `resolve`, as its identity for
+   * navigations. Nothing crosses without this hook.
    */
-  dehydrate?: (context: AuthContext) => AuthContext;
+  dehydrate?: (context: AuthContext) => Omit<AuthContext, 'session'>;
   loginPath?:
     | string
     | ((context: RouteContext) => string | PromiseLike<string>);

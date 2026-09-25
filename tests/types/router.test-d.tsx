@@ -358,10 +358,17 @@ const routeAuthOptions: RouteAuthOptions = {
 expectAssignable<RouteAuthOptions>(routeAuthOptions);
 expectAssignable<RouteAuthOptions>({
   loginPath: '/login',
-  dehydrate: (auth: AuthContext): AuthContext => ({
+  dehydrate: (auth: AuthContext) => ({
     authenticated: auth.authenticated,
     principal: auth.principal ? { id: auth.principal.id } : null,
-    session: null,
+    tenant: null,
+  }),
+});
+expectError<RouteAuthOptions>({
+  dehydrate: (auth: AuthContext): Omit<AuthContext, 'session'> => ({
+    authenticated: auth.authenticated,
+    principal: null,
+    session: auth.session,
     tenant: null,
   }),
 });

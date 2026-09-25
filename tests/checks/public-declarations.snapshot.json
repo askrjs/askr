@@ -926,7 +926,7 @@
         "interface Route<TParams extends RouteParams = RouteParams> {\n    path: string;\n    handler: RouteHandler<TParams>;\n    namespace?: string;\n}"
       ],
       "RouteAuthOptions": [
-        "interface RouteAuthOptions {\n    resolve?: RouteAuthResolver;\n    dehydrate?: (context: AuthContext) => AuthContext;\n    loginPath?: string | ((context: RouteContext) => string | PromiseLike<string>);\n    authenticatedRedirectTo?: string | ((context: RouteContext) => string | PromiseLike<string>);\n}"
+        "interface RouteAuthOptions {\n    resolve?: RouteAuthResolver;\n    dehydrate?: (context: AuthContext) => Omit<AuthContext, \"session\">;\n    loginPath?: string | ((context: RouteContext) => string | PromiseLike<string>);\n    authenticatedRedirectTo?: string | ((context: RouteContext) => string | PromiseLike<string>);\n}"
       ],
       "RouteAuthResolver": [
         "type RouteAuthResolver = (context: Omit<RouteContext, \"auth\">) => AuthContext | PromiseLike<AuthContext>;"
@@ -2362,7 +2362,7 @@
       "declare function routeActive(pathOrPaths: string | readonly string[]): ActivityPredicate;"
     ],
     "RouteAuthOptions": [
-      "interface RouteAuthOptions {\n    resolve?: RouteAuthResolver;\n    dehydrate?: (context: AuthContext) => AuthContext;\n    loginPath?: string | ((context: RouteContext) => string | PromiseLike<string>);\n    authenticatedRedirectTo?: string | ((context: RouteContext) => string | PromiseLike<string>);\n}"
+      "interface RouteAuthOptions {\n    resolve?: RouteAuthResolver;\n    dehydrate?: (context: AuthContext) => Omit<AuthContext, \"session\">;\n    loginPath?: string | ((context: RouteContext) => string | PromiseLike<string>);\n    authenticatedRedirectTo?: string | ((context: RouteContext) => string | PromiseLike<string>);\n}"
     ],
     "RouteAuthResolver": [
       "type RouteAuthResolver = (context: Omit<RouteContext, \"auth\">) => AuthContext | PromiseLike<AuthContext>;"

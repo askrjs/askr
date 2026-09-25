@@ -6,9 +6,11 @@
   the login route when the browser cannot resolve the identity itself (for
   example httpOnly-cookie sessions). Apps opt in with the new
   `auth.dehydrate(context)` hook, which selects the minimal identity snapshot
-  serialized into the hydration payload; hydration uses it only for the initial
-  route, and navigations still use `auth.resolve`. Nothing about the identity is
-  serialized without the hook. `RouteAuthOptions.resolve` is now optional.
+  (`authenticated`, `principal`, `tenant`, `scopes`; never the session)
+  serialized into the hydration payload. Hydration uses it for the initial
+  route; navigations use `auth.resolve`, or keep the snapshot when no resolver
+  is configured. Nothing about the identity is serialized without the hook.
+  `RouteAuthOptions.resolve` is now optional.
 - fix(router): route precedence is decided segment by segment, as documented:
   the first segment where two routes differ picks static > param > wildcard >
   splat, so `/docs/{*rest}` now beats `/{lang}/{page}` for `/docs/intro`
