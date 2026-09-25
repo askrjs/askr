@@ -511,7 +511,7 @@ export function buildAttrHeavySsrTree(count = 400) {
           class={`attr-card attr-card-${index % 7}`}
           title={`Title ${index} & "quoted" 'single'`}
           role={'listitem'}
-          tabIndex={String(index % 5)}
+          tabIndex={index % 5}
           lang={'en'}
           aria-label={`Label ${index} & "quoted" 'single'`}
           aria-description={`Description ${index} & details`}
@@ -815,7 +815,7 @@ export function resetRouterState(): void {
 export function registerBenchRoutes(
   entries: Array<{
     path: string;
-    handler: () => unknown;
+    handler: RouteHandler;
     namespace?: string;
   }>
 ): void {
