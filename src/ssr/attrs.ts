@@ -126,3 +126,45 @@ export function renderAttrsDirect(
     sink.write('"');
   }
 }
+
+/**
+ * The value the HTML parser sees for attribute `name` (lower-case) on an
+ * element whose attributes `renderAttrsDirect` writes, or `null` when it is
+ * not written. Mirrors the emitted attributes: names compare
+ * case-insensitively and the first written occurrence wins, as the parser
+ * drops later duplicates.
+ */
+export function getRenderedAttributeValue(
+  props: Props | undefined,
+  name: string
+): string | null {
+  if (!props || typeof props !== 'object') return null;
+
+  const propsObj = props as Record<string, unknown>;
+  for (const key in propsObj) {
+    if (isSkippedProp(key) || key === 'dangerouslySetInnerHTML') continue;
+    if (isEventHandler(key)) continue;
+    if (key.charCodeAt(0) === 95) continue;
+
+    const attrName = getPublicAttributeName(key);
+    if (attrName.toLowerCase() !== name) continue;
+
+    const value = propsObj[key];
+    if (attrName === 'style') {
+      const css = typeof value === 'string' ? value : styleObjToCss(value);
+      if (!css) continue;
+      return css;
+    }
+    if (value === true) return booleanAttributeValue(attrName);
+    if (
+      value === null ||
+      value === undefined ||
+      (value === false && !keepsFalseValue(attrName))
+    )
+      continue;
+    const strValue = String(value);
+    if (isUnsafeUrlAttribute(attrName, strValue)) continue;
+    return strValue;
+  }
+  return null;
+}

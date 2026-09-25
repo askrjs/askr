@@ -126,7 +126,7 @@ describe('route matching (ROUTER)', () => {
     it('should decode named splat params segment by segment', () => {
       const result = match('/files/a%20b/%E0%A4%A/c%2Fd', '/files/{*path}');
       expect(result.matched).toBe(true);
-      expect(result.params).toEqual({ path: 'a b/%E0%A4%A/c/d' });
+      expect(result.params).toEqual({ path: 'a b/%E0%A4%A/c%2Fd' });
     });
   });
 
@@ -184,6 +184,109 @@ describe('route matching (ROUTER)', () => {
       const result = match('/posts/%E0%A4%A', '/posts/{slug}');
       expect(result.matched).toBe(true);
       expect(result.params).toEqual({ slug: '%E0%A4%A' });
+    });
+  });
+  describe('percent-encoded static segments', () => {
+    it('should match non-ASCII static segments against encoded URLs', () => {
+      expect(match('/caf%C3%A9', '/café').matched).toBe(true);
+      expect(match('/menu/caf%C3%A9/cr%C3%AApe', '/menu/café/{item}')).toEqual({
+        matched: true,
+        params: { item: 'crêpe' },
+      });
+    });
+
+    it('should match static segments containing spaces', () => {
+      expect(match('/a%20b', '/a b').matched).toBe(true);
+    });
+
+    it('should match static segments with encoded reserved characters', () => {
+      expect(match('/a%3Ab', '/a:b').matched).toBe(true);
+      expect(match('/%40user', '/@user').matched).toBe(true);
+      expect(match('/a%2Bb', '/a+b').matched).toBe(true);
+      expect(match('/100%25', '/100%').matched).toBe(true);
+    });
+
+    it('should normalize percent-encoded route segments too', () => {
+      expect(match('/café', '/caf%C3%A9').matched).toBe(true);
+      expect(match('/caf%c3%a9', '/caf%C3%A9').matched).toBe(true);
+      expect(match('/a%2Fb', '/a%2Fb').matched).toBe(true);
+    });
+
+    it('should match non-canonical encodings of static segments', () => {
+      expect(match('/%61dmin', '/admin').matched).toBe(true);
+    });
+
+    it('should not treat an encoded slash as a segment separator', () => {
+      expect(match('/a%2Fb', '/a/b').matched).toBe(false);
+    });
+
+    it('should not match or throw on malformed encodings', () => {
+      expect(() => match('/caf%C3', '/café')).not.toThrow();
+      expect(match('/caf%C3', '/café').matched).toBe(false);
+      expect(match('/caf%C3', '/caf%C3').matched).toBe(true);
+    });
+  });
+  describe('percent-encoded wildcard captures', () => {
+    it('should decode single-segment wildcard captures', () => {
+      expect(match('/files/caf%C3%A9', '/files/*').params).toEqual({
+        '*': 'café',
+      });
+      expect(match('/files/a%20b', '/files/*').params).toEqual({ '*': 'a b' });
+    });
+
+    it('should decode root catch-all captures segment by segment', () => {
+      expect(match('/caf%C3%A9/a%20b', '/*').params).toEqual({
+        '*': '/café/a b',
+      });
+      expect(match('/caf%C3%A9', '/*').params).toEqual({ '*': 'café' });
+    });
+
+    it('should keep malformed wildcard captures as written', () => {
+      expect(() => match('/files/%E0%A4%A', '/files/*')).not.toThrow();
+      expect(match('/files/%E0%A4%A', '/files/*').params).toEqual({
+        '*': '%E0%A4%A',
+      });
+    });
+  });
+  describe('encoded separators in captures', () => {
+    const traversal = '..%2F..%2Fetc%2Fpasswd';
+
+    it('should keep %2F encoded in wildcard captures', () => {
+      expect(match(`/files/${traversal}`, '/files/*').params).toEqual({
+        '*': traversal,
+      });
+    });
+
+    it('should keep %2F encoded in named splat captures', () => {
+      expect(match(`/files/${traversal}`, '/files/{*path}').params).toEqual({
+        path: traversal,
+      });
+    });
+
+    it('should keep %2F encoded in param captures', () => {
+      expect(match(`/posts/${traversal}`, '/posts/{slug}').params).toEqual({
+        slug: traversal,
+      });
+    });
+
+    it('should keep %2F encoded in catch-all captures', () => {
+      expect(match('/a%2Fb/c', '/*').params).toEqual({ '*': '/a%2Fb/c' });
+      expect(match(`/${traversal}`, '/*').params).toEqual({ '*': traversal });
+    });
+
+    it('should keep %5C encoded and normalize separator case', () => {
+      expect(match('/files/..%5c..%5cwin.ini', '/files/*').params).toEqual({
+        '*': '..%5C..%5Cwin.ini',
+      });
+      expect(match('/files/a%2fb', '/files/{*path}').params).toEqual({
+        path: 'a%2Fb',
+      });
+    });
+
+    it('should still decode other characters around a kept separator', () => {
+      expect(match('/files/caf%C3%A9%2Fa%20b', '/files/*').params).toEqual({
+        '*': 'café%2Fa b',
+      });
     });
   });
 });

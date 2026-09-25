@@ -2,7 +2,7 @@ import { resetRouteState, currentRouteRegistry } from '../../router-test-utils';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import type { JSXElement } from '../../../src/jsx/types';
 import { state } from '../../../src';
-import { Show } from '../../../src/control';
+import { For, Show } from '../../../src/control';
 import {
   createDataRuntime,
   createQuery,
@@ -1245,9 +1245,62 @@ describe('data layer', () => {
     }
   });
 
-  it('should warn when the same reader rerenders a query key with a conflicting definition', async () => {
+  it('should not warn and should use the latest fetch given an inline query that rerenders', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let setFilter: ((value: string) => void) | undefined;
+    let query: Query<string> | undefined;
+    const calls: string[] = [];
+
+    const App = (): JSXElement => {
+      const filter = state('first');
+      setFilter = filter.set;
+      const current = filter();
+
+      query = createQuery({
+        key: 'users:inline',
+        fetch: async () => {
+          calls.push(current);
+          return current;
+        },
+      });
+
+      return <div>{query.data ?? 'loading'}</div>;
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+      expect(container.textContent).toBe('first');
+
+      setFilter?.('second');
+      flushScheduler();
+      await settle();
+
+      expect(warnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[askr] Conflicting shared query definition for key "users:inline"'
+        )
+      );
+
+      const refreshed = query!.refresh();
+      flushScheduler();
+      await refreshed;
+      await settle();
+
+      expect(calls).toEqual(['first', 'second']);
+      expect(container.textContent).toBe('second');
+    } finally {
+      warnSpy.mockRestore();
+      cleanup();
+    }
+  });
+
+  it('should use the latest definition when the same reader rerenders a query key with a different fetch', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     let setUseFirst: ((value: boolean) => void) | undefined;
+    let query: Query<string> | undefined;
     const firstFetch = vi.fn(async () => 'first');
     const secondFetch = vi.fn(async () => 'second');
 
@@ -1255,7 +1308,7 @@ describe('data layer', () => {
       const useFirst = state(true);
       setUseFirst = useFirst.set;
 
-      const query = createQuery({
+      query = createQuery({
         key: 'users:rerendered-definition',
         fetch: useFirst() ? firstFetch : secondFetch,
       });
@@ -1270,22 +1323,264 @@ describe('data layer', () => {
       await settle();
 
       expect(container.textContent).toBe('first');
-      expect(firstFetch).toHaveBeenCalledTimes(1);
-      expect(secondFetch).toHaveBeenCalledTimes(0);
 
       setUseFirst?.(false);
       flushScheduler();
       await settle();
 
-      expect(warnSpy).toHaveBeenCalledWith(
+      expect(warnSpy).not.toHaveBeenCalledWith(
         expect.stringContaining(
           '[askr] Conflicting shared query definition for key "users:rerendered-definition"'
         )
       );
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('`fetch`'));
-      expect(container.textContent).toBe('first');
+
+      const refreshed = query!.refresh();
+      flushScheduler();
+      await refreshed;
+      await settle();
+
+      expect(firstFetch).toHaveBeenCalledTimes(1);
+      expect(secondFetch).toHaveBeenCalledTimes(1);
+      expect(container.textContent).toBe('second');
     } finally {
       warnSpy.mockRestore();
+      cleanup();
+    }
+  });
+
+  it('should hand a shared query definition to a surviving reader after its definer unmounts', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let setShowPrimary: ((value: boolean) => void) | undefined;
+    let secondaryQuery: Query<string> | undefined;
+    let rerenderSecondary: (() => void) | undefined;
+    const primaryFetch = vi.fn(async () => 'primary');
+    const secondaryFetch = vi.fn(async () => 'secondary');
+
+    const Primary = () => {
+      createQuery({ key: 'users:handoff', fetch: primaryFetch });
+      return null;
+    };
+
+    const Secondary = () => {
+      const renders = state(0);
+      rerenderSecondary = () => renders.set(renders() + 1);
+      secondaryQuery = createQuery({
+        key: 'users:handoff',
+        fetch: secondaryFetch,
+      });
+      return (
+        <span data-render={renders()}>{secondaryQuery.data ?? 'loading'}</span>
+      );
+    };
+
+    const App = (): JSXElement => {
+      const showPrimary = state(true);
+      setShowPrimary = showPrimary.set;
+      return (
+        <section>
+          <Show when={showPrimary()}>
+            <Primary />
+          </Show>
+          <Secondary />
+        </section>
+      );
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+
+      expect(container.textContent).toBe('primary');
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[askr] Conflicting shared query definition for key "users:handoff"'
+        )
+      );
+
+      setShowPrimary?.(false);
+      flushScheduler();
+      await settle();
+      rerenderSecondary?.();
+      flushScheduler();
+      await settle();
+
+      const refreshed = secondaryQuery!.refresh();
+      flushScheduler();
+      await refreshed;
+      await settle();
+
+      expect(primaryFetch).toHaveBeenCalledTimes(1);
+      expect(secondaryFetch).toHaveBeenCalledTimes(1);
+      expect(container.textContent).toBe('secondary');
+    } finally {
+      warnSpy.mockRestore();
+      cleanup();
+    }
+  });
+
+  it('should hand a shared query definition to a surviving reader that does not rerender', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let setShowPrimary: ((value: boolean) => void) | undefined;
+    const calls: string[] = [];
+
+    const Primary = () => {
+      createQuery({
+        key: 'users:handoff-idle',
+        fetch: async () => {
+          calls.push('dead');
+          return 'dead';
+        },
+      });
+      return null;
+    };
+
+    const Secondary = () => {
+      const query = createQuery({
+        key: 'users:handoff-idle',
+        fetch: async () => {
+          calls.push('survivor');
+          return 'survivor';
+        },
+      });
+      return <span>{query.data ?? 'loading'}</span>;
+    };
+
+    const PrimarySlot = () => {
+      const showPrimary = state(true);
+      setShowPrimary = showPrimary.set;
+      return (
+        <Show when={showPrimary()}>
+          <Primary />
+        </Show>
+      );
+    };
+
+    const App = (): JSXElement => (
+      <section>
+        <PrimarySlot />
+        <Secondary />
+      </section>
+    );
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+      expect(calls).toEqual(['dead']);
+
+      setShowPrimary?.(false);
+      flushScheduler();
+      await settle();
+
+      invalidate('users:handoff-idle');
+      flushScheduler();
+      await settle();
+
+      expect(calls).toEqual(['dead', 'survivor']);
+      expect(container.textContent).toBe('survivor');
+    } finally {
+      warnSpy.mockRestore();
+      cleanup();
+    }
+  });
+
+  it('should not warn and should use the new row definition when a keyed row replaces the owner', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let setRows: ((value: { id: number }[]) => void) | undefined;
+    const calls: number[] = [];
+
+    const Row = ({ id }: { id: number }) => {
+      const query = createQuery({
+        key: 'users:keyed-row',
+        fetch: async () => {
+          calls.push(id);
+          return String(id);
+        },
+      });
+      return <span>{query.data ?? 'loading'}</span>;
+    };
+
+    const App = (): JSXElement => {
+      const rows = state([{ id: 1 }]);
+      setRows = rows.set;
+      return (
+        <main>
+          <For each={rows} by={(row) => row.id}>
+            {(row) => <Row id={row.id} />}
+          </For>
+        </main>
+      );
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+      expect(calls).toEqual([1]);
+
+      setRows?.([{ id: 2 }]);
+      flushScheduler();
+      await settle();
+
+      invalidate('users:keyed-row');
+      flushScheduler();
+      await settle();
+
+      expect(warnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[askr] Conflicting shared query definition for key "users:keyed-row"'
+        )
+      );
+      expect(calls).toEqual([1, 2]);
+      expect(container.textContent).toBe('2');
+    } finally {
+      warnSpy.mockRestore();
+      cleanup();
+    }
+  });
+
+  it('should check an in-flight fetch with the callbacks it started with', async () => {
+    let setStrict: ((value: boolean) => void) | undefined;
+    let query: Query<string> | undefined;
+    let resolveFetch!: (value: string) => void;
+
+    const App = (): JSXElement => {
+      const strict = state(false);
+      setStrict = strict.set;
+      const rejectAll = strict();
+
+      query = createQuery({
+        key: 'users:in-flight-callbacks',
+        fetch: () =>
+          new Promise<string>((resolve) => {
+            resolveFetch = resolve;
+          }),
+        isConsistent: () => !rejectAll,
+      });
+
+      return <div>{query.consistency}</div>;
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+
+      setStrict?.(true);
+      flushScheduler();
+
+      resolveFetch('started-lenient');
+      await settle();
+
+      expect(query!.data).toBe('started-lenient');
+      expect(query!.consistency).toBe('fresh');
+      expect(container.textContent).toBe('fresh');
+    } finally {
       cleanup();
     }
   });
