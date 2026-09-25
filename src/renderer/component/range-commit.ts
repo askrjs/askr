@@ -41,6 +41,7 @@ import {
   type InstanceHostNode,
 } from '../dom-host';
 import { getParentNamespace } from '../intrinsic/namespaces';
+import { getRetainedHostOwnerChain } from '../evaluation/reconcile';
 import { _isDOMElement, type VNode } from '../types';
 
 export function replaceComponentRange(
@@ -75,7 +76,7 @@ function replaceComponentRangeInTransaction(
   ) {
     const retainedInstances = createRetainedHostInstanceSet(
       instance,
-      (host as InstanceHostNode).__ASKR_INSTANCES
+      getRetainedHostOwnerChain(host as InstanceHostElement, instance)
     );
     const snapshot =
       getVNodeContextFrame(result) ?? instance.ownerFrame ?? null;
@@ -124,9 +125,12 @@ function replaceComponentRangeInTransaction(
   ) {
     return null;
   }
+  // Only the instance and the owners wrapping it keep this host. Descendants
+  // that shared it belong to the previous result: a new result re-registers
+  // the ones it keeps, and the rest are cleaned up with the old host.
   const retainedInstances = createRetainedHostInstanceSet(
     instance,
-    instanceHost.__ASKR_INSTANCES
+    getRetainedHostOwnerChain(instanceHost as InstanceHostElement, instance)
   );
   if (previousRange.single) {
     const emptyResult =

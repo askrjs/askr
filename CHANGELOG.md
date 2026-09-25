@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- fix(runtime): an `ErrorBoundary` fallback now removes the portal content its
+  failed subtree wrote. A component that rendered no DOM of its own (such as
+  a writer that returns only `<Portal>`) shared the boundary's host node and
+  survived the fallback, so its `Portal` content stayed in the host, still
+  mounted, and its cleanups never ran. The fallback now disposes every
+  component inside the boundary. When the `Portal` writer that owns the
+  portal content goes away (after a fallback or an ordinary unmount), the host
+  now shows the latest content of another live `Portal` writer instead of
+  always emptying. This applies to render,
+  function-valued prop and control-flow errors, and `reset()`/`resetKey`
+  recovery writes the portal again. An explicit `DefaultPortal` host replaced
+  by a fallback keeps the portal claimed, so its content does not move to the
+  automatic host.
 - fix(renderer): a failed render no longer leaves fine-grained bindings
   (function-valued props and children) stale. A binding whose function the
   render replaced kept the new value after the DOM rolled back, so later
