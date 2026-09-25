@@ -42,12 +42,14 @@ import {
 } from './host-replacement';
 import {
   adoptEmptySSRPortalHydrationHost,
+  commitAsComponent,
   itemInstanceHydrationComplete,
   materializeComponentResultNode,
   materializeEmptyHydrationPlaceholder,
   retainMaterializedReplacementOwnerChain,
 } from './host-results';
 import { resolveHostNestedComponentResult } from './host-nested-results';
+import { isHydrationAdoptionScopeActive } from '../hydration/adoption';
 
 /**
  * The parts of one adoption attempt the two result-handling passes share.
@@ -68,6 +70,23 @@ interface HostAdoption {
   readonly forceChildrenUpdate: boolean;
 }
 
+/**
+ * Commit an adopted result as the component that rendered it.
+ *
+ * Server nodes have no owners yet, so while hydrating, the children in the
+ * result are this component's, exactly as when the result is created fresh.
+ * Committing them under the caller's scope recorded the caller as their
+ * parent, and the component's first update then failed to find its keyed
+ * children and remounted them. Outside hydration, adoption takes over a host
+ * another component rendered, and that path keeps committing under the
+ * caller's scope.
+ */
+function commitAdoptedResult<T>(owner: ComponentInstance, commit: () => T): T {
+  return isHydrationAdoptionScopeActive()
+    ? commitAsComponent(owner, commit)
+    : commit();
+}
+
 /** Whether the commit should re-apply children rather than trust the markup. */
 function shouldForceChildren(adoption: HostAdoption): boolean {
   return (
@@ -81,7 +100,8 @@ function shouldForceChildren(adoption: HostAdoption): boolean {
  */
 function tryAdoptHydratedRange(
   adoption: HostAdoption,
-  result: unknown
+  result: unknown,
+  owner: ComponentInstance
 ): Node | null {
   const { existingHost, markedHydrationEnd, hydrationRangeEnd } = adoption;
   if (
@@ -95,23 +115,25 @@ function tryAdoptHydratedRange(
     return null;
   }
 
-  return markedHydrationEnd
-    ? adoptMarkedHydratedComponentRange(
-        existingHost as Comment,
-        markedHydrationEnd,
-        adoption.instance,
-        result,
-        shouldForceChildren(adoption),
-        adoption.retained
-      )
-    : adoptHydratedComponentRange(
-        existingHost as Element | Comment,
-        adoption.instance,
-        result,
-        hydrationRangeEnd,
-        shouldForceChildren(adoption),
-        adoption.retained
-      );
+  return commitAdoptedResult(owner, () =>
+    markedHydrationEnd
+      ? adoptMarkedHydratedComponentRange(
+          existingHost as Comment,
+          markedHydrationEnd,
+          adoption.instance,
+          result,
+          shouldForceChildren(adoption),
+          adoption.retained
+        )
+      : adoptHydratedComponentRange(
+          existingHost as Element | Comment,
+          adoption.instance,
+          result,
+          hydrationRangeEnd,
+          shouldForceChildren(adoption),
+          adoption.retained
+        )
+  );
 }
 
 /**
@@ -120,7 +142,8 @@ function tryAdoptHydratedRange(
  */
 function tryReuseIntrinsicHost(
   adoption: HostAdoption,
-  result: unknown
+  result: unknown,
+  owner: ComponentInstance
 ): Node | null {
   const { existingHost, node, props, snapshot } = adoption;
   if (
@@ -132,15 +155,17 @@ function tryReuseIntrinsicHost(
     return null;
   }
 
-  withContext(snapshot, () => {
-    getRendererDOMHost().updateElementFromVnode(
-      existingHost,
-      inheritComponentKey(result, node),
-      true,
-      shouldForceChildren(adoption)
-    );
-    materializeKey(existingHost, node, props);
-  });
+  withContext(snapshot, () =>
+    commitAdoptedResult(owner, () => {
+      getRendererDOMHost().updateElementFromVnode(
+        existingHost,
+        inheritComponentKey(result, node),
+        true,
+        shouldForceChildren(adoption)
+      );
+      materializeKey(existingHost, node, props);
+    })
+  );
   mountInstanceInline(adoption.instance, existingHost);
   itemInstanceHydrationComplete(existingHost);
   return existingHost;
@@ -234,12 +259,20 @@ export function adoptComponentHost(
       return emptyPlaceholder;
     }
 
-    const adoptedRange = tryAdoptHydratedRange(adoption, scopedResult);
+    const adoptedRange = tryAdoptHydratedRange(
+      adoption,
+      scopedResult,
+      hydrationInstance
+    );
     if (adoptedRange) {
       return adoptedRange;
     }
 
-    const reusedHost = tryReuseIntrinsicHost(adoption, scopedResult);
+    const reusedHost = tryReuseIntrinsicHost(
+      adoption,
+      scopedResult,
+      hydrationInstance
+    );
     if (reusedHost) {
       return reusedHost;
     }
@@ -263,7 +296,8 @@ export function adoptComponentHost(
     }
     const adoptedResolvedRange = tryAdoptHydratedRange(
       adoption,
-      resolvedResult.result
+      resolvedResult.result,
+      resolvedResult.owner
     );
     if (adoptedResolvedRange) {
       return adoptedResolvedRange;
@@ -271,7 +305,8 @@ export function adoptComponentHost(
 
     const reusedResolvedHost = tryReuseIntrinsicHost(
       adoption,
-      resolvedResult.result
+      resolvedResult.result,
+      resolvedResult.owner
     );
     if (reusedResolvedHost) {
       return reusedResolvedHost;

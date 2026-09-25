@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- fix(renderer): a component returning a fragment or array now retains its
+  child components when it re-renders with new props. Matching children keep
+  their state and DOM identity, including after hydration; nested fragments
+  reconcile against the same flattened child list used at creation.
 - fix(renderer): a failed keyed reconciliation commit now propagates to the
   component update, which rolls the DOM back and routes the error to the
   nearest `ErrorBoundary` (or throws it from the flush). Previously any commit
