@@ -140,3 +140,33 @@ Move the update into an event handler, such as
 ### Why This Matters
 
 Render mutations cause infinite loops. Askr prevents them before they happen.
+
+## Derived Computation Mutations
+
+`derive()` and `selector()` computations must be pure. They run during render
+and again in the scheduler's derived lane, where no component is rendering, so
+a write from one could re-trigger the computation in an update loop.
+
+### Caught at Runtime
+
+```typescript
+function Component() {
+  const [count] = state(0);
+  const [, setLast] = state(0);
+  const doubled = derive(() => {
+    setLast(count()); // Error: write inside a derived computation
+    return count() * 2;
+  });
+  return <div>{doubled()}</div>;
+}
+```
+
+**Error message:**
+
+```
+state.set() cannot be called inside a derive() or selector() computation.
+```
+
+The check applies to every recompute, whether it runs during render or in the
+derived lane, in development and production builds. A same-value `set()` writes
+nothing and is allowed. Move the write to an event handler.
