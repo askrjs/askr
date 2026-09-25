@@ -22,6 +22,7 @@ import { recordReadableRead } from '../runtime';
 import {
   ensureQueryCleanup,
   getQuerySlotStore,
+  readQueryData,
   resolveDataRuntimeState,
 } from './data-runtime';
 import { getDefaultDataRuntime } from './data-runtime';
@@ -45,6 +46,8 @@ const RECONCILE_RETRY_DELAY_MS = 25;
 
 type QueryCellOptions<T> = QueryOptions<T> & {
   readonly definitionIdentity?: object;
+  /** Supplies `initialData` when a new cell is created for this key. */
+  readonly takeInitialData?: () => T | undefined;
 };
 
 class QueryStartWork extends ScheduledWork {
@@ -540,6 +543,19 @@ export class QueryCell<T> {
   }
 }
 
+function createCell<T>(
+  options: QueryCellOptions<T>,
+  cache: Map<string, QueryCell<unknown>>
+): QueryCell<T> {
+  const cellOptions = options.takeInitialData
+    ? { ...options, initialData: options.takeInitialData() }
+    : options;
+  const cell = new QueryCell(cellOptions, options.key, cache);
+  cache.set(options.key, cell as QueryCell<unknown>);
+  cell.ensureStarted();
+  return cell;
+}
+
 function createLegacyQuery<T extends {}>(
   options: QueryCellOptions<T>
 ): Query<T> {
@@ -553,9 +569,7 @@ function createLegacyQuery<T extends {}>(
     if (override) return override;
     let cell = cache.get(options.key) as QueryCell<T> | undefined;
     if (!cell) {
-      cell = new QueryCell(options, options.key, cache);
-      cache.set(options.key, cell as QueryCell<unknown>);
-      cell.ensureStarted();
+      cell = createCell(options, cache);
     } else {
       cell.warnOnConflictingDefinition(options);
     }
@@ -580,9 +594,7 @@ function createLegacyQuery<T extends {}>(
 
   let cell = cache.get(options.key) as QueryCell<T> | undefined;
   if (!cell) {
-    cell = new QueryCell(options, options.key, cache);
-    cache.set(options.key, cell as QueryCell<unknown>);
-    cell.ensureStarted();
+    cell = createCell(options, cache);
   } else {
     cell.warnOnConflictingDefinition(options);
   }
@@ -610,7 +622,10 @@ export function createDefinedQuery<TInput, TResult extends {}>(
       | undefined) ??
     getCurrentAppRenderRuntime()?.dataRuntime ??
     getDefaultDataRuntime();
-  const initialData = dataRuntime?.queryData.get(key) as TResult | undefined;
+  const serverRender =
+    context?.mode === 'ssr' ||
+    (context?.mode === undefined && typeof window === 'undefined');
+  const runtimeState = resolveDataRuntimeState(dataRuntime);
   return createLegacyQuery({
     ...options,
     key,
@@ -618,11 +633,11 @@ export function createDefinedQuery<TInput, TResult extends {}>(
     fetch: ({ signal }) => definition.fetch({ ...input, signal }),
     isConsistent: definition.isConsistent,
     reconcile: definition.reconcile,
-    initialData,
-    skipInitialFetch:
-      context?.mode === 'ssr' ||
-      (context?.mode === undefined && typeof window === 'undefined'),
-    runtime: dataRuntime ?? options.runtime,
+    // Server renders read without consuming so the data can be dehydrated.
+    takeInitialData: () =>
+      readQueryData(runtimeState, key, !serverRender) as TResult | undefined,
+    skipInitialFetch: serverRender,
+    runtime: dataRuntime,
   });
 }
 

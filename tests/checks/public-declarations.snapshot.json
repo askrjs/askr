@@ -1102,6 +1102,9 @@
       "resolveRequest": [
         "declare function resolveRequest(opts: {\n    url: string;\n    registry: RouteRegistry;\n    auth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    request?: Request;\n    signal?: AbortSignal;\n}): Promise<RouteRequestResult>;"
       ],
+      "SSRAccessDecisionError": [
+        "declare class SSRAccessDecisionError extends Error {\n    readonly code = \"SSR_ACCESS_DECISION\";\n    readonly decision: AccessRedirectDecision | AccessDenyDecision;\n    constructor(decision: AccessRedirectDecision | AccessDenyDecision);\n}"
+      ],
       "SSRComponent": [
         "type SSRComponent = (props: Props, context?: {\n    signal?: AbortSignal;\n    ssr?: RenderContext;\n}) => VNode$2 | JSXElement | string | number | boolean | null | undefined;"
       ],
@@ -2606,6 +2609,9 @@
     ],
     "SSGResult": [
       "interface SSGResult {\n    generatedAt: string;\n    totalRoutes: number;\n    successful: number;\n    failed: number;\n    totalDuration: number;\n    mode: SSGMode;\n    rebuilt: number;\n    skipped: number;\n    removed: number;\n    cacheHits: number;\n    invalidatedKeys: string[];\n    invalidatedRoutes: string[];\n    routes: RouteRenderResult$2[];\n}"
+    ],
+    "SSRAccessDecisionError": [
+      "declare class SSRAccessDecisionError extends Error {\n    readonly code = \"SSR_ACCESS_DECISION\";\n    readonly decision: AccessRedirectDecision | AccessDenyDecision;\n    constructor(decision: AccessRedirectDecision | AccessDenyDecision);\n}"
     ],
     "SSRComponent": [
       "type SSRComponent = (props: Props, context?: {\n    signal?: AbortSignal;\n    ssr?: RenderContext;\n}) => VNode$2 | JSXElement | string | number | boolean | null | undefined;"

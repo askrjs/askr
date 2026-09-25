@@ -118,7 +118,10 @@ const html = renderToString({ url: '/users/42?q=active', registry });
 ```
 
 The URL is parsed and matched against registry routes. The matched component renders
-to an HTML string.
+to an HTML string. This synchronous helper does not run route loaders, and it
+throws `SSRAccessDecisionError` for auth or policy redirects and denials instead
+of rendering them; use `renderRouteRequest()` for routes with loaders or when
+the server needs the redirect or deny result (see the [SSR Guide](../guides/ssr.md)).
 
 To keep route handlers app-only, pass a `document` callback that wraps the
 rendered app HTML into a full document:
