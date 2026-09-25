@@ -9,6 +9,20 @@
   rendered inside a settled boundary's content now streams too (id `d:0.0`
   under `d:0`) with the same request route state and auth, where its fallback
   was previously never replaced.
+- fix(renderer): delegated event handlers now match native dispatch.
+  Delegated listeners attach at each app root instead of `document.body`, so
+  apps mounted in shadow roots or iframes receive events and nested apps each
+  dispatch their own handlers once. Non-bubbling events (`focus`, `blur`,
+  `scroll`) attach directly to their element, so an ancestor's `onScroll` or
+  `onFocus` no longer runs, ancestor-first, for a descendant. `onWheel`,
+  `onTouchStart` and `onTouchMove` attach directly with `{ passive: false }`,
+  so `preventDefault()` in them takes effect. Hydrated nodes use the same
+  delegated listeners as client-rendered ones, so a client-rendered child's
+  handler runs before (and can stop) a hydrated ancestor's handler.
+- fix(renderer): `onFocus` and `onBlur` no longer bubble: they only run when
+  their own element gains or loses focus, as with native `focus`/`blur`.
+  Container components that tracked focus inside a subtree with `onFocus`/
+  `onBlur` should migrate to `onFocusIn`/`onFocusOut`.
 - fix(resources): a `resource()` deps change seen by a render that is rolled
   back (for example because a sibling component throws in the same render) no
   longer leaves the resource stuck `pending`. The new deps, loader and generation are
