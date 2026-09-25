@@ -1,8 +1,10 @@
-import { logger } from '../../common/logger';
 import {
   createOwnedFineGrainedEffect,
+  getCurrentComponentInstance,
   incDevCounter,
   incrementPerfMetric,
+  isRenderingProtectedBoundaryContent,
+  routeRenderedOutputErrorToBoundary,
   restoreFineGrainedEffect,
   saveFineGrainedEffect,
   type FineGrainedEffectHandle,
@@ -16,7 +18,6 @@ import {
   type ReactivePropCleanupEntry,
   teardownNodeSubtree,
 } from '../ownership/cleanup';
-import { getRuntimeEnvValue } from '../env';
 import {
   createReactivePropCleanupEntry,
   applyFreshElementBindings,
@@ -24,6 +25,7 @@ import {
 import {
   createReactiveScalarChildCleanupEntry,
   syncReactiveScalarChild,
+  updateReactiveChildElements,
   type ReactiveChildDOMHost,
 } from '../children/reactive-children';
 import {
@@ -147,7 +149,8 @@ function commitBlueprintBinding(
     const normalized = normalizeOwnedReactiveTextValue(value);
     if (normalized === null) {
       binding.textNode = null;
-      host.updateElementChildren(
+      updateReactiveChildElements(
+        host,
         binding.element,
         value as VNode | VNode[] | undefined
       );
@@ -158,7 +161,7 @@ function commitBlueprintBinding(
         binding.element.firstChild !== textNode ||
         binding.element.lastChild !== textNode
       ) {
-        host.updateElementChildren(binding.element, normalized);
+        updateReactiveChildElements(host, binding.element, normalized);
         textNode =
           binding.element.childNodes.length === 1 &&
           binding.element.firstChild?.nodeType === Node.TEXT_NODE
@@ -269,12 +272,18 @@ function blueprintBindingsChanged(
   return false;
 }
 
+// Same routing as a single reactive prop binding: the nearest ErrorBoundary
+// of the component that rendered the group, else thrown from the update.
 function reportBlueprintBindingError(
   this: BlueprintOwnedEffect,
   error: unknown
 ): void {
-  if (getRuntimeEnvValue('NODE_ENV') !== 'production') {
-    logger.warn('[Askr] Blueprint reactive update failed:', error);
+  const { owner, protectedByOwner } = this._owner;
+  if (
+    !owner ||
+    !routeRenderedOutputErrorToBoundary(owner, error, protectedByOwner)
+  ) {
+    throw error;
   }
 }
 
@@ -284,12 +293,15 @@ export function mountBlueprintBindingGroup(
 ): void {
   if (bindings.length === 0) return;
 
+  const owner = getCurrentComponentInstance();
   const group: BlueprintBindingGroup = {
     _coalesceForItemReads: true,
     bindings,
     activeCount: bindings.length,
     effect: null,
     host,
+    owner,
+    protectedByOwner: !!owner && isRenderingProtectedBoundaryContent(owner),
   };
   const effect = createOwnedFineGrainedEffect(
     'reactive',

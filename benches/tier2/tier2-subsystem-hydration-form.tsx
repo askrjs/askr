@@ -51,7 +51,7 @@ function createFormHarness() {
             <fieldset>
               <legend>Profile</legend>
               {Array.from({ length: 20 }, (_, index) => (
-                <label for={`form-text-${index}`}>
+                <label htmlFor={`form-text-${index}`}>
                   Text {index}
                   <input
                     id={`form-text-${index}`}
@@ -69,7 +69,7 @@ function createFormHarness() {
             <fieldset>
               <legend>Flags</legend>
               {Array.from({ length: 20 }, (_, index) => (
-                <label for={`form-check-${index}`}>
+                <label htmlFor={`form-check-${index}`}>
                   Check {index}
                   <input
                     id={`form-check-${index}`}
@@ -88,7 +88,7 @@ function createFormHarness() {
             <fieldset>
               <legend>Options</legend>
               {Array.from({ length: 19 }, (_, index) => (
-                <label for={`form-select-${index}`}>
+                <label htmlFor={`form-select-${index}`}>
                   Select {index}
                   <select
                     id={`form-select-${index}`}
@@ -106,7 +106,7 @@ function createFormHarness() {
                   </select>
                 </label>
               ))}
-              <label for="form-note">
+              <label htmlFor="form-note">
                 Note
                 <textarea
                   id="form-note"
