@@ -15,6 +15,7 @@ import type {
   InternalRouteRecord,
   RegistrationScope,
 } from './internal-types';
+import { compareRouteSpecificity } from './match';
 
 /**
  * One route table: everything `route()`, `page()` and `group()` write to.
@@ -86,8 +87,16 @@ export function insertRecordSorted(record: InternalRouteRecord): void {
   let hi = activeTable.records.length;
   while (lo < hi) {
     const mid = (lo + hi) >>> 1;
-    if (activeTable.records[mid].rank >= record.rank) lo = mid + 1;
-    else hi = mid;
+    // Stable: a record sorts after every record at least as specific, so
+    // declaration order breaks ties.
+    if (
+      compareRouteSpecificity(
+        activeTable.records[mid].segments,
+        record.segments
+      ) <= 0
+    ) {
+      lo = mid + 1;
+    } else hi = mid;
   }
   activeTable.records.splice(lo, 0, record);
 }
