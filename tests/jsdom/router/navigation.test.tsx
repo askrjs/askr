@@ -19,6 +19,7 @@ import { registerMountOperation } from '../../../src/runtime';
 import { Portal } from '../../../src/foundations/structures/portal';
 import { createSPA } from '@askrjs/askr/boot';
 import { navigate, updateRouteQuery } from '../../../src/router/navigate';
+import { loadDocument } from '../../../src/router/document-navigation';
 import { routeData } from '../../../src/router/deferred';
 import {
   createRouteRegistry,
@@ -29,6 +30,11 @@ import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
+
+vi.mock('../../../src/router/document-navigation', () => ({
+  loadDocument: vi.fn(),
+  reloadDocument: vi.fn(),
+}));
 
 describe('route navigation (ROUTER)', () => {
   let { container, cleanup } = createTestContainer();
@@ -292,7 +298,7 @@ describe('route navigation (ROUTER)', () => {
       expect(currentPath).toBeNull(); // Not navigated yet
     });
 
-    it('should warn when navigating to missing routes', async () => {
+    it('should warn and load the document when navigating to missing routes', async () => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       // createSPA requires a non-empty route table.
@@ -308,6 +314,7 @@ describe('route navigation (ROUTER)', () => {
         String(call[0]).includes('No route found')
       );
       expect(sawMissingRouteWarn).toBe(true);
+      expect(loadDocument).toHaveBeenCalledWith('/nonexistent', 'push');
       warnSpy.mockRestore();
     });
 

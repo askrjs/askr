@@ -127,6 +127,9 @@ describe('SSG hydration bundle', () => {
     // 264 KiB: #507 and #529 each fit 263 KiB alone but not together (the
     // production update-loop guard plus the derived-write guard; measured
     // 269,744 bytes on main after both merged).
-    expect(initialBytes).toBeLessThanOrEqual(264 * 1024);
+    // 265 KiB: client navigation tracks history entry indexes so a failed
+    // back/forward returns to the rendered entry, and hands URLs no route can
+    // render to the browser (~1.1 KB, #453-#455; measured 270,803 bytes).
+    expect(initialBytes).toBeLessThanOrEqual(265 * 1024);
   });
 });
