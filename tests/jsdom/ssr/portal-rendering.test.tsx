@@ -41,7 +41,7 @@ describe('SSR portal rendering', () => {
     ));
 
     expect(html).toBe(
-      '<main><!--askr-portal-anchor:0--><div class="overlay">Portalled</div></main>'
+      '<main><!--askr-portal-anchor:0--><!--askr-range-start--><div class="overlay">Portalled</div><!--askr-range-end--></main>'
     );
   });
 
@@ -57,7 +57,7 @@ describe('SSR portal rendering', () => {
     ));
 
     expect(html).toBe(
-      '<main><div class="overlay">Portalled</div><span>middle</span><!--askr-portal-anchor:1--></main>'
+      '<main><!--askr-range-start--><div class="overlay">Portalled</div><!--askr-range-end--><span>middle</span><!--askr-portal-anchor:1--></main>'
     );
   });
 
@@ -71,7 +71,7 @@ describe('SSR portal rendering', () => {
     ));
 
     expect(html).toBe(
-      '<main><!--askr-portal-anchor:0--></main><div class="overlay">Portalled</div>'
+      '<main><!--askr-portal-anchor:0--></main><!--askr-range-start--><div class="overlay">Portalled</div><!--askr-range-end-->'
     );
   });
 
@@ -86,7 +86,7 @@ describe('SSR portal rendering', () => {
     ));
 
     expect(html).toBe(
-      "<main><!--askr-portal-anchor:0--><div>cash $&amp; $1 $$ $` $'</div></main>"
+      "<main><!--askr-portal-anchor:0--><!--askr-range-start--><div>cash $&amp; $1 $$ $` $'</div><!--askr-range-end--></main>"
     );
   });
 
@@ -249,6 +249,43 @@ describe('SSR portal rendering', () => {
       expect(button).not.toBeNull();
       button.click();
       expect(clicks).toBe(1);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should match keyed portal host attributes across SSR and hydration', async () => {
+    const Overlay = definePortal();
+    const Writer = () =>
+      Overlay.render({
+        children: <button data-portal-action={'true'}>{'act'}</button>,
+      });
+    const Page = () => (
+      <main>
+        <Writer />
+        <Overlay key={'overlay'} />
+      </main>
+    );
+    const { container, cleanup } = createTestContainer();
+    const registry = routeRegistryFromTable([{ path: '/', handler: Page }]);
+    try {
+      container.innerHTML = renderToStringSync(Page);
+      const serverButton = container.querySelector('[data-portal-action]');
+      const serverKey = serverButton?.getAttribute('data-key');
+      const serverKind = serverButton?.getAttribute('data-askr-key-kind');
+      expect(serverKey).toBe('overlay');
+      expect(serverKind).toBe('string');
+
+      await hydrateSPA({
+        root: container,
+        registry,
+        hydrate: { verifyMarkup: true },
+      });
+      flushScheduler();
+
+      const clientButton = container.querySelector('[data-portal-action]');
+      expect(clientButton?.getAttribute('data-key')).toBe(serverKey);
+      expect(clientButton?.getAttribute('data-askr-key-kind')).toBe(serverKind);
     } finally {
       cleanup();
     }

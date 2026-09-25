@@ -3,7 +3,11 @@ import { __CONTROL_BOUNDARY__ } from '../common/control';
 import type { DOMElement } from '../common/vnode';
 import { __ERROR_BOUNDARY__ } from '../common/vnode';
 import { logger } from '../common/logger';
-import { FunctionChild, getVNodeContextFrame } from '../runtime';
+import {
+  FunctionChild,
+  getVNodeContextFrame,
+  markVNodeWithContextFrame,
+} from '../runtime';
 import { SSR_PORTAL_ANCHOR, SSR_PORTAL_HOST } from '../common/portal';
 import {
   createRenderContext,
@@ -141,18 +145,24 @@ function resolveSSRPortals(html: string, ctx: RenderContext): string {
         const content =
           activeHosts.has(host.token) && slot.hasValue
             ? renderRenderableToString(
-                slot.value,
+                inheritPortalHostKey(
+                  slot.value,
+                  host.automatic
+                    ? undefined
+                    : portalHostKeys.get(ctx)?.get(host.token)
+                ),
                 ctx,
                 portalHostNamespaces.get(ctx)?.get(host.token) ?? 'html'
               )
             : '';
         resolved = resolved.replace(host.token, () =>
-          host.automatic &&
-          content === '' &&
-          slot.hasValue &&
-          explicitHosts.length === 0
-            ? host.token
-            : content
+          host.automatic && (explicitHosts.length > 0 || !slot.hasValue)
+            ? ''
+            : host.automatic && content === ''
+              ? host.token
+              : host.defaultPortal
+                ? RANGE_START + content + RANGE_END
+                : content
         );
         renderedHosts.add(host.token);
       }
@@ -583,6 +593,34 @@ const portalHostNamespaces = new WeakMap<
   RenderContext,
   Map<string, SSRNamespace>
 >();
+const portalHostKeys = new WeakMap<
+  RenderContext,
+  Map<string, string | number>
+>();
+
+function inheritPortalHostKey(
+  value: unknown,
+  key: string | number | undefined
+): unknown {
+  if (
+    key === undefined ||
+    !value ||
+    typeof value !== 'object' ||
+    !('type' in value)
+  ) {
+    return value;
+  }
+
+  const vnode = value as DOMElement;
+  if (vnode.key !== undefined && vnode.key !== null) return value;
+  const copy: DOMElement = { ...vnode, props: { ...vnode.props } };
+  const frame = getVNodeContextFrame(vnode);
+  if (frame) markVNodeWithContextFrame(copy, frame);
+  return inheritRenderableKey(
+    { type: SSR_PORTAL_HOST, key },
+    copy as unknown as VNode
+  );
+}
 
 function withNamespace<T>(namespace: SSRNamespace, render: () => T): T {
   const previous = currentNamespace;
@@ -621,6 +659,15 @@ function renderNodeSyncToSink(
         portalHostNamespaces.set(ctx, hostNamespaces);
       }
       hostNamespaces.set(token, currentNamespace);
+      const key = (node as DOMElement).key;
+      if (typeof key === 'string' || typeof key === 'number') {
+        let hostKeys = portalHostKeys.get(ctx);
+        if (!hostKeys) {
+          hostKeys = new Map();
+          portalHostKeys.set(ctx, hostKeys);
+        }
+        hostKeys.set(token, key);
+      }
       const portalSink = sink as typeof sink & {
         writePortalHost?(token: string): void;
       };

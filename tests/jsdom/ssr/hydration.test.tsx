@@ -1788,6 +1788,8 @@ describe('hydration (SSR)', () => {
             .querySelector('.portal-boundary')
             ?.hasAttribute('data-skip-hydrate')
         ).toBe(true);
+        const serverPortalButton = container.querySelector('#portal-deferred');
+        expect(serverPortalButton).not.toBeNull();
 
         Element.prototype.getBoundingClientRect = function () {
           return { top: 0 } as DOMRect;

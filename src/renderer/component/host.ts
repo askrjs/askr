@@ -13,6 +13,7 @@ import {
   findStableHostInstanceByType,
 } from './host-instances';
 import { canReconcileComponentHost } from '../hydration/adoption';
+import { getDefaultPortalHost } from '../../common/default-portal-runtime';
 import { findRangeEnd, isRangeStart } from '../ownership/ranges';
 import { adoptComponentHost } from './host-adoption';
 import { updateRetainedComponentHost } from './host-retained';
@@ -98,12 +99,14 @@ function syncComponentElementInTransaction(
     return null;
   }
 
+  const rangeEnd =
+    existingHost instanceof Comment && isRangeStart(existingHost)
+      ? findRangeEnd(existingHost)
+      : null;
   const markedHydrationEnd =
-    existingHost instanceof Comment &&
-    hydrationRangeEnd instanceof Comment &&
-    isRangeStart(existingHost) &&
-    findRangeEnd(existingHost) === hydrationRangeEnd
-      ? hydrationRangeEnd
+    rangeEnd instanceof Comment &&
+    (type === getDefaultPortalHost() || rangeEnd === hydrationRangeEnd)
+      ? rangeEnd
       : null;
 
   if (!canReconcileComponentHost(existingHost, Boolean(existingInstance)))
