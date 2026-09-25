@@ -6,7 +6,10 @@ import { drainOwnedCleanup } from '../runtime/ownership/record';
 import { getActiveRenderContext } from '../common/render-context';
 import { getCurrentAppRenderRuntime } from '../runtime';
 import type { ComponentInstance } from '../runtime';
-import { emitInvalidation } from './invalidation-listeners';
+import {
+  emitInvalidation,
+  hasInvalidationListeners,
+} from './invalidation-listeners';
 import type { MutationCell } from './mutation-cell';
 import type { QueryCell } from './query-cell';
 import type { DataRuntime, DataRuntimeOptions } from './types';
@@ -291,7 +294,9 @@ export function invalidateQueriesForRuntime(
   prefix: string,
   markPendingWrite: boolean
 ): void {
-  emitInvalidation({ prefix, markPendingWrite });
+  if (hasInvalidationListeners()) {
+    emitInvalidation({ prefix, markPendingWrite });
+  }
 
   for (const key of runtimeState.queryData.keys()) {
     if (matchesInvalidationPrefix(key, prefix)) {

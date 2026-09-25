@@ -18,6 +18,15 @@ export function addInvalidationListener(
   };
 }
 
+/**
+ * Whether any listener is registered. Listeners come only from the testing
+ * entry (`createInvalidationRecorder()`), so production invalidations check
+ * this and skip dispatch and cascade bookkeeping entirely.
+ */
+export function hasInvalidationListeners(): boolean {
+  return invalidationListeners.size > 0;
+}
+
 export function emitInvalidation(event: InvalidationEvent): void {
   if (activeInvalidationPrefixes.includes(event.prefix)) {
     throw new Error(
