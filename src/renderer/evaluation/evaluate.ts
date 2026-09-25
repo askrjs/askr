@@ -1,5 +1,5 @@
 import { bindComponentHost, writeHostOwners } from '../ownership/nodes';
-import { getRuntimeEnv } from '../env';
+import { getRuntimeEnvValue } from '../env';
 import type { ComponentFunction, ComponentInstance } from '../../runtime';
 import { teardownNodeSubtree } from '../ownership/cleanup';
 import { cleanupDetachedComponentHost } from '../component/host-cleanup';
@@ -40,7 +40,7 @@ export function evaluate(
 ): void {
   if (!target) return;
   if (typeof document === 'undefined') {
-    if (getRuntimeEnv().NODE_ENV !== 'production') {
+    if (getRuntimeEnvValue('NODE_ENV') !== 'production') {
       try {
         console.warn('[Askr] evaluate() called in non-DOM environment; no-op.');
       } catch (e) {

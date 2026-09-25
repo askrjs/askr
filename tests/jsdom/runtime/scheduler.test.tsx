@@ -237,54 +237,91 @@ describe('scheduler (SPEC 2.2)', () => {
   describe('no reentrancy', () => {
     it('should not immediately re-render when state.set() is called during render', () => {
       let renderAttempts = 0;
+      let renderWriteError: unknown;
 
       const Component = () => {
-        const _count = state(0);
+        const count = state(0);
         renderAttempts++;
 
-        // Intentionally try to mutate during render
-        // This should throw or be prevented, not cause reentrancy
-        return (
-          <div>{`Renders: ${String(renderAttempts)} count: ${String(_count())}`}</div>
-        );
+        // A render-time write must be rejected instead of re-entering render.
+        if (renderAttempts === 1) {
+          try {
+            count.set(1);
+          } catch (error) {
+            renderWriteError = error;
+          }
+        }
+
+        return <div>{`count: ${String(count())}`}</div>;
       };
 
       createIsland({ root: container, component: Component });
-
-      // Only one render attempt (initial)
       expect(renderAttempts).toBe(1);
+
+      flushScheduler();
+
+      expect(renderAttempts).toBe(1);
+      expect(container.textContent).toBe('count: 0');
+      expect(renderWriteError).toBeInstanceOf(Error);
+      expect((renderWriteError as Error).message).toContain(
+        'state.set() cannot be called during component render'
+      );
     });
 
-    it('should not interleave nested event handlers', async () => {
+    it('should not interleave nested event handlers', () => {
       const order: string[] = [];
 
       const Component = () => {
         const count = state(0);
-
-        const handleOuter = () => {
-          order.push('outer-start');
-          count.set(1);
-          order.push('outer-end');
-        };
+        order.push(`render:${String(count())}`);
 
         return (
           <div>
-            <button onClick={handleOuter} id="outer">
+            <button
+              id="outer"
+              onClick={() => {
+                order.push('outer-start');
+                count.set(count() + 1);
+                // Dispatch a nested event while the outer handler is running.
+                (
+                  container.querySelector('#inner') as HTMLButtonElement
+                ).click();
+                order.push('outer-end');
+              }}
+            >
               {`Outer ${String(count())}`}
+            </button>
+            <button
+              id="inner"
+              onClick={(event: Event) => {
+                event.stopPropagation();
+                order.push('inner-start');
+                count.set(count() + 1);
+                order.push('inner-end');
+              }}
+            >
+              Inner
             </button>
           </div>
         );
       };
 
       createIsland({ root: container, component: Component });
+      order.length = 0;
 
-      const button = container.querySelector('button') as HTMLButtonElement;
-      button?.click();
-
+      (container.querySelector('#outer') as HTMLButtonElement).click();
       flushScheduler();
 
-      // No interleaving - outer runs to completion, then render
-      expect(order).toEqual(['outer-start', 'outer-end']);
+      // The nested handler runs inside the outer one, but neither handler's
+      // writes are flushed until the outermost handler has finished.
+      expect(order).toEqual([
+        'outer-start',
+        'inner-start',
+        'inner-end',
+        'outer-end',
+        'render:2',
+      ]);
+      expect(container.querySelector('#outer')?.textContent).toBe('Outer 2');
     });
   });
 
@@ -333,23 +370,31 @@ describe('scheduler (SPEC 2.2)', () => {
 
   describe('max-depth guard prevents infinite loops', () => {
     it('should throw when state.set() is called during render', () => {
+      let renderWriteError: unknown;
+
       const Component = () => {
         const count = state(0);
 
-        // Try to mutate during render (should error before loop)
         try {
-          count.set(1); // This should throw
-        } catch {
-          // Expected - state.set() guards against render-time mutation
+          count.set(1);
+        } catch (error) {
+          renderWriteError = error;
         }
 
         return <div>{String(count())}</div>;
       };
 
-      // Should not throw during component creation (guards are in place)
+      // The guard rejects the write itself; mounting still completes.
       expect(() => {
         createIsland({ root: container, component: Component });
       }).not.toThrow();
+      flushScheduler();
+
+      expect(renderWriteError).toBeInstanceOf(Error);
+      expect((renderWriteError as Error).message).toContain(
+        '[Askr] state.set() cannot be called during component render'
+      );
+      expect(container.textContent).toBe('0');
     });
   });
 
@@ -401,43 +446,40 @@ describe('scheduler (SPEC 2.2)', () => {
   });
 
   describe('event wrapper semantics', () => {
-    it('should run handler synchronously and defer flush', () => {
+    it('should run handler synchronously and defer flush', async () => {
       const order: string[] = [];
+      let wrapped!: EventListener;
 
       const Component = () => {
         const count = state(0);
-        const wrapped = scheduleEventHandler(() => {
+        wrapped = scheduleEventHandler(() => {
           order.push('handler-start');
           count.set(count() + 1);
           order.push('handler-end');
         });
 
-        return (
-          <button id="btn" onClick={wrapped}>
-            {String(count())}
-          </button>
-        );
+        return <output>{String(count())}</output>;
       };
 
-      const { container: c, cleanup: cu } = createTestContainer();
-      try {
-        createIsland({ root: c, component: Component });
-        flushScheduler();
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+      const output = container.querySelector('output') as HTMLOutputElement;
 
-        const btn = c.querySelector('#btn') as HTMLButtonElement;
-        order.length = 0;
+      // Invoke the wrapper directly so no DOM event delegation (which flushes
+      // on its own terms) sits around it.
+      wrapped(new Event('custom'));
 
-        // Click the button - handler runs synchronously and triggers inline flush
-        btn.click();
+      // The handler runs synchronously ...
+      expect(order).toEqual(['handler-start', 'handler-end']);
+      // ... but its write is not flushed inline.
+      expect(output.textContent).toBe('0');
+      expect(globalScheduler.getState().queueLength).toBeGreaterThan(0);
 
-        // Handler runs synchronously
-        expect(order).toEqual(['handler-start', 'handler-end']);
+      // The deferred flush runs on the scheduler's microtask kick.
+      await Promise.resolve();
 
-        // DOM is updated synchronously (inline flush during handler)
-        expect(btn.textContent).toBe('1');
-      } finally {
-        cu();
-      }
+      expect(output.textContent).toBe('1');
+      expect(globalScheduler.getState().queueLength).toBe(0);
     });
   });
 
@@ -472,6 +514,58 @@ describe('scheduler (SPEC 2.2)', () => {
         reactive: 0,
         post: 0,
       });
+    });
+
+    it('should run work enqueued mid-flush in the same flush, one priority pass at a time', () => {
+      const order: string[] = [];
+
+      globalScheduler.clearPendingSyncTasks();
+
+      globalScheduler.enqueueInLane('post', () => {
+        order.push('post');
+      });
+      globalScheduler.enqueueInLane('reactive', () => {
+        order.push('reactive');
+      });
+      globalScheduler.enqueueInLane('component', () => {
+        order.push('component');
+        // Same lane: drained before the flush moves to the next lane.
+        globalScheduler.enqueueInLane('component', () => {
+          order.push('component:mid');
+        });
+        // Lower-priority lane: runs when this pass reaches it.
+        globalScheduler.enqueueInLane('post', () => {
+          order.push('post:mid');
+        });
+        // Higher-priority lane: this pass has already left it, so it runs
+        // at the start of the next pass, ahead of any later lower work.
+        globalScheduler.enqueueInLane('derived', () => {
+          order.push('derived:mid');
+          globalScheduler.enqueueInLane('reactive', () => {
+            order.push('reactive:late');
+          });
+        });
+      });
+      globalScheduler.enqueueInLane('derived', () => {
+        order.push('derived');
+      });
+
+      const versionBefore = globalScheduler.getFlushVersion();
+      globalScheduler.flush();
+
+      expect(order).toEqual([
+        'derived',
+        'component',
+        'component:mid',
+        'reactive',
+        'post',
+        'post:mid',
+        'derived:mid',
+        'reactive:late',
+      ]);
+      // All of it happened inside one flush.
+      expect(globalScheduler.getFlushVersion()).toBe(versionBefore + 1);
+      expect(globalScheduler.getState().queueLength).toBe(0);
     });
   });
 });

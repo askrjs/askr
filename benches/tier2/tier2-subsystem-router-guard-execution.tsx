@@ -20,9 +20,9 @@ const auth = {
       authenticated: true,
       principal:
         guardModeState.current === 'admin'
-          ? { roles: ['admin'] }
-          : { roles: ['member'] },
-      session: { id: 'session-1' },
+          ? { id: 'user-1', roles: ['admin'] }
+          : { id: 'user-1', roles: ['member'] },
+      session: { id: 'session-1', subject: 'user-1' },
       tenant: null,
     };
   },
