@@ -1,6 +1,6 @@
 import type { VNode } from '../types';
 import { performBulkPositionalKeyedTextUpdate } from '../children/children';
-import { getRuntimeEnv } from '../env';
+import { getRuntimeEnvValue } from '../env';
 import { applyRendererFastPath } from './fastpath';
 import { keyedElements, planKeyedReorderFastPath } from './keyed';
 import type { KeyedVnode } from '../children/keyed-children';
@@ -59,7 +59,7 @@ function tryForcedPositionalBulkUpdate(
   newChildren: VNode[],
   keyedVnodes: KeyedVnode[]
 ): Map<string | number, Element> | null {
-  if (getRuntimeEnv().ASKR_FORCE_BULK_POSREUSE !== '1') return null;
+  if (getRuntimeEnvValue('ASKR_FORCE_BULK_POSREUSE') !== '1') return null;
   if (keyedVnodes.length === 0 || keyedVnodes.length !== newChildren.length) {
     return null;
   }

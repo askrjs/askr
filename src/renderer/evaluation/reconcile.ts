@@ -1,6 +1,6 @@
 import { writeHostOwners } from '../ownership/nodes';
 import { logger } from '../../common/logger';
-import { getRuntimeEnv } from '../env';
+import { getRuntimeEnvValue, isRuntimeEnvFlagEnabled } from '../env';
 import type { ComponentInstance } from '../../runtime';
 import { keyedElements } from '../reconciliation/keyed';
 import {
@@ -141,14 +141,14 @@ function hasKeyedChildren(children: unknown[]): boolean {
 function trackBulkTextStats(
   stats: ReturnType<typeof performBulkTextReplace>
 ): void {
-  if (getRuntimeEnv().NODE_ENV !== 'production') {
+  if (getRuntimeEnvValue('NODE_ENV') !== 'production') {
     setDevValue('__LAST_BULK_TEXT_FASTPATH_STATS', stats);
     incDevCounter('bulkTextHits');
   }
 }
 
 function trackBulkTextMiss(): void {
-  if (getRuntimeEnv().NODE_ENV !== 'production') {
+  if (getRuntimeEnvValue('NODE_ENV') !== 'production') {
     incDevCounter('bulkTextMisses');
   }
 }
@@ -158,7 +158,7 @@ function reconcileKeyed(
   children: VNode[],
   oldKeyMap: Map<string | number, Element> | undefined
 ): void {
-  if (getRuntimeEnv().ASKR_FORCE_BULK_POSREUSE === '1') {
+  if (getRuntimeEnvValue('ASKR_FORCE_BULK_POSREUSE') === '1') {
     const result = tryForcedBulkKeyedPath(parent, children);
     if (result) return;
   }
@@ -184,11 +184,7 @@ function tryForcedBulkKeyedPath(parent: Element, children: VNode[]): boolean {
   }
 
   if (DEVELOPMENT_BUILD_ENABLED) {
-    const fastPathEnv = getRuntimeEnv();
-    if (
-      fastPathEnv.ASKR_FASTPATH_DEBUG === '1' ||
-      fastPathEnv.ASKR_FASTPATH_DEBUG === 'true'
-    ) {
+    if (isRuntimeEnvFlagEnabled('ASKR_FASTPATH_DEBUG')) {
       logger.warn(
         '[Askr][FASTPATH] forced positional bulk keyed reuse (evaluate-level)'
       );
@@ -199,10 +195,9 @@ function tryForcedBulkKeyedPath(parent: Element, children: VNode[]): boolean {
   const stats = performBulkPositionalKeyedTextUpdate(parent, keyedVnodes);
 
   if (DEVELOPMENT_BUILD_ENABLED) {
-    const statsEnv = getRuntimeEnv();
     if (
-      statsEnv.NODE_ENV !== 'production' ||
-      statsEnv.ASKR_FASTPATH_DEBUG === '1'
+      getRuntimeEnvValue('NODE_ENV') !== 'production' ||
+      getRuntimeEnvValue('ASKR_FASTPATH_DEBUG') === '1'
     ) {
       setDevValue('__LAST_FASTPATH_STATS', stats);
       setDevValue('__LAST_FASTPATH_COMMIT_COUNT', 1);
