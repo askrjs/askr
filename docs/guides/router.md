@@ -166,8 +166,9 @@ In this example:
 
 ## Authentication requirements
 
-Use the requirement factories from `@askrjs/auth`. The same requirements run
-during SPA navigation and server rendering:
+Use the requirement factories from `@askrjs/auth`, an optional peer of Askr
+that you install alongside it (`npm install @askrjs/auth`). The same
+requirements run during SPA navigation and server rendering:
 
 ```ts
 import {
