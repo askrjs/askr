@@ -6,7 +6,9 @@
   overwrite an injected prop. Forwarding an optional prop that was not supplied
   (`onClick={props.onClick}`) used to wipe the primitive's handler or ARIA
   attribute; `undefined` now means "not provided". Pass `null` to clear an
-  injected prop explicitly.
+  injected prop explicitly; intrinsic `on*` handler props now accept `null` in
+  their types. `mergeInteractionProps` still lets the policy own `disabled`, so
+  an enabled native policy clears a fixed `disabled` from the user or child.
 - breaking(data): `defineQuery()` fetchers now receive the input and the abort
   signal as separate arguments, `fetch(input, { signal })`, instead of one
   merged `{ ...input, signal }` object. The merged shape dropped primitive
