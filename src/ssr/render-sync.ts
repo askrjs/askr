@@ -46,6 +46,7 @@ import { startRenderPhase, stopRenderPhase } from './render-keys';
 import type { RouteAppRenderInput } from './route-render';
 import { StringSink } from './sink';
 import type { VNode } from './types';
+import type { AuthContext } from '@askrjs/auth';
 import { DEFERRED_BOUNDARY } from '../common/deferred-value';
 import { CspNonceScope, validateCspNonce } from '../csp-nonce';
 
@@ -820,7 +821,7 @@ export function renderToStringSync(
     envelope?: import('../common/page-render-envelope').PageRenderEnvelope;
     cspNonce?: string;
     /** @internal Request-local authentication for deferred SSR passes. */
-    authContext?: import('@askrjs/auth').AuthContext;
+    authContext?: AuthContext;
     /** @internal Request-local route state for deferred SSR passes. */
     route?: RenderRouteState;
     /** @internal Capture request-local registrations produced by this pass. */

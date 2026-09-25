@@ -249,9 +249,13 @@ export interface RouteRef<
 export type RouteRefSearch<
   TSchema extends ObjectSchema<RouteSearch> | undefined,
 > =
-  TSchema extends ObjectSchema<RouteSearch>
-    ? InferSchema<TSchema>
-    : RouteSearch;
+  // Checked first so a route without `search` stays exact when the optional
+  // @askrjs/schema peer is absent and ObjectSchema degrades to `any`.
+  [TSchema] extends [undefined]
+    ? RouteSearch
+    : TSchema extends ObjectSchema<RouteSearch>
+      ? InferSchema<TSchema>
+      : RouteSearch;
 
 /** A resolved navigation target with a computed `href`, produced by {@link to}. */
 export interface RouteDestination {

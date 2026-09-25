@@ -10,8 +10,7 @@ import type {
   RouteRef,
   RouteRefSearch,
 } from '../common/router';
-import { allOf } from '@askrjs/auth';
-import type { AuthRequirement } from '@askrjs/auth';
+import type { AuthDecision, AuthRequirement } from '@askrjs/auth';
 import type { ObjectSchema } from '@askrjs/schema';
 import { getCurrentComponentInstance } from '../runtime';
 import { getExecutionModel } from '../runtime';
@@ -354,6 +353,20 @@ function assertRouteNotDuplicated(
   }
 }
 
+const authAllowed: AuthDecision = Object.freeze({ allowed: true });
+
+// Inherited and route requirements must all allow, evaluated in declaration
+// order; the first denial wins. Kept local so @askrjs/auth stays type-only.
+function requireAll(requirements: AuthRequirement[]): AuthRequirement {
+  return async (context) => {
+    for (const requirement of requirements) {
+      const decision = await requirement(context);
+      if (!decision.allowed) return decision;
+    }
+    return authAllowed;
+  };
+}
+
 function registerRouteAtResolvedPath(
   path: string,
   Component: RouteComponent,
@@ -387,7 +400,7 @@ function registerRouteAtResolvedPath(
       ? undefined
       : authRequirements.length === 1
         ? authRequirements[0]
-        : allOf(...authRequirements);
+        : requireAll(authRequirements);
   const metaChain = [
     ...getCurrentInheritedMeta(),
     ...(normalizedOptions?.meta ? [normalizedOptions.meta] : []),
