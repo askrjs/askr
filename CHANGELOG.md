@@ -157,6 +157,15 @@
   lazy import, or loader starts. Abandoned async resolution no longer leaks an
   unhandled rejection, and lazy routes whose component is already loaded now
   resolve synchronously.
+- fix(runtime): an update loop that trips the scheduler's `MAX_FLUSH_DEPTH`
+  guard no longer aborts the flush. The looping task is dropped and its error is
+  reported together with earlier task failures, remaining queued work still
+  runs, a dropped component update re-renders on its next write, and
+  production builds now fail such a loop instead of hanging. Effects,
+  `derive()` and `selector()` are now each limited to 50 runs per flush,
+  counted across lanes, so a reactive cycle through them (including
+  derive-to-derive cycles that previously hung inside one batch) stops at the
+  looping entry without stranding sibling work.
 - fix(router): `currentAuth()` no longer falls back to the process-wide client
   identity during server rendering. A server render without request auth now
   sees an anonymous identity, and server-mode route resolution no longer writes
