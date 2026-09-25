@@ -12,6 +12,10 @@
   so `preventDefault()` in them takes effect. Hydrated nodes use the same
   delegated listeners as client-rendered ones, so a client-rendered child's
   handler runs before (and can stop) a hydrated ancestor's handler.
+- fix(renderer): `onFocus` and `onBlur` no longer bubble: they only run when
+  their own element gains or loses focus, as with native `focus`/`blur`.
+  Container components that tracked focus inside a subtree with `onFocus`/
+  `onBlur` should migrate to `onFocusIn`/`onFocusOut`.
 - fix(router): `hydrateSPA()` no longer redirects a server-authorized page to
   the login route when the browser cannot resolve the identity itself (for
   example httpOnly-cookie sessions). Apps opt in with the new

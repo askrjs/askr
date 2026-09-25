@@ -158,21 +158,59 @@ let eventDelegationEnabled = true;
 let defaultContainer: Element | null = null;
 let globalDelegationContainer: Element | null = null;
 
-/**
- * App roots registered by the boot layer. Each root listens for every
- * delegated event type in use, so apps mounted in shadow roots, iframes, or
- * nested inside another app receive their own events.
- */
-const delegationRoots = new Set<Element>();
-
 /** Number of elements holding a delegated handler, per event type. */
 const delegatedEventUsage = new Map<string, number>();
 
-/** Installed container listeners (app roots and the fallback container). */
-const containerDelegatedListeners = new Map<
-  Element,
-  Map<string, EventListener>
->();
+/**
+ * A container with delegated listeners: a registered app root, or the
+ * fallback container for content rendered outside any root. Records only
+ * hold their element weakly, and listeners resolve the container from
+ * `currentTarget`, so an app root removed from the DOM without `cleanupApp`
+ * is not pinned by the delegation registry.
+ */
+interface DelegationContainer {
+  ref: WeakRef<Element>;
+  listeners: Map<string, EventListener>;
+  /** App roots listen for every delegated event type in use. */
+  root: boolean;
+}
+
+const delegationContainers = new WeakMap<Element, DelegationContainer>();
+const liveDelegationContainers = new Set<DelegationContainer>();
+
+function forEachDelegationContainer(
+  visit: (container: Element, record: DelegationContainer) => void
+): void {
+  for (const record of liveDelegationContainers) {
+    const container = record.ref.deref();
+    if (container) {
+      visit(container, record);
+    } else {
+      liveDelegationContainers.delete(record);
+    }
+  }
+}
+
+function getOrCreateDelegationContainer(
+  container: Element
+): DelegationContainer {
+  let record = delegationContainers.get(container);
+  if (!record) {
+    record = { ref: new WeakRef(container), listeners: new Map(), root: false };
+    delegationContainers.set(container, record);
+    liveDelegationContainers.add(record);
+  }
+  return record;
+}
+
+function releaseDelegationContainer(
+  container: Element,
+  record: DelegationContainer
+): void {
+  if (record.root || record.listeners.size > 0) return;
+  delegationContainers.delete(container);
+  liveDelegationContainers.delete(record);
+}
 
 export function isEventDelegationEnabled(): boolean {
   return eventDelegationEnabled;
@@ -196,10 +234,15 @@ export function setGlobalDelegationContainer(container: Element): void {
   installFallbackContainerListeners();
 }
 
-/** @internal Delegate events rendered under `root` at `root` itself. */
+/**
+ * @internal Delegate events rendered under `root` at `root` itself, so apps
+ * mounted in shadow roots, iframes, or nested inside another app receive
+ * their own events.
+ */
 export function registerDelegationRoot(root: Element): void {
-  if (delegationRoots.has(root)) return;
-  delegationRoots.add(root);
+  const record = getOrCreateDelegationContainer(root);
+  if (record.root) return;
+  record.root = true;
   if (!eventDelegationEnabled) return;
   for (const eventName of delegatedEventUsage.keys()) {
     installContainerListener(root, eventName);
@@ -208,24 +251,25 @@ export function registerDelegationRoot(root: Element): void {
 
 /** @internal Stop delegating at `root` once its app is torn down. */
 export function unregisterDelegationRoot(root: Element): void {
-  if (!delegationRoots.delete(root) || root === getDelegationContainer()) {
-    return;
-  }
-  const listeners = containerDelegatedListeners.get(root);
-  if (!listeners) return;
-  containerDelegatedListeners.delete(root);
-  for (const [eventName, handler] of listeners) {
+  const record = delegationContainers.get(root);
+  if (!record?.root) return;
+  record.root = false;
+  if (root === getDelegationContainer()) return;
+  for (const [eventName, handler] of record.listeners) {
     root.removeEventListener(eventName, handler);
   }
+  record.listeners.clear();
+  releaseDelegationContainer(root, record);
 }
 
 function cleanupAllDelegatedListeners(): void {
-  for (const [container, listeners] of containerDelegatedListeners) {
-    for (const [eventName, handler] of listeners) {
+  forEachDelegationContainer((container, record) => {
+    for (const [eventName, handler] of record.listeners) {
       container.removeEventListener(eventName, handler);
     }
-  }
-  containerDelegatedListeners.clear();
+    record.listeners.clear();
+    releaseDelegationContainer(container, record);
+  });
   delegatedEventUsage.clear();
 }
 
@@ -239,35 +283,34 @@ function installFallbackContainerListeners(): void {
 }
 
 function installContainerListener(container: Element, eventName: string): void {
-  let listeners = containerDelegatedListeners.get(container);
-  if (listeners?.has(eventName)) return;
-  const handler = createContainerListener(container, eventName);
-  container.addEventListener(eventName, handler);
-  if (!listeners) {
-    listeners = new Map();
-    containerDelegatedListeners.set(container, listeners);
+  const record = getOrCreateDelegationContainer(container);
+  if (record.listeners.has(eventName)) return;
+  const handler = createContainerListener(eventName);
+  try {
+    container.addEventListener(eventName, handler);
+  } catch (error) {
+    releaseDelegationContainer(container, record);
+    throw error;
   }
-  listeners.set(eventName, handler);
+  record.listeners.set(eventName, handler);
 }
 
 function removeContainerListeners(eventName: string): void {
-  for (const [container, listeners] of containerDelegatedListeners) {
-    const handler = listeners.get(eventName);
-    if (!handler) continue;
+  forEachDelegationContainer((container, record) => {
+    const handler = record.listeners.get(eventName);
+    if (!handler) return;
     container.removeEventListener(eventName, handler);
-    listeners.delete(eventName);
-    if (listeners.size === 0) {
-      containerDelegatedListeners.delete(container);
-    }
-  }
+    record.listeners.delete(eventName);
+    releaseDelegationContainer(container, record);
+  });
 }
 
 /** Listen at every app root and the fallback container for `eventName`. */
 function installDelegatedEvent(eventName: string): void {
   try {
-    for (const root of delegationRoots) {
-      installContainerListener(root, eventName);
-    }
+    forEachDelegationContainer((container, record) => {
+      if (record.root) installContainerListener(container, eventName);
+    });
     const fallback = getDelegationContainer();
     if (fallback) {
       installContainerListener(fallback, eventName);
@@ -301,14 +344,14 @@ function getDelegationContainer(): Element | null {
 }
 
 function isListeningContainer(node: Element, eventName: string): boolean {
-  return containerDelegatedListeners.get(node)?.has(eventName) ?? false;
+  return delegationContainers.get(node)?.listeners.has(eventName) ?? false;
 }
 
-function createContainerListener(
-  container: Element,
-  eventName: string
-): EventListener {
+function createContainerListener(eventName: string): EventListener {
   return (e: Event) => {
+    // Resolve the container per event instead of capturing it, so the
+    // registry's listener map never holds the container strongly.
+    const container = e.currentTarget as Element;
     runRuntimeHandlerScope(() => {
       const path: EventTarget[] = [];
       // Some browser hosts expose a composedPath that omits ordinary DOM
