@@ -150,9 +150,13 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         })
       );
 
+    let verifyClientMarkup: (() => Promise<void>) | undefined;
     if (shouldVerifyHydrationMarkup(config)) {
-      const { verifyHydrationSyncForUrl } =
-        await import('../ssr/verify-hydration');
+      const {
+        captureServerHydrationMarkup,
+        verifyClientHydrationMarkup,
+        verifyHydrationSyncForUrl,
+      } = await import('../ssr/verify-hydration');
       if (
         !verifyHydrationSyncForUrl({
           root: rootElement,
@@ -170,6 +174,25 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         throw new Error(
           '[Askr] Hydration mismatch detected. Server HTML does not match expected server-render output.'
         );
+      }
+      // The server render above cannot see differences between the SSR
+      // serializer and the DOM renderer, so also compare the server markup
+      // with what the client renderer leaves after hydrating it.
+      const serverMarkup = captureServerHydrationMarkup(
+        rootElement,
+        currentUrl,
+        hydrationRenderDataForApp ?? undefined
+      );
+      if (serverMarkup !== null) {
+        verifyClientMarkup = async () => {
+          // Let the work the hydration commit scheduled settle first.
+          await Promise.resolve();
+          if (!verifyClientHydrationMarkup(rootElement, serverMarkup)) {
+            throw new Error(
+              '[Askr] Hydration mismatch detected between server and client markup.'
+            );
+          }
+        };
       }
     }
 
@@ -200,6 +223,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
             stopHydrationRenderPhase();
           }
         }
+        await verifyClientMarkup?.();
         interactionReplay.complete();
         return;
       }
@@ -225,7 +249,6 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         }
       );
       commitHydrationListenerTransaction(listenerTransaction);
-      interactionReplay.complete();
     } catch (error) {
       discardHydrationListenerTransaction(listenerTransaction);
       throw error;
@@ -234,6 +257,8 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         stopHydrationRenderPhase();
       }
     }
+    await verifyClientMarkup?.();
+    interactionReplay.complete();
     await registerAppNavigation(rootElement, path, {
       ...appRouteSource,
     });

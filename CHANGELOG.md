@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- fix(hydration): markup verification (`hydrate: { verifyMarkup }`, on by
+  default outside production) now also compares the server HTML with the DOM
+  the client renderer produces while hydrating it, so SSR/client renderer
+  divergences such as a function child the server rendered empty throw
+  `Hydration mismatch detected` instead of passing a server-against-server
+  comparison. Both comparisons normalize through the DOM and compare `style`
+  attributes by their parsed declarations, so the SSR `color:red;` and the
+  DOM's `color: red;` are equal. The client check is skipped for static pages
+  hydrated at a client-only query or hash and for pages with server-rendered
+  portal content. A mount failure under `hydrate: { deferUntilIdle: true }` now
+  rejects `hydrateSPA()` instead of leaving it pending.
+
 - fix(runtime): an `ErrorBoundary` fallback now removes the portal content its
   failed subtree wrote. A component that rendered no DOM of its own (such as
   a writer that returns only `<Portal>`) shared the boundary's host node and
