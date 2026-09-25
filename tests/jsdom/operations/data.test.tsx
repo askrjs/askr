@@ -1154,9 +1154,62 @@ describe('data layer', () => {
     }
   });
 
-  it('should warn when the same reader rerenders a query key with a conflicting definition', async () => {
+  it('should not warn and should use the latest fetch given an inline query that rerenders', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let setFilter: ((value: string) => void) | undefined;
+    let query: Query<string> | undefined;
+    const calls: string[] = [];
+
+    const App = (): JSXElement => {
+      const filter = state('first');
+      setFilter = filter.set;
+      const current = filter();
+
+      query = createQuery({
+        key: 'users:inline',
+        fetch: async () => {
+          calls.push(current);
+          return current;
+        },
+      });
+
+      return <div>{query.data ?? 'loading'}</div>;
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+      expect(container.textContent).toBe('first');
+
+      setFilter?.('second');
+      flushScheduler();
+      await settle();
+
+      expect(warnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[askr] Conflicting shared query definition for key "users:inline"'
+        )
+      );
+
+      const refreshed = query!.refresh();
+      flushScheduler();
+      await refreshed;
+      await settle();
+
+      expect(calls).toEqual(['first', 'second']);
+      expect(container.textContent).toBe('second');
+    } finally {
+      warnSpy.mockRestore();
+      cleanup();
+    }
+  });
+
+  it('should use the latest definition when the same reader rerenders a query key with a different fetch', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     let setUseFirst: ((value: boolean) => void) | undefined;
+    let query: Query<string> | undefined;
     const firstFetch = vi.fn(async () => 'first');
     const secondFetch = vi.fn(async () => 'second');
 
@@ -1164,7 +1217,7 @@ describe('data layer', () => {
       const useFirst = state(true);
       setUseFirst = useFirst.set;
 
-      const query = createQuery({
+      query = createQuery({
         key: 'users:rerendered-definition',
         fetch: useFirst() ? firstFetch : secondFetch,
       });
@@ -1179,20 +1232,97 @@ describe('data layer', () => {
       await settle();
 
       expect(container.textContent).toBe('first');
-      expect(firstFetch).toHaveBeenCalledTimes(1);
-      expect(secondFetch).toHaveBeenCalledTimes(0);
 
       setUseFirst?.(false);
       flushScheduler();
       await settle();
 
-      expect(warnSpy).toHaveBeenCalledWith(
+      expect(warnSpy).not.toHaveBeenCalledWith(
         expect.stringContaining(
           '[askr] Conflicting shared query definition for key "users:rerendered-definition"'
         )
       );
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('`fetch`'));
-      expect(container.textContent).toBe('first');
+
+      const refreshed = query!.refresh();
+      flushScheduler();
+      await refreshed;
+      await settle();
+
+      expect(firstFetch).toHaveBeenCalledTimes(1);
+      expect(secondFetch).toHaveBeenCalledTimes(1);
+      expect(container.textContent).toBe('second');
+    } finally {
+      warnSpy.mockRestore();
+      cleanup();
+    }
+  });
+
+  it('should hand a shared query definition to a surviving reader after its definer unmounts', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let setShowPrimary: ((value: boolean) => void) | undefined;
+    let secondaryQuery: Query<string> | undefined;
+    let rerenderSecondary: (() => void) | undefined;
+    const primaryFetch = vi.fn(async () => 'primary');
+    const secondaryFetch = vi.fn(async () => 'secondary');
+
+    const Primary = () => {
+      createQuery({ key: 'users:handoff', fetch: primaryFetch });
+      return null;
+    };
+
+    const Secondary = () => {
+      const renders = state(0);
+      rerenderSecondary = () => renders.set(renders() + 1);
+      secondaryQuery = createQuery({
+        key: 'users:handoff',
+        fetch: secondaryFetch,
+      });
+      return (
+        <span data-render={renders()}>{secondaryQuery.data ?? 'loading'}</span>
+      );
+    };
+
+    const App = (): JSXElement => {
+      const showPrimary = state(true);
+      setShowPrimary = showPrimary.set;
+      return (
+        <section>
+          <Show when={showPrimary()}>
+            <Primary />
+          </Show>
+          <Secondary />
+        </section>
+      );
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+
+      expect(container.textContent).toBe('primary');
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[askr] Conflicting shared query definition for key "users:handoff"'
+        )
+      );
+
+      setShowPrimary?.(false);
+      flushScheduler();
+      await settle();
+      rerenderSecondary?.();
+      flushScheduler();
+      await settle();
+
+      const refreshed = secondaryQuery!.refresh();
+      flushScheduler();
+      await refreshed;
+      await settle();
+
+      expect(primaryFetch).toHaveBeenCalledTimes(1);
+      expect(secondaryFetch).toHaveBeenCalledTimes(1);
+      expect(container.textContent).toBe('secondary');
     } finally {
       warnSpy.mockRestore();
       cleanup();
