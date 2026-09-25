@@ -762,7 +762,9 @@ describe('SSR reactive values', () => {
   });
 
   describe('element function children that need a component', () => {
-    const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+    const tick = async () => {
+      for (let index = 0; index < 5; index += 1) await Promise.resolve();
+    };
     const Layout = (props: { children?: unknown }) => <>{props.children}</>;
 
     async function mount(Component: Page): Promise<HTMLElement> {

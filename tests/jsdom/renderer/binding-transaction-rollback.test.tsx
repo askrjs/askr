@@ -202,8 +202,12 @@ describe('fine-grained bindings and render transactions', () => {
     flushScheduler();
 
     broken = true;
-    n.set(2);
-    flushScheduler();
+    // A function child's error has no ErrorBoundary here, so the update that
+    // ran it throws (the blueprint binding's error is logged).
+    expect(() => {
+      n.set(2);
+      flushScheduler();
+    }).toThrow('compute failed');
 
     broken = false;
     tick.set(1);
