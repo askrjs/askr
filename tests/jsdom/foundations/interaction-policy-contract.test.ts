@@ -105,4 +105,29 @@ describe('interaction policy contract helpers (FOUNDATIONS)', () => {
     expect(userRef).toHaveBeenCalledWith('node');
     expect(policyRef).toHaveBeenCalledWith('node');
   });
+
+  it('should let the policy own disabled given a fixed disabled child or user prop', () => {
+    const onPress = vi.fn();
+    const mergeFor = (disabled: boolean) =>
+      mergeInteractionProps(
+        { disabled: true },
+        applyInteractionPolicy({ isNative: true, disabled, onPress }),
+        { disabled: true }
+      );
+
+    const enabled = mergeFor(false);
+    expect(enabled.disabled).toBeUndefined();
+    (enabled.onClick as (e: unknown) => void)({ preventDefault: vi.fn() });
+    expect(onPress).toHaveBeenCalledTimes(1);
+
+    const disabled = mergeFor(true);
+    expect(disabled.disabled).toBe(true);
+    (disabled.onClick as (e: unknown) => void)({ preventDefault: vi.fn() });
+    expect(onPress).toHaveBeenCalledTimes(1);
+
+    const reenabled = mergeFor(false);
+    expect(reenabled.disabled).toBeUndefined();
+    (reenabled.onClick as (e: unknown) => void)({ preventDefault: vi.fn() });
+    expect(onPress).toHaveBeenCalledTimes(2);
+  });
 });
