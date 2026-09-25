@@ -159,21 +159,12 @@ function createStateCell<T>(
 
   // Attach set method directly to function
   read.set = (newValueOrUpdater: T | ((prev: T) => T)): void => {
-    // INVARIANT: derive() and selector() computations are pure. They also run
-    // in the derived lane, outside any component render, so this is checked
-    // separately from the render guard below.
-    if (isDerivedComputationActive()) {
-      throw new Error(
-        `[Askr] state.set() cannot be called inside a derive() or selector() computation. ` +
-          `Derived computations must be pure; a write from one can re-trigger it in an update loop. ` +
-          `Move the state update to an event handler.`
-      );
-    }
-
     // INVARIANT: State cannot be mutated during component render
     // (when currentInstance is non-null). It must be scheduled for consistency.
+    // A derive()/selector() computation running inside a render is handled
+    // by the derived-computation guard below instead.
     const currentInst = getCurrentComponentInstance();
-    if (currentInst !== null) {
+    if (currentInst !== null && !isDerivedComputationActive()) {
       throw new Error(
         `[Askr] state.set() cannot be called during component render. ` +
           `State mutations during render break the actor model and cause infinite loops. ` +
@@ -196,6 +187,18 @@ function createStateCell<T>(
 
     // Skip work if value didn't change
     if (Object.is(value, newValue)) return;
+
+    // INVARIANT: derive() and selector() computations are pure. They also run
+    // in the derived lane, outside any component render, so this is checked
+    // separately from the render guard above. A no-op set writes nothing and
+    // stays allowed, so it is checked after the equality cutoff.
+    if (isDerivedComputationActive()) {
+      throw new Error(
+        `[Askr] state.set() cannot be called inside a derive() or selector() computation. ` +
+          `Derived computations must be pure; a write from one can re-trigger it in an update loop. ` +
+          `Move the state update to an event handler.`
+      );
+    }
 
     value = newValue;
     if (!deferCommitNotification(read, notify)) notify();

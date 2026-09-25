@@ -96,3 +96,60 @@ describe('state.set() inside derived computations', () => {
     ).toThrow(DERIVED_WRITE_ERROR);
   });
 });
+
+describe('no-op state.set() inside derived computations', () => {
+  let { container, cleanup } = createTestContainer();
+  beforeEach(() => {
+    ({ container, cleanup } = createTestContainer());
+  });
+  afterEach(() => cleanup());
+
+  it('should allow a same-value write from a derive() compute in render and in the derived lane', () => {
+    let count!: State<number>;
+    let holder!: State<string>;
+    const Component = () => {
+      count = state(0);
+      holder = state('held');
+      const doubled = derive(() => {
+        holder.set(holder());
+        holder.set((current) => current);
+        return count() * 2;
+      });
+      return (
+        <div>
+          {doubled()}:{holder()}
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+    expect(container.textContent).toBe('0:held');
+
+    count.set(1);
+    expect(() => flushScheduler()).not.toThrow();
+    expect(container.textContent).toBe('2:held');
+  });
+
+  it('should allow a same-value write from a selector() source in the derived lane', () => {
+    allowFrameworkWarnings(/Unused state variable detected in Component/);
+    let selected!: State<number>;
+    let holder!: State<string>;
+    const Component = () => {
+      selected = state(1);
+      holder = state('held');
+      selector(() => {
+        holder.set('held');
+        return selected();
+      });
+      return <div>static</div>;
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    selected.set(2);
+    expect(() => flushScheduler()).not.toThrow();
+    expect(holder()).toBe('held');
+  });
+});

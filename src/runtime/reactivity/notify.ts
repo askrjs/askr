@@ -49,7 +49,17 @@ export function notifyReadableSource(
   } catch (error) {
     propsFailure = { error };
   }
-  notifyReadableReaders(source, options?.skipInstance, options?.skipOwnedBy);
+  try {
+    notifyReadableReaders(source, options?.skipInstance, options?.skipOwnedBy);
+  } catch (error) {
+    if (propsFailure) {
+      throw new AggregateError(
+        [propsFailure.error, error],
+        'Readable source notification failed'
+      );
+    }
+    throw error;
+  }
   if (propsFailure) {
     throw propsFailure.error;
   }

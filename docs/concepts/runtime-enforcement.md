@@ -162,5 +162,5 @@ state.set() cannot be called inside a derive() or selector() computation.
 ```
 
 The check applies to every recompute, whether it runs during render or in the
-derived lane, in development and production builds. Move the write to an event
-handler.
+derived lane, in development and production builds. A same-value `set()` writes
+nothing and is allowed. Move the write to an event handler.

@@ -298,11 +298,12 @@ flowchart LR
   values, reactive props, and component readers.
   `withDerivedReadTracking()` marks a derive/selector computation as active,
   and `state.set()` rejects writes while one is running, including derived-lane
-  recomputes outside any render. `notify.ts` publishes a change to derived
+  recomputes outside any render (same-value sets stay allowed). `notify.ts` publishes a change to derived
   subscribers, reactive props and component readers; if the renderer throws
   while marking reactive props dirty, the component readers are still
   notified and the error is rethrown to the caller (or aggregated by the
-  scheduler when the notification runs inside a flush).
+  scheduler when the notification runs inside a flush); if reader
+  notification also throws, both errors are thrown as an `AggregateError`.
 - `src/runtime/access.ts` is the internal boundary for default scheduler and
   renderer-host access used by runtime, renderer, data, and FX hot paths.
 - `src/runtime/operations.ts` is the stable operations facade.

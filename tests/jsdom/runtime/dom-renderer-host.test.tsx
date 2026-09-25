@@ -174,3 +174,50 @@ test('should surface a reactive-prop dirty-marking failure and still notify read
     runtime.configureRenderer(original);
   }
 });
+
+test('should report both failures when reactive-prop marking and reader notification throw', async () => {
+  const { getRuntimeScheduler } = await import('../../../src/runtime/access');
+  const runtime = getDefaultRuntime();
+  const original = runtime.renderer;
+  const scheduler = getRuntimeScheduler();
+  const failure = new Error('reactive prop marking failed');
+  let failing = false;
+  const adapter = createDOMRendererHost((native) => ({
+    ...native,
+    reactivity: {
+      markReactivePropsDirtySource(source) {
+        if (failing) throw failure;
+        native.reactivity.markReactivePropsDirtySource(source);
+      },
+    },
+  }));
+  const { container, cleanup } = createTestContainer();
+  let value!: State<number>;
+  function Counter() {
+    value = state(0);
+    return <button>{value()}</button>;
+  }
+  try {
+    runtime.configureRenderer(adapter);
+    createIsland({ root: container, component: Counter });
+    flushScheduler();
+    failing = true;
+    // Rejects the reader's re-render enqueue as well.
+    scheduler.setBulkCommitProbe(() => true);
+    let caught: unknown;
+    try {
+      value.set(1);
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(AggregateError);
+    const errors = (caught as AggregateError).errors;
+    expect(errors[0]).toBe(failure);
+    expect(String(errors[1])).toMatch(/during bulk commit/);
+  } finally {
+    failing = false;
+    scheduler.setBulkCommitProbe(() => false);
+    cleanup();
+    runtime.configureRenderer(original);
+  }
+});
