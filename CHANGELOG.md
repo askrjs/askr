@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- fix(renderer): a fine-grained binding (function-valued prop or child) whose
+  function a render replaced now rolls back with that render. Previously a
+  failed render restored the DOM but left the binding holding the new value,
+  so the next successful render saw nothing to change and the binding stayed
+  stale. A binding re-evaluating on its own after a state change remains its
+  own commit; see "Fine-grained bindings and rollback" in docs/core/rendering.md.
 - fix(router): when several page `fallback()`s match a URL, the deepest page
   prefix (counted in segments) now wins on the client and in sync and async
   SSR. Previously the longest prefix string won, so an encoded prefix such as

@@ -513,6 +513,42 @@ function markDirtyEffect(effect: FineGrainedEffect<unknown>): void {
   dirtyEffectsByLane[effect.lane].add(effect);
 }
 
+function restoreEffectState<T>(
+  effect: FineGrainedEffect<T>,
+  compute: () => T,
+  readSources: EffectReadSources,
+  readSource2: ReadableSource<unknown> | null,
+  hasValue: boolean,
+  lastValue: T | undefined
+): void {
+  effect.compute = compute;
+  commitEffectSubscriptions(effect, readSources, readSource2);
+  effect.hasValue = hasValue;
+  effect.lastValue = lastValue;
+}
+
+/**
+ * @internal Capture an effect's compute, dependencies and last value so a
+ * rolled-back transaction can return it to this point without re-running it.
+ */
+export function snapshotFineGrainedEffect<T>(
+  handle: FineGrainedEffectHandle<T>
+): () => void {
+  const effect = handle as FineGrainedEffectImpl<T>;
+  const { compute, readSources, readSource2, hasValue, lastValue } = effect;
+  return () => {
+    if (effect.isActive)
+      restoreEffectState(
+        effect,
+        compute,
+        readSources,
+        readSource2,
+        hasValue,
+        lastValue
+      );
+  };
+}
+
 class FineGrainedEffectImpl<T>
   implements FineGrainedEffect<T>, FineGrainedEffectHandle<T>
 {
@@ -580,11 +616,15 @@ class FineGrainedEffectImpl<T>
       // When the error propagates, keep the existing effect coherent for its
       // caller's rollback/recovery path instead of pairing the replacement
       // compute with the last committed dependency set.
-      this.compute = previousCompute;
+      restoreEffectState(
+        this,
+        previousCompute,
+        previousReadSources,
+        previousReadSource2,
+        previousHasValue,
+        previousLastValue
+      );
       unscheduleEffect(this);
-      commitEffectSubscriptions(this, previousReadSources, previousReadSource2);
-      this.hasValue = previousHasValue;
-      this.lastValue = previousLastValue;
       throw error;
     }
   }

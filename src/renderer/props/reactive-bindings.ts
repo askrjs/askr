@@ -1,9 +1,12 @@
 import { logger } from '../../common/logger';
 import {
   createFineGrainedEffect,
+  getCurrentCommitTransaction,
   markFineGrainedEffectsDirtySource,
+  snapshotFineGrainedEffect,
   type FineGrainedEffectHandle,
 } from '../../runtime';
+import { registerCommitParticipant } from '../../runtime/transactions/access';
 import { isBenchMetricScopeActive, recordBenchCounter } from '../../runtime';
 import { incrementPerfMetric } from '../../runtime';
 import type { ReadableSource } from '../../runtime';
@@ -27,9 +30,44 @@ interface ReactivePropDescriptor {
   /** Last committed value; before the first commit, the seed baseline. */
   appliedValue: unknown;
   hasCommitted: boolean;
+  effect: FineGrainedEffectHandle<unknown> | null;
 }
 
 const reactivePropRegistry = new Set<ReactivePropDescriptor>();
+const BINDING_ROLLBACK = {};
+
+/**
+ * Enlist a binding in the open render transaction before it changes.
+ *
+ * Captured once per binding and transaction, so rollback returns the binding
+ * to what the last successful commit left: its compute, dependencies, value
+ * and DOM. Outside a transaction a binding update is its own commit.
+ */
+export function captureBindingRollback<K extends object>(
+  key: K,
+  snapshot: (key: K) => () => void
+): void {
+  const transaction = getCurrentCommitTransaction();
+  if (transaction && !transaction.participant(key, BINDING_ROLLBACK))
+    registerCommitParticipant({
+      key,
+      kind: BINDING_ROLLBACK,
+      collision: 'keep-first',
+      rollback: snapshot(key),
+    });
+}
+
+function snapshotReactiveProp(descriptor: ReactivePropDescriptor): () => void {
+  const restoreEffect = snapshotFineGrainedEffect(descriptor.effect!);
+  const { propFn, appliedValue, hasCommitted, lastClassTokens } = descriptor;
+  return () => {
+    restoreEffect();
+    descriptor.propFn = propFn;
+    descriptor.appliedValue = appliedValue;
+    descriptor.hasCommitted = hasCommitted;
+    descriptor.lastClassTokens = lastClassTokens;
+  };
+}
 
 export function markReactivePropsDirtySource(
   source: ReadableSource<unknown>
@@ -56,12 +94,11 @@ function setupReactiveProp(
     lastClassTokens: null,
     appliedValue: seedValue,
     hasCommitted: false,
+    effect: null,
   };
 
-  let effectHandle: FineGrainedEffectHandle<unknown> | null = null;
-
   reactivePropRegistry.add(descriptor);
-  effectHandle = createFineGrainedEffect({
+  descriptor.effect = createFineGrainedEffect({
     lane: 'reactive',
     compute: () => descriptor.propFn(),
     commit: (value, previousValue) => {
@@ -97,15 +134,17 @@ function setupReactiveProp(
 
   const cleanup = () => {
     reactivePropRegistry.delete(descriptor);
-    effectHandle?.cleanup();
-    effectHandle = null;
+    descriptor.effect?.cleanup();
+    descriptor.effect = null;
   };
 
   const updateFn = (nextFn: () => unknown): void => {
-    if (!effectHandle) {
+    const effectHandle = descriptor.effect;
+    if (!effectHandle || descriptor.propFn === nextFn) {
       return;
     }
 
+    captureBindingRollback(descriptor, snapshotReactiveProp);
     descriptor.propFn = nextFn;
 
     try {

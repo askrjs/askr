@@ -3,8 +3,10 @@ import {
   createOwnedFineGrainedEffect,
   incDevCounter,
   incrementPerfMetric,
+  snapshotFineGrainedEffect,
   type FineGrainedEffectHandle,
 } from '../../runtime';
+import { captureBindingRollback } from '../props/reactive-bindings';
 import { applyScalarPropValue } from '../props/attributes';
 import {
   REACTIVE_CHILDREN_KEY,
@@ -181,21 +183,36 @@ function updateGroupedBinding(
 ): void {
   if (!binding.active || !group.effect) return;
 
-  if (binding.kind === 'text') {
-    const nextSource = nextValue as ReactiveScalarChildSource;
-    const nextSlot = nextSource[0];
-    const nextCompute =
-      typeof nextValue === 'function'
-        ? (nextValue as () => unknown)
-        : nextSlot?.kind === 'dynamic'
-          ? nextSlot.compute
-          : null;
-    if (!nextCompute) return;
-    binding.compute = nextCompute;
-  } else {
-    binding.compute = nextValue as () => unknown;
+  let nextCompute = nextValue as (() => unknown) | null;
+  if (binding.kind === 'text' && typeof nextValue !== 'function') {
+    const nextSlot = (nextValue as ReactiveScalarChildSource)[0];
+    nextCompute = nextSlot?.kind === 'dynamic' ? nextSlot.compute : null;
   }
+  if (!nextCompute || nextCompute === binding.compute) return;
+  captureBindingRollback(group, snapshotBlueprintGroup);
+  binding.compute = nextCompute;
   group.effect.flush();
+}
+
+/** A group flush commits every binding in it, so the group rolls back whole. */
+function snapshotBlueprintGroup(group: BlueprintBindingGroup): () => void {
+  const restoreEffect = snapshotFineGrainedEffect(group.effect!);
+  const snapshots = group.bindings.map(
+    ({ compute, hasValue, lastValue, lastClassTokens, textNode }) =>
+      [compute, hasValue, lastValue, lastClassTokens, textNode] as const
+  );
+  return () => {
+    restoreEffect();
+    group.bindings.forEach((binding, index) => {
+      const [compute, hasValue, lastValue, lastClassTokens, textNode] =
+        snapshots[index]!;
+      binding.compute = compute;
+      binding.hasValue = hasValue;
+      binding.lastValue = lastValue;
+      binding.lastClassTokens = lastClassTokens;
+      binding.textNode = textNode;
+    });
+  };
 }
 
 function cleanupGroupedBinding(

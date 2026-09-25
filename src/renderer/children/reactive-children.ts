@@ -9,8 +9,10 @@ import { getCurrentComponentInstance } from '../../runtime';
 import { incDevCounter } from '../../runtime';
 import {
   createFineGrainedEffect,
+  snapshotFineGrainedEffect,
   type FineGrainedEffectHandle,
 } from '../../runtime';
+import { captureBindingRollback } from '../props/reactive-bindings';
 import {
   elementReactivePropsCleanup,
   getElementReactivePropsCleanupMap,
@@ -165,10 +167,20 @@ function setupReactiveScalarChild(
         effectHandle = null;
       },
       updateFn: (nextSource: ReactiveScalarChildSource) => {
-        if (!effectHandle) {
+        if (!effectHandle || nextSource === currentSource) {
           return;
         }
 
+        captureBindingRollback(effectHandle, (handle) => {
+          const restoreEffect = snapshotFineGrainedEffect(handle);
+          const source = currentSource;
+          const textNode = ownedTextNode;
+          return () => {
+            currentSource = source;
+            restoreEffect();
+            ownedTextNode = textNode;
+          };
+        });
         currentSource = nextSource;
         effectHandle.updateCompute(() => {
           const currentSlot = currentSource[0];

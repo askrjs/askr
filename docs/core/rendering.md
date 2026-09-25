@@ -15,6 +15,35 @@ child owners do not become live. Cleanup belonging to a successful commit runs
 only after the coherent DOM update. Cleanup failures are reported together and
 do not roll back an already successful render.
 
+### Fine-grained bindings and rollback
+
+A function-valued prop or child (`title={() => ...}`, `{() => count()}`) is a
+fine-grained binding. When a render swaps a binding's function, that update
+belongs to the render's transaction: if the render fails, the binding keeps the
+value, function and dependencies of the last successful commit, and the next
+successful render applies the new value.
+
+A binding also re-evaluates on its own when a state it reads changes. That
+update is a separate commit, not part of any component's render. If the owning
+component's render fails for the same state change, the binding still shows the
+new value:
+
+```tsx
+function Counter() {
+  const count = state(1);
+  if (count() === 2) throw new Error('boom');
+  return (
+    <p>
+      <b>{() => count()}</b> <i>{count()}</i>
+    </p>
+  );
+}
+// After count.set(2): <b>2</b> <i>1</i>; the render rolled back, the binding did not.
+```
+
+Read the state in the render instead of a binding when a value must change
+together with the rest of the component's output.
+
 ### Transparent component ranges
 
 A component may return a Fragment or an array when it needs multiple sibling
