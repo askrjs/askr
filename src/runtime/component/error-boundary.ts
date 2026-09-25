@@ -89,21 +89,6 @@ export function bindControlScopeErrorOwner(
   controlScopeStates.set(scopeInstance, controlState);
 }
 
-function isLiveErrorBoundary(instance: ComponentInstance): boolean {
-  return !!instance.errorBoundaryState && instance.notifyUpdate !== null;
-}
-
-/**
- * Whether output rendered in `owner`'s scope right now is protected by `owner`
- * itself: true for an ErrorBoundary's children, false for its fallback (which
- * belongs to the enclosing boundary) and for ordinary components.
- */
-export function isRenderingProtectedBoundaryContent(
-  owner: ComponentInstance
-): boolean {
-  return !!owner.errorBoundaryState && owner.errorBoundaryState.error == null;
-}
-
 function findLiveErrorBoundary(
   failedInstance: ComponentInstance
 ): ComponentInstance | null {
@@ -151,19 +136,8 @@ function findLiveErrorBoundary(
   return visitAbove(failedInstance);
 }
 
-function notifyErrorBoundary(
-  boundary: ComponentInstance,
-  error: unknown
-): void {
-  const onError = boundary.props.onError;
-  reportBoundaryError(
-    boundary,
-    error,
-    typeof onError === 'function'
-      ? (onError as (nextError: unknown) => void)
-      : undefined
-  );
-  boundary._enqueueRun?.();
+function isLiveErrorBoundary(instance: ComponentInstance): boolean {
+  return !!instance.errorBoundaryState && instance.notifyUpdate !== null;
 }
 
 /** Route a scheduled component failure to its nearest live render boundary. */
@@ -177,6 +151,17 @@ export function routeComponentErrorToBoundary(
   }
   notifyErrorBoundary(boundary, error);
   return true;
+}
+
+/**
+ * Whether output rendered in `owner`'s scope right now is protected by `owner`
+ * itself: true for an ErrorBoundary's children, false for its fallback (which
+ * belongs to the enclosing boundary) and for ordinary components.
+ */
+export function isRenderingProtectedBoundaryContent(
+  owner: ComponentInstance
+): boolean {
+  return !!owner.errorBoundaryState && owner.errorBoundaryState.error == null;
 }
 
 /**
@@ -194,4 +179,19 @@ export function routeRenderedOutputErrorToBoundary(
     return true;
   }
   return routeComponentErrorToBoundary(owner, error);
+}
+
+function notifyErrorBoundary(
+  boundary: ComponentInstance,
+  error: unknown
+): void {
+  const onError = boundary.props.onError;
+  reportBoundaryError(
+    boundary,
+    error,
+    typeof onError === 'function'
+      ? (onError as (nextError: unknown) => void)
+      : undefined
+  );
+  boundary._enqueueRun?.();
 }
