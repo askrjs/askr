@@ -143,31 +143,30 @@ export function getRawTextElement(tag: string): RawTextElement | null {
   return tag === 'script' || tag === 'style' ? tag : null;
 }
 
-const SCRIPT_RAW_TEXT_RE = /<(\/?script|!--)/gi;
-const STYLE_RAW_TEXT_RE = /<\/style/gi;
+const SCRIPT_RAW_TEXT_RE = /<(\/|!--|script)/gi;
+const STYLE_RAW_TEXT_RE = /<\//g;
 
 /**
  * Make text safe to emit verbatim inside an HTML raw text element.
  *
- * Only the sequences that let the parser leave the element are rewritten, so
- * ordinary text reaches the DOM unchanged and matches what the client renders:
- * - `<style>`: `</style` becomes `<\/style` (a CSS escape of `/`).
- * - `<script>`: `</script` becomes `<\/script`, and `<script` / `<!--` get
- *   their `<` written as `\u003C`, which keeps the parser out of the script
- *   data (double) escaped states. Inside JS string, template and regex
- *   literals, and inside JSON strings (`application/json`, `importmap`,
- *   `application/ld+json`), each rewrite denotes the original characters.
+ * Only sequences that could let the parser leave the element are rewritten,
+ * so ordinary text reaches the DOM unchanged and matches what the client
+ * renders. Every `</` becomes `<\/`, so no end tag (of this element or of
+ * any ancestor) can form; in CSS that is an escaped `/`. In `<script>`, the
+ * `<` of `<!--` and `<script` is also written as `\u003C`, which keeps the
+ * parser out of the script data (double) escaped states. Inside JS string,
+ * template and regex literals, and inside JSON strings (`application/json`,
+ * `importmap`, `application/ld+json`), each rewrite denotes the original
+ * characters.
  *
  * Matching is case-insensitive. The whole text must be escaped at once: a
  * sequence split across children only forms once they are concatenated.
  */
 export function escapeRawText(text: string, element: RawTextElement): string {
   if (!text.includes('<')) return text;
-  if (element === 'style') {
-    return text.replace(STYLE_RAW_TEXT_RE, (match) => `<\\${match.slice(1)}`);
-  }
+  if (element === 'style') return text.replace(STYLE_RAW_TEXT_RE, '<\\/');
   return text.replace(SCRIPT_RAW_TEXT_RE, (_match, rest: string) =>
-    rest[0] === '/' ? `<\\${rest}` : `\\u003C${rest}`
+    rest === '/' ? '<\\/' : `\\u003C${rest}`
   );
 }
 

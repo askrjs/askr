@@ -676,8 +676,11 @@ function renderNodeSyncToSink(
 
 /**
  * Write a non-void intrinsic element. `rawTextElement` is set only for an
- * HTML `<script>` / `<style>`; the same tags in SVG or MathML are ordinary
- * elements whose text the parser reads as markup, so it stays escaped.
+ * HTML `<script>` / `<style>` whose ancestors are all ordinary HTML content.
+ * The same tags in SVG or MathML are ordinary elements whose text the parser
+ * reads as markup, and inside a raw text or RCDATA ancestor (`noscript`,
+ * `textarea`, ...) raw content could close that ancestor, so both keep
+ * escaped text.
  */
 function renderElementSyncToSink(
   node: VNode | JSXElement,

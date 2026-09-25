@@ -137,22 +137,29 @@ entity-escaping them. CSS such as `ul > li` and scripts such as
 `a < b && c > d` reach the browser unchanged and match the text the client
 renderer creates, so hydration adopts the element in place.
 
-Only sequences that would end the element early are rewritten. Inside
-`<style>`, `</style` becomes `<\/style`. Inside `<script>`, `</script` becomes
-`<\/script`, and the `<` of `<script` and `<!--` is written as `\u003C`.
+Only sequences that could end the element early are rewritten. Every `</`
+becomes `<\/`, so no closing tag, for this element or any ancestor, can form.
+Inside `<script>`, the `<` of `<script` and `<!--` is also written as `\u003C`.
 Matching is case-insensitive and applies to the concatenated text of all
 children, so a closing tag split across children is caught. Within JavaScript
-string, template, and regular-expression literals, and within JSON strings
-(`type="application/json"`, `importmap`, `application/ld+json`), these rewrites
-denote the original characters, so the content stays valid.
+string, template, and regular-expression literals, within JSON strings
+(`type="application/json"`, `importmap`, `application/ld+json`), and in CSS,
+these rewrites denote the original characters, so the content stays valid.
 
-This applies only to HTML elements. Inside `<svg>` and `<math>` (foreign
-content), `<script>` and `<style>` are ordinary elements whose text the parser
-reads as markup, so SSR keeps it entity-escaped. HTML integration points such
-as SVG `<foreignObject>`, `<desc>`, and `<title>`, MathML `<annotation-xml>`
-with an HTML `encoding`, and MathML text elements (`<mi>`, `<mo>`, `<mn>`,
-`<ms>`, `<mtext>`) return their children to HTML. Portal content follows the
-context of the host it renders at.
+Raw text is written only for an HTML `<script>` or `<style>` whose ancestors
+are all ordinary HTML content. Otherwise SSR keeps the text entity-escaped:
+
+- Inside `<svg>` and `<math>` (foreign content), `<script>` and `<style>` are
+  ordinary elements whose text the parser reads as markup. HTML integration
+  points such as SVG `<foreignObject>`, `<desc>`, and `<title>`, MathML
+  `<annotation-xml>` with an HTML `encoding`, and MathML text elements (`<mi>`,
+  `<mo>`, `<mn>`, `<ms>`, `<mtext>`) return their children to HTML.
+- Inside an element whose content the parser reads as text (`<noscript>`,
+  `<iframe>`, `<xmp>`, `<noembed>`, `<noframes>`, `<textarea>`, `<title>`,
+  `<plaintext>`), a nested `<script>` or `<style>` is not an element at all,
+  and raw content could close the ancestor.
+
+Portal content follows the context of the host it renders at.
 
 Children of `<script>` and `<style>` may be strings, numbers, fragments,
 components that return text, `Show`/`For`/`Case` boundaries, and error

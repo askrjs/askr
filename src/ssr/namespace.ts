@@ -1,3 +1,6 @@
+import type { Props } from '../common/props';
+import { getRenderedAttributeValue } from './attrs';
+
 /**
  * The parsing context an SSR element's children are written into.
  *
@@ -14,6 +17,11 @@
  * - `math-text`: children of a MathML text integration point (`mi`, `mo`,
  *   `mn`, `ms`, `mtext`), where start tags other than `mglyph` / `malignmark`
  *   are parsed as HTML.
+ * - `text`: inside an HTML element whose content the parser reads as text
+ *   (raw text such as `noscript`, `iframe`, `xmp`, `noembed`, `noframes`,
+ *   `style`, `script`; RCDATA `textarea`, `title`; or `plaintext`). Nothing
+ *   written there becomes an element, and a nested `<script>` / `<style>` is
+ *   not raw text: its content could close the ancestor, so it stays escaped.
  *
  * HTML integration points (SVG `foreignObject`, `desc`, `title`, and MathML
  * `annotation-xml` with an HTML `encoding`) return their children to `html`.
@@ -27,14 +35,31 @@ export type SSRNamespace =
   | 'svg'
   | 'math'
   | 'math-annotation'
-  | 'math-text';
+  | 'math-text'
+  | 'text';
+
+/** HTML elements whose content the parser reads as text, not markup. */
+const TEXT_CONTENT_ELEMENTS = new Set([
+  'iframe',
+  'noembed',
+  'noframes',
+  'noscript',
+  'plaintext',
+  'script',
+  'style',
+  'textarea',
+  'title',
+  'xmp',
+]);
 
 /** The namespace an element with lower-case tag `tag` gets in `context`. */
 export function getElementNamespace(
   context: SSRNamespace,
   tag: string
-): 'html' | 'svg' | 'math' {
+): 'html' | 'svg' | 'math' | 'text' {
   switch (context) {
+    case 'text':
+      return 'text';
     case 'svg':
       return 'svg';
     case 'math':
@@ -52,11 +77,14 @@ export function getElementNamespace(
 
 /** The context the children of an element in `namespace` are parsed in. */
 export function getChildNamespace(
-  namespace: 'html' | 'svg' | 'math',
+  namespace: 'html' | 'svg' | 'math' | 'text',
   tag: string,
-  props: Record<string, unknown> | null | undefined
+  props: Props | undefined
 ): SSRNamespace {
-  if (namespace === 'html') return 'html';
+  if (namespace === 'text') return 'text';
+  if (namespace === 'html') {
+    return TEXT_CONTENT_ELEMENTS.has(tag) ? 'text' : 'html';
+  }
   if (namespace === 'svg') {
     return tag === 'foreignobject' || tag === 'desc' || tag === 'title'
       ? 'html'
@@ -70,7 +98,9 @@ export function getChildNamespace(
     case 'mtext':
       return 'math-text';
     case 'annotation-xml':
-      return isHtmlAnnotationEncoding(props?.encoding)
+      return isHtmlAnnotationEncoding(
+        getRenderedAttributeValue(props, 'encoding')
+      )
         ? 'html'
         : 'math-annotation';
     default:
@@ -78,8 +108,8 @@ export function getChildNamespace(
   }
 }
 
-function isHtmlAnnotationEncoding(encoding: unknown): boolean {
-  if (typeof encoding !== 'string') return false;
+function isHtmlAnnotationEncoding(encoding: string | null): boolean {
+  if (encoding === null) return false;
   const value = encoding.toLowerCase();
   return value === 'text/html' || value === 'application/xhtml+xml';
 }
