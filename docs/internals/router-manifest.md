@@ -203,7 +203,12 @@ without executing routed leaves before layout providers render.
 
 `renderToString({ url, registry })` uses the registry for route matching and
 keeps request state in render context. Callers do not provide a separate
-manifest or flat route table.
+manifest or flat route table. A matched record that declares a loader throws
+`SSRDataMissingError` before resolution starts. Otherwise auth and policies are
+resolved synchronously with loading disabled: redirect and deny decisions throw
+`SSRAccessDecisionError`, and asynchronous resolution throws
+`SSRDataMissingError` (after observing the abandoned promise) instead of being
+rendered. Lazy components that have already loaded add no import step.
 
 ### SSG expansion
 

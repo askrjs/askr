@@ -4,13 +4,15 @@ import { loadBrowserHarness, mockJsonFetch } from './_helpers';
 
 test('should load a dynamic schema collection with bounded browser work', async () => {
   const started: string[] = [];
+  const signalled: boolean[] = [];
   const releases = new Map<string, () => void>();
   let active = 0;
   let maxActive = 0;
 
-  mockJsonFetch((request) => {
+  mockJsonFetch((request, init) => {
     const database = new URL(request.url).pathname.split('/').at(-1)!;
     started.push(database);
+    signalled.push(init?.signal instanceof AbortSignal);
     active += 1;
     maxActive = Math.max(maxActive, active);
 
@@ -47,6 +49,7 @@ test('should load a dynamic schema collection with bounded browser work', async 
 
   await page.getByRole('button', { name: 'Add archive database' }).click();
   await expect.poll(() => started.at(-1)).toBe('archive');
+  expect(signalled).toEqual([true, true, true, true]);
   releases.get('archive')?.();
 
   await expect.element(page.getByText('archive:7')).toBeVisible();

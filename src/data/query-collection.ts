@@ -4,7 +4,11 @@ import {
 } from '../runtime/component/capabilities';
 import { getActiveRenderContext } from '../common/render-context';
 import { claimHookIndex, getCurrentComponentInstance } from '../runtime';
-import { resolveDataRuntimeState, type DataRuntimeState } from './data-runtime';
+import {
+  readQueryData,
+  resolveDataRuntimeState,
+  type DataRuntimeState,
+} from './data-runtime';
 import { QueryCell } from './query-cell';
 import type {
   Query,
@@ -70,7 +74,6 @@ function getCollectionStore(
 }
 
 function createCellOptions<TInput, TResult extends {}>(
-  runtimeState: DataRuntimeState,
   query: QueryDefinition<TInput, TResult>,
   input: TInput,
   queryKey: string
@@ -79,10 +82,9 @@ function createCellOptions<TInput, TResult extends {}>(
     key: queryKey,
     definitionIdentity: query,
     fetch: ({ signal }: { signal: AbortSignal }) =>
-      query.fetch({ ...input, signal }),
+      query.fetch(input, { signal }),
     isConsistent: query.isConsistent,
     reconcile: query.reconcile,
-    initialData: runtimeState.queryData.get(queryKey) as TResult | undefined,
     skipInitialFetch: true,
   };
 }
@@ -174,12 +176,7 @@ class QueryCollectionCell<
     const detachedCells = new Set<QueryCell<TResult>>();
 
     for (const { input, key, queryKey } of desired) {
-      const cellOptions = createCellOptions(
-        this.runtimeState,
-        query,
-        input,
-        queryKey
-      );
+      const cellOptions = createCellOptions(query, input, queryKey);
       const previous = this.records.get(key);
       let record: CollectionRecord<TInput, TResult, TKey>;
 
@@ -195,7 +192,17 @@ class QueryCollectionCell<
         const cache = this.runtimeState.queryCache;
         let cell = cache.get(queryKey) as QueryCell<TResult> | undefined;
         if (!cell) {
-          cell = new QueryCell(cellOptions, queryKey, cache);
+          // Client readers consume hydrated data once; see readQueryData.
+          const initialData = readQueryData(
+            this.runtimeState,
+            queryKey,
+            startInitialFetches
+          ) as TResult | undefined;
+          cell = new QueryCell(
+            { ...cellOptions, initialData },
+            queryKey,
+            cache
+          );
           cache.set(queryKey, cell as QueryCell<unknown>);
         } else {
           cell.warnOnConflictingDefinition(cellOptions);

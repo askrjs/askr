@@ -36,6 +36,17 @@ declare class SSRDataMissingError extends Error {
   readonly code = 'SSR_DATA_MISSING';
   constructor(message?: string);
 }
+/**
+ * Thrown by synchronous route SSR (`renderToString()`/`renderToStream()`) when
+ * route auth or a policy redirects or denies the request. Nothing is rendered;
+ * send `decision` as the HTTP response (for example a 302 to `decision.to`, or
+ * `decision.status`).
+ */
+declare class SSRAccessDecisionError extends Error {
+  readonly code = 'SSR_ACCESS_DECISION';
+  readonly decision: AccessRedirectDecision | AccessDenyDecision;
+  constructor(decision: AccessRedirectDecision | AccessDenyDecision);
+}
 interface RenderContext {
   url: string;
   seed: number;
@@ -243,6 +254,7 @@ export {
   type DocumentRenderer,
   type RenderRouteRequestOptions,
   type RenderRouteRequestResult,
+  SSRAccessDecisionError,
   type SSRComponent,
   SSRDataMissingError,
   type SSRRoute,
