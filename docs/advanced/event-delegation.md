@@ -13,10 +13,13 @@ These event types are delegated:
   `mouseout`, `mousemove`
 - **Touch events**: `touchend`, `touchcancel`
 - **Keyboard events**: `keydown`, `keyup`, `keypress`
-- **Form events**: `input`, `change`, `submit`
+- **Form events**: `input`
 
 Every other event attaches a listener directly to its element, including:
 
+- **Non-composed events** such as `change` and `submit`. They never leave a
+  shadow root, so a delegated listener at the app root could not see them for
+  a form control or form inside one.
 - **Non-bubbling events** such as `focus`, `blur`, `scroll`, `mouseenter`,
   `mouseleave` and `load`. A handler only runs for its own element, as with
   `addEventListener`: `onScroll` on a wrapper does not run when a scrollable
@@ -39,14 +42,30 @@ Because each app listens at its own root, apps mounted inside a shadow root or
 an iframe receive their events, and an app mounted inside another app's tree
 handles its own events before they bubble to the outer app.
 
+### Shadow DOM
+
 Delegation follows the event's `composedPath()` up to the app root, so
-handlers on nodes inside an **open** shadow root attached within an app's tree
-run once, target-first, and `stopPropagation()` inside the shadow tree stops
-the app's outer handlers. Nodes inside a **closed** shadow root are hidden from
-listeners outside it: the app root sees the event retargeted to the shadow
-host, so handlers inside the closed tree do not run while the host and its
-ancestors still do. To handle events inside a closed shadow root, mount an app
-inside it so it listens at its own root.
+handlers on app nodes inside an **open** shadow root attached within the app's
+tree (including light children slotted into one) run once, in native bubbling
+order, and `stopPropagation()` inside the shadow tree stops the app's outer
+handlers. As with native listeners, `event.target` is the real target for a
+handler inside the shadow tree and is retargeted to the shadow host for
+handlers outside it.
+
+Limits:
+
+- Nodes inside a **closed** shadow root are hidden from listeners outside it:
+  the app root sees the event retargeted to the shadow host, so delegated
+  handlers (`onClick`, `onInput`, `onKeyDown`, ...) inside the closed tree do
+  not run, while the host and its ancestors still do. `onChange`, `onSubmit`
+  and other directly attached handlers do run.
+- A delegated event type dispatched with `composed: false` from inside a
+  shadow root (for example `new MouseEvent('click', { bubbles: true })`) never
+  reaches the app root, so delegated handlers inside the shadow tree do not
+  run. Native `click`, `input`, keyboard, mouse and touch events are composed.
+
+For full support inside a closed shadow root, mount an app on an element
+inside it, so that app listens at its own root.
 
 ## Usage
 

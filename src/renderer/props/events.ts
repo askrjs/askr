@@ -5,11 +5,13 @@
  * container instead of individual elements. This significantly reduces memory
  * usage and improves performance when many elements have the same event type.
  *
- * Only events that bubble and have no passive-listener intervention are
- * delegated. Non-bubbling events (`focus`, `blur`, `scroll`, ...) and the
- * events browsers treat as passive on document-level targets (`wheel`,
- * `touchstart`, `touchmove`) attach directly to their element, so they keep
- * native targeting and `preventDefault()` semantics.
+ * Only events that bubble, are composed and have no passive-listener
+ * intervention are delegated. Non-bubbling events (`focus`, `blur`,
+ * `scroll`, ...), non-composed events (`change`, `submit`), which never
+ * leave a shadow root, and the events browsers treat as passive on
+ * document-level targets (`wheel`, `touchstart`, `touchmove`) attach
+ * directly to their element, so they keep native targeting, shadow DOM and
+ * `preventDefault()` semantics.
  *
  * Delegated handling is enabled by default. Tests and internal runtime code
  * can still disable or re-enable it when they need to exercise both modes.
@@ -43,11 +45,9 @@ export interface DelegatedEventMap {
   mouseout: MouseEvent;
   mousemove: MouseEvent;
   input: InputEvent;
-  change: Event;
   keydown: KeyboardEvent;
   keyup: KeyboardEvent;
   keypress: KeyboardEvent;
-  submit: Event;
   touchend: TouchEvent;
   touchcancel: TouchEvent;
 }
@@ -61,11 +61,9 @@ const DELEGATED_EVENTS: (keyof DelegatedEventMap)[] = [
   'mouseout',
   'mousemove',
   'input',
-  'change',
   'keydown',
   'keyup',
   'keypress',
-  'submit',
   'touchend',
   'touchcancel',
 ];
@@ -81,12 +79,16 @@ interface DelegatedHandler {
 
 function createDelegatedEventFacade(
   event: Event,
-  currentTarget: Element
+  currentTarget: Element,
+  eventTarget: EventTarget | null
 ): Event {
   return new Proxy(event, {
     get(target, property, _receiver) {
       if (property === 'currentTarget') {
         return currentTarget;
+      }
+      if (property === 'target') {
+        return eventTarget;
       }
 
       // Native event accessors require the original event as their receiver;
@@ -347,31 +349,67 @@ function isListeningContainer(node: Element, eventName: string): boolean {
   return delegationContainers.get(node)?.listeners.has(eventName) ?? false;
 }
 
+function isShadowRoot(node: Node): node is ShadowRoot {
+  return node.nodeType === 11 && (node as ShadowRoot).host != null;
+}
+
 /**
- * The nodes an event bubbles through below `container`, target first.
- * `composedPath()` includes nodes inside open shadow roots attached within
- * the container, which `event.target` (retargeted to the shadow host at the
- * container) and its parent chain do not. Nodes inside closed shadow roots
- * are hidden from the container's listener, so they are never part of the
- * path. Hosts without a usable `composedPath()` fall back to the target's
- * parent chain.
+ * Index of `container` in `composed`, or -1 when the composed path cannot be
+ * used: it lacks the container, or it skips an ancestor of the (retargeted)
+ * target below the container, as some browser hosts do.
  */
-function getDelegationPath(event: Event, container: Element): EventTarget[] {
-  const composed =
-    typeof event.composedPath === 'function' ? event.composedPath() : [];
+function getComposedPathEnd(
+  composed: readonly EventTarget[],
+  target: EventTarget | null,
+  container: Element
+): number {
   const end = composed.indexOf(container);
-  if (end !== -1) {
-    return composed.slice(0, end);
+  if (end === -1) return -1;
+  let expected = target as Node | null;
+  for (let i = 0; i < end && expected; i++) {
+    if (composed[i] === expected) expected = expected.parentNode;
   }
+  return expected === container ? end : -1;
+}
+
+/**
+ * The target's parent chain up to `container`, supplemented with any
+ * composed path nodes it misses, for hosts whose composed path is unusable.
+ */
+function getAncestryPath(event: Event, container: Element): EventTarget[] {
   const path: EventTarget[] = [];
-  for (
-    let node = event.target as Node | null;
-    node && node !== container;
-    node = node.parentNode
-  ) {
+  const seen = new Set<EventTarget>();
+  for (let node = event.target as Node | null; node; node = node.parentNode) {
+    seen.add(node);
     path.push(node);
+    if (node === container) return path;
+  }
+  if (typeof event.composedPath === 'function') {
+    for (const node of event.composedPath()) {
+      if (!seen.has(node)) {
+        seen.add(node);
+        path.push(node);
+      }
+    }
   }
   return path;
+}
+
+/**
+ * `target` as seen from `node`: retargeted to the host of each shadow root
+ * that `node` is outside of, as native dispatch does.
+ */
+function retargetFor(target: Node, node: Node): Node {
+  for (;;) {
+    const root = target.getRootNode();
+    if (!isShadowRoot(root)) return target;
+    for (let scope = node.getRootNode(); ;) {
+      if (scope === root) return target;
+      if (!isShadowRoot(scope)) break;
+      scope = scope.host.getRootNode();
+    }
+    target = root.host;
+  }
 }
 
 function createContainerListener(eventName: string): EventListener {
@@ -380,12 +418,27 @@ function createContainerListener(eventName: string): EventListener {
     // registry's listener map never holds the container strongly.
     const container = e.currentTarget as Element;
     runRuntimeHandlerScope(() => {
-      const path = getDelegationPath(e, container);
+      // composedPath() reaches into open shadow roots attached below the
+      // container, which the target (retargeted to the shadow host here)
+      // and its parent chain do not.
+      const composed =
+        typeof e.composedPath === 'function' ? e.composedPath() : [];
+      const composedEnd = getComposedPathEnd(composed, e.target, container);
+      const path =
+        composedEnd === -1 ? getAncestryPath(e, container) : composed;
+      const end = composedEnd === -1 ? path.length : composedEnd;
+      // Handlers inside a shadow tree see the real target, not the host.
+      const innerTarget =
+        composedEnd > 0 && composed[0] !== e.target
+          ? (composed[0] as Node)
+          : null;
       const dispatchPath: Array<{
         node: Element;
         entry: DelegatedHandler;
       }> = [];
-      for (const node of path) {
+      for (let i = 0; i < end; i++) {
+        const node = path[i];
+        if (node === container) break;
         if (!isElementNode(node)) continue;
         if (PERF_BUILD_ENABLED) {
           incrementPerfMetric('delegatedAncestorHops');
@@ -414,7 +467,13 @@ function createContainerListener(eventName: string): EventListener {
         try {
           withAppRenderRuntime(entry.appRuntime, () =>
             withLifecycleOwner(entry.instance?.owner, () =>
-              entry.handler(createDelegatedEventFacade(e, node))
+              entry.handler(
+                createDelegatedEventFacade(
+                  e,
+                  node,
+                  innerTarget ? retargetFor(innerTarget, node) : e.target
+                )
+              )
             )
           );
         } catch (error) {
