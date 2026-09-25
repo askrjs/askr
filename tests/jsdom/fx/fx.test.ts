@@ -264,4 +264,36 @@ describe('FX callback errors', () => {
     expect(reportError).toHaveBeenCalledTimes(1);
     expect(reportError).toHaveBeenCalledWith(error);
   });
+
+  it('should report the final scheduleRetry rejection through reportError', async () => {
+    const errors = [new Error('first'), new Error('last')];
+    let calls = 0;
+    const fn = vi.fn(() => Promise.reject(errors[calls++]));
+    scheduleRetry(fn, { maxAttempts: 2, delayMs: 10 });
+
+    globalScheduler.flush();
+    await vi.advanceTimersByTimeAsync(10);
+    globalScheduler.flush();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(fn).toHaveBeenCalledTimes(2);
+    expect(reportError).toHaveBeenCalledTimes(1);
+    expect(reportError).toHaveBeenCalledWith(errors[1]);
+  });
+
+  it('should report a throwing scheduleRetry backoff through reportError', async () => {
+    const error = new Error('backoff failed');
+    scheduleRetry(() => Promise.reject(new Error('attempt')), {
+      maxAttempts: 2,
+      backoff: () => {
+        throw error;
+      },
+    });
+
+    globalScheduler.flush();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(reportError).toHaveBeenCalledTimes(1);
+    expect(reportError).toHaveBeenCalledWith(error);
+  });
 });

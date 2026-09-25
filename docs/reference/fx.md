@@ -57,8 +57,9 @@ unmount. A callback whose component unmounted before it ran is skipped.
 not return a promise.
 
 Errors thrown by `scheduleTimeout` and `scheduleIdle` callbacks, by handlers
-run later by `debounceEvent`, `throttleEvent`, and `rafEvent`, and by a
-synchronous `scheduleRetry` throw are reported with `reportError()`, like event
+run later by `debounceEvent`, `throttleEvent`, and `rafEvent`, a synchronous
+`scheduleRetry` throw, the rejection of its last attempt, and a throwing
+`backoff` are reported with `reportError()`, like event
 handler errors: a `window` `error` event fires and the rest of the scheduler
 flush still runs. Hosts without `reportError()` (Node, jsdom) rethrow them from
 a microtask.

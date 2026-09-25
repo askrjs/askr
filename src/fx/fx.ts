@@ -8,7 +8,6 @@ import {
 } from '../runtime';
 import type { OwnershipRecord } from '../runtime/ownership/record';
 import { isPromiseLike } from '../common/promise';
-import { logger } from '../common/logger';
 import { reportUncaughtError } from '../common/report-error';
 import { noopEventListener, noopEventListenerWithFlush } from './noop';
 import { createDebouncer, createThrottler } from './timing';
@@ -365,8 +364,10 @@ export function scheduleRetry<T>(
         settle();
         return;
       }
+      // The last attempt's rejection, like a throwing backoff(), has no
+      // other observer, so it is reported rather than dropped.
       Promise.resolve(p)
-        .then(settle, () => {
+        .then(settle, (error: unknown) => {
           if (cancelled) return;
           if (index + 1 < maxAttempts) {
             retryId = setTimeout(() => {
@@ -374,11 +375,10 @@ export function scheduleRetry<T>(
             }, backoff(index));
           } else {
             settle();
+            reportUncaughtError(error);
           }
         })
-        .catch((e) => {
-          logger.error('[Askr] scheduleRetry error:', e);
-        });
+        .catch(reportUncaughtError);
     });
   };
 

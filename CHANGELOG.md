@@ -8,12 +8,15 @@
   error was swallowed and the parent was rebuilt with `replaceChildren()`,
   which also tore down children that were being reused. Errors from grouped
   blueprint bindings (the second and later instances of a component or `For`
-  row) now reach the nearest `ErrorBoundary` like single reactive props, or are
-  thrown from the update when there is none, instead of a development-only
-  warning.
+  row) and from reactive child functions (`{() => ...}`) now reach the nearest
+  `ErrorBoundary` like single reactive props, or are thrown from the update
+  when there is none, instead of a development-only warning. A reactive child
+  update that fails while changing the element's children is rolled back
+  instead of left half-applied.
 - fix(fx): errors thrown by `scheduleTimeout`/`scheduleIdle` callbacks, by
-  handlers run later by `debounceEvent`/`throttleEvent`/`rafEvent`, and by a
-  synchronous `scheduleRetry` throw are reported with `reportError()` like
+  handlers run later by `debounceEvent`/`throttleEvent`/`rafEvent`, and by
+  `scheduleRetry` (a synchronous throw, the last attempt's rejection, or a
+  throwing `backoff`) are reported with `reportError()` like
   event handler errors, instead of only being logged.
 - fix(renderer): props whose live state is not the attribute now set the DOM
   property. `<video muted>` sets `video.muted` (and keeps the attribute),
