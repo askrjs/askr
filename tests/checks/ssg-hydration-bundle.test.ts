@@ -162,6 +162,8 @@ describe('SSG hydration bundle', () => {
     // bytes against 274,949 on main).
     // 276 KiB after #459's navigation target and absolute-URL checks join
     // #517's function children (measured 281,638 bytes on this branch).
+    // #534 adds composedPath() traversal and target retargeting for open
+    // shadow roots (+543 bytes, 282,181 bytes total). It stays within 276 KiB.
     expect(initialBytes).toBeLessThanOrEqual(276 * 1024);
   });
 });

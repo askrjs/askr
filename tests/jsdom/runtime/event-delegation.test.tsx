@@ -76,7 +76,8 @@ describe('event delegation', () => {
     it('should identify delegated event types', () => {
       expect(isDelegatedEvent('click')).toBe(true);
       expect(isDelegatedEvent('input')).toBe(true);
-      expect(isDelegatedEvent('change')).toBe(true);
+      expect(isDelegatedEvent('change')).toBe(false);
+      expect(isDelegatedEvent('submit')).toBe(false);
       expect(isDelegatedEvent('customEvent')).toBe(false);
     });
   });
@@ -179,6 +180,30 @@ describe('event delegation', () => {
       flushScheduler();
 
       expect(clicks).toBe(1);
+    });
+
+    it('should supplement a composed path that skips ancestors below the root', () => {
+      const calls: string[] = [];
+      const Component = () => (
+        <div id="skipped" onClick={() => calls.push('skipped')}>
+          <button id="skip-target" onClick={() => calls.push('button')}>
+            Click me
+          </button>
+        </div>
+      );
+
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+
+      const button = container.querySelector('#skip-target')!;
+      const event = new MouseEvent('click', { bubbles: true });
+      Object.defineProperty(event, 'composedPath', {
+        value: () => [button, container, document.body, document, window],
+      });
+      button.dispatchEvent(event);
+      flushScheduler();
+
+      expect(calls).toEqual(['button', 'skipped']);
     });
 
     it('should update delegated handlers in place across rerenders', () => {

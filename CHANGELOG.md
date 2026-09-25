@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- fix(events): delegated handlers on app nodes inside an open shadow root
+  attached within an app's tree now run, once and in native bubbling order,
+  with `stopPropagation()` respected and `event.target` set to the real target
+  inside the shadow tree (retargeted to the host outside it). Dispatch follows
+  `composedPath()` up to the app root, falling back to the target's ancestry
+  when a host's composed path skips ancestors. `change` and `submit`, which
+  are not composed and never leave a shadow root, are no longer delegated and
+  attach directly to their element, so `onChange` and `onSubmit` run inside
+  open and closed shadow roots; each element with one of these handlers now
+  carries its own native listener. Delegated handlers inside closed shadow roots,
+  and delegated event types dispatched with `composed: false` inside a shadow
+  root, still do not run; mount an app inside the shadow root instead.
 - fix(state): a `derive()` or `selector()` owned by a component whose
   ancestor is queued to re-render (including a portal writer) or whose `<For>`
   is about to reconcile (including through a `derive()`/`selector()` chain
