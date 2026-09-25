@@ -262,7 +262,11 @@ export function syncForItemIndex<T>(
     }
 
     if (scopeDirectlyReadsIndex) {
-      rerenderItemInstance(forState, itemInstance, itemInstance.reactiveItem);
+      rerenderItemInstance(
+        forState,
+        itemInstance,
+        currentRowItem(itemInstance)
+      );
     } else {
       itemInstance.scope.markDirty();
     }
@@ -277,7 +281,7 @@ export function syncForItemIndex<T>(
   indexSignal.set(nextIndex, false);
   notifyForSignalReaders(indexSignal, itemInstance.scope.componentInstance);
 
-  rerenderItemInstance(forState, itemInstance, itemInstance.reactiveItem);
+  rerenderItemInstance(forState, itemInstance, currentRowItem(itemInstance));
 
   return true;
 }
@@ -411,38 +415,82 @@ function rerenderItemInstance<T>(
   renderItemScope(forState, itemInstance, item);
 }
 
-export function refreshForContextScopes<T>(forState: ForState<T>): void {
-  for (const itemInstance of forState.items.values()) {
-    captureForItemTransactionSnapshot(forState, itemInstance);
-    rerenderItemInstance(forState, itemInstance, itemInstance.reactiveItem);
-  }
+/**
+ * The value a row renders with. Object items render through their proxy, which
+ * always reads the current item. A plain item (a primitive or an array) is
+ * passed by value, so only `item` holds its latest version.
+ */
+function currentRowItem<T>(itemInstance: ForItemInstance<T>): T {
+  return itemInstance.reactiveItemState
+    ? itemInstance.reactiveItem
+    : itemInstance.item;
 }
 
 /**
- * Rerender retained rows whose output came from an earlier row callback. The
- * parent passes a fresh closure on every render, so values it captured (such
- * as a `const` derived from state) reach existing rows without remounting
- * them. Rows about to be removed and rows created in this pass are skipped.
+ * Whether a retained row's output predates this pass: it came from an earlier
+ * row callback, or the For's context frame changed. Only meaningful while
+ * `reconcileForItems` runs.
+ */
+function hasStaleRowOutput<T>(
+  forState: ForState<T>,
+  itemInstance: ForItemInstance<T>
+): boolean {
+  return (
+    forState._contextFrameChanged ||
+    itemInstance.renderedWith !== forState.renderFn
+  );
+}
+
+/**
+ * Whether the reconcile path will rerun this retained row anyway, with its
+ * latest item, index, and callback. Every path calls `updateItemInstance` for a
+ * retained row whose item changed, which reruns a stale row, and
+ * `syncForItemIndex` for a retained row whose index changed, which reruns a row
+ * that reads its index in its own scope.
+ */
+function rowRerunsDuringReconcile<T>(
+  itemInstance: ForItemInstance<T>,
+  nextItem: T,
+  nextIndex: number
+): boolean {
+  if (itemInstance.item !== nextItem) {
+    return true;
+  }
+  const indexSignal = itemInstance.indexSignal;
+  return (
+    indexSignal._hasBeenRead === true &&
+    indexSignal.peek() !== nextIndex &&
+    scopeDirectlyReadsSource(itemInstance.scope, indexSignal)
+  );
+}
+
+/**
+ * Rerender retained rows whose output is stale: it came from an earlier row
+ * callback, or the context frame changed (`contextChanged`). The parent passes
+ * a fresh closure on every render, so values it captured (such as a `const`
+ * derived from state) reach existing rows without remounting them.
+ *
+ * Rows about to be removed and rows created in this pass are skipped. So are
+ * rows the reconcile path reruns anyway, so a refresh never adds a second run.
  */
 export function refreshForRowRenderers<T>(
   forState: ForState<T>,
   newArray: readonly T[],
-  keys: readonly (string | number)[]
+  keys: readonly (string | number)[],
+  contextChanged: boolean
 ): void {
   const { items, renderFn } = forState;
   for (let index = 0; index < keys.length; index++) {
     const itemInstance = items.get(keys[index]);
-    if (!itemInstance || itemInstance.renderedWith === renderFn) {
+    if (
+      !itemInstance ||
+      (!contextChanged && itemInstance.renderedWith === renderFn) ||
+      rowRerunsDuringReconcile(itemInstance, newArray[index], index)
+    ) {
       continue;
     }
-    if (itemInstance.reactiveItemState) {
-      captureForItemTransactionSnapshot(forState, itemInstance);
-      rerenderItemInstance(forState, itemInstance, itemInstance.reactiveItem);
-    } else if (itemInstance.item === newArray[index]) {
-      // A changed plain item rerenders with the new value during reconcile.
-      captureForItemTransactionSnapshot(forState, itemInstance);
-      rerenderItemInstance(forState, itemInstance, itemInstance.item);
-    }
+    captureForItemTransactionSnapshot(forState, itemInstance);
+    rerenderItemInstance(forState, itemInstance, currentRowItem(itemInstance));
   }
 }
 
@@ -568,8 +616,12 @@ export function updateItemInstance<T>(
     itemSignal.set(item, notifyReaders);
   }
 
-  if (scopeReadsChangedSignal) {
+  // `refreshForRowRenderers` leaves a stale row with a changed item to this
+  // call, so it reruns here once, after the proxy sees the new item.
+  const staleOutput = hasStaleRowOutput(forState, itemInstance);
+  if (scopeReadsChangedSignal || staleOutput) {
     const scopeReadsDirectly =
+      staleOutput ||
       (itemSignal !== null && scopeDirectlyReadsSource(scope, itemSignal)) ||
       changedPropertySignals.some(([propertySignal]) =>
         scopeDirectlyReadsSource(scope, propertySignal)
@@ -581,7 +633,7 @@ export function updateItemInstance<T>(
     }
   }
 
-  return visibleChange;
+  return visibleChange || staleOutput;
 }
 
 const FOR_FALLBACK_SCOPE_KEY = '__for-fallback__';

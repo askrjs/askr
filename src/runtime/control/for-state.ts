@@ -25,7 +25,7 @@ import {
   type ChildScope,
   type ChildScopeTransactionSnapshot,
 } from '../ownership/child-scope';
-import { refreshForContextScopes, type ForItemInstance } from './for-scopes';
+import type { ForItemInstance } from './for-scopes';
 import {
   notifyForSignalReaders,
   removeForParentReaders,
@@ -290,9 +290,7 @@ export function evaluateForState<T>(forState: ForState<T>): VNode[] {
   beginForStateTransaction(forState);
   forState._needsSourceReconcile = false;
   try {
-    if (forState._contextFrameChanged) {
-      refreshForContextScopes(forState);
-    }
+    // Reconcile reruns retained rows when `_contextFrameChanged` is set.
     const result = reconcileForItems(forState, forState.currentItems);
     forState._contextFrameChanged = false;
     return result;

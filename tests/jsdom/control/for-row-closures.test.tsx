@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { derive, state } from '../../../src/index';
+import { defineScope, readScope } from '../../../src/runtime/context/context';
 import { For } from '@askrjs/askr/control';
 import type { JSXElement } from '../../../src/jsx/types';
 import {
@@ -297,6 +298,287 @@ describe('For row closures', () => {
     expect(container.querySelector('li')?.getAttribute('data-active')).toBe(
       'true'
     );
+    cleanup();
+  });
+});
+
+describe('For row runs per flush', () => {
+  type Labeled = { id: string; label: string; note?: string };
+
+  function texts(container: HTMLElement): Array<string | null> {
+    return Array.from(container.querySelectorAll('li')).map(
+      (li) => li.textContent
+    );
+  }
+
+  it('should run a proxied row once when its item and the row callback change in the same parent render', () => {
+    const { container, cleanup } = createTestContainer();
+    let update: () => void = () => {};
+    const runs: string[] = [];
+
+    const App = () => {
+      const [items, setItems] = state<Labeled[]>([
+        { id: 'a', label: 'A' },
+        { id: 'b', label: 'B' },
+      ]);
+      const [selected, setSelected] = state('a');
+      update = () => {
+        setItems([
+          { id: 'a', label: 'A2' },
+          { id: 'b', label: 'B' },
+        ]);
+        setSelected('b');
+      };
+      const current = selected();
+      return (
+        <ul>
+          <For each={items} by={(item) => item.id}>
+            {(item) => {
+              runs.push(item.id);
+              return (
+                <li data-active={item.id === current ? 'true' : 'false'}>
+                  {item.label}
+                </li>
+              );
+            }}
+          </For>
+        </ul>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    const rowsBefore = Array.from(container.querySelectorAll('li'));
+    runs.length = 0;
+
+    update();
+    flushScheduler();
+
+    expect(texts(container)).toEqual(['A2', 'B']);
+    expect(activeRows(container)).toEqual(['B']);
+    expect(Array.from(container.querySelectorAll('li'))).toEqual(rowsBefore);
+    expect(runs.slice().sort()).toEqual(['a', 'b']);
+    cleanup();
+  });
+
+  it('should apply the latest row callback when a proxied item changes only in a field the row does not read', () => {
+    const { container, cleanup } = createTestContainer();
+    let update: () => void = () => {};
+    const runs: string[] = [];
+
+    const App = () => {
+      const [items, setItems] = state<Labeled[]>([
+        { id: 'a', label: 'A', note: 'x' },
+        { id: 'b', label: 'B', note: 'x' },
+      ]);
+      const [selected, setSelected] = state('a');
+      update = () => {
+        setItems([
+          { id: 'a', label: 'A', note: 'y' },
+          { id: 'b', label: 'B', note: 'x' },
+        ]);
+        setSelected('a2');
+      };
+      const current = selected();
+      return (
+        <ul>
+          <For each={items} by={(item) => item.id}>
+            {(item) => {
+              runs.push(item.id);
+              return <li data-current={current}>{item.label}</li>;
+            }}
+          </For>
+        </ul>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    runs.length = 0;
+
+    update();
+    flushScheduler();
+
+    expect(texts(container)).toEqual(['A', 'B']);
+    expect(
+      Array.from(container.querySelectorAll('li')).map((li) =>
+        li.getAttribute('data-current')
+      )
+    ).toEqual(['a2', 'a2']);
+    expect(runs.slice().sort()).toEqual(['a', 'b']);
+    cleanup();
+  });
+
+  it('should run an index-reading row once when it moves and the row callback changes in the same parent render', () => {
+    const { container, cleanup } = createTestContainer();
+    let update: () => void = () => {};
+    const runs: string[] = [];
+    const a: Labeled = { id: 'a', label: 'A' };
+    const b: Labeled = { id: 'b', label: 'B' };
+    const c: Labeled = { id: 'c', label: 'C' };
+
+    const App = () => {
+      const [items, setItems] = state<Labeled[]>([a, b, c]);
+      const [selected, setSelected] = state('a');
+      update = () => {
+        setItems([c, b, a]);
+        setSelected('c');
+      };
+      const current = selected();
+      return (
+        <ul>
+          <For each={items} by={(item) => item.id}>
+            {(item, index) => {
+              runs.push(item.id);
+              return (
+                <li data-active={item.id === current ? 'true' : 'false'}>
+                  {item.label}:{index()}
+                </li>
+              );
+            }}
+          </For>
+        </ul>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    runs.length = 0;
+
+    update();
+    flushScheduler();
+
+    expect(texts(container)).toEqual(['C:0', 'B:1', 'A:2']);
+    expect(activeRows(container)).toEqual(['C:0']);
+    expect(runs.slice().sort()).toEqual(['a', 'b', 'c']);
+    cleanup();
+  });
+
+  it('should rerender a moved plain row with its latest item, not the item it was created with', () => {
+    const { container, cleanup } = createTestContainer();
+    let setItems: (items: Array<[string, string]>) => void = () => {};
+    const renderRow = (item: [string, string], index: () => number) => (
+      <li>
+        {item[1]}:{index()}
+      </li>
+    );
+
+    const App = () => {
+      const [items, set] = state<Array<[string, string]>>([
+        ['a', 'A'],
+        ['b', 'B'],
+      ]);
+      setItems = set;
+      return (
+        <ul>
+          <For each={items} by={(item) => item[0]}>
+            {renderRow}
+          </For>
+        </ul>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    const edited: [string, string] = ['a', 'A2'];
+    const b: [string, string] = ['b', 'B'];
+    setItems([edited, b]);
+    flushScheduler();
+    expect(texts(container)).toEqual(['A2:0', 'B:1']);
+
+    setItems([b, edited]);
+    flushScheduler();
+
+    expect(texts(container)).toEqual(['B:0', 'A2:1']);
+    cleanup();
+  });
+
+  it('should rerender a plain row with its latest item when the context frame changes', () => {
+    const { container, cleanup } = createTestContainer();
+    const ThemeScope = defineScope('light');
+    let setItems: (items: Array<[string, string]>) => void = () => {};
+    let setTheme: (value: string) => void = () => {};
+
+    const Reader = ({ label }: { label: string }) => (
+      <li>
+        {label}:{readScope(ThemeScope)}
+      </li>
+    );
+    const renderRow = (item: [string, string]) =>
+      (<Reader label={item[1]} />) as JSXElement;
+
+    const App = () => {
+      const [items, set] = state<Array<[string, string]>>([['a', 'A']]);
+      const [theme, setThemeState] = state('dark');
+      setItems = set;
+      setTheme = setThemeState;
+      return (
+        <ThemeScope value={theme()}>
+          <ul>
+            <For each={items} by={(item) => item[0]}>
+              {renderRow}
+            </For>
+          </ul>
+        </ThemeScope>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    setItems([['a', 'A2']]);
+    flushScheduler();
+    expect(texts(container)).toEqual(['A2:dark']);
+
+    setTheme('contrast');
+    flushScheduler();
+
+    expect(texts(container)).toEqual(['A2:contrast']);
+    cleanup();
+  });
+
+  it('should run a proxied row once when its item and the context frame change in the same parent render', () => {
+    const { container, cleanup } = createTestContainer();
+    const ThemeScope = defineScope('light');
+    let update: () => void = () => {};
+    const runs: string[] = [];
+
+    const Reader = ({ children }: { children?: unknown }) => (
+      <li>
+        {children as string}:{readScope(ThemeScope)}
+      </li>
+    );
+    const renderRow = (item: Labeled) => {
+      runs.push(item.id);
+      return (<Reader>{item.label}</Reader>) as JSXElement;
+    };
+
+    const App = () => {
+      const [items, setItems] = state<Labeled[]>([
+        { id: 'a', label: 'A' },
+        { id: 'b', label: 'B' },
+      ]);
+      const [theme, setTheme] = state('dark');
+      update = () => {
+        setItems([
+          { id: 'a', label: 'A2' },
+          { id: 'b', label: 'B' },
+        ]);
+        setTheme('contrast');
+      };
+      return (
+        <ThemeScope value={theme()}>
+          <ul>
+            <For each={items} by={(item) => item.id}>
+              {renderRow}
+            </For>
+          </ul>
+        </ThemeScope>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    runs.length = 0;
+
+    update();
+    flushScheduler();
+
+    expect(texts(container)).toEqual(['A2:contrast', 'B:contrast']);
+    expect(runs.slice().sort()).toEqual(['a', 'b']);
     cleanup();
   });
 });
