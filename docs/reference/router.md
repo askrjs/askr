@@ -384,15 +384,18 @@ When no registered app can render the destination, because no route or
 it to the browser as a full document load (`location.assign()`, or
 `location.replace()` for replace navigation). Declare a `fallback()` to render a
 not-found page in place instead. Back/Forward to such an entry reloads the
-document, so the old page never stays mounted under the new URL.
+document, so the old page never stays mounted under the new URL. An entry that
+differs from the rendered page only by its fragment, such as one added by a
+`#section` link, keeps the page without reloading.
 
 This also applies when no router is mounted: `navigate()` called from an island
 or other unrouted code loads the destination as a document. Navigating to the
 URL that is already loaded is skipped with a development warning instead, so
 code that navigates on mount cannot reload the page forever.
 
-If rendering a Back/Forward destination fails, Askr keeps the rendered page and
-uses `history.go()` to return to that page's entry. This can be more than one
+If rendering a Back/Forward destination fails, or its loader or policy
+rejects, Askr keeps the rendered page and uses `history.go()` to return to that
+page's entry. This can be more than one
 entry away when the failed traversal superseded one that was still loading.
 History entries are never rewritten, so the entry that failed stays in the
 stack and can be traversed to again. Navigating while that return is pending

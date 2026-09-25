@@ -138,6 +138,16 @@ test('should return to the rendered entry when a failed traversal superseded a p
   await expect.poll(() => window.location.pathname).toBe('/c');
   expect(renderedPath()).toBe('/c');
   expect(reloads).toBe(0);
+
+  // Both entries the user traversed past are still behind them.
+  holdB = false;
+  failA = false;
+  window.history.back();
+  await expect.poll(renderedPath).toBe('/b');
+  expect(window.location.pathname).toBe('/b');
+  window.history.back();
+  await expect.poll(renderedPath).toBe('/a');
+  expect(window.location.pathname).toBe('/a');
 });
 
 test('should keep URL and page aligned when navigation follows a rollback', async () => {
@@ -230,4 +240,116 @@ test('should reload instead of landing on the wrong entry after an external push
 
   expect(reloads).toBe(1);
   expect(window.location.pathname).not.toBe('/external');
+});
+
+test('should return to the rendered entry when another app mounts during a failing traversal', async () => {
+  let failA = false;
+  let releaseA!: () => void;
+  let holdA = false;
+  startAt('/a');
+  await createSPA({
+    root,
+    registry: createRouteRegistry(() => {
+      route(
+        '/a',
+        () => {
+          if (failA) throw new Error('a render failed');
+          return <Page path="/a" />;
+        },
+        {
+          loader: () =>
+            holdA
+              ? new Promise<string>((resolve) => {
+                  releaseA = () => resolve('a');
+                })
+              : 'a',
+        }
+      );
+      route('/b', () => <Page path="/b" />);
+    }),
+  });
+  navigate('/b');
+  await expect.poll(renderedPath).toBe('/b');
+
+  holdA = true;
+  failA = true;
+  window.history.back();
+  await expect.poll(() => window.location.pathname).toBe('/a');
+  const second = document.body.appendChild(document.createElement('div'));
+  try {
+    await createSPA({
+      root: second,
+      registry: createRouteRegistry(() => {
+        route('/a', () => <i>{'second app'}</i>);
+        route('/b', () => <i>{'second app'}</i>);
+      }),
+    });
+    releaseA();
+    await waitForRenderFailure('a render failed');
+    await settleTraversal();
+
+    await expect.poll(() => window.location.pathname).toBe('/b');
+    expect(renderedPath()).toBe('/b');
+    expect(reloads).toBe(0);
+  } finally {
+    cleanupApp(second);
+    second.remove();
+  }
+});
+
+test('should not reload for a fragment link on a page no route matches', async () => {
+  startAt('/nowhere');
+  await createSPA({
+    root,
+    registry: createRouteRegistry(() => {
+      route('/a', () => <Page path="/a" />);
+    }),
+  });
+  const anchor = document.body.appendChild(document.createElement('a'));
+  anchor.href = '#section';
+  anchor.textContent = 'Section';
+  try {
+    await page.getByRole('link', { name: 'Section' }).click();
+    await expect.poll(() => window.location.hash).toBe('#section');
+    navigate('#details');
+    await expect.poll(() => window.location.hash).toBe('#details');
+    await settleTraversal();
+
+    expect(reloads).toBe(0);
+    expect(window.location.pathname).toBe('/nowhere');
+  } finally {
+    anchor.remove();
+  }
+});
+
+test('should return to the rendered entry when a back/forward loader rejects', async () => {
+  let rejectA = false;
+  startAt('/a');
+  await createSPA({
+    root,
+    registry: createRouteRegistry(() => {
+      route('/a', () => <Page path="/a" />, {
+        loader: () =>
+          rejectA ? Promise.reject(new Error('a loader failed')) : 'a',
+      });
+      route('/b', () => <Page path="/b" />);
+    }),
+  });
+  navigate('/b');
+  await expect.poll(renderedPath).toBe('/b');
+
+  rejectA = true;
+  window.history.back();
+  await waitForRenderFailure('a loader failed');
+  await settleTraversal();
+
+  await expect.poll(() => window.location.pathname).toBe('/b');
+  expect(renderedPath()).toBe('/b');
+  expect(reloads).toBe(0);
+
+  // The /a entry is still behind the user.
+  rejectA = false;
+  window.history.back();
+  await expect.poll(renderedPath).toBe('/a');
+  expect(window.location.pathname).toBe('/a');
 });

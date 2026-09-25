@@ -88,16 +88,17 @@ export function resetHistoryIndex(): void {
 }
 
 /**
- * Traverse back to the entry whose page is rendered. Returns false when either
- * position is unknown, leaving history untouched.
+ * Traverse back to the entry whose page is rendered. Returns false when the
+ * positions are unknown, leaving history untouched.
  */
 export function returnToRenderedHistoryEntry(): boolean {
   if (landedIndex === undefined || renderedIndex === undefined) return false;
   const delta = renderedIndex - landedIndex;
-  if (delta !== 0) {
-    pendingReturnIndex = renderedIndex;
-    window.history.go(delta);
-  }
+  // A traversal always lands on another entry; a zero delta means tracking
+  // went wrong, so the position is effectively unknown.
+  if (delta === 0) return false;
+  pendingReturnIndex = renderedIndex;
+  window.history.go(delta);
   return true;
 }
 

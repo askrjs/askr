@@ -7,6 +7,7 @@ import { logger } from '../common/logger';
 import {
   configureNavigationRegistryHost,
   getCurrentHref,
+  getRegisteredAppsSnapshot,
   hasRegisteredApps,
   parseTargetUrl,
   syncRegisteredRouteSnapshot,
@@ -36,7 +37,9 @@ import {
   consumeHistoryReturn,
   initializeHistoryIndex,
   landOnHistoryEntry,
+  returnToRenderedHistoryEntry,
 } from './history-index';
+import { reloadDocument } from './document-navigation';
 
 export { configureScrollRestoration } from './navigation-scroll';
 export type {
@@ -218,6 +221,8 @@ function handlePopState(event: PopStateEvent): void {
           return;
         }
         logger.error('[Askr] popstate navigation failed:', error);
+        // Nothing rendered this entry; send the user back to the one that is.
+        if (!returnToRenderedHistoryEntry()) reloadDocument();
       }
     );
     return;
@@ -232,7 +237,10 @@ export function initializeNavigation(): void {
     return;
   }
 
-  initializeHistoryIndex();
+  // Only the first mounted app adopts the active entry: a later app may mount
+  // while a back/forward render is in flight, when the active entry is not
+  // the rendered one.
+  if (getRegisteredAppsSnapshot().length <= 1) initializeHistoryIndex();
   if (navigationInitialized) {
     return;
   }

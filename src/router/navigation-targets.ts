@@ -414,6 +414,12 @@ export function applyPopStateNavigationTargets(
 
   const matchedTargets = targets.filter((target) => target.resolved !== null);
   if (matchedTargets.length === 0) {
+    // Only the fragment moved away from the rendered page, which is still
+    // the right page for this entry.
+    if (href.split('#')[0] === previousHref.split('#')[0]) {
+      commitHistoryIndex(historyIndex);
+      return;
+    }
     // The browser already moved to this entry; only a document load can
     // render it, so the old page does not stay mounted under the new URL.
     if (isDevelopmentEnvironment()) {

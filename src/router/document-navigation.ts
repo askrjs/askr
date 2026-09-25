@@ -1,8 +1,6 @@
 /**
- * Hand a location the client router cannot render back to the browser.
- *
- * Kept in its own module so tests can observe document loads without
- * unloading the test document.
+ * Hand a location no registered app can render to the browser as a document
+ * load, keeping the requested history mode.
  */
 export function loadDocument(href: string, history: 'push' | 'replace'): void {
   if (history === 'replace') window.location.replace(href);

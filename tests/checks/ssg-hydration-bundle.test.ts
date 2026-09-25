@@ -109,7 +109,7 @@ describe('SSG hydration bundle', () => {
     // (measured 267,611 bytes, just over 261 KiB).
     // 263 KiB: client navigation tracks history entry indexes so a failed
     // back/forward returns to the rendered entry, and hands URLs no route can
-    // render to the browser (~1 KB, #453-#455).
+    // render to the browser (~1.2 KB, #453-#455; measured 268,814 bytes).
     expect(initialBytes).toBeLessThanOrEqual(263 * 1024);
   });
 });
