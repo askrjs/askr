@@ -19,7 +19,7 @@ export function tryInsertOnePath<T>(
   newArray: readonly T[],
   items: ForState<T>['items'],
   orderedKeys: Array<string | number>,
-  byFn: ForState<T>['byFn'],
+  keys: readonly (string | number)[],
   oldLen: number,
   newLen: number
 ): VNode[] | null {
@@ -29,7 +29,7 @@ export function tryInsertOnePath<T>(
 
   for (let newIndex = 0; newIndex < newLen; newIndex++) {
     const item = newArray[newIndex];
-    const key = byFn(item, newIndex);
+    const key = keys[newIndex];
     const expectedKey = orderedKeys[oldIndex];
 
     if (oldIndex < oldLen && key === expectedKey) {
