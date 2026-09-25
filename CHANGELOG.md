@@ -13,6 +13,23 @@
   open and closed shadow roots. Delegated handlers inside closed shadow roots,
   and delegated event types dispatched with `composed: false` inside a shadow
   root, still do not run; mount an app inside the shadow root instead.
+- build(deps): `@askrjs/auth` and `@askrjs/schema` are now optional peer
+  dependencies instead of dependencies, so apps that do not use route auth or
+  schemas no longer install auth's SAML/XML stack. Askr uses them for types
+  only: route requirements are composed by Askr itself, and the published
+  declarations typecheck without either package installed. Apps that use
+  `@askrjs/auth` or `@askrjs/schema` must list them in their own
+  dependencies.
+- fix(ssg): the `@askrjs/askr/ssg` declarations no longer contain a stray
+  `import 'node:fs/promises'`, so consumers without `@types/node` typecheck.
+- test(test-utils): `npm run typecheck` (and so `npm run lint`) now also
+  typechecks `test-utils/**`, including the Playwright browser app, through
+  `test-utils/tsconfig.json`. The existing type errors are fixed: fixtures
+  import `state` from the root entry, the playwright app's Vite config uses
+  `oxc.jsx`, and two scenarios no longer rely on unsafe nullable state reads.
+- test(benches): `npm run typecheck` also typechecks `benches/`. Bench fixtures
+  now use `htmlFor`, a numeric `tabIndex`, `RouteHandler` route handlers and a
+  complete auth context, matching the public types.
 - perf(env): development/production checks and renderer debug-flag reads no
   longer copy `process.env` on every call. `isProductionEnvironment()` runs on every component render, and
   enumerating the environment is expensive on Windows, where it dominated

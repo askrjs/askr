@@ -1,7 +1,5 @@
 import { JSXElementType, JSXElement, Props } from '../elements.js';
 import '../jsx-globals.js';
-import { AuthContext, AuthRequirement } from '@askrjs/auth';
-import { InferSchema, ObjectSchema } from '@askrjs/schema';
 import { ReadableSource } from './component.js';
 import { capture } from './lifecycle.js';
 import { For } from './control.js';

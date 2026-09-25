@@ -1,7 +1,5 @@
 import { JSXElementType, JSXElement, Props } from '../elements.js';
 import '../jsx-globals.js';
-import { AuthContext, AuthRequirement } from '@askrjs/auth';
-import { InferSchema, ObjectSchema } from '@askrjs/schema';
 import { state } from './state.js';
 import { CoreTelemetry } from './telemetry.js';
 import { on } from './lifecycle.js';

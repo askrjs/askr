@@ -1,7 +1,5 @@
 import { JSXElementType, JSXElement, Props } from '../elements.js';
 import '../jsx-globals.js';
-import { AuthContext, AuthRequirement } from '@askrjs/auth';
-import { InferSchema, ObjectSchema } from '@askrjs/schema';
 import { State, state } from './state.js';
 import { ComponentFunction, ContextFrame, OwnedChildScope } from './context.js';
 import { DataRuntime } from './data.js';
