@@ -71,6 +71,7 @@ export function applyRendererFastPath(
   // else: reuse oldKeyMap directly (most common case for repeat renders)
 
   const finalNodes: Node[] = [];
+  const newKeyMap = new Map<string | number, Element>();
   let mapLookups = 0;
   let createdNodes = 0;
   let reusedCount = 0;
@@ -97,11 +98,13 @@ export function applyRendererFastPath(
       getRendererDOMHost().updateElementFromVnode(el, vnode);
       retireComponentOwnersForIntrinsicReuse(el);
       finalNodes.push(el);
+      newKeyMap.set(key, el);
       reusedCount++;
     } else {
       const newEl = getRendererDOMHost().createDOMNode(vnode);
       if (newEl) {
         finalNodes.push(newEl);
+        if (newEl instanceof Element) newKeyMap.set(key, newEl);
         createdNodes++;
       }
     }
@@ -152,14 +155,6 @@ export function applyRendererFastPath(
 
   // Record that we performed exactly one DOM commit.
   setDevValue('__LAST_FASTPATH_COMMIT_COUNT', 1);
-
-  // Phase: bookkeeping - populate newKeyMap
-  const newKeyMap = new Map<string | number, Element>();
-  for (let i = 0; i < keyedVnodes.length; i++) {
-    const key = keyedVnodes[i].key;
-    const node = finalNodes[i];
-    if (node instanceof Element) newKeyMap.set(key, node as Element);
-  }
 
   // Dev tracing
   if (DEVELOPMENT_BUILD_ENABLED) {
