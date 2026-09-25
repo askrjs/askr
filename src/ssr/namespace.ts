@@ -1,5 +1,6 @@
 import type { Props } from '../common/props';
 import { getRenderedAttributeValue } from './attrs';
+import { getRawTextElement, type RawTextElement } from './escape';
 
 /**
  * The parsing context an SSR element's children are written into.
@@ -17,6 +18,10 @@ import { getRenderedAttributeValue } from './attrs';
  * - `math-text`: children of a MathML text integration point (`mi`, `mo`,
  *   `mn`, `ms`, `mtext`), where start tags other than `mglyph` / `malignmark`
  *   are parsed as HTML.
+ * - `select`: inside an HTML `select` (including its `option` / `optgroup`
+ *   descendants), where the parser ignores a `<style>` start tag and reads its
+ *   text as markup. `<script>` is still processed there, and `template`
+ *   returns its content to `html`.
  * - `text`: inside an HTML element whose content the parser reads as text
  *   (raw text such as `noscript`, `iframe`, `xmp`, `noembed`, `noframes`,
  *   `style`, `script`; RCDATA `textarea`, `title`; or `plaintext`). Nothing
@@ -36,6 +41,7 @@ export type SSRNamespace =
   | 'math'
   | 'math-annotation'
   | 'math-text'
+  | 'select'
   | 'text';
 
 /** HTML elements whose content the parser reads as text, not markup. */
@@ -75,15 +81,21 @@ export function getElementNamespace(
   return 'html';
 }
 
-/** The context the children of an element in `namespace` are parsed in. */
+/**
+ * The context the children of an element in `namespace`, itself written in
+ * `context`, are parsed in.
+ */
 export function getChildNamespace(
+  context: SSRNamespace,
   namespace: 'html' | 'svg' | 'math' | 'text',
   tag: string,
   props: Props | undefined
 ): SSRNamespace {
   if (namespace === 'text') return 'text';
   if (namespace === 'html') {
-    return TEXT_CONTENT_ELEMENTS.has(tag) ? 'text' : 'html';
+    if (TEXT_CONTENT_ELEMENTS.has(tag)) return 'text';
+    if (tag === 'template') return 'html';
+    return tag === 'select' || context === 'select' ? 'select' : 'html';
   }
   if (namespace === 'svg') {
     return tag === 'foreignobject' || tag === 'desc' || tag === 'title'
@@ -106,6 +118,21 @@ export function getChildNamespace(
     default:
       return 'math';
   }
+}
+
+/**
+ * Whether an element with lower-case tag `tag`, in `namespace` and written in
+ * `context`, is parsed as an HTML raw text element whose text may be written
+ * verbatim.
+ */
+export function getRawTextElementInContext(
+  context: SSRNamespace,
+  namespace: 'html' | 'svg' | 'math' | 'text',
+  tag: string
+): RawTextElement | null {
+  if (namespace !== 'html') return null;
+  const element = getRawTextElement(tag);
+  return element === 'style' && context === 'select' ? null : element;
 }
 
 function isHtmlAnnotationEncoding(encoding: string | null): boolean {

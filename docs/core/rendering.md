@@ -140,14 +140,29 @@ entity-escaping them. CSS such as `ul > li` and scripts such as
 `a < b && c > d` reach the browser unchanged and match the text the client
 renderer creates, so hydration adopts the element in place.
 
-Only sequences that could end the element early are rewritten. Every `</`
-becomes `<\/`, so no closing tag, for this element or any ancestor, can form.
-Inside `<script>`, the `<` of `<script` and `<!--` is also written as `\u003C`.
-Matching is case-insensitive and applies to the concatenated text of all
-children, so a closing tag split across children is caught. Within JavaScript
-string, template, and regular-expression literals, within JSON strings
-(`type="application/json"`, `importmap`, `application/ld+json`), and in CSS,
-these rewrites denote the original characters, so the content stays valid.
+Only characters that could let markup form are rewritten, case-insensitively,
+over the concatenated text of all children, so a sequence split across children
+is caught:
+
+- In `<style>`, every `<` is written as the CSS escape `\3c ` (the space ends
+  the escape). No markup can form, whatever context the parser reads the text
+  in. Inside CSS strings, `url()`, and comments the escape denotes `<`.
+- In `<script>`, every `</` becomes `<\/`, so no closing tag of the script or
+  of any ancestor can form, and the `<` of `<script` and `<!--` is written as
+  `\u003C`. Inside JavaScript string, template, and regular-expression
+  literals, and inside JSON strings (`type="application/json"`, `importmap`,
+  `application/ld+json`), these rewrites denote the original characters, so
+  the content stays valid.
+
+Some text has no safe raw form, so it does not survive unchanged:
+
+- In scripts, `</`, `<!--`, and `<script` outside a string, template, or
+  regular-expression literal may change meaning or become a syntax error.
+  Keep them inside literals, where the rewrites are exact.
+- In styles, a `<` outside strings, `url()`, and comments reads back as an
+  escaped identifier instead of `<`. This affects custom property values that
+  contain `<` and range media queries such as `@media (width < 600px)`; write
+  those as `(max-width: 599.98px)` or `(600px > width)` instead.
 
 Raw text is written only for an HTML `<script>` or `<style>` whose ancestors
 are all ordinary HTML content. Otherwise SSR keeps the text entity-escaped:
@@ -157,6 +172,10 @@ are all ordinary HTML content. Otherwise SSR keeps the text entity-escaped:
   points such as SVG `<foreignObject>`, `<desc>`, and `<title>`, MathML
   `<annotation-xml>` with an HTML `encoding`, and MathML text elements (`<mi>`,
   `<mo>`, `<mn>`, `<ms>`, `<mtext>`) return their children to HTML.
+- Inside `<select>`, including its `<option>` and `<optgroup>` children, the
+  parser ignores a `<style>` start tag and reads its text as markup, so
+  `<style>` text stays escaped. `<script>` is still parsed as a script there,
+  and `<template>` content returns to ordinary HTML.
 - Inside an element whose content the parser reads as text (`<noscript>`,
   `<iframe>`, `<xmp>`, `<noembed>`, `<noframes>`, `<textarea>`, `<title>`,
   `<plaintext>`), a nested `<script>` or `<style>` is not an element at all,

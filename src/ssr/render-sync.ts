@@ -33,12 +33,12 @@ import {
   VOID_ELEMENTS,
   escapeRawText,
   escapeText,
-  getRawTextElement,
   type RawTextElement,
 } from './escape';
 import {
   getChildNamespace,
   getElementNamespace,
+  getRawTextElementInContext,
   type SSRNamespace,
 } from './namespace';
 import { serializeHydrationRenderData } from './hydration-data';
@@ -660,12 +660,12 @@ function renderNodeSyncToSink(
   const parentNamespace = currentNamespace;
   const tag = typeStr.toLowerCase();
   const namespace = getElementNamespace(parentNamespace, tag);
-  currentNamespace = getChildNamespace(namespace, tag, props);
+  currentNamespace = getChildNamespace(parentNamespace, namespace, tag, props);
   try {
     renderElementSyncToSink(
       node,
       typeStr,
-      namespace === 'html' ? getRawTextElement(tag) : null,
+      getRawTextElementInContext(parentNamespace, namespace, tag),
       sink,
       ctx
     );
@@ -676,7 +676,8 @@ function renderNodeSyncToSink(
 
 /**
  * Write a non-void intrinsic element. `rawTextElement` is set only for an
- * HTML `<script>` / `<style>` whose ancestors are all ordinary HTML content.
+ * HTML `<script>` / `<style>` whose ancestors are all ordinary HTML content
+ * (a `<style>` inside `<select>` is not parsed as one).
  * The same tags in SVG or MathML are ordinary elements whose text the parser
  * reads as markup, and inside a raw text or RCDATA ancestor (`noscript`,
  * `textarea`, ...) raw content could close that ancestor, so both keep
