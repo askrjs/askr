@@ -860,7 +860,7 @@ describe('SSR reactive values', () => {
         ),
       ],
     ] as Array<[string, (child: () => unknown) => JSXElement]>)(
-      'should report a changed hook order in %s',
+      'should remount on a changed hook order in %s',
       async (_position, place) => {
         let useState!: State<boolean>;
         const Component = () => {
@@ -880,10 +880,13 @@ describe('SSR reactive values', () => {
 
         await mount(Component);
         expect(container.textContent).toBe('st');
-        expect(() => {
-          useState.set(false);
-          flushScheduler();
-        }).toThrow(/Hook order violation/);
+        // A changed hook order remounts the function child with fresh state.
+        useState.set(false);
+        flushScheduler();
+        expect(container.textContent).toBe('x');
+        useState.set(true);
+        flushScheduler();
+        expect(container.textContent).toBe('st');
       }
     );
   });
@@ -1028,5 +1031,256 @@ describe('SSR reactive values', () => {
       flushScheduler();
       expect(container.textContent).toBe('p');
     });
+  });
+
+  describe('function child upgrades', () => {
+    const Layout = (props: { children?: unknown }) => <>{props.children}</>;
+    const Plain = () => <i>{'c'}</i>;
+    const Stateful = () => {
+      const [value] = state('s');
+      return <i>{value()}</i>;
+    };
+
+    const componentShapes: Array<[string, Page, string]> = [
+      [
+        'a component beside an element',
+        () => (
+          <div>
+            <b>{'1'}</b>
+            {() => <Plain />}
+          </div>
+        ),
+        '<div><b>1</b><i>c</i></div>',
+      ],
+      [
+        'a stateful component after text',
+        () => (
+          <div>
+            {'t'}
+            {() => <Stateful />}
+          </div>
+        ),
+        '<div>t<i>s</i></div>',
+      ],
+      [
+        'a component beside another function child',
+        () => (
+          <div>
+            {() => <Stateful />}
+            {() => 'x'}
+          </div>
+        ),
+        '<div><i>s</i>x</div>',
+      ],
+    ];
+
+    it.each(componentShapes)(
+      'should render a function child returning %s on every side',
+      async (_name, Component, expected) => {
+        expect(renderOnServer(Component)).toBe(normalizeHtml(expected));
+        expect(await renderOnClient(Component)).toBe(normalizeHtml(expected));
+
+        container.innerHTML = renderToStringSync(Component);
+        await hydrate(Component);
+        expect(normalizeHtml(container.innerHTML)).toBe(
+          normalizeHtml(expected)
+        );
+      }
+    );
+
+    it('should render a component a function child returns later', async () => {
+      let flag!: State<boolean>;
+      const onError = vi.fn();
+      const Component = () => {
+        flag = state(false);
+        return (
+          <ErrorBoundary
+            fallback={() => <em>{'fallback'}</em>}
+            onError={onError}
+          >
+            <div>
+              <b>{'1'}</b>
+              {() => (flag() ? <Stateful /> : 'no')}
+            </div>
+          </ErrorBoundary>
+        );
+      };
+
+      await createSPA({
+        root: container,
+        registry: routeRegistryFromTable([{ path: '/', handler: Component }]),
+      });
+      flushScheduler();
+      expect(normalizeHtml(container.innerHTML)).toBe('<div><b>1</b>no</div>');
+
+      flag.set(true);
+      flushScheduler();
+      expect(normalizeHtml(container.innerHTML)).toBe(
+        '<div><b>1</b><i>s</i></div>'
+      );
+      expect(onError).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['an element', (child: () => unknown) => <div>{child}</div>],
+      [
+        'an element with siblings',
+        (child: () => unknown) => (
+          <div>
+            <b>{'1'}</b>
+            {child}
+          </div>
+        ),
+      ],
+      [
+        'a component fragment',
+        (child: () => unknown) => (
+          <div>
+            <Layout>{child}</Layout>
+          </div>
+        ),
+      ],
+    ] as Array<[string, (child: () => unknown) => JSXElement]>)(
+      'should upgrade %s even when the function catches every error',
+      async (_position, place) => {
+        const Component = () =>
+          place(() => {
+            try {
+              const [value] = state('v1');
+              return value();
+            } catch {
+              return 'caught';
+            }
+          });
+
+        expect(await renderOnClient(Component)).toContain('v1');
+      }
+    );
+
+    it('should not surface the upgrade from an async function child', async () => {
+      const Component = () => (
+        <div>
+          {async () => {
+            const [value] = state('x');
+            return value();
+          }}
+        </div>
+      );
+
+      await createSPA({
+        root: container,
+        registry: routeRegistryFromTable([{ path: '/', handler: Component }]),
+      });
+      flushScheduler();
+      for (let index = 0; index < 5; index += 1) await Promise.resolve();
+      flushScheduler();
+    });
+
+    it('should reject state.set() during a function child run', async () => {
+      const Component = () => {
+        const [, setCount] = state(0);
+        return (
+          <div>
+            {() => {
+              setCount(1);
+              return 'x';
+            }}
+          </div>
+        );
+      };
+
+      await expect(renderOnClient(Component)).rejects.toThrow(
+        /cannot be called during component render/
+      );
+    });
+
+    const positions: Array<[string, (child: () => unknown) => JSXElement]> = [
+      ['an element', (child) => <div>{child}</div>],
+      [
+        'an element with siblings',
+        (child) => (
+          <div>
+            <b>{'1'}</b>
+            {child}
+          </div>
+        ),
+      ],
+      [
+        'a component fragment',
+        (child) => (
+          <div>
+            <Layout>{child}</Layout>
+          </div>
+        ),
+      ],
+    ];
+
+    const toggles: Array<
+      [string, (flag: () => boolean) => () => unknown, string, string]
+    > = [
+      [
+        'Show',
+        (flag) => () =>
+          flag() ? <Show when={() => true}>{'S'}</Show> : 'none',
+        'S',
+        'none',
+      ],
+      [
+        'For',
+        (flag) => () =>
+          flag() ? (
+            <For each={() => ['x', 'y']} by={(item: string) => item}>
+              {(item: string) => <i>{item}</i>}
+            </For>
+          ) : (
+            'none'
+          ),
+        'xy',
+        'none',
+      ],
+      [
+        'a conditional state()',
+        (flag) => () => {
+          if (!flag()) return 'none';
+          const [value] = state('on');
+          return value();
+        },
+        'on',
+        'none',
+      ],
+    ];
+
+    for (const [position, place] of positions) {
+      it.each(toggles)(
+        `should toggle %s in ${position} without a hook-order error`,
+        async (_name, makeChild, onText, offText) => {
+          let flag!: State<boolean>;
+          const Component = () => {
+            flag = state(false);
+            return place(makeChild(() => flag()));
+          };
+          const prefix = position === 'an element with siblings' ? '1' : '';
+
+          await createSPA({
+            root: container,
+            registry: routeRegistryFromTable([
+              { path: '/', handler: Component },
+            ]),
+          });
+          flushScheduler();
+          expect(container.textContent).toBe(prefix + offText);
+
+          for (const [value, text] of [
+            [true, onText],
+            [false, offText],
+            [true, onText],
+          ] as const) {
+            flag.set(value);
+            flushScheduler();
+            expect(container.textContent).toBe(prefix + text);
+          }
+        }
+      );
+    }
   });
 });
