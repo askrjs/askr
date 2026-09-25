@@ -134,6 +134,13 @@ describe('SSG hydration bundle', () => {
     // `/\\evil.example` cannot become an open redirect (navigate, Link, guard
     // and first-load redirects), and cross-origin redirects on first load are
     // handed to the browser (#459; measured 271,618 bytes).
-    expect(initialBytes).toBeLessThanOrEqual(266 * 1024);
+    // 267 KiB for the DOM property path (`muted`, `indeterminate`, custom
+    // element object props, `prop:`/`attr:`): the property table, resetting
+    // removed properties, the URL/raw-HTML guards and rollback snapshots add
+    // ~2.4 KB (measured 273,240 bytes). Without it those props cannot reach
+    // the element at all.
+    // 268 KiB once both landed: #459's navigation target checks plus the DOM
+    // property path above (measured 274,362 bytes).
+    expect(initialBytes).toBeLessThanOrEqual(268 * 1024);
   });
 });
