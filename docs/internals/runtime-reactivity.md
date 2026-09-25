@@ -285,7 +285,12 @@ flowchart LR
   with the closure from its owner's last render, which is sound while the owner
   has not re-rendered. If the owner is already queued to re-render and its
   render reads the cell (directly or through other cells of the same owner),
-  the cell is left dirty for that render. An eager value that changed
+  the cell is left dirty for that render. If an ancestor of the owner is
+  queued to re-render, that render may remove the owner or give it new props,
+  so the cell is not evaluated with the owner's stale props: it is deferred to
+  a component-lane task queued behind the ancestor's render. By then a removed
+  owner has disposed the cell and a re-rendered owner has recomputed it; a
+  cell still dirty returns to the derived lane. An eager value that changed
   re-renders an owner that reads it; an unchanged one keeps the `Object.is`
   cutoff. A render marks a cell dirty when the flush version or its `derive()`
   inputs (function, or `source`/`map`) changed, so a cell whose eager value

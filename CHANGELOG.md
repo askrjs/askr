@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- fix(state): a `derive()` owned by a component whose ancestor is queued to
+  re-render is no longer evaluated in the derived lane with the component's
+  stale props. It waits for the ancestor's render, so a list row the parent is
+  removing no longer runs (and throws from) a derive that indexes by its old
+  prop; a surviving component still gets the updated value in the same flush.
 - fix(resources): a `resource()` deps change seen by a render that is rolled
   back (for example because a sibling component throws in the same render) no
   longer leaves the resource stuck `pending`. The new deps, loader and generation are
