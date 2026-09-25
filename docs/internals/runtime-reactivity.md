@@ -285,12 +285,18 @@ flowchart LR
   with the closure from its owner's last render, which is sound while the owner
   has not re-rendered. If the owner is already queued to re-render and its
   render reads the cell (directly or through other cells of the same owner),
-  the cell is left dirty for that render. If an ancestor of the owner is
-  queued to re-render, that render may remove the owner or give it new props,
-  so the cell is not evaluated with the owner's stale props: it is deferred to
-  a component-lane task queued behind the ancestor's render. By then a removed
-  owner has disposed the cell and a re-rendered owner has recomputed it; a
-  cell still dirty returns to the derived lane. An eager value that changed
+  the cell is left dirty for that render. If a render that has not run yet
+  decides whether the owner survives and with which props, the cell is not
+  evaluated with the owner's stale props (`component/pending-render.ts`): an
+  ancestor queued to re-render (walking render parents and, for portal
+  content, the live portal writer), or a `<For>` whose `each` source is queued
+  to recompute or whose boundary commit is queued. The cell is deferred to a
+  component-lane task behind that work. By then a removed owner has disposed
+  the cell and a re-rendered owner has recomputed it; a cell still dirty
+  returns to the derived lane. The walk is skipped when the component and
+  reactive lanes are empty, since every such pending render has queued work
+  there. `selector()` source records defer the same way when any binding
+  owner has such a pending render. An eager value that changed
   re-renders an owner that reads it; an unchanged one keeps the `Object.is`
   cutoff. A render marks a cell dirty when the flush version or its `derive()`
   inputs (function, or `source`/`map`) changed, so a cell whose eager value

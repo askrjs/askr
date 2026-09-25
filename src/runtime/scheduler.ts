@@ -93,6 +93,12 @@ export class Scheduler {
     return false;
   }
 
+  /** Whether `lane` has queued tasks that have not run yet. */
+  hasQueuedTasks(lane: SchedulerLane): boolean {
+    const queue = this.lanes[lane];
+    return queue.head < queue.tasks.length;
+  }
+
   private getPendingTaskCount(): number {
     let total = 0;
     for (const lane of SCHEDULER_LANES) {

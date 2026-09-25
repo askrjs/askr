@@ -24,6 +24,10 @@ import {
 } from './readable';
 import { isSnapshotSource, type SnapshotSourceBrand } from './snapshot-source';
 import { adjustOwnershipDiagnostic } from '../diagnostics/ownership-diagnostics';
+import {
+  deferBehindPendingRender,
+  hasPendingOwnerRender,
+} from '../component/pending-render';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
@@ -60,9 +64,6 @@ type SnapshotSource<T> = {
 const deriveCells = new WeakMap<object, Map<number, DerivedCell<unknown>>>();
 const dirtyDerivedCells = new Set<DerivedCell<unknown>>();
 const derivedWork = new ScheduledWork(flushDirtyDerivedCells, true);
-// Cells whose eager evaluation waits for an ancestor's queued render (#523).
-const deferredDerivedCells = new Set<DerivedCell<unknown>>();
-const deferredDerivedWork = new ScheduledWork(requeueDeferredDerivedCells);
 const derivedLoopGuard = createFlushLoopGuard<DerivedCell<unknown>>('derive()');
 
 function getDeriveStore(
@@ -117,40 +118,6 @@ function isReadByOwnerRender(
   return false;
 }
 
-/**
- * Whether an ancestor of the owner is queued to re-render. That render may
- * remove the owner or hand it new props, so the closure from the owner's last
- * render can read inputs that no longer exist.
- */
-function hasAncestorPendingUpdate(owner: ComponentInstance): boolean {
-  for (
-    let ancestor = owner.parentInstance;
-    ancestor;
-    ancestor = ancestor.parentInstance
-  ) {
-    if (ancestor.hasPendingUpdate) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
- * Runs in the component lane, after the ancestor renders queued ahead of it.
- * A removed owner has disposed its cells, and a re-rendered owner has
- * recomputed them; a cell the ancestor render did not reach is still dirty
- * and goes back to the derived lane.
- */
-function requeueDeferredDerivedCells(): void {
-  const cells = Array.from(deferredDerivedCells);
-  deferredDerivedCells.clear();
-  for (const cell of cells) {
-    if (cell._active && cell._dirty) {
-      markDerivedCellDirty(cell);
-    }
-  }
-}
-
 function flushDirtyDerivedCells(): void {
   if (dirtyDerivedCells.size === 0) {
     return;
@@ -181,11 +148,11 @@ function flushDirtyDerivedCells(): void {
       next = pending.next();
       continue;
     }
-    // An ancestor's queued render decides whether the owner survives and
-    // with which props. Evaluate after it, not with the owner's stale props.
-    if (cell._active && hasAncestorPendingUpdate(cell._owner)) {
-      deferredDerivedCells.add(cell);
-      requestRuntimeWork('component', deferredDerivedWork);
+    // A queued ancestor render or boundary reconcile decides whether the
+    // owner survives and with which props. Evaluate after it, not with the
+    // owner's stale props (#523).
+    if (cell._active && hasPendingOwnerRender(cell._owner)) {
+      deferBehindPendingRender(cell);
       next = pending.next();
       continue;
     }
@@ -327,7 +294,6 @@ function createDerivedCell<T>(
     cell._dirty = false;
     cell._pendingDependencySources = undefined;
     dirtyDerivedCells.delete(cell);
-    deferredDerivedCells.delete(cell);
     clearDerivedDependencySubscriptions(cell, cell._sources);
     cell._derivedSubscribers?.clear();
     const readerCount = cell._readers?.size ?? 0;

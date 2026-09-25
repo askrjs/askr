@@ -474,6 +474,14 @@ function flushLaneEffects(lane: SchedulerLane): void {
   }
 }
 
+/** @internal Whether the effect is queued to recompute in its lane. */
+export function isFineGrainedEffectPending(
+  handle: FineGrainedEffectHandle<unknown>
+): boolean {
+  const effect = handle as FineGrainedEffectImpl<unknown>;
+  return dirtyEffectsByLane[effect.lane].has(effect);
+}
+
 function unscheduleEffect(effect: FineGrainedEffect<unknown>): void {
   dirtyEffectsByLane[effect.lane].delete(effect);
 }

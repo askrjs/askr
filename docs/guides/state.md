@@ -64,9 +64,11 @@ read from other derives; captured locals are never stale. The cost model:
 - If the component is already re-rendering for another reason (a source it
   reads directly, new props, a second render in the same flush), the derive is
   evaluated once, by that render.
-- If a parent or other ancestor is re-rendering, the derive waits for that
-  render: it is not evaluated with the component's old props, or at all when
-  the ancestor removes the component (for example a list row that goes away).
+- If a parent or other ancestor is re-rendering (including a portal writer,
+  or a `<For>` reconciling its rows), the derive waits for that render: it is
+  not evaluated with the component's old props, or at all when the component
+  is removed (for example a list row that goes away). `selector()` sources
+  wait the same way.
 
 Pass a function defined outside the component to avoid the render-time
 evaluation when its value is already current.

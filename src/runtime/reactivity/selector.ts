@@ -25,6 +25,10 @@ import {
 import { adjustOwnershipDiagnostic } from '../diagnostics/ownership-diagnostics';
 import { getRuntimeScheduler } from '../access';
 import { createFlushLoopGuard } from '../flush-loop-guard';
+import {
+  deferBehindPendingRender,
+  hasPendingOwnerRender,
+} from '../component/pending-render';
 
 declare const __ASKR_BENCH_BUILD__: boolean;
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
@@ -73,6 +77,8 @@ interface SelectorSourceRecord<T> extends DerivedSubscriber {
   _sources: Set<ReadableSource<unknown>>;
   _pendingDependencySources?: Set<ReadableSource<unknown>>;
   _lanes: Map<SelectorEquals<T>, SelectorLane<T>>;
+  /** Components whose selector() hooks bind this record, with hook counts. */
+  _owners: Map<ComponentInstance, number>;
   _cleanup(): void;
 }
 
@@ -124,6 +130,12 @@ function flushDirtySelectorRecords(): void {
     if (!record._dirty) {
       continue;
     }
+    // A queued ancestor render or boundary reconcile decides whether a
+    // binding owner survives and with which props (#523).
+    if (hasPendingBindingOwnerRender(record)) {
+      deferBehindPendingRender(record);
+      continue;
+    }
     // Skip a looping record; it stays dirty and recomputes on its next read.
     const loop = selectorLoopGuard(scheduler, record);
     if (loop) {
@@ -143,6 +155,17 @@ function flushDirtySelectorRecords(): void {
   if (failures && failures.length > 1) {
     throw new AggregateError(failures, 'selector() recompute failures');
   }
+}
+
+function hasPendingBindingOwnerRender(
+  record: SelectorSourceRecord<unknown>
+): boolean {
+  for (const owner of record._owners.keys()) {
+    if (hasPendingOwnerRender(owner)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function isObjectCandidate(value: unknown): value is object {
@@ -224,6 +247,7 @@ function createSelectorSourceRecord<T>(
     _evaluating: false,
     _sources: new Set(),
     _lanes: new Map(),
+    _owners: new Map(),
     _markDirty: () => {
       markSelectorRecordDirty(record as SelectorSourceRecord<unknown>);
     },
@@ -235,6 +259,7 @@ function createSelectorSourceRecord<T>(
       record._pendingDependencySources = undefined;
       clearDerivedDependencySubscriptions(record, record._sources);
       record._lanes.clear();
+      record._owners.clear();
       selectorRecords.delete(source as ReadableSource<unknown>);
     },
   };
@@ -409,6 +434,7 @@ function attachSelectorHookBinding<T>(
   hook._record = record;
   hook._lane = lane;
   lane._bindingCount += 1;
+  record._owners.set(hook._owner, (record._owners.get(hook._owner) ?? 0) + 1);
 }
 
 function detachSelectorHookBinding<T>(hook: SelectorHook<T>): void {
@@ -420,6 +446,13 @@ function detachSelectorHookBinding<T>(hook: SelectorHook<T>): void {
 
   if (!record || !lane) {
     return;
+  }
+
+  const ownerCount = record._owners.get(hook._owner) ?? 0;
+  if (ownerCount > 1) {
+    record._owners.set(hook._owner, ownerCount - 1);
+  } else {
+    record._owners.delete(hook._owner);
   }
 
   if (lane._bindingCount > 0) {
