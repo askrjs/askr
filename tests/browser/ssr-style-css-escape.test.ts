@@ -1,9 +1,10 @@
 import { afterEach, expect, test } from 'vite-plus/test';
-import { escapeRawText } from '../../src/ssr/escape';
+import { jsx } from '@askrjs/askr/jsx-runtime';
+import { renderToStringSync } from '@askrjs/askr/ssr';
 
 /**
- * SSR writes every `<` in `<style>` text as the CSS escape `\3c `. A real CSS
- * parser must read it back as `<` inside strings, url() and comments.
+ * SSR writes every `<` in `<style>` text as the CSS escape `\3c `. The
+ * browser's CSS parser must read it back as `<` inside strings and url().
  */
 const cleanups: Array<() => void> = [];
 
@@ -12,12 +13,14 @@ afterEach(() => {
 });
 
 test('should read the CSS escape of < back as < in strings and url()', () => {
-  const style = document.createElement('style');
-  style.textContent = escapeRawText(
+  const css =
     '/* a <b> comment */ #ssr-css-escape::after { content: "<b> < c"; }' +
-      ' #ssr-css-escape { background-image: url("x<y.png"); }',
-    'style'
+    ' #ssr-css-escape { background-image: url("x<y.png"); }';
+  const template = document.createElement('template');
+  template.innerHTML = renderToStringSync(() =>
+    jsx('style', { children: css })
   );
+  const style = template.content.querySelector('style')!;
   document.head.append(style);
   const target = document.createElement('div');
   target.id = 'ssr-css-escape';
