@@ -16,6 +16,7 @@ import {
 } from '../../../src/fx/fx';
 import { globalScheduler } from '../../../src/runtime/scheduler';
 import {
+  cleanupComponent,
   createComponentInstance,
   mountInstanceInline,
   registerMountOperation,
@@ -105,17 +106,16 @@ describe('FX layer', () => {
     // FX scheduling must not happen during render.
     // Simulate an effect/mount operation that runs after the first commit.
     beginComponentScope({ instance: inst });
+    // The mount operation does not return `cancel`; unmount alone must cancel.
     registerMountOperation(() => {
-      const cancel = scheduleTimeout(100, spy);
-      return cancel;
+      scheduleTimeout(100, spy);
     });
     beginComponentScope({ instance: null });
 
     // First mount executes mount operations and records cleanup.
     mountInstanceInline(inst, target);
 
-    // simulate unmount
-    for (const fn of inst.owner.cleanups) fn();
+    cleanupComponent(inst);
 
     vi.advanceTimersByTime(120);
     // cancelled so not called
