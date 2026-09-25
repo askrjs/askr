@@ -219,6 +219,17 @@
   the `defineQuery()` definition but fail to typecheck at the `createQuery()`
   call site; move `signal` to the second argument.
   Inline `createQuery({ key, fetch })` fetchers are unchanged.
+- fix(router): client navigation no longer dead-ends on URLs no registered app
+  can render. A `Link` click or `navigate()` to an unmatched same-origin URL, or
+  one outside the registry `basePath`, now loads the URL as a document, and
+  Back/Forward to an unmatched entry reloads the page instead of leaving the old
+  page mounted under the new URL. A `fallback()` route still renders in place.
+  Navigating to the already-loaded URL with no route, or a fragment-only
+  Back/Forward on such a page, skips the load. A failed Back/Forward render or
+  rejected Back/Forward loader now returns with `history.go()` to the entry whose page
+  is still rendered instead of overwriting the entry the user landed on; Askr
+  stamps an `askrIndex` position into the history state it writes and reloads
+  when an entry written by other code makes positions unknown.
 - fix(resources): a resource hydrated from preloaded data keeps its value on
   later re-renders instead of resetting to pending and refetching. The preloaded
   value now seeds the resource, so `refresh()` and `deps` changes also work

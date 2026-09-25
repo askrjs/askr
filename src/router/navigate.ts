@@ -7,9 +7,11 @@ import { logger } from '../common/logger';
 import {
   configureNavigationRegistryHost,
   getCurrentHref,
+  getRegisteredAppsSnapshot,
   hasRegisteredApps,
   isCurrentOrigin,
   parseTargetUrl,
+  syncRegisteredRouteSnapshot,
 } from './navigation-registry';
 import {
   applyNavigationTargets,
@@ -34,6 +36,14 @@ import {
   releaseNavigationFocusCapture,
 } from './navigation-scroll';
 import { isRuntimeSchedulerExecuting } from '../runtime';
+import {
+  cancelHistoryReturn,
+  consumeHistoryReturn,
+  initializeHistoryIndex,
+  landOnHistoryEntry,
+  returnToRenderedHistoryEntry,
+} from './history-index';
+import { reloadDocument } from './document-navigation';
 
 export { configureScrollRestoration } from './navigation-scroll';
 export type {
@@ -102,6 +112,7 @@ export function navigateToPublicHref(
   }
 
   prepareNavigationFocus();
+  cancelHistoryReturn();
 
   const initialTarget = parseTargetUrl(href);
   const redirectState: NavigationRedirectState = {
@@ -202,9 +213,15 @@ function navigateWithRedirectState(
 }
 
 function handlePopState(event: PopStateEvent): void {
+  if (consumeHistoryReturn(event.state)) {
+    // A failed traversal returning to the entry that is still rendered.
+    syncRegisteredRouteSnapshot();
+    return;
+  }
   beginHistoryFocusRestoration();
   const request = beginRouteRequest();
   const previousHref = getCurrentHref();
+  const historyIndex = landOnHistoryEntry(event.state);
   const pathname = window.location.pathname;
   const href = `${window.location.pathname}${window.location.search}${window.location.hash}`;
 
@@ -217,7 +234,7 @@ function handlePopState(event: PopStateEvent): void {
       applyPopStateNavigationTargets(
         request.id,
         previousHref,
-        { path: previousHref },
+        historyIndex,
         pathname,
         href,
         event.state,
@@ -245,6 +262,8 @@ function handlePopState(event: PopStateEvent): void {
           return;
         }
         logger.error('[Askr] popstate navigation failed:', error);
+        // Nothing rendered this entry; send the user back to the one that is.
+        if (!returnToRenderedHistoryEntry()) reloadDocument();
       }
     );
     return;
@@ -255,7 +274,15 @@ function handlePopState(event: PopStateEvent): void {
 
 export function initializeNavigation(): void {
   ensureNavigationRegistryHost();
-  if (typeof window === 'undefined' || navigationInitialized) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  // Only the first mounted app adopts the active entry: a later app may mount
+  // while a back/forward render is in flight, when the active entry is not
+  // the rendered one.
+  if (getRegisteredAppsSnapshot().length <= 1) initializeHistoryIndex();
+  if (navigationInitialized) {
     return;
   }
 
