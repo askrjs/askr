@@ -23,10 +23,14 @@ import {
 // @askr-allow-real-timers -- browser navigations settle asynchronously.
 
 // WebKit throws SecurityError after 100 history.pushState/replaceState calls
-// in 10 seconds, for the whole page, so later test files would fail. Cases
-// share one app where they can, the URL is restored once per file, and the
-// total is checked below.
+// in 10 seconds. The count is per tester page, which runs several test files
+// one after another, so this file's writes would count against the router
+// files that run next on the same page (guarded-router, routed-shell and
+// history-traversal-rollback make 30 to 41 each). Cases share one app where
+// they can, the URL is restored once per file, the total is checked, and the
+// file waits for its writes to leave WebKit's window before finishing.
 const HISTORY_WRITE_BUDGET = 45;
+const HISTORY_RATE_WINDOW_MS = 10_000;
 
 type NavigateEventLike = Event & {
   navigationType: string;
@@ -40,6 +44,7 @@ let documentLoads: { type: string; url: string }[] = [];
 
 let historyApiDepth = 0;
 let historyWrites = 0;
+let lastHistoryWriteAt = 0;
 const originalPushState = window.history.pushState;
 const originalReplaceState = window.history.replaceState;
 
@@ -50,6 +55,7 @@ function trackHistoryApi(
   return function (this: History, ...args) {
     historyApiDepth += 1;
     historyWrites += 1;
+    lastHistoryWriteAt = performance.now();
     try {
       return method.apply(this, args);
     } finally {
@@ -80,10 +86,21 @@ beforeAll(() => {
   originalUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
 });
 
-afterAll(() => {
+afterAll(async () => {
   window.history.replaceState({}, '', originalUrl);
   expect(historyWrites).toBeLessThanOrEqual(HISTORY_WRITE_BUDGET);
-});
+  // The final replaceState above is outside the tracked wrapper.
+  lastHistoryWriteAt = performance.now();
+  await new Promise((resolve) =>
+    setTimeout(
+      resolve,
+      Math.max(
+        0,
+        lastHistoryWriteAt + HISTORY_RATE_WINDOW_MS - performance.now()
+      )
+    )
+  );
+}, HISTORY_RATE_WINDOW_MS + 5_000);
 
 beforeEach(() => {
   documentLoads = [];
