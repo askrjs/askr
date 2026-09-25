@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { state } from '../../../src';
 import { hydrateSPA } from '../../../src/boot';
+import { For, Show } from '../../../src/control';
+import { ErrorBoundary } from '../../../src/components/error-boundary';
+import {
+  Portal,
+  _resetDefaultPortal,
+  definePortal,
+} from '../../../src/foundations/structures/portal';
+import { jsx } from '../../../src/jsx/jsx-runtime';
 import { renderToString, renderToStringSync } from '../../../src/ssr';
 import {
   createTestContainer,
@@ -174,14 +182,94 @@ describe('SSR raw text elements (<script>, <style>)', () => {
     expect(html).toContain('<script>a < b && c > d</script>');
   });
 
-  it('should reject element children inside a raw text element', () => {
+  it('should keep JSON script content valid when neutralizing breakout sequences', () => {
+    const data = { html: '</script><!--<SCRIPT>', ok: 'a > b & c' };
+    const html = renderToStringSync(() => (
+      <div>
+        <script type="application/json">{JSON.stringify(data)}</script>
+        <script type="importmap">{JSON.stringify({ imports: data })}</script>
+      </div>
+    ));
+    const scripts = parse(html).querySelectorAll('script');
+
+    expect(scripts).toHaveLength(2);
+    expect(JSON.parse(scripts[0].textContent!)).toEqual(data);
+    expect(JSON.parse(scripts[1].textContent!)).toEqual({ imports: data });
+  });
+
+  it('should reject element children inside a raw text element with a readable message', () => {
     expect(() =>
       renderToStringSync(() => (
         <style>
           <b>nope</b>
         </style>
       ))
-    ).toThrow(/<style> children must be text/);
+    ).toThrow(
+      'SSR: <style> children must be text, but received an element <b>.'
+    );
+  });
+
+  it('should collect raw text through Show and For boundaries', () => {
+    const html = renderToStringSync(() => (
+      <div>
+        <style>
+          <Show when={true} fallback={'hidden'}>
+            {'a > b {}'}
+          </Show>
+          <Show when={false}>{'never'}</Show>
+        </style>
+        <script>
+          <For each={['a < b', 'c > d']} by={(value) => value}>
+            {(value) => `${value};`}
+          </For>
+        </script>
+      </div>
+    ));
+    const fragment = parse(html);
+
+    expect(fragment.querySelector('style')!.textContent).toBe('a > b {}');
+    expect(fragment.querySelector('script')!.textContent).toBe('a < b;c > d;');
+  });
+
+  it('should render an ErrorBoundary fallback as raw text', () => {
+    const Boom = (): string => {
+      throw new Error('boom');
+    };
+    const html = renderToStringSync(() => (
+      <style>
+        <ErrorBoundary fallback={() => 'a > b {}'}>
+          <Boom />
+        </ErrorBoundary>
+      </style>
+    ));
+
+    expect(parse(html).querySelector('style')!.textContent).toBe('a > b {}');
+  });
+
+  it('should treat function and state children like the ordinary text path', () => {
+    function App() {
+      const css = state('a > b {}');
+      const read = () => 'c > d {}';
+      return (
+        <main>
+          <style>
+            {read}
+            {css}
+          </style>
+          <p>
+            {read}
+            {css}
+          </p>
+        </main>
+      );
+    }
+
+    const html = renderToStringSync(() => <App />);
+    const fragment = parse(html);
+
+    expect(fragment.querySelector('style')!.textContent).toBe(
+      fragment.querySelector('p')!.textContent
+    );
   });
 
   it('should hydrate server <style>/<script> text in place because it matches the client text', async () => {
@@ -227,5 +315,210 @@ describe('SSR raw text elements (<script>, <style>)', () => {
     expect(serverLabel.textContent).toBe('updated');
     expect(serverStyle.textContent).toBe(css);
     expect(serverScript.textContent).toBe(js);
+  });
+});
+
+describe('SSR <script>/<style> in foreign content (SVG, MathML)', () => {
+  const payload = '<img src=x onerror=alert(1)>';
+
+  afterEach(() => {
+    _resetDefaultPortal();
+  });
+
+  function expectInert(html: string, text: string): void {
+    const fragment = parse(html);
+    expect(fragment.querySelector('img')).toBeNull();
+    expect(
+      fragment.querySelector('svg style, svg script, math style')!.textContent
+    ).toBe(text);
+  }
+
+  it.each([
+    [
+      'svg style',
+      () => (
+        <svg>
+          <style>{payload}</style>
+        </svg>
+      ),
+    ],
+    [
+      'svg script',
+      () => (
+        <svg>
+          <script>{payload}</script>
+        </svg>
+      ),
+    ],
+    [
+      'math style',
+      () => (
+        <math>
+          <style>{payload}</style>
+        </math>
+      ),
+    ],
+    [
+      'nested svg style',
+      () => (
+        <svg>
+          <g>
+            <style>{payload}</style>
+          </g>
+        </svg>
+      ),
+    ],
+    [
+      'upper-case SVG',
+      () => jsx('SVG', { children: jsx('style', { children: payload }) }),
+    ],
+  ])('should keep %s text entity-escaped', (_name, render) => {
+    const html = renderToStringSync(render as () => never);
+
+    expect(html).toContain('>&lt;img src=x onerror=alert(1)&gt;</');
+    expectInert(html, payload);
+  });
+
+  it('should round-trip entity text inside foreign <style> as before', () => {
+    const html = renderToStringSync(() => (
+      <svg>
+        <style>{'a &lt; b > c'}</style>
+      </svg>
+    ));
+
+    expect(html).toBe('<svg><style>a &amp;lt; b &gt; c</style></svg>');
+    expectInert(html, 'a &lt; b > c');
+  });
+
+  it('should keep mglyph and non-HTML annotation-xml children in MathML', () => {
+    const html = renderToStringSync(() => (
+      <math>
+        <mi>
+          <mglyph>
+            <style>{payload}</style>
+          </mglyph>
+        </mi>
+        <annotation-xml encoding="application/mathml+xml">
+          <style>{payload}</style>
+        </annotation-xml>
+      </math>
+    ));
+
+    const fragment = parse(html);
+    expect(fragment.querySelector('img')).toBeNull();
+    for (const style of Array.from(fragment.querySelectorAll('style'))) {
+      expect(style.textContent).toBe(payload);
+    }
+  });
+
+  it.each([
+    [
+      'svg foreignObject',
+      () => (
+        <svg>
+          <foreignObject>
+            <style>{'a > b {}'}</style>
+          </foreignObject>
+        </svg>
+      ),
+    ],
+    [
+      'svg desc',
+      () => (
+        <svg>
+          <desc>
+            <style>{'a > b {}'}</style>
+          </desc>
+        </svg>
+      ),
+    ],
+    [
+      'math annotation-xml text/html',
+      () => (
+        <math>
+          <annotation-xml encoding="TEXT/HTML">
+            <style>{'a > b {}'}</style>
+          </annotation-xml>
+        </math>
+      ),
+    ],
+    [
+      'math mtext',
+      () => (
+        <math>
+          <mtext>
+            <style>{'a > b {}'}</style>
+          </mtext>
+        </math>
+      ),
+    ],
+    [
+      'svg inside annotation-xml, then foreignObject',
+      () => (
+        <math>
+          <annotation-xml>
+            <svg>
+              <foreignObject>
+                <style>{'a > b {}'}</style>
+              </foreignObject>
+            </svg>
+          </annotation-xml>
+        </math>
+      ),
+    ],
+  ])(
+    'should write raw text inside the HTML integration point %s',
+    (_name, render) => {
+      const html = renderToStringSync(render as () => never);
+
+      expect(html).toContain('<style>a > b {}</style>');
+      const style = parse(html).querySelector('style')!;
+      expect(style.namespaceURI).toBe('http://www.w3.org/1999/xhtml');
+      expect(style.textContent).toBe('a > b {}');
+    }
+  );
+
+  it('should return to HTML after leaving foreign content', () => {
+    const html = renderToStringSync(() => (
+      <div>
+        <svg>
+          <style>{payload}</style>
+        </svg>
+        <style>{'a > b {}'}</style>
+      </div>
+    ));
+
+    expect(html).toContain('<style>a > b {}</style>');
+    expect(parse(html).querySelector('img')).toBeNull();
+  });
+
+  it('should escape portal content rendered at a host inside SVG', () => {
+    const SvgPortal = definePortal();
+    const Writer = () =>
+      SvgPortal.render({ children: <style>{payload}</style> });
+    const html = renderToStringSync(() => (
+      <main>
+        <svg>
+          <SvgPortal />
+        </svg>
+        <Writer />
+      </main>
+    ));
+
+    expectInert(html, payload);
+  });
+
+  it('should write raw portal content at an HTML host', () => {
+    const html = renderToStringSync(() => (
+      <main>
+        <svg>
+          <Portal>
+            <style>{'a > b {}'}</style>
+          </Portal>
+        </svg>
+      </main>
+    ));
+
+    expect(html).toContain('<style>a > b {}</style>');
   });
 });
