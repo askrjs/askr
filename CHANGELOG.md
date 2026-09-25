@@ -63,6 +63,14 @@
   development when a query has no registered server handler. The
   skipped-preload warning is tracked per runtime outside the frozen
   `DataRuntime`, so it logs once per query key and resolves `false` as intended.
+- fix(runtime): `derive()` no longer serves a value computed by a previous
+  render's closure (for example after a second render in the same flush from
+  `watch()` or `task()`, new props, or a local read from another derive). A
+  source change evaluates the derive once with the last render's function and
+  skips the owner re-render when the value is unchanged; when it changed, the
+  owner re-renders and evaluates its new function once more. A render-time
+  recompute of `derive()` or `selector()` now notifies downstream readers, so
+  derived values in other components no longer stay one update behind.
 - fix(runtime): hook-order enforcement now catches a render that claims fewer
   hooks than the first render, and a slot whose hook kind changes (for example
   `derive()` where the first render called `state()`). Previously only extra
