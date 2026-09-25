@@ -630,7 +630,7 @@ export function createDefinedQuery<TInput, TResult extends {}>(
     ...options,
     key,
     definitionIdentity: definition,
-    fetch: ({ signal }) => definition.fetch({ ...input, signal }),
+    fetch: ({ signal }) => definition.fetch(input, { signal }),
     isConsistent: definition.isConsistent,
     reconcile: definition.reconcile,
     // Server renders read without consuming so the data can be dehydrated.
