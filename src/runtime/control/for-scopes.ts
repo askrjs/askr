@@ -32,13 +32,6 @@ import { getRuntimeScopes } from '../access';
 import { recordBenchCounter, recordBenchEvent } from '../diagnostics/for-bench';
 import type { ForItemTransactionSnapshot, ForState } from './for-state';
 import type { ReadableSource } from '../reactivity/readable';
-import {
-  isFineGrainedEffectPending,
-  someFineGrainedEffectSource,
-  type FineGrainedEffectHandle,
-} from '../reactivity/effect';
-import { hasDirtyDerivedUpstream } from '../reactivity/derive';
-import { registerPendingBoundaryProbe } from '../component/pending-render';
 
 declare const __ASKR_BENCH_BUILD__: boolean;
 
@@ -105,34 +98,6 @@ function enqueueForBoundaryScopeCommit(this: ChildScope): void {
   enqueueForScopeUpdate(forState.parentInstance);
 }
 
-const forPendingReconcileProbes = new WeakMap<
-  ForState<unknown>,
-  () => boolean
->();
-
-// A changed `each` source reconciles the rows in the reactive lane, or in a
-// queued boundary commit; no component re-render covers either (#523). When
-// `each` reads a derive() chain, the source effect is only marked once the
-// chain has recomputed, so a dirty cell upstream also counts as pending.
-function getForPendingReconcileProbe<T>(forState: ForState<T>): () => boolean {
-  const key = forState as ForState<unknown>;
-  let probe = forPendingReconcileProbes.get(key);
-  if (!probe) {
-    probe = () =>
-      forState._hasPendingBoundaryCommit === true ||
-      (forState._sourceEffect !== null &&
-        (isFineGrainedEffectPending(
-          forState._sourceEffect as FineGrainedEffectHandle<unknown>
-        ) ||
-          someFineGrainedEffectSource(
-            forState._sourceEffect as FineGrainedEffectHandle<unknown>,
-            (source) => hasDirtyDerivedUpstream(source)
-          )));
-    forPendingReconcileProbes.set(key, probe);
-  }
-  return probe;
-}
-
 function createForOwnedChildScope<T>(
   forState: ForState<T>,
   key: string | number
@@ -147,10 +112,6 @@ function createForOwnedChildScope<T>(
   if (forState._contextFrame) {
     scope.componentInstance.ownerFrame = forState._contextFrame;
   }
-  registerPendingBoundaryProbe(
-    scope.componentInstance,
-    getForPendingReconcileProbe(forState)
-  );
   return scope;
 }
 

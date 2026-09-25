@@ -1,5 +1,6 @@
 import { incDevCounter } from '../diagnostics/dev-namespace';
 import {
+  isStaleSource,
   type FineGrainedReadCollector,
   type ReadableSource,
   withFineGrainedReadTracking,
@@ -474,32 +475,30 @@ function flushLaneEffects(lane: SchedulerLane): void {
   }
 }
 
-/** @internal Whether the effect is queued to recompute in its lane. */
-export function isFineGrainedEffectPending(
+/**
+ * @internal Whether the effect is queued to recompute, or reads a derived
+ * source that is still stale and will re-mark it (#523).
+ */
+export function isFineGrainedEffectStale(
   handle: FineGrainedEffectHandle<unknown>
 ): boolean {
   const effect = handle as FineGrainedEffectImpl<unknown>;
-  return dirtyEffectsByLane[effect.lane].has(effect);
-}
-
-/** @internal Whether any source the effect last read satisfies `test`. */
-export function someFineGrainedEffectSource(
-  handle: FineGrainedEffectHandle<unknown>,
-  test: (source: ReadableSource<unknown>) => boolean
-): boolean {
-  const effect = handle as FineGrainedEffectImpl<unknown>;
+  if (dirtyEffectsByLane[effect.lane].has(effect)) {
+    return true;
+  }
+  const visited = new Set<object>();
   const sources = effect.readSources;
-  if (effect.readSource2 && test(effect.readSource2)) {
+  if (effect.readSource2 && isStaleSource(effect.readSource2, visited)) {
     return true;
   }
   if (!sources) {
     return false;
   }
   if (!isEffectReadSourceCollection(sources)) {
-    return test(sources);
+    return isStaleSource(sources, visited);
   }
   for (const source of sources) {
-    if (test(source)) {
+    if (isStaleSource(source, visited)) {
       return true;
     }
   }

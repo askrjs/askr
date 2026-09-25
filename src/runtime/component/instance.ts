@@ -38,6 +38,7 @@ import {
   getOwnershipSignal,
   OwnershipRecord,
   attachOwnership,
+  invalidatePendingChecks,
 } from '../ownership/record';
 import { runScheduledComponent } from './commit';
 import { sealInlineRenderSnapshot } from '../transactions/render';
@@ -121,6 +122,7 @@ function enqueueComponentRun(this: ComponentInstance): void {
   }
 
   this.hasPendingUpdate = true;
+  invalidatePendingChecks();
   enqueueRuntimeTask(ensurePendingRunTask(this));
 }
 
@@ -393,6 +395,7 @@ export function executeComponent(instance: ComponentInstance): void {
 
   // Initial renders use the same cancellable task as state-driven rerenders.
   instance.hasPendingUpdate = true;
+  invalidatePendingChecks();
   enqueueRuntimeTask(ensurePendingRunTask(instance));
 }
 

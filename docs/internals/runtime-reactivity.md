@@ -295,20 +295,24 @@ flowchart LR
   render reads the cell (directly or through other cells of the same owner),
   the cell is left dirty for that render. If a render that has not run yet
   decides whether the owner survives and with which props, the cell is not
-  evaluated with the owner's stale props (`component/pending-render.ts`): an
-  ancestor queued to re-render (walking render parents and, for portal
-  content, the live portal writer), or a `<For>` whose `each` source is queued
-  to recompute, reads a `derive()` cell that is dirty or depends (at any depth)
-  on a dirty cell, or whose boundary commit is queued. A dirty cell re-marks
-  its dependents only when it recomputes, so a `derive()` chain feeding `each`
-  counts as pending before the source effect itself is marked. The cell is
-  deferred to a component-lane task behind that work. By then a removed owner
-  has disposed the cell and a re-rendered owner has recomputed it; a cell
-  still dirty returns to the derived lane. The walk is skipped when the
-  component and reactive lanes are empty and no other dirty `derive()` cell
-  is waiting in the derived lane, since every such pending render has queued
-  work there. `selector()` source records defer the same way when any binding
-  owner has such a pending render. An eager value that changed
+  evaluated with the owner's stale props (`component/pending-render.ts`). The
+  check walks the owner's lifetime ancestors (`OwnershipRecord.parent`,
+  jumping to the live portal writer for portal content) looking for a
+  component queued to re-render or a `<For>` about to reconcile: the For's
+  row-scope record carries the `ForState` as its subject, and the For is
+  pending while its boundary commit is queued or its `each` effect is stale,
+  meaning queued to recompute or reading a `derive()` cell or `selector()`
+  record (selector candidate sources point back to their record) that is
+  dirty or depends, at any depth, on one that is. A dirty value re-marks its
+  dependents only when it recomputes, so a chain feeding `each` counts before
+  the effect itself is marked. Results are memoized on each ownership record
+  for the derived-lane pass and invalidated when another component is queued
+  to re-render, so rows sharing ancestors or a For share one answer. A
+  deferred cell waits in a component-lane task behind that work. By then a
+  removed owner has disposed the cell and a re-rendered owner has recomputed
+  it; a cell still dirty returns to the derived lane. `selector()` source
+  records defer the same way when any binding owner has such a pending
+  render. An eager value that changed
   re-renders an owner that reads it; an unchanged one keeps the `Object.is`
   cutoff. A render marks a cell dirty when the flush version or its `derive()`
   inputs (function, or `source`/`map`) changed, so a cell whose eager value

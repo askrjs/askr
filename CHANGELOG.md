@@ -4,7 +4,8 @@
 
 - fix(state): a `derive()` or `selector()` owned by a component whose
   ancestor is queued to re-render (including a portal writer) or whose `<For>`
-  is queued to reconcile is no longer evaluated in the derived lane with the
+  is about to reconcile (including through a `derive()`/`selector()` chain
+  feeding `each`) is no longer evaluated in the derived lane with the
   component's stale props. It waits for that render, so a list row being
   removed no longer runs (and throws from) a derive that indexes by its old
   prop; a surviving component still gets the updated value in the same flush.

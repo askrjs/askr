@@ -5,6 +5,7 @@ import {
 } from '../access';
 import { getCurrentComponentInstance } from '../component/scope';
 import type { ComponentInstance } from '../component/instance';
+import { invalidatePendingChecks } from '../ownership/record';
 import { adjustOwnershipDiagnostic } from '../diagnostics/ownership-diagnostics';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
@@ -61,6 +62,7 @@ export function scheduleReadableInstanceUpdate(
   }
 
   instance.hasPendingUpdate = true;
+  invalidatePendingChecks();
   const task = instance._pendingFlushTask;
   if (task) {
     enqueueRuntimeTask(task);
@@ -71,6 +73,40 @@ export function scheduleReadableInstanceUpdate(
     instance.hasPendingUpdate = false;
     instance.notifyUpdate?.();
   });
+}
+
+type StaleNode = {
+  _dirty?: boolean;
+  _sources?: Set<ReadableSource<unknown>>;
+  /** A selector() candidate source's shared record. */
+  _record?: StaleNode;
+};
+
+/**
+ * @internal Whether `source` is a derived value (derive() cell or selector()
+ * record) that is dirty or reads, at any depth, one that is. A dirty value
+ * re-marks its dependents only when it recomputes, so its consumers still
+ * look clean until the chain has run (#523).
+ */
+export function isStaleSource(
+  source: ReadableSource<unknown>,
+  visited: Set<object>
+): boolean {
+  const node = (source as StaleNode)._record ?? (source as StaleNode);
+  if (node._dirty === true) {
+    return true;
+  }
+  const sources = node._sources;
+  if (!sources || visited.has(node)) {
+    return false;
+  }
+  visited.add(node);
+  for (const upstream of sources) {
+    if (isStaleSource(upstream, visited)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function recordReadableRead(source: ReadableSource<unknown>): void {

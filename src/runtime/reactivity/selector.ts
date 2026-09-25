@@ -26,10 +26,10 @@ import { adjustOwnershipDiagnostic } from '../diagnostics/ownership-diagnostics'
 import { getRuntimeScheduler } from '../access';
 import { createFlushLoopGuard } from '../flush-loop-guard';
 import {
+  beginPendingCheckPass,
   deferBehindPendingRender,
   hasPendingOwnerRender,
 } from '../component/pending-render';
-import { hasQueuedDerivedCells } from './derive';
 
 declare const __ASKR_BENCH_BUILD__: boolean;
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
@@ -52,6 +52,8 @@ export interface Selector<T> {
 
 interface SelectorCandidateSource<T> extends ReadableSource<boolean> {
   _candidate: T;
+  /** The shared source record, so a stale record shows through (#523). */
+  _record: SelectorSourceRecord<T>;
 }
 
 type SelectorEquals<T> = {
@@ -124,6 +126,7 @@ const selectorLoopGuard =
 function flushDirtySelectorRecords(): void {
   const scheduler = getRuntimeScheduler();
   let failures: unknown[] | null = null;
+  beginPendingCheckPass();
   for (const record of takeDirtySelectorRecords<
     SelectorSourceRecord<unknown>
   >()) {
@@ -162,7 +165,7 @@ function hasPendingBindingOwnerRender(
   record: SelectorSourceRecord<unknown>
 ): boolean {
   for (const owner of record._owners.keys()) {
-    if (hasPendingOwnerRender(owner, hasQueuedDerivedCells())) {
+    if (hasPendingOwnerRender(owner)) {
       return true;
     }
   }
@@ -179,11 +182,17 @@ function isDefaultSelectorEquals<T>(equals: SelectorEquals<T>): boolean {
   return equals === Object.is;
 }
 
-function createCandidateSource<T>(candidate: T): SelectorCandidateSource<T> {
+function createCandidateSource<T>(
+  lane: SelectorLane<T>,
+  candidate: T
+): SelectorCandidateSource<T> {
   // Candidate sources are identity/subscription records; unlike public
   // readables they are never invoked. Avoid allocating a closure per distinct
   // selector candidate (large keyed tables commonly create thousands).
-  return { _candidate: candidate } as unknown as SelectorCandidateSource<T>;
+  return {
+    _candidate: candidate,
+    _record: lane._record,
+  } as unknown as SelectorCandidateSource<T>;
 }
 
 function getCandidateSource<T>(
@@ -196,7 +205,7 @@ function getCandidateSource<T>(
       return cached;
     }
 
-    const created = createCandidateSource(candidate);
+    const created = createCandidateSource(lane, candidate);
     lane._objectCandidates.set(candidate, created);
     lane._objectCandidateSources.add(created);
     return created;
@@ -208,7 +217,7 @@ function getCandidateSource<T>(
     return cached;
   }
 
-  const created = createCandidateSource(candidate);
+  const created = createCandidateSource(lane, candidate);
   lane._primitiveCandidates.set(key, created);
   return created;
 }

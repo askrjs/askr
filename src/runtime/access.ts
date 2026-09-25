@@ -94,10 +94,6 @@ export function runRuntimeWithSyncProgress<T>(fn: () => T): T {
   return getRuntimeScheduler().runWithSyncProgress(fn);
 }
 
-export function hasRuntimeQueuedWork(lane: SchedulerLane): boolean {
-  return getRuntimeScheduler().hasQueuedTasks(lane);
-}
-
 export function getRuntimeSchedulerState(): ReturnType<Scheduler['getState']> {
   return getRuntimeScheduler().getState();
 }
