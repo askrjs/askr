@@ -72,6 +72,18 @@ describe('SSG hydration bundle', () => {
     expect(bundledModules).not.toContain('src/runtime/portal/portal.ts');
     expect(bundledModules).not.toContain('src/router/authoring.ts');
     expect(bundledModules).not.toContain('src/router/deferred.tsx');
+    // SSR render-context storage resolves AsyncLocalStorage at run time; the
+    // client bundle never imports the Node builtin, statically or lazily.
+    for (const chunk of chunks) {
+      expect([...chunk.imports, ...chunk.dynamicImports]).not.toContainEqual(
+        expect.stringMatching(/async_hooks/)
+      );
+      expect(chunk.code).not.toMatch(
+        /\b(?:import|require)\s*\([^)]*async_hooks/
+      );
+      // Strict CSP (no 'unsafe-eval') must not break hydration bundles.
+      expect(chunk.code).not.toMatch(/\bnew Function\s*\(/);
+    }
 
     const chunksByFileName = new Map(
       chunks.map((chunk) => [chunk.fileName, chunk])

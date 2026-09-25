@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 type SSRContextModule = typeof import('../../../src/ssr/context');
 
 const FALLBACK_ASYNC_ERROR =
-  '[Askr] async SSR render context fallback is unsupported in this environment. Use synchronous SSR rendering or a runtime with AsyncLocalStorage.';
+  "[Askr] async SSR render context fallback is unsupported in this environment. Use synchronous SSR rendering or a runtime with AsyncLocalStorage (globalThis.AsyncLocalStorage or process.getBuiltinModule('node:async_hooks')).";
+
+// A runtime without AsyncLocalStorage: no Node version and no builtin loader.
 
 async function withFallbackProcess<T>(work: () => Promise<T>): Promise<T> {
   const globalRecord = globalThis as unknown as Record<string, unknown>;
@@ -14,6 +16,9 @@ async function withFallbackProcess<T>(work: () => Promise<T>): Promise<T> {
           get(target, prop, receiver) {
             if (prop === 'versions') {
               return {};
+            }
+            if (prop === 'getBuiltinModule') {
+              return undefined;
             }
             return Reflect.get(target, prop, receiver);
           },
@@ -45,26 +50,28 @@ describe('SSR fallback render context invariants', () => {
   it('should restore nested synchronous fallback contexts', async () => {
     const { createRenderContext, getRenderContext, withRenderContext } =
       await importFallbackContextModule();
-    const outer = createRenderContext(1, { url: '/outer' });
-    const inner = createRenderContext(2, { url: '/inner' });
+    await withFallbackProcess(async () => {
+      const outer = createRenderContext(1, { url: '/outer' });
+      const inner = createRenderContext(2, { url: '/inner' });
 
-    expect(getRenderContext()).toBeNull();
+      expect(getRenderContext()).toBeNull();
 
-    const result = withRenderContext(outer, () => {
-      expect(getRenderContext()).toBe(outer);
+      const result = withRenderContext(outer, () => {
+        expect(getRenderContext()).toBe(outer);
 
-      const innerResult = withRenderContext(inner, () => {
-        expect(getRenderContext()).toBe(inner);
-        return 'inner result';
+        const innerResult = withRenderContext(inner, () => {
+          expect(getRenderContext()).toBe(inner);
+          return 'inner result';
+        });
+
+        expect(innerResult).toBe('inner result');
+        expect(getRenderContext()).toBe(outer);
+        return 'outer result';
       });
 
-      expect(innerResult).toBe('inner result');
-      expect(getRenderContext()).toBe(outer);
-      return 'outer result';
+      expect(result).toBe('outer result');
+      expect(getRenderContext()).toBeNull();
     });
-
-    expect(result).toBe('outer result');
-    expect(getRenderContext()).toBeNull();
   });
 
   it('should reject promise-like callbacks in fallback render contexts', async () => {
@@ -72,14 +79,16 @@ describe('SSR fallback render context invariants', () => {
       await importFallbackContextModule();
     const ctx = createRenderContext();
 
-    expect(() =>
-      withRenderContext(ctx, () => ({
-        // eslint-disable-next-line unicorn/no-thenable -- Intentional PromiseLike fallback-context regression fixture.
-        then() {
-          return undefined;
-        },
-      }))
-    ).toThrow(FALLBACK_ASYNC_ERROR);
+    await withFallbackProcess(async () => {
+      expect(() =>
+        withRenderContext(ctx, () => ({
+          // eslint-disable-next-line unicorn/no-thenable -- Intentional PromiseLike fallback-context regression fixture.
+          then() {
+            return undefined;
+          },
+        }))
+      ).toThrow(FALLBACK_ASYNC_ERROR);
+    });
     expect(getRenderContext()).toBeNull();
   });
 
