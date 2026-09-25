@@ -16,6 +16,7 @@ import { replacePageRoute } from '../common/page-render-envelope';
 import type { CoreTelemetry } from '../common/telemetry';
 import { withTelemetry } from '../common/telemetry';
 import { createQueryPrefetchContext } from '../data/query-registry';
+import type { DataRuntime } from '../data/types';
 import { buildRouteContext, buildRouteContextBase } from './route-context';
 import { getRenderHandler } from './rendering';
 import { getMatchingRouteRecord } from './route-matching';
@@ -121,12 +122,21 @@ function buildRenderResult(
   context: RouteContext,
   request: Request | undefined,
   telemetry: CoreTelemetry | undefined,
-  load: boolean
+  load: boolean,
+  dataRuntime: DataRuntime | undefined
 ): RouteRequestResult | Promise<RouteRequestResult> {
   const lazyImport = _preloadRouteRecord(record);
   if (lazyImport) {
     return lazyImport.then(() =>
-      buildLoadedRenderResult(record, params, context, request, telemetry, load)
+      buildLoadedRenderResult(
+        record,
+        params,
+        context,
+        request,
+        telemetry,
+        load,
+        dataRuntime
+      )
     );
   }
   return buildLoadedRenderResult(
@@ -135,7 +145,8 @@ function buildRenderResult(
     context,
     request,
     telemetry,
-    load
+    load,
+    dataRuntime
   );
 }
 
@@ -145,7 +156,8 @@ function buildLoadedRenderResult(
   context: RouteContext,
   request: Request | undefined,
   telemetry: CoreTelemetry | undefined,
-  load: boolean
+  load: boolean,
+  dataRuntime: DataRuntime | undefined
 ): RouteRequestResult | Promise<RouteRequestResult> {
   const renderHandler = getRenderHandler(record);
   const loader =
@@ -158,9 +170,7 @@ function buildLoadedRenderResult(
       mode: context.mode === 'ssg' ? 'ssr' : context.mode,
       request,
       signal: context.signal,
-      runtime: active?.dataRuntime as
-        | import('../data/types').DataRuntime
-        | undefined,
+      runtime: (active?.dataRuntime as DataRuntime | undefined) ?? dataRuntime,
       telemetry,
     });
   const runPreload = preload
@@ -213,6 +223,7 @@ function runPolicies(
   request: Request | undefined,
   telemetry: CoreTelemetry | undefined,
   load: boolean,
+  dataRuntime: DataRuntime | undefined,
   start = 0
 ): RouteRequestResult | Promise<RouteRequestResult> {
   for (let index = start; index < policies.length; index += 1) {
@@ -228,6 +239,7 @@ function runPolicies(
               request,
               telemetry,
               load,
+              dataRuntime,
               index + 1
             )
           : decision
@@ -235,7 +247,15 @@ function runPolicies(
     }
     if (result.kind !== 'allow') return result;
   }
-  return buildRenderResult(record, params, context, request, telemetry, load);
+  return buildRenderResult(
+    record,
+    params,
+    context,
+    request,
+    telemetry,
+    load,
+    dataRuntime
+  );
 }
 
 type PathSetting =
@@ -293,7 +313,8 @@ function resolveMatchedRoute(
   authOptions: RouteAuthOptions | undefined,
   request: Request | undefined,
   telemetry: CoreTelemetry | undefined,
-  load: boolean
+  load: boolean,
+  dataRuntime: DataRuntime | undefined
 ): RouteRequestResult | Promise<RouteRequestResult> {
   const continueResolution = (decision?: AuthDecision) => {
     if (decision) {
@@ -308,7 +329,8 @@ function resolveMatchedRoute(
                 params,
                 request,
                 telemetry,
-                load
+                load,
+                dataRuntime
               )
             : next
         );
@@ -322,7 +344,8 @@ function resolveMatchedRoute(
       params,
       request,
       telemetry,
-      load
+      load,
+      dataRuntime
     );
   };
   if (!record.options.auth) return continueResolution();
@@ -386,7 +409,8 @@ export function resolveRouteRequest(
         authOptions,
         options.request,
         options.telemetry,
-        options.load !== false
+        options.load !== false,
+        options.dataRuntime
       );
       if (!basePath) return result;
       return isPromiseLike(result)

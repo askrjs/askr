@@ -18,10 +18,14 @@ import {
 describe('failure modes (RUNTIME)', () => {
   let { container, cleanup } = createTestContainer();
   beforeEach(() => ({ container, cleanup } = createTestContainer()));
-  afterEach(() => cleanup());
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
-  it('should catch error in render handler safely', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  it('should report handler errors without wedging the scheduler', async () => {
+    const reportError = vi.fn();
+    vi.stubGlobal('reportError', reportError);
 
     const Component = () => (
       <button
@@ -41,18 +45,14 @@ describe('failure modes (RUNTIME)', () => {
     button.click();
     flushScheduler(); // Ensure the handler runs
 
-    expect(errorSpy).toHaveBeenCalledWith(
-      '[Askr] Delegated event error:',
-      expect.any(Error)
-    );
-    expect((errorSpy.mock.calls[0][1] as Error).message).toContain(
+    expect(reportError).toHaveBeenCalledTimes(1);
+    expect((reportError.mock.calls[0][0] as Error).message).toContain(
       'handler failed'
     );
 
     const s = getSchedulerState();
     expect(s.running).toBe(false);
     expect(s.queueLength).toBe(0);
-    errorSpy.mockRestore();
   });
 
   it('should catch error in async resource safely', async () => {

@@ -22,6 +22,7 @@ import {
   getCurrentHref,
   getCurrentPathname,
   getRegisteredAppsSnapshot,
+  getWindowHref,
   parseTargetUrl,
   setCurrentRouteLocation,
   syncAppRegistrationLocation,
@@ -41,6 +42,12 @@ import {
 } from '../common/root-update';
 import type { ComponentFunction } from '../common/component';
 import { registerCommitParticipant } from '../runtime/transactions/access';
+import { loadDocument, reloadDocument } from './document-navigation';
+import {
+  commitHistoryIndex,
+  nextHistoryIndex,
+  returnToRenderedHistoryEntry,
+} from './history-index';
 
 /** Options for {@link navigate}. */
 export type NavigateOptions = {
@@ -196,6 +203,7 @@ function resolveAppRouteRequest(
     registry: app.registry,
     auth: app.auth,
     signal,
+    dataRuntime: app.instance._appRenderRuntime?.dataRuntime,
   });
 }
 
@@ -346,8 +354,15 @@ export function applyNavigationTargets(
 
   const matchedTargets = targets.filter((target) => target.resolved !== null);
   if (matchedTargets.length === 0) {
+    // No registered app can render it (unmatched, or outside every basePath),
+    // so the browser must load it rather than the click doing nothing. The
+    // current URL is already loaded: reloading it could loop forever when
+    // unrouted code navigates on mount.
     if (isDevelopmentEnvironment()) {
       logger.warn(`No route found for path: ${path}`);
+    }
+    if (href !== getWindowHref()) {
+      loadDocument(href, getNavigationHistoryMode(options));
     }
     return;
   }
@@ -363,19 +378,19 @@ export function applyNavigationTargets(
     matchedTargets,
     () => {
       saveScrollPosition(previousHref);
-      const historyMethod =
-        getNavigationHistoryMode(options) === 'replace'
-          ? 'replaceState'
-          : 'pushState';
-      window.history[historyMethod](
+      const historyMode = getNavigationHistoryMode(options);
+      const historyIndex = nextHistoryIndex(historyMode);
+      window.history[historyMode === 'replace' ? 'replaceState' : 'pushState'](
         {
           path: href,
           askrHasState: Object.prototype.hasOwnProperty.call(options, 'state'),
           askrState: options.state,
+          askrIndex: historyIndex,
         },
         '',
         href
       );
+      commitHistoryIndex(historyIndex);
     },
     () => {
       if (pathname !== previousPathname || parseTargetUrl(href).hash)
@@ -387,7 +402,7 @@ export function applyNavigationTargets(
 export function applyPopStateNavigationTargets(
   requestId: number,
   previousHref: string,
-  previousState: unknown,
+  historyIndex: number | undefined,
   pathname: string,
   href: string,
   state: unknown,
@@ -400,9 +415,18 @@ export function applyPopStateNavigationTargets(
 
   const matchedTargets = targets.filter((target) => target.resolved !== null);
   if (matchedTargets.length === 0) {
+    // Only the fragment moved away from the rendered page, which is still
+    // the right page for this entry.
+    if (href.split('#')[0] === previousHref.split('#')[0]) {
+      commitHistoryIndex(historyIndex);
+      return;
+    }
+    // The browser already moved to this entry; only a document load can
+    // render it, so the old page does not stay mounted under the new URL.
     if (isDevelopmentEnvironment()) {
       logger.warn(`No route found for path: ${pathname}`);
     }
+    reloadDocument();
     return;
   }
 
@@ -424,11 +448,16 @@ export function applyPopStateNavigationTargets(
     pathname,
     href,
     matchedTargets,
-    () => {},
+    () => commitHistoryIndex(historyIndex),
     () => applyHistoryScroll(href, state),
     () => {
-      window.history.replaceState(previousState, '', previousHref);
-      syncRegisteredRouteSnapshot();
+      // A newer navigation owns history now.
+      if (isStaleRouteRequest(requestId)) return;
+      // Traverse back to the entry whose page is still rendered, which may
+      // be several entries away when this traversal superseded a pending
+      // one, rather than rewriting the entry the user landed on. If either
+      // position is unknown, the landed URL is the only truth left: load it.
+      if (!returnToRenderedHistoryEntry()) reloadDocument();
     }
   );
 }
