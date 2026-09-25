@@ -1,8 +1,16 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vite-plus/test';
 import type { JSXElement } from '../../../src/jsx/types';
 import { routeRegistryFromTable } from '../../router-test-utils';
 import { cleanupApp, createSPA, hydrateSPA } from '../../../src/boot';
 import { renderToStringSync } from '../../../src/ssr';
+import { ErrorBoundary } from '../../../src/components/error-boundary';
 import { derive, state, type State } from '../../../src/index';
 import {
   createTestContainer,
@@ -330,5 +338,113 @@ describe('SSR reactive values', () => {
     expect(html).toContain(
       '<annotation-xml encoding="text/html"><style>a > b {}</style></annotation-xml>'
     );
+  });
+
+  describe('errors', () => {
+    const fail = (): never => {
+      throw new Error('boom');
+    };
+    const fallback = () => <em>{'fallback'}</em>;
+
+    const boundaryCases: Array<[string, Page]> = [
+      [
+        'a throwing function child',
+        () => (
+          <div>
+            <ErrorBoundary fallback={fallback}>
+              <p>{fail}</p>
+            </ErrorBoundary>
+          </div>
+        ),
+      ],
+      [
+        'a throwing function child in a nested component',
+        () => {
+          const Child = () => (
+            <p>
+              <b>1</b>
+              {fail}
+            </p>
+          );
+          return (
+            <div>
+              <ErrorBoundary fallback={fallback}>
+                <Child />
+              </ErrorBoundary>
+            </div>
+          );
+        },
+      ],
+      [
+        'a throwing function prop',
+        () => (
+          <div>
+            <ErrorBoundary fallback={fallback}>
+              <p title={fail}>{'t'}</p>
+            </ErrorBoundary>
+          </div>
+        ),
+      ],
+    ];
+
+    it.each(boundaryCases)(
+      'should render the ErrorBoundary fallback for %s on both sides',
+      async (_name, Component) => {
+        const expected = '<div><em>fallback</em></div>';
+        expect(renderOnServer(Component)).toBe(expected);
+        expect(await renderOnClient(Component)).toBe(expected);
+
+        container.innerHTML = renderToStringSync(Component);
+        const serverRoot = container.firstElementChild;
+        await hydrate(Component);
+        expect(container.firstElementChild).toBe(serverRoot);
+        expect(normalizeHtml(container.innerHTML)).toBe(expected);
+      }
+    );
+
+    it.each([
+      ['a throwing function child', () => <p>{fail}</p>],
+      ['a throwing function prop', () => <p title={fail}>{'t'}</p>],
+    ] as Array<[string, Page]>)(
+      'should throw %s without a boundary on both sides',
+      async (_name, Component) => {
+        expect(() => renderToStringSync(Component)).toThrow('boom');
+        await expect(renderOnClient(Component)).rejects.toThrow('boom');
+      }
+    );
+
+    it('should route a hydrated function child that starts throwing to its ErrorBoundary', async () => {
+      let broken!: State<boolean>;
+      const onError = vi.fn();
+      const Child = () => {
+        broken = state(false);
+        return (
+          <p>
+            {() => {
+              if (broken()) throw new Error('child failed');
+              return 'ok';
+            }}
+          </p>
+        );
+      };
+      const Component = () => (
+        <div>
+          <ErrorBoundary fallback={fallback} onError={onError}>
+            <Child />
+          </ErrorBoundary>
+        </div>
+      );
+
+      container.innerHTML = renderToStringSync(Component);
+      await hydrate(Component);
+      expect(container.querySelector('p')!.textContent).toBe('ok');
+
+      broken.set(true);
+      flushScheduler();
+
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect((onError.mock.calls[0][0] as Error).message).toBe('child failed');
+      expect(container.querySelector('em')?.textContent).toBe('fallback');
+    });
   });
 });

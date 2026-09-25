@@ -177,6 +177,10 @@ a function or a cell. Elements a function child returns keep their own
 reactive children and props. Both renderers follow these rules, so server
 markup and client output agree.
 
+A function child or prop that throws is a render error on both sides: the
+nearest `ErrorBoundary` renders its fallback, and without one the render (or
+the client update) throws.
+
 ### Text inside `<script>` and `<style>`
 
 The HTML parser does not decode entities inside HTML `<script>` and `<style>`

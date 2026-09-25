@@ -11,7 +11,11 @@
   renders that cell's value (and the client follows it); any other function
   in a function child's result, or returned by a component, renders nothing.
   Hydrating an element returned by a function child now sets up that
-  element's own function children instead of clearing them.
+  element's own function children instead of clearing them. A function
+  child that throws on the client now goes to the nearest `ErrorBoundary`,
+  or is thrown from the update without one, like a reactive prop; it was
+  logged and swallowed, leaving the element empty, while the server
+  rendered the boundary's fallback.
 - fix(ssr): `renderResolvedToStringSync()` no longer throws "no route found"
   for a route without params when `params` is omitted.
 - fix(renderer): event handler errors are reported with `reportError()`, which

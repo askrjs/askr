@@ -1,4 +1,3 @@
-import { logger } from '../../common/logger';
 import {
   createChildScope,
   disposeChildScope,
@@ -7,7 +6,9 @@ import {
 } from '../../runtime';
 import {
   getCurrentComponentInstance,
+  isRenderingProtectedBoundaryContent,
   readFunctionChildValue,
+  routeRenderedOutputErrorToBoundary,
 } from '../../runtime';
 import { incDevCounter } from '../../runtime';
 import {
@@ -21,7 +22,6 @@ import {
   teardownNodeSubtree,
   type ReactivePropCleanupEntry,
 } from '../ownership/cleanup';
-import { getRuntimeEnv } from '../env';
 import { getParentNamespace } from '../intrinsic/namespaces';
 import type { VNode } from '../types';
 import {
@@ -84,6 +84,26 @@ export function trySyncScalarChildSequenceInPlace(
   return true;
 }
 
+/**
+ * A failing function child belongs to the component that rendered it, like a
+ * failing reactive prop: an ErrorBoundary's own children go to that boundary,
+ * anything else to the nearest boundary above, and with no boundary the error
+ * is thrown from the update that ran it.
+ */
+function createReactiveChildErrorRouter(): (error: unknown) => void {
+  const owner = getCurrentComponentInstance();
+  const protectedByOwner =
+    !!owner && isRenderingProtectedBoundaryContent(owner);
+  return (error) => {
+    if (
+      !owner ||
+      !routeRenderedOutputErrorToBoundary(owner, error, protectedByOwner)
+    ) {
+      throw error;
+    }
+  };
+}
+
 function setupReactiveScalarChild(
   el: Element,
   source: ReactiveScalarChildSource,
@@ -93,6 +113,7 @@ function setupReactiveScalarChild(
   updateFn: (nextSource: ReactiveScalarChildSource) => void;
 } {
   let currentSource = source;
+  const routeReactiveChildError = createReactiveChildErrorRouter();
 
   if (source.length === 1 && source[0]?.kind === 'dynamic') {
     let ownedTextNode =
@@ -155,11 +176,7 @@ function setupReactiveScalarChild(
             incDevCounter('textNodeWrites');
           }
         },
-        onError: (err) => {
-          if (getRuntimeEnv().NODE_ENV !== 'production') {
-            logger.warn('[Askr] Reactive child update failed:', err);
-          }
-        },
+        onError: routeReactiveChildError,
       });
 
     return {
@@ -249,11 +266,7 @@ function setupReactiveScalarChild(
 
         return true;
       },
-      onError: (err) => {
-        if (getRuntimeEnv().NODE_ENV !== 'production') {
-          logger.warn('[Askr] Reactive child update failed:', err);
-        }
-      },
+      onError: routeReactiveChildError,
     });
 
   return {
