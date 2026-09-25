@@ -173,6 +173,8 @@ describe('SSG hydration bundle', () => {
     // #543 reads a readable a prop function returns and re-applies a reactive
     // select value after its options (+144 bytes over 283,765 on develop,
     // 283,909 bytes total).
+    // #445 groups a long wrapper chain's host owners by parent so a retained
+    // update walks the chain in linear time (+312 bytes, 284,221 bytes total).
     expect(initialBytes).toBeLessThanOrEqual(278 * 1024);
   });
 });

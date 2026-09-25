@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- fix(renderer): a chain of three or more components of the same type, each
+  returning the next directly, now keeps the state of every link when an
+  outer link re-renders. The update walk previously failed to find the deeper
+  links and recreated them, which also made updating a long chain quadratic in
+  its length. Updating a 10,000-component wrapper chain now takes linear time.
+  The runtime enforcement docs now state the nesting depths Askr guarantees
+  for each tree shape and rendering path: the 10,000-level guarantee covers
+  client wrapper chains only, while element nesting, server rendering, and
+  hydration recurse and are bounded by the engine's call stack.
+
 - fix(runtime): a failed render no longer leaves a structural function child
   stale. A function child in a component's fragment or array result
   (`<>{() => Array.from({ length: n() }, ...)}</>`) renders as a small
