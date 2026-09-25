@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- fix(foundations): `mergeProps` no longer lets a `base` value of `undefined`
+  overwrite an injected prop. Forwarding an optional prop that was not supplied
+  (`onClick={props.onClick}`) used to wipe the primitive's handler or ARIA
+  attribute; `undefined` now means "not provided". Pass `null` to clear an
+  injected prop explicitly.
 - fix(resources): a resource hydrated from preloaded data keeps its value on
   later re-renders instead of resetting to pending and refetching. The preloaded
   value now seeds the resource, so `refresh()` and `deps` changes also work
