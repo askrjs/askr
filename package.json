@@ -146,11 +146,9 @@
     "prepack": "npm run build",
     "prepublishOnly": "npm run check"
   },
-  "dependencies": {
-    "@askrjs/auth": ">=0.3.0 <0.4.0",
-    "@askrjs/schema": ">=0.3.0 <0.4.0"
-  },
   "devDependencies": {
+    "@askrjs/auth": ">=0.3.0 <0.4.0",
+    "@askrjs/schema": ">=0.3.0 <0.4.0",
     "@types/node": "^26.4.1",
     "@typescript/typescript6": "^6.0.2",
     "@vitest/browser-playwright": "4.1.11",
@@ -161,6 +159,18 @@
     "tsd": "^0.33.0",
     "typescript": "^7.0.2",
     "vite-plus": "^0.3.1"
+  },
+  "peerDependencies": {
+    "@askrjs/auth": ">=0.3.0 <0.4.0",
+    "@askrjs/schema": ">=0.3.0 <0.4.0"
+  },
+  "peerDependenciesMeta": {
+    "@askrjs/auth": {
+      "optional": true
+    },
+    "@askrjs/schema": {
+      "optional": true
+    }
   },
   "tsd": {
     "compilerOptions": {

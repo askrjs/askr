@@ -9,7 +9,7 @@ import {
   DocumentRenderArgs,
   RoutePolicy,
 } from '../core.js';
-import { AuthRequirement } from '@askrjs/auth';
+import { AuthRequirement } from '../peer-types.js';
 import 'node:fs/promises';
 /** Whether an SSG run rebuilds every route (`full`) or only changed ones (`incremental`). */
 type SSGMode = 'full' | 'incremental';

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- build(deps): `@askrjs/auth` and `@askrjs/schema` are now optional peer
+  dependencies instead of dependencies, so apps that do not use route auth or
+  schemas no longer install auth's SAML/XML stack. Askr uses them for types
+  only: route requirements are composed by Askr itself, and the published
+  declarations typecheck without either package installed. Apps that use
+  `@askrjs/auth` or `@askrjs/schema` must list them in their own
+  dependencies.
 - fix(renderer): props whose live state is not the attribute now set the DOM
   property. `<video muted>` sets `video.muted` (and keeps the attribute),
   `<input indeterminate>` sets `input.indeterminate` without an attribute, and

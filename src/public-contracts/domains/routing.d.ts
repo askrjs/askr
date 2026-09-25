@@ -1,7 +1,11 @@
 import { JSXElementType, JSXElement, Props } from '../elements.js';
 import '../jsx-globals.js';
-import { AuthContext, AuthRequirement } from '@askrjs/auth';
-import { InferSchema, ObjectSchema } from '@askrjs/schema';
+import {
+  AuthContext,
+  AuthRequirement,
+  InferSchema,
+  ObjectSchema,
+} from '../peer-types.js';
 import { state, selector } from './state.js';
 import { RenderableChild } from './context.js';
 import { QueryPrefetchContext } from './data.js';
