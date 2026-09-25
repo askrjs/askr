@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { defineScope, readScope, state } from '../../../src';
 import { hydrateSPA } from '../../../src/boot';
 import {
+  DefaultPortal,
   Portal,
   _resetDefaultPortal,
 } from '../../../src/foundations/structures/portal';
@@ -20,6 +21,44 @@ describe('default portal hydration parity', () => {
 
   afterEach(() => {
     _resetDefaultPortal();
+  });
+
+  it('adopts an explicit host in place and verifies portal markup', async () => {
+    const Page = () => (
+      <main data-page={'true'}>
+        <DefaultPortal />
+        <Portal>
+          <button data-portal-action={'true'}>{'act'}</button>
+        </Portal>
+        <span data-tail={'true'}>{'tail'}</span>
+      </main>
+    );
+    const { container, cleanup } = createTestContainer();
+    const registry = routeRegistryFromTable([{ path: '/', handler: Page }]);
+
+    try {
+      container.innerHTML = renderToStringSync(Page);
+      const page = container.querySelector('[data-page]');
+      const button = container.querySelector('[data-portal-action]');
+      const tail = container.querySelector('[data-tail]');
+      expect(page?.querySelector('[data-portal-action]')).toBe(button);
+      expect(button?.nextElementSibling).toBe(tail);
+
+      await hydrateSPA({
+        root: container,
+        registry,
+        hydrate: { verifyMarkup: true },
+      });
+      flushScheduler();
+
+      expect(container.querySelector('[data-page]')).toBe(page);
+      expect(container.querySelector('[data-portal-action]')).toBe(button);
+      expect(button?.parentElement).toBe(page);
+      expect(button?.nextElementSibling).toBe(tail);
+      expect(container.querySelector('[data-tail]')).toBe(tail);
+    } finally {
+      cleanup();
+    }
   });
 
   it('should keep a closed nested-scope portal out of application topology', async () => {
