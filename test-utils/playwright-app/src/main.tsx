@@ -1421,7 +1421,7 @@ function mountQueryCollectionScenario(): void {
   type DatabaseInput = { database: string };
   const schemaByDatabase = defineQuery({
     key: ({ database }: DatabaseInput) => `browser-schemas:${database}`,
-    fetch: async ({ database, signal }) => {
+    fetch: async ({ database }, { signal }) => {
       const response = await fetch(`/api/schemas/${database}`, { signal });
       if (!response.ok) throw new Error(`Schema request failed: ${database}`);
       return (await response.json()) as { database: string; tables: number };
