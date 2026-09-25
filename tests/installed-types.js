@@ -90,13 +90,7 @@ try {
   // Install Askr without its optional type-only peers first: an app that never
   // uses route auth or schema-backed search/actions must install, typecheck,
   // and run without @askrjs/auth or @askrjs/schema.
-  install([
-    tarball,
-    'vitest@4.1.10',
-    'jsdom@29.1.1',
-    'tsd@0.33.0',
-    '@types/node@^24',
-  ]);
+  install([tarball, 'vitest@4.1.10', 'jsdom@29.1.1', 'tsd@0.33.0']);
   for (const peer of optionalPeers) {
     if (existsSync(join(consumerRoot, 'node_modules', peer))) {
       throw new Error(
@@ -136,7 +130,6 @@ try {
         moduleResolution: 'Bundler',
         jsx: 'react-jsx',
         jsxImportSource: '@askrjs/askr',
-        types: ['node'],
         strict: true,
         noEmit: true,
       },

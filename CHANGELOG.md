@@ -9,6 +9,8 @@
   declarations typecheck without either package installed. Apps that use
   `@askrjs/auth` or `@askrjs/schema` must list them in their own
   dependencies.
+- fix(ssg): the `@askrjs/askr/ssg` declarations no longer contain a stray
+  `import 'node:fs/promises'`, so consumers without `@types/node` typecheck.
 - fix(control): development and production now agree on invalid `For` keys and
   `Case`/`Match` children. A null, undefined, or duplicate `For` key throws in
   every build (production previously dropped rows and showed the last
