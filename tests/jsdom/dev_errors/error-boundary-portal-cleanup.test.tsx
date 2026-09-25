@@ -8,7 +8,7 @@ import {
 } from 'vite-plus/test';
 import { state, type State } from '../../../src/index';
 import { ErrorBoundary } from '@askrjs/askr/components';
-import { For, Show } from '../../../src/control';
+import { Case, For, Match, Show } from '../../../src/control';
 import {
   DefaultPortal,
   Portal,
@@ -308,7 +308,13 @@ describe('ErrorBoundary portal cleanup', () => {
     expect(portalContent('content')).not.toBeNull();
   });
 
-  it.each(['direct child', 'inside Show', 'inside a component'] as const)(
+  it.each([
+    'direct child',
+    'inside Show',
+    'inside For',
+    'inside Case',
+    'inside a component',
+  ] as const)(
     'should keep a host discarded by a boundary fallback from moving content to the automatic host (%s)',
     async (placement) => {
       const Failure = createFailures().render;
@@ -322,6 +328,16 @@ describe('ErrorBoundary portal cleanup', () => {
           <DefaultPortal />
         ) : placement === 'inside Show' ? (
           <Show when={() => true}>{() => <DefaultPortal />}</Show>
+        ) : placement === 'inside For' ? (
+          <For each={[1]} by={(value) => value}>
+            {() => <DefaultPortal />}
+          </For>
+        ) : placement === 'inside Case' ? (
+          <Case>
+            <Match when={true}>
+              <DefaultPortal />
+            </Match>
+          </Case>
         ) : (
           <Layer />
         );
