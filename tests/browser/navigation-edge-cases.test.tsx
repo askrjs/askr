@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vite-plus/test';
 import { page } from 'vite-plus/test/browser/context';
+import { requireUser } from '@askrjs/auth';
 import { cleanupApp, createSPA } from '@askrjs/askr/boot';
 import {
   Link,
@@ -274,4 +275,148 @@ test('should leave a Link that targets another browsing context to the browser',
 
   expect(prevented).toBe(false);
   expect(window.location.pathname).toBe('/home');
+});
+
+test.each([
+  '/\\evil.example/x',
+  '/\t/evil.example/x',
+  '\\\\evil.example/x',
+  ' //evil.example/x',
+  '//evil.example/x',
+])(
+  'should refuse a path-like navigate() target %j that resolves to another origin',
+  async (target) => {
+    window.history.replaceState({}, '', '/home');
+    await createSPA({
+      root,
+      registry: createRouteRegistry(() => {
+        route('/home', () => <p>{'home page'}</p>);
+      }),
+    });
+
+    expect(() => navigate(target)).toThrow(TypeError);
+    await settle();
+
+    expect(documentLoads).toEqual([]);
+    expect(window.location.pathname).toBe('/home');
+    expect(root.textContent).toBe('home page');
+  }
+);
+
+test('should refuse a path-like guard redirect that resolves to another origin', async () => {
+  window.history.replaceState({}, '', '/home');
+  await createSPA({
+    root,
+    registry: createRouteRegistry(() => {
+      route('/home', () => <p>{'home page'}</p>);
+      route('/private', () => <p>{'private page'}</p>, {
+        policies: [() => redirect('/\\evil.example/login')],
+      });
+    }),
+  });
+
+  expect(() => navigate('/private')).toThrow(TypeError);
+  await settle();
+
+  expect(documentLoads).toEqual([]);
+  expect(window.location.pathname).toBe('/home');
+});
+
+test('should load an explicit uppercase HTTPS target on another origin', async () => {
+  window.history.replaceState({}, '', '/home');
+  await createSPA({
+    root,
+    registry: createRouteRegistry(() => {
+      route('/home', () => <p>{'home page'}</p>);
+    }),
+  });
+
+  navigate(' HTTPS://other.example/x');
+  await settle();
+
+  expect(documentLoads).toEqual([
+    { type: 'push', url: 'https://other.example/x' },
+  ]);
+});
+
+test('should redirect to a typed destination below a basePath without prefixing it again', async () => {
+  window.history.replaceState({}, '', '/app/');
+  let settings!: ReturnType<typeof route>;
+  let login!: ReturnType<typeof route>;
+  const registry = createRouteRegistry(
+    () => {
+      route('/', () => <p>{'home page'}</p>);
+      settings = route('/settings', () => <p>{'settings page'}</p>);
+      login = route('/login', () => <p>{'login page'}</p>);
+      route('/old-settings', () => null, {
+        policies: [() => redirect(to(settings, {}))],
+      });
+      route('/account', () => <p>{'account page'}</p>, {
+        auth: requireUser(),
+      });
+    },
+    {
+      basePath: '/app',
+      auth: { loginPath: () => to(login, {}) },
+    }
+  );
+  await createSPA({ root, registry });
+  await expect.element(page.getByText('home page')).toBeVisible();
+
+  navigate('/old-settings');
+  await expect.element(page.getByText('settings page')).toBeVisible();
+  expect(window.location.pathname).toBe('/app/settings');
+
+  navigate('/account');
+  await expect.element(page.getByText('login page')).toBeVisible();
+  expect(`${window.location.pathname}${window.location.search}`).toBe(
+    '/app/login?next=%2Faccount'
+  );
+});
+
+test('should warn in development when a string target already starts with the basePath', async () => {
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  try {
+    window.history.replaceState({}, '', '/app/');
+    const registry = createRouteRegistry(
+      () => {
+        route('/', () => (
+          <div>
+            <Link href="/app">{'Doubled home'}</Link>
+            <Link href="/apple">{'Apple'}</Link>
+          </div>
+        ));
+        route('/app/settings', () => <p>{'nested app settings page'}</p>);
+        route('/apple', () => <p>{'apple page'}</p>);
+        route('/old', () => null, {
+          policies: [() => redirect('/app/settings')],
+        });
+      },
+      { basePath: '/app' }
+    );
+    await createSPA({ root, registry });
+    await expect
+      .element(page.getByRole('link', { name: 'Apple' }))
+      .toBeVisible();
+    const warnings = () =>
+      warn.mock.calls.map((call) => call.map(String).join(' '));
+
+    expect(warnings().filter((w) => w.includes('basePath'))).toEqual([
+      expect.stringContaining('"/app"'),
+    ]);
+
+    warn.mockClear();
+    navigate('/app/settings');
+    await expect
+      .element(page.getByText('nested app settings page'))
+      .toBeVisible();
+    expect(warnings()).toEqual([expect.stringContaining('"/app/settings"')]);
+
+    warn.mockClear();
+    navigate('/old');
+    await expect.poll(() => window.location.pathname).toBe('/app/app/settings');
+    expect(warnings().some((w) => w.includes('"/app/settings"'))).toBe(true);
+  } finally {
+    warn.mockRestore();
+  }
 });

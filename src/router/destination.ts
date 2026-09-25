@@ -92,12 +92,14 @@ export function to<
   const values = (parsedSearch?.success ? parsedSearch.data : search) as
     | RouteSearch
     | undefined;
-  if (!values) return Object.freeze({ href: path });
+  if (!values) return Object.freeze({ href: path }) as RouteDestination;
 
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(values)) {
     appendSearchValue(query, key, value);
   }
   const suffix = query.toString();
-  return Object.freeze({ href: suffix ? `${path}?${suffix}` : path });
+  return Object.freeze({
+    href: suffix ? `${path}?${suffix}` : path,
+  }) as RouteDestination;
 }

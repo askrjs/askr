@@ -226,6 +226,15 @@ expectAssignable<NavigateOptions>(navigateOptions);
 expectType<void>(navigate('/home', navigateOptions));
 expectType<void>(navigate(typedUserDestination, { history: 'replace' }));
 expectError(navigate({ path: '/home' }));
+expectError(navigate({ href: '/home' }));
+expectError(navigate(new URL('https://example.com/home')));
+expectError(navigate(window.location));
+expectAssignable<AccessRedirectDecision>(redirect(typedUserDestination));
+expectError(redirect(new URL('https://example.com/login')));
+expectAssignable<RouteAuthOptions>({
+  loginPath: typedUserDestination,
+  authenticatedRedirectTo: () => typedUserDestination,
+});
 
 const updateRouteQueryOptions: UpdateRouteQueryOptions = {
   history: 'replace',

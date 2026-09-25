@@ -24,6 +24,7 @@ import {
   getRegisteredAppsSnapshot,
   getWindowHref,
   isCurrentOrigin,
+  parseNavigationTarget,
   parseTargetUrl,
   setCurrentRouteLocation,
   syncAppRegistrationLocation,
@@ -319,7 +320,7 @@ export function applyNavigationTargets(
       continue;
     }
 
-    const redirectTarget = parseTargetUrl(resolved.to);
+    const redirectTarget = parseNavigationTarget(resolved.to);
     const redirectHref = isCurrentOrigin(redirectTarget)
       ? `${redirectTarget.pathname}${redirectTarget.search}${redirectTarget.hash}`
       : redirectTarget.href;

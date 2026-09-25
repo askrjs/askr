@@ -10,6 +10,7 @@ import {
   getRegisteredAppsSnapshot,
   hasRegisteredApps,
   isCurrentOrigin,
+  parseNavigationTarget,
   parseTargetUrl,
   syncRegisteredRouteSnapshot,
 } from './navigation-registry';
@@ -26,8 +27,8 @@ import {
   type NavigationRedirectState,
 } from './navigation-targets';
 import type { RouteDestination } from '../common/router';
-import { isSafeHref } from '../common/url';
-import { addRouteBasePath } from './base-path';
+import { addLogicalRouteBasePath } from './base-path';
+import { loadDocument } from './document-navigation';
 import { getActiveRouteBasePath } from './store';
 import {
   beginHistoryFocusRestoration,
@@ -95,7 +96,7 @@ export function navigate(
 ): void {
   navigateToPublicHref(
     typeof target === 'string'
-      ? addRouteBasePath(target, getActiveRouteBasePath())
+      ? addLogicalRouteBasePath(target, getActiveRouteBasePath())
       : target.href,
     options
   );
@@ -132,18 +133,6 @@ export function navigateToPublicHref(
   navigateWithRedirectState(href, options, redirectState);
 }
 
-/** The router cannot render another origin; the browser loads it instead. */
-function loadCrossOriginDocument(target: URL, options: NavigateOptions): void {
-  if (!isSafeHref(target.href)) {
-    throw new TypeError('Navigation target uses an unsafe URL scheme.');
-  }
-  if (getNavigationHistoryMode(options) === 'replace') {
-    window.location.replace(target.href);
-  } else {
-    window.location.assign(target.href);
-  }
-}
-
 function navigateWithRedirectState(
   path: string,
   options: NavigateOptions,
@@ -155,9 +144,10 @@ function navigateWithRedirectState(
 
   const request = beginRouteRequest();
 
-  const target = parseTargetUrl(path);
+  const target = parseNavigationTarget(path);
   if (!isCurrentOrigin(target)) {
-    loadCrossOriginDocument(target, options);
+    // The router cannot render another origin; the browser loads it.
+    loadDocument(target.href, getNavigationHistoryMode(options));
     return;
   }
   const pathname = target.pathname;

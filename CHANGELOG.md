@@ -9,9 +9,13 @@
   written. `<Link target="_self">` is handled by the router. String targets for
   `navigate()`, `<Link href>` and `redirect()` are always logical below a
   registry `basePath`: `/app/settings` under `/app` now goes to
-  `/app/app/settings` instead of being treated as already mounted. Pass a
-  typed destination (`navigate(to(route, params))`, `<Link to>`) for a public
-  href.
+  `/app/app/settings` instead of being treated as already mounted, and
+  development builds warn about such strings. `navigate()`, `redirect()`,
+  `loginPath` and `authenticatedRedirectTo` accept a typed destination from
+  `to()`, whose public href is used as-is; `RouteDestination` is branded so
+  only `to()` creates one. Only targets with an explicit `http:`/`https:`
+  scheme may leave the origin: path-like strings that resolve to another host
+  (`//evil.example`, `/\evil.example`) throw a `TypeError`.
 - fix(resources): a `resource()` deps change seen by a render that is rolled
   back (for example because a sibling component throws in the same render) no
   longer leaves the resource stuck `pending`. The new deps, loader and generation are

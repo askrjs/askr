@@ -11,7 +11,7 @@ import type { RouteDestination } from '../common/router';
 import { applyInteractionPolicy } from '../foundations/interactions';
 import { mergeProps } from '../foundations/utilities';
 import { isSafeHref } from '../common/url';
-import { addRouteBasePath } from '../router/base-path';
+import { addLogicalRouteBasePath } from '../router/base-path';
 import { getActiveRouteBasePath } from '../router/store';
 
 type LinkBaseProps = Omit<
@@ -122,7 +122,7 @@ export function Link({
   const href =
     to?.href ??
     (suppliedHref
-      ? addRouteBasePath(suppliedHref, getActiveRouteBasePath())
+      ? addLogicalRouteBasePath(suppliedHref, getActiveRouteBasePath())
       : suppliedHref);
   if (!href) throw new Error('Link requires href or to.');
   if (!isSafeHref(href)) {

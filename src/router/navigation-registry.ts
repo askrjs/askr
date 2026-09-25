@@ -77,6 +77,26 @@ export function isCurrentOrigin(target: URL): boolean {
   return target.origin === parseTargetUrl('/').origin;
 }
 
+// Leading C0 controls and spaces are stripped by the URL parser too.
+// eslint-disable-next-line no-control-regex -- matches what URL parsing ignores.
+const EXPLICIT_HTTP_URL = /^[\u0000-\u0020]*https?:/i;
+
+/**
+ * Parse a navigation or redirect target. Only a target written with an
+ * explicit `http:`/`https:` scheme may leave the current origin: a path-like
+ * string that the URL parser resolves elsewhere (`/\\evil.example`,
+ * `//evil.example`) would otherwise turn an app path into an open redirect.
+ */
+export function parseNavigationTarget(path: string): URL {
+  const target = parseTargetUrl(path);
+  if (!isCurrentOrigin(target) && !EXPLICIT_HTTP_URL.test(path)) {
+    throw new TypeError(
+      `Navigation target ${JSON.stringify(path)} resolves to another origin without an explicit http: or https: scheme.`
+    );
+  }
+  return target;
+}
+
 export function getRegisteredAppsSnapshot(): AppRegistration[] {
   return [...registeredApps];
 }

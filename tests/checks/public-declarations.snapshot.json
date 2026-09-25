@@ -901,7 +901,7 @@
         "declare function reconcileRouteMeta(meta: Readonly<RouteMeta>, target?: Document): void;"
       ],
       "redirect": [
-        "declare function redirect(to: string, init?: {\n    status?: AccessRedirectStatus;\n    replace?: boolean;\n}): AccessRedirectDecision;"
+        "declare function redirect(to: string | RouteDestination, init?: {\n    status?: AccessRedirectStatus;\n    replace?: boolean;\n}): AccessRedirectDecision;"
       ],
       "Resolve": [
         "declare function Resolve<T>(props: ResolveProps<T>): JSXElement;"
@@ -926,7 +926,7 @@
         "interface Route<TParams extends RouteParams = RouteParams> {\n    path: string;\n    handler: RouteHandler<TParams>;\n    namespace?: string;\n}"
       ],
       "RouteAuthOptions": [
-        "interface RouteAuthOptions {\n    resolve?: RouteAuthResolver;\n    dehydrate?: (context: AuthContext) => Omit<AuthContext, \"session\">;\n    loginPath?: string | ((context: RouteContext) => string | PromiseLike<string>);\n    authenticatedRedirectTo?: string | ((context: RouteContext) => string | PromiseLike<string>);\n}"
+        "interface RouteAuthOptions {\n    resolve?: RouteAuthResolver;\n    dehydrate?: (context: AuthContext) => Omit<AuthContext, \"session\">;\n    loginPath?: string | RouteDestination | ((context: RouteContext) => string | RouteDestination | PromiseLike<string | RouteDestination>);\n    authenticatedRedirectTo?: string | RouteDestination | ((context: RouteContext) => string | RouteDestination | PromiseLike<string | RouteDestination>);\n}"
       ],
       "RouteAuthResolver": [
         "type RouteAuthResolver = (context: Omit<RouteContext, \"auth\">) => AuthContext | PromiseLike<AuthContext>;"
@@ -950,7 +950,7 @@
       ],
       "RouteDefinition": ["type RouteDefinition = () => void;"],
       "RouteDestination": [
-        "interface RouteDestination {\n    readonly href: string;\n}"
+        "interface RouteDestination {\n    readonly href: string;\n    readonly [routeDestinationBrand]: true;\n}"
       ],
       "RouteHandler": [
         "interface RouteHandler<TParams extends RouteParams = RouteParams> {\n    (params: TParams, context?: {\n        signal: AbortSignal;\n    }): RenderableChild;\n}"
@@ -2253,7 +2253,7 @@
       "declare function reconcileRouteMeta(meta: Readonly<RouteMeta>, target?: Document): void;"
     ],
     "redirect": [
-      "declare function redirect(to: string, init?: {\n    status?: AccessRedirectStatus;\n    replace?: boolean;\n}): AccessRedirectDecision;"
+      "declare function redirect(to: string | RouteDestination, init?: {\n    status?: AccessRedirectStatus;\n    replace?: boolean;\n}): AccessRedirectDecision;"
     ],
     "Ref": [
       "interface Ref<T extends Element = Element> {\n    current: T | null;\n}"
@@ -2364,7 +2364,7 @@
       "declare function routeActive(pathOrPaths: string | readonly string[]): ActivityPredicate;"
     ],
     "RouteAuthOptions": [
-      "interface RouteAuthOptions {\n    resolve?: RouteAuthResolver;\n    dehydrate?: (context: AuthContext) => Omit<AuthContext, \"session\">;\n    loginPath?: string | ((context: RouteContext) => string | PromiseLike<string>);\n    authenticatedRedirectTo?: string | ((context: RouteContext) => string | PromiseLike<string>);\n}"
+      "interface RouteAuthOptions {\n    resolve?: RouteAuthResolver;\n    dehydrate?: (context: AuthContext) => Omit<AuthContext, \"session\">;\n    loginPath?: string | RouteDestination | ((context: RouteContext) => string | RouteDestination | PromiseLike<string | RouteDestination>);\n    authenticatedRedirectTo?: string | RouteDestination | ((context: RouteContext) => string | RouteDestination | PromiseLike<string | RouteDestination>);\n}"
     ],
     "RouteAuthResolver": [
       "type RouteAuthResolver = (context: Omit<RouteContext, \"auth\">) => AuthContext | PromiseLike<AuthContext>;"
@@ -2397,8 +2397,9 @@
     ],
     "RouteDefinition": ["type RouteDefinition = () => void;"],
     "RouteDestination": [
-      "interface RouteDestination {\n    readonly href: string;\n}"
+      "interface RouteDestination {\n    readonly href: string;\n    readonly [routeDestinationBrand]: true;\n}"
     ],
+    "routeDestinationBrand": ["routeDestinationBrand: unique symbol"],
     "RouteHandler": [
       "interface RouteHandler<TParams extends RouteParams = RouteParams> {\n    (params: TParams, context?: {\n        signal: AbortSignal;\n    }): RenderableChild;\n}"
     ],
