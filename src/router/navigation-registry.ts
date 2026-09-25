@@ -79,12 +79,6 @@ export function isCurrentOrigin(target: URL): boolean {
 }
 
 /**
- * Parse a navigation or redirect target. Only a target written with an
- * explicit `http:`/`https:` scheme may leave the current origin: a path-like
- * string that the URL parser resolves elsewhere (`/\\evil.example`,
- * `//evil.example`) would otherwise turn an app path into an open redirect.
- */
-/**
  * The absolute URL of a root-relative href on the current origin. Browsers
  * read a root-relative `//host/x` as another host, so history writes and
  * document loads never receive the root-relative form.
@@ -95,6 +89,13 @@ export function toDocumentUrl(href: string): string {
   return origin && origin !== 'null' ? `${origin}${href}` : href;
 }
 
+/**
+ * Parse a navigation or redirect target. Only a target written with an
+ * explicit `http:`/`https:` scheme may leave the current origin: a path-like
+ * string that the URL parser resolves elsewhere (`/\\evil.example`,
+ * `//evil.example`, `/.//evil.example`) would otherwise turn an app path into
+ * an open redirect.
+ */
 export function parseNavigationTarget(path: string): URL {
   return resolveNavigationUrl(path, parseTargetUrl('').href);
 }

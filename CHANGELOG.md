@@ -22,6 +22,11 @@
   another origin keeps its origin when `next` is appended. Same-origin paths whose
   dot segments collapse to a leading `//` (`/.//evil.example`) are refused
   too, and history writes and document loads receive absolute URLs.
+  `history.pushState()`/`replaceState()` calls from `navigate()`, `<Link>`,
+  redirects and `updateRouteQuery()` now pass an absolute same-origin URL
+  (`https://site.example/page`) instead of a root-relative one, so code that
+  wraps or spies on them sees the full URL. Enhanced action redirects are
+  checked the same way and assigned as absolute URLs.
 - fix(control): development and production now agree on invalid `For` keys and
   `Case`/`Match` children. A null, undefined, or duplicate `For` key throws in
   every build (production previously dropped rows and showed the last

@@ -610,7 +610,7 @@ describe('route navigation (ROUTER)', () => {
       expect(historyReplaceSpy).toHaveBeenLastCalledWith(
         expect.objectContaining({ path: '/accounts?q=northwind' }),
         '',
-        '/accounts?q=northwind'
+        `${window.location.origin}/accounts?q=northwind`
       );
       expect(container.querySelector('#click-count')?.textContent).toBe('1');
       expect(container.querySelector('#query-value')?.textContent).toBe(
@@ -644,7 +644,7 @@ describe('route navigation (ROUTER)', () => {
           path: '/accounts?keep=yes&tags=ops&tags=billing',
         }),
         '',
-        '/accounts?keep=yes&tags=ops&tags=billing'
+        `${window.location.origin}/accounts?keep=yes&tags=ops&tags=billing`
       );
 
       historyPushSpy.mockRestore();
@@ -752,7 +752,7 @@ describe('route navigation (ROUTER)', () => {
       expect(historyPushSpy).toHaveBeenLastCalledWith(
         expect.objectContaining({ path: '/accounts?q=northwind' }),
         '',
-        '/accounts?q=northwind'
+        `${window.location.origin}/accounts?q=northwind`
       );
 
       updateRouteQuery(
@@ -763,7 +763,7 @@ describe('route navigation (ROUTER)', () => {
       expect(historyReplaceSpy).toHaveBeenLastCalledWith(
         expect.objectContaining({ path: '/accounts?q=contoso' }),
         '',
-        '/accounts?q=contoso'
+        `${window.location.origin}/accounts?q=contoso`
       );
 
       historyPushSpy.mockRestore();

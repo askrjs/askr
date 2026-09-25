@@ -7,6 +7,7 @@ import {
   createRouteRegistry,
   navigate,
   redirect,
+  updateRouteQuery,
   route,
   to,
 } from '@askrjs/askr/router';
@@ -548,3 +549,17 @@ test.each(['java\nscript:alert(1)', ' javascript:alert(1)', 'jav\tascript:x'])(
     expect(() => Link({ href: target, children: 'x' })).toThrow(TypeError);
   }
 );
+
+test('should keep a query update on a //-prefixed pathname on the origin', async () => {
+  const origin = window.location.origin;
+  window.history.replaceState({}, '', `${origin}//evil.example/x`);
+  expect(window.location.pathname).toBe('//evil.example/x');
+
+  updateRouteQuery({ q: '1' }, { history: 'push' });
+
+  expect(window.location.origin).toBe(origin);
+  expect(`${window.location.pathname}${window.location.search}`).toBe(
+    '//evil.example/x?q=1'
+  );
+  expect(documentLoads).toEqual([]);
+});
