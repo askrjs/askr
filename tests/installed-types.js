@@ -1,7 +1,9 @@
 import { execFileSync } from 'node:child_process';
 import {
   cpSync,
+  existsSync,
   mkdtempSync,
+  readFileSync,
   realpathSync,
   rmSync,
   writeFileSync,
@@ -10,6 +12,10 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 const repositoryRoot = resolve(import.meta.dirname, '..');
+const optionalPeers = ['@askrjs/auth', '@askrjs/schema'];
+const peerRanges =
+  JSON.parse(readFileSync(join(repositoryRoot, 'package.json'), 'utf8'))
+    .peerDependencies ?? {};
 // Windows runners expose TEMP through a DOS short path. Use the same canonical
 // path for npm, TypeScript, and Vite's jsdom module resolver.
 const consumerRoot = realpathSync.native(
@@ -69,23 +75,35 @@ try {
       },
     })
   );
-  runNpm(
-    [
-      'install',
-      '--ignore-scripts',
-      '--no-package-lock',
-      '--no-audit',
-      '--no-fund',
-      tarball,
-      'vitest@4.1.10',
-      'jsdom@29.1.1',
-      'tsd@0.33.0',
-    ],
-    { cwd: consumerRoot, stdio: 'pipe' }
-  );
-  cpSync(join(repositoryRoot, 'tests/types'), join(consumerRoot, 'types'), {
-    recursive: true,
-  });
+  const install = (packages) =>
+    runNpm(
+      [
+        'install',
+        '--ignore-scripts',
+        '--no-package-lock',
+        '--no-audit',
+        '--no-fund',
+        ...packages,
+      ],
+      { cwd: consumerRoot, stdio: 'pipe' }
+    );
+  // Install Askr without its optional type-only peers first: an app that never
+  // uses route auth or schema-backed search/actions must install, typecheck,
+  // and run without @askrjs/auth or @askrjs/schema.
+  install([
+    tarball,
+    'vitest@4.1.10',
+    'jsdom@29.1.1',
+    'tsd@0.33.0',
+    '@types/node@^24',
+  ]);
+  for (const peer of optionalPeers) {
+    if (existsSync(join(consumerRoot, 'node_modules', peer))) {
+      throw new Error(
+        `${peer} was installed with @askrjs/askr; it must be an optional peer.`
+      );
+    }
+  }
   cpSync(
     join(repositoryRoot, 'tests/consumer-contracts'),
     join(consumerRoot, 'contracts'),
@@ -93,28 +111,19 @@ try {
       recursive: true,
     }
   );
-  runNpm(
-    [
-      'exec',
-      '--',
-      'tsd',
-      '--typings',
-      'node_modules/@askrjs/askr/dist/index.d.ts',
-      '--files',
-      'types/**/*.test-d.ts',
-      '--files',
-      'types/**/*.test-d.tsx',
-    ],
-    { cwd: consumerRoot, stdio: 'pipe' }
-  );
   writeFileSync(
     join(consumerRoot, 'index.tsx'),
     [
       'import { Fragment, state } from "@askrjs/askr";',
       'import { jsx, jsxs } from "@askrjs/askr/jsx-runtime";',
+      'import { createRouteRegistry, route } from "@askrjs/askr/router";',
+      'import { renderToString } from "@askrjs/askr/ssr";',
+      'import { createStaticGen } from "@askrjs/askr/ssg";',
+      'import { defineAction } from "@askrjs/askr/actions";',
       'const [count] = state(1);',
       'const view = <><span>{count()}</span></>;',
-      'void [Fragment, jsx, jsxs, view];',
+      'route("/", () => view);',
+      'void [Fragment, jsx, jsxs, view, createRouteRegistry, renderToString, createStaticGen, defineAction];',
     ].join('\n')
   );
   writeFileSync(
@@ -127,6 +136,7 @@ try {
         moduleResolution: 'Bundler',
         jsx: 'react-jsx',
         jsxImportSource: '@askrjs/askr',
+        types: ['node'],
         strict: true,
         noEmit: true,
       },
@@ -161,6 +171,11 @@ try {
       'import { expect, test } from "vitest";',
       'import { state } from "@askrjs/askr";',
       'import { dispatch, render } from "@askrjs/askr/testing";',
+      'import { route } from "@askrjs/askr/router";',
+      'import { renderToString } from "@askrjs/askr/ssr";',
+      'test("should load router and SSR entries without optional peers", () => {',
+      '  expect([typeof route, typeof renderToString]).toEqual(["function", "function"]);',
+      '});',
       'test("should render a packed consumer component", () => {',
       '  const view = render(() => {',
       '    const count = state(0);',
@@ -179,6 +194,26 @@ try {
     cwd: consumerRoot,
     stdio: 'inherit',
   });
+  // The declaration tests exercise route auth and schema-backed APIs, so they
+  // run after the consumer opts into the optional peers.
+  install(optionalPeers.map((peer) => `${peer}@${peerRanges[peer]}`));
+  cpSync(join(repositoryRoot, 'tests/types'), join(consumerRoot, 'types'), {
+    recursive: true,
+  });
+  runNpm(
+    [
+      'exec',
+      '--',
+      'tsd',
+      '--typings',
+      'node_modules/@askrjs/askr/dist/index.d.ts',
+      '--files',
+      'types/**/*.test-d.ts',
+      '--files',
+      'types/**/*.test-d.tsx',
+    ],
+    { cwd: consumerRoot, stdio: 'pipe' }
+  );
 } finally {
   rmSync(consumerRoot, { recursive: true, force: true });
 }
