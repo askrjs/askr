@@ -141,6 +141,10 @@ describe('SSG hydration bundle', () => {
     // removed properties, the URL/raw-HTML guards and rollback snapshots add
     // ~2.4 KB (measured 273,240 bytes). Without it those props cannot reach
     // the element at all.
-    expect(initialBytes).toBeLessThanOrEqual(269 * 1024);
+    // 272 KiB: derive() and selector() wait for a pending ancestor render,
+    // portal writer or <For> reconcile (including a derive() chain feeding the
+    // For source) instead of evaluating with a removed owner's stale props
+    // (#523; ~3.2 KB; measured 278,076 bytes against 274,901 on main).
+    expect(initialBytes).toBeLessThanOrEqual(272 * 1024);
   });
 });
