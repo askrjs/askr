@@ -4,7 +4,6 @@ import {
 } from '../common/control';
 import type { JSXElement } from '../common/jsx';
 import type { VNode } from '../common/vnode';
-import { isDevelopmentEnvironment } from '../common/env';
 import { createCaseState, type CaseState, type MatchBranch } from '../runtime';
 import { state } from '../runtime';
 import { type BoundaryChild, normalizeBoundaryChild } from './shared';
@@ -40,14 +39,14 @@ function flattenChildren(children: unknown): unknown[] {
   return result;
 }
 
-/** Declares one branch of a {@link Case}; only valid as its direct child. */
+/**
+ * Declares one branch of a {@link Case}; only valid as its direct child.
+ * Rendering it anywhere else throws in every build.
+ */
 export function Match(_props: MatchProps): null {
-  if (isDevelopmentEnvironment()) {
-    throw new Error(
-      '[askr] <Match> may only be used as a direct child of <Case>.'
-    );
-  }
-  return null;
+  throw new Error(
+    '[askr] <Match> may only be used as a direct child of <Case>.'
+  );
 }
 
 function createCaseFallbackRenderer(
@@ -70,7 +69,15 @@ function createMatchBranchKey(
   return `match:${index}:${typeof key}:${String(key)}`;
 }
 
-function readMatchBranches(children: unknown): MatchBranch[] {
+const INVALID_CASE_CHILD_MESSAGE =
+  '[askr] <Case> only accepts <Match> children.';
+
+/**
+ * Returns `null` when a child is not a `<Match>`. `Case` runs eagerly while its
+ * parent renders, so the error is raised when the boundary is evaluated,
+ * where the nearest ErrorBoundary around the `<Case>` can catch it.
+ */
+function readMatchBranches(children: unknown): MatchBranch[] | null {
   const branches: MatchBranch[] = [];
   const flatChildren = flattenChildren(children);
 
@@ -104,16 +111,18 @@ function readMatchBranches(children: unknown): MatchBranch[] {
       continue;
     }
 
-    if (isDevelopmentEnvironment()) {
-      throw new Error('[askr] <Case> only accepts <Match> children.');
-    }
+    return null;
   }
 
   return branches;
 }
 
 function CasePrimitive(props: CaseProps): JSXElement {
-  const matches = readMatchBranches(props.children);
+  const branches = readMatchBranches(props.children);
+  const matches = branches ?? [];
+  const invalidChildError = branches
+    ? null
+    : new Error(INVALID_CASE_CHILD_MESSAGE);
   const fallback = createCaseFallbackRenderer(props.fallback);
 
   const caseStateContainer = state<CaseState>(
@@ -123,6 +132,7 @@ function CasePrimitive(props: CaseProps): JSXElement {
 
   caseState.matches = matches;
   caseState.fallback = fallback;
+  caseState.invalidChildError = invalidChildError;
 
   return {
     type: __CONTROL_BOUNDARY__,
