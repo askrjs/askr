@@ -11,6 +11,7 @@ import type {
  */
 
 import { enqueueRuntimeTask, getRuntimeEvaluation } from '../access';
+import { onScheduledTaskRelease } from '../scheduled-work';
 import type { Props } from '../../common/props';
 import type { ComponentFunction } from '../../common/component';
 import {
@@ -105,6 +106,9 @@ function ensurePendingRunTask(instance: ComponentInstance): () => void {
     runScheduledComponent(instance, executeComponentSync);
   };
   instance._pendingRunTask = task;
+  onScheduledTaskRelease(task, () => {
+    instance.hasPendingUpdate = false;
+  });
   if (!instance._pendingFlushTask) {
     instance._pendingFlushTask = task;
   }
