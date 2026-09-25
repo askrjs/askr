@@ -49,6 +49,8 @@ sequenceDiagram
 
 `ComponentInstance` is the runtime's ownership boundary. Hook state, cleanup,
 abort semantics, and readable subscriptions all hang off the instance.
+The current positional execution contract and the gated lifetime-setup
+direction are recorded in [the component ownership decision](component-ownership-decision.md).
 
 ```mermaid
 flowchart LR
