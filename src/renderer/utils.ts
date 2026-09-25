@@ -421,12 +421,10 @@ export function getMaterializedKey(
  * Record DOM replace operation for diagnostics
  */
 export function recordDOMReplace(source: string): void {
-  try {
-    incDevCounter('__DOM_REPLACE_COUNT');
-    setDevValue(`__LAST_DOM_REPLACE_STACK_${source}`, new Error().stack);
-  } catch {
-    // ignore
-  }
+  // Stack capture is a development diagnostic; production never pays for it.
+  if (!DEVELOPMENT_BUILD_ENABLED) return;
+  incDevCounter('__DOM_REPLACE_COUNT');
+  setDevValue(`__LAST_DOM_REPLACE_STACK_${source}`, new Error().stack);
 }
 
 /**

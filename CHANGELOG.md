@@ -9,6 +9,10 @@
   props now reach the owning `ErrorBoundary`, or are thrown from the update when
   there is none. Previously they were a development-only warning and silent in
   production.
+- fix(renderer): keyed fast paths no longer catch errors and retry through a
+  slower path. A row whose render throws now renders once per update instead of
+  up to three times, and the error surfaces once. Production commits no longer
+  capture an `Error().stack` for diagnostics.
 - breaking(data): `defineQuery()` fetchers now receive the input and the abort
   signal as separate arguments, `fetch(input, { signal })`, instead of one
   merged `{ ...input, signal }` object. The merged shape dropped primitive
