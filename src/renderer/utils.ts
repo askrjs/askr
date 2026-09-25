@@ -135,13 +135,23 @@ export function getEventListenerOptions(
 }
 
 /**
- * Get default event listener options for passive events
+ * Get default event listener options for passive events. `wheel`,
+ * `touchstart` and `touchmove` opt out explicitly: a JSX handler for them is
+ * usually there to call `preventDefault()`, which browsers ignore in passive
+ * listeners (and default to passive on document-level targets).
  */
 export function getPassiveOptions(
   eventName: string
 ): AddEventListenerOptions | undefined {
   if (eventName === 'scroll') {
     return { passive: true };
+  }
+  if (
+    eventName === 'wheel' ||
+    eventName === 'touchstart' ||
+    eventName === 'touchmove'
+  ) {
+    return { passive: false };
   }
   return undefined;
 }
