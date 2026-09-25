@@ -62,7 +62,12 @@ export function mergeProps<TBase extends object, TInjected extends object>(
     const injectedValue = (injected as Record<string, unknown>)[key];
 
     // `undefined` means "not provided": keep whatever was injected.
-    if (baseValue === undefined && key in out) continue;
+    if (
+      baseValue === undefined &&
+      Object.prototype.hasOwnProperty.call(out, key)
+    ) {
+      continue;
+    }
 
     if (
       isEventHandlerKey(key) &&

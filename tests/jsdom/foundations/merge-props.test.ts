@@ -62,4 +62,11 @@ describe('mergeProps (FOUNDATIONS)', () => {
     expect(merged.title).toBeUndefined();
     expect(merged.id).toBe('x');
   });
+
+  it('should copy an undefined base key that only exists on the prototype of injected', () => {
+    const merged = mergeProps({ toString: undefined }, { id: 'x' });
+
+    expect(Object.prototype.hasOwnProperty.call(merged, 'toString')).toBe(true);
+    expect(merged.toString).toBeUndefined();
+  });
 });
