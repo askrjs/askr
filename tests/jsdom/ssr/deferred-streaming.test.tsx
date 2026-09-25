@@ -15,6 +15,8 @@ import {
 } from '../../../src/ssr';
 import { REDACTED_DEFERRED_ERROR } from '../../../src/ssr/hydration-data';
 import {
+  createDataRuntime,
+  createQueryPrefetchContext,
   defineQuery,
   defineServerQueries,
   serveQuery,
@@ -741,6 +743,52 @@ describe('deferred route streaming', () => {
       renderRouteRequest({ url: '/event', registry, queryRegistry })
     ).rejects.toThrow(
       '[Askr] Query data for key "event:1" at "$.at" is not JSON transport-safe'
+    );
+  });
+
+  it('should reject non-JSON seeded query data before streaming the shell', async () => {
+    const pending = new Promise<string>(() => undefined);
+    const dataRuntime = createDataRuntime();
+    dataRuntime.queryData.set('event:seeded', { at: new Date(0) });
+    const registry = createRouteRegistry(() => {
+      route('/seeded', deferredPage, {
+        loader: () => ({ message: defer(pending) }),
+      });
+    });
+
+    await expect(
+      renderRouteRequest({ url: '/seeded', registry, dataRuntime })
+    ).rejects.toThrow(
+      '[Askr] Query data for key "event:seeded" at "$.at" is not JSON transport-safe'
+    );
+  });
+
+  it('should reject non-JSON data from a SPA-mode prefetch context before streaming', async () => {
+    const pending = new Promise<string>(() => undefined);
+    const dataRuntime = createDataRuntime();
+    const event = defineQuery({
+      key: () => 'event:spa',
+      fetch: async () => ({ at: new Date(0) as unknown as string }),
+    });
+    const registry = createRouteRegistry(() => {
+      route('/spa-prefetch', deferredPage, {
+        preload: ({ data }) => data.prefetch(event, {}),
+        loader: () => ({ message: defer(pending) }),
+      });
+    });
+
+    await expect(
+      renderRouteRequest({
+        url: '/spa-prefetch',
+        registry,
+        dataRuntime,
+        queryPrefetch: createQueryPrefetchContext({
+          runtime: dataRuntime,
+          mode: 'spa',
+        }),
+      })
+    ).rejects.toThrow(
+      '[Askr] Query data for key "event:spa" at "$.at" is not JSON transport-safe'
     );
   });
 });

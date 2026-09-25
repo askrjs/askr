@@ -107,7 +107,9 @@ non-finite number, `undefined`, or cyclic reference. It never silently drops
 or coerces an entry; map such values to JSON-compatible data in the query
 `fetch` or server handler (for example an ISO string instead of a `Date`).
 An SSR-mode `prefetchQuery()` applies the same check as each value arrives,
-so a route `preload` rejects before a streamed shell is sent rather than
+and `renderRouteRequest()` checks the whole data runtime before returning a
+streamed result, so query data from any source (a seeded `dataRuntime` or a
+custom prefetch context) rejects the render before a shell is sent rather than
 truncating the response.
 
 Use a synchronous route `dehydrate` selector to keep server-only or sensitive

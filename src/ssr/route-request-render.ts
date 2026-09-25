@@ -6,7 +6,10 @@ import type {
   RouteRegistry,
 } from '../common/router';
 import { createDataRuntime } from '../data/data-runtime';
-import { createQueryPrefetchContext } from '../data/query-registry';
+import {
+  createQueryPrefetchContext,
+  dehydrateDataRuntime,
+} from '../data/query-registry';
 import type { DataRuntime, QueryPrefetchContext } from '../data/types';
 import type { ServerQueryRegistry } from '../data/query-registry';
 import { resolveRouteRequest } from '../router/resolution';
@@ -367,6 +370,9 @@ async function renderRouteRequestInternal(
       sink.end();
       const html = sink.toString();
       const boundaries = [...context.deferredBoundaries];
+      // A streamed response embeds query data only after its last boundary;
+      // fail before the shell is sent rather than truncating the stream.
+      if (boundaries.length > 0) dehydrateDataRuntime(runtime);
       const result: Extract<RenderRouteRequestResult, { kind: 'render' }> = {
         kind: 'render',
         html,
