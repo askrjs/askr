@@ -16,41 +16,22 @@ import {
 
 type VnodeObj = VNode & { type?: unknown; props?: Record<string, unknown> };
 
+/**
+ * Run the first eligible keyed fast path. Each path decides eligibility up
+ * front; once one starts it owns the update, so errors from user render code
+ * propagate once instead of re-running the rows through another path.
+ */
 export function tryFastPaths(
   parent: Element,
   newChildren: VNode[],
   keyedVnodes: KeyedVnode[],
   oldKeyMap: Map<string | number, Element> | undefined
 ): Map<string | number, Element> | null {
-  try {
-    const forcedResult = tryForcedPositionalBulkUpdate(
-      parent,
-      newChildren,
-      keyedVnodes
-    );
-    if (forcedResult) {
-      return forcedResult;
-    }
-
-    const rendererResult = tryRendererFastPath(
-      parent,
-      keyedVnodes,
-      newChildren.length,
-      oldKeyMap
-    );
-    if (rendererResult) {
-      return rendererResult;
-    }
-
-    const positionalResult = tryPositionalBulkUpdate(parent, keyedVnodes);
-    if (positionalResult) {
-      return positionalResult;
-    }
-  } catch {
-    // Fall through to full reconciliation.
-  }
-
-  return null;
+  return (
+    tryForcedPositionalBulkUpdate(parent, newChildren, keyedVnodes) ??
+    tryRendererFastPath(parent, keyedVnodes, newChildren.length, oldKeyMap) ??
+    tryPositionalBulkUpdate(parent, keyedVnodes)
+  );
 }
 
 function tryRendererFastPath(
@@ -66,19 +47,11 @@ function tryRendererFastPath(
     oldKeyMap
   );
 
-  if (decision.useFastPath) {
-    try {
-      const map = applyRendererFastPath(parent, keyedVnodes, oldKeyMap);
-      if (map) {
-        keyedElements.set(parent, map);
-        return map;
-      }
-    } catch {
-      // Fall through.
-    }
-  }
+  if (!decision.useFastPath) return null;
 
-  return null;
+  const map = applyRendererFastPath(parent, keyedVnodes, oldKeyMap);
+  if (map) keyedElements.set(parent, map);
+  return map;
 }
 
 function tryForcedPositionalBulkUpdate(
@@ -91,15 +64,10 @@ function tryForcedPositionalBulkUpdate(
     return null;
   }
 
-  try {
-    const stats = performBulkPositionalKeyedTextUpdate(parent, keyedVnodes);
-    recordFastPathStats(stats, 'bulkKeyedPositionalForced');
+  const stats = performBulkPositionalKeyedTextUpdate(parent, keyedVnodes);
+  recordFastPathStats(stats, 'bulkKeyedPositionalForced');
 
-    rebuildKeyedMap(parent);
-    return keyedElements.get(parent) as Map<string | number, Element>;
-  } catch {
-    return null;
-  }
+  return rebuildKeyedMap(parent);
 }
 
 function tryPositionalBulkUpdate(
@@ -133,15 +101,10 @@ function tryPositionalBulkUpdate(
     return null;
   }
 
-  try {
-    const stats = performBulkPositionalKeyedTextUpdate(parent, keyedVnodes);
-    recordFastPathStats(stats, 'bulkKeyedPositionalHits');
+  const stats = performBulkPositionalKeyedTextUpdate(parent, keyedVnodes);
+  recordFastPathStats(stats, 'bulkKeyedPositionalHits');
 
-    rebuildKeyedMap(parent);
-    return keyedElements.get(parent) as Map<string | number, Element>;
-  } catch {
-    return null;
-  }
+  return rebuildKeyedMap(parent);
 }
 
 function countPositionalMatches(
@@ -151,29 +114,22 @@ function countPositionalMatches(
 ): number {
   let matchCount = 0;
 
-  try {
-    for (let i = 0; i < keyedVnodes.length; i++) {
-      const vnode = keyedVnodes[i].vnode as VnodeObj;
-      const expectedKey = keyedVnodes[i].key;
+  for (let i = 0; i < keyedVnodes.length; i++) {
+    const vnode = keyedVnodes[i].vnode as VnodeObj;
+    const expectedKey = keyedVnodes[i].key;
 
-      if (!vnode || typeof vnode !== 'object' || typeof vnode.type !== 'string')
-        continue;
+    if (!vnode || typeof vnode !== 'object' || typeof vnode.type !== 'string')
+      continue;
 
-      const el = parent.children[i] as Element | undefined;
-      if (!el) continue;
+    const el = parent.children[i] as Element | undefined;
+    if (!el) continue;
 
-      if (
-        canReuseIntrinsicElementInNamespace(el, vnode.type, parentNamespace)
-      ) {
-        const keyMatches = getMaterializedKey(el) === expectedKey;
-
-        if (keyMatches) {
-          matchCount++;
-        }
-      }
+    if (
+      canReuseIntrinsicElementInNamespace(el, vnode.type, parentNamespace) &&
+      getMaterializedKey(el) === expectedKey
+    ) {
+      matchCount++;
     }
-  } catch {
-    // Ignore.
   }
 
   return matchCount;
@@ -183,34 +139,27 @@ function hasPositionalPropChanges(
   parent: Element,
   keyedVnodes: KeyedVnode[]
 ): boolean {
-  try {
-    for (let i = 0; i < keyedVnodes.length; i++) {
-      const vnode = keyedVnodes[i].vnode as VnodeObj;
-      const el = parent.children[i] as Element | undefined;
-      if (!el || !vnode || typeof vnode !== 'object') continue;
+  for (let i = 0; i < keyedVnodes.length; i++) {
+    const vnode = keyedVnodes[i].vnode as VnodeObj;
+    const el = parent.children[i] as Element | undefined;
+    if (!el || !vnode || typeof vnode !== 'object') continue;
 
-      if (checkPropChanges(el, vnode.props || {})) {
-        return true;
-      }
+    if (checkPropChanges(el, vnode.props || {})) {
+      return true;
     }
-  } catch {
-    return true;
   }
 
   return false;
 }
 
-function rebuildKeyedMap(parent: Element): void {
-  try {
-    const map = new Map<string | number, Element>();
-    for (let el = parent.firstElementChild; el; el = el.nextElementSibling) {
-      const key = getMaterializedKey(el);
-      if (key !== undefined) {
-        map.set(key, el);
-      }
+function rebuildKeyedMap(parent: Element): Map<string | number, Element> {
+  const map = new Map<string | number, Element>();
+  for (let el = parent.firstElementChild; el; el = el.nextElementSibling) {
+    const key = getMaterializedKey(el);
+    if (key !== undefined) {
+      map.set(key, el);
     }
-    keyedElements.set(parent, map);
-  } catch {
-    // Ignore.
   }
+  keyedElements.set(parent, map);
+  return map;
 }

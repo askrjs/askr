@@ -11,6 +11,7 @@ import { reconcileRouteMeta, resolveRouteMeta } from '../router/metadata';
 import { getRouteRenderContext } from '../router/resolution';
 import { readHistoryIndex } from '../router/history-index';
 import type { ComponentFunction } from '../runtime';
+import type { DataRuntime } from '../data/types';
 
 const MAX_INITIAL_ROUTE_REDIRECTS = 20;
 
@@ -68,6 +69,7 @@ export async function resolveInitialRoute(
     registry: RouteRegistry;
     load?: boolean;
     authContext?: AuthContext;
+    dataRuntime?: DataRuntime;
   }
 ): Promise<{ path: string; href: string; resolved: InitialRouteResult }> {
   let path = typeof window !== 'undefined' ? window.location.pathname : '/';
@@ -95,6 +97,7 @@ export async function resolveInitialRoute(
       auth,
       load: source.load,
       authContext: source.authContext,
+      dataRuntime: source.dataRuntime,
     });
     if (!resolved || resolved.kind !== 'redirect') {
       return { path, href, resolved };

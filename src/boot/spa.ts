@@ -61,6 +61,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   _applyManifest(manifest);
 
   const routeAuth = config.auth ?? manifest.auth;
+  const dataRuntime = config.dataRuntime ?? getDefaultDataRuntime();
   const appRouteSource = {
     registry: config.registry,
     auth: routeAuth,
@@ -77,6 +78,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     resolved,
   } = await resolveInitialRoute(routeAuth, {
     registry: config.registry,
+    dataRuntime,
   });
   setServerLocation(currentUrl);
   const appRuntime = createAppRenderRuntime({
@@ -86,7 +88,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
           hasRoute: true,
         }
       : {}),
-    dataRuntime: config.dataRuntime ?? getDefaultDataRuntime(),
+    dataRuntime,
     routeRegistry: config.registry,
     routeAuth,
   });

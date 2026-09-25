@@ -417,6 +417,8 @@ the runtime side of this cost in jsdom.
 
 ### 1. Keep Handlers Simple
 
+These fragments belong inside a component function; `state()` is render-scoped.
+
 ```tsx
 // OK Good - simple handler
 const [count, setCount] = state(0);

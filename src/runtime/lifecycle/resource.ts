@@ -175,17 +175,20 @@ export function resource<T>(
   }
 
   // Persist a holder so the snapshot identity is stable across renders.
-  const holder = state<{ cell?: ResourceCell<T>; snapshot: ResourceResult<T> }>(
-    {
-      cell: undefined,
-      snapshot: brandSnapshotSource({
-        value: seed ? seed.value : null,
-        pending: seed?.pending ?? true,
-        error: null,
-        refresh: () => {},
-      }) as ResourceResult<T>,
-    }
-  );
+  const holder = state<{
+    cell?: ResourceCell<T>;
+    snapshot: ResourceResult<T>;
+    uncommittedDeps: boolean;
+  }>({
+    cell: undefined,
+    uncommittedDeps: false,
+    snapshot: brandSnapshotSource({
+      value: seed ? seed.value : null,
+      pending: seed?.pending ?? true,
+      error: null,
+      refresh: () => {},
+    }) as ResourceResult<T>,
+  });
 
   const h = holder();
 
@@ -281,20 +284,19 @@ export function resource<T>(
   }
 
   const cell = h.cell!;
-  cell.setLoader(fn);
 
-  // Detect dependency changes and refresh immediately
+  // Detect dependency changes against the deps of the last committed render.
+  // On the client, cell.deps, cell.generation and the loader only advance when
+  // the render that saw the change commits: a rolled-back render must not
+  // consume the change, or the next render sees equal deps and never starts
+  // the fetch, and a refresh() would run the new deps' loader under the
+  // committed deps.
   const depsChanged =
     !cell.deps ||
     cell.deps.length !== deps.length ||
     cell.deps.some((d, i) => !Object.is(d, deps[i]));
 
   if (depsChanged) {
-    cell.deps = deps.slice();
-    cell.generation++;
-    cell.pending = true;
-    cell.error = null;
-
     // Synchronously reflect the pending state into the stable snapshot so the
     // render that triggered the deps change can surface a loading indicator.
     // The async start() runs with notify=false and the deps-change branch never
@@ -306,6 +308,11 @@ export function resource<T>(
     h.snapshot.error = null;
     try {
       if (inst.ssr) {
+        cell.setLoader(fn);
+        cell.deps = deps.slice();
+        cell.generation++;
+        cell.pending = true;
+        cell.error = null;
         cell.start(true, false);
         if (!cell.pending) {
           const cur = holder();
@@ -314,8 +321,16 @@ export function resource<T>(
           cur.snapshot.error = cell.error;
         }
       } else {
-        const scheduledGeneration = cell.generation;
+        const nextDeps = deps.slice();
+        h.uncommittedDeps = true;
         registerCommitOperationForInstance(inst, () => {
+          h.uncommittedDeps = false;
+          cell.setLoader(fn);
+          cell.deps = nextDeps;
+          cell.generation++;
+          cell.pending = true;
+          cell.error = null;
+          const scheduledGeneration = cell.generation;
           enqueueRuntimeLane('post', () => {
             if (!inst.notifyUpdate || cell.generation !== scheduledGeneration) {
               return;
@@ -342,6 +357,16 @@ export function resource<T>(
       cur.snapshot.pending = cell.pending;
       cur.snapshot.error = cell.error;
       // Do not call holder.set() here; this is still render.
+    }
+  } else {
+    cell.setLoader(fn);
+    if (h.uncommittedDeps) {
+      // A render proposed different deps but was rolled back before commit,
+      // and this render is back on the committed deps: drop the loading state
+      // that render published so the snapshot matches the committed cell.
+      h.uncommittedDeps = false;
+      h.snapshot.pending = cell.pending;
+      h.snapshot.error = cell.error;
     }
   }
 

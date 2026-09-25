@@ -2,6 +2,54 @@
 
 ## Unreleased
 
+- fix(resources): a `resource()` deps change seen by a render that is rolled
+  back (for example because a sibling component throws in the same render) no
+  longer leaves the resource stuck `pending`. The new deps, loader and generation are
+  committed with the render, so the next committed render still starts the
+  fetch, and one back on the committed deps keeps the committed value.
+- breaking(data): raw-string `invalidate(prefix)`, `invalidateOnInterval()`
+  and mutation `affects` prefixes now match whole `:`-delimited key segments.
+  `invalidate('user:1')` still matches `user:1` and `user:1:permissions` but no
+  longer matches `user:10`; prefixes ending in `:` (including every
+  `queryScope()` prefix) match as before. Only `:` is a segment boundary, so
+  raw prefixes built with other separators no longer match by text:
+  `invalidate('/api/users')` no longer matches `/api/users/1`, and
+  `invalidate('a.b')` no longer matches `a.b.c`. Move such keys to `:`
+  delimiters or `queryScope()`.
+- fix(boot): `createSPA({ dataRuntime })` and `hydrateSPA({ dataRuntime })` now
+  use the configured runtime consistently. `hydrateSPA` previously seeded the
+  custom runtime from the hydration payload while route-component queries read
+  the default one, so readers showed a loading state and refetched instead of
+  using the hydrated value. Route `preload` hooks (initial route and client
+  navigations) also prefetched into the default runtime, so readers of a
+  custom runtime never saw the preloaded data.
+- feat(ssr): `escapeHtml()` from `@askrjs/askr/ssr` escapes `&`, `<`, `>`, `"`
+  and `'` for request-derived values interpolated into a hand-written
+  `document` renderer template. It accepts any value; `null` and `undefined`
+  become an empty string. The SSR, SSG and rendering guides now use it.
+- docs: fix examples that failed at runtime. The API overview and core data
+  guide no longer call `state()`/`derive()` at module scope, the quick-start,
+  resources, core data and resources reference `resource()` examples check `error` before `pending || !value` so a failed first load no
+  longer shows "Loading..." forever, and the runtime-enforcement examples now
+  actually trigger the documented hook-order and render-mutation errors and
+  quote the real message. Doc fences tagged `run=<id>` are now imported and
+  exercised in jsdom by `npm run test:checks`
+  (`tests/checks/docs/runnable-snippets.test.ts`), not only type-checked.
+- fix(renderer): event handler errors are reported with `reportError()`, which
+  dispatches a `window` `error` event, instead of only being logged. This covers
+  delegated and direct listeners and `scheduleEventHandler`; the remaining
+  handlers for the event still run. Hosts without `reportError()` (Node, jsdom)
+  rethrow the error from a microtask, so it arrives as an `uncaughtException`
+  and test runners that fail on unhandled errors report it. Errors thrown by
+  function-valued (reactive) props now reach the nearest `ErrorBoundary`
+  (including one whose direct children contain the binding; bindings in a
+  fallback go to the boundary above), or are thrown from the update when there
+  is none. Previously they were a development-only warning and silent in
+  production.
+- fix(renderer): keyed fast paths no longer catch errors and retry through a
+  slower path. A row whose render throws now renders once per update instead of
+  up to three times, and the error surfaces once. Production commits no longer
+  capture an `Error().stack` for diagnostics.
 - chore(bench): the benchmark workflow runs only the existing tier1 and tier2
   lanes, as one matrix job per tier, instead of 36 copy-pasted steps that also
   invoked the removed `bench:tier3`/`bench:tier4` scripts. The browser-only
