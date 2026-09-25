@@ -165,9 +165,11 @@ Form state props accept a function or cell like any other prop, and the
 binding keeps the live property in sync: `value={() => name()}` on an
 `<input>` or `<textarea>`, `checked={() => on()}`, `selected={() => on()}`
 on an `<option>`, and `value={() => role()}` on a `<select>` (an array for
-`multiple`). A `<select>` value is applied again once its options exist, both
-when it is created and after its options change, so a value whose option
-renders later is still selected.
+`multiple`). A `<select>` value is applied again after the select's own
+children are created or updated, so options written directly inside it can
+come from the same render. Options rendered by a `For` or a function child
+are not tracked: the value is not re-applied when only they change, so keep a
+value's option rendered before selecting it.
 
 ```tsx
 function RolePicker() {
@@ -240,7 +242,8 @@ defined after it renders should re-read such properties in its constructor
 (the "lazy properties" pattern), or be defined before Askr renders it.
 
 A function value is still a reactive binding, so pass a callback property as
-`prop:onSelect={() => handler}`.
+`prop:onSelect={() => handler}`. The binding's result is assigned as-is, even
+a cell: `prop:source={() => cell}` passes the cell, not its value.
 
 See [Runtime](./runtime.md) for boot APIs.
 
@@ -340,6 +343,8 @@ reactive children and props.
 A function prop follows the same rule: `title={() => (useFull() ? fullName :
 shortName)}` renders the selected cell's value on the server and the client,
 and the client binding follows both the choice and the chosen cell.
+`prop:` is the exception: it assigns the function's result as-is, so
+`prop:source={() => cell}` hands the cell itself to a custom element.
 
 Function children are not limited to elements. A function or cell among the
 items of a fragment or array a component returns, such as a layout that

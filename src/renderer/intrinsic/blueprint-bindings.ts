@@ -11,7 +11,10 @@ import {
   type ComponentInstance,
   type FineGrainedEffectHandle,
 } from '../../runtime';
-import { captureBindingRollback } from '../props/reactive-bindings';
+import {
+  captureBindingRollback,
+  readPropFunctionValue,
+} from '../props/reactive-bindings';
 import { applyScalarPropValue } from '../props/attributes';
 import {
   REACTIVE_CHILDREN_KEY,
@@ -280,7 +283,7 @@ function computeBlueprintBindings(
       binding.nextValue =
         binding.kind === 'text'
           ? readFunctionChildWithoutComponent(binding.compute)
-          : binding.compute();
+          : readPropFunctionValue(binding.propName!, binding.compute);
     }
   }
   return group.bindings;

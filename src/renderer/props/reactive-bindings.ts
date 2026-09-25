@@ -17,6 +17,7 @@ import { isBenchMetricScopeActive, recordBenchCounter } from '../../runtime';
 import { incrementPerfMetric, readFunctionChildValue } from '../../runtime';
 import type { ReadableSource } from '../../runtime';
 import { applyScalarPropValue } from './attributes';
+import { PROPERTY_PROP_PREFIX } from '../../common/dom-properties';
 import {
   elementReactivePropsCleanup,
   getElementReactivePropsCleanupMap,
@@ -122,6 +123,20 @@ export function markReactivePropsDirtySource(
   markFineGrainedEffectsDirtySource(source);
 }
 
+/**
+ * A prop function that returns a readable renders the readable's value, as a
+ * function child does. `prop:` assigns the result as-is, so a readable can
+ * still be handed to a custom element property.
+ */
+export function readPropFunctionValue(
+  propName: string,
+  propFn: () => unknown
+): unknown {
+  return propName.startsWith(PROPERTY_PROP_PREFIX)
+    ? propFn()
+    : readFunctionChildValue(propFn);
+}
+
 function setupReactiveProp(
   el: Element,
   propName: string,
@@ -150,9 +165,7 @@ function setupReactiveProp(
   const protectedByOwner =
     !!owner && isRenderingProtectedBoundaryContent(owner);
 
-  // A prop function that returns a readable renders the readable's value, as
-  // a function child does.
-  const compute = () => readFunctionChildValue(descriptor.propFn);
+  const compute = () => readPropFunctionValue(propName, descriptor.propFn);
   reactivePropRegistry.add(descriptor);
   descriptor.effect = createFineGrainedEffect({
     lane: 'reactive',

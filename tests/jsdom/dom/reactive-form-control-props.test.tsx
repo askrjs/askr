@@ -1,4 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vite-plus/test';
 import { state, type State } from '../../../src';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
@@ -232,5 +239,74 @@ describe('reactive form control props', () => {
     choice.set('a');
     flushScheduler();
     expect(select.value).toBe('a');
+  });
+
+  it('should unwrap readables returned by prop functions of cloned blueprint rows', () => {
+    const cloneNode = vi.spyOn(Node.prototype, 'cloneNode');
+    let label!: State<string>;
+    let choice!: State<string>;
+    try {
+      const Row = () => (
+        <li>
+          <span title={() => label}>{() => 'r'}</span>
+          <select value={() => choice}>
+            <option value="a">A</option>
+            <option value="b">B</option>
+          </select>
+        </li>
+      );
+      mount(() => {
+        label = state('L');
+        choice = state('b');
+        return (
+          <ul>
+            <Row />
+            <Row />
+            <Row />
+          </ul>
+        );
+      });
+      expect(cloneNode).toHaveBeenCalled();
+    } finally {
+      cloneNode.mockRestore();
+    }
+
+    const titles = () =>
+      Array.from(container.querySelectorAll('span'), (span) =>
+        span.getAttribute('title')
+      );
+    const values = () =>
+      Array.from(
+        container.querySelectorAll('select'),
+        (select) => (select as HTMLSelectElement).value
+      );
+    expect(titles()).toEqual(['L', 'L', 'L']);
+    expect(values()).toEqual(['b', 'b', 'b']);
+
+    label.set('M');
+    choice.set('a');
+    flushScheduler();
+    expect(titles()).toEqual(['M', 'M', 'M']);
+    expect(values()).toEqual(['a', 'a', 'a']);
+  });
+
+  it('should hand a readable returned by a prop: function to the property as-is', () => {
+    let source!: State<string>;
+    const received: unknown[] = [];
+    const Row = () => <data-view prop:source={() => source} />;
+    mount(() => {
+      source = state('s');
+      return (
+        <div data-source={source()}>
+          <Row />
+          <Row />
+        </div>
+      );
+    });
+
+    for (const el of container.querySelectorAll('data-view')) {
+      received.push((el as HTMLElement & { source?: unknown }).source);
+    }
+    expect(received).toEqual([source, source]);
   });
 });
