@@ -1,4 +1,5 @@
 import { teardownNodeSubtree } from './cleanup';
+import { writeAttribute } from '../utils';
 import {
   getAppliedProps,
   restoreAppliedProps,
@@ -7,7 +8,8 @@ import {
 type RootNodeSnapshot = {
   node: Node;
   children: Node[];
-  attributes: Array<[string, string]> | null;
+  /** Name, value and namespace, so rollback can restore `xlink:href` in place. */
+  attributes: Array<[string, string, string | null]> | null;
   appliedProps: AppliedProps | undefined;
   nodeValue: string | null;
 };
@@ -32,6 +34,7 @@ function captureRootTree(root: Element | null): RootHostTreeSnapshot | null {
           ? Array.from(node.attributes).map((attribute) => [
               attribute.name,
               attribute.value,
+              attribute.namespaceURI,
             ])
           : null,
       appliedProps: node instanceof Element ? getAppliedProps(node) : undefined,
@@ -86,15 +89,15 @@ function restoreRootTree(snapshot: RootHostTreeSnapshot | null): unknown[] {
     const { node, attributes } = entry;
     try {
       if (attributes && node instanceof Element) {
-        const expected = new Map(attributes);
+        const expected = new Set(attributes.map(([name]) => name));
         for (const attribute of Array.from(node.attributes)) {
           if (!expected.has(attribute.name)) {
             node.removeAttribute(attribute.name);
           }
         }
-        for (const [name, value] of attributes) {
+        for (const [name, value, namespace] of attributes) {
           if (node.getAttribute(name) !== value) {
-            node.setAttribute(name, value);
+            writeAttribute(node, name, value, namespace);
           }
         }
         restoreAppliedProps(node, entry.appliedProps);

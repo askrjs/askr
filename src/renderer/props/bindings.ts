@@ -1,4 +1,4 @@
-import { isAriaAttribute } from '../../common/prop-classification';
+import { keepsFalseValue } from '../../common/prop-classification';
 import { getDelegatedHandlersForElement } from './events';
 import {
   applyScalarPropValue,
@@ -133,7 +133,7 @@ export function applyPropsToElement(
     if (
       value === undefined ||
       value === null ||
-      (value === false && !isAriaAttribute(key))
+      (value === false && !keepsFalseValue(key))
     )
       continue;
 
