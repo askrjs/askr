@@ -46,7 +46,10 @@ import {
   mountBenchmark,
 } from '../../../src/bench/benchmark-entry';
 import { BenchmarkTable } from '../../../src/bench/components/benchmark-table';
-import { mountFormsScenario } from './scenarios/forms';
+import {
+  mountFormsScenario,
+  type SaveAccountSettings,
+} from './scenarios/forms';
 import { mountHydrationFormScenario } from './scenarios/hydration-form';
 import { mountDomPropertiesHydrationScenario as mountDomPropertiesHydrationFixture } from './scenarios/dom-properties-hydration';
 import { mountRouteDataDehydrationScenario as mountRouteDataDehydrationFixture } from './scenarios/route-data-dehydration';
@@ -1370,9 +1373,9 @@ async function mountCustomerSearchScenario(): Promise<void> {
   await mountRealRoutedShellScenario(root);
 }
 
-function mountAccountSettingsScenario(): void {
+function mountAccountSettingsScenario(save?: SaveAccountSettings): void {
   resetRoot();
-  mountFormsScenario(root);
+  mountFormsScenario(root, save);
 }
 
 function mountOrdersScenario(): void {

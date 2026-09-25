@@ -7,7 +7,9 @@ import {
 } from '../../../test-utils/render/test-renderer';
 
 const nestingDepth = 10_000;
-const stressTestTimeout = 60_000;
+// Both cases take well under a second; the bound leaves headroom for slow CI
+// hosts without letting a performance regression hide behind a long timeout.
+const stressTestTimeout = 15_000;
 
 describe('deep component nesting', () => {
   const fixtures: Array<ReturnType<typeof createTestContainer>> = [];
