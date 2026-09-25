@@ -8,9 +8,7 @@ type Submission = {
   acceptedTerms: boolean;
 };
 
-function mockSignup(
-  options: { delayMs?: number; release?: Promise<void> } = {}
-): Submission[] {
+function mockSignup(options: { release?: Promise<void> } = {}): Submission[] {
   const submissions: Submission[] = [];
 
   vi.stubGlobal(
@@ -26,10 +24,6 @@ function mockSignup(
         acceptedTerms: body.acceptedTerms === true,
       };
       submissions.push(submission);
-
-      if (options.delayMs) {
-        await new Promise((resolve) => setTimeout(resolve, options.delayMs));
-      }
 
       if (options.release) {
         await options.release;
@@ -59,17 +53,17 @@ test.describe('hydrated signup form workflow', () => {
     });
     const submissions = mockSignup({ release: signupReleased });
 
-    await expect(
-      page.getByRole('heading', { name: 'Join the newsletter' })
-    ).toBeVisible();
+    await expect
+      .element(page.getByRole('heading', { name: 'Join the newsletter' }))
+      .toBeVisible();
 
     await page.getByLabelText('Email address').fill('reader@example.com');
     await page.getByRole('checkbox', { name: 'Accept terms' }).click();
     await page.getByRole('button', { name: 'Sign up' }).click();
 
-    await expect(
-      page.getByRole('button', { name: 'Signing up...' })
-    ).toBeDisabled();
+    await expect
+      .element(page.getByRole('button', { name: 'Signing up...' }))
+      .toBeDisabled();
     releaseSignup();
     await expect
       .element(page.getByRole('status'))
@@ -80,7 +74,13 @@ test.describe('hydrated signup form workflow', () => {
   });
 
   test('should avoid duplicate signup submissions while pending', async () => {
-    const submissions = mockSignup({ delayMs: 100 });
+    // The request stays in flight until released, so every repeated submit
+    // below lands while the first one is still pending, however slow the run.
+    let releaseSignup!: () => void;
+    const signupReleased = new Promise<void>((resolve) => {
+      releaseSignup = resolve;
+    });
+    const submissions = mockSignup({ release: signupReleased });
 
     const email = page.getByLabelText('Email address');
     await email.fill('once@example.com');
@@ -89,11 +89,19 @@ test.describe('hydrated signup form workflow', () => {
     await email.click();
     await userEvent.keyboard('{Enter}');
     await userEvent.keyboard('{Enter}');
+    await expect
+      .element(page.getByRole('button', { name: 'Signing up...' }))
+      .toBeDisabled();
+    await userEvent.keyboard('{Enter}');
+    expect(submissions).toHaveLength(1);
 
+    releaseSignup();
     await expect
       .element(page.getByRole('status'))
       .toHaveTextContent('Welcome, once@example.com.');
-    expect(submissions).toHaveLength(1);
+    expect(submissions).toEqual([
+      { email: 'once@example.com', acceptedTerms: true },
+    ]);
   });
 
   test('should validate hydrated form fields before submitting', async () => {

@@ -6,7 +6,7 @@ import {
   getCurrentComponentInstance,
   isFunctionChildType,
 } from '../../runtime';
-import { getRuntimeEnv } from '../env';
+import { getRuntimeEnvValue } from '../env';
 import { _isDOMElement, type DOMElement } from '../types';
 import { isSkippedProp, parseEventName } from '../utils';
 
@@ -133,7 +133,7 @@ export function normalizeComponentChildren(result: unknown): unknown[] {
 }
 
 function warnMissingKeys(children: unknown[]): void {
-  if (getRuntimeEnv().NODE_ENV === 'production') return;
+  if (getRuntimeEnvValue('NODE_ENV') === 'production') return;
 
   let elementCount = 0;
   let hasKeys = false;

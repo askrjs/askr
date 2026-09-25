@@ -46,7 +46,10 @@ import {
   mountBenchmark,
 } from '../../../src/bench/benchmark-entry';
 import { BenchmarkTable } from '../../../src/bench/components/benchmark-table';
-import { mountFormsScenario } from './scenarios/forms';
+import {
+  mountFormsScenario,
+  type SaveAccountSettings,
+} from './scenarios/forms';
 import { mountHydrationFormScenario } from './scenarios/hydration-form';
 import { mountDomPropertiesHydrationScenario as mountDomPropertiesHydrationFixture } from './scenarios/dom-properties-hydration';
 import { mountRouteDataDehydrationScenario as mountRouteDataDehydrationFixture } from './scenarios/route-data-dehydration';
@@ -140,7 +143,6 @@ let bulkCommitReplayRows: ReturnType<typeof state<number[]>> | null = null;
 let bulkCommitReplayObserverRoot: HTMLDivElement | null = null;
 let fanoutState: ReturnType<typeof state<number>> | null = null;
 let largeTreeTickState: ReturnType<typeof state<number>> | null = null;
-let typingValueState: ReturnType<typeof state<string>> | null = null;
 let hydrationRowsSeed: RowData[] = [];
 let hydrationRowsState: ReturnType<typeof state<RowData[]>> | null = null;
 let hydrationSelectedState: ReturnType<typeof state<number | null>> | null =
@@ -293,7 +295,7 @@ function mountInputTypingScenario(): void {
   resetRoot();
 
   const App = () => {
-    typingValueState = state('');
+    const typingValue = state('');
 
     return (
       <section aria-label="Browser typing benchmark">
@@ -302,16 +304,16 @@ function mountInputTypingScenario(): void {
           <input
             data-testid="typing-input"
             type="text"
-            value={typingValueState()}
+            value={typingValue()}
             onInput={(event: Event) =>
-              typingValueState!.set((event.target as HTMLInputElement).value)
+              typingValue.set((event.target as HTMLInputElement).value)
             }
           />
         </label>
         <div>
           {Array.from({ length: 1000 }, (_, index) => (
             <span data-i={index}>
-              {typingValueState() || 'empty'}-{index}
+              {typingValue() || 'empty'}-{index}
             </span>
           ))}
         </div>
@@ -854,7 +856,9 @@ function reorderFocusRows(
 function mountBulkCommitStateReplayScenario(): void {
   resetRoot();
   const initialRows = Array.from({ length: 200 }, (_, index) => index);
-  let blurCountCell: ReturnType<typeof state<number>> | null = null;
+  // Assigned inside App during mount; the assertion keeps TypeScript from
+  // narrowing the binding to `null` across the createIsland call.
+  let blurCountCell = null as ReturnType<typeof state<number>> | null;
   let derivedBlurCount: (() => number) | null = null;
   let derivedReadDuringBlur: number | null = null;
 
@@ -1369,9 +1373,9 @@ async function mountCustomerSearchScenario(): Promise<void> {
   await mountRealRoutedShellScenario(root);
 }
 
-function mountAccountSettingsScenario(): void {
+function mountAccountSettingsScenario(save?: SaveAccountSettings): void {
   resetRoot();
-  mountFormsScenario(root);
+  mountFormsScenario(root, save);
 }
 
 function mountOrdersScenario(): void {

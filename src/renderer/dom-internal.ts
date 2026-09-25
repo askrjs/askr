@@ -55,7 +55,7 @@ import {
   createErrorBoundaryElement,
   type ErrorBoundaryVNode,
 } from './component/error-boundary';
-import { getRuntimeEnv } from './env';
+import { getRuntimeEnvValue } from './env';
 import {
   createElementForNamespace,
   resolveChildNamespace,
@@ -151,7 +151,7 @@ export function createDOMNode(
   parentNamespace?: string
 ): Node | null {
   if (!IS_DOM_AVAILABLE) {
-    if (getRuntimeEnv().NODE_ENV !== 'production') {
+    if (getRuntimeEnvValue('NODE_ENV') !== 'production') {
       try {
         logger.warn('[Askr] createDOMNode called in non-DOM environment');
       } catch {
