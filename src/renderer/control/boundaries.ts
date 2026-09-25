@@ -3,7 +3,7 @@ import { __CONTROL_BOUNDARY__ } from '../../common/vnode';
 import { type ControlBoundaryState } from '../../runtime';
 import { recordBenchEvent } from '../../runtime';
 import { retireNodeSubtree } from '../ownership/cleanup';
-import { getRuntimeEnv } from '../env';
+import { getRuntimeEnvValue } from '../env';
 import { commitForStateBoundaryChildren } from '../for/commit';
 import { keyedElements } from '../reconciliation/keyed';
 import { type DOMElement, type VNode } from '../types';
@@ -142,7 +142,7 @@ export function commitForBoundaryChildren(
   }
 
   commitForStateBoundaryChildren(parent, controlState, childrenVNodes, {
-    isProduction: () => getRuntimeEnv().NODE_ENV === 'production',
+    isProduction: () => getRuntimeEnvValue('NODE_ENV') === 'production',
     syncForItemRange: syncControlBoundaryScopeRange,
     tryPatchStableForDirtyItem: (scope) =>
       getBoundaryDOMHost().tryPatchStableForDirtyItem(scope),

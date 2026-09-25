@@ -1,5 +1,5 @@
 import { setDevValue, incDevCounter } from '../../runtime';
-import { getRuntimeEnv } from '../env';
+import { getRuntimeEnvValue } from '../env';
 import { keyedElements } from '../reconciliation/keyed';
 import { retireNodeSubtree } from '../ownership/cleanup';
 import { retireComponentOwnersForIntrinsicReuse } from '../component/host-cleanup';
@@ -156,8 +156,8 @@ export function isBulkTextFastPathEligible(
   parent: Element,
   newChildren: VNode[]
 ) {
-  const env = getRuntimeEnv();
-  const threshold = Number(env.ASKR_BULK_TEXT_THRESHOLD) || 1024;
+  const threshold =
+    Number(getRuntimeEnvValue('ASKR_BULK_TEXT_THRESHOLD')) || 1024;
   const requiredFraction = 0.8;
 
   const total = Array.isArray(newChildren) ? newChildren.length : 0;
@@ -252,8 +252,10 @@ function recordBulkDiag(data: Record<string, unknown>): void {
   if (!DEVELOPMENT_BUILD_ENABLED) {
     return;
   }
-  const env = getRuntimeEnv();
-  if (env.NODE_ENV !== 'production' || env.ASKR_FASTPATH_DEBUG === '1') {
+  if (
+    getRuntimeEnvValue('NODE_ENV') !== 'production' ||
+    getRuntimeEnvValue('ASKR_FASTPATH_DEBUG') === '1'
+  ) {
     try {
       setDevValue('__BULK_DIAG', data);
     } catch {

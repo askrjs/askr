@@ -49,9 +49,15 @@ and async render work rejects with an error naming the missing
 Server adapters should call `renderRouteRequest()`. A route without pending
 deferred values returns its complete `html` and no `stream`. A deferred route
 also returns `stream`; use `result.stream ?? result.html` as the response body.
-The stream emits fallback markup first, then ordered boundary templates and
-settled hydration data. Request abort and response cancellation stop unresolved
-boundary work. Each boundary template renders with the request's route state
+The stream emits fallback markup first, then one boundary template per
+`Resolve` as soon as its value settles, so a slow boundary never holds back a
+faster one. Boundary ids are deterministic (`d:0`, `d:1`, ... in render order),
+and patches may arrive in any order. A `Resolve` rendered inside a settled
+boundary's content streams too: its fallback ships in the parent's template and
+its own template (id `d:0.0` for the first pending `Resolve` inside `d:0`)
+follows when its value settles. Settled hydration data comes last, once every
+boundary, nested ones included, has been patched. Request abort and response
+cancellation stop unresolved boundary work. Each boundary template renders with the request's route state
 and identity: `currentRoute()`, `Link` and route activity inside `Resolve` see
 the request URL, route table, base path and matched params, and `currentAuth()`
 sees the request's identity.

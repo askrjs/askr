@@ -332,7 +332,9 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
             ? ['development', 'production']
             : ['production', 'development'];
         for (const env of order) {
-          durations[env].push(runBatch(env, 40));
+          // Mounts are cheap enough that a batch must be large to measure
+          // above timer and scheduling noise.
+          durations[env].push(runBatch(env, 600));
         }
       }
 
