@@ -52,10 +52,18 @@ export async function reconcileInitialRouteMetadata(
   reconcileRouteMeta(await resolveRouteMeta(resolved.record, context));
 }
 
+/** An initial route outcome: redirects are always followed, never returned. */
+type InitialRouteResult = Exclude<RouteRequestResult, { kind: 'redirect' }>;
+
+/**
+ * Resolve the route for the current location, following redirects (and
+ * replacing the history entry for each) until a render, deny, or no-match
+ * result is reached.
+ */
 export async function resolveInitialRoute(
   auth?: RouteAuthOptions,
   source?: { registry: RouteRegistry; load?: boolean }
-): Promise<{ path: string; href: string; resolved: RouteRequestResult }> {
+): Promise<{ path: string; href: string; resolved: InitialRouteResult }> {
   let path = typeof window !== 'undefined' ? window.location.pathname : '/';
   let href =
     typeof window !== 'undefined'
@@ -81,17 +89,20 @@ export async function resolveInitialRoute(
       auth,
       load: source.load,
     });
-    if (
-      typeof window === 'undefined' ||
-      !resolved ||
-      resolved.kind !== 'redirect'
-    ) {
+    if (!resolved || resolved.kind !== 'redirect') {
       return { path, href, resolved };
     }
 
-    const redirectTarget = new URL(resolved.to, window.location.href);
+    const redirectTarget = new URL(
+      resolved.to,
+      typeof window !== 'undefined'
+        ? window.location.href
+        : new URL(href, 'http://localhost').href
+    );
     const redirectHref = `${redirectTarget.pathname}${redirectTarget.search}${redirectTarget.hash}`;
-    window.history.replaceState({ path: redirectHref }, '', redirectHref);
+    if (typeof window !== 'undefined') {
+      window.history.replaceState({ path: redirectHref }, '', redirectHref);
+    }
     path = redirectTarget.pathname;
     href = redirectHref;
   }

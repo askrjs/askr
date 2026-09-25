@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- fix(router): registering two routes that match the same URLs now throws
+  `Duplicate route path` instead of silently shadowing the second. Routes are
+  compared the way they match: parameter and splat names, trailing slashes and
+  percent-encoding of static segments are ignored, and a `fallback()` equals a
+  named splat at its prefix. Each registry is checked separately.
+- fix(boot): error messages no longer point at a nonexistent `createSSR`; they
+  name `createSPA`/`hydrateSPA` (and `createIslands`). Removed the unreachable
+  redirect branches in `createSPA`/`hydrateSPA`, and sync SSR now matches
+  routes against the registry's manifest records like async SSR does.
 - fix(router): route precedence is decided segment by segment, as documented:
   the first segment where two routes differ picks static > param > wildcard >
   splat, so `/docs/{*rest}` now beats `/{lang}/{page}` for `/docs/intro`

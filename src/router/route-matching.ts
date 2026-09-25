@@ -272,10 +272,3 @@ export function resolveRouteFromRoutes(
   const match = findBestResolvedRouteFromRoutes(pathname, routeList);
   return match ? { handler: match.route.handler, params: match.params } : null;
 }
-
-export function _resolveRouteMatchFromRoutes(
-  pathname: string,
-  routeList: readonly Route[]
-): { route: Route; params: Record<string, string> } | null {
-  return findBestResolvedRouteFromRoutes(pathname, routeList);
-}
