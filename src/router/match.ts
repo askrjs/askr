@@ -112,10 +112,12 @@ export function compareRouteSpecificity(
 
 /**
  * Key for the set of URLs a route matches, used to reject duplicate
- * registrations. Parameter and splat names do not affect matching, static
- * segments compare decoded (see {@link staticSegmentMatches}), and a scoped
- * fallback matches exactly what a splat at its prefix matches, so routes with
- * equal keys match the same URLs and the later one could never be reached.
+ * registrations. Parameter and splat names do not affect matching, a `*`
+ * wildcard matches exactly one segment like a param (and always loses to it),
+ * static segments compare decoded (see {@link staticSegmentMatches}), and a
+ * scoped fallback matches exactly what a splat at its prefix matches, so
+ * routes with equal keys match the same URLs and the later one could never be
+ * reached.
  */
 export function routeMatchKey(
   segments: ParsedSegment[],
@@ -128,9 +130,8 @@ export function routeMatchKey(
       case 'static':
         return encodePathSegment(decodePathSegment(segment.value));
       case 'param':
-        return '{}';
       case 'wildcard':
-        return '*';
+        return '{}';
       case 'splat':
       case 'catchall':
         return '{*}';

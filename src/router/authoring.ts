@@ -304,6 +304,7 @@ function normalizeRouteOptions(
     !dehydrate &&
     !preload &&
     !options.entries &&
+    !options.invalidationKeys &&
     policies.length === 0 &&
     !options.title &&
     !options.namespace &&
@@ -320,6 +321,9 @@ function normalizeRouteOptions(
     ...(dehydrate ? { dehydrate } : {}),
     ...(preload ? { preload } : {}),
     ...(options.entries ? { entries: options.entries } : {}),
+    ...(options.invalidationKeys
+      ? { invalidationKeys: options.invalidationKeys }
+      : {}),
     ...(options.auth !== undefined ? { auth: options.auth } : {}),
     ...(policies.length > 0 ? { policies } : {}),
     ...(options.title ? { title: options.title } : {}),
@@ -340,8 +344,12 @@ function assertRouteNotDuplicated(
     (record) => routeMatchKey(record.segments, record.fallbackPrefix) === key
   );
   if (existing) {
+    const hint =
+      existing.path === path
+        ? " To generate several pages from one route template, declare it once and return each page's params from entries()."
+        : '';
     throw new Error(
-      `Duplicate route path "${path}": it matches the same URLs as "${existing.path}", which is already registered.`
+      `Duplicate route path "${path}": it matches the same URLs as "${existing.path}", which is already registered.${hint}`
     );
   }
 }
