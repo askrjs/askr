@@ -8,6 +8,14 @@
   component's stale props. It waits for that render, so a list row being
   removed no longer runs (and throws from) a derive that indexes by its old
   prop; a surviving component still gets the updated value in the same flush.
+- test(test-utils): `npm run typecheck` (and so `npm run lint`) now also
+  typechecks `test-utils/**`, including the Playwright browser app, through
+  `test-utils/tsconfig.json`. The existing type errors are fixed: fixtures
+  import `state` from the root entry, the playwright app's Vite config uses
+  `oxc.jsx`, and two scenarios no longer rely on unsafe nullable state reads.
+- test(benches): `npm run typecheck` also typechecks `benches/`. Bench fixtures
+  now use `htmlFor`, a numeric `tabIndex`, `RouteHandler` route handlers and a
+  complete auth context, matching the public types.
 - perf(env): development/production checks and renderer debug-flag reads no
   longer copy `process.env` on every call. `isProductionEnvironment()` runs on every component render, and
   enumerating the environment is expensive on Windows, where it dominated

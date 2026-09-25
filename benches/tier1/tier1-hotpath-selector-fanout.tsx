@@ -18,7 +18,9 @@ type RowId = number;
 
 let selectedState!: ReturnType<typeof state<number | null>>;
 
-function Row({ id }: { id: RowId }) {
+// The JSX types do not declare `key` for function components, so the props
+// type lists it; the renderer consumes `key` and never passes it to Row.
+function Row({ id }: { id: RowId; key?: RowId }) {
   const isSelected = selector(selectedState);
   return (
     <tr data-id={id} class={() => (isSelected(id) ? 'danger' : '')}>
