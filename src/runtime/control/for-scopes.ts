@@ -34,8 +34,10 @@ import type { ForItemTransactionSnapshot, ForState } from './for-state';
 import type { ReadableSource } from '../reactivity/readable';
 import {
   isFineGrainedEffectPending,
+  someFineGrainedEffectSource,
   type FineGrainedEffectHandle,
 } from '../reactivity/effect';
+import { hasDirtyDerivedUpstream } from '../reactivity/derive';
 import { registerPendingBoundaryProbe } from '../component/pending-render';
 
 declare const __ASKR_BENCH_BUILD__: boolean;
@@ -109,7 +111,9 @@ const forPendingReconcileProbes = new WeakMap<
 >();
 
 // A changed `each` source reconciles the rows in the reactive lane, or in a
-// queued boundary commit; no component re-render covers either (#523).
+// queued boundary commit; no component re-render covers either (#523). When
+// `each` reads a derive() chain, the source effect is only marked once the
+// chain has recomputed, so a dirty cell upstream also counts as pending.
 function getForPendingReconcileProbe<T>(forState: ForState<T>): () => boolean {
   const key = forState as ForState<unknown>;
   let probe = forPendingReconcileProbes.get(key);
@@ -117,9 +121,13 @@ function getForPendingReconcileProbe<T>(forState: ForState<T>): () => boolean {
     probe = () =>
       forState._hasPendingBoundaryCommit === true ||
       (forState._sourceEffect !== null &&
-        isFineGrainedEffectPending(
+        (isFineGrainedEffectPending(
           forState._sourceEffect as FineGrainedEffectHandle<unknown>
-        ));
+        ) ||
+          someFineGrainedEffectSource(
+            forState._sourceEffect as FineGrainedEffectHandle<unknown>,
+            (source) => hasDirtyDerivedUpstream(source)
+          )));
     forPendingReconcileProbes.set(key, probe);
   }
   return probe;

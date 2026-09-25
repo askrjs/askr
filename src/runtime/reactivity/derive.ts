@@ -118,6 +118,44 @@ function isReadByOwnerRender(
   return false;
 }
 
+/** @internal Whether dirty derive() cells are waiting in the derived lane. */
+export function hasQueuedDerivedCells(): boolean {
+  return dirtyDerivedCells.size > 0;
+}
+
+function isDerivedCell(source: unknown): source is DerivedCell<unknown> {
+  return (
+    typeof source === 'function' &&
+    (source as Partial<DerivedCell<unknown>>)._sources instanceof Set &&
+    '_compute' in source
+  );
+}
+
+/**
+ * @internal Whether `source` is a derive() cell that is dirty or reads (at any
+ * depth) a dirty cell. A dirty cell re-marks its dependents only when it
+ * recomputes, so a consumer of a derive chain looks clean until the whole
+ * chain has run.
+ */
+export function hasDirtyDerivedUpstream(
+  source: unknown,
+  visited: Set<DerivedCell<unknown>> = new Set()
+): boolean {
+  if (!isDerivedCell(source) || visited.has(source) || !source._active) {
+    return false;
+  }
+  if (source._dirty) {
+    return true;
+  }
+  visited.add(source);
+  for (const upstream of source._sources) {
+    if (hasDirtyDerivedUpstream(upstream, visited)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function flushDirtyDerivedCells(): void {
   if (dirtyDerivedCells.size === 0) {
     return;
@@ -151,7 +189,10 @@ function flushDirtyDerivedCells(): void {
     // A queued ancestor render or boundary reconcile decides whether the
     // owner survives and with which props. Evaluate after it, not with the
     // owner's stale props (#523).
-    if (cell._active && hasPendingOwnerRender(cell._owner)) {
+    if (
+      cell._active &&
+      hasPendingOwnerRender(cell._owner, dirtyDerivedCells.size > 0)
+    ) {
       deferBehindPendingRender(cell);
       next = pending.next();
       continue;

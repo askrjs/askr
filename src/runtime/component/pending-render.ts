@@ -38,11 +38,23 @@ export function registerPendingBoundaryProbe(
  * queued to re-render, or a control boundary around it queued to reconcile.
  * The owner's own pending update does not count; it replaces the closure but
  * keeps the owner's props.
+ *
+ * `derivedCellsQueued` reports dirty derive() cells still waiting in the
+ * derived lane: a `<For>` whose `each` reads a derive() chain is pending
+ * before the chain has reached its source effect.
  */
-export function hasPendingOwnerRender(owner: ComponentInstance): boolean {
+export function hasPendingOwnerRender(
+  owner: ComponentInstance,
+  derivedCellsQueued: boolean
+): boolean {
   // Every pending render or reconcile has queued work in the component lane
-  // (renders, boundary commits) or the reactive lane (`<For>` sources).
-  if (!hasRuntimeQueuedWork('component') && !hasRuntimeQueuedWork('reactive')) {
+  // (renders, boundary commits), the reactive lane (`<For>` sources) or, for
+  // a derive() chain feeding a `<For>` source, the derived lane.
+  if (
+    !derivedCellsQueued &&
+    !hasRuntimeQueuedWork('component') &&
+    !hasRuntimeQueuedWork('reactive')
+  ) {
     return false;
   }
   return hasPendingRenderFrom(owner, owner, null);

@@ -29,6 +29,7 @@ import {
   deferBehindPendingRender,
   hasPendingOwnerRender,
 } from '../component/pending-render';
+import { hasQueuedDerivedCells } from './derive';
 
 declare const __ASKR_BENCH_BUILD__: boolean;
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
@@ -161,7 +162,7 @@ function hasPendingBindingOwnerRender(
   record: SelectorSourceRecord<unknown>
 ): boolean {
   for (const owner of record._owners.keys()) {
-    if (hasPendingOwnerRender(owner)) {
+    if (hasPendingOwnerRender(owner, hasQueuedDerivedCells())) {
       return true;
     }
   }

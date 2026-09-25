@@ -290,12 +290,16 @@ flowchart LR
   evaluated with the owner's stale props (`component/pending-render.ts`): an
   ancestor queued to re-render (walking render parents and, for portal
   content, the live portal writer), or a `<For>` whose `each` source is queued
-  to recompute or whose boundary commit is queued. The cell is deferred to a
-  component-lane task behind that work. By then a removed owner has disposed
-  the cell and a re-rendered owner has recomputed it; a cell still dirty
-  returns to the derived lane. The walk is skipped when the component and
-  reactive lanes are empty, since every such pending render has queued work
-  there. `selector()` source records defer the same way when any binding
+  to recompute, reads a `derive()` cell that is dirty or depends (at any depth)
+  on a dirty cell, or whose boundary commit is queued. A dirty cell re-marks
+  its dependents only when it recomputes, so a `derive()` chain feeding `each`
+  counts as pending before the source effect itself is marked. The cell is
+  deferred to a component-lane task behind that work. By then a removed owner
+  has disposed the cell and a re-rendered owner has recomputed it; a cell
+  still dirty returns to the derived lane. The walk is skipped when the
+  component and reactive lanes are empty and no other dirty `derive()` cell
+  is waiting in the derived lane, since every such pending render has queued
+  work there. `selector()` source records defer the same way when any binding
   owner has such a pending render. An eager value that changed
   re-renders an owner that reads it; an unchanged one keeps the `Object.is`
   cutoff. A render marks a cell dirty when the flush version or its `derive()`

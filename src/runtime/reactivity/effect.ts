@@ -482,6 +482,30 @@ export function isFineGrainedEffectPending(
   return dirtyEffectsByLane[effect.lane].has(effect);
 }
 
+/** @internal Whether any source the effect last read satisfies `test`. */
+export function someFineGrainedEffectSource(
+  handle: FineGrainedEffectHandle<unknown>,
+  test: (source: ReadableSource<unknown>) => boolean
+): boolean {
+  const effect = handle as FineGrainedEffectImpl<unknown>;
+  const sources = effect.readSources;
+  if (effect.readSource2 && test(effect.readSource2)) {
+    return true;
+  }
+  if (!sources) {
+    return false;
+  }
+  if (!isEffectReadSourceCollection(sources)) {
+    return test(sources);
+  }
+  for (const source of sources) {
+    if (test(source)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function unscheduleEffect(effect: FineGrainedEffect<unknown>): void {
   dirtyEffectsByLane[effect.lane].delete(effect);
 }
