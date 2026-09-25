@@ -20,7 +20,7 @@ import { buildRouteContext, buildRouteContextBase } from './route-context';
 import { getRenderHandler } from './rendering';
 import { getMatchingRouteRecord } from './route-matching';
 import { getActiveRouteAuthOptions } from './store';
-import { setCurrentAuth } from './auth';
+import { setCurrentAuth, unresolvedAuth } from './auth';
 import { _preloadRouteRecord } from './lazy';
 import {
   prepareRouteHydrationData,
@@ -36,13 +36,6 @@ import {
 } from './base-path';
 
 export { resolveRoute } from './route-matching';
-
-const anonymous = (): AuthContext => ({
-  authenticated: false,
-  principal: null,
-  session: null,
-  tenant: null,
-});
 
 const routeRenderContexts = new WeakMap<object, RouteContext>();
 const routeRenderData = new WeakMap<object, unknown>();
@@ -401,7 +394,7 @@ export function resolveRouteRequest(
         : exposeRedirect(result);
     };
     if (options.authContext) return finalize(options.authContext);
-    if (!authOptions?.resolve) return finalize(anonymous());
+    if (!authOptions?.resolve) return finalize(unresolvedAuth(mode));
     const resolved = authOptions.resolve(base);
     return isPromiseLike(resolved)
       ? Promise.resolve(resolved).then(finalize)

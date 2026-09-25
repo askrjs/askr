@@ -20,6 +20,7 @@ import {
   type SSRData,
 } from './context';
 import { resolvePolicyAwareSSRRoute } from './route-policy-resolution';
+import { withHydratedAuth } from './hydration-data';
 import { StringSink, StreamSink, type RenderSink } from './sink';
 import type { CoreTelemetry } from '../common/telemetry';
 import { withTelemetry } from '../common/telemetry';
@@ -149,6 +150,15 @@ function resolveSSRRouteRender(
     envelope: opts.envelope,
     cspNonce,
   });
+  // A precomposed envelope (hydration verification) already carries whatever
+  // the server sent; only a fresh server render records the auth snapshot.
+  if (!opts.envelope && ctx.hydrationData) {
+    ctx.hydrationData = withHydratedAuth(
+      ctx.hydrationData,
+      opts.auth ?? opts.registry.manifest.auth,
+      resolvedRoute.authContext
+    );
+  }
 
   return {
     url: opts.url,
