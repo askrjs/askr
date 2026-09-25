@@ -19,6 +19,12 @@ interest in Askr are not accepted.
 - Node.js 24.15+ (LTS)
 - npm 10+
 
+## Branches
+
+Create a topic branch from `develop` and target `develop` with its pull request.
+`develop` is the default integration branch. `main` contains release candidates
+and receives changes through promotion pull requests from `develop`.
+
 ## Setup
 
 ```bash

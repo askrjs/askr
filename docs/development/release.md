@@ -64,9 +64,11 @@ for the recorded package, consumer, browser, and performance evidence.
 
 The intended happy path is:
 
-1. Bump `package.json` to the release version and merge it to `main`.
-2. Run `publish.yml` manually.
-3. Confirm the workflow’s created-or-reused `v<version>` tag and npm publish.
+1. Bump `package.json` to the release version on `develop` and complete its checks.
+2. Promote `develop` to `main` with a pull request using a merge commit.
+3. Run `publish.yml` manually, selecting `main` as the workflow branch. The
+   workflow rejects any other branch.
+4. Confirm the workflow’s created-or-reused `v<version>` tag and npm publish.
 
 ## Pre-release checklist
 
