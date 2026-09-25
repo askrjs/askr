@@ -1,4 +1,4 @@
-import { ownCleanup } from '../ownership/record';
+import { invalidatePendingChecks, ownCleanup } from '../ownership/record';
 import { notifyReadableSource } from './notify';
 import {
   claimHookIndex,
@@ -25,7 +25,6 @@ import {
 import { isSnapshotSource, type SnapshotSourceBrand } from './snapshot-source';
 import { adjustOwnershipDiagnostic } from '../diagnostics/ownership-diagnostics';
 import {
-  beginPendingCheckPass,
   deferBehindPendingRender,
   hasPendingOwnerRender,
 } from '../component/pending-render';
@@ -126,7 +125,7 @@ function flushDirtyDerivedCells(): void {
 
   const pending = dirtyDerivedCells.values();
   const scheduler = getRuntimeScheduler();
-  beginPendingCheckPass();
+  invalidatePendingChecks();
   let failures: unknown[] | null = null;
   let next = pending.next();
 

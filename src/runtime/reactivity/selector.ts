@@ -1,4 +1,4 @@
-import { ownCleanup } from '../ownership/record';
+import { invalidatePendingChecks, ownCleanup } from '../ownership/record';
 import { notifyReadableSource } from './notify';
 import {
   claimHookIndex,
@@ -26,7 +26,6 @@ import { adjustOwnershipDiagnostic } from '../diagnostics/ownership-diagnostics'
 import { getRuntimeScheduler } from '../access';
 import { createFlushLoopGuard } from '../flush-loop-guard';
 import {
-  beginPendingCheckPass,
   deferBehindPendingRender,
   hasPendingOwnerRender,
 } from '../component/pending-render';
@@ -80,8 +79,12 @@ interface SelectorSourceRecord<T> extends DerivedSubscriber {
   _sources: Set<ReadableSource<unknown>>;
   _pendingDependencySources?: Set<ReadableSource<unknown>>;
   _lanes: Map<SelectorEquals<T>, SelectorLane<T>>;
-  /** Components whose selector() hooks bind this record, with hook counts. */
-  _owners: Map<ComponentInstance, number>;
+  /**
+   * The component whose hook last bound this record. Only a render closure can
+   * read stale props, and a closure belongs to one owner; a record shared by
+   * several hooks has a stable source function (#523).
+   */
+  _owner?: ComponentInstance;
   _cleanup(): void;
 }
 
@@ -126,7 +129,7 @@ const selectorLoopGuard =
 function flushDirtySelectorRecords(): void {
   const scheduler = getRuntimeScheduler();
   let failures: unknown[] | null = null;
-  beginPendingCheckPass();
+  invalidatePendingChecks();
   for (const record of takeDirtySelectorRecords<
     SelectorSourceRecord<unknown>
   >()) {
@@ -134,9 +137,9 @@ function flushDirtySelectorRecords(): void {
     if (!record._dirty) {
       continue;
     }
-    // A queued ancestor render or boundary reconcile decides whether a
-    // binding owner survives and with which props (#523).
-    if (hasPendingBindingOwnerRender(record)) {
+    // A queued ancestor render or boundary reconcile decides whether the
+    // owner survives and with which props (#523).
+    if (record._owner && hasPendingOwnerRender(record._owner)) {
       deferBehindPendingRender(record);
       continue;
     }
@@ -159,17 +162,6 @@ function flushDirtySelectorRecords(): void {
   if (failures && failures.length > 1) {
     throw new AggregateError(failures, 'selector() recompute failures');
   }
-}
-
-function hasPendingBindingOwnerRender(
-  record: SelectorSourceRecord<unknown>
-): boolean {
-  for (const owner of record._owners.keys()) {
-    if (hasPendingOwnerRender(owner)) {
-      return true;
-    }
-  }
-  return false;
 }
 
 function isObjectCandidate(value: unknown): value is object {
@@ -257,7 +249,6 @@ function createSelectorSourceRecord<T>(
     _evaluating: false,
     _sources: new Set(),
     _lanes: new Map(),
-    _owners: new Map(),
     _markDirty: () => {
       markSelectorRecordDirty(record as SelectorSourceRecord<unknown>);
     },
@@ -269,7 +260,6 @@ function createSelectorSourceRecord<T>(
       record._pendingDependencySources = undefined;
       clearDerivedDependencySubscriptions(record, record._sources);
       record._lanes.clear();
-      record._owners.clear();
       selectorRecords.delete(source as ReadableSource<unknown>);
     },
   };
@@ -444,7 +434,7 @@ function attachSelectorHookBinding<T>(
   hook._record = record;
   hook._lane = lane;
   lane._bindingCount += 1;
-  record._owners.set(hook._owner, (record._owners.get(hook._owner) ?? 0) + 1);
+  record._owner = hook._owner;
 }
 
 function detachSelectorHookBinding<T>(hook: SelectorHook<T>): void {
@@ -456,13 +446,6 @@ function detachSelectorHookBinding<T>(hook: SelectorHook<T>): void {
 
   if (!record || !lane) {
     return;
-  }
-
-  const ownerCount = record._owners.get(hook._owner) ?? 0;
-  if (ownerCount > 1) {
-    record._owners.set(hook._owner, ownerCount - 1);
-  } else {
-    record._owners.delete(hook._owner);
   }
 
   if (lane._bindingCount > 0) {

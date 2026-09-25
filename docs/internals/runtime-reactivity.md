@@ -311,10 +311,10 @@ flowchart LR
   deferred cell waits in a component-lane task behind that work. By then a
   removed owner has disposed the cell and a re-rendered owner has recomputed
   it; a cell still dirty returns to the derived lane. `selector()` source
-  records defer the same way when any binding owner has such a pending
-  render. An eager value that changed
-  re-renders an owner that reads it; an unchanged one keeps the `Object.is`
-  cutoff. A render marks a cell dirty when the flush version or its `derive()`
+  records defer the same way for the owner whose hook last bound them (only a
+  render closure, which belongs to one owner, can read stale props). An eager
+  value that changed re-renders an owner that reads it; an unchanged one keeps
+  the `Object.is` cutoff. A render marks a cell dirty when the flush version or its `derive()`
   inputs (function, or `source`/`map`) changed, so a cell whose eager value
   changed is evaluated a second time by the owner's new closure. Every
   recompute that changes a published value notifies downstream readers,

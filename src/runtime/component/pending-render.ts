@@ -2,7 +2,6 @@ import { requestRuntimeWork } from '../access';
 import { ScheduledWork } from '../scheduled-work';
 import {
   getPendingCheckEpoch,
-  invalidatePendingChecks,
   type OwnershipRecord,
 } from '../ownership/record';
 import { isFineGrainedEffectStale } from '../reactivity/effect';
@@ -27,12 +26,6 @@ type DeferredComputation = {
 const deferredComputations = new Set<DeferredComputation>();
 // Batch work: it drains a shared set, like the derived lane itself.
 const deferredWork = new ScheduledWork(requeueDeferredComputations, true);
-
-/**
- * Start a derived-lane pass. Checks are memoized per ownership record until
- * the next pass, or until another component is queued to re-render.
- */
-export const beginPendingCheckPass = invalidatePendingChecks;
 
 type PendingSubject = Partial<ComponentInstance> & Partial<ForState<unknown>>;
 
