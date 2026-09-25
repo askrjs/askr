@@ -344,3 +344,151 @@ test('should record only rendered attribute props, without children or closures'
   expect(Object.keys(record)).toEqual(['title', 'class', 'aria-hidden']);
   expect(Object.values(record)).not.toContain(title);
 });
+
+test('should keep checked={false} and selected={false} controlled across re-renders', () => {
+  const { container, cleanup } = createTestContainer();
+  let count!: State<number>;
+  function App() {
+    count = state(0);
+    return (
+      <div data-count={count()}>
+        <input type="checkbox" checked={false} />
+        <select>
+          <option value="a">a</option>
+          <option value="b" selected={false}>
+            b
+          </option>
+        </select>
+      </div>
+    );
+  }
+  try {
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const input = container.querySelector('input')!;
+    const option = container.querySelectorAll('option')[1]!;
+    input.checked = true;
+    option.selected = true;
+    count.set(1);
+    flushScheduler();
+    expect(input.checked).toBe(false);
+    expect(option.selected).toBe(false);
+  } finally {
+    cleanup();
+  }
+});
+
+test.each([
+  ['reactive to static', 0, 1, 'b', 'color: blue'],
+  ['static to reactive', 2, 3, 'b', 'color: blue'],
+] as const)(
+  'should keep third-party classes and styles when class and style switch from %s',
+  (_label, from, to, expectedClass, expectedStyle) => {
+    const { container, cleanup } = createTestContainer();
+    let mode!: State<number>;
+    function App() {
+      mode = state<number>(from);
+      const m = mode();
+      if (m === 0) {
+        return (
+          <p class={() => 'a'} style={() => 'color: red'}>
+            x
+          </p>
+        );
+      }
+      if (m === 2) {
+        return (
+          <p class="a" style="color: red">
+            x
+          </p>
+        );
+      }
+      return m === 1 ? (
+        <p class="b" style="color: blue">
+          x
+        </p>
+      ) : (
+        <p class={() => 'b'} style={() => 'color: blue'}>
+          x
+        </p>
+      );
+    }
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      const paragraph = container.querySelector('p')!;
+      paragraph.classList.add('ext');
+      paragraph.style.transform = 'scale(2)';
+      mode.set(to);
+      flushScheduler();
+      expect(container.querySelector('p')).toBe(paragraph);
+      expect(paragraph.className).toBe(`${expectedClass} ext`);
+      expect(paragraph.getAttribute('style')).toContain(expectedStyle);
+      expect(paragraph.style.transform).toBe('scale(2)');
+      expect(paragraph.style.getPropertyValue('color')).toBe('blue');
+    } finally {
+      cleanup();
+    }
+  }
+);
+
+test('should remove only owned tokens when a reactive class prop is removed', () => {
+  const { container, cleanup } = createTestContainer();
+  let mode!: State<number>;
+  function App() {
+    mode = state(0);
+    return mode() === 0 ? (
+      <p class={() => 'a'} style={() => ({ color: 'red' })} title={() => 't'}>
+        x
+      </p>
+    ) : (
+      <p>x</p>
+    );
+  }
+  try {
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const paragraph = container.querySelector('p')!;
+    paragraph.classList.add('ext');
+    paragraph.style.transform = 'scale(2)';
+    mode.set(1);
+    flushScheduler();
+    expect(paragraph.hasAttribute('title')).toBe(false);
+    expect(paragraph.className).toBe('ext');
+    expect(paragraph.style.color).toBe('');
+    expect(paragraph.style.transform).toBe('scale(2)');
+  } finally {
+    cleanup();
+  }
+});
+
+test('should refresh the applied-props baseline on the static fast path', () => {
+  const { container, cleanup } = createTestContainer();
+  let step!: State<number>;
+  function App() {
+    step = state(0);
+    return (
+      <div data-step={step()}>
+        {step() === 0 ? <p title="x">x</p> : <p>x</p>}
+      </div>
+    );
+  }
+  try {
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const paragraph = container.querySelector('p')!;
+    // The DOM now matches the next props exactly, so that update takes the
+    // static fast path and must still move the baseline past `title`.
+    paragraph.removeAttribute('title');
+    step.set(1);
+    flushScheduler();
+    paragraph.setAttribute('title', 'external');
+    paragraph.setAttribute('data-tooltip', 'external');
+    step.set(2);
+    flushScheduler();
+    expect(container.querySelector('p')).toBe(paragraph);
+    expect(paragraph.getAttribute('title')).toBe('external');
+  } finally {
+    cleanup();
+  }
+});
