@@ -44,10 +44,79 @@ export function reportBoundaryError(
   logger.error('[Askr] ErrorBoundary caught render error:', error);
 }
 
+/**
+ * Where a control boundary (For/Show/Case) was materialized: the component
+ * rendering at that point, and whether that output is an ErrorBoundary's
+ * protected children (as opposed to its fallback, which belongs to the
+ * enclosing boundary).
+ */
+export interface RenderedOutputOwner {
+  instance: ComponentInstance;
+  protectedByOwner: boolean;
+}
+
+const controlOutputOwners = new WeakMap<object, RenderedOutputOwner>();
+const controlScopeStates = new WeakMap<ComponentInstance, object>();
+
+/**
+ * Record where `controlState` was materialized. A `null` owner (work running
+ * outside any component render) keeps the owner already known.
+ */
+export function setControlOutputOwner(
+  controlState: object,
+  owner: RenderedOutputOwner | null
+): void {
+  if (owner) {
+    controlOutputOwners.set(controlState, owner);
+  }
+}
+
+export function getControlOutputOwner(
+  controlState: object
+): RenderedOutputOwner | null {
+  return controlOutputOwners.get(controlState) ?? null;
+}
+
+/**
+ * Control child scopes are owned by the component that created the control,
+ * which can sit above the ErrorBoundary the control renders inside. Route their
+ * failures through the control's output owner instead.
+ */
+export function bindControlScopeErrorOwner(
+  scopeInstance: ComponentInstance,
+  controlState: object
+): void {
+  controlScopeStates.set(scopeInstance, controlState);
+}
+
 function findLiveErrorBoundary(
   failedInstance: ComponentInstance
 ): ComponentInstance | null {
-  const visited = new Set<ComponentInstance>([failedInstance]);
+  const visited = new Set<ComponentInstance>();
+
+  const visitFrom = (instance: ComponentInstance): ComponentInstance | null => {
+    const control = controlScopeStates.get(instance);
+    const controlOwner = control ? controlOutputOwners.get(control) : undefined;
+    return (
+      visit(getLivePortalErrorParent(instance)) ??
+      (controlOwner
+        ? controlOwner.protectedByOwner
+          ? visit(controlOwner.instance)
+          : visitAbove(controlOwner.instance)
+        : null) ??
+      visit(instance.parentInstance)
+    );
+  };
+
+  const visitAbove = (
+    instance: ComponentInstance
+  ): ComponentInstance | null => {
+    if (visited.has(instance)) {
+      return null;
+    }
+    visited.add(instance);
+    return visitFrom(instance);
+  };
 
   const visit = (
     instance: ComponentInstance | null
@@ -61,16 +130,10 @@ function findLiveErrorBoundary(
       return instance;
     }
 
-    return (
-      visit(getLivePortalErrorParent(instance)) ??
-      visit(instance.parentInstance)
-    );
+    return visitFrom(instance);
   };
 
-  return (
-    visit(getLivePortalErrorParent(failedInstance)) ??
-    visit(failedInstance.parentInstance)
-  );
+  return visitAbove(failedInstance);
 }
 
 function isLiveErrorBoundary(instance: ComponentInstance): boolean {

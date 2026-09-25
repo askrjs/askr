@@ -22,7 +22,7 @@ export function trySwapPath<T>(
   newArray: readonly T[],
   items: ForState<T>['items'],
   orderedKeys: Array<string | number>,
-  byFn: ForState<T>['byFn'],
+  keys: readonly (string | number)[],
   oldLen: number
 ): VNode[] | null {
   let firstMismatch = -1;
@@ -34,7 +34,7 @@ export function trySwapPath<T>(
 
   for (let i = 0; i < oldLen; i++) {
     const item = newArray[i];
-    const key = byFn(newArray[i], i);
+    const key = keys[i];
     if (key === orderedKeys[i]) {
       const existing = items.get(key);
       if (

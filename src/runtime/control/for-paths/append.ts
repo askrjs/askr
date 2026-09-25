@@ -22,14 +22,14 @@ export function tryAppendPath<T>(
   newArray: readonly T[],
   items: ForState<T>['items'],
   orderedKeys: Array<string | number>,
-  byFn: ForState<T>['byFn'],
+  keys: readonly (string | number)[],
   oldLen: number,
   newLen: number
 ): VNode[] | null {
   let canUseAppendPath = true;
   let canSkipCommittedPrefix = true;
   for (let i = 0; i < oldLen; i++) {
-    const key = byFn(newArray[i], i);
+    const key = keys[i];
     if (key !== orderedKeys[i]) {
       canUseAppendPath = false;
       break;
@@ -76,7 +76,7 @@ export function tryAppendPath<T>(
   // Create and append new rows
   for (let i = oldLen; i < newLen; i++) {
     const item = newArray[i];
-    const key = byFn(item, i);
+    const key = keys[i];
     const itemInstance = createItemInstance(key, item, i, forState);
     items.set(key, itemInstance);
     resultItems[i] = itemInstance;

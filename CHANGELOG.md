@@ -10,6 +10,18 @@
 - test(benches): `npm run typecheck` also typechecks `benches/`. Bench fixtures
   now use `htmlFor`, a numeric `tabIndex`, `RouteHandler` route handlers and a
   complete auth context, matching the public types.
+- fix(control): development and production now agree on invalid `For` keys and
+  `Case`/`Match` children. A null, undefined, or duplicate `For` key throws in
+  every build (production previously dropped rows and showed the last
+  duplicate's data), and a non-`Match` child of `Case` or a `Match` outside a
+  `Case` throws in every build (production previously dropped it). These errors
+  reach the nearest `ErrorBoundary`, including a duplicate key introduced by a
+  boundary-local list update, a list inside a `Show`/`Case` branch, and an
+  invalid `Case` child, which previously escaped the boundary. Component
+  errors rendered inside a `For`/`Show`/`Case` created above an
+  `ErrorBoundary` now reach that boundary too. `For` resolves each row key
+  once per update, and the development-only key-type-change check (which could
+  never fire) is removed.
 - fix(renderer): props whose live state is not the attribute now set the DOM
   property. `<video muted>` sets `video.muted` (and keeps the attribute),
   `<input indeterminate>` sets `input.indeterminate` without an attribute, and
