@@ -7,7 +7,9 @@
   `<input indeterminate>` sets `input.indeterminate` without an attribute, and
   object/array values on custom elements are assigned as properties. New
   `prop:name` and `attr:name` escape hatches force either path. SSR renders
-  only attribute-backed values; property-only values apply on hydration.
+  only attribute-backed values; property-only values apply on hydration. Removed
+  properties reset to their default, property writes roll back with a failed
+  commit, and the escape hatches keep the URL and raw-HTML guards.
 - fix(fx): `scheduleTimeout()`, `scheduleIdle()` and `scheduleRetry()` now
   cancel pending work when the component that scheduled them unmounts, as
   documented. Calls made from a mounted component's `task()`, `watch()`

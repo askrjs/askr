@@ -8,6 +8,7 @@ import {
 import { isUnsafeUrlAttribute } from '../../common/url';
 import {
   ATTRIBUTE_PROP_PREFIX,
+  isPropertyOnlyProp,
   propertyReflectsAttribute,
 } from '../../common/dom-properties';
 import { isDevelopmentEnvironment } from '../../common/env';
@@ -29,6 +30,7 @@ import {
 } from '../utils';
 import {
   applyDomPropertyProp,
+  getReflectedAttributes,
   hasStaleDomProperties,
   matchesDomPropertyProp,
 } from './properties';
@@ -45,7 +47,9 @@ export function isFormControlProp(key: string): boolean {
 function isBlockedAttribute(key: string, value: unknown): boolean {
   if (key.startsWith(ATTRIBUTE_PROP_PREFIX)) {
     const name = key.slice(ATTRIBUTE_PROP_PREFIX.length);
+    // `attr:` renders text; SSR skips objects too, so both sides agree.
     return (
+      (value !== null && typeof value === 'object') ||
       name.slice(0, 2).toLowerCase() === 'on' ||
       isUnsafeUrlAttribute(name, value)
     );
@@ -133,6 +137,8 @@ export function recordAppliedProps(
       continue;
     }
     const value = props[key];
+    // Property-only props own no attribute, so there is nothing to remove.
+    if (isPropertyOnlyProp(el.localName, key, value)) continue;
     if (isRenderedPropValue(key, value)) {
       record[key] =
         typeof value === 'function' ? REACTIVE_APPLIED_VALUE : value;
@@ -704,6 +710,8 @@ export function removeStaleAttributes(
   if (key !== undefined) {
     desiredAttributes.push('data-key', 'data-askr-key-kind');
   }
+  // Attributes reflected by properties Askr set (`prop:href` -> `href`).
+  desiredAttributes.push(...getReflectedAttributes(el));
 
   for (const propName in props) {
     if (isSkippedProp(propName)) continue;

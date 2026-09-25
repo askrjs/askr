@@ -107,9 +107,11 @@ describe('SSG hydration bundle', () => {
     // re-renders. That ownership tracking, including its rollback snapshots
     // and reactive/static transitions, is ~1.8 KB of core renderer code
     // (measured 267,611 bytes, just over 261 KiB).
-    // 262 KiB: the DOM property path (`muted`, `indeterminate`, custom
-    // element object props, `prop:`/`attr:`) adds ~1.6 KB; without it those
-    // props cannot reach the live element at all.
-    expect(initialBytes).toBeLessThanOrEqual(262 * 1024);
+    // 266 KiB for the DOM property path (`muted`, `indeterminate`, custom
+    // element object props, `prop:`/`attr:`): the property table, resetting
+    // removed properties, keeping reflected attributes, the URL/raw-HTML
+    // guards and rollback snapshots are ~4 KB (measured 271,625 bytes, just
+    // over 265 KiB). Without it those props cannot reach the element at all.
+    expect(initialBytes).toBeLessThanOrEqual(266 * 1024);
   });
 });

@@ -10,7 +10,7 @@ import {
   recordAppliedProps,
   removeStaleAttributes,
 } from './attributes';
-import { pruneStaleDomProperties } from './properties';
+import { hasWrittenDomProperty, pruneStaleDomProperties } from './properties';
 import {
   elementListeners,
   elementRefs,
@@ -253,7 +253,8 @@ export function syncElementPropBindings(
         previousProps === undefined ||
         previousValue !== null ||
         isRenderedPropValue(key, value) ||
-        isFormControlProp(key)
+        isFormControlProp(key) ||
+        hasWrittenDomProperty(el, key)
       ) {
         applyScalarPropValue(
           el,

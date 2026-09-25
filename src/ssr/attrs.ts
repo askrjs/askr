@@ -13,7 +13,10 @@ import {
   keepsFalseValue,
 } from '../common/prop-classification';
 import { isUnsafeUrlAttribute } from '../common/url';
-import { isPropertyOnlyProp } from '../common/dom-properties';
+import {
+  ATTRIBUTE_PROP_PREFIX,
+  isPropertyOnlyProp,
+} from '../common/dom-properties';
 import type { RenderSink } from './sink';
 import { escapeAttr, needsEscapeAttr, styleObjToCss } from './escape';
 
@@ -81,6 +84,14 @@ export function renderAttrsDirect(
     if (key.charCodeAt(0) === 95) continue; // '_'
 
     if (isPropertyOnlyProp(tagName, key, value)) continue;
+    // `attr:` renders text only; objects (even `attr:style`) are left out on
+    // both sides rather than serialized differently.
+    if (
+      value !== null &&
+      typeof value === 'object' &&
+      key.startsWith(ATTRIBUTE_PROP_PREFIX)
+    )
+      continue;
 
     // Normalize public JSX prop names to their rendered HTML attribute names.
     const attrName = getPublicAttributeName(key, customElement);
