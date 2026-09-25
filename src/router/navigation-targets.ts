@@ -197,6 +197,7 @@ function resolveAppRouteRequest(
     registry: app.registry,
     auth: app.auth,
     signal,
+    dataRuntime: app.instance._appRenderRuntime?.dataRuntime,
   });
 }
 

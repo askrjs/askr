@@ -270,6 +270,22 @@ export function ensureMutationCleanup(
   });
 }
 
+/**
+ * Whether `key` falls under the invalidation `prefix`, matching whole
+ * `:`-delimited segments: `user:1` covers `user:1` and `user:1:posts` but not
+ * `user:10`. A prefix that already ends in `:` (every `queryScope()` prefix
+ * does) covers everything below it, and the empty prefix covers every key.
+ */
+function matchesInvalidationPrefix(key: string, prefix: string): boolean {
+  return (
+    key.startsWith(prefix) &&
+    (key.length === prefix.length ||
+      prefix.length === 0 ||
+      prefix.endsWith(':') ||
+      key[prefix.length] === ':')
+  );
+}
+
 export function invalidateQueriesForRuntime(
   runtimeState: DataRuntimeState,
   prefix: string,
@@ -278,7 +294,7 @@ export function invalidateQueriesForRuntime(
   emitInvalidation({ prefix, markPendingWrite });
 
   for (const key of runtimeState.queryData.keys()) {
-    if (key.startsWith(prefix)) {
+    if (matchesInvalidationPrefix(key, prefix)) {
       runtimeState.queryData.delete(key);
       runtimeState.unreadPrefetches.delete(key);
     }
@@ -287,7 +303,7 @@ export function invalidateQueriesForRuntime(
   const cache = runtimeState.queryCache;
 
   for (const [key, query] of cache) {
-    if (!key.startsWith(prefix)) {
+    if (!matchesInvalidationPrefix(key, prefix)) {
       continue;
     }
 

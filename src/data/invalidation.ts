@@ -16,7 +16,13 @@ import type {
   QueryScope,
 } from './types';
 
-/** Mark all cached queries whose key starts with `prefix` as stale, triggering a refresh. */
+/**
+ * Mark all cached queries under `prefix` as stale, triggering a refresh.
+ * Matching is by `:`-delimited segment: a key matches when it equals `prefix`,
+ * when `prefix` ends in `:`, or when the key continues `prefix` at a `:`
+ * (`'user:1'` matches `user:1:posts` but not `user:10`). Only `:` is a
+ * segment boundary; the empty prefix matches every key.
+ */
 export function invalidate(prefix: string, options?: InvalidateOptions): void {
   invalidateQueriesForRuntime(
     resolveDataRuntimeState(options?.runtime),
@@ -36,6 +42,7 @@ const INVALIDATE_ON_INTERVAL_OPTIONS_ERROR =
 /**
  * Periodically invalidate queries matching `prefix` on a fixed interval,
  * optionally gated by active route, document visibility, or window focus.
+ * `prefix` matches key segments the same way as {@link invalidate}.
  */
 export function invalidateOnInterval(
   prefix: string,
