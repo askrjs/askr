@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- fix(renderer): a component returning a fragment or array now retains its
+  child components when it re-renders with new props. Matching children keep
+  their state and DOM identity, including after hydration; nested fragments
+  reconcile against the same flattened child list used at creation.
 - fix(control): existing `For` rows now render with the latest row callback.
   A value the parent computed during render and captured in the callback (for
   example `const current = selected()`) kept its first value in rows that were
