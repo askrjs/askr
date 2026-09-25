@@ -191,6 +191,10 @@ Lifecycle and cleanup:
   already owns or that already hold data. A prefetch whose key gains a mounted
   reader while it is in flight is discarded if that reader is still mounted
   when it resolves, so it cannot replace newer data on a later mount.
+- Concurrent prefetches of the same key into the same runtime share one
+  in-flight fetch, even across prefetch contexts. Joiners receive its outcome,
+  including a rejection; when the fetch was aborted by its starting context's
+  `signal`, a joiner whose own signal is still live starts a replacement fetch.
 - In the browser, at most 50 unread prefetched entries are kept per runtime;
   prefetching more evicts the oldest unread entry. Payload building outside
   the browser (SSR, SSG, or the `createPayload()` sequence above in any mode)

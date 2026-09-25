@@ -66,6 +66,29 @@ export function defineQuery<TInput, TResult extends {}>(
 // are frozen, so the diagnostic state lives beside them rather than on them.
 const skippedPrefetchDiagnostics = new WeakMap<DataRuntime, Set<string>>();
 
+type InflightPrefetch = {
+  readonly signal: AbortSignal;
+  readonly promise: Promise<{}>;
+};
+
+// In-flight prefetch fetches, per runtime and query key. Every context that
+// prefetches into the same runtime joins the running fetch for a key.
+const inflightPrefetches = new WeakMap<
+  DataRuntime,
+  Map<string, InflightPrefetch>
+>();
+
+function getInflightPrefetches(
+  runtime: DataRuntime
+): Map<string, InflightPrefetch> {
+  let inflight = inflightPrefetches.get(runtime);
+  if (!inflight) {
+    inflight = new Map();
+    inflightPrefetches.set(runtime, inflight);
+  }
+  return inflight;
+}
+
 /**
  * Create a {@link QueryPrefetchContext} for prefetching query data ahead of
  * render, e.g. during SSR route resolution.
@@ -84,6 +107,24 @@ export function createQueryPrefetchContext(
     options.runtime ??
     (options.mode === 'spa' ? getDefaultDataRuntime() : createDataRuntime());
   const signal = options.signal ?? new AbortController().signal;
+  const storePrefetchedValue = (key: string, value: {}): boolean => {
+    if (signal.aborted) return false;
+    // A reader that mounted while this fetch was in flight owns newer data;
+    // storing this result would revive it on the next mount.
+    if (runtime.queryCache.has(key)) return true;
+    const runtimeState =
+      options.mode !== 'ssr' && typeof window !== 'undefined'
+        ? findDataRuntimeState(runtime)
+        : undefined;
+    if (runtimeState) {
+      writePrefetchedQueryData(runtimeState, key, value);
+    } else {
+      // Server/SSG payload building and hand-built runtimes keep every entry
+      // for dehydration.
+      runtime.queryData.set(key, value);
+    }
+    return true;
+  };
   return {
     runtime,
     request: options.request,
@@ -97,7 +138,6 @@ export function createQueryPrefetchContext(
         if (runtime.queryCache.has(key) || runtime.queryData.has(key)) {
           return true;
         }
-        let value: {};
         const handler =
           options.mode === 'ssr' ? options.registry?.get(query) : undefined;
         if (options.mode === 'ssr' && !handler) {
@@ -118,25 +158,41 @@ export function createQueryPrefetchContext(
           }
           return false;
         }
-        value = handler
-          ? await handler({ input, request: options.request, signal })
-          : await query.fetch(input, { signal });
-        if (signal.aborted) return false;
-        // A reader that mounted while this fetch was in flight owns newer
-        // data; storing this result would revive it on the next mount.
-        if (runtime.queryCache.has(key)) return true;
-        const runtimeState =
-          options.mode !== 'ssr' && typeof window !== 'undefined'
-            ? findDataRuntimeState(runtime)
-            : undefined;
-        if (runtimeState) {
-          writePrefetchedQueryData(runtimeState, key, value);
-        } else {
-          // Server/SSG payload building and hand-built runtimes keep every
-          // entry for dehydration.
-          runtime.queryData.set(key, value);
+        const inflight = getInflightPrefetches(runtime);
+        for (;;) {
+          let pending = inflight.get(key);
+          // Join a running fetch for this key unless its own caller already
+          // cancelled it while this caller is still live.
+          if (!pending || (pending.signal.aborted && !signal.aborted)) {
+            let promise: Promise<{}>;
+            try {
+              promise = Promise.resolve(
+                handler
+                  ? handler({ input, request: options.request, signal })
+                  : query.fetch(input, { signal })
+              );
+            } catch (error) {
+              promise = Promise.reject(error);
+            }
+            const entry: InflightPrefetch = { signal, promise };
+            const clear = () => {
+              if (inflight.get(key) === entry) inflight.delete(key);
+            };
+            promise.then(clear, clear);
+            inflight.set(key, entry);
+            pending = entry;
+          }
+          let value: {};
+          try {
+            value = await pending.promise;
+          } catch (error) {
+            // A fetch cancelled by its starting caller does not fail a
+            // still-live joiner; it starts a replacement.
+            if (pending.signal.aborted && !signal.aborted) continue;
+            throw error;
+          }
+          return storePrefetchedValue(key, value);
         }
-        return true;
       });
     },
   };
