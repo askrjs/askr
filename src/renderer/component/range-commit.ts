@@ -41,6 +41,7 @@ import {
   type InstanceHostNode,
 } from '../dom-host';
 import { getParentNamespace } from '../intrinsic/namespaces';
+import { getRetainedHostOwnerChain } from '../evaluation/reconcile';
 import { _isDOMElement, type VNode } from '../types';
 
 export function replaceComponentRange(
@@ -124,9 +125,16 @@ function replaceComponentRangeInTransaction(
   ) {
     return null;
   }
+  // Descendants that share this host (components rendering no DOM of their
+  // own) normally stay: the new result reuses them. An ErrorBoundary is
+  // different: it materializes its children or fallback afresh on every
+  // self re-render, so descendants of the swapped-out content must be
+  // cleaned up with the old host instead of surviving it.
   const retainedInstances = createRetainedHostInstanceSet(
     instance,
-    instanceHost.__ASKR_INSTANCES
+    instance.errorBoundaryState
+      ? getRetainedHostOwnerChain(instanceHost as InstanceHostElement, instance)
+      : instanceHost.__ASKR_INSTANCES
   );
   if (previousRange.single) {
     const emptyResult =

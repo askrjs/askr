@@ -374,6 +374,27 @@ function renderControlChildrenToSink(
   });
 }
 
+/**
+ * Snapshot portal writes before an ErrorBoundary renders its children. The
+ * returned function discards writes made by a subtree that then failed, so the
+ * fallback does not ship content the failed subtree wrote. Hosts it registered
+ * stay: like a client host replaced by a fallback, they keep the portal
+ * claimed, so content does not move to the automatic host.
+ */
+function captureSSRPortalWrites(ctx: RenderContext): () => void {
+  const saved = new Map<object, { hasValue: boolean; value: unknown }>();
+  for (const [key, slot] of ctx.ssrPortals.slots) {
+    saved.set(key, { hasValue: slot.hasValue, value: slot.value });
+  }
+  return () => {
+    for (const [key, slot] of ctx.ssrPortals.slots) {
+      const previous = saved.get(key);
+      slot.hasValue = previous?.hasValue ?? false;
+      slot.value = previous?.value as typeof slot.value;
+    }
+  };
+}
+
 function renderErrorBoundaryFallbackValueToSink(
   fallback: unknown,
   error: unknown,
@@ -520,9 +541,11 @@ function collectErrorBoundaryRawText(
       ctx
     );
   }
+  const discardPortalWrites = captureSSRPortalWrites(ctx);
   try {
     return collectRawText(node.props?.children, element, ctx);
   } catch (error) {
+    discardPortalWrites();
     if (boundaryState) {
       boundaryState.error = error;
       boundaryState.notified = true;
@@ -644,6 +667,7 @@ function renderNodeSyncToSink(
       // Buffered so a failure part-way through discards everything the
       // subtree already produced instead of appending the fallback to it.
       const protectedOutput = new BufferedSink();
+      const discardPortalWrites = captureSSRPortalWrites(ctx);
       try {
         renderChildrenSyncToSink(
           normalizeRenderableChildren(props?.children),
@@ -651,6 +675,7 @@ function renderNodeSyncToSink(
           ctx
         );
       } catch (error) {
+        discardPortalWrites();
         if (boundaryState) {
           boundaryState.error = error;
           boundaryState.notified = true;

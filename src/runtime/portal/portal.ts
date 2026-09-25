@@ -12,6 +12,7 @@ import {
 } from '../component/scope';
 import { type ComponentInstance } from '../component/instance';
 import { getRuntimeCleanup } from '../access';
+import { findEnclosingFallbackBoundary } from '../component/error-boundary';
 import {
   adjustPortalRegistrations,
   clearPortalRegistrations,
@@ -498,10 +499,16 @@ function registerExplicitDefaultPortalHost(
       }
 
       state.explicitHostCleanupOwners.delete(generation);
-      if (
-        state.explicitHostOwners.get(generation) === owner &&
-        state.explicitHostOwners.delete(generation)
-      ) {
+      if (state.explicitHostOwners.get(generation) !== owner) {
+        return;
+      }
+      // A host discarded by an ErrorBoundary fallback keeps the slot claimed
+      // for that boundary, so content does not move to the automatic host.
+      const boundary = findEnclosingFallbackBoundary(owner);
+      if (boundary) {
+        registerExplicitDefaultPortalHost(scope, state, boundary);
+      }
+      if (state.explicitHostOwners.delete(generation)) {
         if (__ASKR_DEVELOPMENT_BUILD__) {
           adjustPortalRegistrations(state, -1);
         }

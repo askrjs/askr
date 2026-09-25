@@ -293,7 +293,19 @@ Lifecycle and cleanup:
 - `reset()` clears the captured error and retries the descendant render.
 - Change `resetKey` when a route parameter or recovery input should reset the
   boundary automatically.
-- Descendant cleanup still runs when the failed subtree is replaced.
+- Descendant cleanup still runs when the failed subtree is replaced. This
+  includes components that render no DOM of their own and share the
+  boundary's host node.
+- When the fallback replaces a `Portal` writer, the content it wrote leaves the
+  portal host and its cleanups run, as when the writer unmounts. Recovery
+  (`reset()` or a new `resetKey`) renders the writer again and it writes the
+  portal again. During SSR and SSG, portal content written by a subtree that
+  failed is not emitted.
+- When the fallback replaces an explicit `DefaultPortal` host, including one
+  inside a component or a `Show`/`For`/`Case`, the portal stays claimed by the
+  boundary: content does not move to the automatic host while the fallback
+  shows, and it returns to the host after recovery. SSR and SSG behave the
+  same way.
 
 Failure and empty states:
 

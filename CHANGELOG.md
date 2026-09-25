@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- fix(runtime): an `ErrorBoundary` fallback now removes the portal content its
+  failed subtree wrote. A component that rendered no DOM of its own (such as
+  a writer that returns only `<Portal>`) shared the boundary's host node and
+  survived the fallback, so its `Portal` content stayed in the host, still
+  mounted, and its cleanups never ran. The fallback now disposes every
+  component inside the boundary. This applies to render, function-valued prop
+  and control-flow errors, and `reset()`/`resetKey` recovery writes the portal
+  again. An explicit `DefaultPortal` host replaced by a fallback (directly, or
+  inside a component or `Show`/`For`/`Case`) keeps the portal claimed, so its
+  content does not move to the automatic host. During SSR and SSG, portal
+  writes made by a subtree whose boundary renders its fallback are discarded
+  instead of being emitted.
 - fix(events): delegated handlers on app nodes inside an open shadow root
   attached within an app's tree now run, once and in native bubbling order,
   with `stopPropagation()` respected and `event.target` set to the real target
