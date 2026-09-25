@@ -274,6 +274,15 @@ export function cleanupReadableSubscriptionSources(
   }
 }
 
+/**
+ * Whether a derive() or selector() computation is running. Such a computation
+ * must be pure: it can run in the derived lane, where no component instance
+ * is current, so the render-time write guard alone does not cover it.
+ */
+export function isDerivedComputationActive(): boolean {
+  return currentDerivedSubscriber !== null;
+}
+
 export function withDerivedReadTracking<T>(
   subscriber: DerivedSubscriber,
   fn: () => T
@@ -346,11 +355,7 @@ export function markReadableDerivedSubscribersDirty(
 export function markReactivePropsDirtySource(
   source: ReadableSource<unknown>
 ): void {
-  try {
-    markRuntimeReactivePropsDirtySource(source);
-  } catch {
-    // Keep readable notifications side-effect safe.
-  }
+  markRuntimeReactivePropsDirtySource(source);
 }
 
 /** Whether `instance` read `source` in its last committed render. */

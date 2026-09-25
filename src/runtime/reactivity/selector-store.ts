@@ -18,7 +18,10 @@ export function markDirtySelectorRecord<T extends DirtySelectorRecord>(
     record._pending = true;
     dirtySelectorRecords.add(record);
   }
-  requestRuntimeWork('derived', (selectorWork ??= new ScheduledWork(flush)));
+  requestRuntimeWork(
+    'derived',
+    (selectorWork ??= new ScheduledWork(flush, true))
+  );
 }
 
 export function takeDirtySelectorRecords<T extends DirtySelectorRecord>(): T[] {
