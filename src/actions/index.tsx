@@ -114,6 +114,32 @@ function normalizeActionRedirect(value: string): string {
   return target.href;
 }
 
+/**
+ * The `Error` an action submission rejects with for a failed HTTP response.
+ * The message always carries the status; a server-provided error value, or
+ * the body parse failure, is kept as `cause`.
+ */
+function actionFailure(status: number, cause?: unknown): Error {
+  const detail =
+    typeof cause === 'string'
+      ? cause
+      : cause &&
+          typeof cause === 'object' &&
+          !(cause instanceof Error) &&
+          typeof (cause as { message?: unknown }).message === 'string'
+        ? (cause as { message: string }).message
+        : '';
+  const error = new Error(
+    detail
+      ? `Action failed (${status}): ${detail}`
+      : `Action failed (${status}).`
+  );
+  if (cause !== undefined) {
+    (error as Error & { cause?: unknown }).cause = cause;
+  }
+  return error;
+}
+
 /** Returns a command handle, rather than a hook. */
 export function action<
   TInput extends Record<string, unknown>,
@@ -145,7 +171,16 @@ export function action<
           },
           body: JSON.stringify(input),
         });
-        const envelope = (await response.json()) as {
+        let parsed: unknown;
+        try {
+          parsed = await response.json();
+        } catch (cause) {
+          // A proxy or crashed server can answer with HTML or plain text;
+          // keep the HTTP status visible rather than a JSON parse error.
+          if (!response.ok) throw actionFailure(response.status, cause);
+          throw cause;
+        }
+        const envelope = (parsed ?? {}) as {
           result?: TResult;
           error?: unknown;
           invalidates?: unknown;
@@ -157,10 +192,12 @@ export function action<
           fieldErrors?: unknown;
         };
         if (!response.ok) {
+          if (envelope.error != null) {
+            throw actionFailure(response.status, envelope.error);
+          }
           throw (
-            envelope.error ??
             validationError(envelope, descriptor.id) ??
-            new Error(`Action failed (${response.status}).`)
+            actionFailure(response.status)
           );
         }
         const redirect =

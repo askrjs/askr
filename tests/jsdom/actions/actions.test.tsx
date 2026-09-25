@@ -369,6 +369,91 @@ describe('actions', () => {
     }
   });
 
+  it.each([
+    ['a string', 'Not allowed.', 'Action failed (403): Not allowed.'],
+    [
+      'an object with a message',
+      { code: 'forbidden', message: 'Not allowed.' },
+      'Action failed (403): Not allowed.',
+    ],
+    [
+      'an object without a message',
+      { code: 'forbidden' },
+      'Action failed (403).',
+    ],
+  ])(
+    'should throw an Error given %s envelope error',
+    async (_label, envelopeError, message) => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () =>
+          Response.json({ version: 1, error: envelopeError }, { status: 403 })
+        )
+      );
+      vi.stubGlobal('location', {
+        href: 'http://example.test/items',
+        assign: vi.fn(),
+      });
+      let command!: ReturnType<typeof action<{ name: string }>>;
+      const App = () => {
+        command = action(save);
+        return <div />;
+      };
+      const { container, cleanup } = createTestContainer();
+      try {
+        createIsland({ root: container, component: App });
+        flushScheduler();
+        const failure = await command.submit({ name: 'Ada' }).then(
+          () => undefined,
+          (error: unknown) => error
+        );
+        expect(failure).toBeInstanceOf(Error);
+        expect((failure as Error).message).toBe(message);
+        expect((failure as Error).cause).toEqual(envelopeError);
+        expect(command.state().error).toBe(failure);
+      } finally {
+        cleanup();
+      }
+    }
+  );
+
+  it('should report the HTTP status given a non-JSON error response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response('<h1>Bad gateway</h1>', {
+            status: 502,
+            headers: { 'content-type': 'text/html' },
+          })
+      )
+    );
+    vi.stubGlobal('location', {
+      href: 'http://example.test/items',
+      assign: vi.fn(),
+    });
+    let command!: ReturnType<typeof action<{ name: string }>>;
+    const App = () => {
+      command = action(save);
+      return <div />;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      const failure = await command.submit({ name: 'Ada' }).then(
+        () => undefined,
+        (error: unknown) => error
+      );
+      expect(failure).toBeInstanceOf(Error);
+      expect((failure as Error).message).toBe('Action failed (502).');
+      expect((failure as Error).cause).toBeInstanceOf(SyntaxError);
+      expect(command.state().error).toBe(failure);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should put enhanced 422 field errors into reactive error state', async () => {
     const failure = {
       version: 1,
