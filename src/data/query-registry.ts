@@ -120,7 +120,7 @@ export function createQueryPrefetchContext(
         }
         value = handler
           ? await handler({ input, request: options.request, signal })
-          : await query.fetch({ ...input, signal });
+          : await query.fetch(input, { signal });
         if (signal.aborted) return false;
         // A reader that mounted while this fetch was in flight owns newer
         // data; storing this result would revive it on the next mount.

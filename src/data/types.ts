@@ -30,7 +30,8 @@ export interface DataRuntimeOptions {
 export interface QueryDefinition<TInput, TResult extends {}> {
   readonly key: (input: TInput) => string;
   readonly fetch: (
-    context: TInput & { signal: AbortSignal }
+    input: TInput,
+    context: { signal: AbortSignal }
   ) => Promise<TResult>;
   readonly isConsistent?: (data: TResult) => boolean;
   readonly reconcile?: (
