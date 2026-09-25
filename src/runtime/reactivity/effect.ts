@@ -4,8 +4,13 @@ import {
   type ReadableSource,
   withFineGrainedReadTracking,
 } from './readable';
-import { requestRuntimeWork, SCHEDULER_LANES } from '../access';
+import {
+  getRuntimeScheduler,
+  requestRuntimeWork,
+  SCHEDULER_LANES,
+} from '../access';
 import { ScheduledWork } from '../scheduled-work';
+import { createFlushLoopGuard } from '../flush-loop-guard';
 import type { SchedulerLane } from '../scheduler';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
@@ -33,12 +38,11 @@ const dirtyEffectsByLane: EffectFlushSets = {
   post: new Set(),
 };
 
-const MAX_EFFECT_RUNS_PER_FLUSH = 50;
 const LANE_FLUSH_TASKS: Record<SchedulerLane, ScheduledWork> = {
-  derived: new ScheduledWork(() => flushLaneEffects('derived')),
-  component: new ScheduledWork(() => flushLaneEffects('component')),
-  reactive: new ScheduledWork(() => flushLaneEffects('reactive')),
-  post: new ScheduledWork(() => flushLaneEffects('post')),
+  derived: new ScheduledWork(() => flushLaneEffects('derived'), true),
+  component: new ScheduledWork(() => flushLaneEffects('component'), true),
+  reactive: new ScheduledWork(() => flushLaneEffects('reactive'), true),
+  post: new ScheduledWork(() => flushLaneEffects('post'), true),
 };
 
 type EffectReadSources =
@@ -408,6 +412,15 @@ function handleEffectError(
   throw error;
 }
 
+// Run counts span every lane flush within one scheduler flush, so a cycle
+// that ping-pongs between lanes is caught per effect rather than by dropping
+// a whole lane batch (which would strand unrelated dirty effects). Effects
+// have always been counted in production too, so no warm-up threshold.
+const effectLoopGuard = createFlushLoopGuard<FineGrainedEffect<unknown>>(
+  'fine-grained effect',
+  true
+);
+
 function flushLaneEffects(lane: SchedulerLane): void {
   const effects = dirtyEffectsByLane[lane];
   if (effects.size === 0) {
@@ -415,7 +428,7 @@ function flushLaneEffects(lane: SchedulerLane): void {
   }
 
   const pending = effects.values();
-  const effectRuns = new Map<FineGrainedEffect<unknown>, number>();
+  const scheduler = getRuntimeScheduler();
   let failures: unknown[] | null = null;
   let next = pending.next();
 
@@ -427,16 +440,14 @@ function flushLaneEffects(lane: SchedulerLane): void {
       continue;
     }
 
-    const runCount = (effectRuns.get(effect) ?? 0) + 1;
-    effectRuns.set(effect, runCount);
-    if (runCount > MAX_EFFECT_RUNS_PER_FLUSH) {
-      const error = new Error(
-        `[Askr] fine-grained effect exceeded ${MAX_EFFECT_RUNS_PER_FLUSH} runs in one flush. Likely reactive cycle.`
-      );
-      try {
-        handleEffectError(effect, error);
-      } catch (unhandledError) {
-        (failures ??= []).push(unhandledError);
+    const loop = effectLoopGuard(scheduler, effect);
+    if (loop) {
+      if (loop !== true) {
+        try {
+          handleEffectError(effect, loop);
+        } catch (unhandledError) {
+          (failures ??= []).push(unhandledError);
+        }
       }
       next = pending.next();
       continue;

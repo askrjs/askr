@@ -42,9 +42,9 @@ describe('reactive scheduling recovery', () => {
             expect(scheduler.clearPendingSyncTasks()).toBeGreaterThan(0);
           } else {
             scheduler.setBulkCommitProbe(() => true);
-            // Effect notifications deliberately suppress renderer errors.
-            if (kind === 'effect') write(1);
-            else expect(() => write(1)).toThrow('during bulk commit');
+            // A rejected enqueue surfaces to the writer for every kind,
+            // including reactive-prop (effect) marking (#433).
+            expect(() => write(1)).toThrow('during bulk commit');
             scheduler.setBulkCommitProbe(() => false);
           }
           write(2);

@@ -134,6 +134,42 @@ flushes. Await a microtask or timer only when the application code explicitly
 uses that boundary; otherwise use the scheduler or routed-render test helper
 that corresponds to the public operation above.
 
+## Update loop guard
+
+A scheduler flush drains every lane until no work remains. A task that throws is
+consumed, the drain continues, and the flush rethrows the failure afterwards
+(an `AggregateError` when several tasks failed, in execution order).
+
+If the same scheduled task runs more than 50 times in one flush (for example a
+component whose ref callback writes state it renders), the scheduler treats it
+as an update loop: it drops that task, records an `exceeded MAX_FLUSH_DEPTH`
+error with the other failures, and keeps draining the remaining queued work, so
+earlier failures are still reported and later lanes are not stranded. Dropping a
+task clears its owner's pending flag (unless another copy of it is still
+queued), so a later write schedules it again: a component re-renders on its
+next state change.
+
+Reactive work that runs as a shared batch is guarded per entry instead, with
+the same limit counted across every batch in the flush:
+
+- A fine-grained effect that runs more than 50 times is skipped and reported
+  once per flush through its `onError` (or the flush failures).
+- A `derive()` or `selector()` whose computation writes state that re-dirties
+  itself, directly or through another derive, selector or effect, is skipped
+  after 50 recomputes and reported as `derive() exceeded 50 runs` or
+  `selector() exceeded 50 runs`. The skipped entry stays dirty and
+  recomputes on its next read.
+
+Unrelated dirty entries in the same batch still run. A loop is caught when the
+same task, component, effect, derived value or selector repeats. A task that
+enqueues a new closure on every run is not detected.
+
+Development builds count every run. Production builds count tasks, derived
+values and selectors only once a flush has run 1000 of them (effects are
+always counted), so flushes below that pay only a counter check. Past that
+point each run costs a map entry, and a production loop runs roughly 1000 + 50
+times before it fails instead of hanging the page.
+
 ## Cleanup
 
 ```ts

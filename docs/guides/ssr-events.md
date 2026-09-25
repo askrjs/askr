@@ -406,15 +406,12 @@ function ManyHandlers() {
 
 ### Hydration Cost
 
-Approximate figures from the project's own local benchmarks (not independently verified, and not a guarantee for any given device or app):
-
-- **100 listeners**: ~2-5ms
-- **1000 listeners**: ~20-30ms
-
-With **event delegation** enabled (default), measured cost is lower in the same benchmarks:
-
-- **100 delegated listeners**: ~1-2ms
-- **1000 delegated listeners**: ~5-10ms
+Hydration cost grows with the number of listeners the server-rendered tree
+adopts, and event delegation (the default) keeps per-listener work low. Askr
+does not publish fixed timings: measure on your own devices and app. The
+`tier2-subsystem-hydration-listeners.tsx` and
+`tier2-subsystem-events-delegation.tsx` workloads (`npm run bench:tier2`) track
+the runtime side of this cost in jsdom.
 
 ## Best Practices
 

@@ -2,6 +2,91 @@
 
 ## Unreleased
 
+- chore(bench): the benchmark workflow runs only the existing tier1 and tier2
+  lanes, as one matrix job per tier, instead of 36 copy-pasted steps that also
+  invoked the removed `bench:tier3`/`bench:tier4` scripts. The browser-only
+  `precise_clock` input and its dead tier3/4 config are removed, artifacts are
+  uploaded per tier (`bench-results-stable-tier<N>`), and docs no longer
+  describe the deleted lanes, their guardrails, or hydration timings taken from
+  them. A `tests/checks` guard fails on bench scripts, configs, or files that
+  docs and workflows reference but do not exist.
+- chore(agents): AGENTS.md now explicitly allows maintainer-run release tooling
+  (`scripts/publish-order.mjs`) and prefers workflow matrices over copy-pasted
+  steps; `tests/checks` fails on any unlisted `scripts/*` file.
+- fix(router): when several page `fallback()`s match a URL, the deepest page
+  prefix (counted in segments) now wins on the client and in sync and async
+  SSR. Previously the longest prefix string won, so an encoded prefix such as
+  `/caf%C3%A9` could outrank a deeper `/café/x`.
+- fix(router): registering two routes that match the same URLs now throws
+  `Duplicate route path` instead of silently shadowing the second. Routes are
+  compared the way they match: parameter and splat names, trailing slashes and
+  percent-encoding of static segments are ignored, a `*` wildcard equals a
+  param, and a `fallback()` equals a named splat at its prefix. Each registry
+  is checked separately. Declare a template once and use `entries()` for its
+  pages.
+- fix(router): `fallback()` inside a parameterized page such as
+  `page('/{lang}')` now handles misses under `/en/...` (and receives `lang`)
+  instead of matching only the literal `/{lang}/...`.
+- fix(ssg): `invalidationKeys` passed to `route()` were dropped from the
+  registry, so incremental generation treated those routes as keyless and
+  always rebuilt them. They now apply to every page the route's `entries()`
+  generate.
+- fix(boot): error messages no longer point at a nonexistent `createSSR`; they
+  name `createSPA`/`hydrateSPA` (and `createIslands`). Removed the unreachable
+  redirect branches in `createSPA`/`hydrateSPA`, and sync SSR now matches
+  routes against the registry's manifest records like async SSR does.
+- fix(ssr): async render contexts resolve `AsyncLocalStorage` from
+  `globalThis.AsyncLocalStorage` or `process.getBuiltinModule('node:async_hooks')`
+  instead of `new Function('return require(...)')`. Previously synchronous
+  `withRenderContext()` could not accept async callbacks under Node ESM (where
+  that loader never resolved `require`), and async render contexts were
+  rejected under a CSP without `'unsafe-eval'` and on runtimes without
+  `process.versions.node`. Any runtime that provides `AsyncLocalStorage`
+  globally or via `process.getBuiltinModule` is now supported; see the SSR
+  guide.
+- fix(runtime): `cspNonce()` decides whether a render scope is active from
+  scope state instead of matching the text of `readScope()`'s error message.
+- fix(runtime): `state.set()` now throws when called inside a `derive()` or
+  `selector()` computation, including recomputes in the derived lane where no
+  component is rendering. Previously only render-time recomputes were caught
+  (by the render-mutation guard), so a derived-lane write went through
+  silently and could loop. A same-value (no-op) `set()` is still allowed.
+- fix(runtime): an error thrown by the renderer while marking reactive props
+  dirty is no longer swallowed. Component readers of the source are still
+  notified, then the error is rethrown to the writer (or aggregated by the
+  scheduler inside a flush). If notifying readers also fails, both errors are
+  thrown together as an `AggregateError`.
+- fix(router): `hydrateSPA()` no longer redirects a server-authorized page to
+  the login route when the browser cannot resolve the identity itself (for
+  example httpOnly-cookie sessions). Apps opt in with the new
+  `auth.dehydrate(context)` hook, which selects the minimal identity snapshot
+  (`authenticated`, `principal`, `tenant`, `scopes`; never the session)
+  serialized into the hydration payload. Hydration uses it for the initial
+  route; navigations use `auth.resolve`, or keep the snapshot when no resolver
+  is configured. Nothing about the identity is serialized without the hook.
+  `RouteAuthOptions.resolve` is now optional.
+- fix(fx): `scheduleTimeout()`, `scheduleIdle()` and `scheduleRetry()` now
+  cancel pending work when the component that scheduled them unmounts, as
+  documented. Calls made from a mounted component's `task()`, `watch()`
+  callback, mount/commit operation or event handler bind to that component's
+  lifetime, including portal content (owned by the writer) and handlers
+  wrapped by `debounceEvent()`, `throttleEvent()`, `rafEvent()` or
+  `scheduleEventHandler()`. Scheduled callbacks and retry attempts run as the
+  scheduling component, so work they reschedule (for example a polling loop)
+  also stops on unmount, and a stable portal handler follows the writer that
+  last rendered it. A synchronous scheduler flush inside a handler no
+  longer runs unrelated queued work as that handler's component. Previously no
+  cleanup was ever registered and timers fired after unmount. The unreachable
+  SSR branches in these helpers are removed, and `scheduleRetry()` settles
+  when `fn` throws synchronously or returns a non-promise.
+- fix(fx): `throttle(fn, ms, { leading: false })` waits the full interval
+  after an idle gap instead of firing on the next tick, and a throttle without
+  a trailing edge no longer retains the last arguments.
+- fix(fx): `debounceEvent({ leading: true })` and the default
+  `throttleEvent()` no longer call the handler twice for a single event. The
+  trailing edge only runs when another event arrived after the leading call.
+  Both now share their edge logic with `debounce()` and `throttle()`, and
+  `debounceEvent().flush()` only runs a pending trailing call.
 - fix(foundations): `mergeProps` no longer lets a `base` value of `undefined`
   overwrite an injected prop. Forwarding an optional prop that was not supplied
   (`onClick={props.onClick}`) used to wipe the primitive's handler or ARIA
@@ -137,6 +222,15 @@
   lazy import, or loader starts. Abandoned async resolution no longer leaks an
   unhandled rejection, and lazy routes whose component is already loaded now
   resolve synchronously.
+- fix(runtime): an update loop that trips the scheduler's `MAX_FLUSH_DEPTH`
+  guard no longer aborts the flush. The looping task is dropped and its error is
+  reported together with earlier task failures, remaining queued work still
+  runs, a dropped component update re-renders on its next write, and
+  production builds now fail such a loop instead of hanging. Effects,
+  `derive()` and `selector()` are now each limited to 50 runs per flush,
+  counted across lanes, so a reactive cycle through them (including
+  derive-to-derive cycles that previously hung inside one batch) stops at the
+  looping entry without stranding sibling work.
 - fix(router): `currentAuth()` no longer falls back to the process-wide client
   identity during server rendering. A server render without request auth now
   sees an anonymous identity, and server-mode route resolution no longer writes

@@ -356,6 +356,25 @@ const routeAuthOptions: RouteAuthOptions = {
   loginPath: '/login',
 };
 expectAssignable<RouteAuthOptions>(routeAuthOptions);
+expectAssignable<RouteAuthOptions>({
+  loginPath: '/login',
+  dehydrate: (auth: AuthContext) => ({
+    authenticated: auth.authenticated,
+    principal: auth.principal ? { id: auth.principal.id } : null,
+    tenant: null,
+  }),
+});
+expectError<RouteAuthOptions>({
+  dehydrate: (auth: AuthContext): Omit<AuthContext, 'session'> => ({
+    authenticated: auth.authenticated,
+    principal: null,
+    session: auth.session,
+    tenant: null,
+  }),
+});
+expectError<RouteAuthOptions>({
+  dehydrate: (auth: AuthContext) => auth.principal,
+});
 
 const routeRegistryOptions: RouteRegistryOptions = {
   auth: routeAuthOptions,

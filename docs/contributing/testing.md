@@ -113,14 +113,12 @@ does not mount Askr components.
 ```bash
 npm run bench:tier1
 npm run bench:tier2
-npm run bench:tier3
-npm run bench:tier4
-npm run bench:tier1 -- --outputJson bench-results/tier1.json && npm run bench:tier2 -- --outputJson bench-results/tier2.json && npm run bench:tier3 -- --outputJson bench-results/tier3.json && npm run bench:tier4 -- --outputJson bench-results/tier4.json
+npm run bench:tier1 -- --outputJson bench-results/tier1.json && npm run bench:tier2 -- --outputJson bench-results/tier2.json
 ```
 
-Microbenchmarks are Node-only. jsdom benchmarks measure DOM patching and
-component loops without layout dependency. SSR benchmarks measure server output
-and payload work.
+Benchmarks run in Node and jsdom; there is no browser benchmark lane. jsdom
+benchmarks measure DOM patching and component loops without layout dependency.
+SSR benchmarks measure server output and payload work.
 
 ## Related
 

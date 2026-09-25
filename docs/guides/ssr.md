@@ -21,6 +21,29 @@ Web stream only when a route contains an explicitly deferred value.
 Critical loader data is awaited before rendering. Wrap only non-critical
 promises with `defer()` and render them through `Resolve`.
 
+## Supported server runtimes
+
+Synchronous rendering (`renderToString()`, `renderToStringSync()`) works on any
+JavaScript runtime. `renderRouteRequest()` and other async render work keep each
+request's render context in `AsyncLocalStorage` so concurrent requests stay
+isolated. Async rendering is supported on runtimes that provide
+`AsyncLocalStorage` globally or via `process.getBuiltinModule`. Askr resolves
+it on first use, in this order:
+
+1. `globalThis.AsyncLocalStorage`.
+2. `process.getBuiltinModule('node:async_hooks')`.
+
+Node.js 24+ (the supported Node range) provides the second. Other runtimes
+qualify when they implement either API; for example, recent Deno and Bun
+releases and Cloudflare Workers with Node.js compatibility enabled. Check your
+runtime's documentation for its current support.
+
+Neither path is a static import or evaluates code, so client bundles never pull
+in `node:async_hooks` and pages served under a CSP without `'unsafe-eval'` are
+unaffected. On a runtime that offers neither, synchronous rendering still works
+and async render work rejects with an error naming the missing
+`AsyncLocalStorage`.
+
 ## Deferred route responses
 
 Server adapters should call `renderRouteRequest()`. A route without pending
@@ -89,6 +112,61 @@ actionable error. Normal client navigation reruns the loader and receives the
 complete report. The selector is a transport/security boundary, not a static
 subtree declaration: hydrated components must still be able to render from the
 selected data.
+
+## Hydrating authenticated pages
+
+The server resolves the identity for a request (for example from an httpOnly
+session cookie passed to `renderRouteRequest({ authContext })`). By default,
+none of that identity reaches the browser: the hydration payload contains no
+principal, session, tenant, or `authenticated` flag. `hydrateSPA()` then
+resolves the initial route again with the client `auth.resolve`, and a client
+that cannot see the cookie is anonymous, so a protected page would redirect to
+the login route as soon as it hydrates.
+
+Opt in with `auth.dehydrate` to send a minimal identity snapshot for hydration:
+
+```ts
+const registry = createRouteRegistry(routes, {
+  auth: {
+    loginPath: '/login',
+    dehydrate: (auth) => ({
+      authenticated: auth.authenticated,
+      principal: auth.principal
+        ? { id: auth.principal.id, roles: auth.principal.roles }
+        : null,
+      tenant: null,
+    }),
+  },
+});
+```
+
+- `dehydrate` runs on the server with the identity that authorized the page,
+  on every page render, including public pages visited anonymously (those
+  carry an anonymous stub: `authenticated: false`, `principal: null`).
+- `authenticated`, `principal`, `tenant`, and `scopes` of the returned object
+  are serialized **verbatim**, including every nested field. Build a new,
+  minimal `principal` with only what the client renders and what route `auth`
+  requirements check (typically `id` and `roles`). Never return the resolved
+  principal as-is: it can carry password hashes, tokens, or personal data.
+- The session is never serialized; its id is often the cookie value itself.
+  On the client `currentAuth().session` is always `null`.
+- The snapshot is JSON-encoded into the page's hydration payload with the same
+  escaping as route data, and is readable by any script on the page.
+- A page carrying a dehydrated identity is personalized. Serve it with
+  `Cache-Control: private` (or `no-store`), never from a shared cache or CDN,
+  or one visitor's identity is served to another.
+- `hydrateSPA()` uses the snapshot, instead of calling `auth.resolve`, to
+  resolve and render the initial route the server already authorized, so
+  `currentAuth()` matches the server render. Components cannot read the raw
+  snapshot from render data. When `auth.resolve` is configured, later
+  navigations resolve the identity with it. Without `auth.resolve`, the
+  snapshot stays the client identity for navigations until the next full page
+  load.
+- The snapshot is not a credential and grants nothing. Client route decisions
+  are presentation only; the server remains responsible for authorizing every
+  request and all data.
+- `auth.resolve` is optional, so an app whose identity is only visible to the
+  server can configure `{ loginPath, dehydrate }` alone.
 
 ## URL-based rendering
 

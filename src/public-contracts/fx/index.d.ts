@@ -203,9 +203,17 @@ declare function throttleEvent(
 declare function rafEvent(handler: EventListener): EventListener & {
   cancel(): void;
 };
-/** Schedule `fn` after `ms`, auto-cancelling on component cleanup; returns a cancel function. */
+/**
+ * Schedule `fn` after `ms`; returns a cancel function. Called from a mounted
+ * component's task, watch callback, or event handler, it is also cancelled
+ * when that component is cleaned up.
+ */
 declare function scheduleTimeout(ms: number, fn: () => void): CancelFn;
-/** Schedule `fn` during browser idle time, auto-cancelling on component cleanup. */
+/**
+ * Schedule `fn` during browser idle time; returns a cancel function. Called
+ * from a mounted component's task, watch callback, or event handler, it is
+ * also cancelled when that component is cleaned up.
+ */
 declare function scheduleIdle(
   fn: () => void,
   options?: {
@@ -217,7 +225,11 @@ interface RetryOptions$1 {
   delayMs?: number;
   backoff?: (attemptIndex: number) => number;
 }
-/** Run `fn`, retrying with backoff on failure, auto-cancelling on component cleanup. */
+/**
+ * Run `fn`, retrying with backoff on failure. Called from a mounted
+ * component's task, watch callback, or event handler, pending attempts are
+ * also cancelled when that component is cleaned up.
+ */
 declare function scheduleRetry<T>(
   fn: () => Promise<T>,
   options?: RetryOptions$1

@@ -294,7 +294,7 @@ export function assertRouteRegistrationUnlocked(): void {
   if (activeTable.registrationLocked) {
     throw new Error(
       'Route registration is locked after app startup. ' +
-        'Register routes at module load time before calling createSPA or createSSR.'
+        'Register routes at module load time before calling createSPA or hydrateSPA.'
     );
   }
 }
