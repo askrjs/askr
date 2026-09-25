@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- fix(renderer): a failed render no longer leaves fine-grained bindings
+  (function-valued props and children) stale. A binding whose function the
+  render replaced kept the new value after the DOM rolled back, so later
+  renders saw nothing to change, and an update the binding was due to run in
+  the same flush was dropped. Bindings now roll back with the render and then
+  catch up with their state; see "Fine-grained bindings and rollback" in
+  docs/core/rendering.md.
 - fix(control): development and production now agree on invalid `For` keys and
   `Case`/`Match` children. A null, undefined, or duplicate `For` key throws in
   every build (production previously dropped rows and showed the last
