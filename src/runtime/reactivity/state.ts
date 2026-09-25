@@ -7,6 +7,7 @@
  * - state() called at top-level only (indices must be monotonically increasing)
  * - state values persist across re-renders (stored in stateValues array)
  * - state.set() cannot be called during render (causes infinite loops)
+ * - state.set() cannot be called inside a derive()/selector() computation
  * - state.set() always enqueues through scheduler (never direct mutation)
  * - state.set() callback (notifyUpdate) always available
  */
@@ -19,7 +20,11 @@ import { type ComponentInstance } from '../component/instance';
 import { deferCommitNotification } from '../transactions/access';
 import { isProductionEnvironment } from '../../common/env';
 import { notifyReadableSource } from './notify';
-import { recordReadableRead, type ReadableSource } from './readable';
+import {
+  isDerivedComputationActive,
+  recordReadableRead,
+  type ReadableSource,
+} from './readable';
 
 /**
  * State value holder - callable to read, has set method to update
@@ -154,6 +159,17 @@ function createStateCell<T>(
 
   // Attach set method directly to function
   read.set = (newValueOrUpdater: T | ((prev: T) => T)): void => {
+    // INVARIANT: derive() and selector() computations are pure. They also run
+    // in the derived lane, outside any component render, so this is checked
+    // separately from the render guard below.
+    if (isDerivedComputationActive()) {
+      throw new Error(
+        `[Askr] state.set() cannot be called inside a derive() or selector() computation. ` +
+          `Derived computations must be pure; a write from one can re-trigger it in an update loop. ` +
+          `Move the state update to an event handler.`
+      );
+    }
+
     // INVARIANT: State cannot be mutated during component render
     // (when currentInstance is non-null). It must be scheduled for consistency.
     const currentInst = getCurrentComponentInstance();

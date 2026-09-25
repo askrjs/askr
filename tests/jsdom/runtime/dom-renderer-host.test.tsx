@@ -138,3 +138,39 @@ test('should preserve frozen handle identity and reject forged wrong-kind and fo
   });
   expect(target.textContent).toBe('unchanged');
 });
+
+test('should surface a reactive-prop dirty-marking failure and still notify readers', () => {
+  const runtime = getDefaultRuntime();
+  const original = runtime.renderer;
+  const failure = new Error('reactive prop marking failed');
+  let failing = false;
+  const adapter = createDOMRendererHost((native) => ({
+    ...native,
+    reactivity: {
+      markReactivePropsDirtySource(source) {
+        if (failing) throw failure;
+        native.reactivity.markReactivePropsDirtySource(source);
+      },
+    },
+  }));
+  const { container, cleanup } = createTestContainer();
+  let value!: State<number>;
+  function Counter() {
+    value = state(0);
+    return <button>{value()}</button>;
+  }
+  try {
+    runtime.configureRenderer(adapter);
+    createIsland({ root: container, component: Counter });
+    flushScheduler();
+    failing = true;
+    expect(() => value.set(1)).toThrow(failure);
+    failing = false;
+    flushScheduler();
+    expect(value()).toBe(1);
+    expect(container.querySelector('button')?.textContent).toBe('1');
+  } finally {
+    cleanup();
+    runtime.configureRenderer(original);
+  }
+});

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- fix(runtime): `state.set()` now throws when called inside a `derive()` or
+  `selector()` computation, including recomputes in the derived lane where no
+  component is rendering. Previously only render-time recomputes were caught
+  (by the render-mutation guard), so a derived-lane write went through
+  silently and could loop.
+- fix(runtime): an error thrown by the renderer while marking reactive props
+  dirty is no longer swallowed. Component readers of the source are still
+  notified, then the error is rethrown to the writer (or aggregated by the
+  scheduler inside a flush).
 - fix(router): route precedence is decided segment by segment, as documented:
   the first segment where two routes differ picks static > param > wildcard >
   splat, so `/docs/{*rest}` now beats `/{lang}/{page}` for `/docs/intro`
