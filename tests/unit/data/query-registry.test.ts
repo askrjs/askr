@@ -6,7 +6,9 @@ import {
   defineServerQueries,
   dehydrateDataRuntime,
   prefetchQuery,
+  serveQuery,
 } from '../../../src/data/query-registry';
+import { invalidate } from '../../../src/data/invalidation';
 
 describe('dehydrateDataRuntime', () => {
   it('should keep JSON-compatible query data unchanged', () => {
@@ -46,6 +48,38 @@ describe('dehydrateDataRuntime', () => {
       );
     }
   );
+
+  it('should reject non-JSON SSR preload data before anything renders', async () => {
+    const runtime = createDataRuntime();
+    const event = defineQuery({
+      key: ({ id }: { id: string }) => `event:${id}`,
+      fetch: async ({ id }: { id: string }) => ({ id, at: '' }),
+    });
+    const context = createQueryPrefetchContext({
+      runtime,
+      mode: 'ssr',
+      registry: defineServerQueries(
+        serveQuery(event, ({ input }) => ({
+          id: input.id,
+          at: new Date(0) as unknown as string,
+        }))
+      ),
+    });
+
+    await expect(prefetchQuery(context, event, { id: '1' })).rejects.toThrow(
+      '[Askr] Query data for key "event:1" at "$.at" is not JSON transport-safe: Date instances are not supported'
+    );
+    expect(runtime.queryData.has('event:1')).toBe(false);
+  });
+
+  it('should accept deeply nested query data without overflowing the stack', () => {
+    const runtime = createDataRuntime();
+    let nested: Record<string, unknown> = { leaf: true };
+    for (let depth = 0; depth < 20_000; depth += 1) nested = { nested };
+    runtime.queryData.set('deep:1', nested);
+
+    expect(dehydrateDataRuntime(runtime)).toEqual({ 'deep:1': nested });
+  });
 
   it('should reject cyclic query data', () => {
     const runtime = createDataRuntime();
@@ -196,12 +230,91 @@ describe('query prefetch in-flight dedupe', () => {
       query,
       { id: '1' }
     );
+    // The second prefetch joined the first fetch instead of starting its own.
+    expect(fetch).toHaveBeenCalledTimes(1);
     owner.abort();
 
     await expect(first).rejects.toThrow('Aborted');
     await expect(second).resolves.toBe(true);
     expect(fetch).toHaveBeenCalledTimes(2);
     expect(runtime.queryData.get('dedupe-abort:1')).toEqual({ id: '1' });
+  });
+
+  it('should reject a joiner promptly when its own signal aborts', async () => {
+    const runtime = createDataRuntime();
+    // The owner's fetch never settles and the owner cannot abort it.
+    const fetch = vi.fn(() => new Promise<{ id: string }>(() => {}));
+    const query = defineQuery({
+      key: ({ id }: { id: string }) => `dedupe-joiner-abort:${id}`,
+      fetch,
+    });
+    const joiner = new AbortController();
+    const reason = new Error('left the page');
+
+    void prefetchQuery(createQueryPrefetchContext({ runtime }), query, {
+      id: '1',
+    });
+    const joined = prefetchQuery(
+      createQueryPrefetchContext({ runtime, signal: joiner.signal }),
+      query,
+      { id: '1' }
+    );
+    expect(fetch).toHaveBeenCalledTimes(1);
+    let settled: unknown = 'pending';
+    joined.then(
+      () => (settled = 'resolved'),
+      (error: unknown) => (settled = error)
+    );
+    joiner.abort(reason);
+
+    // The owner's fetch never settles, so only the joiner's abort can.
+    for (let turn = 0; turn < 10; turn += 1) await Promise.resolve();
+    expect(settled).toBe(reason);
+  });
+
+  it('should not join a fetch that started before an invalidation', async () => {
+    const runtime = createDataRuntime();
+    const stale = deferred<{ v: number }>();
+    const fetch = vi
+      .fn<() => Promise<{ v: number }>>()
+      .mockReturnValueOnce(stale.promise)
+      .mockResolvedValueOnce({ v: 2 });
+    const query = defineQuery({ key: () => 'dedupe-invalidate:1', fetch });
+    const context = createQueryPrefetchContext({ runtime });
+
+    const before = prefetchQuery(context, query, {});
+    invalidate('dedupe-invalidate:', { runtime });
+    const after = prefetchQuery(context, query, {});
+    await expect(after).resolves.toBe(true);
+    stale.resolve({ v: 1 });
+
+    await expect(before).resolves.toBe(false);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(runtime.queryData.get('dedupe-invalidate:1')).toEqual({ v: 2 });
+  });
+
+  it('should discard an in-flight prefetch result invalidated before it settles', async () => {
+    const runtime = createDataRuntime();
+    const stale = deferred<{ v: number }>();
+    const query = defineQuery({
+      key: () => 'prefetch-invalidated:1',
+      fetch: () => stale.promise,
+    });
+    const other = defineQuery({
+      key: () => 'prefetch-kept:1',
+      fetch: async () => ({ v: 3 }),
+    });
+    const context = createQueryPrefetchContext({ runtime });
+
+    const invalidated = prefetchQuery(context, query, {});
+    const kept = prefetchQuery(context, other, {});
+    invalidate('prefetch-invalidated:', { runtime });
+    stale.resolve({ v: 1 });
+
+    await expect(invalidated).resolves.toBe(false);
+    await expect(kept).resolves.toBe(true);
+    expect(runtime.queryData.has('prefetch-invalidated:1')).toBe(false);
+    expect(runtime.queryData.get('prefetch-kept:1')).toEqual({ v: 3 });
   });
 
   it('should keep separate runtimes independent', async () => {

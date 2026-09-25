@@ -14,6 +14,11 @@ import {
   renderRouteRequestToString,
 } from '../../../src/ssr';
 import { REDACTED_DEFERRED_ERROR } from '../../../src/ssr/hydration-data';
+import {
+  defineQuery,
+  defineServerQueries,
+  serveQuery,
+} from '../../../src/data';
 import type { AuthContext } from '@askrjs/auth';
 import { JSDOM } from 'jsdom';
 import {
@@ -714,5 +719,28 @@ describe('deferred route streaming', () => {
     expect(html).toContain('<p>full:ready</p>');
     expect(html).toContain('"__askr_deferred__":"fulfilled"');
     expect(html).not.toContain('"serverOnly":"full"');
+  });
+
+  it('should reject non-JSON preloaded query data before streaming the shell', async () => {
+    const pending = new Promise<string>(() => undefined);
+    const event = defineQuery({
+      key: () => 'event:1',
+      fetch: async () => ({ at: '' }),
+    });
+    const queryRegistry = defineServerQueries(
+      serveQuery(event, () => ({ at: new Date(0) as unknown as string }))
+    );
+    const registry = createRouteRegistry(() => {
+      route('/event', deferredPage, {
+        preload: ({ data }) => data.prefetch(event, {}),
+        loader: () => ({ message: defer(pending) }),
+      });
+    });
+
+    await expect(
+      renderRouteRequest({ url: '/event', registry, queryRegistry })
+    ).rejects.toThrow(
+      '[Askr] Query data for key "event:1" at "$.at" is not JSON transport-safe'
+    );
   });
 });

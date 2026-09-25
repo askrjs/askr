@@ -9,6 +9,7 @@ import {
   getDefaultDataRuntime,
   findDataRuntimeState,
   writePrefetchedQueryData,
+  type InflightPrefetch,
 } from './data-runtime';
 import type { CoreTelemetry } from '../common/telemetry';
 import { withTelemetry } from '../common/telemetry';
@@ -67,27 +68,28 @@ export function defineQuery<TInput, TResult extends {}>(
 // are frozen, so the diagnostic state lives beside them rather than on them.
 const skippedPrefetchDiagnostics = new WeakMap<DataRuntime, Set<string>>();
 
-type InflightPrefetch = {
-  readonly signal: AbortSignal;
-  readonly promise: Promise<{}>;
-};
+/**
+ * Throw when query data cannot cross the hydration JSON transport unchanged.
+ * SSR preloads check before anything streams; dehydration checks again.
+ */
+function assertQueryDataTransportSafe(key: string, value: unknown): void {
+  validateJsonTransportValue(
+    value,
+    `Query data for key ${JSON.stringify(key)}`,
+    'Return JSON-compatible query data.'
+  );
+}
 
-// In-flight prefetch fetches, per runtime and query key. Every context that
-// prefetches into the same runtime joins the running fetch for a key.
-const inflightPrefetches = new WeakMap<
-  DataRuntime,
-  Map<string, InflightPrefetch>
->();
-
-function getInflightPrefetches(
-  runtime: DataRuntime
-): Map<string, InflightPrefetch> {
-  let inflight = inflightPrefetches.get(runtime);
-  if (!inflight) {
-    inflight = new Map();
-    inflightPrefetches.set(runtime, inflight);
-  }
-  return inflight;
+/** Settle with `promise`, or reject with `signal.reason` once it aborts. */
+function raceAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(signal.reason);
+    if (signal.aborted) abort();
+    signal.addEventListener('abort', abort);
+    void promise
+      .then(resolve, reject)
+      .finally(() => signal.removeEventListener('abort', abort));
+  });
 }
 
 /**
@@ -120,6 +122,8 @@ export function createQueryPrefetchContext(
     if (runtimeState) {
       writePrefetchedQueryData(runtimeState, key, value);
     } else {
+      // Fail before an SSR shell streams rather than at dehydration.
+      if (options.mode === 'ssr') assertQueryDataTransportSafe(key, value);
       // Server/SSG payload building and hand-built runtimes keep every entry
       // for dehydration.
       runtime.queryData.set(key, value);
@@ -159,12 +163,18 @@ export function createQueryPrefetchContext(
           }
           return false;
         }
-        const inflight = getInflightPrefetches(runtime);
+        // Hand-built runtimes have no state and do not share fetches.
+        const inflight =
+          findDataRuntimeState(runtime)?.prefetches ??
+          new Map<string, InflightPrefetch>();
         for (;;) {
           let pending = inflight.get(key);
           // Join a running fetch for this key unless its own caller already
           // cancelled it while this caller is still live.
-          if (!pending || (pending.signal.aborted && !signal.aborted)) {
+          const joined =
+            pending !== undefined &&
+            !(pending.signal.aborted && !signal.aborted);
+          if (!joined) {
             let promise: Promise<{}>;
             try {
               promise = Promise.resolve(
@@ -183,16 +193,21 @@ export function createQueryPrefetchContext(
             inflight.set(key, entry);
             pending = entry;
           }
+          const current = pending!;
           let value: {};
           try {
-            value = await pending.promise;
+            // A joiner still honours its own signal while it waits.
+            value = await (joined
+              ? raceAbort(current.promise, signal)
+              : current.promise);
           } catch (error) {
             // A fetch cancelled by its starting caller does not fail a
             // still-live joiner; it starts a replacement.
-            if (pending.signal.aborted && !signal.aborted) continue;
+            if (current.signal.aborted && !signal.aborted) continue;
             throw error;
           }
-          return storePrefetchedValue(key, value);
+          // An invalidation since the fetch started makes its result stale.
+          return !current.invalidated && storePrefetchedValue(key, value);
         }
       });
     },
@@ -218,12 +233,7 @@ export function dehydrateDataRuntime(
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of runtime.queryData) {
-    validateJsonTransportValue(value, (path, reason) => {
-      throw new TypeError(
-        `[Askr] Query data for key ${JSON.stringify(key)} at "${path}" is not JSON transport-safe: ${reason}. ` +
-          'Return JSON-compatible data from the query fetch or server handler.'
-      );
-    });
+    assertQueryDataTransportSafe(key, value);
     result[key] = value;
   }
   return result;

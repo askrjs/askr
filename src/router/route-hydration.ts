@@ -45,12 +45,11 @@ export function validateRouteHydrationData(
   value: unknown,
   route: string
 ): void {
-  validateJsonTransportValue(value, (path, reason) => {
-    throw new TypeError(
-      `[Askr] Route hydration data for "${route}" at "${path}" is not JSON transport-safe: ${reason}. ` +
-        'Return JSON-compatible data or use route(..., { dehydrate(data) { ... } }) to omit server-only values.'
-    );
-  });
+  validateJsonTransportValue(
+    value,
+    `Route hydration data for "${route}"`,
+    'Return JSON-compatible data or use route(..., { dehydrate(data) { ... } }) to omit server-only values.'
+  );
 }
 
 function omissionMap(

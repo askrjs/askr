@@ -199,8 +199,15 @@ Lifecycle and cleanup:
   when it resolves, so it cannot replace newer data on a later mount.
 - Concurrent prefetches of the same key into the same runtime share one
   in-flight fetch, even across prefetch contexts. Joiners receive its outcome,
-  including a rejection; when the fetch was aborted by its starting context's
-  `signal`, a joiner whose own signal is still live starts a replacement fetch.
+  including a rejection. A joiner still honours its own `signal`: aborting it
+  rejects that joiner with `signal.reason` at once. When the fetch was aborted
+  by its starting context's `signal`, a joiner whose own signal is still live
+  starts a replacement fetch. An `invalidate()` covering the key detaches the
+  in-flight fetch: later prefetches start a new one, and the detached result
+  is discarded (its prefetch resolves `false`). A fetch that never settles
+  holds the key for joiners without an abortable `signal`, so give `fetch` or
+  the server handler its own timeout, or pass a `signal` to the prefetch
+  context.
 - In the browser, at most 50 unread prefetched entries are kept per runtime;
   prefetching more evicts the oldest unread entry. Payload building outside
   the browser (SSR, SSG, or the `createPayload()` sequence above in any mode)

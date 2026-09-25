@@ -24,11 +24,22 @@ export type MutationSlot = {
   cell: MutationCell<unknown, unknown>;
 };
 
+/** A prefetch fetch in flight for one query key; see createQueryPrefetchContext. */
+export type InflightPrefetch = {
+  /** Signal of the prefetch context that started the fetch. */
+  readonly signal: AbortSignal;
+  readonly promise: Promise<{}>;
+  /** Set once an invalidation covers the key; the result is then discarded. */
+  invalidated?: boolean;
+};
+
 export type DataRuntimeState = {
   queryCache: Map<string, QueryCell<unknown>>;
   queryData: Map<string, unknown>;
   /** Unread browser-prefetched `queryData` entries, oldest first. */
   unreadPrefetches: Map<string, unknown>;
+  /** Prefetch fetches in flight, by query key. */
+  prefetches: Map<string, InflightPrefetch>;
   querySlotsByGeneration: WeakMap<object, Map<number, QuerySlot>>;
   mutationSlotsByGeneration: WeakMap<object, Map<number, MutationSlot>>;
   queryCleanupRegistered: WeakSet<object>;
@@ -53,6 +64,7 @@ function createDataRuntimeState(
     queryCache: queryCache as Map<string, QueryCell<unknown>>,
     queryData,
     unreadPrefetches: new Map(),
+    prefetches: new Map(),
     querySlotsByGeneration: new WeakMap(),
     mutationSlotsByGeneration: new WeakMap(),
     queryCleanupRegistered: new WeakSet(),
@@ -296,6 +308,15 @@ export function invalidateQueriesForRuntime(
 ): void {
   if (hasInvalidationListeners()) {
     emitInvalidation({ prefix, markPendingWrite });
+  }
+
+  // A prefetch that started before this invalidation must neither be joined
+  // nor store its result.
+  for (const [key, prefetch] of runtimeState.prefetches) {
+    if (matchesInvalidationPrefix(key, prefix)) {
+      prefetch.invalidated = true;
+      runtimeState.prefetches.delete(key);
+    }
   }
 
   for (const key of runtimeState.queryData.keys()) {

@@ -1,13 +1,48 @@
 import { isDeferred } from './deferred-value';
 
-/** Report a value that cannot cross the hydration JSON transport unchanged. */
-export type JsonTransportFailure = (path: string, reason: string) => never;
-
 /** Diagnostic path for an own property of the value at `parent`. */
 export function jsonTransportPropertyPath(parent: string, key: string): string {
   if (/^(?:0|[1-9]\d*)$/.test(key)) return `${parent}[${key}]`;
   if (/^[A-Za-z_$][\w$]*$/.test(key)) return `${parent}.${key}`;
   return `${parent}[${JSON.stringify(key)}]`;
+}
+
+/** An object awaiting validation; its location is kept for lazy paths. */
+type Frame = {
+  readonly o: object;
+  readonly p: Frame | undefined;
+  readonly k: string;
+  /** Whether its children were pushed; the next pop leaves it. */
+  seen: boolean;
+};
+
+/** Format a diagnostic path only when a value actually fails. */
+function pathOf(frame: Frame, key?: string): string {
+  const keys = key === undefined ? [] : [key];
+  for (let at = frame; at.p; at = at.p) keys.push(at.k);
+  let path = '$';
+  for (let index = keys.length - 1; index >= 0; index -= 1) {
+    path = jsonTransportPropertyPath(path, keys[index]);
+  }
+  return path;
+}
+
+function primitiveReason(value: unknown): string | undefined {
+  switch (typeof value) {
+    case 'number':
+      return Number.isFinite(value)
+        ? undefined
+        : 'non-finite numbers are not supported';
+    case 'undefined':
+      return 'undefined is not supported';
+    case 'bigint':
+      return 'bigint is not supported';
+    case 'symbol':
+      return 'symbols are not supported';
+    case 'function':
+      return 'functions are not supported';
+  }
+  return undefined;
 }
 
 function objectLabel(value: object): string {
@@ -25,92 +60,120 @@ function objectLabel(value: object): string {
  * `null`, strings, booleans, finite numbers, dense arrays, plain objects, and
  * framework deferred values. Anything `JSON.stringify()` would drop, coerce, or
  * reject (undefined, functions, bigint, `Date`, `Map`, class instances, cycles,
- * and so on) is reported through `fail` with its path.
+ * and so on) throws a `TypeError` naming `subject` and the value's path, then
+ * `hint`. Accessors are rejected without being invoked. The walk is
+ * iterative, so nesting depth is bounded by memory rather than the call
+ * stack, and paths are formatted only on failure.
  */
 export function validateJsonTransportValue(
   value: unknown,
-  fail: JsonTransportFailure,
-  path = '$',
-  ancestors = new Set<object>()
+  subject: string,
+  hint: string
 ): void {
-  if (value === null || typeof value === 'string' || typeof value === 'boolean')
-    return;
+  const fail = (path: string, reason: string): never => {
+    throw new TypeError(
+      `[Askr] ${subject} at "${path}" is not JSON transport-safe: ${reason}. ${hint}`
+    );
+  };
+  const stack: Frame[] = [];
+  const ancestors = new Set<object>();
+  const visit = (
+    child: unknown,
+    parent: Frame | undefined,
+    key: string
+  ): void => {
+    const reason = primitiveReason(child);
+    if (reason) fail(parent ? pathOf(parent, key) : '$', reason);
+    if (child !== null && typeof child === 'object')
+      stack.push({ o: child, p: parent, k: key, seen: false });
+  };
 
-  if (typeof value === 'number') {
-    if (!Number.isFinite(value))
-      fail(path, 'non-finite numbers are not supported');
-    return;
-  }
-  if (typeof value === 'undefined') fail(path, 'undefined is not supported');
-  if (typeof value === 'bigint') fail(path, 'bigint is not supported');
-  if (typeof value === 'symbol') fail(path, 'symbols are not supported');
-  if (typeof value === 'function') fail(path, 'functions are not supported');
-
-  const object = value as object;
-  if (isDeferred(object)) {
-    if (object.state === 'fulfilled') {
-      validateJsonTransportValue(
-        object.value,
-        fail,
-        `${path}.value`,
-        ancestors
-      );
+  visit(value, undefined, '');
+  while (stack.length > 0) {
+    const frame = stack[stack.length - 1];
+    const object = frame.o;
+    if (frame.seen) {
+      stack.pop();
+      ancestors.delete(object);
+      continue;
     }
-    return;
-  }
 
-  if (ancestors.has(object)) fail(path, 'cyclic references are not supported');
-  ancestors.add(object);
+    // Deferred values carry a symbol marker; plain data has no symbols.
+    const hasSymbols = Object.getOwnPropertySymbols(object).length > 0;
+    if (hasSymbols && isDeferred(object)) {
+      stack.pop();
+      if (object.state === 'fulfilled') visit(object.value, frame, 'value');
+      continue;
+    }
 
-  try {
-    if (Array.isArray(object)) {
-      for (let index = 0; index < object.length; index += 1) {
-        if (!Object.prototype.hasOwnProperty.call(object, index)) {
-          fail(`${path}[${index}]`, 'sparse arrays are not supported');
-        }
-      }
-      for (const key of Reflect.ownKeys(object)) {
-        if (key === 'length') continue;
-        if (typeof key === 'symbol')
-          fail(path, 'symbol-keyed properties are not supported');
-        const descriptor = Object.getOwnPropertyDescriptor(object, key)!;
-        const childPath = jsonTransportPropertyPath(path, key);
-        if (!descriptor.enumerable)
-          fail(childPath, 'non-enumerable properties are not supported');
-        if (!('value' in descriptor))
-          fail(childPath, 'accessors are not supported');
-        if (!/^(?:0|[1-9]\d*)$/.test(key) || Number(key) >= object.length)
-          fail(childPath, 'named array properties are not supported');
-        validateJsonTransportValue(
-          descriptor.value,
-          fail,
-          childPath,
-          ancestors
+    if (ancestors.has(object))
+      fail(pathOf(frame), 'cyclic references are not supported');
+    frame.seen = true;
+    ancestors.add(object);
+
+    const array = Array.isArray(object) ? (object as unknown[]) : undefined;
+    if (!array) {
+      const prototype = Object.getPrototypeOf(object);
+      if (prototype !== Object.prototype && prototype !== null) {
+        fail(
+          pathOf(frame),
+          `${objectLabel(object)} instances are not supported; use a plain object`
         );
       }
-      return;
+    }
+    if (hasSymbols)
+      fail(pathOf(frame), 'symbol-keyed properties are not supported');
+
+    const keys = Object.keys(object);
+    // A dense array without named properties owns exactly its indices, in
+    // order; anything else takes the slow path that names the offender.
+    let named = false;
+    if (array) {
+      const length = array.length;
+      if (
+        keys.length !== length ||
+        (length > 0 && keys[length - 1] !== String(length - 1))
+      ) {
+        for (let index = 0; index < length; index += 1) {
+          if (!(index in array))
+            fail(
+              pathOf(frame, String(index)),
+              'sparse arrays are not supported'
+            );
+        }
+        named = true;
+      }
+    }
+    // Arrays own a non-enumerable `length`; any other hidden property fails.
+    const names = Object.getOwnPropertyNames(object);
+    if (names.length !== keys.length + (array ? 1 : 0)) {
+      for (const name of names) {
+        if (!(array && name === 'length') && !keys.includes(name))
+          fail(
+            pathOf(frame, name),
+            'non-enumerable properties are not supported'
+          );
+      }
     }
 
-    const prototype = Object.getPrototypeOf(object);
-    if (prototype !== Object.prototype && prototype !== null) {
-      fail(
-        path,
-        `${objectLabel(object)} instances are not supported; use a plain object`
-      );
-    }
-
-    for (const key of Reflect.ownKeys(object)) {
-      if (typeof key === 'symbol')
-        fail(path, 'symbol-keyed properties are not supported');
+    const firstChild = stack.length;
+    for (const key of keys) {
       const descriptor = Object.getOwnPropertyDescriptor(object, key)!;
-      const childPath = jsonTransportPropertyPath(path, key);
-      if (!descriptor.enumerable)
-        fail(childPath, 'non-enumerable properties are not supported');
       if (!('value' in descriptor))
-        fail(childPath, 'accessors are not supported');
-      validateJsonTransportValue(descriptor.value, fail, childPath, ancestors);
+        fail(pathOf(frame, key), 'accessors are not supported');
+      if (
+        named &&
+        (!/^(?:0|[1-9]\d*)$/.test(key) || Number(key) >= array!.length)
+      )
+        fail(pathOf(frame, key), 'named array properties are not supported');
+      visit(descriptor.value, frame, key);
     }
-  } finally {
-    ancestors.delete(object);
+    // Reverse the pushed children so nested objects are also checked in
+    // property order.
+    for (let low = firstChild, high = stack.length - 1; low < high;) {
+      const child = stack[low];
+      stack[low++] = stack[high];
+      stack[high--] = child;
+    }
   }
 }
