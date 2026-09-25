@@ -22,6 +22,11 @@ import {
   type AppliedProps,
 } from '../props/attributes';
 import {
+  restoreDomProperties,
+  snapshotDomProperties,
+  type DomPropertySnapshot,
+} from '../props/properties';
+import {
   getCurrentCommitTransaction,
   beginCommitTransaction,
   applyTransaction,
@@ -65,6 +70,8 @@ export interface RetainedElementSnapshot {
   childNodes: readonly Node[];
   delegatedListeners: readonly DelegatedListenerEntrySnapshot[];
   domCaptured: boolean;
+  /** Properties Askr wrote (`prop:`, `muted`, ...) and their values. */
+  domProperties: DomPropertySnapshot | undefined;
   formControl: FormControlSnapshot | null;
   keyedMap: Map<string | number, Element> | undefined;
   listeners: readonly ListenerEntrySnapshot[];
@@ -216,6 +223,7 @@ export function snapshotRetainedElement(
       ? copyRetainedDelegatedListeners(delegatedHandlerMap)
       : EMPTY_SNAPSHOT_ENTRIES,
     domCaptured: !bindingsOnly,
+    domProperties: bindingsOnly ? undefined : snapshotDomProperties(element),
     formControl: bindingsOnly ? null : getFormControlSnapshot(element),
     keyedMap: keyedMap && new Map(keyedMap),
     listeners: listenerMap
@@ -568,6 +576,7 @@ export function restoreRetainedElement(
       ? [
           () => restoreChildNodes(element, snapshot, cleanupRangeNode),
           () => restoreTextNodes(snapshot),
+          () => restoreDomProperties(element, snapshot.domProperties),
           () => restoreFormControl(element, snapshot),
           () => restoreAttributes(element, snapshot),
         ]

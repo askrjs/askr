@@ -130,14 +130,12 @@ describe('SSG hydration bundle', () => {
     // 265 KiB: client navigation tracks history entry indexes so a failed
     // back/forward returns to the rendered entry, and hands URLs no route can
     // render to the browser (~1.1 KB, #453-#455; measured 270,803 bytes).
-    // 267 KiB: function children render the same on the client as on the
-    // server (#517): one-level readable unwrap, function items in component
-    // fragment/array results and ErrorBoundary children rendered through a
-    // small component, binding setup for hydrated elements, error routing,
-    // and function children bound directly to the DOM running as a
-    // lightweight component render (an instance created only when the
-    // function uses a hook or Show/For) in the context frame of their
-    // position. About 2.2 KB (measured 272,984 bytes, from 270,803 on main).
+    // 267 KiB for the DOM property path (`muted`, `indeterminate`, custom
+    // element object props, `prop:`/`attr:`): the property table, resetting
+    // removed properties, the URL/raw-HTML guards and rollback snapshots add
+    // ~2.4 KB (measured 273,240 bytes). Without it those props cannot reach
+    // the element at all.
+    // #517 (function children rendered the same on client and server): TBD.
     expect(initialBytes).toBeLessThanOrEqual(267 * 1024);
   });
 });
