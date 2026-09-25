@@ -208,9 +208,11 @@ export function escapeAttr(value: string): string {
  * value a `document` renderer interpolates, such as `context.pathname`,
  * `context.params` or loader data. Do not use it for `appHtml`, which is
  * already rendered markup, or inside `<script>`/`<style>` raw text.
+ * `null` and `undefined` render as an empty string; other values are
+ * converted with `String()`.
  */
-export function escapeHtml(value: string): string {
-  return escapeAttr(value);
+export function escapeHtml(value: unknown): string {
+  return value == null ? '' : escapeAttr(String(value));
 }
 
 /**

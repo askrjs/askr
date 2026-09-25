@@ -3,7 +3,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import ts from '@typescript/typescript6';
-import { afterAll, afterEach, describe, expect, it, vi } from 'vite-plus/test';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vite-plus/test';
 import { dispatch, render, type RenderResult } from '@askrjs/askr/testing';
 
 /**
@@ -20,8 +28,8 @@ import { dispatch, render, type RenderResult } from '@askrjs/askr/testing';
 type SnippetModule = Record<string, unknown>;
 
 type ScenarioContext = {
-  /** Markdown source of the file that contains the snippet. */
-  markdown: string;
+  /** Body of the first fenced block after the snippet, if any. */
+  nextFence: string | undefined;
   mount(component: unknown): RenderResult;
 };
 
@@ -35,6 +43,8 @@ type RunnableSnippet = {
   id: string;
   filePath: string;
   code: string;
+  /** Markdown that follows the snippet's closing fence. */
+  after: string;
   extension: 'ts' | 'tsx' | 'js' | 'jsx';
 };
 
@@ -47,8 +57,12 @@ const rootDir = path.resolve(
 // Snippets are materialized inside the (git-ignored) repo `.temp` directory so
 // the test's Vite pipeline transforms their JSX and resolves package aliases.
 const tempParent = path.join(rootDir, '.temp');
-fs.mkdirSync(tempParent, { recursive: true });
-const tempRoot = fs.mkdtempSync(path.join(tempParent, 'doc-snippets-'));
+let tempRoot = '';
+
+beforeAll(() => {
+  fs.mkdirSync(tempParent, { recursive: true });
+  tempRoot = fs.mkdtempSync(path.join(tempParent, 'doc-snippets-'));
+});
 
 let mounted: RenderResult[] = [];
 
@@ -65,7 +79,11 @@ afterEach(() => {
 });
 
 afterAll(() => {
-  fs.rmSync(tempRoot, { recursive: true, force: true });
+  if (tempRoot) fs.rmSync(tempRoot, { recursive: true, force: true });
+  // Remove `.temp` too when this suite was its only user.
+  if (fs.existsSync(tempParent) && fs.readdirSync(tempParent).length === 0) {
+    fs.rmdirSync(tempParent);
+  }
 });
 
 function collectPublishedDocs(): string[] {
@@ -103,7 +121,8 @@ function snippetExtension(
 
 function extractRunnableSnippets(): RunnableSnippet[] {
   const snippets: RunnableSnippet[] = [];
-  const fencePattern = /```([A-Za-z]+)([^\n]*)\n([\s\S]*?)```/g;
+  // Same fence grammar as public-api-snippets.test.ts.
+  const fencePattern = /```([A-Za-z0-9_-]+)([^\n]*)\n([\s\S]*?)```/g;
 
   for (const filePath of collectPublishedDocs()) {
     const content = fs.readFileSync(filePath, 'utf8');
@@ -115,12 +134,25 @@ function extractRunnableSnippets(): RunnableSnippet[] {
         id: runId,
         filePath,
         code: match[3],
+        after: content.slice(match.index + match[0].length),
         extension: snippetExtension(match[1].toLowerCase(), match[3]),
       });
     }
   }
 
   return snippets;
+}
+
+function collectBindingNames(name: ts.BindingName, names: string[]): void {
+  if (ts.isIdentifier(name)) {
+    names.push(name.text);
+    return;
+  }
+  for (const element of name.elements) {
+    if (!ts.isOmittedExpression(element)) {
+      collectBindingNames(element.name, names);
+    }
+  }
 }
 
 /** Append an export clause for the snippet's top-level declarations. */
@@ -150,9 +182,7 @@ function exportTopLevelDeclarations(snippet: RunnableSnippet): string {
       names.push(statement.name.text);
     } else if (ts.isVariableStatement(statement)) {
       for (const declaration of statement.declarationList.declarations) {
-        if (ts.isIdentifier(declaration.name)) {
-          names.push(declaration.name.text);
-        }
+        collectBindingNames(declaration.name, names);
       }
     }
   }
@@ -233,6 +263,40 @@ const scenarios: Record<string, Scenario> = {
     },
   },
 
+  'data-state': {
+    run(module, context) {
+      const result = context.mount(component(module, 'Counter'));
+      const [set, increment] = result.root.querySelectorAll('button');
+      const output = result.root.querySelector('output');
+      expect(output?.textContent).toBe('0');
+
+      dispatch(set, 'click');
+      result.flush();
+      expect(output?.textContent).toBe('1');
+
+      dispatch(increment, 'click');
+      result.flush();
+      expect(output?.textContent).toBe('2');
+    },
+  },
+
+  'data-derive': {
+    run(module, context) {
+      const result = context.mount(component(module, 'DoubledCounter'));
+      const button = result.root.querySelector('button');
+      expect(button?.textContent).toBe('0 doubled is 0');
+
+      dispatch(button!, 'click');
+      result.flush();
+      expect(button?.textContent).toBe('1 doubled is 2');
+    },
+  },
+
+  'data-resource-user-card': {
+    run: (module, context) =>
+      expectUserResourceStates(module, context, 'UserCard'),
+  },
+
   'quick-start-user': {
     run: (module, context) => expectUserResourceStates(module, context, 'User'),
   },
@@ -281,8 +345,9 @@ const scenarios: Record<string, Scenario> = {
         thrown = error;
       }
       expect(thrown).toBeInstanceOf(Error);
-      // The quoted error in the docs must be the message users actually see.
-      expect(context.markdown).toContain((thrown as Error).message);
+      // The error block quoted right after the snippet must be the message
+      // users actually see.
+      expect(context.nextFence?.trim()).toBe((thrown as Error).message);
     },
   },
 
@@ -336,7 +401,7 @@ describe('runnable docs snippets', () => {
       expect(scenario, `missing scenario for ${snippet.id}`).toBeDefined();
       const module = await importSnippet(snippet, scenario);
       await scenario.run(module, {
-        markdown: fs.readFileSync(snippet.filePath, 'utf8'),
+        nextFence: /```[^\n]*\n([\s\S]*?)```/.exec(snippet.after)?.[1],
         mount(value) {
           const result = render(value as () => never);
           mounted.push(result);

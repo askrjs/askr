@@ -253,8 +253,10 @@ declare function renderToString(opts: RouteRenderOptions): string;
  * value a `document` renderer interpolates, such as `context.pathname`,
  * `context.params` or loader data. Do not use it for `appHtml`, which is
  * already rendered markup, or inside `<script>`/`<style>` raw text.
+ * `null` and `undefined` render as an empty string; other values are
+ * converted with `String()`.
  */
-declare function escapeHtml(value: string): string;
+declare function escapeHtml(value: unknown): string;
 /** Stream a route request's rendered HTML to the response sink described by `opts`. */
 declare function renderToStream(opts: RouteStreamOptions): void;
 export {

@@ -252,7 +252,8 @@ The `document` callback receives the rendered app HTML plus route context such a
 template. The template is plain string concatenation, so pass every
 request-derived value (`pathname`, `params`, `search`, loader `data`) through
 `escapeHtml()` before interpolating it into text or a quoted attribute. It
-escapes `&`, `<`, `>`, `"` and `'`. Only `appHtml` is already rendered markup;
+escapes `&`, `<`, `>`, `"` and `'`, accepts any value (`null` and `undefined`
+become an empty string, anything else goes through `String()`). Only `appHtml` is already rendered markup;
 do not escape it, and do not use `escapeHtml()` inside `<script>` or `<style>`.
 Pass the same request nonce as `cspNonce` to SSR and browser
 boot/hydration. Askr validates it before rendering, exposes it through

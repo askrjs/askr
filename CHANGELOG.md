@@ -4,10 +4,11 @@
 
 - feat(ssr): `escapeHtml()` from `@askrjs/askr/ssr` escapes `&`, `<`, `>`, `"`
   and `'` for request-derived values interpolated into a hand-written
-  `document` renderer template. The SSR, SSG and rendering guides now use it.
-- docs: fix examples that failed at runtime. The API overview no longer calls
-  `state()` at module scope, the quick-start and resources `resource()`
-  examples check `error` before `pending || !value` so a failed first load no
+  `document` renderer template. It accepts any value; `null` and `undefined`
+  become an empty string. The SSR, SSG and rendering guides now use it.
+- docs: fix examples that failed at runtime. The API overview and core data
+  guide no longer call `state()`/`derive()` at module scope, the quick-start,
+  resources, core data and resources reference `resource()` examples check `error` before `pending || !value` so a failed first load no
   longer shows "Loading..." forever, and the runtime-enforcement examples now
   actually trigger the documented hook-order and render-mutation errors and
   quote the real message. Doc fences tagged `run=<id>` are now imported and

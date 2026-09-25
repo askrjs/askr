@@ -2,8 +2,9 @@
 
 ## Creating State
 
-`state()` supports two equivalent usage forms. The tuple form names the getter
-and setter separately:
+`state()` supports two equivalent usage forms. Both must be called inside a
+component function during render; the fragments below show only the calls. The
+tuple form names the getter and setter separately:
 
 ```ts
 const [value, setValue] = state(initialValue);
