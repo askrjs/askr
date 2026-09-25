@@ -19,7 +19,7 @@ import {
 } from '../common/dom-properties';
 import type { RenderSink } from './sink';
 import { escapeAttr, needsEscapeAttr, styleObjToCss } from './escape';
-import { readUntracked } from '../runtime';
+import { readFunctionChildValue, readUntracked } from '../runtime';
 
 const ESCAPED_ATTR_VALUE_CACHE_LIMIT = 512;
 const escapedAttrValueCache = new Map<string, string>();
@@ -30,11 +30,12 @@ function isEventHandler(key: string): boolean {
 
 /**
  * A function or readable prop is reactive on the client; the server renders
- * its current value once, without subscribing to it.
+ * its current value once, without subscribing to it. A function that returns
+ * a readable renders the readable's value, as on the client.
  */
 function resolvePropValue(value: unknown): unknown {
   return typeof value === 'function'
-    ? readUntracked(value as () => unknown)
+    ? readUntracked(() => readFunctionChildValue(value as () => unknown))
     : value;
 }
 

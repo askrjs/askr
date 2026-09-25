@@ -138,6 +138,41 @@ describe('SSR reactive values', () => {
       '<p title="say &quot;hi&quot; &lt;now&gt;" class="lead" data-count="2">z</p>',
     ],
     [
+      'a function prop returning a state cell',
+      () => {
+        const useA = state(true);
+        const a = state('A');
+        return (
+          <p title={() => (useA() ? a : 'none')} data-cell={() => a}>
+            {'z'}
+          </p>
+        );
+      },
+      '<p title="A" data-cell="A">z</p>',
+    ],
+    [
+      'form controls with function values',
+      () => {
+        const name = state('Ada');
+        const on = state(true);
+        const role = state('b');
+        return (
+          <form>
+            <input value={() => name()} />
+            <input type="checkbox" checked={() => on()} />
+            <textarea value={() => name}></textarea>
+            <select value={() => role()}>
+              <option value="a">{'A'}</option>
+              <option value="b" selected={() => on}>
+                {'B'}
+              </option>
+            </select>
+          </form>
+        );
+      },
+      '<form><input value="Ada" /><input type="checkbox" checked /><textarea value="Ada"></textarea><select value="b"><option value="a">A</option><option value="b" selected>B</option></select></form>',
+    ],
+    [
       'a function child returning a state cell',
       () => {
         const useA = state(true);
@@ -345,6 +380,55 @@ describe('SSR reactive values', () => {
     const p = container.querySelector('p')!;
     expect(p.textContent).toBe('after');
     expect(p.getAttribute('title')).toBe('after');
+  });
+
+  it('should keep hydrated form control and readable-returning props reactive', async () => {
+    let name!: State<string>;
+    let on!: State<boolean>;
+    let role!: State<string>;
+    const Component = () => {
+      name = state('Ada');
+      on = state(true);
+      role = state('b');
+      return (
+        <form title={() => name}>
+          <input value={() => name()} />
+          <input type="checkbox" checked={() => on()} />
+          <textarea value={() => name}></textarea>
+          <select value={() => role()}>
+            <option value="a">{'A'}</option>
+            <option value="b">{'B'}</option>
+          </select>
+        </form>
+      );
+    };
+
+    container.innerHTML = renderToStringSync(Component);
+    const form = container.querySelector('form')!;
+    const input = container.querySelector('input')!;
+    const checkbox = container.querySelectorAll('input')[1];
+    const textarea = container.querySelector('textarea')!;
+    const select = container.querySelector('select')!;
+    await hydrate(Component);
+
+    expect(container.querySelector('form')).toBe(form);
+    expect(container.querySelector('select')).toBe(select);
+    expect(form.getAttribute('title')).toBe('Ada');
+    expect(input.value).toBe('Ada');
+    expect(checkbox.checked).toBe(true);
+    expect(textarea.value).toBe('Ada');
+    expect(select.value).toBe('b');
+
+    name.set('Grace');
+    on.set(false);
+    role.set('a');
+    flushScheduler();
+
+    expect(form.getAttribute('title')).toBe('Grace');
+    expect(input.value).toBe('Grace');
+    expect(checkbox.checked).toBe(false);
+    expect(textarea.value).toBe('Grace');
+    expect(select.value).toBe('a');
   });
 
   it('should follow the state cell a hydrated function child returns', async () => {

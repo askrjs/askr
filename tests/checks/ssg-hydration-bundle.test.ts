@@ -170,6 +170,9 @@ describe('SSG hydration bundle', () => {
     // included it rolls back, and re-queues a scheduled commit superseded by a
     // rolled-back render, so a failed render never leaves a child component or
     // fragment function child stale (+333 bytes, 283,801 bytes total).
+    // #543 reads a readable a prop function returns and re-applies a reactive
+    // select value after its options (+144 bytes over 283,765 on develop,
+    // 283,909 bytes total).
     expect(initialBytes).toBeLessThanOrEqual(278 * 1024);
   });
 });
