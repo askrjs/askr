@@ -25,6 +25,8 @@ type IntrinsicDataValue = string | number | boolean | null | undefined;
 type IntrinsicBooleanValue = boolean | null | undefined;
 type IntrinsicNumberValue = number | null | undefined;
 type IntrinsicTextValue = string | null | undefined;
+/** Enumerated attributes where `false` renders `"false"` (see keepsFalseValue). */
+type IntrinsicEnumeratedValue = string | boolean | null | undefined;
 type IntrinsicTextLikeValue = string | number | null | undefined;
 type IntrinsicStyleEntryValue = string | number | null | undefined | false;
 type IntrinsicStyleObject = Record<string, IntrinsicStyleEntryValue>;
@@ -102,11 +104,11 @@ interface IntrinsicProps extends IntrinsicEventProps {
   hidden?: ReactiveProp<IntrinsicBooleanValue>;
   dir?: ReactiveProp<IntrinsicTextValue>;
   lang?: ReactiveProp<IntrinsicTextValue>;
-  contentEditable?: ReactiveProp<IntrinsicTextValue>;
-  draggable?: ReactiveProp<IntrinsicTextValue>;
+  contentEditable?: ReactiveProp<IntrinsicEnumeratedValue>;
+  draggable?: ReactiveProp<IntrinsicEnumeratedValue>;
   enterKeyHint?: ReactiveProp<IntrinsicTextValue>;
   inputMode?: ReactiveProp<IntrinsicTextValue>;
-  spellCheck?: ReactiveProp<IntrinsicTextValue>;
+  spellCheck?: ReactiveProp<IntrinsicEnumeratedValue>;
   [attr: `aria-${string}`]: ReactiveProp<IntrinsicAriaValue>;
   [attr: `data-${string}`]: ReactiveProp<IntrinsicDataValue>;
 }

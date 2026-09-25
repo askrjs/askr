@@ -97,6 +97,10 @@ describe('SSG hydration bundle', () => {
     // shared prop-classification table (boolean HTML attributes and camelCase
     // attribute names) so the two sides agree on what they emit. That data is
     // ~940 bytes and is required for hydration parity, not optional weight.
-    expect(initialBytes).toBeLessThanOrEqual(257 * 1024);
+    // 259 KiB, raised again when the shared tables grew the SVG presentation
+    // attribute names, the unitless CSS property list for numeric style `px`
+    // units, and the enumerated attributes that render `false` (~1.9 KB).
+    // Both renderers need them to emit the same, valid markup.
+    expect(initialBytes).toBeLessThanOrEqual(259 * 1024);
   });
 });

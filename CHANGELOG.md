@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- fix(renderer,ssr): camelCase SVG presentation props such as
+  `strokeDasharray`, `fillOpacity`, `stopColor` and `clipPath` now render as
+  their hyphenated attribute names, and `xlinkHref`/`xmlLang`/`xmlSpace`/
+  `xmlnsXlink` render as namespaced `xlink:`/`xml:`/`xmlns:` attributes (set
+  with `setAttributeNS` on the client). Previously only five SVG names were
+  mapped and the rest were written verbatim, which browsers ignore.
+- fix(renderer,ssr): numeric `style` values get a `px` unit on non-unitless
+  properties, so `style={{ width: 10 }}` renders `width:10px` instead of the
+  invalid `width:10`. Unitless properties, `0` and custom properties are
+  unchanged.
+- fix(renderer,ssr): `false` renders `"false"` for the enumerated attributes
+  `draggable`, `spellCheck` and `contentEditable` instead of removing them, so
+  `<img draggable={false}>` is no longer draggable. Their prop types now accept
+  booleans.
 - fix(resources): a resource hydrated from preloaded data keeps its value on
   later re-renders instead of resetting to pending and refetching. The preloaded
   value now seeds the resource, so `refresh()` and `deps` changes also work

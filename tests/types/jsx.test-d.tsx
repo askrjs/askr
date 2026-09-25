@@ -491,5 +491,8 @@ expectError(jsx('input', { readonly: 'true' }));
 expectError(jsx('input', { required: 'true' }));
 expectError(jsx('textarea', { minlength: '10' }));
 expectError(jsx('textarea', { readonly: 'true' }));
+jsx('img', { draggable: false, spellCheck: false, contentEditable: true });
+jsx('div', { style: { width: 10, opacity: 0.5 } });
+expectError(jsx('div', { draggable: 1 }));
 expectError(jsx('label', { htmlFor: 5 }));
 expectError(jsx(Badge, { label: 42 }));

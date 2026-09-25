@@ -6,8 +6,8 @@ import type { Props } from '../common/props';
 import { getPublicAttributeName } from '../common/attr-names';
 import {
   booleanAttributeValue,
-  isAriaAttribute,
   isSkippedProp,
+  keepsFalseValue,
 } from '../common/prop-classification';
 import { isUnsafeUrlAttribute } from '../common/url';
 import type { RenderSink } from './sink';
@@ -105,7 +105,7 @@ export function renderAttrsDirect(
     if (
       value === null ||
       value === undefined ||
-      (value === false && !isAriaAttribute(attrName))
+      (value === false && !keepsFalseValue(attrName))
     )
       continue;
 

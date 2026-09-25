@@ -37,8 +37,20 @@ Public types:
   props such as `colSpan`, `rowSpan`, `headers`, `scope`, and `abbr`, output props such as
   `htmlFor`, `name`, and `form`, and SVG props such as `viewBox`, `strokeWidth`,
   `strokeLinecap`, `strokeLinejoin`, `fillRule`, and `clipRule`. Compatibility props such as
-  `className`, `htmlFor`, and those common camelCase SVG props are normalized to their rendered
-  attribute names.
+  `className`, `htmlFor`, and camelCase SVG presentation props (`strokeDasharray`,
+  `fillOpacity`, `stopColor`, `clipPath`, `textAnchor`, and the rest of the SVG presentation
+  attributes) are normalized to their rendered attribute names, and `xlinkHref`, `xmlLang`,
+  `xmlSpace`, and `xmlnsXlink` render as the namespaced `xlink:href`, `xml:lang`, `xml:space`,
+  and `xmlns:xlink`. SVG attributes that are camelCase in SVG itself, such as `viewBox` and
+  `gradientUnits`, pass through unchanged. Client rendering and SSR apply the same mapping.
+
+  Values follow the usual JSX conventions on both client and server. A `true` HTML boolean
+  attribute renders bare, and `false`, `null`, and `undefined` remove the attribute, except for
+  `aria-*` and the enumerated attributes `draggable`, `spellCheck`, and `contentEditable`, where
+  `false` renders the literal `"false"`. A numeric `style` entry gets a `px` unit
+  (`style={{ width: 10 }}` is `width:10px`) unless the property is unitless (`opacity`,
+  `zIndex`, `lineHeight`, `flexGrow`, `fontWeight`, and similar), the value is `0`, or the name
+  is a custom property (`--gap`).
 
 The root also retains query creation and collection, definition and serving,
 prefetch, and hydration exports for compatibility. `@askrjs/askr/data` is the

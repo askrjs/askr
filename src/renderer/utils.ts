@@ -10,8 +10,14 @@ import {
 } from '../runtime';
 import type { AppRenderRuntime } from '../common/app-render-runtime';
 import { logger } from '../common/logger';
-import { getPublicAttributeName } from '../common/attr-names';
-import { isSkippedProp as isSkippedPropShared } from '../common/prop-classification';
+import {
+  attributeNamespace,
+  getPublicAttributeName,
+} from '../common/attr-names';
+import {
+  isSkippedProp as isSkippedPropShared,
+  keepsFalseValue,
+} from '../common/prop-classification';
 import { getRuntimeEnv } from './env';
 import { setDevValue, incDevCounter } from '../runtime';
 
@@ -278,8 +284,13 @@ export function hasPropChanged(
     if (key === 'value' || key === 'checked') {
       return (el as HTMLElement & Record<string, unknown>)[key] !== value;
     }
-    const attr = el.getAttribute(getRenderedAttributeName(el, key));
-    if (value === undefined || value === null || value === false) {
+    const attributeName = getRenderedAttributeName(el, key);
+    const attr = el.getAttribute(attributeName);
+    if (
+      value === undefined ||
+      value === null ||
+      (value === false && !keepsFalseValue(attributeName))
+    ) {
       return attr !== null;
     }
     return String(value) !== attr;
@@ -303,12 +314,26 @@ export function getRenderedAttributeName(
     : attributeName.toLowerCase();
 }
 
+/** Write an attribute, placing `xlink:`/`xml:`/`xmlns:` names in their namespace. */
+export function writeAttribute(
+  el: Element,
+  attributeName: string,
+  value: string
+): void {
+  const namespace = attributeNamespace(attributeName);
+  if (namespace === null) {
+    el.setAttribute(attributeName, value);
+  } else {
+    el.setAttributeNS(namespace, attributeName, value);
+  }
+}
+
 export function setRenderedAttribute(
   el: Element,
   propName: string,
   value: string
 ): void {
-  el.setAttribute(getRenderedAttributeName(el, propName), value);
+  writeAttribute(el, getRenderedAttributeName(el, propName), value);
 }
 
 export function removeRenderedAttribute(el: Element, propName: string): void {
