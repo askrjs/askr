@@ -8,6 +8,44 @@
   object/array values on custom elements are assigned as properties. New
   `prop:name` and `attr:name` escape hatches force either path. SSR renders
   only attribute-backed values; property-only values apply on hydration.
+- fix(router): route precedence is decided segment by segment, as documented:
+  the first segment where two routes differ picks static > param > wildcard >
+  splat, so `/docs/{*rest}` now beats `/{lang}/{page}` for `/docs/intro`
+  instead of losing on a summed score. SPA, SSR and SSG share the ordering.
+  `RouteRecord.rank` now encodes this order and its numeric values changed.
+- fix(router): static route segments, `fallback()` prefixes and registry
+  `basePath` values are compared against decoded URL segments, so routes such
+  as `/café` and `/a b` (and fallbacks or registries mounted under them) match
+  `/caf%C3%A9` and `/a%20b` on the client, in SSR and in SSG. Malformed
+  encodings do not throw.
+- fix(router): the `*` capture of wildcards, catch-alls and fallbacks is now
+  percent-decoded like param and splat captures (`café`, not `caf%C3%A9`).
+  Encoded separators `%2F` and `%5C` now stay encoded in every capture,
+  including params and named splats, which previously decoded `%2F` to `/`:
+  `/files/..%2F..%2Fetc` captures `..%2F..%2Fetc`, not `../../etc`. `to()`
+  passes kept `%2F`/`%5C` through, so captures round-trip to their URL.
+- fix(renderer,ssr): camelCase SVG presentation props such as
+  `strokeDasharray`, `fillOpacity`, `stopColor` and `clipPath` now render as
+  their hyphenated attribute names, and `xlinkHref`/`xmlLang`/`xmlSpace`/
+  `xmlnsXlink` render as namespaced `xlink:`/`xml:`/`xmlns:` attributes (set
+  with `setAttributeNS` on SVG and MathML elements on the client). Previously
+  only five SVG names were mapped and the rest were written verbatim, which
+  browsers ignore. The mapping also applies to HTML elements, so a prop such
+  as `fontSize` or `pointerEvents` on a `<div>` now renders `font-size` or
+  `pointer-events` instead of `fontsize`. Custom elements (tag names with a
+  `-`) keep their prop names as before. The SVG prop types now list the
+  presentation attributes.
+- fix(renderer,ssr): numeric `style` values get a `px` unit on non-unitless
+  properties, so `style={{ width: 10 }}` renders `width:10px` instead of the
+  invalid `width:10`. Unitless properties (React's list plus
+  `font-size-adjust`, `initial-letter` and `math-depth`, with or without a
+  vendor prefix), `0` and custom properties are unchanged. `ms`-prefixed names
+  such as `msFlexPositive` now render as `-ms-flex-positive`.
+- fix(renderer,ssr): `false` renders `"false"` for the enumerated attributes
+  `draggable`, `spellCheck`, `contentEditable` and `writingSuggestions`
+  instead of removing them, so
+  `<img draggable={false}>` is no longer draggable. Their prop types now accept
+  booleans.
 - breaking(data): `defineQuery()` fetchers now receive the input and the abort
   signal as separate arguments, `fetch(input, { signal })`, instead of one
   merged `{ ...input, signal }` object. The merged shape dropped primitive
@@ -31,6 +69,14 @@
   development when a query has no registered server handler. The
   skipped-preload warning is tracked per runtime outside the frozen
   `DataRuntime`, so it logs once per query key and resolves `false` as intended.
+- fix(runtime): `derive()` no longer serves a value computed by a previous
+  render's closure (for example after a second render in the same flush from
+  `watch()` or `task()`, new props, or a local read from another derive). A
+  source change evaluates the derive once with the last render's function and
+  skips the owner re-render when the value is unchanged; when it changed, the
+  owner re-renders and evaluates its new function once more. A render-time
+  recompute of `derive()` or `selector()` now notifies downstream readers, so
+  derived values in other components no longer stay one update behind.
 - fix(runtime): hook-order enforcement now catches a render that claims fewer
   hooks than the first render, and a slot whose hook kind changes (for example
   `derive()` where the first render called `state()`). Previously only extra
@@ -38,17 +84,10 @@
   their public API (`createQuery()`, `onRouteChange()`, `<For>`). The unreachable
   monotonic index check is removed, and the internal `ComponentInstance`
   field `expectedStateIndices` is replaced by `expectedHookKinds`.
-- fix(ssr): sync `renderToString({ url, registry })`/`renderToStream()` no
-  longer follow auth redirects or render a denial marker with an implicit 200.
-  Redirect and deny decisions throw the new `SSRAccessDecisionError`, whose
-  `decision` matches what `renderRouteRequest()` returns. The sync path also no
-  longer starts route loaders: a loader route throws `SSRDataMissingError`
-  naming the route and pointing to `renderRouteRequest()`, and abandoned async
-  resolution no longer leaks an unhandled rejection.
 - breaking(ssr): sync `renderToString({ url, registry })`/`renderToStream()`
-  no longer follow auth redirects or render a denial marker with an implicit 200. Redirect and deny decisions throw the new `SSRAccessDecisionError`,
-  whose `decision` matches what `renderRouteRequest()` returns. The sync path
-  also no longer runs route loaders: any route that declares a loader, including
+  no longer follow auth redirects or render a denial marker with an implicit 200. Redirect and deny decisions throw the new `SSRAccessDecisionError`, whose
+  `decision` matches what `renderRouteRequest()` returns. The sync path also no
+  longer runs route loaders: any route that declares a loader, including
   a synchronous one that previously rendered, now throws `SSRDataMissingError`
   naming the route and pointing to `renderRouteRequest()`, before its preload,
   lazy import, or loader starts. Abandoned async resolution no longer leaks an

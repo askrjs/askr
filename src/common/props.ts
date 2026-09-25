@@ -29,6 +29,8 @@ type IntrinsicDataValue = string | number | boolean | null | undefined;
 type IntrinsicBooleanValue = boolean | null | undefined;
 type IntrinsicNumberValue = number | null | undefined;
 type IntrinsicTextValue = string | null | undefined;
+/** Enumerated attributes where `false` renders `"false"` (see keepsFalseValue). */
+type IntrinsicEnumeratedValue = string | boolean | null | undefined;
 type IntrinsicTextLikeValue = string | number | null | undefined;
 type IntrinsicStyleEntryValue = string | number | null | undefined | false;
 type IntrinsicStyleObject = Record<string, IntrinsicStyleEntryValue>;
@@ -106,11 +108,12 @@ export interface IntrinsicProps extends IntrinsicEventProps {
   hidden?: ReactiveProp<IntrinsicBooleanValue>;
   dir?: ReactiveProp<IntrinsicTextValue>;
   lang?: ReactiveProp<IntrinsicTextValue>;
-  contentEditable?: ReactiveProp<IntrinsicTextValue>;
-  draggable?: ReactiveProp<IntrinsicTextValue>;
+  contentEditable?: ReactiveProp<IntrinsicEnumeratedValue>;
+  draggable?: ReactiveProp<IntrinsicEnumeratedValue>;
   enterKeyHint?: ReactiveProp<IntrinsicTextValue>;
   inputMode?: ReactiveProp<IntrinsicTextValue>;
-  spellCheck?: ReactiveProp<IntrinsicTextValue>;
+  spellCheck?: ReactiveProp<IntrinsicEnumeratedValue>;
+  writingSuggestions?: ReactiveProp<IntrinsicEnumeratedValue>;
   [attr: `aria-${string}`]: ReactiveProp<IntrinsicAriaValue>;
   [attr: `data-${string}`]: ReactiveProp<IntrinsicDataValue>;
   /**
@@ -274,13 +277,56 @@ export type OutputIntrinsicProps = StructuredContentIntrinsicProps<{
 }>;
 
 type SvgPresentationIntrinsicAllowedProps = {
+  alignmentBaseline?: ReactiveProp<IntrinsicTextLikeValue>;
+  baselineShift?: ReactiveProp<IntrinsicTextLikeValue>;
+  clipPath?: ReactiveProp<IntrinsicTextLikeValue>;
   clipRule?: ReactiveProp<IntrinsicTextValue>;
+  colorInterpolation?: ReactiveProp<IntrinsicTextLikeValue>;
+  colorInterpolationFilters?: ReactiveProp<IntrinsicTextLikeValue>;
+  colorRendering?: ReactiveProp<IntrinsicTextLikeValue>;
+  dominantBaseline?: ReactiveProp<IntrinsicTextLikeValue>;
   fill?: ReactiveProp<IntrinsicTextValue>;
+  fillOpacity?: ReactiveProp<IntrinsicTextLikeValue>;
   fillRule?: ReactiveProp<IntrinsicTextValue>;
+  floodColor?: ReactiveProp<IntrinsicTextLikeValue>;
+  floodOpacity?: ReactiveProp<IntrinsicTextLikeValue>;
+  fontFamily?: ReactiveProp<IntrinsicTextLikeValue>;
+  fontSize?: ReactiveProp<IntrinsicTextLikeValue>;
+  fontSizeAdjust?: ReactiveProp<IntrinsicTextLikeValue>;
+  fontStretch?: ReactiveProp<IntrinsicTextLikeValue>;
+  fontStyle?: ReactiveProp<IntrinsicTextLikeValue>;
+  fontVariant?: ReactiveProp<IntrinsicTextLikeValue>;
+  fontWeight?: ReactiveProp<IntrinsicTextLikeValue>;
+  imageRendering?: ReactiveProp<IntrinsicTextLikeValue>;
+  letterSpacing?: ReactiveProp<IntrinsicTextLikeValue>;
+  lightingColor?: ReactiveProp<IntrinsicTextLikeValue>;
+  markerEnd?: ReactiveProp<IntrinsicTextLikeValue>;
+  markerMid?: ReactiveProp<IntrinsicTextLikeValue>;
+  markerStart?: ReactiveProp<IntrinsicTextLikeValue>;
+  maskType?: ReactiveProp<IntrinsicTextLikeValue>;
+  paintOrder?: ReactiveProp<IntrinsicTextLikeValue>;
+  pointerEvents?: ReactiveProp<IntrinsicTextLikeValue>;
+  shapeRendering?: ReactiveProp<IntrinsicTextLikeValue>;
+  stopColor?: ReactiveProp<IntrinsicTextLikeValue>;
+  stopOpacity?: ReactiveProp<IntrinsicTextLikeValue>;
   stroke?: ReactiveProp<IntrinsicTextValue>;
+  strokeDasharray?: ReactiveProp<IntrinsicTextLikeValue>;
+  strokeDashoffset?: ReactiveProp<IntrinsicTextLikeValue>;
   strokeLinecap?: ReactiveProp<IntrinsicTextValue>;
   strokeLinejoin?: ReactiveProp<IntrinsicTextValue>;
+  strokeMiterlimit?: ReactiveProp<IntrinsicTextLikeValue>;
+  strokeOpacity?: ReactiveProp<IntrinsicTextLikeValue>;
   strokeWidth?: ReactiveProp<IntrinsicTextLikeValue>;
+  textAnchor?: ReactiveProp<IntrinsicTextLikeValue>;
+  textDecoration?: ReactiveProp<IntrinsicTextLikeValue>;
+  textOverflow?: ReactiveProp<IntrinsicTextLikeValue>;
+  textRendering?: ReactiveProp<IntrinsicTextLikeValue>;
+  transformOrigin?: ReactiveProp<IntrinsicTextLikeValue>;
+  unicodeBidi?: ReactiveProp<IntrinsicTextLikeValue>;
+  vectorEffect?: ReactiveProp<IntrinsicTextLikeValue>;
+  whiteSpace?: ReactiveProp<IntrinsicTextLikeValue>;
+  wordSpacing?: ReactiveProp<IntrinsicTextLikeValue>;
+  writingMode?: ReactiveProp<IntrinsicTextLikeValue>;
 };
 
 export type SvgIntrinsicProps = StructuredContentIntrinsicProps<

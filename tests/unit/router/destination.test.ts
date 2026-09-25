@@ -1,6 +1,7 @@
 import { schema } from '@askrjs/schema';
 import { describe, expect, it } from 'vite-plus/test';
 import { createRouteRegistry, route, to } from '../../../src/router';
+import { match } from '../../../src/router/match';
 import type { RouteRef } from '../../../src/common/router';
 
 describe('typed route destinations', () => {
@@ -64,4 +65,18 @@ describe('typed route destinations', () => {
       href: '/website/reviews/the%20zoo%20box',
     });
   });
+  it.each([
+    ['/files/*', '/files/a%2Fb'],
+    ['/files/*', '/files/..%2F..%2Fetc%2Fpasswd'],
+    ['/files/{*path}', '/files/a%2Fb/c%20d'],
+    ['/users/{id}', '/users/a%2Fb%5Cc'],
+  ])(
+    'should round-trip %s captures containing encoded separators (%s)',
+    (path, url) => {
+      const ref = route(path, () => null);
+      const params = match(url, path).params;
+
+      expect(to(ref as never, params as never).href).toBe(url);
+    }
+  );
 });

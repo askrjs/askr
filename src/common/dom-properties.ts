@@ -12,6 +12,8 @@
  * - `attr:name` always renders the `name` attribute (see attr-names.ts).
  */
 
+import { isCustomElementName } from './attr-names';
+
 export const PROPERTY_PROP_PREFIX = 'prop:';
 export const ATTRIBUTE_PROP_PREFIX = 'attr:';
 
@@ -58,7 +60,7 @@ export function getDomPropertyName(
     typeof value === 'object' &&
     key !== 'style' &&
     key !== 'dangerouslySetInnerHTML' &&
-    tagName.includes('-')
+    isCustomElementName(tagName)
   ) {
     return key;
   }

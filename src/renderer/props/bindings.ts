@@ -1,4 +1,4 @@
-import { isAriaAttribute } from '../../common/prop-classification';
+import { keepsFalseValue } from '../../common/prop-classification';
 import { PROPERTY_PROP_PREFIX } from '../../common/dom-properties';
 import { getDelegatedHandlersForElement } from './events';
 import { applyScalarPropValue, removeStaleAttributes } from './attributes';
@@ -127,7 +127,7 @@ export function applyPropsToElement(
     if (
       value === undefined ||
       value === null ||
-      (value === false && !isAriaAttribute(key))
+      (value === false && !keepsFalseValue(key))
     ) {
       // `prop:` assigns falsy values verbatim; they are not "absent".
       if (key.startsWith(PROPERTY_PROP_PREFIX)) {

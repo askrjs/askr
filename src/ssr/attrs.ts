@@ -3,11 +3,14 @@
  */
 
 import type { Props } from '../common/props';
-import { getPublicAttributeName } from '../common/attr-names';
+import {
+  getPublicAttributeName,
+  isCustomElementName,
+} from '../common/attr-names';
 import {
   booleanAttributeValue,
-  isAriaAttribute,
   isSkippedProp,
+  keepsFalseValue,
 } from '../common/prop-classification';
 import { isUnsafeUrlAttribute } from '../common/url';
 import { isPropertyOnlyProp } from '../common/dom-properties';
@@ -59,9 +62,10 @@ function getEscapedAttrValue(value: string): string {
 export function renderAttrsDirect(
   props: Props | undefined,
   sink: Pick<RenderSink, 'write'>,
-  tagName: string
+  tagName = ''
 ): void {
   if (!props || typeof props !== 'object') return;
+  const customElement = isCustomElementName(tagName);
 
   const propsObj = props as Record<string, unknown>;
   for (const key in propsObj) {
@@ -79,7 +83,7 @@ export function renderAttrsDirect(
     if (isPropertyOnlyProp(tagName, key, value)) continue;
 
     // Normalize public JSX prop names to their rendered HTML attribute names.
-    const attrName = getPublicAttributeName(key);
+    const attrName = getPublicAttributeName(key, customElement);
     // `attr:` never smuggles an inline event handler past the check above.
     if (attrName !== key && isEventHandler(attrName)) continue;
     assertAttributeName(attrName);
@@ -115,7 +119,7 @@ export function renderAttrsDirect(
     if (
       value === null ||
       value === undefined ||
-      (value === false && !isAriaAttribute(attrName))
+      (value === false && !keepsFalseValue(attrName))
     )
       continue;
 

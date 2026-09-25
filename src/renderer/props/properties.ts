@@ -1,3 +1,4 @@
+import { isCustomElementName } from '../../common/attr-names';
 import {
   getDomPropertyName,
   isKnownBooleanProperty,
@@ -67,7 +68,7 @@ export function applyDomPropertyProp(
 
   if (name === null) {
     // Only a custom element prop can move from a property to an attribute.
-    if (!tagName.includes('-')) return false;
+    if (!isCustomElementName(tagName)) return false;
     const written = writtenDomProperties.get(el);
     const previous = written?.get(key);
     if (previous !== undefined) {

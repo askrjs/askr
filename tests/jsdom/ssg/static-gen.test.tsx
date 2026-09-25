@@ -483,6 +483,25 @@ describe('Static Site Generation', () => {
       expect(content).toContain('About Page');
     });
 
+    it('should generate routes whose static segments need percent-encoding', async () => {
+      const registry = createRouteRegistry(() => {
+        route('/café', () => <main>{'cafe'}</main>);
+        route('/a b', () => <main>{'space'}</main>);
+        route('/@team', () => <main>{'reserved'}</main>);
+      });
+      const ssg = createStaticGen({ registry, outputDir: tempDir });
+
+      const result = await ssg.generate();
+      const htmlByPath = Object.fromEntries(
+        result.routes.map((entry) => [entry.path, entry.html])
+      );
+
+      expect(result.failed).toBe(0);
+      expect(htmlByPath['/café']).toBe('<main>cafe</main>');
+      expect(htmlByPath['/a b']).toBe('<main>space</main>');
+      expect(htmlByPath['/@team']).toBe('<main>reserved</main>');
+    });
+
     it('should generate HTML for routes with parameters', async () => {
       const ssg = createStaticGen({
         routes: [
