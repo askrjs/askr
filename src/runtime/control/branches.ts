@@ -49,6 +49,8 @@ export interface ShowState extends BranchControlStateBase {
 export interface CaseState extends BranchControlStateBase {
   kind: 'case';
   fallback: (() => VNode) | null;
+  /** Raised on evaluation when `<Case>` received a child that is not `<Match>`. */
+  invalidChildError: Error | null;
   matches: MatchBranch[];
 }
 
@@ -403,6 +405,7 @@ export function createCaseState(
     activeScope: null,
     activeVNodes: [],
     fallback,
+    invalidChildError: null,
     lastRemovedNodes: [],
     lastRemovedRanges: [],
     matches,
@@ -414,6 +417,9 @@ export function createCaseState(
 }
 
 export function evaluateCaseState(state: CaseState): VNode[] {
+  if (state.invalidChildError) {
+    throw state.invalidChildError;
+  }
   const transaction = beginControlTransaction(state);
   state.lastRemovedNodes = [];
   state.lastRemovedRanges = [];

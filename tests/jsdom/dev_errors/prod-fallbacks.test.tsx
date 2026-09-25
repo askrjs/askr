@@ -79,10 +79,9 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
     }
   });
 
-  it('should omit For key validation in production mode', () => {
+  it('should keep rejecting duplicate For keys in production mode', () => {
     const prev = process.env.NODE_ENV;
     process.env.NODE_ENV = 'production';
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     try {
       const Component = () => (
@@ -91,12 +90,11 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
         </For>
       );
 
+      // Spec: duplicate keys would silently drop rows, so they fail in every build.
       expect(() =>
         createIsland({ root: container, component: Component })
-      ).not.toThrow();
-      expect(warn).not.toHaveBeenCalled();
+      ).toThrow(/Duplicate For key detected: duplicate/);
     } finally {
-      warn.mockRestore();
       process.env.NODE_ENV = prev;
     }
   });

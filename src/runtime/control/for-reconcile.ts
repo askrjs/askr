@@ -37,16 +37,20 @@ function failForValidation(message: string): never {
   throw new Error(message);
 }
 
+/**
+ * Null and duplicate keys fail in every build: rows are addressed by key, so
+ * reconciling them would silently drop or merge rows. The key-kind drift check
+ * needs cross-render bookkeeping and stays a development diagnostic.
+ */
 function validateForKeys<T>(
   forState: ForState<T>,
   newArray: readonly T[]
 ): void {
-  if (!isDevelopmentEnvironment()) {
-    return;
-  }
-
+  const trackKeyKinds = isDevelopmentEnvironment();
   const seen = new Set<string | number>();
-  const keyKinds = new Map<string | number, 'number' | 'string'>();
+  const keyKinds = trackKeyKinds
+    ? new Map<string | number, 'number' | 'string'>()
+    : null;
   for (let i = 0; i < newArray.length; i++) {
     const key = forState.byFn(newArray[i], i);
 
@@ -64,6 +68,10 @@ function validateForKeys<T>(
 
     seen.add(key);
 
+    if (!keyKinds) {
+      continue;
+    }
+
     const keyKind = typeof key;
     const previousKeyKind = forState.devKeyKinds?.get(key);
     if (previousKeyKind && previousKeyKind !== keyKind) {
@@ -74,7 +82,9 @@ function validateForKeys<T>(
     keyKinds.set(key, keyKind as 'number' | 'string');
   }
 
-  forState.devKeyKinds = keyKinds;
+  if (keyKinds) {
+    forState.devKeyKinds = keyKinds;
+  }
 }
 
 export function reconcileForItems<T>(

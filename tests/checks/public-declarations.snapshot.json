@@ -1322,7 +1322,7 @@
       "type CaseProps = {\n    fallback?: BoundaryChild;\n    children?: unknown;\n};"
     ],
     "CaseState": [
-      "interface CaseState extends BranchControlStateBase {\n    kind: \"case\";\n    fallback: (() => VNode) | null;\n    matches: MatchBranch[];\n}"
+      "interface CaseState extends BranchControlStateBase {\n    kind: \"case\";\n    fallback: (() => VNode) | null;\n    invalidChildError: Error | null;\n    matches: MatchBranch[];\n}"
     ],
     "ChildScope": [
       "interface ChildScope {\n    key: string | number;\n    componentInstance: ComponentInstance;\n    previousVnode: VNode | undefined;\n    vnode: VNode | undefined;\n    dom?: Node;\n    range?: DOMRange;\n    needsDomUpdate: boolean;\n    hydrationPending: boolean;\n    blueprintOwner?: object;\n    render(renderFn: () => VNode): VNode;\n    markDirty(): void;\n    dispose(): void;\n}"

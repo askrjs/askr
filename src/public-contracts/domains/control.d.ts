@@ -198,6 +198,7 @@ interface ShowState extends BranchControlStateBase {
 interface CaseState extends BranchControlStateBase {
   kind: 'case';
   fallback: (() => VNode) | null;
+  invalidChildError: Error | null;
   matches: MatchBranch[];
 }
 

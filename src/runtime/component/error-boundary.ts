@@ -73,12 +73,10 @@ function findLiveErrorBoundary(
   );
 }
 
-/** Route a scheduled component failure to its nearest live render boundary. */
-export function routeComponentErrorToBoundary(
-  failedInstance: ComponentInstance,
+function routeErrorToLiveBoundary(
+  boundary: ComponentInstance | null,
   error: unknown
 ): boolean {
-  const boundary = findLiveErrorBoundary(failedInstance);
   if (!boundary) {
     return false;
   }
@@ -93,4 +91,28 @@ export function routeComponentErrorToBoundary(
   );
   boundary._enqueueRun?.();
   return true;
+}
+
+/** Route a scheduled component failure to its nearest live render boundary. */
+export function routeComponentErrorToBoundary(
+  failedInstance: ComponentInstance,
+  error: unknown
+): boolean {
+  return routeErrorToLiveBoundary(findLiveErrorBoundary(failedInstance), error);
+}
+
+/**
+ * Route a failure of work rendered in `renderInstance`'s output (such as a
+ * control boundary's local commit) to the nearest live boundary, including
+ * `renderInstance` itself when it is a boundary.
+ */
+export function routeRenderedWorkErrorToBoundary(
+  renderInstance: ComponentInstance,
+  error: unknown
+): boolean {
+  const boundary =
+    renderInstance.errorBoundaryState && renderInstance.notifyUpdate !== null
+      ? renderInstance
+      : findLiveErrorBoundary(renderInstance);
+  return routeErrorToLiveBoundary(boundary, error);
 }

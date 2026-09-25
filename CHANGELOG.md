@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- fix(control): development and production now agree on invalid `For` keys and
+  `Case`/`Match` children. A null, undefined, or duplicate `For` key throws in
+  every build (production previously dropped rows and showed the last
+  duplicate's data), and a non-`Match` child of `Case` or a `Match` outside a
+  `Case` throws in every build (production previously dropped it). These errors
+  reach the nearest `ErrorBoundary`, including a duplicate key introduced by a
+  boundary-local list update and an invalid `Case` child, which previously
+  escaped the boundary. The key-type-change check stays development-only.
 - fix(router): `hydrateSPA()` no longer redirects a server-authorized page to
   the login route when the browser cannot resolve the identity itself (for
   example httpOnly-cookie sessions). Apps opt in with the new
