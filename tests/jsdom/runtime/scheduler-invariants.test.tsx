@@ -676,7 +676,9 @@ describe.each(['development', 'production'])(
       });
 
       expect(runs).toBeLessThan(safetyCap);
-      expect(errorMessages(error)).toMatch(/selector\(\) exceeded 50 runs/);
+      expect(errorMessages(error)).toMatch(
+        /cannot be called inside a derive\(\) or selector\(\) computation/
+      );
       cleanup();
     });
 
@@ -722,7 +724,7 @@ describe.each(['development', 'production'])(
 
       expect(runs).toBeLessThan(safetyCap);
       expect(errorMessages(error)).toMatch(
-        /(derive|selector)\(\) exceeded 50 runs/
+        /cannot be called inside a derive\(\) or selector\(\) computation/
       );
       cleanup();
     });
@@ -769,7 +771,9 @@ describe.each(['development', 'production'])(
       });
 
       expect(runs).toBeLessThan(safetyCap);
-      expect(errorMessages(error)).toMatch(/derive\(\) exceeded 50 runs/);
+      expect(errorMessages(error)).toMatch(
+        /cannot be called inside a derive\(\) or selector\(\) computation/
+      );
       cleanup();
     });
   }
