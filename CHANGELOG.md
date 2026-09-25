@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- fix(control): existing `For` rows now render with the latest row callback.
+  A value the parent computed during render and captured in the callback (for
+  example `const current = selected()`) kept its first value in rows that were
+  already mounted. When the parent rerenders with a new callback, retained rows
+  rerun with it and keep their DOM, key, and local state; a stable callback
+  still skips them. A row that reruns on its own, because it read a reactive
+  value, now keeps its key: a component in that row previously lost its local
+  state when the row rendered again in the same flush. The docs now also state
+  that a reactive read inside the callback subscribes the row that made it
+  (they previously said it did not subscribe). See docs/guides/control-flow.md.
 - fix(renderer): a failed render no longer leaves fine-grained bindings
   (function-valued props and children) stale. A binding whose function the
   render replaced kept the new value after the DOM rolled back, so later

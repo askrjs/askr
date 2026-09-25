@@ -32,6 +32,7 @@ import { getRuntimeScopes } from '../access';
 import { recordBenchCounter, recordBenchEvent } from '../diagnostics/for-bench';
 import type { ForItemTransactionSnapshot, ForState } from './for-state';
 import type { ReadableSource } from '../reactivity/readable';
+import type { ForRenderItem } from './for-types';
 
 declare const __ASKR_BENCH_BUILD__: boolean;
 
@@ -44,6 +45,8 @@ export interface ForItemInstance<T> {
   reactiveItemState: ReactiveForItemState<T> | null;
   indexSignal: ForIndexSignal;
   scope: ChildScope;
+  /** Row callback that produced the scope's current output. */
+  renderedWith: ForRenderItem<T> | null;
 }
 
 export type RemovedDomCleanupMode = 'none' | 'teardown' | 'full-clear';
@@ -159,6 +162,7 @@ export function captureForItemTransactionSnapshot<T>(
     indexHasBeenRead: itemInstance.indexSignal._hasBeenRead === true,
     propertySignalStore: propertySignals,
     propertySignals: propertySnapshots,
+    renderedWith: itemInstance.renderedWith,
     scope: captureChildScopeTransactionSnapshot(itemInstance.scope),
   });
 }
@@ -301,17 +305,24 @@ function materializeItemVnode<T>(
 
 function renderItemScope<T>(
   forState: ForState<T>,
-  scope: ChildScope,
-  item: T,
-  indexSignal: ForIndexSignal,
-  key: string | number
+  itemInstance: ForItemInstance<T>,
+  item: T
 ): VNode {
   if (BENCH_BUILD_ENABLED) {
     recordBenchEvent('rowFactory');
   }
-  const vnode = scope.render(() => forState.renderFn(item, indexSignal));
-  materializeItemVnode(forState, key, vnode);
-  return vnode;
+  const { scope, indexSignal, key } = itemInstance;
+  // The scope reruns this closure on its own when a value it read changes.
+  // Read the latest callback and key the vnode on every run, so a self rerun
+  // neither uses a stale closure nor drops the key that ties the row's
+  // component instances to it.
+  return scope.render(() => {
+    const renderFn = forState.renderFn;
+    itemInstance.renderedWith = renderFn;
+    const vnode = renderFn(item, indexSignal);
+    materializeItemVnode(forState, key, vnode);
+    return vnode;
+  });
 }
 
 export function disposeItemInstance<T>(
@@ -370,9 +381,18 @@ export function createItemInstance<T>(
   const reactiveItem = reactiveItemState?.proxy ?? item;
   const scope = createForOwnedChildScope(forState, key);
   scope.blueprintOwner = forState;
+  const itemInstance: ForItemInstance<T> = {
+    key,
+    item,
+    reactiveItem,
+    reactiveItemState,
+    indexSignal,
+    scope,
+    renderedWith: null,
+  };
 
   try {
-    renderItemScope(forState, scope, reactiveItem, indexSignal, key);
+    renderItemScope(forState, itemInstance, reactiveItem);
   } catch (error) {
     // createChildScope registers ownership before rendering. A render failure
     // must not retain a provisional child in the parent owner graph.
@@ -380,14 +400,7 @@ export function createItemInstance<T>(
     throw error;
   }
 
-  return {
-    key,
-    item,
-    reactiveItem,
-    reactiveItemState,
-    indexSignal,
-    scope,
-  };
+  return itemInstance;
 }
 
 function rerenderItemInstance<T>(
@@ -395,19 +408,41 @@ function rerenderItemInstance<T>(
   itemInstance: ForItemInstance<T>,
   item: T
 ): void {
-  renderItemScope(
-    forState,
-    itemInstance.scope,
-    item,
-    itemInstance.indexSignal,
-    itemInstance.key
-  );
+  renderItemScope(forState, itemInstance, item);
 }
 
 export function refreshForContextScopes<T>(forState: ForState<T>): void {
   for (const itemInstance of forState.items.values()) {
     captureForItemTransactionSnapshot(forState, itemInstance);
     rerenderItemInstance(forState, itemInstance, itemInstance.reactiveItem);
+  }
+}
+
+/**
+ * Rerender retained rows whose output came from an earlier row callback. The
+ * parent passes a fresh closure on every render, so values it captured (such
+ * as a `const` derived from state) reach existing rows without remounting
+ * them. Rows about to be removed and rows created in this pass are skipped.
+ */
+export function refreshForRowRenderers<T>(
+  forState: ForState<T>,
+  newArray: readonly T[],
+  keys: readonly (string | number)[]
+): void {
+  const { items, renderFn } = forState;
+  for (let index = 0; index < keys.length; index++) {
+    const itemInstance = items.get(keys[index]);
+    if (!itemInstance || itemInstance.renderedWith === renderFn) {
+      continue;
+    }
+    if (itemInstance.reactiveItemState) {
+      captureForItemTransactionSnapshot(forState, itemInstance);
+      rerenderItemInstance(forState, itemInstance, itemInstance.reactiveItem);
+    } else if (itemInstance.item === newArray[index]) {
+      // A changed plain item rerenders with the new value during reconcile.
+      captureForItemTransactionSnapshot(forState, itemInstance);
+      rerenderItemInstance(forState, itemInstance, itemInstance.item);
+    }
   }
 }
 

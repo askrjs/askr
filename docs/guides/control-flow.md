@@ -1,8 +1,15 @@
 # Reactive control flow
 
-`<For>` keeps stable rows by key. Its `children` callback runs when a row is
-created or reconciled; it is not a general reactive scope. This distinction is
-important when a row reads state owned by the parent component.
+`<For>` keeps stable rows by key. Each row is a child scope that keeps its DOM
+and local state for as long as its key stays in the list. The `children`
+callback reruns an existing row, without remounting it, when:
+
+- the row's item changes, or a property of the item that the row read changes;
+- the parent component rerenders and passes a new row callback, so the row
+  renders with the latest closure (an inline arrow is a new callback on every
+  parent render);
+- a reactive value that the callback read directly, such as a parent `state()`
+  getter, changes. The read subscribes the row, not the parent.
 
 Keys passed to `by` must be stable, non-null, and unique within the list. Keys
 are compared by identity, so `1` and `'1'` are different keys: changing a key's
@@ -59,9 +66,10 @@ thunk). The renderer reevaluates the property when its reactive source changes:
 </For>
 ```
 
-## Avoid plain closure captures
+## Parent values in row callbacks
 
-This looks natural but freezes the initial value for an existing row:
+A value the parent computes during render and captures in the row callback
+reaches existing rows on the next parent render:
 
 ```tsx
 const current = selected();
@@ -71,18 +79,22 @@ const current = selected();
 </For>;
 ```
 
-`current` is read while the parent renders, but the row callback does not
-subscribe to that read. Replace it with `selector()` or a thunk prop.
+This is correct but broad: the parent rerenders because it read `selected()`,
+and every row reruns with the new closure. Reading `selected()` inside the
+callback instead leaves the parent alone but still reruns every row that read
+it. Prefer `selector()` or a thunk prop when only a few rows or one property
+should update. When rows do not depend on parent render values, pass a stable
+callback (declared outside the component) so unrelated parent renders do not
+rerun them.
 
-The same rule applies to any parent `state()`, `derive()`, or reactive getter
-captured by a row callback. Keys still need to be stable; use `byIndex` only
-when positional identity is intentional.
+Keys still need to be stable; use `byIndex` only when positional identity is
+intentional.
 
 ## Testing the contract
 
 This repository's Vitest/jsdom test harness can mount this component. Keep the
-state update and the row assertion in the same test so a stale closure cannot
-pass unnoticed:
+state update and the row assertion in the same test so a row that did not
+update cannot pass unnoticed:
 
 ```text
 const active = () =>

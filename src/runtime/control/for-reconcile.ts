@@ -11,6 +11,7 @@ import type { VNode } from '../../common/vnode';
 import {
   disposeAllItems,
   disposeFallbackScope,
+  refreshForRowRenderers,
   renderFallbackScope,
 } from './for-scopes';
 import {
@@ -87,6 +88,10 @@ export function reconcileForItems<T>(
 ): VNode[] {
   forState.currentItems = newArray;
   const keys = resolveForKeys(forState, newArray);
+  if (forState._renderFnChanged) {
+    forState._renderFnChanged = false;
+    refreshForRowRenderers(forState, newArray, keys);
+  }
 
   if (BENCH_BUILD_ENABLED) {
     resetBenchMetrics();
