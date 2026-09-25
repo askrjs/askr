@@ -220,22 +220,22 @@ function activateVisibleDeferredBoundaries(
 }
 
 function queueIdleWork(work: () => void): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    const run = () => {
+      try {
+        work();
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
+    };
+
     if (typeof requestIdleCallback !== 'undefined') {
-      requestIdleCallback(
-        () => {
-          work();
-          resolve();
-        },
-        { timeout: 2000 }
-      );
+      requestIdleCallback(run, { timeout: 2000 });
       return;
     }
 
-    setTimeout(() => {
-      work();
-      resolve();
-    }, 0);
+    setTimeout(run, 0);
   });
 }
 
