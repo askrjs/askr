@@ -133,7 +133,7 @@ describe('SSG hydration bundle', () => {
     // 267 KiB for the DOM property path (`muted`, `indeterminate`, custom
     // element object props, `prop:`/`attr:`): the property table, resetting
     // removed properties, the URL/raw-HTML guards and rollback snapshots add
-    // ~2.5 KB (measured 273,240 bytes). Without it those props cannot reach
+    // ~2.4 KB (measured 273,240 bytes). Without it those props cannot reach
     // the element at all.
     expect(initialBytes).toBeLessThanOrEqual(267 * 1024);
   });
