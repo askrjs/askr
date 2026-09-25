@@ -169,8 +169,9 @@ describe('SSR raw text elements (<script>, <style>)', () => {
 
       expect(fragment.querySelectorAll('style')).toHaveLength(1);
       expect(fragment.querySelector('img')).toBeNull();
+      // Every `<` is a CSS escape, equal to `<` inside the CSS string.
       expect(fragment.querySelector('style')!.textContent).toContain(
-        '<\\/' + closer.slice(2)
+        '\\3c ' + closer.slice(1)
       );
     }
   );
@@ -531,19 +532,28 @@ type Parse5Node = {
 };
 
 /**
- * Element names a spec-conformant parser (parse5, scripting enabled, as in a
- * browser) builds from the markup. jsdom parses with scripting disabled, which
- * would read `<noscript>` content as markup rather than raw text.
+ * Element names a spec-conformant parser (parse5) builds from the markup.
+ * Scripting is enabled by default, as in a browser; jsdom parses with it
+ * disabled, which reads `<noscript>` content as markup rather than raw text.
  */
-function parsedElementNames(html: string): string[] {
+function parsedElementNames(html: string, scriptingEnabled = true): string[] {
   const names: string[] = [];
   const visit = (node: Parse5Node): void => {
     if (!node.nodeName.startsWith('#')) names.push(node.nodeName);
     for (const child of node.childNodes ?? []) visit(child);
     if (node.content) visit(node.content);
   };
-  visit(parseFragment(html, { scriptingEnabled: true }) as Parse5Node);
+  visit(parseFragment(html, { scriptingEnabled }) as Parse5Node);
   return names;
+}
+
+/** Assert no payload element is built, with scripting enabled and disabled. */
+function expectNoInjectedElements(html: string): void {
+  for (const scriptingEnabled of [true, false]) {
+    const names = parsedElementNames(html, scriptingEnabled);
+    expect(names).not.toContain('img');
+    expect(names).not.toContain('input');
+  }
 }
 
 describe('SSR <script>/<style> under text-content ancestors', () => {
@@ -579,7 +589,7 @@ describe('SSR <script>/<style> under text-content ancestors', () => {
         })
       );
 
-      expect(parsedElementNames(html)).not.toContain('img');
+      expectNoInjectedElements(html);
       expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;');
     }
   );
@@ -607,7 +617,7 @@ describe('SSR <script>/<style> under text-content ancestors', () => {
       </div>
     ));
 
-    expect(html).toContain('<style>a<\\/b><\\/noscript><\\/DIV></style>');
+    expect(html).toContain('<style>a\\3c /b>\\3c /noscript>\\3c /DIV></style>');
     expect(html).toContain('<script>var s = "<\\/p><\\/noscript>";</script>');
     expect(parsedElementNames(html)).toEqual(['div', 'style', 'script']);
   });
@@ -628,7 +638,7 @@ describe('SSR <script>/<style> under text-content ancestors', () => {
         })
       );
 
-      expect(parsedElementNames(html)).not.toContain('img');
+      expectNoInjectedElements(html);
     }
   );
 
@@ -648,13 +658,113 @@ describe('SSR <script>/<style> under text-content ancestors', () => {
       ENCODING: 'application/mathml+xml',
       encoding: 'text/html',
     });
-    expect(parsedElementNames(mathFirst)).not.toContain('img');
+    expectNoInjectedElements(mathFirst);
     expect(mathFirst).toContain('&lt;img');
 
     const htmlFirst = render({
       ENCODING: 'Text/HTML',
       encoding: 'application/mathml+xml',
     });
-    expect(htmlFirst).toContain(`<style>${payload}</style>`);
+    expect(htmlFirst).toContain(
+      '<style>\\3c img src=x onerror=alert(1)></style>'
+    );
+  });
+});
+
+describe('SSR <script>/<style> inside <select>', () => {
+  const wrappers: Array<[string, (child: unknown) => unknown]> = [
+    ['select', (child) => jsx('select', { children: child })],
+    [
+      'select > option',
+      (child) =>
+        jsx('select', { children: jsx('option', { children: child }) }),
+    ],
+    [
+      'select > optgroup',
+      (child) =>
+        jsx('select', { children: jsx('optgroup', { children: child }) }),
+    ],
+    [
+      'select > optgroup > option',
+      (child) =>
+        jsx('select', {
+          children: jsx('optgroup', {
+            children: jsx('option', { children: child }),
+          }),
+        }),
+    ],
+    [
+      'table > tbody > tr > td > select',
+      (child) =>
+        jsx('table', {
+          children: jsx('tbody', {
+            children: jsx('tr', {
+              children: jsx('td', {
+                children: jsx('select', { children: child }),
+              }),
+            }),
+          }),
+        }),
+    ],
+  ];
+  const payloads = [
+    '<input><img src=x onerror=alert(1)>',
+    '</select><img src=x onerror=alert(1)>',
+    '</style></select><input><img src=x onerror=alert(1)>',
+    '</script></select><input><img src=x onerror=alert(1)>',
+  ];
+  const cases = wrappers.flatMap(([name, wrap]) =>
+    ['style', 'script'].flatMap((inner) =>
+      payloads.map((payload) => [name, inner, payload, wrap] as const)
+    )
+  );
+
+  it.each(cases)(
+    'should build no element from text inside %s > %s (%j)',
+    (_name, inner, payload, wrap) => {
+      const html = renderToStringSync(
+        () =>
+          jsx('div', {
+            children: [
+              wrap(jsx(inner, { children: payload })),
+              jsx('p', { children: 'after' }),
+            ],
+          }) as never
+      );
+
+      expectNoInjectedElements(html);
+    }
+  );
+
+  it('should keep <style> escaped in <select> but return to raw text in <template>', () => {
+    const html = renderToStringSync(() => (
+      <div>
+        <select>
+          <style>{'a > b {}'}</style>
+          <script>{'1 > 0'}</script>
+          <template>
+            <style>{'c > d {}'}</style>
+          </template>
+        </select>
+        <style>{'e > f {}'}</style>
+      </div>
+    ));
+
+    expect(html).toContain('<select><style>a &gt; b {}</style>');
+    expect(html).toContain('<script>1 > 0</script>');
+    expect(html).toContain('<template><style>c > d {}</style></template>');
+    expect(html).toContain('</select><style>e > f {}</style>');
+  });
+});
+
+describe('SSR <style> CSS escaping of <', () => {
+  it('should write every < in CSS as a CSS escape equal to < inside strings', () => {
+    const css = 'a::after { content: "<b> < c"; background: url("x<y.png"); }';
+    const html = renderToStringSync(() => <style>{css}</style>);
+
+    expect(html).toBe(
+      '<style>a::after { content: "\\3c b> \\3c  c"; background: url("x\\3c y.png"); }</style>'
+    );
+    expectNoInjectedElements(html);
   });
 });
