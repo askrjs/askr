@@ -496,7 +496,7 @@ function renderNodeSyncToSink(
   assertElementName(typeStr);
   if (VOID_ELEMENTS.has(typeStr)) {
     sinkWrite2(sink, '<', typeStr);
-    renderAttrsDirect(props, sink);
+    renderAttrsDirect(props, sink, typeStr);
     sink.write(' />');
     return;
   }
@@ -512,7 +512,7 @@ function renderNodeSyncToSink(
         ? String((maybeDangerous as { __html: unknown }).__html)
         : undefined;
     sinkWrite2(sink, '<', typeStr);
-    renderAttrsDirect(props, sink);
+    renderAttrsDirect(props, sink, typeStr);
     sink.write('>');
     if (dangerousHtml !== undefined) {
       sink.write(dangerousHtml);
@@ -527,7 +527,7 @@ function renderNodeSyncToSink(
 
   if (!children || (Array.isArray(children) && children.length === 0)) {
     sinkWrite2(sink, '<', typeStr);
-    renderAttrsDirect(props, sink);
+    renderAttrsDirect(props, sink, typeStr);
     sink.write('>');
     sinkWrite3(sink, '</', typeStr, '>');
     return;
@@ -538,7 +538,7 @@ function renderNodeSyncToSink(
     if (typeof only === 'string') {
       const content = escapeText(only);
       sinkWrite2(sink, '<', typeStr);
-      renderAttrsDirect(props, sink);
+      renderAttrsDirect(props, sink, typeStr);
       sink.write('>');
       sink.write(content);
       sinkWrite3(sink, '</', typeStr, '>');
@@ -547,7 +547,7 @@ function renderNodeSyncToSink(
     if (typeof only === 'number') {
       const content = escapeText(String(only));
       sinkWrite2(sink, '<', typeStr);
-      renderAttrsDirect(props, sink);
+      renderAttrsDirect(props, sink, typeStr);
       sink.write('>');
       sink.write(content);
       sinkWrite3(sink, '</', typeStr, '>');
@@ -556,7 +556,7 @@ function renderNodeSyncToSink(
   }
 
   sinkWrite2(sink, '<', typeStr);
-  renderAttrsDirect(props, sink);
+  renderAttrsDirect(props, sink, typeStr);
   sink.write('>');
   renderChildrenSyncToSink(children, sink, ctx);
   sinkWrite3(sink, '</', typeStr, '>');

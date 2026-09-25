@@ -193,7 +193,12 @@ describe('derive reactivity', () => {
     flushScheduler();
 
     expect(container.querySelector('output')?.textContent).toBe('15');
-    expect(downstreamRuns).toBe(1);
+    // Sound-evaluation cost (#428): the derived lane evaluates `combined`
+    // eagerly with the previous render's closure to find out whether the
+    // owner must re-render. It changed, so the owner re-renders, installs a
+    // new closure (which may capture new render locals) and evaluates it
+    // once more. Unchanged values still stop at one evaluation.
+    expect(downstreamRuns).toBe(2);
   });
 
   it('should isolate a throwing derive from dirty siblings in the same batch', () => {
