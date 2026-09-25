@@ -1,4 +1,6 @@
 import { getPublicAttributeName } from './attr-names';
+import { isDevelopmentEnvironment } from './env';
+import { logger } from './logger';
 
 const SAFE_URL_SCHEMES = new Set(['http', 'https', 'mailto', 'sms', 'tel']);
 const SCRIPT_URL_SCHEMES = new Set(['javascript', 'vbscript']);
@@ -107,4 +109,31 @@ export function isUnsafeUrlAttribute(key: string, value: unknown): boolean {
     return !isSafeResourceUrl(String(value));
   }
   return false;
+}
+
+const WARNED_URL_PREVIEW_LENGTH = 80;
+
+/**
+ * {@link isUnsafeUrlAttribute} for a value about to be rendered: in
+ * development, a blocked value logs a warning naming the attribute and scheme,
+ * so a stripped custom-scheme link (`vscode:`, `slack:`) is not silent.
+ */
+export function rejectUnsafeUrlAttribute(key: string, value: unknown): boolean {
+  if (!isUnsafeUrlAttribute(key, value)) return false;
+  if (isDevelopmentEnvironment()) {
+    const text = String(value);
+    const name = getPublicAttributeName(key).toLowerCase();
+    const preview =
+      text.length > WARNED_URL_PREVIEW_LENGTH
+        ? `${text.slice(0, WARNED_URL_PREVIEW_LENGTH)}...`
+        : text;
+    const allowed = SCRIPT_URL_RESOURCE_ATTRIBUTES.has(name)
+      ? 'script-executing schemes are never rendered'
+      : `only relative URLs and ${[...SAFE_URL_SCHEMES].join(', ')} are allowed`;
+    logger.warn(
+      `[Askr] Omitted ${name}=${JSON.stringify(preview)}: the ` +
+        `"${urlScheme(text)}:" scheme is blocked (${allowed}).`
+    );
+  }
+  return true;
 }

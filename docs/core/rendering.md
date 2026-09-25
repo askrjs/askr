@@ -158,6 +158,15 @@ properties become `''` and booleans `false`. Numeric properties with no
 attribute (`prop:volume`) keep their last value. A failed commit rolls
 property writes back with the rest of the element.
 
+URL attributes are checked the same way on the client and in SSR. `href`,
+`action`, `formAction` and `xlink:href` render only relative URLs or the
+`http`, `https`, `mailto`, `sms` and `tel` schemes. `src` and `data` render
+any URL except a script scheme (`javascript:`, `vbscript:`). Scheme checks
+ignore case and any whitespace or control characters in the value
+(`java\tscript:`). A blocked value, such as a custom `vscode:` or `slack:`
+link in `href`, is omitted. In development Askr logs a warning that names the
+attribute and the blocked scheme; production omits it silently.
+
 The escape hatches keep the usual guards:
 
 - URL properties (`href`, `src`, `action`, `formAction`, `data`) are checked

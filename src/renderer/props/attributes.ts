@@ -5,7 +5,7 @@ import {
   normalizeStylePropertyName,
   styleValueText,
 } from '../../common/prop-classification';
-import { isUnsafeUrlAttribute } from '../../common/url';
+import { rejectUnsafeUrlAttribute } from '../../common/url';
 import {
   ATTRIBUTE_PROP_PREFIX,
   isPropertyOnlyProp,
@@ -47,10 +47,10 @@ function isBlockedAttribute(key: string, value: unknown): boolean {
     return (
       (value !== null && typeof value === 'object') ||
       name.slice(0, 2).toLowerCase() === 'on' ||
-      isUnsafeUrlAttribute(name, value)
+      rejectUnsafeUrlAttribute(name, value)
     );
   }
-  return isUnsafeUrlAttribute(key, value);
+  return rejectUnsafeUrlAttribute(key, value);
 }
 
 /** Attribute text for a scalar prop, rendering HTML booleans bare. */
