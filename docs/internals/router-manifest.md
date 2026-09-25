@@ -151,14 +151,18 @@ the same position for routes that match the same URL, so `/docs` beats
 `compareRouteSpecificity()` implements this order and is what the record list,
 flat route tables (SSR) and manifest records are sorted by, so SPA, SSR and SSG
 all pick the same route. `rank` encodes the same order as a number (higher =
-more specific, `/*` is `-1`) for inspection only.
+more specific, `/*` is `-1`) for inspection only: it is a floating-point
+encoding, so routes that differ only beyond about 17 segments can share a
+rank. Nothing orders routes by `rank`.
 
-Static segments and `fallback()` prefixes are compared against decoded URL
-segments, so `/café`, `/a b` and `/@team` match `/caf%C3%A9`, `/a%20b` and
-`/%40team`. Captures are decoded segment by segment, including the `*` capture
-of wildcards, catch-alls and fallbacks. Malformed encodings are compared and
-captured as written and never throw. An encoded slash (`%2F`) stays inside its
-segment when matching.
+Static segments, `fallback()` prefixes and registry `basePath` values are
+compared against decoded URL segments, so `/café`, `/a b` and `/@team` match
+`/caf%C3%A9`, `/a%20b` and `/%40team`. Captures are decoded segment by segment
+(`decodePathSegment()`), including the `*` capture of wildcards, catch-alls and
+fallbacks, but `%2F` and `%5C` stay percent-encoded inside a segment, so a
+capture never contains a separator the URL did not have. `to()` encodes with
+the inverse `encodePathSegment()`. Malformed encodings are compared and
+captured as written and never throw.
 
 ## How each mode consumes the manifest
 

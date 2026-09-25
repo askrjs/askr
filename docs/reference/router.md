@@ -323,12 +323,22 @@ compared segment by segment: the first segment where two routes differ decides.
 For `/docs/intro`, `/docs/{*rest}` beats `/{lang}/{page}` because its first
 segment is static; declaration order breaks exact ties.
 
-Static segments and `fallback()` prefixes match the decoded URL, so
+Askr matches percent-decoded paths. Static segments, `fallback()` prefixes and
+registry `basePath` values compare against the decoded URL, so
 `route('/café', ...)` and `route('/a b', ...)` match `/caf%C3%A9` and `/a%20b`.
-Every capture is decoded: params, named splats, and the `*` capture of
-wildcards, catch-alls and fallbacks (`/files/*` on `/files/caf%C3%A9` gives
-`{ '*': 'café' }`). Malformed percent encodings are compared and captured as
-written.
+Non-canonical encodings match too: `/%61dmin` matches `route('/admin', ...)`. If
+a proxy, CDN or edge function applies path-based access control in front of
+Askr, it must percent-decode paths the same way before comparing them, or an
+encoded request can reach a route its rules meant to block.
+
+Captures are decoded segment by segment: params, named splats, and the `*`
+capture of wildcards, catch-alls and fallbacks (`/files/*` on
+`/files/caf%C3%A9` gives `{ '*': 'café' }`). Encoded separators stay encoded:
+`%2F` and `%5C` are kept as upper-case `%2F`/`%5C` inside a capture, so
+`/files/..%2F..%2Fetc` captures `..%2F..%2Fetc`, never `../../etc`, and a
+capture never gains a `/` the URL did not have. `to()` passes kept `%2F`/`%5C`
+through unchanged, so a capture builds back the URL it came from. Malformed
+percent encodings are compared and captured as written.
 
 Auth requirements, auth resolvers, access policies, and redirect path resolvers
 may return native promises or compatible promise-like values. Decisions are

@@ -141,17 +141,55 @@ const noMatch: MatchResult = Object.freeze({
   params: emptyParams,
 });
 
-/** Decode a path segment, keeping malformed encodings as written. */
-function decodeRouteParam(part: string): string {
+/**
+ * Encoded path separators (`/` and backslash) that stay percent-encoded when a URL
+ * segment is decoded, so a capture never gains a separator the URL did not
+ * have (`..%2F..%2Fetc` must not become `../../etc`).
+ */
+const ENCODED_SEPARATOR = /(%2F|%5C)/i;
+
+function decodeSegmentPiece(piece: string): string {
+  if (!piece.includes('%')) {
+    return piece;
+  }
+
+  try {
+    return decodeURIComponent(piece);
+  } catch {
+    return piece;
+  }
+}
+
+/**
+ * Decode one URL path segment, keeping encoded separators as upper-case
+ * `%2F`/`%5C` and malformed encodings as written.
+ */
+export function decodePathSegment(part: string): string {
   if (!part.includes('%')) {
     return part;
   }
 
-  try {
-    return decodeURIComponent(part);
-  } catch {
-    return part;
-  }
+  // split() with a capture group alternates text and separator pieces.
+  return part
+    .split(ENCODED_SEPARATOR)
+    .map((piece, index) =>
+      index % 2 === 1 ? piece.toUpperCase() : decodeSegmentPiece(piece)
+    )
+    .join('');
+}
+
+/**
+ * Percent-encode one path segment value, the inverse of
+ * {@link decodePathSegment}: kept `%2F`/`%5C` separators pass through so a
+ * capture round-trips to the URL it came from.
+ */
+export function encodePathSegment(value: string): string {
+  return value
+    .split(ENCODED_SEPARATOR)
+    .map((piece, index) =>
+      index % 2 === 1 ? piece.toUpperCase() : encodeURIComponent(piece)
+    )
+    .join('');
 }
 
 /**
@@ -160,7 +198,7 @@ function decodeRouteParam(part: string): string {
  * `/a b` and reserved-character routes match.
  */
 export function staticSegmentMatches(value: string, part: string): boolean {
-  return value === part || decodeRouteParam(value) === decodeRouteParam(part);
+  return value === part || decodePathSegment(value) === decodePathSegment(part);
 }
 
 /**
@@ -169,8 +207,8 @@ export function staticSegmentMatches(value: string, part: string): boolean {
  */
 export function formatCatchAllCapture(parts: string[]): string {
   if (parts.length === 0) return '/';
-  if (parts.length === 1) return decodeRouteParam(parts[0]);
-  return '/' + parts.map(decodeRouteParam).join('/');
+  if (parts.length === 1) return decodePathSegment(parts[0]);
+  return '/' + parts.map(decodePathSegment).join('/');
 }
 
 /**
@@ -228,16 +266,16 @@ export function matchSegments(
     } else if (seg.kind === 'splat') {
       if (params === null) params = {};
       params[seg.value] = normalizeCapturedSplatParts(
-        urlParts.slice(i).map(decodeRouteParam)
+        urlParts.slice(i).map(decodePathSegment)
       ).join('/');
       return params;
     } else {
       if (params === null) params = {};
       if (seg.kind === 'param') {
-        params[seg.value] = decodeRouteParam(part);
+        params[seg.value] = decodePathSegment(part);
       } else {
         // wildcard
-        params['*'] = decodeRouteParam(part);
+        params['*'] = decodePathSegment(part);
       }
     }
   }

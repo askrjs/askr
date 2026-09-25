@@ -7,11 +7,17 @@
   splat, so `/docs/{*rest}` now beats `/{lang}/{page}` for `/docs/intro`
   instead of losing on a summed score. SPA, SSR and SSG share the ordering.
   `RouteRecord.rank` now encodes this order and its numeric values changed.
-- fix(router): static route segments and `fallback()` prefixes are compared
-  against decoded URL segments, so routes such as `/café` and `/a b` (and
-  fallbacks declared under them) match `/caf%C3%A9` and `/a%20b` on the client,
-  in SSR and in SSG. The `*` capture of wildcards, catch-alls and fallbacks is
-  now decoded like param and splat captures. Malformed encodings do not throw.
+- fix(router): static route segments, `fallback()` prefixes and registry
+  `basePath` values are compared against decoded URL segments, so routes such
+  as `/café` and `/a b` (and fallbacks or registries mounted under them) match
+  `/caf%C3%A9` and `/a%20b` on the client, in SSR and in SSG. Malformed
+  encodings do not throw.
+- fix(router): the `*` capture of wildcards, catch-alls and fallbacks is now
+  percent-decoded like param and splat captures (`café`, not `caf%C3%A9`).
+  Encoded separators `%2F` and `%5C` now stay encoded in every capture,
+  including params and named splats, which previously decoded `%2F` to `/`:
+  `/files/..%2F..%2Fetc` captures `..%2F..%2Fetc`, not `../../etc`. `to()`
+  passes kept `%2F`/`%5C` through, so captures round-trip to their URL.
 - fix(resources): a resource hydrated from preloaded data keeps its value on
   later re-renders instead of resetting to pending and refetching. The preloaded
   value now seeds the resource, so `refresh()` and `deps` changes also work

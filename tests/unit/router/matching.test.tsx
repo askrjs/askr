@@ -212,6 +212,10 @@ describe('route matching (ROUTER)', () => {
       expect(match('/a%2Fb', '/a%2Fb').matched).toBe(true);
     });
 
+    it('should match non-canonical encodings of static segments', () => {
+      expect(match('/%61dmin', '/admin').matched).toBe(true);
+    });
+
     it('should not treat an encoded slash as a segment separator', () => {
       expect(match('/a%2Fb', '/a/b').matched).toBe(false);
     });
