@@ -8,8 +8,12 @@
   duplicate's data), and a non-`Match` child of `Case` or a `Match` outside a
   `Case` throws in every build (production previously dropped it). These errors
   reach the nearest `ErrorBoundary`, including a duplicate key introduced by a
-  boundary-local list update and an invalid `Case` child, which previously
-  escaped the boundary. The key-type-change check stays development-only.
+  boundary-local list update, a list inside a `Show`/`Case` branch, and an
+  invalid `Case` child, which previously escaped the boundary. Component
+  errors rendered inside a `For`/`Show`/`Case` created above an
+  `ErrorBoundary` now reach that boundary too. `For` resolves each row key
+  once per update, and the development-only key-type-change check (which could
+  never fire) is removed.
 - fix(router): `hydrateSPA()` no longer redirects a server-authorized page to
   the login route when the browser cannot resolve the identity itself (for
   example httpOnly-cookie sessions). Apps opt in with the new

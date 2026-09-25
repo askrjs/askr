@@ -97,15 +97,24 @@ row-local item signals, proxy object/function property reads, pass array items
 through as native arrays, notify readable subscribers, and prune parent readers
 when a row updates without rerendering the owning component.
 
-Every build rejects null or undefined keys and duplicate keys within one list
-before reconciling, using one `Set` per pass: the reconciliation paths address
-rows by key, so letting a violation through would silently drop or merge rows.
-Only the check for keys whose string or number type changes across renders is
-development-only, since it keeps a `Map` across passes. A validation error
-rolls the `For` transaction back and reaches the nearest `ErrorBoundary`: on
-mount through the boundary's own render, and on a boundary-local update
-through the control boundary commit, which routes failures to the boundary
-around where the `For` was materialized.
+Each reconcile pass resolves every row key once (`resolveForKeys`), and the
+reconciliation paths read those keys instead of calling `by` again. Every build
+rejects null or undefined keys and duplicate keys within one list before
+reconciling: the paths address rows by key, so letting a violation through
+would silently drop or merge rows. While the new keys match a prefix of the
+committed keys they cannot contain a duplicate, so a lookup `Set` is only built from
+the first divergence. A validation error rolls the `For` transaction back and
+reaches the nearest `ErrorBoundary`: on mount through the boundary's own
+render, and on a boundary-local update through the control boundary commit.
+
+Control child scopes (For rows, Show and Case branches) are owned by the
+component that created the control, which can sit above the `ErrorBoundary`
+the control renders inside. When a control boundary is materialized the
+renderer records its output owner: the component rendering at that point, or,
+for a control materialized by another control's local commit, that control's
+owner. Failures from the control's local commits and from components rendered
+in its child scopes route through that owner, so they reach the boundary
+around where the control was rendered.
 
 The `each` source is owned by the `For` boundary itself. List-source reads are tracked through a boundary-local fine-grained effect, so source changes dirty the `For` boundary instead of subscribing the parent component render. Same-order keyed updates can therefore stay row-local, while append, truncate, and reorder work still flow through keyed reconciliation.
 

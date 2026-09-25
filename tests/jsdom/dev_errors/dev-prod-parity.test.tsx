@@ -8,7 +8,7 @@ import {
 } from 'vite-plus/test';
 import { state, type State } from '../../../src/index';
 import { ErrorBoundary } from '@askrjs/askr/components';
-import { Case, For, Match } from '../../../src/control';
+import { Case, For, Match, Show } from '../../../src/control';
 import {
   createTestContainer,
   flushScheduler,
@@ -105,6 +105,68 @@ describe.each(['development', 'production'] as const)(
         );
         expect(container.querySelector('#list-fallback')?.textContent).toMatch(
           /Duplicate For key detected: 2/
+        );
+      }
+    );
+
+    it.each(['Show', 'inline Show', 'Case'] as const)(
+      'should route duplicate For keys to the nearest ErrorBoundary when the list appears later under %s',
+      (control) => {
+        let on!: State<boolean>;
+        let rows!: State<Row[]>;
+        const renderList = () => (
+          <ul>
+            <For each={() => rows()} by={(row) => row.id}>
+              {(row) => <li>{row.n}</li>}
+            </For>
+          </ul>
+        );
+        const List = () => renderList();
+        const App = () => {
+          on = state(false);
+          rows = state<Row[]>([{ id: 1, n: 'a' }]);
+          return (
+            <div>
+              <p id="outside">outside</p>
+              <ErrorBoundary
+                fallback={(error) => (
+                  <p id="list-fallback">{String((error as Error).message)}</p>
+                )}
+              >
+                <section>
+                  {control === 'Show' ? (
+                    <Show when={() => on()}>{() => <List />}</Show>
+                  ) : control === 'inline Show' ? (
+                    <Show when={() => on()}>{renderList}</Show>
+                  ) : (
+                    <Case>
+                      <Match when={on()}>{() => <List />}</Match>
+                    </Case>
+                  )}
+                </section>
+              </ErrorBoundary>
+            </div>
+          );
+        };
+
+        createIsland({ root: container, component: App });
+        flushScheduler();
+
+        on.set(true);
+        flushScheduler();
+        expect(container.querySelectorAll('li')).toHaveLength(1);
+
+        rows.set([
+          { id: 1, n: 'a' },
+          { id: 1, n: 'b' },
+        ]);
+        flushScheduler();
+
+        expect(container.querySelector('#outside')?.textContent).toBe(
+          'outside'
+        );
+        expect(container.querySelector('#list-fallback')?.textContent).toMatch(
+          /Duplicate For key detected: 1/
         );
       }
     );

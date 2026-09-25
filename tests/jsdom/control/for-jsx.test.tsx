@@ -1000,4 +1000,51 @@ describe('For JSX primitive', () => {
 
     cleanup();
   });
+
+  it.each([
+    ['stable order', [1, 2, 3, 4]],
+    ['append', [1, 2, 3, 4, 5]],
+    ['remove one', [1, 3, 4]],
+    ['swap', [4, 2, 3, 1]],
+    ['reverse', [4, 3, 2, 1]],
+    ['replace', [5, 6, 7]],
+  ] as const)(
+    'should call the key selector once per row per update (%s)',
+    (_label, next) => {
+      const { container, cleanup } = createTestContainer();
+      let rows!: ReturnType<typeof state<readonly number[]>>;
+      let keyCalls = 0;
+      const App = () => {
+        rows = state<readonly number[]>([1, 2, 3, 4]);
+        return (
+          <ul>
+            <For
+              each={() => rows()}
+              by={(row) => {
+                keyCalls += 1;
+                return row;
+              }}
+            >
+              {(row) => <li>{row}</li>}
+            </For>
+          </ul>
+        );
+      };
+
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      keyCalls = 0;
+
+      rows.set(next.slice());
+      flushScheduler();
+
+      expect(keyCalls).toBe(next.length);
+      expect(
+        Array.from(container.querySelectorAll('li')).map(
+          (node) => node.textContent
+        )
+      ).toEqual(next.map(String));
+      cleanup();
+    }
+  );
 });

@@ -4,14 +4,14 @@
 created or reconciled; it is not a general reactive scope. This distinction is
 important when a row reads state owned by the parent component.
 
-Keys passed to `by` must be stable, non-null, and unique within the list, and a
-key must keep the same string or number type across renders. Every build throws
-a descriptive error for a null, undefined, or duplicate key, because rows are
-addressed by key and reconciling them would silently drop or merge rows. The
-error is raised while the list renders or updates, so the nearest
-`<ErrorBoundary>` around the `<For>` renders its fallback; without one, the
-error propagates from the render or scheduler flush. Development builds also
-reject keys whose type changes across renders.
+Keys passed to `by` must be stable, non-null, and unique within the list. Keys
+are compared by identity, so `1` and `'1'` are different keys: changing a key's
+type remounts that row. Every build throws a descriptive error for a null,
+undefined, or duplicate key, because rows are addressed by key and reconciling
+them would silently drop or merge rows. The error is raised while the list
+renders or updates, so the nearest `<ErrorBoundary>` around the `<For>` renders
+its fallback, including when the list sits inside a `<Show>` or `<Case>` branch;
+without one, the error propagates from the render or scheduler flush.
 
 ## Selected-row state
 

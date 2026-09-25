@@ -3,10 +3,12 @@ import {
   discardTransaction,
   enqueueRuntimeTask,
   commitTransaction,
+  getControlOutputOwner,
   getCurrentComponentInstance,
+  isRenderingProtectedBoundaryContent,
   registerCommitRollback,
-  routeRenderedWorkErrorToBoundary,
-  type ComponentInstance,
+  routeRenderedOutputErrorToBoundary,
+  setControlOutputOwner,
   type ControlBoundaryState,
 } from '../../runtime';
 import { getControlBoundaryCommitChildren } from './state';
@@ -15,24 +17,63 @@ import type { VNode } from '../types';
 
 type BoundaryCommitOwnerState = ControlBoundaryState & {
   _commitOwner?: Element | null;
-  /** The component whose output materialized this boundary. */
-  _renderOwner?: ComponentInstance | null;
 };
 
+/** The control boundary whose local commit is running, if any. */
+let activeBoundaryCommit: ControlBoundaryState | null = null;
+
 /**
- * A boundary-local commit runs outside any component render, so its failures
- * are routed to the nearest ErrorBoundary around where the boundary was
- * materialized, and only rethrown when there is none.
+ * Remember where a control boundary is materialized so a later boundary-local
+ * commit can report failures there. Outside a component render (a boundary
+ * materialized by another boundary's local commit) it inherits that
+ * boundary's owner; a known owner is never cleared.
  */
-function failBoundaryCommit(
-  controlState: BoundaryCommitOwnerState,
-  error: unknown
+function recordControlOutputOwner(controlState: ControlBoundaryState): void {
+  const instance = getCurrentComponentInstance();
+  setControlOutputOwner(
+    controlState,
+    instance
+      ? {
+          instance,
+          protectedByOwner: isRenderingProtectedBoundaryContent(instance),
+        }
+      : activeBoundaryCommit
+        ? getControlOutputOwner(activeBoundaryCommit)
+        : null
+  );
+}
+
+/**
+ * Run a boundary-local commit. It runs outside any component render, so a
+ * failure goes to the nearest ErrorBoundary around where the boundary was
+ * materialized, and is only rethrown when there is none.
+ */
+function runBoundaryCommit(
+  controlState: ControlBoundaryState,
+  commit: () => void
 ): void {
-  const renderOwner = controlState._renderOwner;
-  if (renderOwner && routeRenderedWorkErrorToBoundary(renderOwner, error)) {
-    return;
+  const previousCommit = activeBoundaryCommit;
+  activeBoundaryCommit = controlState;
+  const lifecycleBatch = beginCommitTransaction();
+  try {
+    commit();
+    commitTransaction(lifecycleBatch);
+  } catch (error) {
+    discardTransaction(lifecycleBatch);
+    const owner = getControlOutputOwner(controlState);
+    if (
+      !owner ||
+      !routeRenderedOutputErrorToBoundary(
+        owner.instance,
+        error,
+        owner.protectedByOwner
+      )
+    ) {
+      throw error;
+    }
+  } finally {
+    activeBoundaryCommit = previousCommit;
   }
-  throw error;
 }
 
 type CommitBoundaryChildren = (
@@ -102,15 +143,10 @@ function assignControlBoundaryCommitOwner(
         return;
       }
 
-      const lifecycleBatch = beginCommitTransaction();
-      try {
+      runBoundaryCommit(controlState, () => {
         const childrenVNodes = getControlBoundaryCommitChildren(controlState);
         getCommitBoundaryChildren()(parent, controlState, childrenVNodes);
-        commitTransaction(lifecycleBatch);
-      } catch (error) {
-        discardTransaction(lifecycleBatch);
-        failBoundaryCommit(ownerState, error);
-      }
+      });
     });
   };
 }
@@ -135,13 +171,13 @@ export function registerControlBoundaryCommitOwner(
   parent: Element,
   controlState: ControlBoundaryState
 ): void {
-  const ownerState = controlState as BoundaryCommitOwnerState;
-  ownerState._renderOwner = getCurrentComponentInstance();
+  recordControlOutputOwner(controlState);
   const previousOwner = controlBoundaryOwners.get(parent);
   if (previousOwner === controlState) {
     return;
   }
 
+  const ownerState = controlState as BoundaryCommitOwnerState;
   const previousParent = ownerState._commitOwner;
   registerCommitRollback(() => {
     if (controlBoundaryOwners.get(parent) !== controlState) {
@@ -162,8 +198,8 @@ export function registerControlBoundaryRangeCommitOwner(
   controlState: ControlBoundaryState,
   commitRange: () => void
 ): void {
+  recordControlOutputOwner(controlState);
   const ownerState = controlState as BoundaryCommitOwnerState;
-  ownerState._renderOwner = getCurrentComponentInstance();
   const previousParent = ownerState._commitOwner;
   const previousEnqueue = controlState._enqueueBoundaryCommit;
   const previousPending = controlState._hasPendingBoundaryCommit;
@@ -195,14 +231,7 @@ export function registerControlBoundaryRangeCommitOwner(
         return;
       }
 
-      const lifecycleBatch = beginCommitTransaction();
-      try {
-        commitRange();
-        commitTransaction(lifecycleBatch);
-      } catch (error) {
-        discardTransaction(lifecycleBatch);
-        failBoundaryCommit(ownerState, error);
-      }
+      runBoundaryCommit(controlState, commitRange);
     });
   };
 

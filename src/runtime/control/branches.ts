@@ -14,6 +14,7 @@ import {
 } from '../ownership/child-scope';
 import { getCurrentComponentInstance } from '../component/scope';
 import { type ComponentInstance } from '../component/instance';
+import { bindControlScopeErrorOwner } from '../component/error-boundary';
 import type { ForState } from './for';
 import { registerCommitParticipant } from '../transactions/access';
 import { getRuntimeEvaluation } from '../access';
@@ -293,6 +294,7 @@ function createBranchScope(
 
     state.parentInstance?._enqueueRun?.();
   });
+  bindControlScopeErrorOwner(scope.componentInstance, state);
   if (state._contextFrame) {
     scope.componentInstance.ownerFrame = state._contextFrame;
   }

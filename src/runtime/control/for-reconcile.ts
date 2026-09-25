@@ -8,7 +8,6 @@
  */
 
 import type { VNode } from '../../common/vnode';
-import { isDevelopmentEnvironment } from '../../common/env';
 import {
   disposeAllItems,
   disposeFallbackScope,
@@ -38,21 +37,24 @@ function failForValidation(message: string): never {
 }
 
 /**
- * Null and duplicate keys fail in every build: rows are addressed by key, so
- * reconciling them would silently drop or merge rows. The key-kind drift check
- * needs cross-render bookkeeping and stays a development diagnostic.
+ * Resolve every row key once per pass and reject null and duplicate keys in
+ * every build: rows are addressed by key, so reconciling a violation would
+ * silently drop or merge rows. The reconciliation paths read the returned keys
+ * instead of calling `by` again.
  */
-function validateForKeys<T>(
+function resolveForKeys<T>(
   forState: ForState<T>,
   newArray: readonly T[]
-): void {
-  const trackKeyKinds = isDevelopmentEnvironment();
-  const seen = new Set<string | number>();
-  const keyKinds = trackKeyKinds
-    ? new Map<string | number, 'number' | 'string'>()
-    : null;
-  for (let i = 0; i < newArray.length; i++) {
-    const key = forState.byFn(newArray[i], i);
+): Array<string | number> {
+  const { byFn, orderedKeys } = forState;
+  const newLen = newArray.length;
+  const keys: Array<string | number> = [];
+  // The committed keys are unique, so keys that match a prefix of them in order
+  // cannot contain a duplicate; only build the lookup set once they diverge.
+  let seen: Set<string | number> | null = null;
+
+  for (let i = 0; i < newLen; i++) {
+    const key = byFn(newArray[i], i);
 
     if (key === null || key === undefined) {
       failForValidation(
@@ -60,31 +62,23 @@ function validateForKeys<T>(
       );
     }
 
-    if (seen.has(key)) {
-      failForValidation(
-        `[askr] Duplicate For key detected: ${String(key)}. Keys should be stable, non-null, and unique within a For list.`
-      );
+    if (!seen && (i >= orderedKeys.length || key !== orderedKeys[i])) {
+      seen = new Set(keys);
     }
 
-    seen.add(key);
-
-    if (!keyKinds) {
-      continue;
+    if (seen) {
+      if (seen.has(key)) {
+        failForValidation(
+          `[askr] Duplicate For key detected: ${String(key)}. Keys should be stable, non-null, and unique within a For list.`
+        );
+      }
+      seen.add(key);
     }
 
-    const keyKind = typeof key;
-    const previousKeyKind = forState.devKeyKinds?.get(key);
-    if (previousKeyKind && previousKeyKind !== keyKind) {
-      failForValidation(
-        `[askr] For key type changed for ${String(key)}. Keys must remain consistently typed across renders.`
-      );
-    }
-    keyKinds.set(key, keyKind as 'number' | 'string');
+    keys.push(key);
   }
 
-  if (keyKinds) {
-    forState.devKeyKinds = keyKinds;
-  }
+  return keys;
 }
 
 export function reconcileForItems<T>(
@@ -92,7 +86,7 @@ export function reconcileForItems<T>(
   newArray: readonly T[]
 ): VNode[] {
   forState.currentItems = newArray;
-  validateForKeys(forState, newArray);
+  const keys = resolveForKeys(forState, newArray);
 
   if (BENCH_BUILD_ENABLED) {
     resetBenchMetrics();
@@ -100,7 +94,7 @@ export function reconcileForItems<T>(
 
   const reconcileStartMs = BENCH_BUILD_ENABLED ? performance.now() : 0;
 
-  const { items, orderedKeys, byFn } = forState;
+  const { items, orderedKeys } = forState;
   const oldLen = orderedKeys.length;
   const newLen = newArray.length;
   forState.lastRemovedNodes = [];
@@ -147,7 +141,7 @@ export function reconcileForItems<T>(
       newArray,
       items,
       orderedKeys,
-      byFn,
+      keys,
       oldLen,
       newLen
     );
@@ -160,7 +154,7 @@ export function reconcileForItems<T>(
       newArray,
       items,
       orderedKeys,
-      byFn,
+      keys,
       oldLen,
       newLen
     );
@@ -174,7 +168,7 @@ export function reconcileForItems<T>(
         newArray,
         items,
         orderedKeys,
-        byFn,
+        keys,
         newLen
       );
       if (removed) return finish(removed);
@@ -185,7 +179,7 @@ export function reconcileForItems<T>(
       newArray,
       items,
       orderedKeys,
-      byFn,
+      keys,
       oldLen,
       newLen
     );
@@ -198,7 +192,7 @@ export function reconcileForItems<T>(
       newArray,
       items,
       orderedKeys,
-      byFn,
+      keys,
       oldLen
     );
     if (unmoved) return finish(unmoved);
@@ -208,14 +202,14 @@ export function reconcileForItems<T>(
       newArray,
       items,
       orderedKeys,
-      byFn,
+      keys,
       oldLen
     );
     if (swapped) return finish(swapped);
 
-    const moved = tryMoveOnlyKeyedPath(forState, newArray, items, byFn, oldLen);
+    const moved = tryMoveOnlyKeyedPath(forState, newArray, items, keys, oldLen);
     if (moved) return finish(moved);
   }
 
-  return finish(fullKeyedPath(forState, newArray, items, orderedKeys, byFn));
+  return finish(fullKeyedPath(forState, newArray, items, orderedKeys, keys));
 }

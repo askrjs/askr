@@ -31,14 +31,14 @@ export function tryRemoveOnePath<T>(
   newArray: readonly T[],
   items: ForState<T>['items'],
   orderedKeys: Array<string | number>,
-  byFn: ForState<T>['byFn'],
+  keys: readonly (string | number)[],
   newLen: number
 ): VNode[] | null {
   const removeValidationStartMs = BENCH_BUILD_ENABLED ? performance.now() : 0;
   let removedIndex = -1;
 
   for (let i = 0; i < newLen; i++) {
-    const nextKey = byFn(newArray[i], i);
+    const nextKey = keys[i];
     if (nextKey !== orderedKeys[i]) {
       removedIndex = i;
       break;
@@ -50,7 +50,7 @@ export function tryRemoveOnePath<T>(
   }
 
   for (let i = removedIndex; i < newLen; i++) {
-    const nextKey = byFn(newArray[i], i);
+    const nextKey = keys[i];
     if (nextKey !== orderedKeys[i + 1]) {
       return null;
     }
