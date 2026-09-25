@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 const repositoryRoot = resolve(import.meta.dirname, '..');
 const optionalPeers = ['@askrjs/auth', '@askrjs/schema'];
@@ -91,11 +91,16 @@ try {
   // uses route auth or schema-backed search/actions must install, typecheck,
   // and run without @askrjs/auth or @askrjs/schema.
   install([tarball, 'vitest@4.1.10', 'jsdom@29.1.1', 'tsd@0.33.0']);
+  // TypeScript and Node search every ancestor node_modules, so a peer
+  // installed above the consumer would silently mask a missing one.
   for (const peer of optionalPeers) {
-    if (existsSync(join(consumerRoot, 'node_modules', peer))) {
-      throw new Error(
-        `${peer} was installed with @askrjs/askr; it must be an optional peer.`
-      );
+    for (let dir = consumerRoot; ; dir = dirname(dir)) {
+      if (existsSync(join(dir, 'node_modules', peer))) {
+        throw new Error(
+          `${peer} is resolvable from ${dir}; the consumer must not see optional peers.`
+        );
+      }
+      if (dirname(dir) === dir) break;
     }
   }
   cpSync(
@@ -120,6 +125,20 @@ try {
       'void [Fragment, jsx, jsxs, view, createRouteRegistry, renderToString, createStaticGen, defineAction];',
     ].join('\n')
   );
+  // Without the peers, their own types degrade to `any`, but Askr's types
+  // must stay exact: search values, params, and non-schema route search.
+  writeFileSync(
+    join(consumerRoot, 'no-peers.ts'),
+    [
+      'import { route, to } from "@askrjs/askr/router";',
+      'const user = route("/users/{id}", () => null);',
+      'to(user, { id: "1" }, { tab: "profile", page: 2 });',
+      '// @ts-expect-error nested objects are not search values',
+      'to(user, { id: "1" }, { nested: { deep: new Date() } });',
+      '// @ts-expect-error params must match the path',
+      'to(user, { slug: "1" });',
+    ].join('\n')
+  );
   writeFileSync(
     join(consumerRoot, 'tsconfig.json'),
     JSON.stringify({
@@ -133,7 +152,12 @@ try {
         strict: true,
         noEmit: true,
       },
-      include: ['index.tsx', 'contracts/**/*.ts', 'contracts/**/*.tsx'],
+      include: [
+        'index.tsx',
+        'no-peers.ts',
+        'contracts/**/*.ts',
+        'contracts/**/*.tsx',
+      ],
     })
   );
   const typescriptCli = resolve(

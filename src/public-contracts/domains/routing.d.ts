@@ -265,8 +265,11 @@ interface RouteRef<
   readonly __search?: TSearch;
 }
 
-type RouteRefSearch<TSchema extends ObjectSchema<RouteSearch> | undefined> =
-  TSchema extends ObjectSchema<RouteSearch>
+type RouteRefSearch<TSchema extends ObjectSchema<RouteSearch> | undefined> = [
+  TSchema,
+] extends [undefined]
+  ? RouteSearch
+  : TSchema extends ObjectSchema<RouteSearch>
     ? InferSchema<TSchema>
     : RouteSearch;
 

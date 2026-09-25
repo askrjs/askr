@@ -21,8 +21,10 @@ npm install @askrjs/auth    # route and group `auth` requirements
 npm install @askrjs/schema  # route `search` schemas and page actions
 ```
 
-Until a peer is installed, the Askr types that reference it (`AuthContext`,
-`AuthRequirement`, `ObjectSchema`, `InferSchema`) resolve to `any`.
+Until a peer is installed, only the types Askr re-uses from it
+(`AuthContext`, `AuthRequirement`, `ObjectSchema`, `InferSchema`) are `any`.
+Askr's own types stay exact: route params, destinations built with `to()`,
+and the search values of routes without a `search` schema are still checked.
 
 ## Configure TypeScript JSX
 

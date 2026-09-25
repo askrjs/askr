@@ -2453,7 +2453,7 @@
       "interface RouteRef<TParams extends RouteParams = RouteParams, TSearch = RouteSearch> {\n    readonly path: string;\n    readonly searchSchema?: ObjectSchema<TSearch & RouteSearch>;\n    readonly basePath?: string;\n    readonly __params?: TParams;\n    readonly __search?: TSearch;\n}"
     ],
     "RouteRefSearch": [
-      "type RouteRefSearch<TSchema extends ObjectSchema<RouteSearch> | undefined> = TSchema extends ObjectSchema<RouteSearch> ? InferSchema<TSchema> : RouteSearch;"
+      "type RouteRefSearch<TSchema extends ObjectSchema<RouteSearch> | undefined> = [\n    TSchema\n] extends [\n    undefined\n] ? RouteSearch : TSchema extends ObjectSchema<RouteSearch> ? InferSchema<TSchema> : RouteSearch;"
     ],
     "RouteRegistry": [
       "interface RouteRegistry {\n    readonly [routeRegistryBrand]: true;\n    manifest: RouteManifest;\n    routes: readonly Route[];\n}"
