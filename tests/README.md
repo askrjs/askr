@@ -58,14 +58,12 @@ Benchmarks live outside `tests`:
 
 - `benches/tier1`: hot path benchmarks.
 - `benches/tier2`: subsystem benchmarks.
-- `benches/tier3`: system benchmarks.
-- `benches/tier4`: integration benchmarks.
 
-Run stable non-browser lanes with:
+Both lanes run in Node and jsdom. Run them with:
 
 ```bash
 npm run bench
-npm run bench:tier1 -- --outputJson bench-results/tier1.json && npm run bench:tier2 -- --outputJson bench-results/tier2.json && npm run bench:tier3 -- --outputJson bench-results/tier3.json && npm run bench:tier4 -- --outputJson bench-results/tier4.json
+npm run bench:tier1 -- --outputJson bench-results/tier1.json && npm run bench:tier2 -- --outputJson bench-results/tier2.json
 ```
 
 ## Enforcement

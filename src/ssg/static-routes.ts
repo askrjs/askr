@@ -3,7 +3,7 @@
  */
 
 import type { RouteConfig, RouteRenderResult } from './types';
-import type { RouteOptions, RouteRegistry } from '../common/router';
+import type { RouteRegistry } from '../common/router';
 import { getRenderHandler } from '../router/rendering';
 import { expandRoutes } from './resolve-ssg-data';
 import {
@@ -13,8 +13,6 @@ import {
 } from './route-utils';
 
 type StaticRouteSource = { registry: RouteRegistry };
-type RegistryRouteOptions = RouteOptions &
-  Pick<RouteConfig, 'params' | 'props' | 'invalidationKeys'>;
 
 export type RuntimeOnlyRoute = {
   routeId: string;
@@ -119,12 +117,12 @@ function routeRegistryToRouteConfigs(registry: RouteRegistry): RouteConfig[] {
       continue;
     }
 
-    const options = record.options as RegistryRouteOptions;
+    // One record per route template: concrete pages come from entries(), and
+    // they share the template's invalidation keys.
+    const options = record.options;
     routeConfigs.push({
       path: record.path,
       handler: getRenderHandler(record),
-      params: options.params,
-      props: options.props,
       invalidationKeys: options.invalidationKeys
         ? [...options.invalidationKeys]
         : undefined,
