@@ -9,7 +9,9 @@ import type {
 import { resolveRouteRequest } from '../router/route';
 import { reconcileRouteMeta, resolveRouteMeta } from '../router/metadata';
 import { getRouteRenderContext } from '../router/resolution';
+import { readHistoryIndex } from '../router/history-index';
 import type { ComponentFunction } from '../runtime';
+import type { DataRuntime } from '../data/types';
 
 const MAX_INITIAL_ROUTE_REDIRECTS = 20;
 
@@ -67,6 +69,7 @@ export async function resolveInitialRoute(
     registry: RouteRegistry;
     load?: boolean;
     authContext?: AuthContext;
+    dataRuntime?: DataRuntime;
   }
 ): Promise<{ path: string; href: string; resolved: InitialRouteResult }> {
   let path = typeof window !== 'undefined' ? window.location.pathname : '/';
@@ -94,6 +97,7 @@ export async function resolveInitialRoute(
       auth,
       load: source.load,
       authContext: source.authContext,
+      dataRuntime: source.dataRuntime,
     });
     if (!resolved || resolved.kind !== 'redirect') {
       return { path, href, resolved };
@@ -107,7 +111,14 @@ export async function resolveInitialRoute(
     );
     const redirectHref = `${redirectTarget.pathname}${redirectTarget.search}${redirectTarget.hash}`;
     if (typeof window !== 'undefined') {
-      window.history.replaceState({ path: redirectHref }, '', redirectHref);
+      window.history.replaceState(
+        {
+          path: redirectHref,
+          askrIndex: readHistoryIndex(window.history.state),
+        },
+        '',
+        redirectHref
+      );
     }
     path = redirectTarget.pathname;
     href = redirectHref;

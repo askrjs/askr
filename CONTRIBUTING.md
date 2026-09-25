@@ -75,6 +75,11 @@ boundaries.
 - Keep platform docs under `docs/`.
 - Keep package-specific reference docs in the package repository that owns the behavior.
 - Update docs when user-facing behavior changes.
+- Published TS/TSX snippets that import `@askrjs/askr` are type-checked. To also
+  execute one, tag its fence with `run=<id>` (for example ` ```tsx run=my-example`)
+  and register a scenario with that id in
+  `tests/checks/docs/runnable-snippets.test.ts` that mounts or calls what the
+  snippet defines and asserts the documented behavior.
 
 Primary entry points:
 

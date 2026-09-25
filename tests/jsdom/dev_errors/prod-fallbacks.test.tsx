@@ -22,6 +22,7 @@ import {
 import { createIsland } from '../../../test-utils/render/create-island';
 import '../../../src/router/route';
 import { navigate } from '../../../src/router/navigate';
+import { loadDocument } from '../../../src/router/document-navigation';
 import { nextComponentInstanceId } from '../../../src/renderer/component/host-instances';
 import {
   deleteDevValue,
@@ -30,6 +31,10 @@ import {
   incDevCounter,
 } from '../../../src/runtime/diagnostics/dev-namespace';
 
+vi.mock('../../../src/router/document-navigation', () => ({
+  loadDocument: vi.fn(),
+  reloadDocument: vi.fn(),
+}));
 describe('prod fallbacks (DEV_ERRORS)', () => {
   let { container, cleanup } = createTestContainer();
   beforeEach(() => {
@@ -72,6 +77,7 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
       // Spec: missing-route warning should be suppressed in production.
       navigate('/missing');
       expect(warn).not.toHaveBeenCalled();
+      expect(loadDocument).toHaveBeenCalledWith('/missing', 'push');
 
       warn.mockRestore();
     } finally {

@@ -22,6 +22,10 @@ import {
   activateHydrationBoundary as activateRendererHydrationBoundary,
   clearDeferredHydrationBoundaries,
 } from '../renderer';
+import {
+  registerDelegationRoot,
+  unregisterDelegationRoot,
+} from '../renderer/props/events';
 import type { BootAppRouteSource } from './types';
 import { resolveRootElement } from './root-element';
 import { validateCspNonce } from '../csp-nonce';
@@ -86,6 +90,7 @@ function cleanupRootInstance(
   const callbacks = element[ROOT_CLEANUP_CALLBACKS_SYMBOL];
   const wasRoutedRoot = routedRoots.delete(rootElement);
   instancesByRoot.delete(rootElement);
+  unregisterDelegationRoot(rootElement);
   clearRootCleanupCallbacks(rootElement);
   // The instance check also makes non-configurable cleanup markers inert.
   Reflect.deleteProperty(element, CLEANUP_SYMBOL);
@@ -107,6 +112,7 @@ function cleanupRootInstance(
   if (options?.preserveInstance && !instancesByRoot.has(rootElement)) {
     instancesByRoot.set(rootElement, instance);
     element[CLEANUP_SYMBOL] = cleanup;
+    registerDelegationRoot(rootElement);
     if (wasRoutedRoot) routedRoots.add(rootElement);
   } else {
     unregisterAppInstance(instance);
@@ -131,6 +137,7 @@ function attachCleanupForRoot(
   (rootElement as ElementWithCleanup)[CLEANUP_SYMBOL] = (options) => {
     cleanupRootInstance(rootElement, instance, options);
   };
+  registerDelegationRoot(rootElement);
   registerRootCleanupCallback(rootElement, () => {
     disposeRegisteredDefaultPortalScope(instance.portalScope ?? instance);
   });
