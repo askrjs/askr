@@ -581,4 +581,78 @@ describe('For row runs per flush', () => {
     expect(runs.slice().sort()).toEqual(['a', 'b']);
     cleanup();
   });
+
+  // Each step names keys in order; a trailing `'` gives that key a new item.
+  // The comments name the reconcile path each move takes.
+  const MOVES = [
+    // Two rows exchanged, the middle row untouched: SWAP.
+    { name: 'swap', from: 'a b c', to: "c' b a'", runs: ['a', 'c'] },
+    // Every row moves, one with a new item: FULL_KEYED.
+    { name: 'rotation', from: 'a b c', to: "b c a'", runs: ['a', 'b', 'c'] },
+    // The head removed, the shifted suffix reindexed: REMOVE_ONE.
+    { name: 'remove one', from: 'a b c', to: "b' c", runs: ['b', 'c'] },
+    // A new head row: INSERT_ONE declines a changed item, so FULL_KEYED.
+    { name: 'insert one', from: 'a b', to: "d a' b", runs: ['a', 'b', 'd'] },
+  ] as const;
+
+  describe.each(['proxied', 'plain'] as const)('with %s items', (kind) => {
+    type Entry = Labeled | [string, string];
+    const idOf = (entry: Entry) => (Array.isArray(entry) ? entry[0] : entry.id);
+    const labelOf = (entry: Entry) =>
+      Array.isArray(entry) ? entry[1] : entry.label;
+    const make = (id: string, label: string): Entry =>
+      kind === 'proxied' ? { id, label } : [id, label];
+
+    it.each(MOVES)(
+      'should run a row once when its item and read index change in one pass ($name)',
+      ({ from, to, runs: expectedRuns }) => {
+        const { container, cleanup } = createTestContainer();
+        const entries = new Map<string, Entry>();
+        const resolve = (step: string) =>
+          step.split(' ').map((token) => {
+            const id = token[0];
+            const current = entries.get(id);
+            if (current && !token.endsWith("'")) return current;
+            const next = make(id, current ? `${id}2` : id);
+            entries.set(id, next);
+            return next;
+          });
+        let setItems: (items: Entry[]) => void = () => {};
+        const runs: string[] = [];
+        const renderRow = (entry: Entry, index: () => number) => {
+          runs.push(idOf(entry));
+          return (
+            <li>
+              {labelOf(entry)}:{index()}
+            </li>
+          );
+        };
+
+        const App = () => {
+          const [items, set] = state<Entry[]>(resolve(from));
+          setItems = set;
+          return (
+            <ul>
+              <For each={items} by={idOf}>
+                {renderRow}
+              </For>
+            </ul>
+          );
+        };
+
+        createIsland({ root: container, component: App });
+        runs.length = 0;
+
+        const next = resolve(to);
+        setItems(next);
+        flushScheduler();
+
+        expect(texts(container)).toEqual(
+          next.map((entry, index) => `${labelOf(entry)}:${index}`)
+        );
+        expect(runs.slice().sort()).toEqual(expectedRuns);
+        cleanup();
+      }
+    );
+  });
 });

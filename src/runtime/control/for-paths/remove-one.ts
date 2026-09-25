@@ -93,13 +93,21 @@ export function tryRemoveOnePath<T>(
     const indexSignal = existing.indexSignal;
     const indexChanged = i >= removedIndex && indexSignal.peek() !== i;
 
+    // A row with a new item takes its new index in the same call, so it
+    // reruns once. `itemChanged` already marks it dirty.
     if (itemChanged) {
-      updateItemInstance(forState, existing, item);
+      updateItemInstance(
+        forState,
+        existing,
+        item,
+        indexChanged ? i : undefined
+      );
     }
 
-    const indexVisibleChange = indexChanged
-      ? syncForItemIndex(forState, existing, i)
-      : false;
+    const indexVisibleChange =
+      indexChanged && !itemChanged
+        ? syncForItemIndex(forState, existing, i)
+        : false;
     if (BENCH_BUILD_ENABLED && i >= removedIndex) {
       recordBenchCounter('shiftedItemsVisited');
       if (indexChanged) recordBenchCounter('indexSignalsUpdated');

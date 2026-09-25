@@ -120,10 +120,14 @@ export function fullKeyedPath<T>(
 
       if (itemChanged) {
         moveOnly = false;
-        updateItemInstance(forState, existing, item);
-      }
-
-      if (indexChanged) {
+        // Apply a new index with the item so the row reruns once.
+        updateItemInstance(
+          forState,
+          existing,
+          item,
+          indexChanged ? i : undefined
+        );
+      } else if (indexChanged) {
         // Index changed: update index signal (triggers re-render if index is used)
         syncForItemIndex(forState, existing, i);
       }
