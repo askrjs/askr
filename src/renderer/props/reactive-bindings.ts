@@ -14,7 +14,7 @@ import {
   type CommitParticipant,
 } from '../../runtime/transactions/access';
 import { isBenchMetricScopeActive, recordBenchCounter } from '../../runtime';
-import { incrementPerfMetric } from '../../runtime';
+import { incrementPerfMetric, readFunctionChildValue } from '../../runtime';
 import type { ReadableSource } from '../../runtime';
 import { applyScalarPropValue } from './attributes';
 import {
@@ -150,10 +150,13 @@ function setupReactiveProp(
   const protectedByOwner =
     !!owner && isRenderingProtectedBoundaryContent(owner);
 
+  // A prop function that returns a readable renders the readable's value, as
+  // a function child does.
+  const compute = () => readFunctionChildValue(descriptor.propFn);
   reactivePropRegistry.add(descriptor);
   descriptor.effect = createFineGrainedEffect({
     lane: 'reactive',
-    compute: () => descriptor.propFn(),
+    compute,
     commit: (value, previousValue) => {
       incrementPerfMetric('reactivePropReevaluations');
       applyScalarPropValue(
@@ -202,7 +205,7 @@ function setupReactiveProp(
 
     captureBindingRollback(descriptor, saveReactiveProp, restoreReactiveProp);
     descriptor.propFn = nextFn;
-    effectHandle.updateCompute(nextFn);
+    effectHandle.updateCompute(compute);
   };
 
   return {

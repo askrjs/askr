@@ -161,6 +161,31 @@ function Media(props: { muted: boolean; stream: MediaStream; rows: Row[] }) {
 }
 ```
 
+Form state props accept a function or cell like any other prop, and the
+binding keeps the live property in sync: `value={() => name()}` on an
+`<input>` or `<textarea>`, `checked={() => on()}`, `selected={() => on()}`
+on an `<option>`, and `value={() => role()}` on a `<select>` (an array for
+`multiple`). A `<select>` value is applied again once its options exist, both
+when it is created and after its options change, so a value whose option
+renders later is still selected.
+
+```tsx
+function RolePicker() {
+  const role = state('admin');
+  return (
+    <select
+      value={() => role()}
+      onChange={(event: Event) =>
+        role.set((event.currentTarget as HTMLSelectElement).value)
+      }
+    >
+      <option value="viewer">Viewer</option>
+      <option value="admin">Admin</option>
+    </select>
+  );
+}
+```
+
 Values SSR cannot render are applied when the client hydrates. Attributes a
 property reflects (`prop:href` sets `href`, `prop:hidden` sets `hidden`) are
 kept on re-render like any other attribute Askr rendered.
@@ -311,6 +336,10 @@ function in a function child's result (returned directly, or inside an array
 or fragment it returns) renders nothing, and so does a component that returns
 a function or a cell. Elements a function child returns keep their own
 reactive children and props.
+
+A function prop follows the same rule: `title={() => (useFull() ? fullName :
+shortName)}` renders the selected cell's value on the server and the client,
+and the client binding follows both the choice and the chosen cell.
 
 Function children are not limited to elements. A function or cell among the
 items of a fragment or array a component returns, such as a layout that
