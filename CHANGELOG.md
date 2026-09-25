@@ -8,6 +8,17 @@
   now replaces its `fetch`, `isConsistent`, and `reconcile` on each render;
   only other readers of the same key with a different definition warn. When
   the defining reader unmounts, a remaining reader takes over the definition.
+- breaking(data): `defineQuery()` fetchers now receive the input and the abort
+  signal as separate arguments, `fetch(input, { signal })`, instead of one
+  merged `{ ...input, signal }` object. The merged shape dropped primitive
+  inputs (a `QueryDefinition<number, ...>` fetcher only saw `{ signal }`) and
+  let the abort signal overwrite an input field named `signal`. Rewrite
+  `fetch: ({ id, signal }) => ...` as `fetch: ({ id }, { signal }) => ...`.
+  Old-style fetchers with an annotated parameter
+  (`({ id, signal }: { id: string; signal: AbortSignal })`) still compile at
+  the `defineQuery()` definition but fail to typecheck at the `createQuery()`
+  call site; move `signal` to the second argument.
+  Inline `createQuery({ key, fetch })` fetchers are unchanged.
 - fix(resources): a resource hydrated from preloaded data keeps its value on
   later re-renders instead of resetting to pending and refetching. The preloaded
   value now seeds the resource, so `refresh()` and `deps` changes also work
