@@ -193,6 +193,40 @@ describe('actions', () => {
     expect(status?.error).toEqual(replay);
   });
 
+  it.each([
+    ['204', () => new Response(null, { status: 204 })],
+    ['205', () => new Response(null, { status: 205 })],
+    ['empty 200', () => new Response('', { status: 200 })],
+  ])(
+    'should succeed and invalidate declared prefixes given a %s response',
+    async (_label, respond) => {
+      getDefaultDataRuntime().queryData.set('items:one', { id: 'one' });
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => respond())
+      );
+      vi.stubGlobal('location', {
+        href: 'http://example.test/items',
+        assign: vi.fn(),
+      });
+      let command!: ReturnType<typeof action<{ name: string }>>;
+      const App = () => {
+        command = action(save);
+        return <div />;
+      };
+      const { container, cleanup } = createTestContainer();
+      try {
+        createIsland({ root: container, component: App });
+        flushScheduler();
+        await expect(command.submit({ name: 'Ada' })).resolves.toBeUndefined();
+        expect(getDefaultDataRuntime().queryData.has('items:one')).toBe(false);
+        expect(command.state()).toEqual({ pending: false, result: undefined });
+      } finally {
+        cleanup();
+      }
+    }
+  );
+
   it('should invalidate enhanced envelope prefixes without navigating', async () => {
     getDefaultDataRuntime().queryData.set('items:one', { id: 'one' });
     getDefaultDataRuntime().queryData.set('other:one', { id: 'one' });

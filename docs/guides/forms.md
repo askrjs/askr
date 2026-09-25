@@ -100,7 +100,8 @@ string error, or the `detail`, `message`, or `title` of that value, is
 appended (`Action failed (403): You cannot edit this project.`). When the body
 is not JSON (for example an HTML error page from a proxy), including on a 2xx
 status, the message still reports the status and the parse failure is kept as
-`cause`.
+`cause`. A bodiless success (a 204 or 205, or an empty 2xx body) resolves
+with `undefined` and still invalidates the action's declared prefixes.
 
 Overlapping client-driven submissions use last-started-wins state semantics,
 including when the first submission's pending state rerenders the component.

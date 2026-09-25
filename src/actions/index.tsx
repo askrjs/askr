@@ -173,7 +173,10 @@ export function action<
         });
         let parsed: unknown;
         try {
-          parsed = await response.json();
+          const body = await response.text();
+          // A bodiless success (204/205 or an empty 2xx) is a completed
+          // mutation with no result; it still runs declared invalidations.
+          parsed = response.ok && body === '' ? undefined : JSON.parse(body);
         } catch (cause) {
           // A proxy or crashed server can answer with HTML or plain text;
           // keep the HTTP status visible rather than a JSON parse error.
