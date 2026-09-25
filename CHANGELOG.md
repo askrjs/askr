@@ -103,6 +103,20 @@
   their public API (`createQuery()`, `onRouteChange()`, `<For>`). The unreachable
   monotonic index check is removed, and the internal `ComponentInstance`
   field `expectedStateIndices` is replaced by `expectedHookKinds`.
+- fix(renderer): re-renders no longer strip attributes, class tokens and inline
+  styles added by other code (focus traps setting `aria-hidden`/`inert`,
+  animation libraries setting `style.transform`, tooltips adding `data-*`,
+  `classList.add`). Prop reconciliation now diffs against the props Askr last
+  applied to each element instead of the live DOM, so only what Askr rendered is
+  removed or patched.
+
+- fix(ssr): sync `renderToString({ url, registry })`/`renderToStream()` no
+  longer follow auth redirects or render a denial marker with an implicit 200.
+  Redirect and deny decisions throw the new `SSRAccessDecisionError`, whose
+  `decision` matches what `renderRouteRequest()` returns. The sync path also no
+  longer starts route loaders: a loader route throws `SSRDataMissingError`
+  naming the route and pointing to `renderRouteRequest()`, and abandoned async
+  resolution no longer leaks an unhandled rejection.
 - breaking(ssr): sync `renderToString({ url, registry })`/`renderToStream()`
   no longer follow auth redirects or render a denial marker with an implicit 200. Redirect and deny decisions throw the new `SSRAccessDecisionError`, whose
   `decision` matches what `renderRouteRequest()` returns. The sync path also no

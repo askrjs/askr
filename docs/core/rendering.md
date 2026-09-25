@@ -71,6 +71,23 @@ The marker is renderer-only and is not emitted as an HTML attribute. Leave it
 off for normal declarative elements so removing JSX children continues to clear
 their DOM and lifecycle ownership normally.
 
+### Attributes written by other code
+
+Askr only removes what it rendered. On re-render, props are diffed against the
+props Askr last applied to that element, not against the live DOM, so
+attributes, class tokens and inline style properties added by other code
+survive: a focus trap setting `aria-hidden` or `inert`, an animation library
+setting `style.transform`, a tooltip adding `data-*`, or `classList.add(...)`.
+
+- A prop that disappears (or becomes `null`/`undefined`/`false`) removes only
+  what Askr wrote for it: the attribute, its own class tokens, or its own style
+  properties.
+- Values Askr still renders are re-applied if other code overwrote them (for
+  example a removed class token or a changed `title`).
+- Server-rendered markup that hydration cannot adopt as-is is treated as
+  Askr-owned on its first update, so mismatched SSR attributes are still
+  cleaned up.
+
 See [Runtime](./runtime.md) for boot APIs.
 
 ## Server-Side Rendering (SSR)
