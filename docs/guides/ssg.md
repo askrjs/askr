@@ -128,6 +128,21 @@ const ssg = createStaticGen({
 });
 ```
 
+Declare a template once: registering the same path twice throws, so every page
+of a template comes from its `entries()`.
+
+`invalidationKeys` on `route()` applies to the template, so every page its
+`entries()` generate shares those keys during incremental generation
+(`generate({ mode: 'incremental', changedKeys })`). To rebuild individual
+pages, pass their concrete paths as `changedRoutes`.
+
+```ts
+route('/blog/{slug}', BlogPostPage, {
+  entries: async () => getPosts().map((post) => ({ slug: post.slug })),
+  invalidationKeys: ['blog'],
+});
+```
+
 ## Data overrides
 
 Provide route-keyed SSR data when components need pre-supplied values:

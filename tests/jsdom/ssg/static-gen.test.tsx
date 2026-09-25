@@ -56,41 +56,22 @@ function createStaticGen(
           | ((params: Record<string, string>, context: unknown) => unknown)
           | undefined) ??
         ((params: Record<string, string>, context: unknown) =>
-          component?.(
-            {
-              ...(config.props as Record<string, unknown> | undefined),
-              ...params,
-            },
-            context
-          ));
+          component?.(params, context));
+      // The shorthand's single `params` map is one entries() page.
+      const params = config.params as Record<string, string> | undefined;
       route(
         config.path as string,
         handler as never,
         {
           ...config,
+          ...(params ? { entries: () => [params] } : {}),
+          params: undefined,
           component: undefined,
           handler: undefined,
         } as never
       );
     }
   });
-
-  const recordsByPath = new Map<string, typeof registry.manifest.records>();
-  for (const record of registry.manifest.records) {
-    const records = recordsByPath.get(record.path) ?? [];
-    records.push(record);
-    recordsByPath.set(record.path, records);
-  }
-  for (const config of legacyOptions.routes ?? []) {
-    const records = recordsByPath.get(config.path as string) ?? [];
-    const record = records.shift();
-    if (!record) continue;
-    Object.assign(record.options, {
-      params: config.params,
-      props: config.props,
-      invalidationKeys: config.invalidationKeys,
-    });
-  }
 
   return createRegistryStaticGen({
     ...legacyOptions,
@@ -1605,6 +1586,45 @@ describe('Static Site Generation', () => {
       );
       expect(
         result.routes.find((route) => route.path === '/about')?.reason
+      ).toBe('changed-key');
+    });
+
+    it('should apply route() invalidationKeys to every page its entries() generate', async () => {
+      const renders: string[] = [];
+      const registry = createRouteRegistry(() => {
+        route(
+          '/blog/{slug}',
+          (params: { slug: string }) => {
+            renders.push(params.slug);
+            return <div>{params.slug}</div>;
+          },
+          {
+            entries: () => [{ slug: 'first' }, { slug: 'second' }],
+            invalidationKeys: ['blog'],
+          }
+        );
+        route('/about', () => <div>{'About'}</div>, {
+          invalidationKeys: ['about'],
+        });
+      });
+      const ssg = createRegistryStaticGen({ registry, outputDir: tempDir });
+
+      await ssg.generate();
+      renders.length = 0;
+
+      const result = await ssg.generate({
+        mode: 'incremental',
+        changedKeys: ['about'],
+      });
+
+      expect(renders).toEqual([]);
+      expect(
+        result.routes
+          .filter((entry) => entry.path.startsWith('/blog/'))
+          .map((entry) => entry.status)
+      ).toEqual(['skipped', 'skipped']);
+      expect(
+        result.routes.find((entry) => entry.path === '/about')?.reason
       ).toBe('changed-key');
     });
 

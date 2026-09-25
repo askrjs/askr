@@ -767,11 +767,11 @@ describe('route precedence', () => {
     expect(r!.handler({})).toBe('literal');
   });
 
-  it('should prefer param over wildcard at same depth', () => {
-    route('/items/*', () => 'wildcard');
-    route('/items/{id}', () => 'param');
+  it('should prefer param over wildcard at the first differing segment', () => {
+    route('/items/*/edit', () => 'wildcard');
+    route('/items/{id}/{action}', () => 'param');
 
-    const r = resolveRoute('/items/abc');
+    const r = resolveRoute('/items/abc/edit');
     expect(r!.handler({})).toBe('param');
   });
 
@@ -842,10 +842,10 @@ describe('segment-by-segment precedence', () => {
       winner: '/posts/featured',
     },
     {
-      name: 'param beats wildcard at the same depth',
-      routes: ['/items/*', '/items/{id}'],
-      url: '/items/abc',
-      winner: '/items/{id}',
+      name: 'param beats wildcard at the first differing segment',
+      routes: ['/items/*/edit', '/items/{id}/{action}'],
+      url: '/items/abc/edit',
+      winner: '/items/{id}/{action}',
     },
     {
       name: 'param beats splat at the same depth',
@@ -970,6 +970,24 @@ describe('duplicate route paths', () => {
       original: '/café',
     },
     {
+      name: 'a wildcard after a param at the same position',
+      define: () => {
+        route('/users/{id}', () => 'first');
+        route('/users/*', () => 'second');
+      },
+      duplicate: '/users/*',
+      original: '/users/{id}',
+    },
+    {
+      name: 'a param after a wildcard at the same position',
+      define: () => {
+        route('/users/*', () => 'first');
+        route('/users/{id}', () => 'second');
+      },
+      duplicate: '/users/{id}',
+      original: '/users/*',
+    },
+    {
       name: 'a page index and a route at the page path',
       define: () => {
         page('/users', Page, () => {
@@ -1027,8 +1045,24 @@ describe('duplicate route paths', () => {
       expect(() => createRouteRegistry(testCase.define)).toThrow(
         `Duplicate route path "${testCase.duplicate}": it matches the same URLs as "${testCase.original}", which is already registered.`
       );
+      if (testCase.duplicate !== testCase.original) {
+        expect(() => createRouteRegistry(testCase.define)).not.toThrow(
+          /entries\(\)/
+        );
+      }
     });
   }
+
+  it('should point an identical template at entries() for several pages', () => {
+    expect(() =>
+      createRouteRegistry(() => {
+        route('/blog/{slug}', () => 'first');
+        route('/blog/{slug}', () => 'second');
+      })
+    ).toThrow(
+      'Duplicate route path "/blog/{slug}": it matches the same URLs as "/blog/{slug}", which is already registered. To generate several pages from one route template, declare it once and return each page\'s params from entries().'
+    );
+  });
 
   it('should reject a duplicate in the application route table', () => {
     route('/users', () => 'first');
@@ -1042,7 +1076,7 @@ describe('duplicate route paths', () => {
     expect(() =>
       createRouteRegistry(() => {
         route('/users/{id}', () => 'param');
-        route('/users/*', () => 'wildcard');
+        route('/users/{id}/*', () => 'wildcard');
         route('/users/new', () => 'static');
         route('/users/{id}/{*rest}', () => 'splat');
         route('/*', () => 'catch-all');
@@ -1118,4 +1152,76 @@ describe('scoped fallback precedence', () => {
       });
     }
   }
+});
+
+describe('scoped fallbacks under parameterized pages', () => {
+  const Page = () => null;
+  const pathOf = (handler: unknown) =>
+    getRouteRecords().find((record) => record.handler === handler)?.path;
+
+  const define = () => {
+    page('/{lang}', Page, () => {
+      index(() => 'home');
+      fallback(() => 'missing');
+    });
+    page('/{lang}/docs', Page, () => {
+      fallback(() => 'docs-missing');
+    });
+    page('/en/blog', Page, () => {
+      fallback(() => 'en-blog-missing');
+    });
+    page('/{lang}/blog', Page, () => {
+      fallback(() => 'blog-missing');
+    });
+  };
+
+  const cases = [
+    {
+      url: '/en/nope',
+      winner: '/{lang}/*',
+      params: { lang: 'en', '*': 'nope' },
+    },
+    {
+      url: '/fr/docs/a/b',
+      winner: '/{lang}/docs/*',
+      params: { lang: 'fr', '*': '/a/b' },
+    },
+    {
+      url: '/caf%C3%A9/x',
+      winner: '/{lang}/*',
+      params: { lang: 'caf\u00e9', '*': 'x' },
+    },
+    { url: '/en/blog/x', winner: '/en/blog/*', params: { '*': 'x' } },
+    {
+      url: '/de/blog/x',
+      winner: '/{lang}/blog/*',
+      params: { lang: 'de', '*': 'x' },
+    },
+  ];
+
+  for (const testCase of cases) {
+    it(`should resolve ${testCase.url} to ${testCase.winner}`, () => {
+      const registry = createRouteRegistry(define);
+      define();
+
+      const resolved = resolveRoute(testCase.url);
+      expect(pathOf(resolved?.handler)).toBe(testCase.winner);
+      expect(resolved?.params).toEqual(testCase.params);
+      const listed = resolveRouteFromRoutes(testCase.url, [...getRouteList()]);
+      expect(pathOf(listed?.handler)).toBe(testCase.winner);
+      expect(listed?.params).toEqual(testCase.params);
+      const [match] = computeMatchesFromRouteRecords(
+        testCase.url,
+        registry.manifest.records
+      );
+      expect(match?.path).toBe(testCase.winner);
+      expect(match?.params).toEqual(testCase.params);
+    });
+  }
+
+  it('should not match a parameterized fallback prefix literally only', () => {
+    define();
+    expect(resolveRoute('/{lang}/nope')).not.toBeNull();
+    expect(resolveRoute('/')).toBeNull();
+  });
 });

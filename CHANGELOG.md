@@ -9,8 +9,17 @@
 - fix(router): registering two routes that match the same URLs now throws
   `Duplicate route path` instead of silently shadowing the second. Routes are
   compared the way they match: parameter and splat names, trailing slashes and
-  percent-encoding of static segments are ignored, and a `fallback()` equals a
-  named splat at its prefix. Each registry is checked separately.
+  percent-encoding of static segments are ignored, a `*` wildcard equals a
+  param, and a `fallback()` equals a named splat at its prefix. Each registry
+  is checked separately. Declare a template once and use `entries()` for its
+  pages.
+- fix(router): `fallback()` inside a parameterized page such as
+  `page('/{lang}')` now handles misses under `/en/...` (and receives `lang`)
+  instead of matching only the literal `/{lang}/...`.
+- fix(ssg): `invalidationKeys` passed to `route()` were dropped from the
+  registry, so incremental generation treated those routes as keyless and
+  always rebuilt them. They now apply to every page the route's `entries()`
+  generate.
 - fix(boot): error messages no longer point at a nonexistent `createSSR`; they
   name `createSPA`/`hydrateSPA` (and `createIslands`). Removed the unreachable
   redirect branches in `createSPA`/`hydrateSPA`, and sync SSR now matches
