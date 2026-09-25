@@ -13,7 +13,6 @@ import {
   matchSegments,
   parseSegments,
   splitPathSegments,
-  staticSegmentMatches,
 } from './match';
 import type { InternalRoute, InternalRouteRecord } from './internal-types';
 import { getRouteRecords, isRouteStoreRoutes } from './store';
@@ -47,23 +46,45 @@ function cachedSortedList(
   return sorted;
 }
 
+const prefixSegsCache = new Map<string, ReturnType<typeof parseSegments>>();
+
+function cachedPrefixSegs(prefix: string): ReturnType<typeof parseSegments> {
+  let segments = prefixSegsCache.get(prefix);
+  if (!segments) {
+    segments = parseSegments(prefix);
+    prefixSegsCache.set(prefix, segments);
+  }
+  return segments;
+}
+
+/**
+ * Match a scoped fallback's page prefix against the start of `pathname`.
+ * Prefix segments match like route segments, so a fallback inside
+ * `page('/{lang}')` matches `/en/...` and captures `lang`; the rest of the
+ * path is the `*` capture.
+ */
 function matchFallbackPrefix(
   pathname: string,
   fallbackPrefix: string
 ): Record<string, string> | null {
   const urlParts = splitPathSegments(pathname);
-  const prefixParts = splitPathSegments(fallbackPrefix);
-  if (urlParts.length < prefixParts.length) {
+  const prefixSegments = cachedPrefixSegs(fallbackPrefix);
+  if (urlParts.length < prefixSegments.length) {
     return null;
   }
 
-  for (let i = 0; i < prefixParts.length; i++) {
-    if (!staticSegmentMatches(prefixParts[i], urlParts[i])) {
-      return null;
-    }
+  const prefixParams = matchSegments(
+    urlParts.slice(0, prefixSegments.length),
+    prefixSegments
+  );
+  if (prefixParams === null) {
+    return null;
   }
 
-  return { '*': formatCatchAllCapture(urlParts.slice(prefixParts.length)) };
+  return {
+    ...prefixParams,
+    '*': formatCatchAllCapture(urlParts.slice(prefixSegments.length)),
+  };
 }
 
 function findBestResolvedRouteFromRoutes(
@@ -99,14 +120,15 @@ function findBestResolvedRouteFromRoutes(
 /**
  * Pick the scoped fallback whose prefix matches `pathname` with the most
  * segments. Depth is counted in segments, not characters, so an encoded prefix
- * such as `/caf%C3%A9` does not outrank a deeper `/café/x`.
+ * such as `/caf%C3%A9` does not outrank a deeper `/café/x`; equal depths are
+ * ordered by segment specificity.
  */
 function findDeepestFallback<T extends { fallbackPrefix?: string }>(
   pathname: string,
   entries: readonly T[]
 ): { entry: T; params: Record<string, string> } | null {
   let best: { entry: T; params: Record<string, string> } | null = null;
-  let bestDepth = -1;
+  let bestSegments: ReturnType<typeof parseSegments> = [];
 
   for (const entry of entries) {
     if (!entry.fallbackPrefix) {
@@ -118,10 +140,17 @@ function findDeepestFallback<T extends { fallbackPrefix?: string }>(
       continue;
     }
 
-    const depth = splitPathSegments(entry.fallbackPrefix).length;
-    if (depth > bestDepth) {
+    // Deeper prefixes win; at equal depth the more specific prefix does
+    // (`/en/blog` over `/{lang}/blog`).
+    const segments = cachedPrefixSegs(entry.fallbackPrefix);
+    if (
+      best === null ||
+      segments.length > bestSegments.length ||
+      (segments.length === bestSegments.length &&
+        compareRouteSpecificity(segments, bestSegments) < 0)
+    ) {
       best = { entry, params };
-      bestDepth = depth;
+      bestSegments = segments;
     }
   }
 
