@@ -1,22 +1,23 @@
-name: CI
+name: Main Matrix
 
 on:
-  workflow_dispatch:
-  schedule:
-    - cron: '15 3 * * *'
   push:
-    branches: [develop, main]
+    branches: [main]
   pull_request:
-    branches: [develop, main]
+    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
-  ci:
-    name: CI (ubuntu-latest)
-    runs-on: ubuntu-latest
+  matrix:
+    name: Matrix (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
       - name: Checkout repository
