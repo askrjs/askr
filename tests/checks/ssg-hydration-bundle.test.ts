@@ -166,6 +166,10 @@ describe('SSG hydration bundle', () => {
     // shadow roots (+543 bytes, 282,181 bytes total). It stays within 276 KiB.
     // #542 compares the hydrated DOM with captured server markup when enabled
     // (+510 bytes, 282,691 bytes total).
-    expect(initialBytes).toBeLessThanOrEqual(277 * 1024);
+    // 278 KiB: #559 restores a component's pending re-run when a render that
+    // included it rolls back, and re-queues a scheduled commit superseded by a
+    // rolled-back render, so a failed render never leaves a child component or
+    // fragment function child stale (+333 bytes, 283,801 bytes total).
+    expect(initialBytes).toBeLessThanOrEqual(278 * 1024);
   });
 });
