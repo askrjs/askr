@@ -269,6 +269,83 @@ describe.each(['development', 'production'])(
       expect(container.querySelector('#inner-fallback')).toBeNull();
     });
 
+    // The second <Row /> is materialized from the component blueprint cached
+    // by the first, so its bindings run as one grouped blueprint effect.
+    function mountBlueprintRows(withBoundary: boolean) {
+      let broken!: State<boolean>;
+      const onError = vi.fn();
+      const cloneNode = vi.spyOn(Node.prototype, 'cloneNode');
+
+      const Row = ({ index }: { index: number }) => (
+        <span
+          title={() => {
+            if (broken() && index === 2) {
+              throw new Error('blueprint binding failed');
+            }
+            return 'ok';
+          }}
+        >
+          {() => `row ${index}`}
+        </span>
+      );
+
+      const Rows = () => {
+        broken = state(false);
+        return (
+          <div>
+            <Row index={1} />
+            <Row index={2} />
+          </div>
+        );
+      };
+
+      const App = withBoundary
+        ? () => (
+            <ErrorBoundary onError={onError}>
+              <Rows />
+            </ErrorBoundary>
+          )
+        : Rows;
+
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      expect(cloneNode).toHaveBeenCalled();
+      expect(
+        Array.from(container.querySelectorAll('span')).map((span) => [
+          span.textContent,
+          span.title,
+        ])
+      ).toEqual([
+        ['row 1', 'ok'],
+        ['row 2', 'ok'],
+      ]);
+      return { broken, onError };
+    }
+
+    it('should route blueprint binding errors to the owning ErrorBoundary', () => {
+      const { broken, onError } = mountBlueprintRows(true);
+
+      broken.set(true);
+      flushScheduler();
+
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect((onError.mock.calls[0][0] as Error).message).toBe(
+        'blueprint binding failed'
+      );
+      expect(
+        container.querySelector('[data-askr-error-boundary]')
+      ).toBeTruthy();
+    });
+
+    it('should surface blueprint binding errors without a boundary', () => {
+      const { broken } = mountBlueprintRows(false);
+
+      expect(() => {
+        broken.set(true);
+        flushScheduler();
+      }).toThrow('blueprint binding failed');
+    });
+
     it('should surface reactive prop binding errors without a boundary', () => {
       let broken!: State<boolean>;
 
