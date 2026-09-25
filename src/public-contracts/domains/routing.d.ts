@@ -1,7 +1,11 @@
 import { JSXElementType, JSXElement, Props } from '../elements.js';
 import '../jsx-globals.js';
-import { AuthContext, AuthRequirement } from '@askrjs/auth';
-import { InferSchema, ObjectSchema } from '@askrjs/schema';
+import {
+  AuthContext,
+  AuthRequirement,
+  InferSchema,
+  ObjectSchema,
+} from '../peer-types.js';
 import { state, selector } from './state.js';
 import { RenderableChild } from './context.js';
 import { QueryPrefetchContext } from './data.js';
@@ -267,8 +271,11 @@ interface RouteRef<
   readonly __search?: TSearch;
 }
 
-type RouteRefSearch<TSchema extends ObjectSchema<RouteSearch> | undefined> =
-  TSchema extends ObjectSchema<RouteSearch>
+type RouteRefSearch<TSchema extends ObjectSchema<RouteSearch> | undefined> = [
+  TSchema,
+] extends [undefined]
+  ? RouteSearch
+  : TSchema extends ObjectSchema<RouteSearch>
     ? InferSchema<TSchema>
     : RouteSearch;
 

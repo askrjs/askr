@@ -27,6 +27,15 @@
   (`https://site.example/page`) instead of a root-relative one, so code that
   wraps or spies on them sees the full URL. Enhanced action redirects are
   checked the same way and assigned as absolute URLs.
+- build(deps): `@askrjs/auth` and `@askrjs/schema` are now optional peer
+  dependencies instead of dependencies, so apps that do not use route auth or
+  schemas no longer install auth's SAML/XML stack. Askr uses them for types
+  only: route requirements are composed by Askr itself, and the published
+  declarations typecheck without either package installed. Apps that use
+  `@askrjs/auth` or `@askrjs/schema` must list them in their own
+  dependencies.
+- fix(ssg): the `@askrjs/askr/ssg` declarations no longer contain a stray
+  `import 'node:fs/promises'`, so consumers without `@types/node` typecheck.
 - test(test-utils): `npm run typecheck` (and so `npm run lint`) now also
   typechecks `test-utils/**`, including the Playwright browser app, through
   `test-utils/tsconfig.json`. The existing type errors are fixed: fixtures
