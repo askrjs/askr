@@ -13,7 +13,7 @@ import {
   type ReactivePropCleanupEntry,
   teardownNodeSubtree,
 } from '../ownership/cleanup';
-import { getRuntimeEnv } from '../env';
+import { getRuntimeEnvValue } from '../env';
 import {
   createReactivePropCleanupEntry,
   applyFreshElementBindings,
@@ -246,7 +246,7 @@ function reportBlueprintBindingError(
   this: BlueprintOwnedEffect,
   error: unknown
 ): void {
-  if (getRuntimeEnv().NODE_ENV !== 'production') {
+  if (getRuntimeEnvValue('NODE_ENV') !== 'production') {
     logger.warn('[Askr] Blueprint reactive update failed:', error);
   }
 }

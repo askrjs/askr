@@ -1,8 +1,6 @@
-export type RuntimeEnv = Record<string, string | undefined>;
-
 type RuntimeEnvGlobal = typeof globalThis & {
   process?: {
-    env?: RuntimeEnv;
+    env?: Record<string, string | undefined>;
   };
 };
 
@@ -46,27 +44,6 @@ function getBuildTimeNodeEnv(
   return undefined;
 }
 
-function getBuildTimeEnv(): RuntimeEnv {
-  const metaEnv = getBuildTimeMetaEnv();
-  const normalized: RuntimeEnv = {};
-  if (!metaEnv) {
-    return normalized;
-  }
-
-  for (const [key, value] of Object.entries(metaEnv)) {
-    const normalizedValue = normalizeEnvValue(value);
-    if (normalizedValue !== undefined) {
-      normalized[key] = normalizedValue;
-    }
-  }
-  const nodeEnv = getBuildTimeNodeEnv(metaEnv);
-  if (nodeEnv !== undefined) {
-    normalized.NODE_ENV = nodeEnv;
-  }
-
-  return normalized;
-}
-
 function resolveNodeEnv(
   processNodeEnv: string | undefined,
   buildNodeEnv: string | undefined
@@ -86,24 +63,15 @@ function resolveNodeEnv(
   return buildNodeEnv === 'test' ? undefined : buildNodeEnv;
 }
 
-export function getRuntimeEnv(): RuntimeEnv {
-  const processEnv = (globalThis as RuntimeEnvGlobal).process?.env ?? {};
-  const buildTimeEnv = getBuildTimeEnv();
-
-  return {
-    ...processEnv,
-    ...buildTimeEnv,
-    NODE_ENV: resolveNodeEnv(processEnv.NODE_ENV, buildTimeEnv.NODE_ENV),
-  };
-}
-
 /**
- * Resolves one variable exactly as `getRuntimeEnv()[name]` would, without
- * copying the environment. Enumerating `process.env` is costly on some hosts
- * (every enumeration copies the environment block on Windows), and these
- * checks run on hot paths such as every component render.
+ * Resolves one environment variable. Build-time values (`import.meta.env`)
+ * take precedence over `process.env`, except that `NODE_ENV` follows
+ * `resolveNodeEnv`. Only the requested variable is read: enumerating
+ * `process.env` is costly on some hosts (every enumeration copies the
+ * environment block on Windows), and these checks run on hot paths such as
+ * every component render.
  */
-function getRuntimeEnvValue(name: string): string | undefined {
+export function getRuntimeEnvValue(name: string): string | undefined {
   const processValue = (globalThis as RuntimeEnvGlobal).process?.env?.[name];
   const metaEnv = getBuildTimeMetaEnv();
 

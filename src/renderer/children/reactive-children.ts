@@ -18,7 +18,7 @@ import {
   teardownNodeSubtree,
   type ReactivePropCleanupEntry,
 } from '../ownership/cleanup';
-import { getRuntimeEnv } from '../env';
+import { getRuntimeEnvValue } from '../env';
 import { getParentNamespace } from '../intrinsic/namespaces';
 import type { VNode } from '../types';
 import {
@@ -153,7 +153,7 @@ function setupReactiveScalarChild(
           }
         },
         onError: (err) => {
-          if (getRuntimeEnv().NODE_ENV !== 'production') {
+          if (getRuntimeEnvValue('NODE_ENV') !== 'production') {
             logger.warn('[Askr] Reactive child update failed:', err);
           }
         },
@@ -245,7 +245,7 @@ function setupReactiveScalarChild(
         return true;
       },
       onError: (err) => {
-        if (getRuntimeEnv().NODE_ENV !== 'production') {
+        if (getRuntimeEnvValue('NODE_ENV') !== 'production') {
           logger.warn('[Askr] Reactive child update failed:', err);
         }
       },

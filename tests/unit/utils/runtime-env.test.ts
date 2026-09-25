@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import {
-  getRuntimeEnv,
+  getRuntimeEnvValue,
   isProductionEnvironment,
   isRuntimeEnvFlagEnabled,
 } from '../../../src/common/env';
@@ -32,13 +32,10 @@ function withEnumerationCountingEnv<T>(
 
 describe('runtime environment', () => {
   it('should resolve the environment mode without enumerating process.env', () => {
-    const expected = withEnumerationCountingEnv(
-      { ...process.env },
-      () => getRuntimeEnv().NODE_ENV === 'production'
-    );
-
     withEnumerationCountingEnv({ ...process.env }, (enumerations) => {
-      expect(isProductionEnvironment()).toBe(expected);
+      expect(isProductionEnvironment()).toBe(
+        getRuntimeEnvValue('NODE_ENV') === 'production'
+      );
       expect(enumerations()).toBe(0);
     });
   });
@@ -58,16 +55,17 @@ describe('runtime environment', () => {
     );
   });
 
-  it('should resolve the same values as the full environment snapshot', () => {
+  it('should observe process.env changes made after startup', () => {
     withEnumerationCountingEnv(
-      { ...process.env, ASKR_RUNTIME_ENV_TEST_FLAG: 'true' },
+      { ...process.env, ASKR_RUNTIME_ENV_TEST_FLAG: '0' },
       () => {
-        const snapshot = getRuntimeEnv();
-        expect(isProductionEnvironment()).toBe(
-          snapshot.NODE_ENV === 'production'
-        );
         expect(isRuntimeEnvFlagEnabled('ASKR_RUNTIME_ENV_TEST_FLAG')).toBe(
-          snapshot.ASKR_RUNTIME_ENV_TEST_FLAG === 'true'
+          false
+        );
+        process.env.ASKR_RUNTIME_ENV_TEST_FLAG = 'true';
+        expect(getRuntimeEnvValue('ASKR_RUNTIME_ENV_TEST_FLAG')).toBe('true');
+        expect(isRuntimeEnvFlagEnabled('ASKR_RUNTIME_ENV_TEST_FLAG')).toBe(
+          true
         );
       }
     );

@@ -1,7 +1,7 @@
 import { getRendererDOMHost } from '../dom-host';
 import { _reconcilerRecordedParents } from './keyed';
 import { logger } from '../../common/logger';
-import { getRuntimeEnv } from '../env';
+import { isRuntimeEnvFlagEnabled } from '../env';
 import {
   cleanupInstanceIfPresent,
   removeAllListeners,
@@ -174,8 +174,7 @@ export function applyRendererFastPath(
     setDevValue('__LAST_FASTPATH_STATS', stats);
     setDevValue('__LAST_FASTPATH_REUSED', reusedCount > 0);
     incDevCounter('fastpathHistoryPush');
-    const env = getRuntimeEnv();
-    if (env.ASKR_FASTPATH_DEBUG === '1' || env.ASKR_FASTPATH_DEBUG === 'true') {
+    if (isRuntimeEnvFlagEnabled('ASKR_FASTPATH_DEBUG')) {
       logger.warn(
         '[Askr][FASTPATH]',
         JSON.stringify({ n: totalKeyed, createdNodes, reusedCount })
