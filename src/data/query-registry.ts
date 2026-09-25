@@ -4,7 +4,12 @@ import type {
   QueryPrefetchContext,
   ServerQueryHandler,
 } from './types';
-import { createDataRuntime, getDefaultDataRuntime } from './data-runtime';
+import {
+  createDataRuntime,
+  getDefaultDataRuntime,
+  findDataRuntimeState,
+  writePrefetchedQueryData,
+} from './data-runtime';
 import type { CoreTelemetry } from '../common/telemetry';
 import { withTelemetry } from '../common/telemetry';
 
@@ -87,7 +92,11 @@ export function createQueryPrefetchContext(
     async prefetch(query, input) {
       return withTelemetry(options.telemetry?.queryPrefetch, {}, async () => {
         const key = query.key(input);
-        if (runtime.queryData.has(key)) return true;
+        // A live query cell already owns this key; its reader would ignore a
+        // newly prefetched value.
+        if (runtime.queryCache.has(key) || runtime.queryData.has(key)) {
+          return true;
+        }
         let value: {};
         const handler =
           options.mode === 'ssr' ? options.registry?.get(query) : undefined;
@@ -111,9 +120,22 @@ export function createQueryPrefetchContext(
         }
         value = handler
           ? await handler({ input, request: options.request, signal })
-          : await query.fetch({ ...input, signal });
+          : await query.fetch(input, { signal });
         if (signal.aborted) return false;
-        runtime.queryData.set(key, value);
+        // A reader that mounted while this fetch was in flight owns newer
+        // data; storing this result would revive it on the next mount.
+        if (runtime.queryCache.has(key)) return true;
+        const runtimeState =
+          options.mode !== 'ssr' && typeof window !== 'undefined'
+            ? findDataRuntimeState(runtime)
+            : undefined;
+        if (runtimeState) {
+          writePrefetchedQueryData(runtimeState, key, value);
+        } else {
+          // Server/SSG payload building and hand-built runtimes keep every
+          // entry for dehydration.
+          runtime.queryData.set(key, value);
+        }
         return true;
       });
     },
@@ -148,6 +170,9 @@ export function dehydrateDataRuntime(
 /** Load a {@link dehydrateDataRuntime} snapshot back into a runtime's query cache. */
 export function hydrateDataRuntime(runtime: DataRuntime, data: unknown): void {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return;
-  for (const [key, value] of Object.entries(data as Record<string, unknown>))
+  const runtimeState = findDataRuntimeState(runtime);
+  for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+    runtimeState?.unreadPrefetches.delete(key);
     runtime.queryData.set(key, value);
+  }
 }

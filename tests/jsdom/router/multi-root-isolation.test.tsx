@@ -116,7 +116,7 @@ describe('multi-root SPA isolation', () => {
           path: '/start',
           handler: () => {
             restoredRenders += 1;
-            shared ??= state(0);
+            shared = state(0);
             return <div id={'app-a'}>{`A start ${shared()}`}</div>;
           },
         },

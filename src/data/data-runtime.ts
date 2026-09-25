@@ -24,6 +24,8 @@ export type MutationSlot = {
 export type DataRuntimeState = {
   queryCache: Map<string, QueryCell<unknown>>;
   queryData: Map<string, unknown>;
+  /** Unread browser-prefetched `queryData` entries, oldest first. */
+  unreadPrefetches: Map<string, unknown>;
   querySlotsByGeneration: WeakMap<object, Map<number, QuerySlot>>;
   mutationSlotsByGeneration: WeakMap<object, Map<number, MutationSlot>>;
   queryCleanupRegistered: WeakSet<object>;
@@ -47,6 +49,7 @@ function createDataRuntimeState(
   return {
     queryCache: queryCache as Map<string, QueryCell<unknown>>,
     queryData,
+    unreadPrefetches: new Map(),
     querySlotsByGeneration: new WeakMap(),
     mutationSlotsByGeneration: new WeakMap(),
     queryCleanupRegistered: new WeakSet(),
@@ -145,6 +148,56 @@ export function resolveDataRuntimeState(
   return runtime ? getDataRuntimeState(runtime) : getActiveDataRuntimeState();
 }
 
+/** State for a runtime from createDataRuntime(); undefined for hand-built ones. */
+export function findDataRuntimeState(
+  runtime: DataRuntime
+): DataRuntimeState | undefined {
+  return dataRuntimeStates.get(runtime);
+}
+
+/** Maximum number of unread client-prefetched entries kept per runtime. */
+export const PREFETCHED_QUERY_DATA_LIMIT = 50;
+
+/**
+ * Read hydrated or prefetched data for a new query cell. Client readers
+ * consume it: the cell owns the value from then on, so keeping the entry would
+ * revive it as fresh after the cell is gone.
+ */
+export function readQueryData(
+  runtimeState: DataRuntimeState,
+  key: string,
+  consume: boolean
+): unknown {
+  const value = runtimeState.queryData.get(key);
+  if (consume) {
+    runtimeState.queryData.delete(key);
+    runtimeState.unreadPrefetches.delete(key);
+  }
+  return value;
+}
+
+/**
+ * Store browser-prefetched data. Unread entries are capped: the oldest one is
+ * evicted once more than {@link PREFETCHED_QUERY_DATA_LIMIT} are waiting.
+ * Entries replaced or removed through `queryData` directly are no longer
+ * tracked and are never evicted by the cap.
+ */
+export function writePrefetchedQueryData(
+  runtimeState: DataRuntimeState,
+  key: string,
+  value: unknown
+): void {
+  const { queryData, unreadPrefetches } = runtimeState;
+  queryData.set(key, value);
+  unreadPrefetches.delete(key);
+  unreadPrefetches.set(key, value);
+  for (const [oldestKey, oldestValue] of unreadPrefetches) {
+    if (unreadPrefetches.size <= PREFETCHED_QUERY_DATA_LIMIT) return;
+    unreadPrefetches.delete(oldestKey);
+    if (queryData.get(oldestKey) === oldestValue) queryData.delete(oldestKey);
+  }
+}
+
 export function getQuerySlotStore(
   runtimeState: DataRuntimeState,
   instance: ComponentInstance
@@ -227,6 +280,7 @@ export function invalidateQueriesForRuntime(
   for (const key of runtimeState.queryData.keys()) {
     if (key.startsWith(prefix)) {
       runtimeState.queryData.delete(key);
+      runtimeState.unreadPrefetches.delete(key);
     }
   }
 

@@ -155,6 +155,9 @@ export function getSignal(): AbortSignal {
 
 export function resetRenderState(instance: ComponentInstance): void {
   instance.stateIndexCheck = -1;
+  // Until a render completes, each attempt records the sequence afresh so an
+  // aborted first render cannot leave stale slots behind.
+  if (!instance.firstRenderComplete) instance.expectedHookKinds = [];
 
   for (const state of instance.stateValues ?? []) {
     if (state) {
@@ -229,10 +232,30 @@ export function getNextStateIndex(): number {
   return stateIndex++;
 }
 
-function hookOrderGuidance(hookName: string): string {
+/** Public API name of each render-scoped hook that claims a slot. */
+export type HookKind =
+  | 'state'
+  | 'derive'
+  | 'selector'
+  | 'For'
+  | 'on'
+  | 'watch'
+  | 'task'
+  | 'stream'
+  | 'timer'
+  | 'createQuery'
+  | 'createQueryCollection'
+  | 'createMutation'
+  | 'onRouteChange';
+
+function formatHook(kind: HookKind): string {
+  return kind === 'For' ? '<For>' : `${kind}()`;
+}
+
+function hookOrderGuidance(kind: HookKind): string {
   return (
     `The render-scoped hook sequence changed between renders. ` +
-    `This can happen when ${hookName}() is called conditionally, or when a conditional subtree ` +
+    `This can happen when ${formatHook(kind)} is called conditionally, or when a conditional subtree ` +
     `skips an outer control boundary through a plain if, ternary, && branch, or loop. ` +
     `Keep render-scoped hooks and their outer control boundaries unconditional. ` +
     `Use <Show> or <Case> with <Match> children for conditional branches, ` +
@@ -240,37 +263,70 @@ function hookOrderGuidance(hookName: string): string {
   );
 }
 
+function describeHookSequence(kinds: readonly HookKind[]): string {
+  return `[${kinds.map(formatHook).join(', ')}]`;
+}
+
+/**
+ * Claim the next hook slot for `instance`.
+ *
+ * The first completed render records the hook kind at each slot. Later renders
+ * must claim the same kind at the same slot; a render that claims more hooks
+ * or a different kind fails here, and a render that claims fewer fails in
+ * `verifyHookSequence` once the render returns.
+ */
 export function claimHookIndex(
   instance: ComponentInstance,
-  hookName: string
+  hookName: HookKind
 ): number {
   const index = getNextStateIndex();
+  instance.stateIndexCheck = index;
 
-  if (index < instance.stateIndexCheck) {
+  const expectedHookKinds = (instance.expectedHookKinds ??= []);
+
+  if (!instance.firstRenderComplete) {
+    expectedHookKinds[index] = hookName;
+    return index;
+  }
+
+  const expected = expectedHookKinds[index];
+  if (expected === undefined) {
     throw new Error(
-      `Hook index violation: ${hookName}() call at index ${index}, ` +
-        `but previously saw index ${instance.stateIndexCheck}. ` +
+      `Hook order violation: ${formatHook(hookName)} called at index ${index}, ` +
+        `but the first render only claimed ${expectedHookKinds.length} hook(s) ` +
+        `${describeHookSequence(expectedHookKinds)}. ` +
+        hookOrderGuidance(hookName)
+    );
+  }
+  if (expected !== hookName) {
+    throw new Error(
+      `Hook order violation: ${formatHook(hookName)} called at index ${index}, ` +
+        `but the first render called ${formatHook(expected)} at this index ` +
+        `${describeHookSequence(expectedHookKinds)}. ` +
         hookOrderGuidance(hookName)
     );
   }
 
-  instance.stateIndexCheck = index;
-
-  const expectedStateIndices = (instance.expectedStateIndices ??= []);
-
-  if (instance.firstRenderComplete) {
-    if (expectedStateIndices[index] !== index) {
-      throw new Error(
-        `Hook order violation: ${hookName}() called at index ${index}, ` +
-          `but this index was not in the first render's sequence [${expectedStateIndices.join(', ')}]. ` +
-          hookOrderGuidance(hookName)
-      );
-    }
-  } else {
-    expectedStateIndices.push(index);
-  }
-
   return index;
+}
+
+/**
+ * Verify, after a render returns, that it claimed every hook slot the first
+ * render claimed. Extra hooks and kind changes are caught by `claimHookIndex`.
+ */
+export function verifyHookSequence(instance: ComponentInstance): void {
+  if (!instance.firstRenderComplete) return;
+  const expectedHookKinds = instance.expectedHookKinds ?? [];
+  const claimed = instance.stateIndexCheck + 1;
+  if (claimed >= expectedHookKinds.length) return;
+  const missing = expectedHookKinds[claimed];
+  throw new Error(
+    `Hook order violation: render claimed ${claimed} hook(s), ` +
+      `but the first render claimed ${expectedHookKinds.length} ` +
+      `${describeHookSequence(expectedHookKinds)}; ` +
+      `${formatHook(missing)} at index ${claimed} was skipped. ` +
+      hookOrderGuidance(missing)
+  );
 }
 
 export function getCurrentStateIndex(): number {

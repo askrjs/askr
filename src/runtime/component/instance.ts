@@ -62,6 +62,7 @@ import {
   getCurrentPortalScope,
   resetRenderState,
   restoreInlineRenderTracking,
+  verifyHookSequence,
 } from './scope';
 import { DIRECT_RANGE_OWNER } from '../../common/dom-range';
 
@@ -154,7 +155,7 @@ export function createComponentInstance(
     _pendingRunTask: undefined,
     _enqueueRun: undefined,
     stateIndexCheck: -1,
-    expectedStateIndices: undefined,
+    expectedHookKinds: undefined,
     firstRenderComplete: false,
     mountOperations: undefined,
     commitOperations: undefined,
@@ -355,6 +356,9 @@ function executeComponentSync(
         );
       }
     }
+
+    // A later render must claim every slot the first render claimed.
+    verifyHookSequence(instance);
 
     // Mark first render complete after successful execution
     // This enables hook order validation on subsequent renders

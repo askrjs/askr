@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- breaking(data): `defineQuery()` fetchers now receive the input and the abort
+  signal as separate arguments, `fetch(input, { signal })`, instead of one
+  merged `{ ...input, signal }` object. The merged shape dropped primitive
+  inputs (a `QueryDefinition<number, ...>` fetcher only saw `{ signal }`) and
+  let the abort signal overwrite an input field named `signal`. Rewrite
+  `fetch: ({ id, signal }) => ...` as `fetch: ({ id }, { signal }) => ...`.
+  Old-style fetchers with an annotated parameter
+  (`({ id, signal }: { id: string; signal: AbortSignal })`) still compile at
+  the `defineQuery()` definition but fail to typecheck at the `createQuery()`
+  call site; move `signal` to the second argument.
+  Inline `createQuery({ key, fetch })` fetchers are unchanged.
 - fix(resources): a resource hydrated from preloaded data keeps its value on
   later re-renders instead of resetting to pending and refetching. The preloaded
   value now seeds the resource, so `refresh()` and `deps` changes also work
@@ -22,6 +33,29 @@
   owner re-renders and evaluates its new function once more. A render-time
   recompute of `derive()` or `selector()` now notifies downstream readers, so
   derived values in other components no longer stay one update behind.
+- fix(runtime): hook-order enforcement now catches a render that claims fewer
+  hooks than the first render, and a slot whose hook kind changes (for example
+  `derive()` where the first render called `state()`). Previously only extra
+  hooks threw; skipped or swapped hooks passed silently. Messages name hooks by
+  their public API (`createQuery()`, `onRouteChange()`, `<For>`). The unreachable
+  monotonic index check is removed, and the internal `ComponentInstance`
+  field `expectedStateIndices` is replaced by `expectedHookKinds`.
+- fix(ssr): sync `renderToString({ url, registry })`/`renderToStream()` no
+  longer follow auth redirects or render a denial marker with an implicit 200.
+  Redirect and deny decisions throw the new `SSRAccessDecisionError`, whose
+  `decision` matches what `renderRouteRequest()` returns. The sync path also no
+  longer starts route loaders: a loader route throws `SSRDataMissingError`
+  naming the route and pointing to `renderRouteRequest()`, and abandoned async
+  resolution no longer leaks an unhandled rejection.
+- breaking(ssr): sync `renderToString({ url, registry })`/`renderToStream()`
+  no longer follow auth redirects or render a denial marker with an implicit 200. Redirect and deny decisions throw the new `SSRAccessDecisionError`,
+  whose `decision` matches what `renderRouteRequest()` returns. The sync path
+  also no longer runs route loaders: any route that declares a loader, including
+  a synchronous one that previously rendered, now throws `SSRDataMissingError`
+  naming the route and pointing to `renderRouteRequest()`, before its preload,
+  lazy import, or loader starts. Abandoned async resolution no longer leaks an
+  unhandled rejection, and lazy routes whose component is already loaded now
+  resolve synchronously.
 - fix(router): `currentAuth()` no longer falls back to the process-wide client
   identity during server rendering. A server render without request auth now
   sees an anonymous identity, and server-mode route resolution no longer writes
@@ -33,6 +67,15 @@
   `data` attributes (for example `<iframe src>` and `<object data>`) on both
   client and server. `data:`, `blob:` and custom-scheme resource URLs are
   unchanged.
+- fix(data): hydrated or prefetched query data is now consumed by the first
+  client reader for its key instead of staying in `runtime.queryData` forever.
+  After a `refresh()` and a remount, the query fetches again instead of
+  reviving the original server value as fresh, and consumed entries no longer
+  accumulate on the default runtime. Server renders still read without
+  consuming. Prefetches (including route `preload`) skip keys a mounted query
+  already owns and discard results that resolve after a reader mounted. The
+  browser keeps at most 50 unread prefetched entries per runtime, evicting the
+  oldest; server and SSG payload building is not capped.
 
 ## 0.3.1 — 2026-09-12
 

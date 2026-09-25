@@ -31,6 +31,60 @@ async function settleCollection(collection: {
 }
 
 describe('query collections', () => {
+  it('should consume hydrated entries once and refetch after remount', async () => {
+    const runtime = createDataRuntime();
+    runtime.queryData.set('hydrated-schemas:postgres', { version: 'ssr' });
+    let fetchCount = 0;
+    const fetch = vi.fn(async () => {
+      fetchCount += 1;
+      return { version: `server-${fetchCount}` };
+    });
+    const schemaByDatabase = defineQuery({
+      key: ({ database }: { database: string }) =>
+        `hydrated-schemas:${database}`,
+      fetch,
+    });
+    let setVisible!: (value: boolean) => void;
+
+    const Schemas = (): JSXElement => {
+      const collection = createQueryCollection({
+        runtime,
+        query: schemaByDatabase,
+        inputs: () => [{ database: 'postgres' }],
+        key: ({ database }) => database,
+      });
+      return <span>{collection.results.get('postgres')?.version ?? '-'}</span>;
+    };
+
+    const App = (): JSXElement => {
+      const visible = state(true);
+      setVisible = visible.set;
+      return <div>{visible() ? <Schemas /> : null}</div>;
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+
+      expect(container.textContent).toBe('ssr');
+      expect(fetch).not.toHaveBeenCalled();
+      expect(runtime.queryData.has('hydrated-schemas:postgres')).toBe(false);
+
+      setVisible(false);
+      flushScheduler();
+      setVisible(true);
+      flushScheduler();
+      await settle();
+
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(container.textContent).toBe('server-1');
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should bound dynamic keyed work and aggregate query entries', async () => {
     const runtime = createDataRuntime();
     const started: string[] = [];
@@ -45,7 +99,7 @@ describe('query collections', () => {
 
     const schemaByDatabase = defineQuery({
       key: ({ database }: { database: string }) => `schemas:${database}`,
-      fetch: ({ database, signal }) => {
+      fetch: ({ database }, { signal }) => {
         started.push(database);
         active += 1;
         maxActive = Math.max(maxActive, active);
@@ -135,7 +189,7 @@ describe('query collections', () => {
 
     const schemaByDatabase = defineQuery({
       key: ({ database }: DatabaseInput) => `schemas:${database}`,
-      fetch: async ({ signal, database }) => {
+      fetch: async ({ database }, { signal }) => {
         signal.throwIfAborted();
         fetchCounts.set(database, (fetchCounts.get(database) ?? 0) + 1);
         return { database };
@@ -209,11 +263,9 @@ describe('query collections', () => {
 
   it('should share cache entries and request deduplication with createQuery', async () => {
     const runtime = createDataRuntime();
-    const fetch = vi.fn(
-      async ({ id }: { id: string; signal: AbortSignal }) => ({
-        id,
-      })
-    );
+    const fetch = vi.fn(async ({ id }: { id: string }) => ({
+      id,
+    }));
     const userById = defineQuery({
       key: ({ id }: { id: string }) => `users:${id}`,
       fetch,
@@ -251,7 +303,7 @@ describe('query collections', () => {
     const attempts = new Map<string, number>();
     const query = defineQuery({
       key: ({ id }: RetryInput) => `retry:${id}`,
-      fetch: async ({ signal, id }) => {
+      fetch: async ({ id }, { signal }) => {
         signal.throwIfAborted();
         const attempt = (attempts.get(id) ?? 0) + 1;
         attempts.set(id, attempt);
@@ -311,7 +363,7 @@ describe('query collections', () => {
 
     const query = defineQuery({
       key: ({ id }: LifecycleInput) => `lifecycle:${id}`,
-      fetch: ({ signal, id }) => {
+      fetch: ({ id }, { signal }) => {
         started.push(id);
         return new Promise<{ id: string }>((_resolve, reject) => {
           signal.addEventListener(
@@ -361,6 +413,44 @@ describe('query collections', () => {
 
       expect(aborted).toEqual(['first', 'second']);
       expect(started).toEqual(['first', 'second']);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should pass primitive collection inputs to the fetcher', async () => {
+    const fetch = vi.fn(async (id: number, _ctx: { signal: AbortSignal }) => ({
+      id,
+    }));
+    const query = defineQuery({
+      key: (id: number) => `primitive-collection:${id}`,
+      fetch,
+    });
+    const runtime = createDataRuntime();
+    let collection!: QueryCollection<number, { id: number }, number>;
+
+    const App = (): JSXElement => {
+      collection = createQueryCollection({
+        runtime,
+        query,
+        inputs: () => [1, 2],
+        key: (id) => id,
+      });
+      return <div>{collection.results.size}</div>;
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settleCollection(collection);
+
+      expect(fetch.mock.calls.map(([input]) => input)).toEqual([1, 2]);
+      for (const [, ctx] of fetch.mock.calls) {
+        expect(ctx.signal).toBeInstanceOf(AbortSignal);
+      }
+      expect(collection.results.get(1)).toEqual({ id: 1 });
+      expect(container.textContent).toBe('2');
     } finally {
       cleanup();
     }
