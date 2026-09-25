@@ -370,23 +370,31 @@ describe('scheduler (SPEC 2.2)', () => {
 
   describe('max-depth guard prevents infinite loops', () => {
     it('should throw when state.set() is called during render', () => {
+      let renderWriteError: unknown;
+
       const Component = () => {
         const count = state(0);
 
-        // Try to mutate during render (should error before loop)
         try {
-          count.set(1); // This should throw
-        } catch {
-          // Expected - state.set() guards against render-time mutation
+          count.set(1);
+        } catch (error) {
+          renderWriteError = error;
         }
 
         return <div>{String(count())}</div>;
       };
 
-      // Should not throw during component creation (guards are in place)
+      // The guard rejects the write itself; mounting still completes.
       expect(() => {
         createIsland({ root: container, component: Component });
       }).not.toThrow();
+      flushScheduler();
+
+      expect(renderWriteError).toBeInstanceOf(Error);
+      expect((renderWriteError as Error).message).toContain(
+        '[Askr] state.set() cannot be called during component render'
+      );
+      expect(container.textContent).toBe('0');
     });
   });
 
