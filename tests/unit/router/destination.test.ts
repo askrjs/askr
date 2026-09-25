@@ -1,10 +1,16 @@
 import { schema } from '@askrjs/schema';
-import { describe, expect, it } from 'vite-plus/test';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 import { createRouteRegistry, route, to } from '../../../src/router';
 import { match } from '../../../src/router/match';
+import { clearRouteState } from '../../../src/router/store';
 import type { RouteRef } from '../../../src/common/router';
 
 describe('typed route destinations', () => {
+  // route() writes to the application table; start each case from an empty one.
+  beforeEach(() => {
+    clearRouteState();
+  });
+
   it('should construct an encoded destination given typed params and search', () => {
     const ref = route('/users/{id}', () => null, {
       search: schema.object({

@@ -49,7 +49,8 @@ State is read through getter functions and updated through setter functions.
 #### State usage forms
 
 `state()` returns one callable state cell that is also iterable. Destructuring
-it gives the cell as the getter and its `.set()` method as the setter:
+it gives the cell as the getter and its `.set()` method as the setter. Like
+every render-scoped hook, call `state()` inside a component function:
 
 ```ts
 const [count, setCount] = state(0);

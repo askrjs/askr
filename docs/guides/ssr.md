@@ -21,6 +21,29 @@ Web stream only when a route contains an explicitly deferred value.
 Critical loader data is awaited before rendering. Wrap only non-critical
 promises with `defer()` and render them through `Resolve`.
 
+## Supported server runtimes
+
+Synchronous rendering (`renderToString()`, `renderToStringSync()`) works on any
+JavaScript runtime. `renderRouteRequest()` and other async render work keep each
+request's render context in `AsyncLocalStorage` so concurrent requests stay
+isolated. Async rendering is supported on runtimes that provide
+`AsyncLocalStorage` globally or via `process.getBuiltinModule`. Askr resolves
+it on first use, in this order:
+
+1. `globalThis.AsyncLocalStorage`.
+2. `process.getBuiltinModule('node:async_hooks')`.
+
+Node.js 24+ (the supported Node range) provides the second. Other runtimes
+qualify when they implement either API; for example, recent Deno and Bun
+releases and Cloudflare Workers with Node.js compatibility enabled. Check your
+runtime's documentation for its current support.
+
+Neither path is a static import or evaluates code, so client bundles never pull
+in `node:async_hooks` and pages served under a CSP without `'unsafe-eval'` are
+unaffected. On a runtime that offers neither, synchronous rendering still works
+and async render work rejects with an error naming the missing
+`AsyncLocalStorage`.
+
 ## Deferred route responses
 
 Server adapters should call `renderRouteRequest()`. A route without pending
@@ -226,28 +249,36 @@ decisions as results.
 
 Keep shared route tables app-only by passing a document renderer at the SSR boundary:
 
-```ts
-import { renderToString } from '@askrjs/askr/ssr';
+```ts run=ssr-document
+import {
+  escapeHtml,
+  renderToString,
+  type DocumentRenderer,
+} from '@askrjs/askr/ssr';
 import { registry } from './routes';
 
-const html = renderToString({
-  url: '/',
-  registry,
-  document: ({ appHtml, context }) => `<!doctype html>
+const document: DocumentRenderer = ({ appHtml, context }) => `<!doctype html>
 <html lang="en">
   <head>
-    <title>${context.pathname}</title>
+    <title>${escapeHtml(context.pathname)}</title>
   </head>
   <body>
     ${appHtml}
   </body>
-</html>`,
-});
+</html>`;
+
+const html = renderToString({ url: '/', registry, document });
 ```
 
 The `document` callback receives the rendered app HTML plus route context such as
 `pathname`, `params`, `search`, `hash`, `data`, `cspNonce`, and the matched route
-template. Pass the same request nonce as `cspNonce` to SSR and browser
+template. The template is plain string concatenation, so pass every
+request-derived value (`pathname`, `params`, `search`, loader `data`) through
+`escapeHtml()` before interpolating it into text or a quoted attribute. It
+escapes `&`, `<`, `>`, `"` and `'`, accepts any value (`null` and `undefined`
+become an empty string, anything else goes through `String()`). Only `appHtml` is already rendered markup;
+do not escape it, and do not use `escapeHtml()` inside `<script>` or `<style>`.
+Pass the same request nonce as `cspNonce` to SSR and browser
 boot/hydration. Askr validates it before rendering, exposes it through
 `cspNonce()` during component render, and applies it to deferred-patch scripts.
 

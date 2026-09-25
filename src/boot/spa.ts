@@ -107,20 +107,6 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     return;
   }
 
-  if (resolved.kind === 'redirect') {
-    mountOrUpdate(rootElement, () => ({ type: 'div', children: [] }), {
-      cleanupStrict: config.cleanupStrict,
-      appRuntime,
-      cspNonce: config.cspNonce,
-    });
-
-    await registerAppNavigation(rootElement, path, {
-      ...appRouteSource,
-      runtime: appRuntime,
-    });
-    return;
-  }
-
   await reconcileInitialRouteMetadata(resolved);
 
   mountOrUpdate(

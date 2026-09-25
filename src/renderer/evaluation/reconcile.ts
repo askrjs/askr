@@ -176,70 +176,51 @@ function reconcileKeyed(
 }
 
 function tryForcedBulkKeyedPath(parent: Element, children: VNode[]): boolean {
-  try {
-    const keyedVnodes: Array<{ key: string | number; vnode: VNode }> = [];
-    for (const child of children) {
-      const key = extractKey(child);
-      if (_isDOMElement(child) && key !== undefined) {
-        keyedVnodes.push({
-          key,
-          vnode: child,
-        });
-      }
+  const keyedVnodes: Array<{ key: string | number; vnode: VNode }> = [];
+  for (const child of children) {
+    const key = extractKey(child);
+    if (_isDOMElement(child) && key !== undefined) {
+      keyedVnodes.push({
+        key,
+        vnode: child,
+      });
     }
+  }
 
-    if (keyedVnodes.length === 0 || keyedVnodes.length !== children.length) {
-      return false;
-    }
-
-    if (DEVELOPMENT_BUILD_ENABLED) {
-      const fastPathEnv = getRuntimeEnv();
-      if (
-        fastPathEnv.ASKR_FASTPATH_DEBUG === '1' ||
-        fastPathEnv.ASKR_FASTPATH_DEBUG === 'true'
-      ) {
-        logger.warn(
-          '[Askr][FASTPATH] forced positional bulk keyed reuse (evaluate-level)'
-        );
-      }
-    }
-
-    const stats = performBulkPositionalKeyedTextUpdate(parent, keyedVnodes);
-
-    if (DEVELOPMENT_BUILD_ENABLED) {
-      const statsEnv = getRuntimeEnv();
-      if (
-        statsEnv.NODE_ENV !== 'production' ||
-        statsEnv.ASKR_FASTPATH_DEBUG === '1'
-      ) {
-        try {
-          setDevValue('__LAST_FASTPATH_STATS', stats);
-          setDevValue('__LAST_FASTPATH_COMMIT_COUNT', 1);
-          incDevCounter('bulkKeyedPositionalForced');
-        } catch {
-          // ignore
-        }
-      }
-    }
-
-    const newMap = buildKeyMapFromDOM(parent);
-    keyedElements.set(parent, newMap);
-    return true;
-  } catch (err) {
-    if (DEVELOPMENT_BUILD_ENABLED) {
-      const fallbackEnv = getRuntimeEnv();
-      if (
-        fallbackEnv.ASKR_FASTPATH_DEBUG === '1' ||
-        fallbackEnv.ASKR_FASTPATH_DEBUG === 'true'
-      ) {
-        logger.warn(
-          '[Askr][FASTPATH] forced bulk path failed, falling back',
-          err
-        );
-      }
-    }
+  if (keyedVnodes.length === 0 || keyedVnodes.length !== children.length) {
     return false;
   }
+
+  if (DEVELOPMENT_BUILD_ENABLED) {
+    const fastPathEnv = getRuntimeEnv();
+    if (
+      fastPathEnv.ASKR_FASTPATH_DEBUG === '1' ||
+      fastPathEnv.ASKR_FASTPATH_DEBUG === 'true'
+    ) {
+      logger.warn(
+        '[Askr][FASTPATH] forced positional bulk keyed reuse (evaluate-level)'
+      );
+    }
+  }
+
+  // Eligibility is settled above; errors from user render code propagate.
+  const stats = performBulkPositionalKeyedTextUpdate(parent, keyedVnodes);
+
+  if (DEVELOPMENT_BUILD_ENABLED) {
+    const statsEnv = getRuntimeEnv();
+    if (
+      statsEnv.NODE_ENV !== 'production' ||
+      statsEnv.ASKR_FASTPATH_DEBUG === '1'
+    ) {
+      setDevValue('__LAST_FASTPATH_STATS', stats);
+      setDevValue('__LAST_FASTPATH_COMMIT_COUNT', 1);
+      incDevCounter('bulkKeyedPositionalForced');
+    }
+  }
+
+  const newMap = buildKeyMapFromDOM(parent);
+  keyedElements.set(parent, newMap);
+  return true;
 }
 
 function reconcileUnkeyed(parent: Element, children: VNode[]): void {

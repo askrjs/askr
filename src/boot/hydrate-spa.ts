@@ -138,12 +138,6 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       throw new Error(`hydrateSPA: no route found for current path (${path}).`);
     }
 
-    if (resolved.kind === 'redirect') {
-      throw new Error(
-        `hydrateSPA: unresolved redirect for current path (${path}).`
-      );
-    }
-
     await reconcileInitialRouteMetadata(resolved);
 
     const hydrationResolved: ResolvedRoute =

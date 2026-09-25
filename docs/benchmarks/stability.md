@@ -1,11 +1,9 @@
 # Benchmark Stability Workflow
 
-The benchmark suite is split into four lanes:
+The benchmark suite is split into two lanes:
 
-- `tier1`: hot path benchmarks.
-- `tier2`: subsystem benchmarks.
-- `tier3`: system benchmarks, now browser-backed in Chromium.
-- `tier4`: integration benchmarks, browser-backed in Chromium.
+- `tier1`: hot path benchmarks (Node and jsdom).
+- `tier2`: subsystem benchmarks (Node and jsdom).
 
 Start from the lane index in [Benchmark README](./README.md), then use the lane-specific configs and result artifacts to review signal quality.
 
@@ -34,11 +32,10 @@ npm run bench:tier1 -- --outputJson bench-results/tier1-run2.json
 npm run bench:tier1 -- --outputJson bench-results/tier1-run3.json
 ```
 
-Repeat that explicit sequence for tiers 2 through 4. Do not use a workflow
-matrix or run captures concurrently. Tier 3 create, append, truncate, clear,
-and disjoint-replacement rows time only the forward mutation; their inverse
-reset runs in a microtask before the next sample. Tier 4 toggle rows remain
-bidirectional churn diagnostics and must not be used for phase attribution.
+Repeat that explicit sequence for tier 2. Do not run captures of the same
+tier concurrently. The benchmark workflow runs one job per tier on its own
+runner, and every capture it compares (baseline, control, and candidate) runs
+sequentially within that job.
 
 If hotspot medians drift by more than 5%, retry under cleaner machine conditions before drawing conclusions. Do not compare local output to a CI capture or compare renamed/changed workloads; use the matching raw JSON row and environment metadata.
 
