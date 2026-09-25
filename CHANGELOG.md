@@ -2,12 +2,13 @@
 
 ## Unreleased
 
-- fix(renderer): a fine-grained binding (function-valued prop or child) whose
-  function a render replaced now rolls back with that render. Previously a
-  failed render restored the DOM but left the binding holding the new value,
-  so the next successful render saw nothing to change and the binding stayed
-  stale. A binding re-evaluating on its own after a state change remains its
-  own commit; see "Fine-grained bindings and rollback" in docs/core/rendering.md.
+- fix(renderer): a failed render no longer leaves fine-grained bindings
+  (function-valued props and children) stale. A binding whose function the
+  render replaced kept the new value after the DOM rolled back, so later
+  renders saw nothing to change, and an update the binding was due to run in
+  the same flush was dropped. Bindings now roll back with the render and then
+  catch up with their state; see "Fine-grained bindings and rollback" in
+  docs/core/rendering.md.
 - feat(ssr): `escapeHtml()` from `@askrjs/askr/ssr` escapes `&`, `<`, `>`, `"`
   and `'` for request-derived values interpolated into a hand-written
   `document` renderer template. It accepts any value; `null` and `undefined`

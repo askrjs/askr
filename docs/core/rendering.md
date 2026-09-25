@@ -18,15 +18,10 @@ do not roll back an already successful render.
 ### Fine-grained bindings and rollback
 
 A function-valued prop or child (`title={() => ...}`, `{() => count()}`) is a
-fine-grained binding. When a render swaps a binding's function, that update
-belongs to the render's transaction: if the render fails, the binding keeps the
-value, function and dependencies of the last successful commit, and the next
-successful render applies the new value.
-
-A binding also re-evaluates on its own when a state it reads changes. That
-update is a separate commit, not part of any component's render. If the owning
-component's render fails for the same state change, the binding still shows the
-new value:
+fine-grained binding. A binding always shows the current value of the state it
+reads. A failed render never leaves it stale: the render's own output rolls
+back to the last commit, while its bindings keep tracking state, including
+changes made in the same flush as the failure.
 
 ```tsx
 function Counter() {
@@ -38,7 +33,8 @@ function Counter() {
     </p>
   );
 }
-// After count.set(2): <b>2</b> <i>1</i>; the render rolled back, the binding did not.
+// After count.set(2): <b>2</b> <i>1</i>. The render rolled back; the binding
+// reflects the state.
 ```
 
 Read the state in the render instead of a binding when a value must change

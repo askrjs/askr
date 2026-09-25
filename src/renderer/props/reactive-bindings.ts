@@ -5,10 +5,14 @@ import {
   isRenderingProtectedBoundaryContent,
   routeRenderedOutputErrorToBoundary,
   markFineGrainedEffectsDirtySource,
-  snapshotFineGrainedEffect,
+  restoreFineGrainedEffect,
+  saveFineGrainedEffect,
   type FineGrainedEffectHandle,
 } from '../../runtime';
-import { registerCommitParticipant } from '../../runtime/transactions/access';
+import {
+  registerCommitParticipant,
+  type CommitParticipant,
+} from '../../runtime/transactions/access';
 import { isBenchMetricScopeActive, recordBenchCounter } from '../../runtime';
 import { incrementPerfMetric } from '../../runtime';
 import type { ReadableSource } from '../../runtime';
@@ -35,39 +39,87 @@ interface ReactivePropDescriptor {
 }
 
 const reactivePropRegistry = new Set<ReactivePropDescriptor>();
-const BINDING_ROLLBACK = {};
+const BINDING_LOG = {};
+
+/** Entries are `[restore, ...state]` blocks starting at `starts`. */
+interface BindingLog extends CommitParticipant {
+  keys: Set<object>;
+  entries: unknown[];
+  starts: number[];
+}
+
+type RestoreBinding = (entries: unknown[], index: number) => void;
+
+function rollbackBindingLog(this: BindingLog): void {
+  const { entries, starts } = this;
+  // Newest first, so a joined child's later state yields to the parent's.
+  for (let block = starts.length - 1; block >= 0; block--) {
+    const start = starts[block]!;
+    (entries[start] as RestoreBinding)(entries, start + 1);
+  }
+}
+
+function mergeBindingLog(this: BindingLog, parent: CommitParticipant): void {
+  const log = parent as BindingLog;
+  const offset = log.entries.length;
+  for (const start of this.starts) log.starts.push(start + offset);
+  for (const entry of this.entries) log.entries.push(entry);
+  for (const key of this.keys) log.keys.add(key);
+}
 
 /**
- * Enlist a binding in the open render transaction before it changes.
- *
- * Captured once per binding and transaction, so rollback returns the binding
- * to what the last successful commit left: its compute, dependencies, value
- * and DOM. Outside a transaction a binding update is its own commit.
+ * Record a binding's state before its first change in the open render
+ * transaction. One log per transaction holds every binding, so a successful
+ * render pays for flat entries, not per-binding participants or closures.
+ * Outside a transaction a binding update is its own commit.
  */
 export function captureBindingRollback<K extends object>(
   key: K,
-  snapshot: (key: K) => () => void
+  save: (key: K, entries: unknown[]) => void
 ): void {
   const transaction = getCurrentCommitTransaction();
-  if (transaction && !transaction.participant(key, BINDING_ROLLBACK))
-    registerCommitParticipant({
-      key,
-      kind: BINDING_ROLLBACK,
-      collision: 'keep-first',
-      rollback: snapshot(key),
-    });
+  if (!transaction) return;
+  let log = transaction.participant<BindingLog>(BINDING_LOG, BINDING_LOG);
+  if (!log) {
+    log = {
+      key: BINDING_LOG,
+      kind: BINDING_LOG,
+      keys: new Set(),
+      entries: [],
+      starts: [],
+      rollback: rollbackBindingLog,
+      merge: mergeBindingLog,
+    };
+    registerCommitParticipant(log);
+  }
+  if (log.keys.has(key)) return;
+  log.keys.add(key);
+  log.starts.push(log.entries.length);
+  save(key, log.entries);
 }
 
-function snapshotReactiveProp(descriptor: ReactivePropDescriptor): () => void {
-  const restoreEffect = snapshotFineGrainedEffect(descriptor.effect!);
-  const { propFn, appliedValue, hasCommitted, lastClassTokens } = descriptor;
-  return () => {
-    restoreEffect();
-    descriptor.propFn = propFn;
-    descriptor.appliedValue = appliedValue;
-    descriptor.hasCommitted = hasCommitted;
-    descriptor.lastClassTokens = lastClassTokens;
-  };
+function saveReactiveProp(
+  descriptor: ReactivePropDescriptor,
+  entries: unknown[]
+): void {
+  entries.push(
+    restoreReactiveProp,
+    descriptor,
+    descriptor.propFn,
+    descriptor.appliedValue,
+    descriptor.hasCommitted,
+    descriptor.lastClassTokens
+  );
+  saveFineGrainedEffect(entries, descriptor.effect!);
+}
+
+function restoreReactiveProp(entries: unknown[], index: number): void {
+  const descriptor = entries[index] as ReactivePropDescriptor;
+  descriptor.propFn = entries[index + 1] as () => unknown;
+  descriptor.appliedValue = entries[index + 2];
+  descriptor.hasCommitted = entries[index + 3] as boolean;
+  descriptor.lastClassTokens = entries[index + 4] as string[] | null;
+  restoreFineGrainedEffect(entries, index + 5);
 }
 
 export function markReactivePropsDirtySource(
@@ -150,11 +202,11 @@ function setupReactiveProp(
 
   const updateFn = (nextFn: () => unknown): void => {
     const effectHandle = descriptor.effect;
-    if (!effectHandle || descriptor.propFn === nextFn) {
+    if (!effectHandle) {
       return;
     }
 
-    captureBindingRollback(descriptor, snapshotReactiveProp);
+    captureBindingRollback(descriptor, saveReactiveProp);
     descriptor.propFn = nextFn;
     effectHandle.updateCompute(nextFn);
   };

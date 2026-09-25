@@ -528,25 +528,48 @@ function restoreEffectState<T>(
 }
 
 /**
- * @internal Capture an effect's compute, dependencies and last value so a
- * rolled-back transaction can return it to this point without re-running it.
+ * @internal Append an effect's compute, dependencies, last value and pending
+ * re-run to `entries` so a rolled-back transaction can restore them.
  */
-export function snapshotFineGrainedEffect<T>(
-  handle: FineGrainedEffectHandle<T>
-): () => void {
-  const effect = handle as FineGrainedEffectImpl<T>;
-  const { compute, readSources, readSource2, hasValue, lastValue } = effect;
-  return () => {
-    if (effect.isActive)
-      restoreEffectState(
-        effect,
-        compute,
-        readSources,
-        readSource2,
-        hasValue,
-        lastValue
-      );
-  };
+export function saveFineGrainedEffect(
+  entries: unknown[],
+  handle: FineGrainedEffectHandle<unknown>
+): void {
+  const effect = handle as FineGrainedEffectImpl<unknown>;
+  entries.push(
+    effect,
+    effect.compute,
+    effect.readSources,
+    effect.readSource2,
+    effect.hasValue,
+    effect.lastValue,
+    dirtyEffectsByLane[effect.lane].has(effect)
+  );
+}
+
+/**
+ * @internal Restore what `saveFineGrainedEffect` recorded at `index` without
+ * re-running the compute. A re-run that was pending then is scheduled again,
+ * so the restored effect still catches up with its sources.
+ */
+export function restoreFineGrainedEffect(
+  entries: unknown[],
+  index: number
+): void {
+  const effect = entries[index] as FineGrainedEffectImpl<unknown>;
+  if (!effect.isActive) return;
+  restoreEffectState(
+    effect,
+    entries[index + 1] as () => unknown,
+    entries[index + 2] as EffectReadSources,
+    entries[index + 3] as ReadableSource<unknown> | null,
+    entries[index + 4] as boolean,
+    entries[index + 5]
+  );
+  if (entries[index + 6]) {
+    markDirtyEffect(effect);
+    requestRuntimeWork(effect.lane, LANE_FLUSH_TASKS[effect.lane]);
+  }
 }
 
 class FineGrainedEffectImpl<T>

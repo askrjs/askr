@@ -3,7 +3,8 @@ import {
   createOwnedFineGrainedEffect,
   incDevCounter,
   incrementPerfMetric,
-  snapshotFineGrainedEffect,
+  restoreFineGrainedEffect,
+  saveFineGrainedEffect,
   type FineGrainedEffectHandle,
 } from '../../runtime';
 import { captureBindingRollback } from '../props/reactive-bindings';
@@ -188,31 +189,41 @@ function updateGroupedBinding(
     const nextSlot = (nextValue as ReactiveScalarChildSource)[0];
     nextCompute = nextSlot?.kind === 'dynamic' ? nextSlot.compute : null;
   }
-  if (!nextCompute || nextCompute === binding.compute) return;
-  captureBindingRollback(group, snapshotBlueprintGroup);
+  if (!nextCompute) return;
+  captureBindingRollback(group, saveBlueprintGroup);
   binding.compute = nextCompute;
   group.effect.flush();
 }
 
 /** A group flush commits every binding in it, so the group rolls back whole. */
-function snapshotBlueprintGroup(group: BlueprintBindingGroup): () => void {
-  const restoreEffect = snapshotFineGrainedEffect(group.effect!);
-  const snapshots = group.bindings.map(
-    ({ compute, hasValue, lastValue, lastClassTokens, textNode }) =>
-      [compute, hasValue, lastValue, lastClassTokens, textNode] as const
-  );
-  return () => {
-    restoreEffect();
-    group.bindings.forEach((binding, index) => {
-      const [compute, hasValue, lastValue, lastClassTokens, textNode] =
-        snapshots[index]!;
-      binding.compute = compute;
-      binding.hasValue = hasValue;
-      binding.lastValue = lastValue;
-      binding.lastClassTokens = lastClassTokens;
-      binding.textNode = textNode;
-    });
-  };
+function saveBlueprintGroup(
+  group: BlueprintBindingGroup,
+  entries: unknown[]
+): void {
+  entries.push(restoreBlueprintGroup, group);
+  saveFineGrainedEffect(entries, group.effect!);
+  for (const binding of group.bindings)
+    entries.push(
+      binding.compute,
+      binding.hasValue,
+      binding.lastValue,
+      binding.lastClassTokens,
+      binding.textNode
+    );
+}
+
+function restoreBlueprintGroup(entries: unknown[], index: number): void {
+  const group = entries[index] as BlueprintBindingGroup;
+  restoreFineGrainedEffect(entries, index + 1);
+  // One group: 1 + 7 effect slots, then five per binding.
+  let slot = index + 8;
+  for (const binding of group.bindings) {
+    binding.compute = entries[slot++] as () => unknown;
+    binding.hasValue = entries[slot++] as boolean;
+    binding.lastValue = entries[slot++];
+    binding.lastClassTokens = entries[slot++] as string[] | null;
+    binding.textNode = entries[slot++] as Text | null;
+  }
 }
 
 function cleanupGroupedBinding(
