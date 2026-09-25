@@ -1,7 +1,5 @@
 import { JSXElementType, JSXElement, Props } from '../elements.js';
 import '../jsx-globals.js';
-import { AuthContext, AuthRequirement } from '@askrjs/auth';
-import { InferSchema, ObjectSchema } from '@askrjs/schema';
 import { VNode, ContextFrame } from './context.js';
 import { ComponentInstance, ReadableSource } from './component.js';
 import { Scheduler } from './scheduler.js';

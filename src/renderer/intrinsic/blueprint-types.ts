@@ -1,4 +1,4 @@
-import type { FineGrainedEffectHandle } from '../../runtime';
+import type { ComponentInstance, FineGrainedEffectHandle } from '../../runtime';
 import type { ReactiveChildDOMHost } from '../children/reactive-children';
 import type { ReactivePropCleanupEntry } from '../ownership/cleanup';
 
@@ -44,6 +44,10 @@ export type BlueprintBindingGroup = {
   activeCount: number;
   effect: FineGrainedEffectHandle<BlueprintBinding[]> | null;
   host: ReactiveChildDOMHost;
+  /** Component that rendered the group; its boundary receives errors. */
+  owner: ComponentInstance | null;
+  /** Whether `owner` is an ErrorBoundary protecting this output. */
+  protectedByOwner: boolean;
 };
 
 export type BlueprintOwnedEffect = FineGrainedEffectHandle<

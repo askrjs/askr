@@ -1,7 +1,6 @@
 import { JSXElementType, JSXElement, Props } from '../elements.js';
 import '../jsx-globals.js';
-import { AuthContext, AuthRequirement } from '@askrjs/auth';
-import { InferSchema, ObjectSchema } from '@askrjs/schema';
+import { InferSchema, ObjectSchema } from '../peer-types.js';
 import { StateTuple, state } from './state.js';
 import { RenderableChild } from './context.js';
 import { on } from './lifecycle.js';

@@ -60,8 +60,8 @@ import {
   AuthContext as AuthContext$1,
   AuthRequirement,
   AuthRequirement as AuthRequirement$1,
-} from '@askrjs/auth';
-import { ObjectSchema } from '@askrjs/schema';
+  ObjectSchema,
+} from '../peer-types.js';
 /** A single query-string value accepted by {@link updateRouteQuery}. */
 type RouteQueryParamValue = string | number | boolean | null | undefined;
 /** A query-string value, or an array of them for a repeated param. */
