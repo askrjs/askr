@@ -122,6 +122,77 @@ describe('SSR reactive values', () => {
       },
       '<p title="say &quot;hi&quot; &lt;now&gt;" class="lead" data-count="2">z</p>',
     ],
+    [
+      'a function child returning a state cell',
+      () => {
+        const useA = state(true);
+        const a = state('A');
+        return <p>{() => (useA() ? a : 'none')}</p>;
+      },
+      '<p>A</p>',
+    ],
+    [
+      'a function child returning a state cell between siblings',
+      () => {
+        const a = state(5);
+        return (
+          <div>
+            <b>1</b>
+            {() => a}
+          </div>
+        );
+      },
+      '<div><b>1</b>5</div>',
+    ],
+    [
+      'a function child returning a plain function',
+      () => (
+        <div>
+          <p>{() => () => 'x'}</p>
+          <b>1</b>
+          {() => () => 'y'}
+        </div>
+      ),
+      '<div><p></p><b>1</b></div>',
+    ],
+    [
+      'a function child returning a fragment with a function child',
+      () => (
+        <div>
+          <b>1</b>
+          {() => (
+            <>
+              {'a'}
+              {() => 'y'}
+            </>
+          )}
+        </div>
+      ),
+      '<div><b>1</b>a</div>',
+    ],
+    [
+      'a function child returning an element with a function child',
+      () => {
+        const label = state('q');
+        return <div>{() => <i>{() => label()}</i>}</div>;
+      },
+      '<div><i>q</i></div>',
+    ],
+    [
+      'a component returning a function or a state cell',
+      () => {
+        const count = state(5);
+        const ReturnsFunction = (() => () => 'x') as unknown as () => null;
+        const ReturnsCell = (() => count) as unknown as () => null;
+        return (
+          <p data-count={count}>
+            <ReturnsFunction />
+            <ReturnsCell />
+          </p>
+        );
+      },
+      '<p data-count="5"></p>',
+    ],
   ];
 
   it.each(cases)(
@@ -163,6 +234,44 @@ describe('SSR reactive values', () => {
     expect(p.getAttribute('title')).toBe('after');
   });
 
+  it('should follow the state cell a hydrated function child returns', async () => {
+    let useA!: State<boolean>;
+    let b!: State<string>;
+    const Component = () => {
+      useA = state(true);
+      const a = state('A');
+      b = state('B');
+      return <p data-b={b}>{() => (useA() ? a : b)}</p>;
+    };
+
+    container.innerHTML = renderToStringSync(Component);
+    await hydrate(Component);
+    useA.set(false);
+    flushScheduler();
+    expect(container.querySelector('p')!.textContent).toBe('B');
+
+    b.set('B2');
+    flushScheduler();
+    expect(container.querySelector('p')!.textContent).toBe('B2');
+  });
+
+  it('should keep an element returned by a hydrated function child reactive', async () => {
+    let label!: State<string>;
+    const Component = () => {
+      label = state('q');
+      return <div>{() => <i>{() => label()}</i>}</div>;
+    };
+
+    container.innerHTML = renderToStringSync(Component);
+    const serverItalic = container.querySelector('i');
+    await hydrate(Component);
+    expect(container.querySelector('i')).toBe(serverItalic);
+
+    label.set('r');
+    flushScheduler();
+    expect(container.querySelector('i')!.textContent).toBe('r');
+  });
+
   it('should evaluate each function child and prop once on the server', () => {
     let childReads = 0;
     let propReads = 0;
@@ -188,8 +297,38 @@ describe('SSR reactive values', () => {
 
   it('should render function children of raw text elements', () => {
     const css = '.a > .b { color: red }';
-    const html = renderToStringSync(() => <style>{() => css}</style>);
+    const html = renderToStringSync(() => {
+      const rule = state('.c { color: blue }');
+      return (
+        <style>
+          {() => css}
+          {() => rule}
+          {() => () => 'ignored'}
+        </style>
+      );
+    });
 
-    expect(html).toContain(`<style>${css}</style>`);
+    expect(html).toContain(`<style>${css}.c { color: blue }</style>`);
+  });
+
+  it('should read a reactive annotation-xml encoding once', () => {
+    let reads = 0;
+    const html = renderToStringSync(() => (
+      <math>
+        <annotation-xml
+          encoding={() => {
+            reads += 1;
+            return 'text/html';
+          }}
+        >
+          <style>{'a > b {}'}</style>
+        </annotation-xml>
+      </math>
+    ));
+
+    expect(reads).toBe(1);
+    expect(html).toContain(
+      '<annotation-xml encoding="text/html"><style>a > b {}</style></annotation-xml>'
+    );
   });
 });

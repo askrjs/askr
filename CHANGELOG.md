@@ -6,7 +6,12 @@
   as children or props, now render their current value on the
   server instead of nothing (children) or the function's source text (props).
   Each is called once, untracked, and escaped like a static value, so the
-  server markup matches the client and hydration adopts it in place.
+  server markup matches the client and hydration adopts it in place. On both
+  server and client, a function child that returns a `state`/`derive` cell
+  renders that cell's value (and the client follows it); any other function
+  in a function child's result, or returned by a component, renders nothing.
+  Hydrating an element returned by a function child now sets up that
+  element's own function children instead of clearing them.
 - fix(ssr): `renderResolvedToStringSync()` no longer throws "no route found"
   for a route without params when `params` is omitted.
 - fix(ssr): async render contexts resolve `AsyncLocalStorage` from

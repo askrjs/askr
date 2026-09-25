@@ -168,6 +168,15 @@ function Greeting() {
 // SSR: <p title="Hello Ada">Ada</p>
 ```
 
+A function child may return a cell, which is read in turn, so
+`{() => (useFull() ? fullName : shortName)}` renders, and on the client
+follows, whichever cell is selected. Only that one level is read: any other
+function in a function child's result (returned directly, or inside an array
+or fragment it returns) renders nothing, and so does a component that returns
+a function or a cell. Elements a function child returns keep their own
+reactive children and props. Both renderers follow these rules, so server
+markup and client output agree.
+
 ### Text inside `<script>` and `<style>`
 
 The HTML parser does not decode entities inside HTML `<script>` and `<style>`

@@ -49,6 +49,30 @@ export function markReadableUsage(source: unknown): void {
   }
 }
 
+/**
+ * Whether `value` is a readable cell (`state`, `derive`, or a `For` item or
+ * index signal) rather than an ordinary function.
+ */
+export function isReadableSource(
+  value: unknown
+): value is ReadableSource<unknown> {
+  return (
+    typeof value === 'function' &&
+    ('_readers' in value || '_hasBeenRead' in value || '_markDirty' in value)
+  );
+}
+
+/**
+ * Read the value a function child renders: call it once and, when the result
+ * is itself a readable, read that too. A function child that returns a cell
+ * (`() => (cond() ? a : b)`) renders the cell's value; any other function in
+ * the result renders nothing.
+ */
+export function readFunctionChildValue(child: () => unknown): unknown {
+  const value = child();
+  return isReadableSource(value) ? value() : value;
+}
+
 let currentDerivedSubscriber: DerivedSubscriber | null = null;
 let suppressComponentReadTrackingDepth = 0;
 let currentFineGrainedReadCollector: FineGrainedReadCollector | null = null;

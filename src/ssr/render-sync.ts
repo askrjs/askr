@@ -3,7 +3,11 @@ import { __CONTROL_BOUNDARY__ } from '../common/control';
 import type { DOMElement } from '../common/vnode';
 import { __ERROR_BOUNDARY__ } from '../common/vnode';
 import { logger } from '../common/logger';
-import { getVNodeContextFrame, readUntracked } from '../runtime';
+import {
+  getVNodeContextFrame,
+  readFunctionChildValue,
+  readUntracked,
+} from '../runtime';
 import { SSR_PORTAL_ANCHOR, SSR_PORTAL_HOST } from '../common/portal';
 import {
   createRenderContext,
@@ -28,7 +32,7 @@ import {
   resolveErrorBoundaryFallbackNode,
   withControlBoundaryChildren,
 } from './boundaries';
-import { renderAttrsDirect } from './attrs';
+import { renderAttrsDirect, resolveReactiveAttributeProps } from './attrs';
 import {
   VOID_ELEMENTS,
   escapeRawText,
@@ -260,8 +264,8 @@ export function renderRenderableSyncToSink(
   if (typeof value === 'function') {
     // A function or readable child is reactive on the client; the server
     // renders its current value once, without subscribing to it.
-    renderRenderableSyncToSink(
-      readUntracked(value as () => unknown),
+    renderFunctionChildResultToSink(
+      readUntracked(() => readFunctionChildValue(value as () => unknown)),
       sink,
       ctx
     );
@@ -270,6 +274,42 @@ export function renderRenderableSyncToSink(
   if (value && typeof value === 'object' && 'type' in value) {
     renderNodeSyncToSink(value as VNode, sink, ctx);
   }
+}
+
+/**
+ * The top-level items of a function child's result: array entries and
+ * fragment children, flattened. As on the client, a function among them
+ * (after one readable has been read) renders nothing, while elements keep
+ * their own reactive children.
+ */
+function getFunctionChildResultItems(value: unknown): unknown[] | null {
+  if (Array.isArray(value)) return value;
+  if (
+    value &&
+    typeof value === 'object' &&
+    'type' in value &&
+    isFragmentType((value as VNode).type)
+  ) {
+    return getRenderableChildren(value as VNode) ?? [];
+  }
+  return null;
+}
+
+/** Write what a function child produced (see `getFunctionChildResultItems`). */
+function renderFunctionChildResultToSink(
+  value: unknown,
+  sink: SinkTarget,
+  ctx: RenderContext
+): void {
+  if (typeof value === 'function') return;
+  const items = getFunctionChildResultItems(value);
+  if (items) {
+    for (let i = 0; i < items.length; i++) {
+      renderFunctionChildResultToSink(items[i], sink, ctx);
+    }
+    return;
+  }
+  renderRenderableSyncToSink(value, sink, ctx);
 }
 
 function renderChildSyncToSink(
@@ -441,7 +481,11 @@ function collectRawText(
     return '';
   }
   if (typeof value === 'function') {
-    return collectRawText(readUntracked(value as () => unknown), element, ctx);
+    return collectFunctionChildRawText(
+      readUntracked(() => readFunctionChildValue(value as () => unknown)),
+      element,
+      ctx
+    );
   }
   if (typeof value === 'string') return value;
   if (typeof value === 'number') return String(value);
@@ -482,6 +526,24 @@ function collectRawText(
   throw new Error(
     `SSR: <${element}> children must be text, but received ${describeRawTextChild(value)}.`
   );
+}
+
+/** Raw text of a function child's result (see `getFunctionChildResultItems`). */
+function collectFunctionChildRawText(
+  value: unknown,
+  element: RawTextElement,
+  ctx: RenderContext
+): string {
+  if (typeof value === 'function') return '';
+  const items = getFunctionChildResultItems(value);
+  if (items) {
+    let text = '';
+    for (let i = 0; i < items.length; i++) {
+      text += collectFunctionChildRawText(items[i], element, ctx);
+    }
+    return text;
+  }
+  return collectRawText(value, element, ctx);
 }
 
 function collectErrorBoundaryRawText(
@@ -668,10 +730,19 @@ function renderNodeSyncToSink(
   const parentNamespace = currentNamespace;
   const tag = typeStr.toLowerCase();
   const namespace = getElementNamespace(parentNamespace, tag);
-  currentNamespace = getChildNamespace(parentNamespace, namespace, tag, props);
+  // `annotation-xml` reads its `encoding` to choose its children's context
+  // and then writes it, so a reactive value is read once for both.
+  const element =
+    tag === 'annotation-xml' ? resolveReactiveAttributeNode(node) : node;
+  currentNamespace = getChildNamespace(
+    parentNamespace,
+    namespace,
+    tag,
+    element.props
+  );
   try {
     renderElementSyncToSink(
-      node,
+      element,
       typeStr,
       getRawTextElementInContext(parentNamespace, namespace, tag),
       sink,
@@ -680,6 +751,13 @@ function renderNodeSyncToSink(
   } finally {
     currentNamespace = parentNamespace;
   }
+}
+
+function resolveReactiveAttributeNode(
+  node: VNode | JSXElement
+): VNode | JSXElement {
+  const props = resolveReactiveAttributeProps(node.props);
+  return props === node.props ? node : ({ ...node, props } as typeof node);
 }
 
 /**

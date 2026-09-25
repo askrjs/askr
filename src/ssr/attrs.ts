@@ -34,6 +34,32 @@ function resolvePropValue(value: unknown): unknown {
     : value;
 }
 
+/**
+ * `props` with every function or readable attribute value read once, for an
+ * element whose attributes are inspected before they are written. Returns
+ * `props` itself when nothing needs reading.
+ */
+export function resolveReactiveAttributeProps(
+  props: Props | undefined
+): Props | undefined {
+  if (!props || typeof props !== 'object') return props;
+  let resolved: Record<string, unknown> | null = null;
+  const propsObj = props as Record<string, unknown>;
+  for (const key in propsObj) {
+    const value = propsObj[key];
+    if (
+      typeof value !== 'function' ||
+      isSkippedProp(key) ||
+      isEventHandler(key)
+    ) {
+      continue;
+    }
+    resolved ??= { ...propsObj };
+    resolved[key] = resolvePropValue(value);
+  }
+  return (resolved as Props | null) ?? props;
+}
+
 function assertAttributeName(name: string): void {
   if (!/^[A-Za-z_:][A-Za-z0-9_.:-]*$/.test(name)) {
     throw new TypeError(`Invalid SSR attribute name: ${JSON.stringify(name)}`);

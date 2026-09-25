@@ -3,6 +3,7 @@ import {
   createOwnedFineGrainedEffect,
   incDevCounter,
   incrementPerfMetric,
+  readFunctionChildValue,
   type FineGrainedEffectHandle,
 } from '../../runtime';
 import { applyScalarPropValue } from '../props/attributes';
@@ -216,7 +217,12 @@ function computeBlueprintBindings(
 ): BlueprintBinding[] {
   const group = this._owner;
   for (const binding of group.bindings) {
-    if (binding.active) binding.nextValue = binding.compute();
+    if (binding.active) {
+      binding.nextValue =
+        binding.kind === 'text'
+          ? readFunctionChildValue(binding.compute)
+          : binding.compute();
+    }
   }
   return group.bindings;
 }

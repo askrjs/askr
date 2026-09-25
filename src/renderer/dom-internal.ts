@@ -371,6 +371,15 @@ function createFragmentElement(
   }
 }
 
+function hasFunctionChild(children: unknown): boolean {
+  if (typeof children === 'function') return true;
+  if (!Array.isArray(children)) return false;
+  for (let index = 0; index < children.length; index += 1) {
+    if (typeof children[index] === 'function') return true;
+  }
+  return false;
+}
+
 export function updateElementFromVnode(
   el: Element,
   vnode: VNode,
@@ -436,6 +445,15 @@ function applyElementUpdateFromVnode(
         const children =
           (props.children as VNode | VNode[] | undefined) ?? vnode.children;
         if (!forceChildrenUpdate && canReuseStaticSubtree(el, domVNode)) {
+          return;
+        }
+        // An element without bindings yet (for example server markup being
+        // hydrated) can still receive function children, which need a
+        // reactive binding rather than a static children update.
+        if (
+          hasFunctionChild(children) &&
+          syncReactiveScalarChild(el, children, rendererReactiveChildDOMHost)
+        ) {
           return;
         }
         updateElementChildren(el, children, forceChildrenUpdate);

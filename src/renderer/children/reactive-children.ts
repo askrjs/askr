@@ -5,7 +5,10 @@ import {
   rerenderChildScope,
   type ChildScope,
 } from '../../runtime';
-import { getCurrentComponentInstance } from '../../runtime';
+import {
+  getCurrentComponentInstance,
+  readFunctionChildValue,
+} from '../../runtime';
 import { incDevCounter } from '../../runtime';
 import {
   createFineGrainedEffect,
@@ -108,7 +111,7 @@ function setupReactiveScalarChild(
             );
           }
 
-          const rawValue = currentSlot.compute();
+          const rawValue = readFunctionChildValue(currentSlot.compute);
           const normalized = normalizeOwnedReactiveTextValue(rawValue);
           return normalized ?? (rawValue as string);
         },
@@ -178,7 +181,7 @@ function setupReactiveScalarChild(
             );
           }
 
-          const rawValue = currentSlot.compute();
+          const rawValue = readFunctionChildValue(currentSlot.compute);
           const normalized = normalizeOwnedReactiveTextValue(rawValue);
           return normalized ?? (rawValue as string);
         });
@@ -191,7 +194,9 @@ function setupReactiveScalarChild(
       lane: 'reactive',
       compute: () =>
         currentSource.map((slot) =>
-          slot.kind === 'static' ? slot.value : slot.compute()
+          slot.kind === 'static'
+            ? slot.value
+            : readFunctionChildValue(slot.compute)
         ),
       commit: (values) => {
         if (!Array.isArray(values)) {
@@ -264,7 +269,9 @@ function setupReactiveScalarChild(
       currentSource = nextSource;
       effectHandle.updateCompute(() =>
         currentSource.map((slot) =>
-          slot.kind === 'static' ? slot.value : slot.compute()
+          slot.kind === 'static'
+            ? slot.value
+            : readFunctionChildValue(slot.compute)
         )
       );
     },
@@ -317,7 +324,9 @@ function setupReactiveChildBoundary(
   };
 
   entry.scope.render(() =>
-    normalizeReactiveChildBoundaryVNode(currentChildFn())
+    normalizeReactiveChildBoundaryVNode(
+      readFunctionChildValue(currentChildFn) as VNode
+    )
   );
   syncReactiveChildExpectedNodes(
     el,
@@ -426,12 +435,14 @@ function setupReactiveChildBoundarySequence(
   for (const dynamicEntry of dynamicEntries) {
     dynamicEntry.entry.scope.render(() =>
       normalizeReactiveChildBoundaryVNode(
-        (
-          currentSource[dynamicEntry.index] as {
-            kind: 'dynamic';
-            compute: () => VNode;
-          }
-        ).compute()
+        readFunctionChildValue(
+          (
+            currentSource[dynamicEntry.index] as {
+              kind: 'dynamic';
+              compute: () => VNode;
+            }
+          ).compute
+        ) as VNode
       )
     );
   }
