@@ -19,12 +19,49 @@ import {
 } from '../common/dom-properties';
 import type { RenderSink } from './sink';
 import { escapeAttr, needsEscapeAttr, styleObjToCss } from './escape';
+import { readUntracked } from '../runtime';
 
 const ESCAPED_ATTR_VALUE_CACHE_LIMIT = 512;
 const escapedAttrValueCache = new Map<string, string>();
 
 function isEventHandler(key: string): boolean {
   return key.length >= 2 && key.slice(0, 2).toLowerCase() === 'on';
+}
+
+/**
+ * A function or readable prop is reactive on the client; the server renders
+ * its current value once, without subscribing to it.
+ */
+function resolvePropValue(value: unknown): unknown {
+  return typeof value === 'function'
+    ? readUntracked(value as () => unknown)
+    : value;
+}
+
+/**
+ * `props` with every function or readable attribute value read once, for an
+ * element whose attributes are inspected before they are written. Returns
+ * `props` itself when nothing needs reading.
+ */
+export function resolveReactiveAttributeProps(
+  props: Props | undefined
+): Props | undefined {
+  if (!props || typeof props !== 'object') return props;
+  let resolved: Record<string, unknown> | null = null;
+  const propsObj = props as Record<string, unknown>;
+  for (const key in propsObj) {
+    const value = propsObj[key];
+    if (
+      typeof value !== 'function' ||
+      isSkippedProp(key) ||
+      isEventHandler(key)
+    ) {
+      continue;
+    }
+    resolved ??= { ...propsObj };
+    resolved[key] = resolvePropValue(value);
+  }
+  return (resolved as Props | null) ?? props;
 }
 
 function assertAttributeName(name: string): void {
@@ -72,8 +109,6 @@ export function renderAttrsDirect(
 
   const propsObj = props as Record<string, unknown>;
   for (const key in propsObj) {
-    const value = propsObj[key];
-
     // Skip special props
     if (isSkippedProp(key) || key === 'dangerouslySetInnerHTML') continue;
 
@@ -83,6 +118,7 @@ export function renderAttrsDirect(
     // Skip internal props
     if (key.charCodeAt(0) === 95) continue; // '_'
 
+    const value = resolvePropValue(propsObj[key]);
     if (isPropertyOnlyProp(tagName, key, value)) continue;
     // `attr:` renders text only; objects (even `attr:style`) are left out on
     // both sides rather than serialized differently.
@@ -169,7 +205,7 @@ export function getRenderedAttributeValue(
     const attrName = getPublicAttributeName(key);
     if (attrName.toLowerCase() !== name) continue;
 
-    const value = propsObj[key];
+    const value = resolvePropValue(propsObj[key]);
     if (attrName === 'style') {
       const css = typeof value === 'string' ? value : styleObjToCss(value);
       if (!css) continue;

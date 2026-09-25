@@ -3,7 +3,7 @@ import { __CONTROL_BOUNDARY__ } from '../common/control';
 import type { DOMElement } from '../common/vnode';
 import { __ERROR_BOUNDARY__ } from '../common/vnode';
 import { logger } from '../common/logger';
-import { getVNodeContextFrame } from '../runtime';
+import { FunctionChild, getVNodeContextFrame } from '../runtime';
 import { SSR_PORTAL_ANCHOR, SSR_PORTAL_HOST } from '../common/portal';
 import {
   createRenderContext,
@@ -28,7 +28,7 @@ import {
   resolveErrorBoundaryFallbackNode,
   withControlBoundaryChildren,
 } from './boundaries';
-import { renderAttrsDirect } from './attrs';
+import { renderAttrsDirect, resolveReactiveAttributeProps } from './attrs';
 import {
   VOID_ELEMENTS,
   escapeRawText,
@@ -258,9 +258,35 @@ export function renderRenderableSyncToSink(
     renderChildrenSyncToSink(value, sink, ctx);
     return;
   }
+  if (typeof value === 'function') {
+    renderRenderableSyncToSink(
+      renderFunctionChild(value as () => unknown, ctx),
+      sink,
+      ctx
+    );
+    return;
+  }
   if (value && typeof value === 'object' && 'type' in value) {
     renderNodeSyncToSink(value as VNode, sink, ctx);
   }
+}
+
+/**
+ * Render a function or readable child. As on the client, it runs as a small
+ * component (`FunctionChild`) in the context it was written in, so hooks,
+ * `Show`/`For` and `readScope` work; the server reads it once and does not
+ * subscribe.
+ */
+function renderFunctionChild(
+  child: () => unknown,
+  ctx: RenderContext
+): VNode | JSXElement {
+  return executeComponentSync(
+    FunctionChild as unknown as Component,
+    { read: child },
+    ctx,
+    getVNodeContextFrame(child) ?? null
+  );
 }
 
 function renderChildSyncToSink(
@@ -438,8 +464,8 @@ function sinkWrite3(
  *
  * The parser does not decode entities there, so the text is collected
  * unescaped and neutralized as a whole by `escapeRawText`. Text may come from
- * strings, numbers, fragments, components, and control and error boundaries;
- * function children contribute nothing, as on the ordinary SSR text path.
+ * strings, numbers, fragments, components, control and error boundaries, and
+ * function or readable children, which contribute their current value.
  * Range markers are omitted because a comment has no raw text form. Element
  * children are rejected rather than serialized as markup the parser would
  * read back as literal text.
@@ -449,13 +475,15 @@ function collectRawText(
   element: RawTextElement,
   ctx: RenderContext
 ): string {
-  if (
-    value === null ||
-    value === undefined ||
-    typeof value === 'boolean' ||
-    typeof value === 'function'
-  ) {
+  if (value === null || value === undefined || typeof value === 'boolean') {
     return '';
+  }
+  if (typeof value === 'function') {
+    return collectRawText(
+      renderFunctionChild(value as () => unknown, ctx),
+      element,
+      ctx
+    );
   }
   if (typeof value === 'string') return value;
   if (typeof value === 'number') return String(value);
@@ -686,10 +714,19 @@ function renderNodeSyncToSink(
   const parentNamespace = currentNamespace;
   const tag = typeStr.toLowerCase();
   const namespace = getElementNamespace(parentNamespace, tag);
-  currentNamespace = getChildNamespace(parentNamespace, namespace, tag, props);
+  // `annotation-xml` reads its `encoding` to choose its children's context
+  // and then writes it, so a reactive value is read once for both.
+  const element =
+    tag === 'annotation-xml' ? resolveReactiveAttributeNode(node) : node;
+  currentNamespace = getChildNamespace(
+    parentNamespace,
+    namespace,
+    tag,
+    element.props
+  );
   try {
     renderElementSyncToSink(
-      node,
+      element,
       typeStr,
       getRawTextElementInContext(parentNamespace, namespace, tag),
       sink,
@@ -698,6 +735,13 @@ function renderNodeSyncToSink(
   } finally {
     currentNamespace = parentNamespace;
   }
+}
+
+function resolveReactiveAttributeNode(
+  node: VNode | JSXElement
+): VNode | JSXElement {
+  const props = resolveReactiveAttributeProps(node.props);
+  return props === node.props ? node : ({ ...node, props } as typeof node);
 }
 
 /**

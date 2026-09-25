@@ -1,5 +1,6 @@
 import { incDevCounter } from '../diagnostics/dev-namespace';
 import {
+  isStaleSource,
   type FineGrainedReadCollector,
   type ReadableSource,
   withFineGrainedReadTracking,
@@ -472,6 +473,36 @@ function flushLaneEffects(lane: SchedulerLane): void {
   if (failures && failures.length > 1) {
     throw new AggregateError(failures, 'Fine-grained effect failures');
   }
+}
+
+/**
+ * @internal Whether the effect is queued to recompute, or reads a derived
+ * source that is still stale and will re-mark it (#523).
+ */
+export function isFineGrainedEffectStale(
+  handle: FineGrainedEffectHandle<unknown>
+): boolean {
+  const effect = handle as FineGrainedEffectImpl<unknown>;
+  if (dirtyEffectsByLane[effect.lane].has(effect)) {
+    return true;
+  }
+  const visited = new Set<object>();
+  const sources = effect.readSources;
+  if (effect.readSource2 && isStaleSource(effect.readSource2, visited)) {
+    return true;
+  }
+  if (!sources) {
+    return false;
+  }
+  if (!isEffectReadSourceCollection(sources)) {
+    return isStaleSource(sources, visited);
+  }
+  for (const source of sources) {
+    if (isStaleSource(source, visited)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function unscheduleEffect(effect: FineGrainedEffect<unknown>): void {
