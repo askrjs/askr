@@ -4,8 +4,60 @@ import {
   createQueryPrefetchContext,
   defineQuery,
   defineServerQueries,
+  dehydrateDataRuntime,
   prefetchQuery,
 } from '../../../src/data/query-registry';
+
+describe('dehydrateDataRuntime', () => {
+  it('should keep JSON-compatible query data unchanged', () => {
+    const runtime = createDataRuntime();
+    const user = {
+      id: '1',
+      tags: ['a', 'b'],
+      profile: { age: 3, admin: false, avatar: null },
+    };
+    runtime.queryData.set('user:1', user);
+
+    expect(dehydrateDataRuntime(runtime)).toEqual({ 'user:1': user });
+  });
+
+  it.each([
+    [
+      'a Date',
+      { createdAt: new Date(0) },
+      '$.createdAt',
+      'Date instances are not supported',
+    ],
+    ['a Map', { byId: new Map([['a', 1]]) }, '$.byId', 'Map instances'],
+    ['a Set', { ids: [new Set([1])] }, '$.ids[0]', 'Set instances'],
+    ['a bigint', { total: 1n }, '$.total', 'bigint is not supported'],
+    ['a non-finite number', { ratio: NaN }, '$.ratio', 'non-finite numbers'],
+    ['undefined', { avatar: undefined }, '$.avatar', 'undefined'],
+    ['a function', { load: () => 1 }, '$.load', 'functions'],
+  ])(
+    'should reject %s instead of silently changing it',
+    (_label, value, path, reason) => {
+      const runtime = createDataRuntime();
+      runtime.queryData.set('user:1', value);
+
+      expect(() => dehydrateDataRuntime(runtime)).toThrow(TypeError);
+      expect(() => dehydrateDataRuntime(runtime)).toThrow(
+        `[Askr] Query data for key "user:1" at "${path}" is not JSON transport-safe: ${reason}`
+      );
+    }
+  );
+
+  it('should reject cyclic query data', () => {
+    const runtime = createDataRuntime();
+    const node: Record<string, unknown> = { id: 'a' };
+    node.self = node;
+    runtime.queryData.set('graph:a', node);
+
+    expect(() => dehydrateDataRuntime(runtime)).toThrow(
+      '[Askr] Query data for key "graph:a" at "$.self" is not JSON transport-safe: cyclic references are not supported'
+    );
+  });
+});
 
 describe('SSR query prefetch without a registered handler', () => {
   afterEach(() => {

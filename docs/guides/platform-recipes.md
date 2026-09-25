@@ -176,6 +176,12 @@ In SSR mode a query with no registered server handler is skipped:
 `prefetchQuery()` resolves `false`, and outside production the runtime logs one
 `[Askr] skipped SSR query preload: <key>` warning per query key and data runtime.
 
+`dehydrateDataRuntime()` accepts only JSON-shaped query data. A `Date`, `Map`,
+`Set`, class instance, bigint, non-finite number, `undefined`, or cyclic value
+throws a `TypeError` naming the query key and path instead of being silently
+converted or dropped; see
+[route data transport](./ssr.md#route-data-transport-and-field-omission).
+
 Lifecycle and cleanup:
 
 - Use a request-owned runtime for SSR and a build-entry-owned runtime for SSG.

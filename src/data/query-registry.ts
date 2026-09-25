@@ -12,6 +12,7 @@ import {
 } from './data-runtime';
 import type { CoreTelemetry } from '../common/telemetry';
 import { withTelemetry } from '../common/telemetry';
+import { validateJsonTransportValue } from '../common/json-transport';
 
 /** Lookup table of server handlers keyed by their {@link QueryDefinition}, built by {@link defineServerQueries}. */
 export interface ServerQueryRegistry {
@@ -207,18 +208,23 @@ export async function prefetchQuery<TInput, TResult extends {}>(
   return context.prefetch(query, input);
 }
 
-/** Extract a runtime's cached query data into a JSON-serializable snapshot, dropping non-serializable values. */
+/**
+ * Extract a runtime's cached query data into a JSON-serializable snapshot.
+ * Throws a `TypeError` naming the key and path of any value that would not
+ * survive JSON transport unchanged (for example a `Date`, `Map`, or bigint).
+ */
 export function dehydrateDataRuntime(
   runtime: DataRuntime
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of runtime.queryData) {
-    try {
-      JSON.stringify(value);
-      result[key] = value;
-    } catch {
-      /* omit non-serializable values */
-    }
+    validateJsonTransportValue(value, (path, reason) => {
+      throw new TypeError(
+        `[Askr] Query data for key ${JSON.stringify(key)} at "${path}" is not JSON transport-safe: ${reason}. ` +
+          'Return JSON-compatible data from the query fetch or server handler.'
+      );
+    });
+    result[key] = value;
   }
   return result;
 }

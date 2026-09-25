@@ -1,6 +1,10 @@
 import type { RouteContext, RouteOptions } from '../common/router';
 import { isPromiseLike } from '../common/promise';
 import { isDeferred } from '../common/deferred-value';
+import {
+  jsonTransportPropertyPath,
+  validateJsonTransportValue,
+} from '../common/json-transport';
 
 type DeferredHydrationValue = {
   readonly state: 'pending' | 'fulfilled' | 'rejected';
@@ -34,141 +38,19 @@ export interface PreparedRouteHydrationData {
 
 const omissionGuards = new WeakMap<object, WeakMap<RouteOmissionMap, object>>();
 
-function propertyPath(parent: string, key: string): string {
-  if (/^(?:0|[1-9]\d*)$/.test(key)) return `${parent}[${key}]`;
-  if (/^[A-Za-z_$][\w$]*$/.test(key)) return `${parent}.${key}`;
-  return `${parent}[${JSON.stringify(key)}]`;
-}
-
-function invalid(route: string, path: string, reason: string): never {
-  throw new TypeError(
-    `[Askr] Route hydration data for "${route}" at "${path}" is not JSON transport-safe: ${reason}. ` +
-      'Return JSON-compatible data or use route(..., { dehydrate(data) { ... } }) to omit server-only values.'
-  );
-}
-
-function objectLabel(value: object): string {
-  if (value instanceof Date) return 'Date';
-  if (value instanceof Map) return 'Map';
-  if (value instanceof Set) return 'Set';
-  const constructor = value.constructor;
-  return typeof constructor === 'function' && constructor.name
-    ? constructor.name
-    : 'class instance';
-}
+const propertyPath = jsonTransportPropertyPath;
 
 /** Validate the exact value that will enter the route hydration envelope. */
 export function validateRouteHydrationData(
   value: unknown,
-  route: string,
-  path = '$',
-  ancestors = new Set<object>()
+  route: string
 ): void {
-  if (value === null || typeof value === 'string' || typeof value === 'boolean')
-    return;
-
-  if (typeof value === 'number') {
-    if (!Number.isFinite(value))
-      invalid(route, path, 'non-finite numbers are not supported');
-    return;
-  }
-  if (typeof value === 'undefined')
-    invalid(route, path, 'undefined is not supported');
-  if (typeof value === 'bigint')
-    invalid(route, path, 'bigint is not supported');
-  if (typeof value === 'symbol')
-    invalid(route, path, 'symbols are not supported');
-  if (typeof value === 'function')
-    invalid(route, path, 'functions are not supported');
-
-  const object = value as object;
-  if (isDeferredHydrationValue(object)) {
-    if (object.state === 'fulfilled') {
-      validateRouteHydrationData(
-        object.value,
-        route,
-        `${path}.value`,
-        ancestors
-      );
-    }
-    return;
-  }
-
-  if (ancestors.has(object))
-    invalid(route, path, 'cyclic references are not supported');
-  ancestors.add(object);
-
-  try {
-    if (Array.isArray(object)) {
-      for (let index = 0; index < object.length; index += 1) {
-        if (!Object.prototype.hasOwnProperty.call(object, index)) {
-          invalid(
-            route,
-            `${path}[${index}]`,
-            'sparse arrays are not supported'
-          );
-        }
-      }
-      for (const key of Reflect.ownKeys(object)) {
-        if (key === 'length') continue;
-        if (typeof key === 'symbol')
-          invalid(route, path, 'symbol-keyed properties are not supported');
-        const descriptor = Object.getOwnPropertyDescriptor(object, key)!;
-        if (!descriptor.enumerable)
-          invalid(
-            route,
-            propertyPath(path, key),
-            'non-enumerable properties are not supported'
-          );
-        if (!('value' in descriptor))
-          invalid(
-            route,
-            propertyPath(path, key),
-            'accessors are not supported'
-          );
-        if (!/^(?:0|[1-9]\d*)$/.test(key) || Number(key) >= object.length)
-          invalid(
-            route,
-            propertyPath(path, key),
-            'named array properties are not supported'
-          );
-        validateRouteHydrationData(
-          descriptor.value,
-          route,
-          propertyPath(path, key),
-          ancestors
-        );
-      }
-      return;
-    }
-
-    const prototype = Object.getPrototypeOf(object);
-    if (prototype !== Object.prototype && prototype !== null) {
-      invalid(
-        route,
-        path,
-        `${objectLabel(object)} instances are not supported; use a plain object`
-      );
-    }
-
-    for (const key of Reflect.ownKeys(object)) {
-      if (typeof key === 'symbol')
-        invalid(route, path, 'symbol-keyed properties are not supported');
-      const descriptor = Object.getOwnPropertyDescriptor(object, key)!;
-      const childPath = propertyPath(path, key);
-      if (!descriptor.enumerable)
-        invalid(
-          route,
-          childPath,
-          'non-enumerable properties are not supported'
-        );
-      if (!('value' in descriptor))
-        invalid(route, childPath, 'accessors are not supported');
-      validateRouteHydrationData(descriptor.value, route, childPath, ancestors);
-    }
-  } finally {
-    ancestors.delete(object);
-  }
+  validateJsonTransportValue(value, (path, reason) => {
+    throw new TypeError(
+      `[Askr] Route hydration data for "${route}" at "${path}" is not JSON transport-safe: ${reason}. ` +
+        'Return JSON-compatible data or use route(..., { dehydrate(data) { ... } }) to omit server-only values.'
+    );
+  });
 }
 
 function omissionMap(
