@@ -22,7 +22,7 @@ type User = {
 
 export const userById = defineQuery({
   key: ({ id }: { id: string }) => `user:${id}`,
-  fetch: async ({ id, signal }) => {
+  fetch: async ({ id }, { signal }) => {
     const response = await fetch(`/api/users/${id}`, { signal });
     if (!response.ok) {
       throw new Error('User request failed');

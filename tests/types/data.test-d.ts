@@ -57,12 +57,29 @@ expectAssignable<MutationOptions<{ id: string }, boolean>>({
 
 const userDefinition = defineQuery({
   key: (input: { id: string }) => `user:${input.id}`,
-  fetch: async ({ id, signal }) => {
+  fetch: async ({ id }, { signal }) => {
+    expectType<string>(id);
     expectType<AbortSignal>(signal);
     return { id };
   },
 });
 expectType<QueryDefinition<{ id: string }, { id: string }>>(userDefinition);
+
+const countDefinition = defineQuery({
+  key: (count: number) => `count:${count}`,
+  fetch: async (count, { signal }) => {
+    expectType<number>(count);
+    expectType<AbortSignal>(signal);
+    return { count };
+  },
+});
+expectType<QueryDefinition<number, { count: number }>>(countDefinition);
+expectError(
+  defineQuery<{ id: string }, { aborted: boolean }>({
+    key: (input) => input.id,
+    fetch: async ({ signal }) => ({ aborted: signal.aborted }),
+  })
+);
 
 const userCollectionOptions: QueryCollectionOptions<
   { id: string },
