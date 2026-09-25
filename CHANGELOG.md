@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- fix(resources): a synchronous `task()` registers its cleanup as it runs
+  instead of one microtask later, so removing its owner right after mount
+  (for example a function child remounting when its hooks change) runs the
+  cleanup before the replacement's task. A task that throws still reports
+  the error as before.
 - fix(ssr): function children and props, and `state`/`derive` cells passed
   as children or props, now render their current value on the
   server instead of nothing (children) or the function's source text (props).

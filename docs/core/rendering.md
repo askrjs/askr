@@ -295,7 +295,8 @@ Either way, hooks run in the function's call order, keep their state across
 re-runs and run lifecycle work. When a run calls a different sequence of
 hooks than the last one, for example `{() => (open() ? <Show .../> : 'none')}`
 or a `state()` called only in one branch, the function child remounts: its
-previous hooks are disposed (their cleanups run) and it starts again with
+previous hooks are disposed (their cleanups run before the new run's
+`task()` work) and it starts again with
 fresh state, instead of reporting a hook-order error as a component body
 does. A remount also recreates the DOM the function child rendered, so an
 element inside it that had focus loses it; keep inputs outside a function

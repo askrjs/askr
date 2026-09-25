@@ -1303,6 +1303,51 @@ describe('SSR reactive values', () => {
       }
     );
 
+    it.each(positions)(
+      'should clean up the previous function child before the next one mounts in %s',
+      async (_position, place) => {
+        let flag!: State<boolean>;
+        const events: string[] = [];
+        const trackedTask = (tag: string) =>
+          task(() => {
+            events.push(`mount-${tag}`);
+            return () => {
+              events.push(`cleanup-${tag}`);
+            };
+          });
+        const Component = () => {
+          flag = state(false);
+          return place(() => {
+            if (flag()) {
+              const [value] = state('B');
+              trackedTask('B');
+              return value();
+            }
+            trackedTask('A');
+            return 'A';
+          });
+        };
+
+        await createSPA({
+          root: container,
+          registry: routeRegistryFromTable([{ path: '/', handler: Component }]),
+        });
+        flushScheduler();
+        await Promise.resolve();
+        flushScheduler();
+
+        for (let toggle = 1; toggle <= 4; toggle += 1) {
+          events.length = 0;
+          const [next, previous] = toggle % 2 === 1 ? ['B', 'A'] : ['A', 'B'];
+          flag.set(toggle % 2 === 1);
+          flushScheduler();
+          await Promise.resolve();
+          flushScheduler();
+          expect(events).toEqual([`cleanup-${previous}`, `mount-${next}`]);
+        }
+      }
+    );
+
     for (const [position, place] of positions) {
       it.each(toggles)(
         `should toggle %s in ${position} without a hook-order error`,
