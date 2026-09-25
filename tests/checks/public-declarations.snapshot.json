@@ -1062,6 +1062,7 @@
       "createRenderContext": [
         "declare function createRenderContext(seed?: number, opts?: {\n    url?: string;\n    data?: SSRData;\n    params?: Record<string, string>;\n    routes?: readonly Route[];\n    routeAuth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    basePath?: string;\n    signal?: AbortSignal;\n    dataRuntime?: unknown;\n    mode?: \"ssr\" | \"spa\";\n    queryPrefetch?: QueryPrefetchContext;\n    framework?: Readonly<Record<string, unknown>>;\n    envelope?: PageRenderEnvelope;\n    cspNonce?: string;\n}): RenderContext;"
       ],
+      "escapeHtml": ["declare function escapeHtml(value: string): string;"],
       "DocumentRenderArgs": [
         "interface DocumentRenderArgs {\n    appHtml: string;\n    context: DocumentRenderContext;\n}"
       ],
@@ -1566,6 +1567,7 @@
     "documentVisible": [
       "declare function documentVisible(): ActivityPredicate;"
     ],
+    "escapeHtml": ["declare function escapeHtml(value: string): string;"],
     "DOMChildScope": [
       "export interface DOMChildScope {\n    readonly [scopeBrand]: never;\n}"
     ],
