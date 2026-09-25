@@ -15,6 +15,7 @@ import {
 } from '../../../src/ssr';
 import { REDACTED_DEFERRED_ERROR } from '../../../src/ssr/hydration-data';
 import type { AuthContext } from '@askrjs/auth';
+import { JSDOM } from 'jsdom';
 import {
   createTestContainer,
   flushScheduler,
@@ -52,6 +53,68 @@ function reactiveDeferredPage() {
     <main>
       <Resolve value={data.message} pending={<p id="pending">loading</p>}>
         {(message) => <DeferredCounter message={message} />}
+      </Resolve>
+    </main>
+  );
+}
+
+type NestedOuter = { label: string; inner: Promise<string> };
+type NestedPageData = {
+  outer: ReturnType<
+    typeof defer<{ label: string; inner: ReturnType<typeof defer<string>> }>
+  >;
+};
+
+function nestedPage() {
+  const data = routeData<NestedPageData>();
+  return (
+    <main>
+      <Resolve value={data.outer} pending={<p id="outer-pending">loading</p>}>
+        {(outer) => (
+          <section>
+            <h1 id="outer">{outer.label}</h1>
+            <Resolve
+              value={outer.inner}
+              pending={<p id="inner-pending">inner loading</p>}
+              rejected={(error) => (
+                <p id="inner-rejected">{`${String(error)}|${
+                  currentAuth().principal?.id ?? ''
+                }`}</p>
+              )}
+            >
+              {(inner) => (
+                <p id="inner">{`${inner}|${
+                  currentRoute<{ id: string }>().params.id ?? ''
+                }`}</p>
+              )}
+            </Resolve>
+          </section>
+        )}
+      </Resolve>
+    </main>
+  );
+}
+
+/** Parse streamed HTML with its inline patch scripts executing as a browser would. */
+function parseWithInlinePatches(html: string): Document {
+  const dom = new JSDOM(`<!doctype html><body><div id="root">${html}</div>`, {
+    runScripts: 'dangerously',
+  });
+  return dom.window.document;
+}
+
+function twoBoundaryPage() {
+  const data = routeData<{
+    first: ReturnType<typeof defer<string>>;
+    second: ReturnType<typeof defer<string>>;
+  }>();
+  return (
+    <main>
+      <Resolve value={data.first} pending={<i>first pending</i>}>
+        {(value) => <b id="first">{value}</b>}
+      </Resolve>
+      <Resolve value={data.second} pending={<i>second pending</i>}>
+        {(value) => <b id="second">{value}</b>}
       </Resolve>
     </main>
   );
@@ -295,7 +358,7 @@ describe('deferred route streaming', () => {
     expect((await reader.read()).done).toBe(true);
   });
 
-  it('should emit boundary patches in registration order', async () => {
+  it('should emit each boundary patch as soon as it settles', async () => {
     let first!: (value: string) => void;
     let second!: (value: string) => void;
     const firstPromise = new Promise<string>((resolve) => {
@@ -305,47 +368,193 @@ describe('deferred route streaming', () => {
       second = resolve;
     });
     const registry = createRouteRegistry(() => {
-      route(
-        '/',
-        () => {
-          const data = routeData<{
-            first: ReturnType<typeof defer<string>>;
-            second: ReturnType<typeof defer<string>>;
-          }>();
-          return (
-            <main>
-              <Resolve value={data.first} pending={<i>first pending</i>}>
-                {(value) => <b>{value}</b>}
-              </Resolve>
-              <Resolve value={data.second} pending={<i>second pending</i>}>
-                {(value) => <b>{value}</b>}
-              </Resolve>
-            </main>
-          );
-        },
-        {
-          loader: () => ({
-            first: defer(firstPromise),
-            second: defer(secondPromise),
-          }),
-        }
-      );
+      route('/', twoBoundaryPage, {
+        loader: () => ({
+          first: defer(firstPromise),
+          second: defer(secondPromise),
+        }),
+      });
     });
-    const result = await renderRouteRequest({ url: '/', registry });
+    const { container, cleanup } = createTestContainer();
+    try {
+      const result = await renderRouteRequest({ url: '/', registry });
+      if (result.kind !== 'render' || !result.stream)
+        throw new Error('expected stream');
+      const reader = result.stream.getReader();
+      const decoder = new TextDecoder();
+      const shell = decoder.decode((await reader.read()).value);
+      second('second');
+
+      // `first` is still pending: the settled later boundary must not wait on it.
+      const secondPatch = decoder.decode((await reader.read()).value);
+      expect(secondPatch).toContain('data-askr-deferred-patch="d:1"');
+      expect(secondPatch).toContain('<b id="second">second</b>');
+      first('first');
+      const firstPatch = decoder.decode((await reader.read()).value);
+      expect(firstPatch).toContain('data-askr-deferred-patch="d:0"');
+      expect(firstPatch).toContain('<b id="first">first</b>');
+      const hydration = decoder.decode((await reader.read()).value);
+      expect(hydration).toContain('data-askr-render-data="true"');
+      expect((await reader.read()).done).toBe(true);
+
+      const streamed = shell + secondPatch + firstPatch + hydration;
+      const inline = parseWithInlinePatches(streamed);
+      expect(inline.querySelector('#first')?.textContent).toBe('first');
+      expect(inline.querySelector('#second')?.textContent).toBe('second');
+      expect(
+        inline.querySelector(
+          'askr-resolve, template, [data-askr-deferred-apply]'
+        )
+      ).toBeNull();
+
+      container.innerHTML = streamed;
+      await hydrateSPA({
+        root: container,
+        registry,
+        hydrate: { verifyMarkup: true },
+      });
+      expect(container.querySelector('#first')?.textContent).toBe('first');
+      expect(container.querySelector('#second')?.textContent).toBe('second');
+      expect(container.querySelector('askr-resolve')).toBeNull();
+      expect(container.querySelector('template')).toBeNull();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should stream and hydrate a Resolve nested inside a deferred boundary', async () => {
+    let releaseOuter!: (value: NestedOuter) => void;
+    let releaseInner!: (value: string) => void;
+    const outerPromise = new Promise<NestedOuter>((resolve) => {
+      releaseOuter = resolve;
+    });
+    const innerPromise = new Promise<string>((resolve) => {
+      releaseInner = resolve;
+    });
+    const registry = createRouteRegistry(() => {
+      route('/n/{id}', nestedPage, {
+        loader: () => ({
+          outer: defer(
+            outerPromise.then((value) => ({
+              ...value,
+              inner: defer(value.inner),
+            }))
+          ),
+        }),
+      });
+    });
+    const { container, cleanup } = createTestContainer();
+    try {
+      const result = await renderRouteRequest({ url: '/n/7', registry });
+      if (result.kind !== 'render' || !result.stream)
+        throw new Error('expected stream');
+      const reader = result.stream.getReader();
+      const decoder = new TextDecoder();
+      const shell = decoder.decode((await reader.read()).value);
+
+      releaseOuter({ label: 'outer', inner: innerPromise });
+      const outerPatch = decoder.decode((await reader.read()).value);
+      expect(outerPatch).toContain('data-askr-deferred-patch="d:0"');
+      expect(outerPatch).toContain('<askr-resolve data-askr-deferred="d:0.0">');
+      expect(outerPatch).toContain('inner loading');
+
+      releaseInner('inner');
+      const rest = await new Response(
+        new ReadableStream({
+          async pull(controller) {
+            const chunk = await reader.read();
+            if (chunk.done) controller.close();
+            else controller.enqueue(chunk.value);
+          },
+        })
+      ).text();
+      expect(rest).toContain('data-askr-deferred-patch="d:0.0"');
+      expect(rest).toContain('<p id="inner">inner|7</p>');
+      expect(rest).toContain('"__askr_deferred__":"fulfilled","value":"inner"');
+
+      window.history.replaceState({}, '', '/n/7');
+      const streamed = shell + outerPatch + rest;
+      const inline = parseWithInlinePatches(streamed);
+      expect(inline.querySelector('#outer')?.textContent).toBe('outer');
+      expect(inline.querySelector('#inner')?.textContent).toBe('inner|7');
+      expect(
+        inline.querySelector(
+          'askr-resolve, template, [data-askr-deferred-apply]'
+        )
+      ).toBeNull();
+
+      container.innerHTML = streamed;
+      await hydrateSPA({
+        root: container,
+        registry,
+        hydrate: { verifyMarkup: true },
+      });
+      expect(container.querySelector('#outer')?.textContent).toBe('outer');
+      expect(container.querySelector('#inner')?.textContent).toBe('inner|7');
+      expect(container.querySelector('askr-resolve')).toBeNull();
+    } finally {
+      window.history.replaceState({}, '', '/');
+      cleanup();
+    }
+  });
+
+  it('should render a rejected nested boundary with request auth and a redacted payload', async () => {
+    let rejectInner!: (error: Error) => void;
+    const innerPromise = new Promise<string>((_resolve, reject) => {
+      rejectInner = reject;
+    });
+    void innerPromise.catch(() => undefined);
+    let releaseOuter!: () => void;
+    const outerPromise = new Promise<void>((resolve) => {
+      releaseOuter = resolve;
+    });
+    const registry = createRouteRegistry(() => {
+      route('/n/{id}', nestedPage, {
+        loader: () => ({
+          outer: defer(
+            outerPromise.then(() => ({
+              label: 'outer',
+              inner: defer(innerPromise),
+            }))
+          ),
+        }),
+      });
+    });
+    const result = await renderRouteRequest({
+      url: '/n/1',
+      registry,
+      authContext: {
+        authenticated: true,
+        principal: { id: 'alice' },
+        session: null,
+        tenant: null,
+      },
+    });
     if (result.kind !== 'render' || !result.stream)
       throw new Error('expected stream');
     const reader = result.stream.getReader();
     const decoder = new TextDecoder();
     await reader.read();
-    second('second');
-    first('first');
+    releaseOuter();
+    await reader.read();
+    rejectInner(new Error('DB password=hunter2'));
+    let rest = '';
+    for (;;) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      rest += decoder.decode(chunk.value);
+    }
 
-    expect(decoder.decode((await reader.read()).value)).toContain(
-      'data-askr-deferred-patch="d:0"'
+    expect(rest).toContain('data-askr-deferred-patch="d:0.0"');
+    expect(rest).toContain(
+      '<p id="inner-rejected">Error: DB password=hunter2|alice</p>'
     );
-    expect(decoder.decode((await reader.read()).value)).toContain(
-      'data-askr-deferred-patch="d:1"'
-    );
+    const payload =
+      /<script type="application\/json" data-askr-render-data="true">(.*?)<\/script>/s.exec(
+        rest
+      )?.[1];
+    expect(payload).toContain(`"error":"${REDACTED_DEFERRED_ERROR}"`);
+    expect(payload).not.toContain('hunter2');
   });
 
   it('should hydrate a reactive streamed result without rerunning the loader', async () => {
