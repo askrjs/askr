@@ -4,7 +4,7 @@ Use resources for cancellable async data fetching tied to component lifecycle.
 
 ## Basic usage
 
-```ts
+```ts run=resources-user-card
 import { resource } from '@askrjs/askr/resources';
 
 function UserCard({ id }: { id: string }) {
@@ -13,8 +13,8 @@ function UserCard({ id }: { id: string }) {
     return res.json();
   }, [id]);
 
-  if (user.pending || !user.value) return <div>Loading...</div>;
   if (user.error) return <div>Failed to load user</div>;
+  if (user.pending || !user.value) return <div>Loading...</div>;
   return <div>{user.value.name}</div>;
 }
 ```
