@@ -190,7 +190,7 @@ function updateGroupedBinding(
     nextCompute = nextSlot?.kind === 'dynamic' ? nextSlot.compute : null;
   }
   if (!nextCompute) return;
-  captureBindingRollback(group, saveBlueprintGroup);
+  captureBindingRollback(group, saveBlueprintGroup, restoreBlueprintGroup);
   binding.compute = nextCompute;
   group.effect.flush();
 }
@@ -200,29 +200,28 @@ function saveBlueprintGroup(
   group: BlueprintBindingGroup,
   entries: unknown[]
 ): void {
-  entries.push(restoreBlueprintGroup, group);
+  entries.push(group);
   saveFineGrainedEffect(entries, group.effect!);
   for (const binding of group.bindings)
     entries.push(
       binding.compute,
       binding.hasValue,
       binding.lastValue,
-      binding.lastClassTokens,
-      binding.textNode
+      binding.lastClassTokens
     );
 }
 
 function restoreBlueprintGroup(entries: unknown[], index: number): void {
   const group = entries[index] as BlueprintBindingGroup;
   restoreFineGrainedEffect(entries, index + 1);
-  // One group: 1 + 7 effect slots, then five per binding.
+  // One group: 1 + 7 effect slots, then four per binding. A stale text node
+  // is detected and replaced on the next commit.
   let slot = index + 8;
   for (const binding of group.bindings) {
     binding.compute = entries[slot++] as () => unknown;
     binding.hasValue = entries[slot++] as boolean;
     binding.lastValue = entries[slot++];
     binding.lastClassTokens = entries[slot++] as string[] | null;
-    binding.textNode = entries[slot++] as Text | null;
   }
 }
 

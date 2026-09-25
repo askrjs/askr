@@ -41,41 +41,38 @@ interface ReactivePropDescriptor {
 const reactivePropRegistry = new Set<ReactivePropDescriptor>();
 const BINDING_LOG = {};
 
-/** Entries are `[restore, ...state]` blocks starting at `starts`. */
+/** Blocks of `[...state, restore, stateLength]`, appended in change order. */
 interface BindingLog extends CommitParticipant {
-  keys: Set<object>;
   entries: unknown[];
-  starts: number[];
 }
 
 type RestoreBinding = (entries: unknown[], index: number) => void;
 
 function rollbackBindingLog(this: BindingLog): void {
-  const { entries, starts } = this;
-  // Newest first, so a joined child's later state yields to the parent's.
-  for (let block = starts.length - 1; block >= 0; block--) {
-    const start = starts[block]!;
-    (entries[start] as RestoreBinding)(entries, start + 1);
+  const { entries } = this;
+  // Newest first: a binding changed twice ends at its earliest saved state.
+  for (let end = entries.length - 1; end > 0;) {
+    const start = end - 1 - (entries[end] as number);
+    (entries[end - 1] as RestoreBinding)(entries, start);
+    end = start - 1;
   }
 }
 
 function mergeBindingLog(this: BindingLog, parent: CommitParticipant): void {
-  const log = parent as BindingLog;
-  const offset = log.entries.length;
-  for (const start of this.starts) log.starts.push(start + offset);
-  for (const entry of this.entries) log.entries.push(entry);
-  for (const key of this.keys) log.keys.add(key);
+  const { entries } = parent as BindingLog;
+  for (const entry of this.entries) entries.push(entry);
 }
 
 /**
- * Record a binding's state before its first change in the open render
- * transaction. One log per transaction holds every binding, so a successful
- * render pays for flat entries, not per-binding participants or closures.
- * Outside a transaction a binding update is its own commit.
+ * Record a binding's state before it changes in the open render transaction.
+ * One log per transaction holds every binding, so a successful render pays
+ * for flat entries, not per-binding participants or closures. Outside a
+ * transaction a binding update is its own commit.
  */
 export function captureBindingRollback<K extends object>(
   key: K,
-  save: (key: K, entries: unknown[]) => void
+  save: (key: K, entries: unknown[]) => void,
+  restore: RestoreBinding
 ): void {
   const transaction = getCurrentCommitTransaction();
   if (!transaction) return;
@@ -84,18 +81,16 @@ export function captureBindingRollback<K extends object>(
     log = {
       key: BINDING_LOG,
       kind: BINDING_LOG,
-      keys: new Set(),
       entries: [],
-      starts: [],
       rollback: rollbackBindingLog,
       merge: mergeBindingLog,
     };
     registerCommitParticipant(log);
   }
-  if (log.keys.has(key)) return;
-  log.keys.add(key);
-  log.starts.push(log.entries.length);
-  save(key, log.entries);
+  const { entries } = log;
+  const start = entries.length;
+  save(key, entries);
+  entries.push(restore, entries.length - start);
 }
 
 function saveReactiveProp(
@@ -103,7 +98,6 @@ function saveReactiveProp(
   entries: unknown[]
 ): void {
   entries.push(
-    restoreReactiveProp,
     descriptor,
     descriptor.propFn,
     descriptor.appliedValue,
@@ -206,7 +200,7 @@ function setupReactiveProp(
       return;
     }
 
-    captureBindingRollback(descriptor, saveReactiveProp);
+    captureBindingRollback(descriptor, saveReactiveProp, restoreReactiveProp);
     descriptor.propFn = nextFn;
     effectHandle.updateCompute(nextFn);
   };

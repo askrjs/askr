@@ -56,7 +56,6 @@ let reactiveChildScopeId = 0;
 
 interface ScalarChildBinding {
   source: ReactiveScalarChildSource;
-  textNode: Text | null;
   effect: FineGrainedEffectHandle<string> | null;
 }
 
@@ -64,20 +63,14 @@ function saveScalarChildBinding(
   binding: ScalarChildBinding,
   entries: unknown[]
 ): void {
-  entries.push(
-    restoreScalarChildBinding,
-    binding,
-    binding.source,
-    binding.textNode
-  );
+  entries.push(binding, binding.source);
   saveFineGrainedEffect(entries, binding.effect!);
 }
 
 function restoreScalarChildBinding(entries: unknown[], index: number): void {
   const binding = entries[index] as ScalarChildBinding;
   binding.source = entries[index + 1] as ReactiveScalarChildSource;
-  binding.textNode = entries[index + 2] as Text | null;
-  restoreFineGrainedEffect(entries, index + 3);
+  restoreFineGrainedEffect(entries, index + 2);
 }
 
 function getOrCreateElementReactiveCleanupMap(
@@ -121,14 +114,12 @@ function setupReactiveScalarChild(
   let currentSource = source;
 
   if (source.length === 1 && source[0]?.kind === 'dynamic') {
-    const binding: ScalarChildBinding = {
-      source,
-      textNode:
-        el.childNodes.length === 1 && el.firstChild?.nodeType === Node.TEXT_NODE
-          ? (el.firstChild as Text)
-          : null,
-      effect: null,
-    };
+    // A stale owned text node after rollback is detected and replaced.
+    let ownedTextNode =
+      el.childNodes.length === 1 && el.firstChild?.nodeType === Node.TEXT_NODE
+        ? (el.firstChild as Text)
+        : null;
+    const binding: ScalarChildBinding = { source, effect: null };
 
     binding.effect = createFineGrainedEffect({
       lane: 'reactive',
@@ -148,7 +139,7 @@ function setupReactiveScalarChild(
         const normalized = normalizeOwnedReactiveTextValue(value);
 
         if (normalized === null) {
-          binding.textNode = null;
+          ownedTextNode = null;
           host.updateElementChildren(
             el,
             value as unknown as VNode | VNode[] | undefined
@@ -156,31 +147,31 @@ function setupReactiveScalarChild(
           return;
         }
 
-        if (!binding.textNode && el.childNodes.length === 0) {
-          binding.textNode = el.ownerDocument.createTextNode(normalized);
-          el.appendChild(binding.textNode);
+        if (!ownedTextNode && el.childNodes.length === 0) {
+          ownedTextNode = el.ownerDocument.createTextNode(normalized);
+          el.appendChild(ownedTextNode);
           return;
         }
 
         if (
-          !binding.textNode ||
+          !ownedTextNode ||
           el.childNodes.length !== 1 ||
-          el.firstChild !== binding.textNode
+          el.firstChild !== ownedTextNode
         ) {
           host.updateElementChildren(el, normalized);
-          binding.textNode =
+          ownedTextNode =
             el.childNodes.length === 1 &&
             el.firstChild?.nodeType === Node.TEXT_NODE
               ? (el.firstChild as Text)
               : null;
         }
 
-        if (!binding.textNode) {
+        if (!ownedTextNode) {
           return;
         }
 
-        if (binding.textNode.data !== normalized) {
-          binding.textNode.data = normalized;
+        if (ownedTextNode.data !== normalized) {
+          ownedTextNode.data = normalized;
           incDevCounter('textNodeWrites');
         }
       },
@@ -202,7 +193,11 @@ function setupReactiveScalarChild(
           return;
         }
 
-        captureBindingRollback(binding, saveScalarChildBinding);
+        captureBindingRollback(
+          binding,
+          saveScalarChildBinding,
+          restoreScalarChildBinding
+        );
         binding.source = nextSource;
         effectHandle.updateCompute(() => {
           const currentSlot = binding.source[0];
