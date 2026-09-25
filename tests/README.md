@@ -24,8 +24,8 @@ Shared test harness code lives outside the suite layers:
   layer-specific helpers as coverage grows.
 
 Everything under `test-utils/` is typechecked by `test-utils/tsconfig.json`,
-which `npm run typecheck` (and therefore `npm run lint`) runs alongside the
-`src` typecheck.
+and `benches/` by `benches/tsconfig.json`. `npm run typecheck` (and therefore
+`npm run lint`) runs both alongside the `src` typecheck.
 
 ## Running Tests
 
