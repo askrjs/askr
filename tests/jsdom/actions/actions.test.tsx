@@ -417,16 +417,10 @@ describe('actions', () => {
     }
   );
 
-  it('should report the HTTP status given a non-JSON error response', async () => {
+  async function submitFailure(response: Response): Promise<unknown> {
     vi.stubGlobal(
       'fetch',
-      vi.fn(
-        async () =>
-          new Response('<h1>Bad gateway</h1>', {
-            status: 502,
-            headers: { 'content-type': 'text/html' },
-          })
-      )
+      vi.fn(async () => response)
     );
     vi.stubGlobal('location', {
       href: 'http://example.test/items',
@@ -445,14 +439,53 @@ describe('actions', () => {
         () => undefined,
         (error: unknown) => error
       );
-      expect(failure).toBeInstanceOf(Error);
-      expect((failure as Error).message).toBe('Action failed (502).');
-      expect((failure as Error).cause).toBeInstanceOf(SyntaxError);
       expect(command.state().error).toBe(failure);
+      return failure;
     } finally {
       cleanup();
     }
-  });
+  }
+
+  it.each([502, 200])(
+    'should report the HTTP status given a non-JSON %s response',
+    async (status) => {
+      const failure = await submitFailure(
+        new Response('<h1>Not JSON</h1>', {
+          status,
+          headers: { 'content-type': 'text/html' },
+        })
+      );
+      expect(failure).toBeInstanceOf(Error);
+      expect((failure as Error).message).toBe(`Action failed (${status}).`);
+      expect((failure as Error).cause).toBeInstanceOf(SyntaxError);
+    }
+  );
+
+  it.each([
+    [
+      'detail',
+      { title: 'Forbidden', status: 403, detail: 'You cannot edit this.' },
+      'Action failed (403): You cannot edit this.',
+    ],
+    [
+      'title',
+      { title: 'Forbidden', status: 403 },
+      'Action failed (403): Forbidden',
+    ],
+  ])(
+    'should use the problem %s given a problem+json failure',
+    async (_label, problem, message) => {
+      const failure = await submitFailure(
+        new Response(JSON.stringify(problem), {
+          status: 403,
+          headers: { 'content-type': 'application/problem+json' },
+        })
+      );
+      expect(failure).toBeInstanceOf(Error);
+      expect((failure as Error).message).toBe(message);
+      expect((failure as Error).cause).toEqual(problem);
+    }
+  );
 
   it('should put enhanced 422 field errors into reactive error state', async () => {
     const failure = {
@@ -584,7 +617,9 @@ describe('actions', () => {
         .dispatchEvent(
           new Event('submit', { bubbles: true, cancelable: true })
         );
-      await expect(submitted).rejects.toThrow('Action failed (500).');
+      await expect(submitted).rejects.toThrow(
+        'Action failed (500): Save failed'
+      );
       await waitForNextEvaluation();
       flushScheduler();
       expect(command.state().pending).toBe(false);

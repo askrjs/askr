@@ -115,20 +115,20 @@ function normalizeActionRedirect(value: string): string {
 }
 
 /**
- * The `Error` an action submission rejects with for a failed HTTP response.
- * The message always carries the status; a server-provided error value, or
- * the body parse failure, is kept as `cause`.
+ * The `Error` an action submission rejects with for a failed or unreadable
+ * response. The message always carries the HTTP status, plus a string
+ * error, or the `detail`, `message`, or `title` of an error object or RFC 7807
+ * problem body. The server value, or the body parse failure, is kept as
+ * `cause`.
  */
 function actionFailure(status: number, cause?: unknown): Error {
-  const detail =
-    typeof cause === 'string'
-      ? cause
-      : cause &&
-          typeof cause === 'object' &&
-          !(cause instanceof Error) &&
-          typeof (cause as { message?: unknown }).message === 'string'
-        ? (cause as { message: string }).message
-        : '';
+  let detail = typeof cause === 'string' ? cause : undefined;
+  if (cause && typeof cause === 'object' && !(cause instanceof Error)) {
+    const fields = cause as Record<string, unknown>;
+    detail = [fields.detail, fields.message, fields.title].find(
+      (field): field is string => typeof field === 'string'
+    );
+  }
   const error = new Error(
     detail
       ? `Action failed (${status}): ${detail}`
@@ -177,8 +177,7 @@ export function action<
         } catch (cause) {
           // A proxy or crashed server can answer with HTML or plain text;
           // keep the HTTP status visible rather than a JSON parse error.
-          if (!response.ok) throw actionFailure(response.status, cause);
-          throw cause;
+          throw actionFailure(response.status, cause);
         }
         const envelope = (parsed ?? {}) as {
           result?: TResult;
@@ -195,9 +194,10 @@ export function action<
           if (envelope.error != null) {
             throw actionFailure(response.status, envelope.error);
           }
+          // Otherwise report the body itself, such as a problem response.
           throw (
             validationError(envelope, descriptor.id) ??
-            actionFailure(response.status)
+            actionFailure(response.status, parsed ?? undefined)
           );
         }
         const redirect =
