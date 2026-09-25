@@ -283,4 +283,117 @@ describe('DOM properties', () => {
       cleanup();
     }
   });
+  test('should keep attributes reflected by prop: values across re-renders', () => {
+    let bump!: () => void;
+
+    function App() {
+      const count = state(0);
+      bump = () => count.set((value) => value + 1);
+      return (
+        <div data-count={count()}>
+          <a
+            prop:href="https://example.com/docs"
+            prop:title="Docs"
+            prop:hidden={true}
+            prop:id="docs-link"
+          >
+            docs
+          </a>
+        </div>
+      );
+    }
+
+    const { container, cleanup } = mount(App);
+    try {
+      bump();
+      flushScheduler();
+      const anchor = container.querySelector('a')!;
+      expect(anchor.getAttribute('href')).toBe('https://example.com/docs');
+      expect(anchor.getAttribute('title')).toBe('Docs');
+      expect(anchor.hidden).toBe(true);
+      expect(anchor.id).toBe('docs-link');
+    } finally {
+      cleanup();
+    }
+  });
+
+  test('should block javascript: URL objects passed through prop:', () => {
+    function App() {
+      return (
+        <div>
+          <a prop:href={new URL('javascript:alert(1)')}>a</a>
+          <iframe prop:src={new URL('javascript:alert(1)')} />
+        </div>
+      );
+    }
+
+    const { container, cleanup } = mount(App);
+    try {
+      expect(container.querySelector('a')!.href).not.toContain('javascript:');
+      expect(container.querySelector('iframe')!.getAttribute('src')).toBeNull();
+    } finally {
+      cleanup();
+    }
+  });
+
+  test('should remove the attribute when a custom element prop becomes an object', () => {
+    let setObject!: (next: boolean) => void;
+    const config = { mode: 'wide' };
+
+    function App() {
+      const asObject = state(false);
+      setObject = (next) => asObject.set(next);
+      return <x-props-probe config={asObject() ? config : 'compact'} />;
+    }
+
+    const { container, cleanup } = mount(App);
+    try {
+      const probe = container.querySelector('x-props-probe') as PropsProbe;
+      expect(probe.getAttribute('config')).toBe('compact');
+      setObject(true);
+      flushScheduler();
+      expect(probe.hasAttribute('config')).toBe(false);
+      expect(probe.config).toBe(config);
+    } finally {
+      cleanup();
+    }
+  });
+
+  test('should assign properties to a custom element defined after render', () => {
+    const items = [1, 2];
+
+    function App() {
+      return <x-late-probe items={items} />;
+    }
+
+    const { container, cleanup } = mount(App);
+    try {
+      const probe = container.querySelector('x-late-probe') as HTMLElement & {
+        items?: unknown;
+      };
+      // Not upgraded yet: the value lands as an own property, the same as
+      // Lit's `.prop` bindings. Upgrading elements re-read it (see docs).
+      expect(probe.items).toBe(items);
+      class LateProbe extends HTMLElement {
+        #items: unknown;
+        constructor() {
+          super();
+          const pending = (this as { items?: unknown }).items;
+          delete (this as { items?: unknown }).items;
+          this.#items = pending;
+        }
+        get items(): unknown {
+          return this.#items;
+        }
+        set items(value: unknown) {
+          this.#items = value;
+        }
+      }
+      customElements.define('x-late-probe', LateProbe);
+      expect(probe).toBeInstanceOf(LateProbe);
+      expect(probe.items).toBe(items);
+    } finally {
+      cleanup();
+    }
+  });
 });
