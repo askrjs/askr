@@ -39,6 +39,15 @@ Because each app listens at its own root, apps mounted inside a shadow root or
 an iframe receive their events, and an app mounted inside another app's tree
 handles its own events before they bubble to the outer app.
 
+Delegation follows the event's `composedPath()` up to the app root, so
+handlers on nodes inside an **open** shadow root attached within an app's tree
+run once, target-first, and `stopPropagation()` inside the shadow tree stops
+the app's outer handlers. Nodes inside a **closed** shadow root are hidden from
+listeners outside it: the app root sees the event retargeted to the shadow
+host, so handlers inside the closed tree do not run while the host and its
+ancestors still do. To handle events inside a closed shadow root, mount an app
+inside it so it listens at its own root.
+
 ## Usage
 
 ### Basic Example

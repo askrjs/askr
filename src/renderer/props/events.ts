@@ -347,45 +347,45 @@ function isListeningContainer(node: Element, eventName: string): boolean {
   return delegationContainers.get(node)?.listeners.has(eventName) ?? false;
 }
 
+/**
+ * The nodes an event bubbles through below `container`, target first.
+ * `composedPath()` includes nodes inside open shadow roots attached within
+ * the container, which `event.target` (retargeted to the shadow host at the
+ * container) and its parent chain do not. Nodes inside closed shadow roots
+ * are hidden from the container's listener, so they are never part of the
+ * path. Hosts without a usable `composedPath()` fall back to the target's
+ * parent chain.
+ */
+function getDelegationPath(event: Event, container: Element): EventTarget[] {
+  const composed =
+    typeof event.composedPath === 'function' ? event.composedPath() : [];
+  const end = composed.indexOf(container);
+  if (end !== -1) {
+    return composed.slice(0, end);
+  }
+  const path: EventTarget[] = [];
+  for (
+    let node = event.target as Node | null;
+    node && node !== container;
+    node = node.parentNode
+  ) {
+    path.push(node);
+  }
+  return path;
+}
+
 function createContainerListener(eventName: string): EventListener {
   return (e: Event) => {
     // Resolve the container per event instead of capturing it, so the
     // registry's listener map never holds the container strongly.
     const container = e.currentTarget as Element;
     runRuntimeHandlerScope(() => {
-      const path: EventTarget[] = [];
-      // Some browser hosts expose a composedPath that omits ordinary DOM
-      // ancestors (notably across document/container boundaries). Always
-      // supplement it with the native target ancestry so delegated
-      // handlers remain reliable after navigation and hydration.
-      const seenPathNodes = new Set<EventTarget>();
-      let node = e.target;
-      while (node) {
-        if (!seenPathNodes.has(node)) {
-          seenPathNodes.add(node);
-          path.push(node);
-        }
-        if (node === container) {
-          break;
-        }
-        node = isElementNode(node)
-          ? node.parentNode
-          : (node as Node).parentNode;
-      }
-      if (typeof e.composedPath === 'function') {
-        for (const composedNode of e.composedPath()) {
-          if (!seenPathNodes.has(composedNode)) {
-            seenPathNodes.add(composedNode);
-            path.push(composedNode);
-          }
-        }
-      }
+      const path = getDelegationPath(e, container);
       const dispatchPath: Array<{
         node: Element;
         entry: DelegatedHandler;
       }> = [];
       for (const node of path) {
-        if (node === container) break;
         if (!isElementNode(node)) continue;
         if (PERF_BUILD_ENABLED) {
           incrementPerfMetric('delegatedAncestorHops');

@@ -167,6 +167,117 @@ describe('event delegation matches native dispatch in a real browser', () => {
     expect(calls).toEqual(['button', 'outer']);
   });
 
+  function renderShadowFixture(
+    mode: ShadowRootMode,
+    options: { stopAtWrapper?: boolean } = {}
+  ) {
+    const root = mountRoot();
+    const calls: string[] = [];
+
+    createIsland({
+      root,
+      component: () => (
+        <div id="outer" onClick={() => calls.push('outer')}>
+          <div id="host" onClick={() => calls.push('host')}>
+            <div
+              id="shadow-wrapper"
+              onClick={(event: Event) => {
+                calls.push('wrapper');
+                if (options.stopAtWrapper) event.stopPropagation();
+              }}
+            >
+              <button
+                id="shadow-button"
+                onClick={(event: Event) =>
+                  calls.push(`button ${(event.currentTarget as Element).id}`)
+                }
+              >
+                {'inside'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ),
+    });
+    flushScheduler();
+
+    // Move app-rendered content into a shadow tree attached inside the app.
+    const host = root.querySelector<HTMLElement>('#host')!;
+    const wrapper = root.querySelector<HTMLElement>('#shadow-wrapper')!;
+    const shadow = host.attachShadow({ mode });
+    shadow.appendChild(wrapper);
+    const button = wrapper.querySelector<HTMLButtonElement>('#shadow-button')!;
+    return { calls, button };
+  }
+
+  test('should dispatch to handlers inside an open shadow root in an app', () => {
+    const { calls, button } = renderShadowFixture('open');
+
+    button.click();
+
+    expect(calls).toEqual(['button shadow-button', 'wrapper', 'host', 'outer']);
+  });
+
+  test('should honor stopPropagation inside an open shadow root in an app', () => {
+    const { calls, button } = renderShadowFixture('open', {
+      stopAtWrapper: true,
+    });
+
+    button.click();
+
+    expect(calls).toEqual(['button shadow-button', 'wrapper']);
+  });
+
+  test('should not reach handlers inside a closed shadow root from the app root', () => {
+    const { calls, button } = renderShadowFixture('closed');
+
+    button.click();
+
+    // A closed shadow tree is hidden from listeners outside it, so the app
+    // root only sees the retargeted host path.
+    expect(calls).toEqual(['host', 'outer']);
+  });
+
+  test('should dispatch once to an app nested in an open shadow root of another app', () => {
+    const outerRoot = mountRoot();
+    const calls: string[] = [];
+
+    createIsland({
+      root: outerRoot,
+      component: () => (
+        <div id="outer-app" onClick={() => calls.push('outer app')}>
+          <div id="shadow-host" onClick={() => calls.push('shadow host')} />
+        </div>
+      ),
+    });
+    flushScheduler();
+
+    const host = outerRoot.querySelector<HTMLElement>('#shadow-host')!;
+    const innerRoot = document.createElement('div');
+    host.attachShadow({ mode: 'open' }).appendChild(innerRoot);
+    mountRoot(innerRoot);
+    createIsland({
+      root: innerRoot,
+      component: () => (
+        <div onClick={() => calls.push('inner wrapper')}>
+          <button id="inner-button" onClick={() => calls.push('inner button')}>
+            {'inner'}
+          </button>
+        </div>
+      ),
+    });
+    flushScheduler();
+
+    innerRoot.querySelector<HTMLButtonElement>('#inner-button')!.click();
+
+    expect(calls).toEqual([
+      'inner button',
+      'inner wrapper',
+      'shadow host',
+      'outer app',
+    ]);
+  });
+
   test('should dispatch to apps mounted inside a same-origin iframe', () => {
     const iframe = document.createElement('iframe');
     document.body.appendChild(iframe);

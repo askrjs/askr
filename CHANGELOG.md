@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- fix(events): delegated handlers on nodes inside an open shadow root attached
+  within an app's tree now run, once and in bubbling order, with
+  `stopPropagation()` respected. The delegation path now follows
+  `composedPath()` up to the app root instead of the target's parent chain,
+  which stopped at the retargeted shadow host. Handlers inside closed shadow
+  roots remain unreachable from the app root; mount an app inside the closed
+  shadow root instead.
 - perf(env): development/production checks and renderer debug-flag reads no
   longer copy `process.env` on every call. `isProductionEnvironment()` runs on every component render, and
   enumerating the environment is expensive on Windows, where it dominated
