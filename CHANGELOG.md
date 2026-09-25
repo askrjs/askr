@@ -13,6 +13,39 @@
 - chore(agents): AGENTS.md now explicitly allows maintainer-run release tooling
   (`scripts/publish-order.mjs`) and prefers workflow matrices over copy-pasted
   steps; `tests/checks` fails on any unlisted `scripts/*` file.
+- fix(router): when several page `fallback()`s match a URL, the deepest page
+  prefix (counted in segments) now wins on the client and in sync and async
+  SSR. Previously the longest prefix string won, so an encoded prefix such as
+  `/caf%C3%A9` could outrank a deeper `/café/x`.
+- fix(router): registering two routes that match the same URLs now throws
+  `Duplicate route path` instead of silently shadowing the second. Routes are
+  compared the way they match: parameter and splat names, trailing slashes and
+  percent-encoding of static segments are ignored, a `*` wildcard equals a
+  param, and a `fallback()` equals a named splat at its prefix. Each registry
+  is checked separately. Declare a template once and use `entries()` for its
+  pages.
+- fix(router): `fallback()` inside a parameterized page such as
+  `page('/{lang}')` now handles misses under `/en/...` (and receives `lang`)
+  instead of matching only the literal `/{lang}/...`.
+- fix(ssg): `invalidationKeys` passed to `route()` were dropped from the
+  registry, so incremental generation treated those routes as keyless and
+  always rebuilt them. They now apply to every page the route's `entries()`
+  generate.
+- fix(boot): error messages no longer point at a nonexistent `createSSR`; they
+  name `createSPA`/`hydrateSPA` (and `createIslands`). Removed the unreachable
+  redirect branches in `createSPA`/`hydrateSPA`, and sync SSR now matches
+  routes against the registry's manifest records like async SSR does.
+- fix(ssr): async render contexts resolve `AsyncLocalStorage` from
+  `globalThis.AsyncLocalStorage` or `process.getBuiltinModule('node:async_hooks')`
+  instead of `new Function('return require(...)')`. Previously synchronous
+  `withRenderContext()` could not accept async callbacks under Node ESM (where
+  that loader never resolved `require`), and async render contexts were
+  rejected under a CSP without `'unsafe-eval'` and on runtimes without
+  `process.versions.node`. Any runtime that provides `AsyncLocalStorage`
+  globally or via `process.getBuiltinModule` is now supported; see the SSR
+  guide.
+- fix(runtime): `cspNonce()` decides whether a render scope is active from
+  scope state instead of matching the text of `readScope()`'s error message.
 - fix(runtime): `state.set()` now throws when called inside a `derive()` or
   `selector()` computation, including recomputes in the derived lane where no
   component is rendering. Previously only render-time recomputes were caught

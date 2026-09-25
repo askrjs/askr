@@ -219,7 +219,11 @@ The SSG pipeline walks `RouteManifest.records`. Records with `options.entries` a
 ## Invariants
 
 - Route records are always produced in **declaration order** (insertion order within scope).
-- Routes with equal specificity are resolved by insertion order (first declared wins).
+- Two routes that match the same URLs (equal after ignoring param/splat names and decoding
+  static segments; a scoped fallback equals a splat at its prefix) are rejected at
+  registration, so no URL is ever decided by declaration order.
+- Sync SSR (`renderToString`/`renderToStream`), async SSR (`renderRouteRequest`) and client
+  resolution all match against `RouteManifest.records`.
 - The internal route-state reset clears the flat routes, records, namespace set, auth defaults,
   registration stacks, lazy import tracking, and registration lock.
 - Registration is locked after `createSPA` / `hydrateSPA` in production (not in tests).

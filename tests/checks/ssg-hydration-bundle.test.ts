@@ -72,6 +72,18 @@ describe('SSG hydration bundle', () => {
     expect(bundledModules).not.toContain('src/runtime/portal/portal.ts');
     expect(bundledModules).not.toContain('src/router/authoring.ts');
     expect(bundledModules).not.toContain('src/router/deferred.tsx');
+    // SSR render-context storage resolves AsyncLocalStorage at run time; the
+    // client bundle never imports the Node builtin, statically or lazily.
+    for (const chunk of chunks) {
+      expect([...chunk.imports, ...chunk.dynamicImports]).not.toContainEqual(
+        expect.stringMatching(/async_hooks/)
+      );
+      expect(chunk.code).not.toMatch(
+        /\b(?:import|require)\s*\([^)]*async_hooks/
+      );
+      // Strict CSP (no 'unsafe-eval') must not break hydration bundles.
+      expect(chunk.code).not.toMatch(/\bnew Function\s*\(/);
+    }
 
     const chunksByFileName = new Map(
       chunks.map((chunk) => [chunk.fileName, chunk])
@@ -112,6 +124,9 @@ describe('SSG hydration bundle', () => {
     // Still within 263 KiB after production builds now keep the scheduler update-loop
     // guard (previously compiled out, so loops hung the page) plus the release
     // hooks that keep dropped work reschedulable, about 800 bytes.
-    expect(initialBytes).toBeLessThanOrEqual(263 * 1024);
+    // 264 KiB: #507 and #529 each fit 263 KiB alone but not together (the
+    // production update-loop guard plus the derived-write guard; measured
+    // 269,744 bytes on main after both merged).
+    expect(initialBytes).toBeLessThanOrEqual(264 * 1024);
   });
 });

@@ -1,5 +1,6 @@
 import type {
   GroupHelperOptions,
+  ParsedSegment,
   PageHelperOptions,
   RouteComponent,
   RouteDefinition,
@@ -14,7 +15,12 @@ import type { AuthRequirement } from '@askrjs/auth';
 import type { ObjectSchema } from '@askrjs/schema';
 import { getCurrentComponentInstance } from '../runtime';
 import { getExecutionModel } from '../runtime';
-import { computeRank, normalizeRouteSegmentName, parseSegments } from './match';
+import {
+  computeRank,
+  normalizeRouteSegmentName,
+  parseSegments,
+  routeMatchKey,
+} from './match';
 import { compileNodePolicies } from './access';
 import type { AnyRouteComponent, InternalRouteRecord } from './internal-types';
 import { createRouteHandler } from './rendering';
@@ -30,6 +36,7 @@ import {
   getCurrentPathPrefix,
   getCurrentScopeKind,
   getDefaultRouteBasePath,
+  getRouteRecords,
   hasActivePageScope,
   insertRecordSorted,
   pushRegistrationScope,
@@ -297,6 +304,7 @@ function normalizeRouteOptions(
     !dehydrate &&
     !preload &&
     !options.entries &&
+    !options.invalidationKeys &&
     policies.length === 0 &&
     !options.title &&
     !options.namespace &&
@@ -313,6 +321,9 @@ function normalizeRouteOptions(
     ...(dehydrate ? { dehydrate } : {}),
     ...(preload ? { preload } : {}),
     ...(options.entries ? { entries: options.entries } : {}),
+    ...(options.invalidationKeys
+      ? { invalidationKeys: options.invalidationKeys }
+      : {}),
     ...(options.auth !== undefined ? { auth: options.auth } : {}),
     ...(policies.length > 0 ? { policies } : {}),
     ...(options.title ? { title: options.title } : {}),
@@ -321,6 +332,26 @@ function normalizeRouteOptions(
     ...(options.meta ? { meta: options.meta } : {}),
     ...(options.actions ? { actions: options.actions } : {}),
   };
+}
+
+function assertRouteNotDuplicated(
+  path: string,
+  segments: ParsedSegment[],
+  fallbackPrefix: string | undefined
+): void {
+  const key = routeMatchKey(segments, fallbackPrefix);
+  const existing = getRouteRecords().find(
+    (record) => routeMatchKey(record.segments, record.fallbackPrefix) === key
+  );
+  if (existing) {
+    const hint =
+      existing.path === path
+        ? " To generate several pages from one route template, declare it once and return each page's params from entries()."
+        : '';
+    throw new Error(
+      `Duplicate route path "${path}": it matches the same URLs as "${existing.path}", which is already registered.${hint}`
+    );
+  }
 }
 
 function registerRouteAtResolvedPath(
@@ -334,9 +365,11 @@ function registerRouteAtResolvedPath(
 ): void {
   validateRoutePath(path);
 
+  const segments = parseSegments(path);
+  assertRouteNotDuplicated(path, segments, metadata?.fallbackPrefix);
+
   const chain = getCurrentLayoutChain();
   const pageChain = getCurrentPageChain();
-  const segments = parseSegments(path);
   const rank = computeRank(segments);
   const isFallback = metadata?.isFallback ?? path === '/*';
   const comp = Component;
@@ -563,7 +596,7 @@ export function route(
 
   if (getExecutionModel() === 'islands') {
     throw new Error(
-      'Routes are not supported with islands. Use createSPA (client) or createSSR (server) instead.'
+      'Routes are not supported with islands. Use createSPA or hydrateSPA with a route registry instead.'
     );
   }
 
