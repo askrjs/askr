@@ -86,6 +86,15 @@ function BatchedUpdates() {
 }
 ```
 
+### Handler Errors
+
+An exception thrown by an event handler is reported with the platform
+`reportError()`, the same path an uncaught error in a native listener takes. It
+dispatches a `window` `error` event, so global error handlers and monitoring see
+it, in development and production builds. Other handlers for the same event
+still run, just as they would for native listeners. An `ErrorBoundary` does not
+catch handler errors; it only covers rendering.
+
 ## Performance Characteristics
 
 ### Benefits

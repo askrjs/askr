@@ -29,7 +29,8 @@ and the existing debounce/throttle `cancel()` methods are unchanged.
 - `scheduleTimeout`
 - `scheduleIdle`
 - `scheduleRetry`
-- `scheduleEventHandler`
+- `scheduleEventHandler` (errors thrown by the wrapped handler are reported
+  with `reportError()`)
 
 ## Related
 

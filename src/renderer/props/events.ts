@@ -15,7 +15,7 @@ import {
   withAppRenderRuntime,
 } from '../../runtime';
 import type { AppRenderRuntime } from '../../common/app-render-runtime';
-import { logger } from '../../common/logger';
+import { reportUncaughtError } from '../../common/report-error';
 import { getPassiveOptions } from '../utils';
 import { incrementPerfMetric } from '../../runtime';
 import { incDevCounter } from '../../runtime';
@@ -342,7 +342,8 @@ function attachDelegatedListener(
               entry.handler(createDelegatedEventFacade(e, node))
             );
           } catch (error) {
-            logger.error('[Askr] Delegated event error:', error);
+            // Like native listeners: report, then keep dispatching.
+            reportUncaughtError(error);
           }
 
           if (e.cancelBubble) {

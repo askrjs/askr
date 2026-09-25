@@ -1,4 +1,4 @@
-import { logger } from '../common/logger';
+import { reportUncaughtError } from '../common/report-error';
 import type { ReadableSource } from './reactivity/readable';
 import { defaultRuntimeState } from './runtime-state';
 import type {
@@ -132,7 +132,7 @@ export function scheduleEventHandler(handler: EventListener): EventListener {
         handler.call(null, event);
       });
     } catch (error) {
-      logger.error('[Askr] Event handler error:', error);
+      reportUncaughtError(error);
     }
   };
 }

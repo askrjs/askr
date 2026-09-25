@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- fix(renderer): event handler errors are reported with `reportError()`, which
+  dispatches a `window` `error` event, instead of only being logged. This covers
+  delegated and direct listeners and `scheduleEventHandler`; the remaining
+  handlers for the event still run. Errors thrown by function-valued (reactive)
+  props now reach the owning `ErrorBoundary`, or are thrown from the update when
+  there is none. Previously they were a development-only warning and silent in
+  production.
 - breaking(data): `defineQuery()` fetchers now receive the input and the abort
   signal as separate arguments, `fetch(input, { signal })`, instead of one
   merged `{ ...input, signal }` object. The merged shape dropped primitive

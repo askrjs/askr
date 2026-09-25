@@ -10,6 +10,7 @@ import {
 } from '../runtime';
 import type { AppRenderRuntime } from '../common/app-render-runtime';
 import { logger } from '../common/logger';
+import { reportUncaughtError } from '../common/report-error';
 import { getPublicAttributeName } from '../common/attr-names';
 import { isSkippedProp as isSkippedPropShared } from '../common/prop-classification';
 import { getRuntimeEnv } from './env';
@@ -162,19 +163,13 @@ export function createWrappedHandler(
             try {
               handler(event);
             } catch (error) {
-              logger.error('[Askr] Event handler error:', error);
+              reportUncaughtError(error);
             }
           }),
         flushAfter ? 'sync' : 'defer'
       );
     } catch (err) {
-      if (flushAfter) {
-        queueMicrotask(() => {
-          throw err;
-        });
-      } else {
-        logger.error('[Askr] Event handler error:', err);
-      }
+      reportUncaughtError(err);
     }
   };
 
@@ -223,19 +218,13 @@ export function createMutableWrappedHandler(
             try {
               currentHandler(event);
             } catch (error) {
-              logger.error('[Askr] Event handler error:', error);
+              reportUncaughtError(error);
             }
           }),
         flushAfter ? 'sync' : 'defer'
       );
     } catch (err) {
-      if (flushAfter) {
-        queueMicrotask(() => {
-          throw err;
-        });
-      } else {
-        logger.error('[Askr] Event handler error:', err);
-      }
+      reportUncaughtError(err);
     }
   };
 

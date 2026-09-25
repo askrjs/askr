@@ -1,6 +1,7 @@
-import { logger } from '../../common/logger';
 import {
   createFineGrainedEffect,
+  getCurrentComponentInstance,
+  routeComponentErrorToBoundary,
   markFineGrainedEffectsDirtySource,
   type FineGrainedEffectHandle,
 } from '../../runtime';
@@ -13,7 +14,6 @@ import {
   getElementReactivePropsCleanupMap,
   type ReactivePropCleanupEntry,
 } from '../ownership/cleanup';
-import { getRuntimeEnv } from '../env';
 import type { DOMElement } from '../types';
 declare const __ASKR_BENCH_BUILD__: boolean;
 const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
@@ -49,6 +49,8 @@ function setupReactiveProp(
   };
 
   let effectHandle: FineGrainedEffectHandle<unknown> | null = null;
+  // Binding failures belong to the component that rendered the binding.
+  const owner = getCurrentComponentInstance();
 
   reactivePropRegistry.add(descriptor);
   effectHandle = createFineGrainedEffect({
@@ -73,9 +75,7 @@ function setupReactiveProp(
       return false;
     },
     onError: (err) => {
-      if (getRuntimeEnv().NODE_ENV !== 'production') {
-        logger.warn('[Askr] Reactive prop update failed:', err);
-      }
+      if (!owner || !routeComponentErrorToBoundary(owner, err)) throw err;
     },
   });
 
@@ -95,14 +95,7 @@ function setupReactiveProp(
     }
 
     descriptor.propFn = nextFn;
-
-    try {
-      effectHandle.updateCompute(nextFn);
-    } catch (err) {
-      if (getRuntimeEnv().NODE_ENV !== 'production') {
-        logger.warn('[Askr] Reactive prop update failed:', err);
-      }
-    }
+    effectHandle.updateCompute(nextFn);
   };
 
   return {
