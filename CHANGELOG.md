@@ -12,6 +12,14 @@
   takes over immediately. An in-flight fetch is checked and reconciled with the
   callbacks it started with. `createQueryCollection()` entries are redefined on
   each update, so `retry()` fetches with the entry's current `input`.
+- fix(ssr): text children of HTML `<script>` and `<style>` are written verbatim
+  instead of entity-escaped, so `a > b` no longer becomes `a &gt; b` and breaks
+  the CSS or JavaScript. In styles every `<` becomes the CSS escape `\3c `; in
+  scripts every `</`, `<script` and `<!--` is rewritten (JSON-safe), so content
+  cannot close the element or an ancestor. Text stays entity-escaped inside SVG
+  or MathML, `<style>` inside `<select>`, and under raw text or RCDATA ancestors
+  such as `<noscript>` and `<textarea>`. Element children inside these elements
+  now throw during SSR.
 - fix(router): route precedence is decided segment by segment, as documented:
   the first segment where two routes differ picks static > param > wildcard >
   splat, so `/docs/{*rest}` now beats `/{lang}/{page}` for `/docs/intro`
