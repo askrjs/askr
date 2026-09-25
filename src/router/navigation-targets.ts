@@ -23,8 +23,11 @@ import {
   getCurrentPathname,
   getRegisteredAppsSnapshot,
   getWindowHref,
+  isCurrentOrigin,
+  parseNavigationTarget,
   parseTargetUrl,
   setCurrentRouteLocation,
+  toDocumentUrl,
   syncAppRegistrationLocation,
   syncRegisteredRouteSnapshot,
   type AppRegistration,
@@ -144,7 +147,7 @@ export function getRedirectHistoryMode(
   return replace === false ? 'push' : 'replace';
 }
 
-function getNavigationHistoryMode(
+export function getNavigationHistoryMode(
   options: NavigateOptions
 ): 'push' | 'replace' {
   if (options.history) {
@@ -318,8 +321,10 @@ export function applyNavigationTargets(
       continue;
     }
 
-    const redirectTarget = parseTargetUrl(resolved.to);
-    const redirectHref = `${redirectTarget.pathname}${redirectTarget.search}${redirectTarget.hash}`;
+    const redirectTarget = parseNavigationTarget(resolved.to);
+    const redirectHref = isCurrentOrigin(redirectTarget)
+      ? `${redirectTarget.pathname}${redirectTarget.search}${redirectTarget.hash}`
+      : redirectTarget.href;
     if (redirectHref === href) {
       if (isDevelopmentEnvironment()) {
         logger.warn(
@@ -362,7 +367,7 @@ export function applyNavigationTargets(
       logger.warn(`No route found for path: ${path}`);
     }
     if (href !== getWindowHref()) {
-      loadDocument(href, getNavigationHistoryMode(options));
+      loadDocument(toDocumentUrl(href), getNavigationHistoryMode(options));
     }
     return;
   }
@@ -388,7 +393,7 @@ export function applyNavigationTargets(
           askrIndex: historyIndex,
         },
         '',
-        href
+        toDocumentUrl(href)
       );
       commitHistoryIndex(historyIndex);
     },

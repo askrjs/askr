@@ -279,7 +279,7 @@ describe('actions', () => {
         saved: true,
       });
       expect(assign).toHaveBeenCalledOnce();
-      expect(assign).toHaveBeenCalledWith('/signed-in');
+      expect(assign).toHaveBeenCalledWith('http://example.test/signed-in');
     } finally {
       cleanup();
     }
@@ -316,7 +316,9 @@ describe('actions', () => {
       await expect(command.submit({ name: 'Ada' })).resolves.toEqual({
         saved: true,
       });
-      expect(assign).toHaveBeenCalledWith('/signed-in?next=%2Fitems#notice');
+      expect(assign).toHaveBeenCalledWith(
+        'https://example.test/signed-in?next=%2Fitems#notice'
+      );
     } finally {
       cleanup();
     }
@@ -327,6 +329,10 @@ describe('actions', () => {
     '//attacker.test/phish',
     'javascript:alert(1)',
     'data:text/html,phish',
+    '/\\attacker.test/phish',
+    '/.//attacker.test/phish',
+    '/x/..//attacker.test/phish',
+    '/%2e//attacker.test/phish',
   ])('should reject unsafe enhanced action redirect %s', async (redirect) => {
     vi.stubGlobal(
       'fetch',
@@ -355,9 +361,7 @@ describe('actions', () => {
     try {
       createIsland({ root: container, component: App });
       flushScheduler();
-      await expect(command.submit({ name: 'Ada' })).rejects.toThrow(
-        'must stay on the current origin'
-      );
+      await expect(command.submit({ name: 'Ada' })).rejects.toThrow(TypeError);
       expect(assign).not.toHaveBeenCalled();
       expect(command.state().error).toBeInstanceOf(TypeError);
     } finally {

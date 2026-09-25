@@ -869,7 +869,7 @@
         "type LinkProps = LinkBaseProps & ({\n    href: string;\n    to?: never;\n} | {\n    href?: never;\n    to: RouteDestination;\n});"
       ],
       "navigate": [
-        "declare function navigate(path: string, options?: NavigateOptions): void;"
+        "declare function navigate(target: string | RouteDestination, options?: NavigateOptions): void;"
       ],
       "NavigateOptions": [
         "type NavigateOptions = {\n    history?: \"push\" | \"replace\";\n    replace?: boolean;\n    scroll?: NavigationScrollBehavior;\n    state?: unknown;\n};"
@@ -901,7 +901,7 @@
         "declare function reconcileRouteMeta(meta: Readonly<RouteMeta>, target?: Document): void;"
       ],
       "redirect": [
-        "declare function redirect(to: string, init?: {\n    status?: AccessRedirectStatus;\n    replace?: boolean;\n}): AccessRedirectDecision;"
+        "declare function redirect(to: string | RouteDestination, init?: {\n    status?: AccessRedirectStatus;\n    replace?: boolean;\n}): AccessRedirectDecision;"
       ],
       "Resolve": [
         "declare function Resolve<T>(props: ResolveProps<T>): JSXElement;"
@@ -926,7 +926,7 @@
         "interface Route<TParams extends RouteParams = RouteParams> {\n    path: string;\n    handler: RouteHandler<TParams>;\n    namespace?: string;\n}"
       ],
       "RouteAuthOptions": [
-        "interface RouteAuthOptions {\n    resolve?: RouteAuthResolver;\n    dehydrate?: (context: AuthContext) => Omit<AuthContext, \"session\">;\n    loginPath?: string | ((context: RouteContext) => string | PromiseLike<string>);\n    authenticatedRedirectTo?: string | ((context: RouteContext) => string | PromiseLike<string>);\n}"
+        "interface RouteAuthOptions {\n    resolve?: RouteAuthResolver;\n    dehydrate?: (context: AuthContext) => Omit<AuthContext, \"session\">;\n    loginPath?: string | RouteDestination | ((context: RouteContext) => string | RouteDestination | PromiseLike<string | RouteDestination>);\n    authenticatedRedirectTo?: string | RouteDestination | ((context: RouteContext) => string | RouteDestination | PromiseLike<string | RouteDestination>);\n}"
       ],
       "RouteAuthResolver": [
         "type RouteAuthResolver = (context: Omit<RouteContext, \"auth\">) => AuthContext | PromiseLike<AuthContext>;"
@@ -950,7 +950,7 @@
       ],
       "RouteDefinition": ["type RouteDefinition = () => void;"],
       "RouteDestination": [
-        "interface RouteDestination {\n    readonly href: string;\n}"
+        "interface RouteDestination {\n    readonly href: string;\n    readonly [routeDestinationBrand]: true;\n}"
       ],
       "RouteHandler": [
         "interface RouteHandler<TParams extends RouteParams = RouteParams> {\n    (params: TParams, context?: {\n        signal: AbortSignal;\n    }): RenderableChild;\n}"
@@ -1690,7 +1690,7 @@
       "type ForIndexSignal = ReadableSource<number> & (() => number) & {\n    peek(): number;\n    set(newValue: number | ((prev: number) => number), notifyReaders?: boolean): void;\n};"
     ],
     "ForItemInstance": [
-      "interface ForItemInstance<T> {\n    key: string | number;\n    item: T;\n    reactiveItem: T;\n    reactiveItemState: ReactiveForItemState<T> | null;\n    indexSignal: ForIndexSignal;\n    scope: ChildScope;\n}"
+      "interface ForItemInstance<T> {\n    key: string | number;\n    item: T;\n    reactiveItem: T;\n    reactiveItemState: ReactiveForItemState<T> | null;\n    indexSignal: ForIndexSignal;\n    scope: ChildScope;\n    renderedWith: ForRenderItem<T> | null;\n}"
     ],
     "ForItemPropertySignal": [
       "type ForItemPropertySignal = ReadableSource<unknown> & (() => unknown) & {\n    peek(): unknown;\n    set(newValue: unknown, notifyReaders?: boolean): void;\n};"
@@ -1699,7 +1699,7 @@
       "type ForItemSignal<T> = ReadableSource<T> & (() => T) & {\n    peek(): T;\n    set(newValue: T, notifyReaders?: boolean): void;\n};"
     ],
     "ForItemTransactionSnapshot": [
-      "interface ForItemTransactionSnapshot<T> {\n    item: T;\n    itemSignalExists: boolean;\n    itemSignalValue: T | undefined;\n    itemSignalHasBeenRead: boolean;\n    indexValue: number;\n    indexHasBeenRead: boolean;\n    propertySignalStore: Map<PropertyKey, ForItemPropertySignal> | null;\n    propertySignals: Map<PropertyKey, {\n        signal: ForItemPropertySignal;\n        value: unknown;\n        hasBeenRead: boolean;\n    }> | null;\n    scope: ChildScopeTransactionSnapshot;\n}"
+      "interface ForItemTransactionSnapshot<T> {\n    item: T;\n    itemSignalExists: boolean;\n    itemSignalValue: T | undefined;\n    itemSignalHasBeenRead: boolean;\n    indexValue: number;\n    indexHasBeenRead: boolean;\n    propertySignalStore: Map<PropertyKey, ForItemPropertySignal> | null;\n    propertySignals: Map<PropertyKey, {\n        signal: ForItemPropertySignal;\n        value: unknown;\n        hasBeenRead: boolean;\n    }> | null;\n    renderedWith: ForRenderItem<T> | null;\n    scope: ChildScopeTransactionSnapshot;\n}"
     ],
     "ForKeySelector": [
       "type ForKeySelector<T> = (item: T, index: number) => string | number;"
@@ -1720,7 +1720,7 @@
       "type ForRenderItem<T> = (item: T, index: () => number) => VNode;"
     ],
     "ForState": [
-      "interface ForState<T> {\n    kind: \"for\";\n    _contextFrame: ContextFrame | null;\n    _contextFrameChanged: boolean;\n    currentItems: readonly T[];\n    _committedItems: readonly T[];\n    eachSource: ForEachSource<T>;\n    fallback: VNode | null;\n    fallbackScope: ChildScope | null;\n    items: Map<string | number, ForItemInstance<T>>;\n    orderedKeys: Array<string | number>;\n    orderedItems: ForItemInstance<T>[];\n    orderedVNodes: VNode[];\n    byFn: ForKeySelector<T>;\n    renderFn: ForRenderItem<T>;\n    parentInstance: ComponentInstance | null;\n    lastCommitStrategy: ForCommitStrategy;\n    lastRemovedNodes: Node[];\n    lastRemovedRanges: DOMRange[];\n    pendingDirtyIndices: number[] | null;\n    pendingSwapIndices: [\n        number,\n        number\n    ] | null;\n    pendingMoveOnly: boolean;\n    pendingInsertedIndex: number | null;\n    pendingRemovedKey: string | number | null;\n    pendingAppendStart: number | null;\n    _hasResolvedItemDom: boolean;\n    _needsSourceReconcile: boolean;\n    _sourceEffect: FineGrainedEffectHandle<readonly T[]> | null;\n    _suspendSourceCommit: boolean;\n    _enqueueBoundaryCommit?: (() => void) | null;\n    _hasPendingBoundaryCommit?: boolean;\n    _transaction?: ForTransaction<T> | null;\n    _scopeOwnership: ChildScopeOwnership;\n}"
+      "interface ForState<T> {\n    kind: \"for\";\n    _contextFrame: ContextFrame | null;\n    _contextFrameChanged: boolean;\n    currentItems: readonly T[];\n    _committedItems: readonly T[];\n    eachSource: ForEachSource<T>;\n    fallback: VNode | null;\n    fallbackScope: ChildScope | null;\n    items: Map<string | number, ForItemInstance<T>>;\n    orderedKeys: Array<string | number>;\n    orderedItems: ForItemInstance<T>[];\n    orderedVNodes: VNode[];\n    byFn: ForKeySelector<T>;\n    renderFn: ForRenderItem<T>;\n    _renderFnChanged: boolean;\n    parentInstance: ComponentInstance | null;\n    lastCommitStrategy: ForCommitStrategy;\n    lastRemovedNodes: Node[];\n    lastRemovedRanges: DOMRange[];\n    pendingDirtyIndices: number[] | null;\n    pendingSwapIndices: [\n        number,\n        number\n    ] | null;\n    pendingMoveOnly: boolean;\n    pendingInsertedIndex: number | null;\n    pendingRemovedKey: string | number | null;\n    pendingAppendStart: number | null;\n    _hasResolvedItemDom: boolean;\n    _needsSourceReconcile: boolean;\n    _sourceEffect: FineGrainedEffectHandle<readonly T[]> | null;\n    _suspendSourceCommit: boolean;\n    _enqueueBoundaryCommit?: (() => void) | null;\n    _hasPendingBoundaryCommit?: boolean;\n    _transaction?: ForTransaction<T> | null;\n    _scopeOwnership: ChildScopeOwnership;\n}"
     ],
     "ForTransaction": [
       "interface ForTransaction<T> {\n    collectionSnapshotMode: \"copy\" | \"reset-empty\" | \"preserve-clear\" | \"reuse\";\n    currentItems: readonly T[];\n    items: Map<string | number, ForItemInstance<T>>;\n    orderedKeys: Array<string | number>;\n    orderedItems: ForItemInstance<T>[];\n    orderedVNodes: VNode[];\n    fallbackScope: ChildScope | null;\n    lastCommitStrategy: ForCommitStrategy;\n    lastRemovedNodes: Node[];\n    lastRemovedRanges: DOMRange[];\n    pendingDirtyIndices: number[] | null;\n    pendingSwapIndices: [\n        number,\n        number\n    ] | null;\n    pendingMoveOnly: boolean;\n    pendingInsertedIndex: number | null;\n    pendingRemovedKey: string | number | null;\n    pendingAppendStart: number | null;\n    hasResolvedItemDom: boolean;\n    needsSourceReconcile: boolean;\n    itemSnapshots: Map<ForItemInstance<T>, ForItemTransactionSnapshot<T>> | null;\n    unreadIndexSnapshots: Map<ForIndexSignal, number> | null;\n    fallbackScopeSnapshot: ChildScopeTransactionSnapshot | null;\n    removedScopes: ChildScope[] | null;\n    removedScopeNodes: Node[] | null;\n    removeAllItems: boolean;\n    signalEffects: Map<ReadableSource<unknown>, {\n        parentInstance: ComponentInstance | null;\n        notify: boolean;\n        skipInstance: ComponentInstance | null;\n        skipOwnedBy: ComponentInstance | null;\n    }> | null;\n    shouldClearDomUpdateState: boolean;\n}"
@@ -2076,7 +2076,7 @@
       "interface MutationTestRegistry {\n    readonly runtime: DataRuntime;\n    set<TInput, TResult>(key: string, mutation: Mutation<TInput, TResult>): void;\n    delete(key: string): void;\n    clear(): void;\n}"
     ],
     "navigate": [
-      "declare function navigate(path: string, options?: NavigateOptions): void;"
+      "declare function navigate(target: string | RouteDestination, options?: NavigateOptions): void;"
     ],
     "NavigateOptions": [
       "type NavigateOptions = {\n    history?: \"push\" | \"replace\";\n    replace?: boolean;\n    scroll?: NavigationScrollBehavior;\n    state?: unknown;\n};"
@@ -2253,7 +2253,7 @@
       "declare function reconcileRouteMeta(meta: Readonly<RouteMeta>, target?: Document): void;"
     ],
     "redirect": [
-      "declare function redirect(to: string, init?: {\n    status?: AccessRedirectStatus;\n    replace?: boolean;\n}): AccessRedirectDecision;"
+      "declare function redirect(to: string | RouteDestination, init?: {\n    status?: AccessRedirectStatus;\n    replace?: boolean;\n}): AccessRedirectDecision;"
     ],
     "Ref": [
       "interface Ref<T extends Element = Element> {\n    current: T | null;\n}"
@@ -2364,7 +2364,7 @@
       "declare function routeActive(pathOrPaths: string | readonly string[]): ActivityPredicate;"
     ],
     "RouteAuthOptions": [
-      "interface RouteAuthOptions {\n    resolve?: RouteAuthResolver;\n    dehydrate?: (context: AuthContext) => Omit<AuthContext, \"session\">;\n    loginPath?: string | ((context: RouteContext) => string | PromiseLike<string>);\n    authenticatedRedirectTo?: string | ((context: RouteContext) => string | PromiseLike<string>);\n}"
+      "interface RouteAuthOptions {\n    resolve?: RouteAuthResolver;\n    dehydrate?: (context: AuthContext) => Omit<AuthContext, \"session\">;\n    loginPath?: string | RouteDestination | ((context: RouteContext) => string | RouteDestination | PromiseLike<string | RouteDestination>);\n    authenticatedRedirectTo?: string | RouteDestination | ((context: RouteContext) => string | RouteDestination | PromiseLike<string | RouteDestination>);\n}"
     ],
     "RouteAuthResolver": [
       "type RouteAuthResolver = (context: Omit<RouteContext, \"auth\">) => AuthContext | PromiseLike<AuthContext>;"
@@ -2397,8 +2397,9 @@
     ],
     "RouteDefinition": ["type RouteDefinition = () => void;"],
     "RouteDestination": [
-      "interface RouteDestination {\n    readonly href: string;\n}"
+      "interface RouteDestination {\n    readonly href: string;\n    readonly [routeDestinationBrand]: true;\n}"
     ],
+    "routeDestinationBrand": ["routeDestinationBrand: unique symbol"],
     "RouteHandler": [
       "interface RouteHandler<TParams extends RouteParams = RouteParams> {\n    (params: TParams, context?: {\n        signal: AbortSignal;\n    }): RenderableChild;\n}"
     ],

@@ -58,6 +58,20 @@ export interface ComponentDiagnostics {
 }
 
 export interface ComponentExecution {
+  /**
+   * @internal Set on the child scope of a function child bound beside
+   * elements: asking for the current component during its render aborts the
+   * render so the binding can upgrade (see `component/scope`).
+   */
+  _functionChildFastPath?: boolean;
+  /** @internal A `FunctionChild` body: remount when its hook order changes. */
+  _remountOnHookOrderChange?: boolean;
+  /** @internal Set by a render of such a body whose hook order changed. */
+  _hookOrderChanged?: boolean;
+  /** @internal Bumped to remount a `FunctionChild`'s body. */
+  _functionChildGeneration?: number;
+  /** @internal The body a remount replaced, disposed on the next render. */
+  _staleFunctionChildBody?: ComponentInstance;
   fn: ComponentFunction;
   props: Props;
   target: Element | null;

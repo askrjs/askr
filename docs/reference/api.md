@@ -69,8 +69,9 @@ the root.
 - `@askrjs/askr/actions` - browser-safe `defineAction`, reactive `action`, and native-first `ActionForm`
 - `@askrjs/askr/control` - JSX control-flow helpers
   - For reactive list rows, see the [control-flow guide](../guides/control-flow.md)
-    for the `selector()` and thunk-prop patterns. A row callback is reconciled by
-    `<For>` and should not rely on plain closure captures of changing parent state.
+    for the `selector()` and thunk-prop patterns. Existing rows rerun with the
+    latest row callback when the parent rerenders, and a reactive read inside
+    the callback subscribes the row that made it.
 
 - `@askrjs/askr/data` - `createDataRuntime`, `getDefaultDataRuntime`, `createQuery`, `createQueryCollection`, `createMutation`, `invalidate`, and `invalidateOnInterval`
 - `@askrjs/askr/testing` - component harness helpers such as `render`, `mount`, `renderRoute`, `dispatch`, `flush`, and `cleanup`, plus query and router fixtures
@@ -137,7 +138,7 @@ await createSPA({ root: document.body, registry });
 - `For`, `Show`, `Case`, and `Match` are available from `@askrjs/askr/control`.
 - `Show` render-function children receive the resolved truthy value, and literal falsey branches are excluded from that callback type when TypeScript can see them.
 - A `Scope` component accepts normal renderable children or a zero-argument render callback. Imperative DOM `Node` children are not part of that public contract.
-- `ErrorBoundary` protects initial and scheduled descendant renders, including portal content associated with a logical writer or bounded host, and errors thrown by function-valued (reactive) props of those descendants. Without a boundary, a reactive prop error is thrown from the update that ran it. Event handler errors are not render errors: they go to `reportError()` (see [event delegation](../advanced/event-delegation.md#handler-errors)). Fallbacks accept normal JSX boundary content, and the client runtime also allows an imperative DOM `Node` fallback when you need one.
+- `ErrorBoundary` protects initial and scheduled descendant renders, including portal content associated with a logical writer or bounded host, and errors thrown by function-valued (reactive) props and function children of those descendants. Without a boundary, a reactive prop or child error is thrown from the update that ran it. Server rendering follows the same rule: the boundary renders its fallback, and without one the render throws. Event handler errors are not render errors: they go to `reportError()` (see [event delegation](../advanced/event-delegation.md#handler-errors)). Fallbacks accept normal JSX boundary content, and the client runtime also allows an imperative DOM `Node` fallback when you need one.
 - `Link`, `layout`, `Slot`, `Presence`, and the default portal surfaces accept normal renderable child content. Imperative DOM `Node` children are not part of that public contract.
 - Router page components, `lazy()` route components, and router layout functions also return normal renderable content rather than imperative DOM `Node` values.
 - `lazy()` preserves its import factory until the route is matched. Call the returned component's `preload()` method when an interaction or application policy should fetch that route earlier.

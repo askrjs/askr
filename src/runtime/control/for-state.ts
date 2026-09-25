@@ -74,6 +74,7 @@ export interface ForState<T> {
   orderedVNodes: VNode[];
   byFn: ForKeySelector<T>;
   renderFn: ForRenderItem<T>;
+  _renderFnChanged: boolean;
   parentInstance: ComponentInstance | null;
   lastCommitStrategy: ForCommitStrategy;
   lastRemovedNodes: Node[];
@@ -110,6 +111,7 @@ export interface ForItemTransactionSnapshot<T> {
       hasBeenRead: boolean;
     }
   > | null;
+  renderedWith: ForRenderItem<T> | null;
   scope: ChildScopeTransactionSnapshot;
 }
 
@@ -209,6 +211,7 @@ export function createForState<T>(
     orderedVNodes: [],
     byFn,
     renderFn,
+    _renderFnChanged: false,
     parentInstance,
     lastCommitStrategy: 'NO_REORDER',
     lastRemovedNodes: [],
@@ -255,6 +258,7 @@ export function useForState<T>(
   if (existing) {
     existing.eachSource = eachSource;
     existing.byFn = byFn;
+    existing._renderFnChanged ||= existing.renderFn !== renderFn;
     existing.renderFn = renderFn;
     existing.fallback = fallback;
     return existing;
@@ -652,6 +656,7 @@ export function rollbackForStateTransaction<T>(
       }
     }
 
+    itemInstance.renderedWith = snapshot.renderedWith;
     restoreChildScopeTransactionSnapshot(itemInstance.scope, snapshot.scope);
   }
 
@@ -684,6 +689,8 @@ export function rollbackForStateTransaction<T>(
   forState.pendingAppendStart = transaction.pendingAppendStart;
   forState._hasResolvedItemDom = transaction.hasResolvedItemDom;
   forState._needsSourceReconcile = transaction.needsSourceReconcile;
+  // Restored rows may hold output from an older row callback.
+  forState._renderFnChanged = true;
   forState._transaction = null;
 
   if (rollbackCleanupErrors.length > 0) {

@@ -8,6 +8,7 @@ import {
   setCurrentRouteLocation,
   syncAppRegistrationLocation,
   syncRegisteredRouteSnapshot,
+  toDocumentUrl,
 } from './navigation-registry';
 
 /** A single query-string value accepted by {@link updateRouteQuery}. */
@@ -87,7 +88,11 @@ export function updateRouteQuery(
     return;
   }
 
-  const url = parseTargetUrl(getWindowHref());
+  // Parse the current URL itself: its root-relative form can start with `//`
+  // (a `//x` pathname), which would parse as another host. An empty relative
+  // URL drops the fragment, so restore it.
+  const url = parseTargetUrl('');
+  url.hash = window.location.hash;
   applyRouteQueryUpdates(url.searchParams, updates);
 
   const href = `${url.pathname}${url.search}${url.hash}`;
@@ -113,7 +118,7 @@ export function updateRouteQuery(
       askrIndex: historyIndex,
     },
     '',
-    href
+    toDocumentUrl(href)
   );
   commitHistoryIndex(historyIndex);
 

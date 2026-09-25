@@ -184,7 +184,12 @@ function ConnectionPanel() {
 ```
 
 `task()` runs once per committed mount and runs its cleanup when the owner is removed.
-Rerenders do not rerun the task; remounting the owner runs it again.
+Rerenders do not rerun the task; remounting the owner runs it again. The
+cleanup a synchronous task returns is registered as the task runs, so when an
+owner is removed and a replacement mounts in the same update (for example a
+function child remounting after its hooks change), the old cleanup runs
+before the new task. An async task's cleanup is registered once its promise
+settles; if the owner is gone by then, the cleanup runs at that point.
 
 ### `watch(source, callback)`
 

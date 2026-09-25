@@ -3,6 +3,7 @@ import { notifyReadableSource } from './notify';
 import {
   claimHookIndex,
   getCurrentComponentInstance,
+  peekCurrentComponentInstance,
 } from '../component/scope';
 import { type ComponentInstance } from '../component/instance';
 import {
@@ -325,7 +326,7 @@ function notifySelectorSource(source: SelectorCandidateSource<unknown>): void {
   // The component currently rendering reads the new value directly.
   notifyReadableSource(source, {
     skipCurrentDerivedSubscriber: true,
-    skipInstance: getCurrentComponentInstance(),
+    skipInstance: peekCurrentComponentInstance(),
   });
 }
 
