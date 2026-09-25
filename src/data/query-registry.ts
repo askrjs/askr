@@ -80,15 +80,23 @@ function assertQueryDataTransportSafe(key: string, value: unknown): void {
   );
 }
 
-/** Settle with `promise`, or reject with `signal.reason` once it aborts. */
-function raceAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+/**
+ * Settle with `promise`, or reject with the reason of the first of `signals`
+ * to abort.
+ */
+function raceAbort<T>(
+  promise: Promise<T>,
+  signals: readonly AbortSignal[]
+): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const abort = () => reject(signal.reason);
-    if (signal.aborted) abort();
-    signal.addEventListener('abort', abort);
-    void promise
-      .then(resolve, reject)
-      .finally(() => signal.removeEventListener('abort', abort));
+    const abort = () => reject(signals.find((each) => each.aborted)!.reason);
+    for (const each of signals) {
+      if (each.aborted) abort();
+      each.addEventListener('abort', abort);
+    }
+    void promise.then(resolve, reject).finally(() => {
+      for (const each of signals) each.removeEventListener('abort', abort);
+    });
   });
 }
 
@@ -185,29 +193,36 @@ export function createQueryPrefetchContext(
             } catch (error) {
               promise = Promise.reject(error);
             }
-            const entry: InflightPrefetch = { signal, promise };
-            const clear = () => {
-              if (inflight.get(key) === entry) inflight.delete(key);
-            };
-            promise.then(clear, clear);
-            inflight.set(key, entry);
-            pending = entry;
+            pending = { signal, promise, waiters: 0 };
+            inflight.set(key, pending);
           }
           const current = pending!;
-          let value: {};
+          current.waiters += 1;
           try {
-            // A joiner still honours its own signal while it waits.
-            value = await (joined
-              ? raceAbort(current.promise, signal)
-              : current.promise);
-          } catch (error) {
-            // A fetch cancelled by its starting caller does not fail a
-            // still-live joiner; it starts a replacement.
-            if (current.signal.aborted && !signal.aborted) continue;
-            throw error;
+            let value: {};
+            try {
+              // A joiner honours its own signal, and restarts when the
+              // starting caller aborts, even if the fetch never settles.
+              value = await (joined
+                ? raceAbort(current.promise, [signal, current.signal])
+                : current.promise);
+            } catch (error) {
+              // A fetch cancelled by its starting caller does not fail a
+              // still-live joiner; it starts a replacement.
+              if (current.signal.aborted && !signal.aborted) continue;
+              throw error;
+            }
+            // An invalidation since the fetch started makes its result
+            // stale, including one landing after another caller stored it.
+            return !current.invalidated && storePrefetchedValue(key, value);
+          } finally {
+            // The entry stays reachable by invalidation until its last
+            // caller finishes.
+            current.waiters -= 1;
+            if (current.waiters === 0 && inflight.get(key) === current) {
+              inflight.delete(key);
+            }
           }
-          // An invalidation since the fetch started makes its result stale.
-          return !current.invalidated && storePrefetchedValue(key, value);
         }
       });
     },

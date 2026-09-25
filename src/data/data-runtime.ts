@@ -29,6 +29,8 @@ export type InflightPrefetch = {
   /** Signal of the prefetch context that started the fetch. */
   readonly signal: AbortSignal;
   readonly promise: Promise<{}>;
+  /** Callers (owner and joiners) that have not finished storing yet. */
+  waiters: number;
   /** Set once an invalidation covers the key; the result is then discarded. */
   invalidated?: boolean;
 };
@@ -38,7 +40,10 @@ export type DataRuntimeState = {
   queryData: Map<string, unknown>;
   /** Unread browser-prefetched `queryData` entries, oldest first. */
   unreadPrefetches: Map<string, unknown>;
-  /** Prefetch fetches in flight, by query key. */
+  /**
+   * Prefetch fetches by query key, kept until their last caller has stored
+   * (or discarded) the result so an invalidation can still reach it.
+   */
   prefetches: Map<string, InflightPrefetch>;
   querySlotsByGeneration: WeakMap<object, Map<number, QuerySlot>>;
   mutationSlotsByGeneration: WeakMap<object, Map<number, MutationSlot>>;

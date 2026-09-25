@@ -293,6 +293,82 @@ describe('query prefetch in-flight dedupe', () => {
     expect(runtime.queryData.get('dedupe-invalidate:1')).toEqual({ v: 2 });
   });
 
+  it('should not store a replaced fetch result after an invalidation', async () => {
+    const runtime = createDataRuntime();
+    const first = deferred<{ v: number }>();
+    const replacement = deferred<{ v: number }>();
+    // The fetch ignores its signal, so the aborted first fetch still settles.
+    const fetch = vi
+      .fn<() => Promise<{ v: number }>>()
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValue(replacement.promise);
+    const query = defineQuery({ key: () => 'replaced:1', fetch });
+    const owner = new AbortController();
+
+    const a = prefetchQuery(
+      createQueryPrefetchContext({ runtime, signal: owner.signal }),
+      query,
+      {}
+    );
+    const b = prefetchQuery(createQueryPrefetchContext({ runtime }), query, {});
+    owner.abort();
+    const c = prefetchQuery(createQueryPrefetchContext({ runtime }), query, {});
+    for (let turn = 0; turn < 10; turn += 1) await Promise.resolve();
+    invalidate('replaced:', { runtime });
+    replacement.resolve({ v: 2 });
+    first.resolve({ v: 1 });
+
+    await expect(Promise.all([a, b, c])).resolves.toEqual([
+      false,
+      false,
+      false,
+    ]);
+    expect(runtime.queryData.has('replaced:1')).toBe(false);
+  });
+
+  it('should not let a joiner store after an invalidation that follows the owner store', async () => {
+    const runtime = createDataRuntime();
+    const pending = deferred<{ v: number }>();
+    const query = defineQuery({
+      key: () => 'late-joiner:2',
+      fetch: () => pending.promise,
+    });
+
+    const a = prefetchQuery(createQueryPrefetchContext({ runtime }), query, {});
+    const b = prefetchQuery(createQueryPrefetchContext({ runtime }), query, {});
+    void pending.promise.then(() => invalidate('late-joiner:2', { runtime }));
+    pending.resolve({ v: 1 });
+
+    await Promise.all([a, b]);
+    expect(runtime.queryData.has('late-joiner:2')).toBe(false);
+  });
+
+  it('should restart a joiner when the owner aborts a fetch that never settles', async () => {
+    const runtime = createDataRuntime();
+    const fetch = vi
+      .fn<() => Promise<{ v: number }>>()
+      .mockReturnValueOnce(new Promise(() => {}))
+      .mockResolvedValue({ v: 2 });
+    const query = defineQuery({ key: () => 'hung-owner:1', fetch });
+    const owner = new AbortController();
+
+    void prefetchQuery(
+      createQueryPrefetchContext({ runtime, signal: owner.signal }),
+      query,
+      {}
+    );
+    const joiner = prefetchQuery(
+      createQueryPrefetchContext({ runtime }),
+      query,
+      {}
+    );
+    owner.abort();
+
+    await expect(joiner).resolves.toBe(true);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(runtime.queryData.get('hung-owner:1')).toEqual({ v: 2 });
+  });
+
   it('should discard an in-flight prefetch result invalidated before it settles', async () => {
     const runtime = createDataRuntime();
     const stale = deferred<{ v: number }>();
