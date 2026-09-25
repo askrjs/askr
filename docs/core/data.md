@@ -190,10 +190,13 @@ is the distinct operation that replaces stale work; rapid invalidations before
 the replacement begins coalesce into the latest queued refresh. A `reconcile` callback may
 be async; its decision is awaited before any retry is scheduled, and a thrown
 consistency or reconciliation callback becomes a terminal stale error.
-The key also defines the query contract itself. If multiple readers use the same key, or one
-reader rerenders that key with a different definition, keep `fetch`, `isConsistent`, and
-`reconcile` aligned; development builds warn when a later render tries to redefine a shared
-key differently.
+The key also defines the query contract itself. The reader that first defines a key owns
+its definition: each of that reader's renders replaces `fetch`, `isConsistent`, and
+`reconcile`, so inline callbacks are idiomatic and the next fetch always uses the latest
+render's closures. An in-flight fetch keeps the callback it started with. If other readers
+share the key, keep their callbacks aligned with the owner's; development builds warn once
+when another reader defines the key differently. When the owning reader unmounts, the next
+render of a remaining reader takes over the definition.
 `stale` covers either a value that still exists but is known to be inconsistent, or an error
 state after a failed fetch or refresh. Failed refreshes can still keep the last good value in
 `data`, while a failed first load leaves `data` as `null`. Abort-like refresh cancellations also

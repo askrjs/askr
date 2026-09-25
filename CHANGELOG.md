@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- fix(data): an inline `createQuery({ key, fetch })` no longer warns about a
+  conflicting shared query definition on every re-render, and no longer keeps
+  the first render's `fetch` closure forever. The reader that defines a key
+  now replaces its `fetch`, `isConsistent`, and `reconcile` on each render;
+  only other readers of the same key with a different definition warn. When
+  the defining reader unmounts, a remaining reader takes over the definition.
 - fix(resources): a resource hydrated from preloaded data keeps its value on
   later re-renders instead of resetting to pending and refetching. The preloaded
   value now seeds the resource, so `refresh()` and `deps` changes also work

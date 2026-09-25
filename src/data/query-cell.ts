@@ -86,6 +86,10 @@ export class QueryCell<T> {
   private ownerCount = 0;
   private readonly owners = new Map<object, Set<number>>();
   private readonly warnedDefinitionConflictKeys = new Set<string>();
+  // The reader whose render supplied `options`. Its later renders replace the
+  // definition, so inline callbacks never go stale or read as conflicts.
+  private definitionOwner: object | null = null;
+  private definitionOwnerHook = -1;
 
   private state: QueryState<T> = loadingQueryState<T>();
 
@@ -133,12 +137,45 @@ export class QueryCell<T> {
     if (__ASKR_DEVELOPMENT_BUILD__) {
       adjustOwnershipDiagnostic('queryOwners', -1);
     }
+    if (
+      this.definitionOwner === generation &&
+      this.definitionOwnerHook === hookIndex
+    ) {
+      this.definitionOwner = null;
+    }
     if (hooks.size === 0) {
       this.owners.delete(generation);
     }
 
     if (this.ownerCount <= 0) {
       this.destroy();
+    }
+  }
+
+  /**
+   * Apply a reader's definition for this key. The owning reader's renders
+   * replace the definition; any other reader is checked for conflicts and
+   * adopts ownership once the previous owner has detached.
+   */
+  define(
+    options: QueryCellOptions<T>,
+    generation?: object,
+    hookIndex = 0
+  ): void {
+    if (
+      generation !== undefined &&
+      this.definitionOwner === generation &&
+      this.definitionOwnerHook === hookIndex
+    ) {
+      this.options = options;
+      return;
+    }
+
+    this.warnOnConflictingDefinition(options);
+    if (generation !== undefined && this.definitionOwner === null) {
+      this.options = options;
+      this.definitionOwner = generation;
+      this.definitionOwnerHook = hookIndex;
     }
   }
 
@@ -579,31 +616,30 @@ function createLegacyQuery<T extends {}>(
   const hookIndex = claimHookIndex(instance, 'createQuery');
   ensureQueryCleanup(runtimeState, instance);
 
+  const generation = getComponentLifetimeIdentity(instance);
   const slotStore = getQuerySlotStore(runtimeState, instance);
   const existingSlot = slotStore.get(hookIndex);
   if (existingSlot && existingSlot.key === options.key) {
-    (existingSlot.cell as QueryCell<T>).warnOnConflictingDefinition(options);
+    (existingSlot.cell as QueryCell<T>).define(options, generation, hookIndex);
     return existingSlot.cell as unknown as Query<T>;
   }
 
   if (existingSlot) {
-    existingSlot.cell.detach(getComponentLifetimeIdentity(instance), hookIndex);
+    existingSlot.cell.detach(generation, hookIndex);
   }
 
   if (override) return override;
 
-  let cell = cache.get(options.key) as QueryCell<T> | undefined;
-  if (!cell) {
-    cell = createCell(options, cache);
-  } else {
-    cell.warnOnConflictingDefinition(options);
-  }
+  const cell =
+    (cache.get(options.key) as QueryCell<T> | undefined) ??
+    createCell(options, cache);
+  cell.define(options, generation, hookIndex);
 
   slotStore.set(hookIndex, {
     key: options.key,
     cell: cell as QueryCell<unknown>,
   });
-  cell.attach(getComponentLifetimeIdentity(instance), hookIndex);
+  cell.attach(generation, hookIndex);
   return cell as unknown as Query<T>;
 }
 
