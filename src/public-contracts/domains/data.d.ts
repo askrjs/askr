@@ -35,7 +35,8 @@ interface DataRuntimeOptions {
 interface QueryDefinition<TInput, TResult extends {}> {
   readonly key: (input: TInput) => string;
   readonly fetch: (
-    context: TInput & {
+    input: TInput,
+    context: {
       signal: AbortSignal;
     }
   ) => Promise<TResult>;

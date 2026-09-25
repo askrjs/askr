@@ -202,6 +202,25 @@ surface as stale-with-value so apps can keep rendering the last committed data. 
 `null` or `undefined` from `fetch()`. Nullish thrown values are normalized before they reach
 `error`, so any surfaced query error is always non-null.
 
+A reusable `defineQuery()` definition receives its input and the request context as
+separate arguments: `fetch(input, { signal })`. The input is passed through unchanged, so
+primitive inputs work and an input field named `signal` is never replaced by the abort
+signal.
+
+```ts
+import { createQuery, defineQuery } from '@askrjs/askr/data';
+
+const userById = defineQuery({
+  key: (id: string) => `users:${id}`,
+  fetch: async (id, { signal }) => {
+    const response = await fetch(`/api/users/${id}`, { signal });
+    return (await response.json()) as { id: string; name: string };
+  },
+});
+
+const user = createQuery(userById, '123');
+```
+
 ### Dynamic query collections
 
 Use `createQueryCollection()` when one component owns a changing set of inputs
@@ -215,7 +234,7 @@ import { createQueryCollection, defineQuery } from '@askrjs/askr/data';
 
 const schemaByDatabase = defineQuery({
   key: ({ database }: { database: string }) => `schemas:${database}`,
-  fetch: async ({ database, signal }) => {
+  fetch: async ({ database }, { signal }) => {
     const response = await fetch(`/api/databases/${database}/schema`, {
       signal,
     });
