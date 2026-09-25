@@ -184,7 +184,7 @@ describe('hydration (SSR)', () => {
 
       // Click should invoke handler
       const btn = container.querySelector('#btn') as HTMLButtonElement;
-      expect(getDelegatedHandlerForElement(btn, 'click')).toBeUndefined();
+      expect(getDelegatedHandlerForElement(btn, 'click')).toBeDefined();
       btn.click();
       expect(clicks).toBe(1);
 
@@ -1500,7 +1500,7 @@ describe('hydration (SSR)', () => {
         expect(rootRenders).toBe(rootRendersAfterHydration);
         expect(belowRenders).toBeGreaterThan(0);
         expect(document.activeElement).toBe(button);
-        expect(getDelegatedHandlerForElement(button, 'click')).toBeUndefined();
+        expect(getDelegatedHandlerForElement(button, 'click')).toBeDefined();
         button.click();
         expect(clicks).toBe(1);
       } finally {

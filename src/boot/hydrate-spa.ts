@@ -45,10 +45,6 @@ import { getDefaultDataRuntime } from '../data/data-runtime';
 import { resolveRootElement } from './root-element';
 import { validateCspNonce } from '../csp-nonce';
 import {
-  beginHydrationDirectListenerMode,
-  endHydrationDirectListenerMode,
-} from '../renderer/props/bindings';
-import {
   beginHydrationListenerTransaction,
   commitHydrationListenerTransaction,
   discardHydrationListenerTransaction,
@@ -213,7 +209,6 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       startHydrationRenderPhase(hydrationRenderDataForApp);
     }
     const listenerTransaction = beginHydrationListenerTransaction();
-    beginHydrationDirectListenerMode();
     try {
       mountHydratedRoot(
         rootElement,
@@ -231,7 +226,6 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       discardHydrationListenerTransaction(listenerTransaction);
       throw error;
     } finally {
-      endHydrationDirectListenerMode();
       if (hydrationRenderDataForApp) {
         stopHydrationRenderPhase();
       }

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- fix(renderer): delegated event handlers now match native dispatch.
+  Delegated listeners attach at each app root instead of `document.body`, so
+  apps mounted in shadow roots or iframes receive events and nested apps each
+  dispatch their own handlers once. Non-bubbling events (`focus`, `blur`,
+  `scroll`) attach directly to their element, so an ancestor's `onScroll` or
+  `onFocus` no longer runs, ancestor-first, for a descendant. `onWheel`,
+  `onTouchStart` and `onTouchMove` attach directly with `{ passive: false }`,
+  so `preventDefault()` in them takes effect. Hydrated nodes use the same
+  delegated listeners as client-rendered ones, so a client-rendered child's
+  handler runs before (and can stop) a hydrated ancestor's handler.
 - fix(router): route precedence is decided segment by segment, as documented:
   the first segment where two routes differ picks static > param > wildcard >
   splat, so `/docs/{*rest}` now beats `/{lang}/{page}` for `/docs/intro`

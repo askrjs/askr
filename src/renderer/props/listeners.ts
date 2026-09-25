@@ -25,46 +25,8 @@ import {
 declare const __ASKR_BENCH_BUILD__: boolean;
 const BENCH_BUILD_ENABLED = __ASKR_BENCH_BUILD__;
 
-const hydrationDirectListeners = new WeakMap<Element, Set<string>>();
-
-let hydrationDirectListenerDepth = 0;
-
-export function beginHydrationDirectListenerMode(): void {
-  hydrationDirectListenerDepth += 1;
-}
-
-export function endHydrationDirectListenerMode(): void {
-  hydrationDirectListenerDepth = Math.max(0, hydrationDirectListenerDepth - 1);
-}
-
-function markHydrationDirectListener(
-  element: Element,
-  listenerKey: string
-): void {
-  let listeners = hydrationDirectListeners.get(element);
-  if (!listeners) {
-    listeners = new Set();
-    hydrationDirectListeners.set(element, listeners);
-  }
-  listeners.add(listenerKey);
-}
-
-export function isHydrationDirectListener(
-  element: Element,
-  listenerKey: string
-): boolean {
-  return hydrationDirectListeners.get(element)?.has(listenerKey) ?? false;
-}
-
-export function clearHydrationDirectListener(
-  element: Element,
-  listenerKey: string
-): void {
-  const listeners = hydrationDirectListeners.get(element);
-  listeners?.delete(listenerKey);
-  if (listeners?.size === 0) {
-    hydrationDirectListeners.delete(element);
-  }
+function usesDelegation(eventName: string, capture: boolean): boolean {
+  return !capture && isEventDelegationEnabled() && isDelegatedEvent(eventName);
 }
 
 export function addTrackedListener(
@@ -72,49 +34,39 @@ export function addTrackedListener(
   eventName: string,
   handler: EventListener,
   capture = false,
-  fresh = false,
-  forceDirect = false
+  fresh = false
 ): void {
-  const effectiveForceDirect = forceDirect || hydrationDirectListenerDepth > 0;
-  const useDelegation =
-    !effectiveForceDirect &&
-    !capture &&
-    isEventDelegationEnabled() &&
-    isDelegatedEvent(eventName);
-  const listenerKey = getEventListenerKey(eventName, capture);
-
-  if (effectiveForceDirect && isHydrationDirectListener(el, listenerKey)) {
-    const existing = elementListeners.get(el)?.get(listenerKey);
-    if (existing) {
-      existing.updateHandler?.(handler);
-      existing.original = handler;
-      return;
-    }
-  }
-
   if (
-    !effectiveForceDirect &&
     !hasStagedHydrationListener(el, eventName, capture) &&
     stageHydrationListener({
-      // Hydrated listeners publish as direct listeners. This keeps the
-      // initial SSR-to-client handoff independent of delegated-container
-      // event propagation, which is not consistent across browser hosts.
-      kind: 'direct',
+      // Hydrated listeners publish through the same delegated/direct policy
+      // as client-rendered ones, so propagation does not depend on whether
+      // a node was hydrated or created on the client.
+      kind: usesDelegation(eventName, capture) ? 'delegated' : 'direct',
       target: el,
       eventName,
       capture,
       publish: () =>
-        addTrackedListener(el, eventName, handler, capture, fresh, true),
-      rollback: () => {
-        removeTrackedListener(el, eventName, capture);
-        clearHydrationDirectListener(el, listenerKey);
-      },
+        attachTrackedListener(el, eventName, handler, capture, fresh),
+      rollback: () => removeTrackedListener(el, eventName, capture),
     })
   ) {
     return;
   }
 
-  if (useDelegation) {
+  attachTrackedListener(el, eventName, handler, capture, fresh);
+}
+
+function attachTrackedListener(
+  el: Element,
+  eventName: string,
+  handler: EventListener,
+  capture: boolean,
+  fresh: boolean
+): void {
+  const listenerKey = getEventListenerKey(eventName, capture);
+
+  if (usesDelegation(eventName, capture)) {
     if (fresh) {
       addFreshDelegatedListener(el, eventName, handler, handler, undefined);
     } else {
@@ -136,12 +88,6 @@ export function addTrackedListener(
     el.addEventListener(eventName, trackedHandler);
   }
   incDevCounter('listenerAdds');
-  if (effectiveForceDirect) {
-    if (!capture && getDelegatedHandlerForElement(el, eventName)) {
-      removeDelegatedListener(el, eventName);
-    }
-    markHydrationDirectListener(el, listenerKey);
-  }
 
   if (!elementListeners.has(el)) {
     elementListeners.set(el, new Map());
@@ -188,10 +134,6 @@ export function removeTrackedListener(
     elementListeners.delete(el);
   }
 }
-export function isHydrationDirectListenerMode(): boolean {
-  return hydrationDirectListenerDepth > 0;
-}
-
 /** Reconcile one event prop without changing the caller's prop iteration order. */
 export function syncElementListener(
   el: Element,
@@ -201,58 +143,31 @@ export function syncElementListener(
   existingListeners: Map<string, ListenerMapEntry> | undefined
 ): 'direct' | 'delegated' | undefined {
   const { eventName, capture: eventCapture } = eventProp;
-  const preserveHydrationDirect =
-    existingListeners?.get(listenerKey)?.isDelegated === false &&
-    isHydrationDirectListener(el, listenerKey);
+  const useDelegation = usesDelegation(eventName, eventCapture);
   if (
     getCurrentHydrationListenerTransaction() &&
     !existingListeners?.has(listenerKey) &&
-    !getDelegatedHandlerForElement(el, eventName) &&
-    !isHydrationDirectListener(el, listenerKey)
+    !getDelegatedHandlerForElement(el, eventName)
   ) {
     if (!hasStagedHydrationListener(el, eventName, eventCapture)) {
       stageHydrationListener({
-        kind: 'direct',
+        kind: useDelegation ? 'delegated' : 'direct',
         target: el,
         eventName,
         capture: eventCapture,
         publish: () =>
-          addTrackedListener(
+          attachTrackedListener(
             el,
             eventName,
             value as EventListener,
             eventCapture,
-            false,
-            true
+            false
           ),
-        rollback: () => {
-          removeTrackedListener(el, eventName, eventCapture);
-          clearHydrationDirectListener(el, listenerKey);
-        },
+        rollback: () => removeTrackedListener(el, eventName, eventCapture),
       });
     }
     return;
   }
-  if (
-    isHydrationDirectListenerMode() &&
-    !existingListeners?.has(listenerKey) &&
-    !getDelegatedHandlerForElement(el, eventName)
-  ) {
-    addTrackedListener(
-      el,
-      eventName,
-      value as EventListener,
-      eventCapture,
-      false,
-      true
-    );
-    return;
-  }
-  const useDelegation =
-    !preserveHydrationDirect &&
-    !eventCapture &&
-    isEventDelegationEnabled() &&
-    isDelegatedEvent(eventName);
   if (useDelegation) {
     const existingDelegated = getDelegatedHandlerForElement(el, eventName);
     if (existingDelegated?.original === value) {

@@ -17,10 +17,6 @@ import {
   removeElementListener,
   pruneElementListeners,
 } from './listeners';
-export {
-  beginHydrationDirectListenerMode,
-  endHydrationDirectListenerMode,
-} from './listeners';
 import {
   createReactivePropCleanupEntry,
   getOrCreateReactivePropsCleanupMap,
