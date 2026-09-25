@@ -14,6 +14,7 @@ import { assertSchedulingPrecondition, invariant } from '../common/invariant';
 import { recordSchedulerFlushTaskCount } from './diagnostics/perf-metrics';
 import { adjustOwnershipDiagnostic } from './diagnostics/ownership-diagnostics';
 import { SchedulerScopes } from './scheduler-scopes';
+import { withLifecycleOwner } from './component/scope';
 import { ScheduledWork } from './scheduled-work';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
@@ -183,6 +184,12 @@ export class Scheduler {
   }
 
   flush(): void {
+    // Queued work belongs to whoever enqueued it, not to a handler or
+    // lifecycle operation that happens to flush synchronously.
+    withLifecycleOwner(null, () => this.flushQueued());
+  }
+
+  private flushQueued(): void {
     invariant(
       !this.running,
       '[Scheduler] flush() called while already running'
