@@ -196,7 +196,7 @@ export function createForState<T>(
     attachOwnership(scopeOwner, parentInstance.owner);
   }
 
-  return {
+  const forState: ForState<T> = {
     kind: 'for',
     _contextFrame: null,
     _contextFrameChanged: false,
@@ -231,6 +231,10 @@ export function createForState<T>(
     _hasPendingBoundaryCommit: false,
     _transaction: null,
   };
+  // Rows' lifetimes hang off this record; a pending-render check reaching it
+  // asks the For whether it is about to reconcile them (#523).
+  scopeOwner.subject = forState;
+  return forState;
 }
 
 export function useForState<T>(

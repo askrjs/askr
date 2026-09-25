@@ -1,4 +1,4 @@
-import { ownCleanup } from '../ownership/record';
+import { invalidatePendingChecks, ownCleanup } from '../ownership/record';
 import { notifyReadableSource } from './notify';
 import {
   claimHookIndex,
@@ -25,6 +25,10 @@ import {
 } from './readable';
 import { isSnapshotSource, type SnapshotSourceBrand } from './snapshot-source';
 import { adjustOwnershipDiagnostic } from '../diagnostics/ownership-diagnostics';
+import {
+  deferBehindPendingRender,
+  hasPendingOwnerRender,
+} from '../component/pending-render';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
@@ -122,6 +126,7 @@ function flushDirtyDerivedCells(): void {
 
   const pending = dirtyDerivedCells.values();
   const scheduler = getRuntimeScheduler();
+  invalidatePendingChecks();
   let failures: unknown[] | null = null;
   let next = pending.next();
 
@@ -142,6 +147,14 @@ function flushDirtyDerivedCells(): void {
       cell._owner.hasPendingUpdate &&
       isReadByOwnerRender(cell)
     ) {
+      next = pending.next();
+      continue;
+    }
+    // A queued ancestor render or boundary reconcile decides whether the
+    // owner survives and with which props. Evaluate after it, not with the
+    // owner's stale props (#523).
+    if (cell._active && hasPendingOwnerRender(cell._owner)) {
+      deferBehindPendingRender(cell);
       next = pending.next();
       continue;
     }
