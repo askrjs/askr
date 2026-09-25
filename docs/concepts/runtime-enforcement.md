@@ -54,17 +54,23 @@ render is checked against that sequence in both directions:
 
 ### Caught at Runtime
 
-```tsx
-function Component() {
-  const [condition] = state(false);
+```tsx run=runtime-enforcement-conditional-hook
+import { state } from '@askrjs/askr';
 
-  if (condition()) {
-    state(0);
+function Component() {
+  const [expanded, setExpanded] = state(false);
+
+  if (expanded()) {
+    state(0); // Error on the render after the click: an extra hook
   }
 
-  return null;
+  return <button onClick={() => setExpanded(true)}>Expand</button>;
 }
 ```
+
+The first render claims one `state()` slot. Clicking the button re-renders the
+component with `expanded()` true, so the conditional `state(0)` claims a slot
+the first render did not, and that render throws.
 
 The same invariant applies when a plain conditional skips an eager control
 primitive:
@@ -112,24 +118,24 @@ State cannot be mutated during render.
 
 ### Caught at Runtime
 
-```typescript
+```tsx run=runtime-enforcement-render-mutation
+import { state } from '@askrjs/askr';
+
 function Component() {
   const [x, setX] = state(0);
-  setX(1);  // NO Error: mutation during render
+  setX(1); // Error: mutation during render
   return <div>{x()}</div>;
 }
 ```
 
 **Error message:**
 
+```text
+[Askr] state.set() cannot be called during component render. State mutations during render break the actor model and cause infinite loops. Move state updates to event handlers or use conditional rendering instead.
 ```
-state.set() cannot be called during component render.
 
-This causes infinite loops.
-
-Fix: Move state updates to event handlers:
-  <button onClick={() => setX(1)}>
-```
+Move the update into an event handler, such as
+`<button onClick={() => setX(1)}>`.
 
 ### Why This Matters
 
