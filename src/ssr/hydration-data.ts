@@ -82,9 +82,10 @@ export function serializeHydrationRenderData(
   const current = isPageRenderEnvelope(data)
     ? data
     : createPageRenderEnvelope({ resources: data });
+  const queries = { ...current.queries, ...queryCache };
   const payload = createPageRenderEnvelope({
     resources: current.resources,
-    queries: { ...current.queries, ...queryCache },
+    queries: Object.keys(queries).length > 0 ? queries : undefined,
     route: current.route,
     framework: current.framework,
   });

@@ -30,11 +30,11 @@ function ownedRecord(
 export function createPageRenderEnvelope(
   input: PageRenderEnvelopeInput = {}
 ): PageRenderEnvelope {
-  const queries = ownedRecord(input.queries);
   return Object.freeze({
     version: PAGE_RENDER_ENVELOPE_VERSION,
     resources: ownedRecord(input.resources),
-    ...(Object.keys(queries).length > 0 ? { queries } : {}),
+    // Callers pass `queries` only when there are entries.
+    ...(input.queries ? { queries: ownedRecord(input.queries) } : {}),
     route: input.route,
     framework: ownedRecord(input.framework),
   });
@@ -75,39 +75,21 @@ export function replacePageRoute(
   value: unknown,
   route: unknown
 ): PageRenderEnvelope {
-  const current = pageRenderEnvelope(value);
-  return createPageRenderEnvelope({
-    resources: current.resources,
-    queries: current.queries,
-    route,
-    framework: current.framework,
-  });
+  return createPageRenderEnvelope({ ...pageRenderEnvelope(value), route });
 }
 
 export function withPageResources(
   value: unknown,
   resources: Readonly<Record<string, unknown>> | null | undefined
 ): PageRenderEnvelope {
-  const current = pageRenderEnvelope(value);
-  return createPageRenderEnvelope({
-    resources,
-    queries: current.queries,
-    route: current.route,
-    framework: current.framework,
-  });
+  return createPageRenderEnvelope({ ...pageRenderEnvelope(value), resources });
 }
 
 export function withPageFramework(
   value: unknown,
   framework: Readonly<Record<string, unknown>> | null | undefined
 ): PageRenderEnvelope {
-  const current = pageRenderEnvelope(value);
-  return createPageRenderEnvelope({
-    resources: current.resources,
-    queries: current.queries,
-    route: current.route,
-    framework,
-  });
+  return createPageRenderEnvelope({ ...pageRenderEnvelope(value), framework });
 }
 
 export function withHydrationRenderUrl(
