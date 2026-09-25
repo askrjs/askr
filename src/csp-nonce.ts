@@ -1,4 +1,4 @@
-import { defineScope, readScope, type Scope } from './runtime';
+import { defineScope, isScopeReadable, readScope, type Scope } from './runtime';
 
 /** Lexical scope carrying the CSP nonce for the current render, if any. */
 export const CspNonceScope: Scope<string | undefined> = defineScope<
@@ -12,19 +12,7 @@ export const CspNonceScope: Scope<string | undefined> = defineScope<
  * component render or when no nonce was configured.
  */
 export function cspNonce(): string | undefined {
-  try {
-    return readScope(CspNonceScope);
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.startsWith(
-        'readScope() can only be called during component render'
-      )
-    ) {
-      return undefined;
-    }
-    throw error;
-  }
+  return isScopeReadable() ? readScope(CspNonceScope) : undefined;
 }
 
 export function validateCspNonce(
