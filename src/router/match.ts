@@ -111,6 +111,36 @@ export function compareRouteSpecificity(
 }
 
 /**
+ * Key for the set of URLs a route matches, used to reject duplicate
+ * registrations. Parameter and splat names do not affect matching, static
+ * segments compare decoded (see {@link staticSegmentMatches}), and a scoped
+ * fallback matches exactly what a splat at its prefix matches, so routes with
+ * equal keys match the same URLs and the later one could never be reached.
+ */
+export function routeMatchKey(
+  segments: ParsedSegment[],
+  fallbackPrefix?: string
+): string {
+  const keySegments =
+    fallbackPrefix === undefined ? segments : parseSegments(fallbackPrefix);
+  const parts = keySegments.map((segment) => {
+    switch (segment.kind) {
+      case 'static':
+        return encodePathSegment(decodePathSegment(segment.value));
+      case 'param':
+        return '{}';
+      case 'wildcard':
+        return '*';
+      case 'splat':
+      case 'catchall':
+        return '{*}';
+    }
+  });
+  if (fallbackPrefix !== undefined) parts.push('{*}');
+  return '/' + parts.join('/');
+}
+
+/**
  * Compute a numeric specificity rank from a parsed segment list.
  *
  * The rank encodes the segment-by-segment order of

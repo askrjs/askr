@@ -664,12 +664,7 @@ describe('Static Site Generation', () => {
           {
             path: '/blog/{slug}',
             component: BlogPost,
-            params: { slug: 'first-post' },
-          },
-          {
-            path: '/blog/{slug}',
-            component: BlogPost,
-            params: { slug: 'second-post' },
+            entries: () => [{ slug: 'first-post' }, { slug: 'second-post' }],
           },
         ],
         outputDir: tempDir,
@@ -1621,19 +1616,11 @@ describe('Static Site Generation', () => {
         routes: [
           {
             path: '/blog/{slug}',
-            params: { slug: 'first' },
-            invalidationKeys: ['blog:first'],
+            entries: () => [{ slug: 'first' }, { slug: 'second' }],
+            invalidationKeys: ['blog'],
             component: (props: { slug?: string }) => {
-              firstRenders += 1;
-              return <div>{props.slug}</div>;
-            },
-          },
-          {
-            path: '/blog/{slug}',
-            params: { slug: 'second' },
-            invalidationKeys: ['blog:second'],
-            component: (props: { slug?: string }) => {
-              secondRenders += 1;
+              if (props.slug === 'first') firstRenders += 1;
+              if (props.slug === 'second') secondRenders += 1;
               return <div>{props.slug}</div>;
             },
           },

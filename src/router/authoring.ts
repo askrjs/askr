@@ -1,5 +1,6 @@
 import type {
   GroupHelperOptions,
+  ParsedSegment,
   PageHelperOptions,
   RouteComponent,
   RouteDefinition,
@@ -14,7 +15,12 @@ import type { AuthRequirement } from '@askrjs/auth';
 import type { ObjectSchema } from '@askrjs/schema';
 import { getCurrentComponentInstance } from '../runtime';
 import { getExecutionModel } from '../runtime';
-import { computeRank, normalizeRouteSegmentName, parseSegments } from './match';
+import {
+  computeRank,
+  normalizeRouteSegmentName,
+  parseSegments,
+  routeMatchKey,
+} from './match';
 import { compileNodePolicies } from './access';
 import type { AnyRouteComponent, InternalRouteRecord } from './internal-types';
 import { createRouteHandler } from './rendering';
@@ -30,6 +36,7 @@ import {
   getCurrentPathPrefix,
   getCurrentScopeKind,
   getDefaultRouteBasePath,
+  getRouteRecords,
   hasActivePageScope,
   insertRecordSorted,
   pushRegistrationScope,
@@ -323,6 +330,22 @@ function normalizeRouteOptions(
   };
 }
 
+function assertRouteNotDuplicated(
+  path: string,
+  segments: ParsedSegment[],
+  fallbackPrefix: string | undefined
+): void {
+  const key = routeMatchKey(segments, fallbackPrefix);
+  const existing = getRouteRecords().find(
+    (record) => routeMatchKey(record.segments, record.fallbackPrefix) === key
+  );
+  if (existing) {
+    throw new Error(
+      `Duplicate route path "${path}": it matches the same URLs as "${existing.path}", which is already registered.`
+    );
+  }
+}
+
 function registerRouteAtResolvedPath(
   path: string,
   Component: RouteComponent,
@@ -334,9 +357,11 @@ function registerRouteAtResolvedPath(
 ): void {
   validateRoutePath(path);
 
+  const segments = parseSegments(path);
+  assertRouteNotDuplicated(path, segments, metadata?.fallbackPrefix);
+
   const chain = getCurrentLayoutChain();
   const pageChain = getCurrentPageChain();
-  const segments = parseSegments(path);
   const rank = computeRank(segments);
   const isFallback = metadata?.isFallback ?? path === '/*';
   const comp = Component;
@@ -563,7 +588,7 @@ export function route(
 
   if (getExecutionModel() === 'islands') {
     throw new Error(
-      'Routes are not supported with islands. Use createSPA (client) or createSSR (server) instead.'
+      'Routes are not supported with islands. Use createSPA or hydrateSPA with a route registry instead.'
     );
   }
 

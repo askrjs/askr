@@ -321,7 +321,17 @@ Path syntax rules:
 Specificity order: static > param > wildcard > named splat > catch-all,
 compared segment by segment: the first segment where two routes differ decides.
 For `/docs/intro`, `/docs/{*rest}` beats `/{lang}/{page}` because its first
-segment is static; declaration order breaks exact ties.
+segment is static.
+
+Two routes that match exactly the same URLs are rejected when they are
+registered, because the later one could never be reached. Parameter and splat
+names, a trailing slash, and percent-encoding of static segments do not make
+routes distinct, so `/users/{id}` and `/users/{userId}`, `/café` and
+`/caf%C3%A9`, or a page `index()` and a `route()` at the page path, throw
+`Duplicate route path "...": it matches the same URLs as "...", which is
+already registered.` A `fallback()` counts as a named splat at its prefix, so
+it conflicts with `route('/*')` at the root or `route('/users/{*rest}')` inside
+`page('/users')`. Each registry is checked separately.
 
 Askr matches percent-decoded paths. Static segments, `fallback()` prefixes and
 registry `basePath` values compare against the decoded URL, so
