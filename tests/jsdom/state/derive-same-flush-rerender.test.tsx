@@ -356,7 +356,7 @@ describe('derive() evaluation counts', () => {
     expect(evaluations).toBe(1);
   });
 
-  it('should evaluate each link of a same-component chain once per change', () => {
+  it('should bound same-component chain evaluations per change', () => {
     let count!: ReturnType<typeof state<number>>;
     const evaluations = { a: 0, b: 0, c: 0 };
 
@@ -393,10 +393,58 @@ describe('derive() evaluation counts', () => {
         count.set(2);
         flushScheduler();
         expect(island.container.textContent).toBe(`${readSource ? '2' : ''}:7`);
-        expect(evaluations).toEqual({ a: 1, b: 1, c: 1 });
+        // Sound-evaluation cost (#428): when the owner does not read the
+        // source, the derived lane evaluates `a` eagerly with the previous
+        // render's closure to learn whether the owner must re-render. It
+        // changed, so the owner re-renders and evaluates its new closure
+        // once more. When the owner reads the source it is already queued,
+        // so the render is the only evaluation.
+        expect(evaluations).toEqual(
+          readSource ? { a: 1, b: 1, c: 1 } : { a: 2, b: 1, c: 1 }
+        );
       } finally {
         island.cleanup();
       }
     }
   });
+
+  it('should not re-render the owner while a scroll-threshold derive is unchanged', () => {
+    let setY!: (value: number) => void;
+    let renders = 0;
+    let evaluations = 0;
+
+    function Header() {
+      renders += 1;
+      const [y, set] = state(0);
+      setY = set;
+      const pastFold = derive(() => {
+        evaluations += 1;
+        return y() > 500;
+      });
+      return <header>{pastFold() ? 'compact' : 'full'}</header>;
+    }
+
+    createIsland({ root: container, component: Header });
+    flushScheduler();
+    expect(container.textContent).toBe('full');
+
+    renders = 0;
+    evaluations = 0;
+    for (let y = 5; y <= 500; y += 5) {
+      setY(y);
+      flushScheduler();
+    }
+    expect(container.textContent).toBe('full');
+    expect(renders).toBe(0);
+    expect(evaluations).toBe(100);
+
+    // Crossing the threshold re-renders once; the owner's new closure is
+    // evaluated once more on that render.
+    setY(505);
+    flushScheduler();
+    expect(container.textContent).toBe('compact');
+    expect(renders).toBe(1);
+    expect(evaluations).toBe(102);
+  });
 });
+

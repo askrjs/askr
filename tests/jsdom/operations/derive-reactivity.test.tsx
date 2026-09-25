@@ -193,7 +193,12 @@ describe('derive reactivity', () => {
     flushScheduler();
 
     expect(container.querySelector('output')?.textContent).toBe('15');
-    expect(downstreamRuns).toBe(1);
+    // Sound-evaluation cost (#428): the derived lane evaluates `combined`
+    // eagerly with the previous render's closure to find out whether the
+    // owner must re-render. It changed, so the owner re-renders, installs a
+    // new closure (which may capture new render locals) and evaluates it
+    // once more. Unchanged values still stop at one evaluation.
+    expect(downstreamRuns).toBe(2);
   });
 
   it('should isolate a throwing derive from dirty siblings in the same batch', () => {
@@ -255,19 +260,13 @@ describe('derive reactivity', () => {
     let countState!: ReturnType<typeof state<number>>;
     let renders = 0;
 
-    // Read through a child: an owner that reads its own derive re-renders to
-    // evaluate the fresh closure (#428), so the cutoff applies to other readers.
-    const Subject = (props: { label: () => string }) => {
-      renders += 1;
-      return <div id="subject">{props.label()}</div>;
-    };
-
     const App = () => {
+      renders += 1;
       countState = state(0);
       const parity = derive(() => countState() % 2 === 0);
       const label = derive(() => (parity() ? 'even' : 'odd'));
 
-      return <Subject label={label} />;
+      return <div id="subject">{label()}</div>;
     };
 
     createIsland({ root: container, component: App });

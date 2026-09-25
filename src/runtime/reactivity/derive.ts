@@ -79,9 +79,8 @@ function markDerivedCellDirty(cell: DerivedCell<unknown>): void {
 
 /**
  * Whether the owner's render consumes this cell, directly or through other
- * cells of the same owner. Such a cell's closure may capture render locals
- * that the owner's next render replaces, so it is evaluated by that render
- * rather than eagerly with the previous render's closure.
+ * cells of the same owner. A change to such a cell has to re-render the
+ * owner, and the owner's next render replaces the closure.
  */
 function isReadByOwnerRender(
   cell: DerivedCell<unknown>,
@@ -126,12 +125,15 @@ function flushDirtyDerivedCells(): void {
       next = pending.next();
       continue;
     }
-    // Leave the cell dirty and re-render its owner: the render evaluates the
-    // current closure once and publishes the result downstream. This gives
-    // up the equality cutoff for the owner's own re-render in exchange for
-    // never serving a value computed from stale render locals.
-    if (cell._active && isReadByOwnerRender(cell)) {
-      scheduleReadableInstanceUpdate(cell._owner);
+    // Eager evaluation uses the closure from the owner's last render. That is
+    // sound while the owner has not re-rendered: its captured locals are
+    // current. When the owner is already queued to re-render, the render
+    // will install a new closure, so leave the cell dirty for it.
+    if (
+      cell._active &&
+      cell._owner.hasPendingUpdate &&
+      isReadByOwnerRender(cell)
+    ) {
       next = pending.next();
       continue;
     }
@@ -187,6 +189,16 @@ function recomputeDerivedCell<T>(cell: DerivedCell<T>): T {
   cell._value = nextValue;
   cell._lastRecomputeFlushVersion = getRuntimeFlushVersion();
 
+  // Outside a render, a changed value the owner's render consumes (possibly
+  // only through other cells of the owner) re-renders the owner. An
+  // unchanged value keeps the equality cutoff: no owner re-render.
+  if (
+    valueChanged &&
+    getCurrentComponentInstance() === null &&
+    isReadByOwnerRender(cell)
+  ) {
+    scheduleReadableInstanceUpdate(cell._owner);
+  }
   // Publish every change to an already-published value, wherever the
   // recompute happened (#431). The component currently rendering reads the
   // new value directly and needs no follow-up render.
@@ -289,6 +301,9 @@ function getOrCreateDerivedCell<T>(
   if (existing) {
     // A new closure may capture different render locals, so a value computed
     // by the previous closure cannot be served, even within the same flush.
+    // An eager derived-lane value is therefore evaluated again when the owner
+    // re-renders with new inputs; this second evaluation only happens when
+    // the value changed (or the owner re-rendered for another reason).
     if (
       existing._lastRecomputeFlushVersion !== getRuntimeFlushVersion() ||
       !Object.is(existing._source, source) ||
