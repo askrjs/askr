@@ -102,43 +102,56 @@ export function withComponentScope<T>(
 }
 
 export function getCurrentComponentInstance(): ComponentInstance | null {
-  if (currentInstance === null && pendingInstance !== null) {
-    materializePendingInstance();
+  if (currentInstance?._functionChildFastPath === true) {
+    throw FUNCTION_CHILD_NEEDS_COMPONENT;
   }
   return currentInstance;
 }
 
 /**
- * A component instance created only when something asks for one: a function
- * child bound directly to the DOM runs without an instance until it calls a
- * hook or creates a control boundary.
+ * @internal The instance rendering right now, for bookkeeping that is not a
+ * request for a component (read tracking, derived-value notification). A
+ * function child's fast run reports none.
  */
-let pendingInstance: (() => ComponentInstance) | null = null;
-
-function materializePendingInstance(): void {
-  const create = pendingInstance!;
-  pendingInstance = null;
-  // The enclosing withLazyComponentScope restores the outer scope.
-  beginComponentScope({ instance: create(), stateIndex: 0 });
+export function peekCurrentComponentInstance(): ComponentInstance | null {
+  return currentInstance === FUNCTION_CHILD_PROBE ? null : currentInstance;
 }
 
 /**
- * Run `fn` as the render of `instance`, or, when there is none yet, with
- * `create` supplying one the first time the render needs it. Hook slots start
- * at 0 on every run.
+ * A function child bound directly to the DOM first runs as a plain read, under
+ * an instance flagged `_functionChildFastPath` (this stand-in for text
+ * bindings, or the child scope of a binding beside elements). Asking for the
+ * current component during that run (a hook, `Show`/`For`/`Case`, a
+ * resource) aborts it with {@link FUNCTION_CHILD_NEEDS_COMPONENT}, and the
+ * binding then upgrades to a mounted `FunctionChild` component.
  */
-export function withLazyComponentScope<T>(
-  instance: ComponentInstance | null,
-  create: () => ComponentInstance,
+const FUNCTION_CHILD_PROBE = {
+  portalScope: null,
+  _functionChildFastPath: true,
+} as unknown as ComponentInstance;
+
+/** Thrown to abort a function child's fast run that needs a component. */
+export const FUNCTION_CHILD_NEEDS_COMPONENT: unique symbol = Symbol(
+  'askr.function-child-needs-component'
+);
+
+/**
+ * Run a function child's text binding without a component. Returns
+ * {@link FUNCTION_CHILD_NEEDS_COMPONENT} when the run asked for one.
+ */
+export function runFunctionChildWithoutComponent<T>(
   fn: () => T
-): T {
-  const snapshot = beginComponentScope({ instance, stateIndex: 0 });
-  const previousPending = pendingInstance;
-  pendingInstance = instance ? null : create;
+): T | typeof FUNCTION_CHILD_NEEDS_COMPONENT {
+  const snapshot = beginComponentScope({
+    instance: FUNCTION_CHILD_PROBE,
+    stateIndex: 0,
+  });
   try {
     return fn();
+  } catch (error) {
+    if (error === FUNCTION_CHILD_NEEDS_COMPONENT) return error;
+    throw error;
   } finally {
-    pendingInstance = previousPending;
     endComponentScope(snapshot);
   }
 }
@@ -191,6 +204,8 @@ export function withLifecycleOwner<T>(
  * when the writer is no longer live) before returning the content.
  */
 export function getCurrentLifecycleInstance(): ComponentInstance | null {
+  if (currentInstance === FUNCTION_CHILD_PROBE)
+    throw FUNCTION_CHILD_NEEDS_COMPONENT;
   return (
     (currentInstance && getLivePortalErrorParent(currentInstance)) ??
     currentInstance
@@ -245,6 +260,8 @@ export function getSignalForInstance(instance: ComponentInstance): AbortSignal {
  * - Parent is destroyed
  */
 export function getSignal(): AbortSignal {
+  if (currentInstance === FUNCTION_CHILD_PROBE)
+    throw FUNCTION_CHILD_NEEDS_COMPONENT;
   if (!currentInstance) {
     throw new Error(
       'getSignal() can only be called during component render execution. ' +

@@ -58,6 +58,12 @@ export interface ComponentDiagnostics {
 }
 
 export interface ComponentExecution {
+  /**
+   * @internal Set on the child scope of a function child bound beside
+   * elements: asking for the current component during its render aborts the
+   * render so the binding can upgrade (see `component/scope`).
+   */
+  _functionChildFastPath?: boolean;
   fn: ComponentFunction;
   props: Props;
   target: Element | null;

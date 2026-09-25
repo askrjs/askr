@@ -1,3 +1,4 @@
+import { containsFunctionChild } from '../children/reactive-child-sources';
 import { writeHostOwners } from '../ownership/nodes';
 import { logger } from '../../common/logger';
 import { getRuntimeEnv } from '../env';
@@ -369,6 +370,13 @@ function applySmartUpdateElement(
   ) {
     updateElementChildren(element, vnodeChildren, cleanupRangeNode);
     domHost.updateElementFromVnode(element, vnode, false);
+    return;
+  }
+
+  // Function children are bound (text) or rendered as components by the
+  // element update, never diffed as plain children.
+  if (containsFunctionChild(vnodeChildren)) {
+    domHost.updateElementFromVnode(element, vnode, true);
     return;
   }
 

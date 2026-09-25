@@ -31,9 +31,12 @@ export function isEmptyChild(child: unknown): boolean {
 
 /**
  * A child that occupies no DOM position: an empty child, or a value that is
- * neither text nor a vnode (`true`, a plain object, a function in a static
- * child list). Positional commits skip these so later children stay aligned
- * with the nodes already in the parent, such as server markup being hydrated.
+ * neither text nor a vnode (`true`, a plain object). Positional commits skip
+ * these so later children stay aligned with the nodes already in the parent,
+ * such as server markup being hydrated. A function reaches them only inside a
+ * function child's result, where it renders nothing by the one-level rule;
+ * an element's own function children are bound or rendered as `FunctionChild`
+ * components first.
  */
 export function rendersNothing(child: unknown): boolean {
   return (

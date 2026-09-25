@@ -3,12 +3,13 @@ export { prepareRetainedComponentUpdate } from './component/retained-update';
 export {
   FunctionChild,
   isFunctionChildType,
+  liftFunctionChildItems,
   liftFunctionChildren,
 } from './component/function-children';
 export {
-  createFunctionChildOwner,
-  type FunctionChildOwner,
-} from './component/function-child-owner';
+  FUNCTION_CHILD_NEEDS_COMPONENT,
+  runFunctionChildWithoutComponent,
+} from './component/scope';
 export * from './ownership/child-scope';
 export type {
   ComponentFunction,

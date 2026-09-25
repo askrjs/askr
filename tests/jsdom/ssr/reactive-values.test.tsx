@@ -13,6 +13,11 @@ import { renderToStringSync } from '../../../src/ssr';
 import { ErrorBoundary } from '../../../src/components/error-boundary';
 import { For, Show } from '../../../src/control';
 import { defineScope, readScope } from '../../../src/runtime/context/context';
+import { resource, task, watch } from '../../../src/resources';
+import {
+  Portal,
+  _resetDefaultPortal,
+} from '../../../src/foundations/structures/portal';
 import { derive, state, type State } from '../../../src/index';
 import {
   createTestContainer,
@@ -753,6 +758,273 @@ describe('SSR reactive values', () => {
       expect(normalizeHtml(container.innerHTML)).toBe(
         '<div><em>hidden</em><p>1</p></div>'
       );
+    });
+  });
+
+  describe('element function children that need a component', () => {
+    const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+    const Layout = (props: { children?: unknown }) => <>{props.children}</>;
+
+    async function mount(Component: Page): Promise<HTMLElement> {
+      await createSPA({
+        root: container,
+        registry: routeRegistryFromTable([{ path: '/', handler: Component }]),
+      });
+      flushScheduler();
+      return container;
+    }
+
+    it('should run task() and resource() in element and fragment positions alike', async () => {
+      const ran: string[] = [];
+      const cleaned: string[] = [];
+      const body = (tag: string) => () => {
+        task(() => {
+          ran.push(tag);
+          return () => cleaned.push(tag);
+        });
+        const loaded = resource(async () => `${tag}-loaded`, []);
+        return loaded.pending ? `${tag}-pending` : String(loaded.value);
+      };
+      const elementBody = body('element');
+      const fragmentBody = body('fragment');
+      const Component = () => (
+        <div>
+          <p>{elementBody}</p>
+          <Layout>{fragmentBody}</Layout>
+        </div>
+      );
+
+      await mount(Component);
+      await tick();
+      flushScheduler();
+      await tick();
+      flushScheduler();
+
+      expect(ran.sort()).toEqual(['element', 'fragment']);
+      expect(normalizeHtml(container.innerHTML)).toBe(
+        '<div><p>element-loaded</p>fragment-loaded</div>'
+      );
+      cleanupApp(container);
+      expect(cleaned.sort()).toEqual(['element', 'fragment']);
+    });
+
+    it('should upgrade when a later run first uses a hook, and keep its state', async () => {
+      let enabled!: State<boolean>;
+      let inner!: State<string>;
+      const seen: number[] = [];
+      const Component = () => {
+        enabled = state(false);
+        const count = state(0);
+        return (
+          <div>
+            {() => {
+              if (!enabled()) return 'none';
+              inner = state('v0');
+              watch(
+                () => count(),
+                (value: number) => {
+                  seen.push(value);
+                }
+              );
+              return inner();
+            }}
+          </div>
+        );
+      };
+
+      await mount(Component);
+      expect(container.textContent).toBe('none');
+
+      enabled.set(true);
+      flushScheduler();
+      await tick();
+      flushScheduler();
+      expect(container.textContent).toBe('v0');
+
+      inner.set('v1');
+      flushScheduler();
+      expect(container.textContent).toBe('v1');
+      expect(seen).toEqual([0]);
+    });
+
+    it.each([
+      ['an element', (child: () => unknown) => <div>{child}</div>],
+      [
+        'a component fragment',
+        (child: () => unknown) => (
+          <div>
+            <Layout>{child}</Layout>
+          </div>
+        ),
+      ],
+    ] as Array<[string, (child: () => unknown) => JSXElement]>)(
+      'should report a changed hook order in %s',
+      async (_position, place) => {
+        let useState!: State<boolean>;
+        const Component = () => {
+          useState = state(true);
+          return place(() => {
+            if (useState()) {
+              const [value] = state('st');
+              return value();
+            }
+            return (
+              <For each={() => ['x']} by={(item: string) => item}>
+                {(item: string) => <i>{item}</i>}
+              </For>
+            );
+          });
+        };
+
+        await mount(Component);
+        expect(container.textContent).toBe('st');
+        expect(() => {
+          useState.set(false);
+          flushScheduler();
+        }).toThrow(/Hook order violation/);
+      }
+    );
+  });
+
+  describe('parent re-renders', () => {
+    const Layout = (props: { children?: unknown }) => <>{props.children}</>;
+    const shapes: Array<
+      [string, (n: number, read: () => string) => JSXElement, string]
+    > = [
+      [
+        'a function child of the root element',
+        (n, read) => <div data-n={n}>{() => read()}</div>,
+        '<div data-n="N">V</div>',
+      ],
+      [
+        'a function child beside an element in the root element',
+        (n, read) => (
+          <div data-n={n}>
+            <b>{'b'}</b>
+            {() => read()}
+          </div>
+        ),
+        '<div data-n="N"><b>b</b>V</div>',
+      ],
+      [
+        'a function child in a fragment in the root element',
+        (n, read) => (
+          <div data-n={n}>
+            <Layout>{() => read()}</Layout>
+          </div>
+        ),
+        '<div data-n="N">V</div>',
+      ],
+      [
+        'a hook-using function child of the root element',
+        (n, read) => (
+          <div data-n={n}>
+            {() => {
+              const [suffix] = state('!');
+              return read() + suffix();
+            }}
+          </div>
+        ),
+        '<div data-n="N">V!</div>',
+      ],
+    ];
+
+    it.each(shapes)(
+      'should keep %s across a parent re-render',
+      async (_name, shape, template) => {
+        let parent!: State<number>;
+        let value!: State<string>;
+        const Component = () => {
+          parent = state(0);
+          value = state('O');
+          return shape(parent(), () => value());
+        };
+        const expected = (n: number, v: string) =>
+          template.replace('N', String(n)).replace('V', v);
+
+        await createSPA({
+          root: container,
+          registry: routeRegistryFromTable([{ path: '/', handler: Component }]),
+        });
+        flushScheduler();
+        expect(normalizeHtml(container.innerHTML)).toBe(expected(0, 'O'));
+
+        parent.set(1);
+        flushScheduler();
+        expect(normalizeHtml(container.innerHTML)).toBe(expected(1, 'O'));
+
+        value.set('Z');
+        flushScheduler();
+        expect(normalizeHtml(container.innerHTML)).toBe(expected(1, 'Z'));
+      }
+    );
+  });
+
+  describe('providers and portals', () => {
+    const A = defineScope('a0');
+
+    it('should read a provider rendered by a wrapper around the function child', async () => {
+      const Wrapper = (props: { children?: unknown }) => (
+        <A value={'w'}>
+          <>{props.children}</>
+        </A>
+      );
+      const Reader = () => <>{readScope(A)}</>;
+      const withFunction = () => (
+        <section>
+          <A value={'outer'}>
+            <Wrapper>{() => readScope(A)}</Wrapper>
+          </A>
+        </section>
+      );
+      const withComponent = () => (
+        <section>
+          <A value={'outer'}>
+            <Wrapper>
+              <Reader />
+            </Wrapper>
+          </A>
+        </section>
+      );
+
+      for (const Component of [withFunction, withComponent]) {
+        const serverContainer = document.createElement('div');
+        serverContainer.innerHTML = renderToStringSync(Component);
+        expect(serverContainer.textContent).toBe('w');
+        const { container: client, cleanup: cleanupClient } =
+          createTestContainer();
+        await createSPA({
+          root: client,
+          registry: routeRegistryFromTable([{ path: '/', handler: Component }]),
+        });
+        flushScheduler();
+        expect(client.textContent).toBe('w');
+        cleanupApp(client);
+        cleanupClient();
+      }
+    });
+
+    it('should render a function child of Portal on both sides', async () => {
+      const Component = () => (
+        <main>
+          <A value={'p'}>
+            <Portal>{() => readScope(A)}</Portal>
+          </A>
+        </main>
+      );
+
+      _resetDefaultPortal();
+      const serverContainer = document.createElement('div');
+      serverContainer.innerHTML = renderToStringSync(Component);
+      expect(serverContainer.textContent).toBe('p');
+
+      _resetDefaultPortal();
+      await createSPA({
+        root: container,
+        registry: routeRegistryFromTable([{ path: '/', handler: Component }]),
+      });
+      flushScheduler();
+      expect(container.textContent).toBe('p');
     });
   });
 });

@@ -18,6 +18,10 @@ import {
   type JSXElement,
 } from '../../common/jsx';
 import { readFunctionChildValue } from '../reactivity/readable';
+import {
+  getVNodeContextFrame,
+  markVNodeWithContextFrame,
+} from '../context/vnode';
 
 type VNodeLike = {
   type?: unknown;
@@ -111,11 +115,16 @@ export function isFunctionChildType(type: unknown): boolean {
 
 function toFunctionChildVNode(item: unknown): unknown {
   if (typeof item !== 'function') return item;
-  return {
+  const vnode = {
     $$typeof: ELEMENT_TYPE,
     type: FunctionChild,
     props: { read: item },
   };
+  // It renders in the context the function was written in, which may be a
+  // provider nearer than the component whose result it is part of.
+  const frame = getVNodeContextFrame(item);
+  if (frame) markVNodeWithContextFrame(vnode, frame);
+  return vnode;
 }
 
 /**

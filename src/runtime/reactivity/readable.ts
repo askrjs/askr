@@ -3,7 +3,7 @@ import {
   isRuntimeSchedulerExecuting,
   markRuntimeReactivePropsDirtySource,
 } from '../access';
-import { getCurrentComponentInstance } from '../component/scope';
+import { peekCurrentComponentInstance } from '../component/scope';
 import type { ComponentInstance } from '../component/instance';
 import { adjustOwnershipDiagnostic } from '../diagnostics/ownership-diagnostics';
 
@@ -139,7 +139,7 @@ export function recordReadableRead(source: ReadableSource<unknown>): void {
     return;
   }
 
-  const inst = getCurrentComponentInstance();
+  const inst = peekCurrentComponentInstance();
   if (!inst || inst._currentRenderToken === undefined) {
     return;
   }

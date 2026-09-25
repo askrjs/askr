@@ -15,6 +15,7 @@
 import {
   claimHookIndex,
   getCurrentComponentInstance,
+  peekCurrentComponentInstance,
 } from '../component/scope';
 import { type ComponentInstance } from '../component/instance';
 import { deferCommitNotification } from '../transactions/access';
@@ -163,7 +164,7 @@ function createStateCell<T>(
     // (when currentInstance is non-null). It must be scheduled for consistency.
     // A derive()/selector() computation running inside a render is handled
     // by the derived-computation guard below instead.
-    const currentInst = getCurrentComponentInstance();
+    const currentInst = peekCurrentComponentInstance();
     if (currentInst !== null && !isDerivedComputationActive()) {
       throw new Error(
         `[Askr] state.set() cannot be called during component render. ` +

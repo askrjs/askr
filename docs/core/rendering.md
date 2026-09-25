@@ -247,30 +247,36 @@ reactive children and props.
 
 Function children are not limited to elements. A function or cell among the
 items of a fragment or array a component returns, such as a layout that
-renders `<>{props.children}</>`, and a function child of `ErrorBoundary`,
-render and update the same way. Both renderers follow these rules, so server
-markup and client output agree.
+renders `<>{props.children}</>`, a function child of `ErrorBoundary`, and a
+function child of `Portal` render and update the same way. Both renderers
+follow these rules, so server markup and client output agree.
 
-Every function child renders as a small component of its own, in the
-context of the position it was written in, wherever it appears: inside an
-element, among a component's fragment or array items, or as `ErrorBoundary`
-children, on the server and on the client. It may call hooks such as
-`state()`, create `Show`, `For` and `Case`, and `readScope()` sees the
-providers around it. Hook slots follow the function's own call order, as in
-a component body, and persist across its re-runs. A function that only reads
-values creates no component instance, so plain reads such as
-`{() => count()}` stay as cheap as a direct text binding.
+A function child may use what a component body uses: hooks such as
+`state()`, `resource()`, `task()` and `watch()`; `Show`, `For` and `Case`;
+and `readScope()`, which sees the providers around the position the function
+was written in (including a provider rendered by a wrapper component around
+it). The server renders every function child as a small component
+(`FunctionChild`). The client does the same among fragment, array,
+`ErrorBoundary` and `Portal` children. Inside an element, a function child
+that only reads values is bound straight to the DOM with no component; the
+first time a run asks for a component (a hook, `Show`/`For`/`Case`, a
+resource), that run is abandoned and the element's function children become
+`FunctionChild` components from then on. Either way, hooks follow component
+rules: they run in the function's call order, keep their state across
+re-runs, run lifecycle work, and report a changed hook order as an error.
 
 ```tsx
 <Theme value="dark">
   <p>{() => readScope(Theme)}</p>
-  {() => (
-    <Show when={open} fallback={<em>closed</em>}>
-      <For each={items} by={(item) => item.id}>
-        {(item) => <Row item={item} />}
-      </For>
-    </Show>
-  )}
+  <div>
+    {() => (
+      <Show when={open} fallback={<em>closed</em>}>
+        <For each={items} by={(item) => item.id}>
+          {(item) => <Row item={item} />}
+        </For>
+      </Show>
+    )}
+  </div>
 </Theme>
 ```
 
