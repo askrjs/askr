@@ -65,7 +65,9 @@ declare function composeHandlers<A extends readonly unknown[]>(
 ): (...args: A) => void;
 /**
  * Merge `base` props over `injected` props: non-handler keys in `base` win,
- * and matching event handlers are composed (`injected` runs first).
+ * and matching event handlers are composed (`injected` runs first). `base`
+ * values that are `undefined` are treated as absent and never overwrite an
+ * injected value; use `null` to clear one explicitly.
  */
 declare function mergeProps<TBase extends object, TInjected extends object>(
   base: TBase,

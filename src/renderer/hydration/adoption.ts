@@ -1,4 +1,7 @@
-import { hasMatchingStaticPropsIgnoringEvents } from '../props/attributes';
+import {
+  hasMatchingStaticPropsIgnoringEvents,
+  recordAppliedProps,
+} from '../props/attributes';
 import {
   applyMatchingElementBindings,
   hasAnyElementBindingState,
@@ -112,6 +115,8 @@ function adoptMatchingIntrinsicSubtree(
   vnode: DOMElement
 ): void {
   const props = (vnode.props || {}) as Record<string, unknown>;
+  // The markup matched these props exactly, so they are Askr's baseline.
+  recordAppliedProps(element, props);
   let hasBindings = Object.prototype.hasOwnProperty.call(props, 'ref');
   for (const key in props) {
     if (parseEventProp(key)) {

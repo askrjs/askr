@@ -190,10 +190,20 @@ is the distinct operation that replaces stale work; rapid invalidations before
 the replacement begins coalesce into the latest queued refresh. A `reconcile` callback may
 be async; its decision is awaited before any retry is scheduled, and a thrown
 consistency or reconciliation callback becomes a terminal stale error.
-The key also defines the query contract itself. If multiple readers use the same key, or one
-reader rerenders that key with a different definition, keep `fetch`, `isConsistent`, and
-`reconcile` aligned; development builds warn when a later render tries to redefine a shared
-key differently.
+The key also defines the query contract itself. The reader that first defines a key owns
+its definition: each of that reader's renders replaces `fetch`, `isConsistent`, and
+`reconcile`, so inline callbacks are idiomatic and the next fetch always uses the latest
+render's closures. An in-flight fetch keeps all three callbacks it started with, so its
+result is checked and reconciled by the definition that fetched it. Like `resource()`
+loaders, a render that throws after calling `createQuery()` still leaves its new definition
+in place until the reader's next render. If other readers share the key, keep their
+callbacks aligned with the owner's; development builds warn once, after the current render
+work settles, when a remaining reader defines the key differently. A reader that replaces
+the owner in the same update (such as a keyed `For` row swap) is not a conflict. When the
+owning reader unmounts, a remaining reader's latest definition takes over immediately, so
+invalidations and refreshes never run an unmounted reader's callbacks.
+`createQueryCollection()` entries follow the same rules: each collection update redefines
+its entries, so `retry()` and invalidation fetch with the entry's current `input`.
 `stale` covers either a value that still exists but is known to be inconsistent, or an error
 state after a failed fetch or refresh. Failed refreshes can still keep the last good value in
 `data`, while a failed first load leaves `data` as `null`. Abort-like refresh cancellations also
