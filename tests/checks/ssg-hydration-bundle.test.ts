@@ -127,17 +127,17 @@ describe('SSG hydration bundle', () => {
     // 264 KiB: #507 and #529 each fit 263 KiB alone but not together (the
     // production update-loop guard plus the derived-write guard; measured
     // 269,744 bytes on main after both merged).
-    // 265 KiB: function children render the same on the client as on the
+    // 265 KiB: client navigation tracks history entry indexes so a failed
+    // back/forward returns to the rendered entry, and hands URLs no route can
+    // render to the browser (~1.1 KB, #453-#455; measured 270,803 bytes).
+    // 267 KiB: function children render the same on the client as on the
     // server (#517): one-level readable unwrap, function items in component
     // fragment/array results and ErrorBoundary children rendered through a
-    // small reactive component, binding setup for hydrated elements, and
-    // error routing for function children. About 1.2 KB (measured 270,613
-    // bytes, from 269,428 on main).
-    // 266 KiB: function children bound directly to the DOM now run as a
+    // small component, binding setup for hydrated elements, error routing,
+    // and function children bound directly to the DOM running as a
     // lightweight component render (an instance created only when the
     // function uses a hook or Show/For) in the context frame of their
-    // position, so hooks, Show/For and readScope behave the same in every
-    // position and on the server. About 1.2 KB more (measured 271,850 bytes).
-    expect(initialBytes).toBeLessThanOrEqual(266 * 1024);
+    // position. About 2.2 KB (measured 272,984 bytes, from 270,803 on main).
+    expect(initialBytes).toBeLessThanOrEqual(267 * 1024);
   });
 });
