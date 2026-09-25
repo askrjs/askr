@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- chore(bench): the benchmark workflow runs only the existing tier1 and tier2
+  lanes, as one matrix job per tier, instead of 36 copy-pasted steps that also
+  invoked the removed `bench:tier3`/`bench:tier4` scripts. The browser-only
+  `precise_clock` input and its dead tier3/4 config are removed, artifacts are
+  uploaded per tier (`bench-results-stable-tier<N>`), and docs no longer
+  describe the deleted lanes, their guardrails, or hydration timings taken from
+  them. A `tests/checks` guard fails on bench scripts, configs, or files that
+  docs and workflows reference but do not exist.
+- chore(agents): AGENTS.md now explicitly allows maintainer-run release tooling
+  (`scripts/publish-order.mjs`) and prefers workflow matrices over copy-pasted
+  steps; `tests/checks` fails on any unlisted `scripts/*` file.
 - fix(router): `hydrateSPA()` no longer redirects a server-authorized page to
   the login route when the browser cannot resolve the identity itself (for
   example httpOnly-cookie sessions). Apps opt in with the new
