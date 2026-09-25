@@ -84,8 +84,20 @@ export class QueryCell<T> {
   private reconcileSequence = 0;
   private destroyed = false;
   private ownerCount = 0;
-  private readonly owners = new Map<object, Set<number>>();
+  // Attached readers by lifetime and hook slot, with each reader's latest
+  // definition (null until the reader defines one).
+  private readonly owners = new Map<
+    object,
+    Map<number, QueryCellOptions<T> | null>
+  >();
   private readonly warnedDefinitionConflictKeys = new Set<string>();
+  // The reader whose render supplied `options`. Its later renders replace the
+  // definition, so inline callbacks never go stale or read as conflicts.
+  private definitionOwner: object | null = null;
+  private definitionOwnerHook = -1;
+  // Reader conflicts are checked after the current render work settles, so a
+  // reader replacing the owner (e.g. a keyed row swap) is not a conflict.
+  private conflictCheck: ScheduledWork | null = null;
 
   private state: QueryState<T> = loadingQueryState<T>();
 
@@ -108,7 +120,7 @@ export class QueryCell<T> {
   attach(generation: object, hookIndex: number): void {
     let hooks = this.owners.get(generation);
     if (!hooks) {
-      hooks = new Set();
+      hooks = new Map();
       this.owners.set(generation, hooks);
     }
 
@@ -116,7 +128,7 @@ export class QueryCell<T> {
       return;
     }
 
-    hooks.add(hookIndex);
+    hooks.set(hookIndex, null);
     this.ownerCount += 1;
     if (__ASKR_DEVELOPMENT_BUILD__) {
       adjustOwnershipDiagnostic('queryOwners', 1);
@@ -139,6 +151,92 @@ export class QueryCell<T> {
 
     if (this.ownerCount <= 0) {
       this.destroy();
+      return;
+    }
+
+    if (
+      this.definitionOwner === generation &&
+      this.definitionOwnerHook === hookIndex
+    ) {
+      this.promoteDefinitionOwner();
+    }
+  }
+
+  // Hand the definition to a remaining reader so the cell never keeps
+  // fetching through an unmounted reader's callbacks.
+  private promoteDefinitionOwner(): void {
+    this.definitionOwner = null;
+    for (const [generation, hooks] of this.owners) {
+      for (const [hookIndex, options] of hooks) {
+        if (options) {
+          this.options = options;
+          this.definitionOwner = generation;
+          this.definitionOwnerHook = hookIndex;
+          return;
+        }
+      }
+    }
+  }
+
+  /**
+   * Record an attached reader's definition for this key. The owning reader's
+   * renders replace the definition; with no owner, the reader takes over.
+   * Other readers are checked for conflicts once render work settles.
+   */
+  define(
+    options: QueryCellOptions<T>,
+    generation: object,
+    hookIndex: number
+  ): void {
+    const hooks = this.owners.get(generation);
+    if (this.destroyed || !hooks?.has(hookIndex)) {
+      return;
+    }
+    hooks.set(hookIndex, options);
+
+    if (
+      this.definitionOwner === null ||
+      (this.definitionOwner === generation &&
+        this.definitionOwnerHook === hookIndex)
+    ) {
+      this.options = options;
+      this.definitionOwner = generation;
+      this.definitionOwnerHook = hookIndex;
+      return;
+    }
+
+    if (!__ASKR_DEVELOPMENT_BUILD__) {
+      return;
+    }
+    const conflicts = this.getDefinitionConflicts(options);
+    if (
+      conflicts.length === 0 ||
+      this.warnedDefinitionConflictKeys.has(conflicts.join(','))
+    ) {
+      return;
+    }
+    // Server renders never swap readers, and their cells are torn down before
+    // scheduled work would run.
+    if (isServerRender()) {
+      this.warnOnConflictingDefinition(options);
+      return;
+    }
+    this.conflictCheck ??= new ScheduledWork(() =>
+      this.warnOnConflictingReaders()
+    );
+    requestRuntimeWork('component', this.conflictCheck);
+  }
+
+  private warnOnConflictingReaders(): void {
+    if (this.destroyed) {
+      return;
+    }
+    for (const hooks of this.owners.values()) {
+      for (const options of hooks.values()) {
+        if (options) {
+          this.warnOnConflictingDefinition(options);
+        }
+      }
     }
   }
 
@@ -398,9 +496,12 @@ export class QueryCell<T> {
       hasData ? refreshingQueryState(this.state.data!) : loadingQueryState<T>()
     );
 
+    // An in-flight fetch keeps the definition it started with, even if the
+    // owning reader re-renders with new callbacks before it settles.
+    const { fetch, isConsistent: checkConsistent, reconcile } = this.options;
     let nextData: T;
     try {
-      nextData = await this.options.fetch({ signal: controller.signal });
+      nextData = await fetch({ signal: controller.signal });
     } catch (error) {
       if (
         this.destroyed ||
@@ -446,7 +547,7 @@ export class QueryCell<T> {
 
     let isConsistent: boolean;
     try {
-      isConsistent = this.options.isConsistent?.(nextData) ?? true;
+      isConsistent = checkConsistent?.(nextData) ?? true;
     } catch (error) {
       this.setState(
         errorQueryState(
@@ -460,6 +561,7 @@ export class QueryCell<T> {
       this.setState(staleQueryState(nextData, 'inconsistent'));
       try {
         await this.reconcile(
+          reconcile,
           nextData,
           generation,
           controller,
@@ -490,14 +592,13 @@ export class QueryCell<T> {
   }
 
   private async reconcile(
+    reconcile: QueryOptions<T>['reconcile'],
     data: T,
     generation: number,
     controller: AbortController,
     reconcileSequence: number
   ): Promise<void> {
-    const shouldRetry = await (this.options.reconcile?.(data, {
-      key: this.options.key,
-    }) ?? false);
+    const shouldRetry = await (reconcile?.(data, { key: this.key }) ?? false);
 
     if (
       !shouldRetry ||
@@ -543,6 +644,14 @@ export class QueryCell<T> {
   }
 }
 
+function isServerRender(): boolean {
+  const context = getActiveRenderContext() as { mode?: 'ssr' | 'spa' } | null;
+  return (
+    context?.mode === 'ssr' ||
+    (context?.mode === undefined && typeof window === 'undefined')
+  );
+}
+
 function createCell<T>(
   options: QueryCellOptions<T>,
   cache: Map<string, QueryCell<unknown>>
@@ -579,31 +688,30 @@ function createLegacyQuery<T extends {}>(
   const hookIndex = claimHookIndex(instance, 'createQuery');
   ensureQueryCleanup(runtimeState, instance);
 
+  const generation = getComponentLifetimeIdentity(instance);
   const slotStore = getQuerySlotStore(runtimeState, instance);
   const existingSlot = slotStore.get(hookIndex);
   if (existingSlot && existingSlot.key === options.key) {
-    (existingSlot.cell as QueryCell<T>).warnOnConflictingDefinition(options);
+    (existingSlot.cell as QueryCell<T>).define(options, generation, hookIndex);
     return existingSlot.cell as unknown as Query<T>;
   }
 
   if (existingSlot) {
-    existingSlot.cell.detach(getComponentLifetimeIdentity(instance), hookIndex);
+    existingSlot.cell.detach(generation, hookIndex);
   }
 
   if (override) return override;
 
-  let cell = cache.get(options.key) as QueryCell<T> | undefined;
-  if (!cell) {
-    cell = createCell(options, cache);
-  } else {
-    cell.warnOnConflictingDefinition(options);
-  }
+  const cell =
+    (cache.get(options.key) as QueryCell<T> | undefined) ??
+    createCell(options, cache);
 
   slotStore.set(hookIndex, {
     key: options.key,
     cell: cell as QueryCell<unknown>,
   });
-  cell.attach(getComponentLifetimeIdentity(instance), hookIndex);
+  cell.attach(generation, hookIndex);
+  cell.define(options, generation, hookIndex);
   return cell as unknown as Query<T>;
 }
 
@@ -613,7 +721,6 @@ export function createDefinedQuery<TInput, TResult extends {}>(
   options: Omit<QueryOptions<TResult>, 'key' | 'fetch'> = {}
 ): Query<TResult> {
   const runtime = options.runtime;
-  const context = getActiveRenderContext() as { mode?: 'ssr' | 'spa' } | null;
   const key = definition.key(input);
   const dataRuntime =
     runtime ??
@@ -622,9 +729,7 @@ export function createDefinedQuery<TInput, TResult extends {}>(
       | undefined) ??
     getCurrentAppRenderRuntime()?.dataRuntime ??
     getDefaultDataRuntime();
-  const serverRender =
-    context?.mode === 'ssr' ||
-    (context?.mode === undefined && typeof window === 'undefined');
+  const serverRender = isServerRender();
   const runtimeState = resolveDataRuntimeState(dataRuntime);
   return createLegacyQuery({
     ...options,

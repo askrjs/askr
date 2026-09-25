@@ -11,6 +11,7 @@ import {
   setServerLocation,
 } from '../router/route';
 import { clearRouteState } from '../router/store';
+import { readHydratedAuth, withoutHydratedAuth } from '../router/auth';
 import { assertExecutionModel } from '../runtime';
 import { createAppRenderRuntime } from '../common/app-render-runtime';
 import {
@@ -90,19 +91,25 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         hydrationQueryCache
       );
     }
-    const hydrationRenderDataForApp = hydrationRenderData;
+    // The auth snapshot is consumed by route resolution below; components
+    // never see it through render data.
+    const hydrationRenderDataForApp = withoutHydratedAuth(hydrationRenderData);
 
     configureScrollRestoration(config.scrollRestoration);
 
     clearRouteState();
     _applyManifest(manifest);
+    // The server already enforced auth for this page. Its opted-in identity
+    // snapshot decides the initial route; without a client `resolve` it also
+    // stays the identity for navigations.
+    const hydratedAuth = readHydratedAuth(hydrationRenderData);
 
     const routeAuth = config.auth ?? manifest.auth;
     const appRouteSource = {
       registry: config.registry,
       auth: routeAuth,
       runtime: createAppRenderRuntime({
-        framework: hydrationRenderData?.framework,
+        framework: hydrationRenderDataForApp?.framework,
         route: hydrationRenderData?.route,
         hasRoute: hydrationRenderData !== null,
         routeRegistry: config.registry,
@@ -118,6 +125,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     } = await resolveInitialRoute(routeAuth, {
       registry: config.registry,
       load: false,
+      authContext: hydratedAuth,
     });
     setServerLocation(currentUrl);
     if (isProductionEnvironment()) lockRouteRegistration();

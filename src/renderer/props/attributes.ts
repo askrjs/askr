@@ -10,6 +10,7 @@ import { isDevelopmentEnvironment } from '../../common/env';
 import { logger } from '../../common/logger';
 import { incrementPerfMetric } from '../../runtime';
 import { setRef } from '../../foundations/utilities/compose-ref';
+import type { ReactivePropCleanupEntry } from '../ownership/cleanup';
 import {
   extractKey,
   getRenderedAttributeName,
@@ -24,7 +25,7 @@ import {
 } from '../utils';
 
 /** Props whose live DOM property must be synced alongside the attribute. */
-function isFormControlProp(key: string): boolean {
+export function isFormControlProp(key: string): boolean {
   return key === 'value' || key === 'checked' || key === 'selected';
 }
 
@@ -76,6 +77,96 @@ type Ref<T> =
 export function applyRef<T>(el: T, ref: unknown): void {
   const resolvedRef = ref as Ref<T>;
   setRef(resolvedRef, el);
+}
+
+/**
+ * What Askr last applied to each element: the rendered prop values, keyed by
+ * prop name. Reconciliation diffs against this baseline rather than the live
+ * DOM, so attributes, class tokens and style properties written by other code
+ * survive re-renders. Children, keys, refs and event handlers are not
+ * recorded, and reactive bindings are recorded as a marker, so the record does
+ * not retain vnode trees or closures.
+ */
+export type AppliedProps = Readonly<Record<string, unknown>>;
+
+const appliedProps = new WeakMap<Element, AppliedProps>();
+
+/** Stands in for a reactive (function) prop value in the applied record. */
+const REACTIVE_APPLIED_VALUE = Object.freeze({});
+
+/** @internal Record the props Askr has just applied to `el`. */
+export function recordAppliedProps(
+  el: Element,
+  props: Record<string, unknown>
+): void {
+  const record: Record<string, unknown> = {};
+  for (const key in props) {
+    if (
+      isSkippedProp(key) ||
+      key === 'dangerouslySetInnerHTML' ||
+      parseEventName(key)
+    ) {
+      continue;
+    }
+    const value = props[key];
+    if (isRenderedPropValue(key, value)) {
+      record[key] =
+        typeof value === 'function' ? REACTIVE_APPLIED_VALUE : value;
+    }
+  }
+  appliedProps.set(el, record);
+}
+
+/**
+ * @internal The props Askr last applied to `el`, or `undefined` when the
+ * element was never reconciled by Askr (for example server-rendered markup).
+ */
+export function getAppliedProps(el: Element): AppliedProps | undefined {
+  return appliedProps.get(el);
+}
+
+/** @internal Put back a record captured with `getAppliedProps` (rollback). */
+export function restoreAppliedProps(
+  el: Element,
+  record: AppliedProps | undefined
+): void {
+  if (record === undefined) {
+    appliedProps.delete(el);
+  } else {
+    appliedProps.set(el, record);
+  }
+}
+
+/** Whether a prop value renders anything into the DOM. */
+export function isRenderedPropValue(key: string, value: unknown): boolean {
+  return (
+    value !== undefined &&
+    value !== null &&
+    (value !== false || keepsFalseValue(key))
+  );
+}
+
+/**
+ * @internal The value Askr last applied for `key`, as a diff baseline:
+ * `null` when nothing was rendered, `undefined` when unknown (no record, or a
+ * reactive binding that has not committed yet). For a reactive binding the
+ * value is read from the binding itself.
+ */
+export function getPreviousAppliedValue(
+  previousProps: AppliedProps | undefined,
+  key: string,
+  reactiveProps?: ReadonlyMap<string, ReactivePropCleanupEntry>
+): unknown {
+  if (previousProps === undefined) return undefined;
+  const isClass = key === 'class' || key === 'className';
+  const value = isClass
+    ? (previousProps.class ?? previousProps.className)
+    : previousProps[key];
+  if (value !== REACTIVE_APPLIED_VALUE) return value ?? null;
+  const binding = isClass
+    ? (reactiveProps?.get('class') ?? reactiveProps?.get('className'))
+    : reactiveProps?.get(key);
+  return binding?.readAppliedValue?.();
 }
 
 export function applyFormControlProp(
@@ -163,19 +254,24 @@ export function applyFormControlProp(
   }
 }
 
-function collectCurrentStyleEntries(el: Element): StyleEntries {
+const IMPORTANT_SUFFIX = ' !important';
+
+function readStyleEntry(
+  style: CSSStyleDeclaration,
+  propertyName: string
+): string {
+  return (
+    style.getPropertyValue(propertyName) +
+    (style.getPropertyPriority(propertyName) ? IMPORTANT_SUFFIX : '')
+  );
+}
+
+function collectStyleEntries(style: CSSStyleDeclaration): StyleEntries {
   const entries: StyleEntries = new Map();
-  const style = (el as HTMLElement | SVGElement).style;
-
-  if (!style) {
-    return entries;
-  }
-
   for (let index = 0; index < style.length; index += 1) {
     const propertyName = style.item(index);
-    entries.set(propertyName, style.getPropertyValue(propertyName));
+    entries.set(propertyName, readStyleEntry(style, propertyName));
   }
-
   return entries;
 }
 
@@ -208,10 +304,40 @@ function normalizeStyleEntries(value: unknown): StyleEntries | null {
   return entries;
 }
 
-export function applyStylePropValue(el: Element, value: unknown): void {
+let scratchStyle: CSSStyleDeclaration | null = null;
+
+/** Style entries a prop value renders; `null` when it is not expressible. */
+function readStyleEntries(el: Element, value: unknown): StyleEntries | null {
+  if (value === null || value === undefined || value === false) {
+    return new Map();
+  }
+  if (typeof value !== 'string') {
+    return normalizeStyleEntries(value);
+  }
+
+  // Parse on a detached declaration so the target element is not touched.
+  scratchStyle ??= el.ownerDocument.createElement('div').style;
+  scratchStyle.cssText = value;
+  const entries = collectStyleEntries(scratchStyle);
+  scratchStyle.cssText = '';
+  return entries;
+}
+
+/**
+ * Apply a `style` prop. `previousValue` is the value Askr last applied
+ * (`null` when none): only the properties it owns are removed or rewritten, so
+ * properties set by other code survive. When `previousValue` is `undefined`
+ * the element's whole style is treated as Askr-owned.
+ */
+export function applyStylePropValue(
+  el: Element,
+  value: unknown,
+  previousValue?: unknown
+): void {
   const style = (el as HTMLElement | SVGElement).style;
+  const isEmpty = value === null || value === undefined || value === false;
   if (!style) {
-    if (value === null || value === undefined || value === false) {
+    if (isEmpty) {
       el.removeAttribute('style');
       return;
     }
@@ -220,57 +346,56 @@ export function applyStylePropValue(el: Element, value: unknown): void {
     return;
   }
 
-  if (value === null || value === undefined || value === false) {
-    if (!el.getAttribute('style')) {
-      incrementPerfMetric('skippedDomPropWrites');
-      return;
-    }
-
-    style.cssText = '';
-    el.removeAttribute('style');
+  if (
+    (el.getAttribute('style') ?? '') === (isEmpty ? '' : value) ||
+    (isEmpty && previousValue === null)
+  ) {
+    incrementPerfMetric('skippedDomPropWrites');
     return;
   }
 
-  if (typeof value === 'string') {
-    if ((el.getAttribute('style') ?? '') === value) {
-      incrementPerfMetric('skippedDomPropWrites');
-      return;
-    }
-
-    style.cssText = value;
+  if (previousValue === undefined && (isEmpty || typeof value === 'string')) {
+    style.cssText = isEmpty ? '' : (value as string);
+    if (isEmpty) el.removeAttribute('style');
     return;
   }
 
-  const nextEntries = normalizeStyleEntries(value);
+  const nextEntries = readStyleEntries(el, value);
   if (!nextEntries) {
-    const nextText = String(value);
-    if ((el.getAttribute('style') ?? '') === nextText) {
-      incrementPerfMetric('skippedDomPropWrites');
-      return;
-    }
-
-    style.cssText = nextText;
+    style.cssText = String(value);
     return;
   }
+  // An unknown or unparseable baseline treats the whole style as Askr-owned.
+  const previousEntries =
+    (previousValue === undefined
+      ? null
+      : previousValue === value
+        ? nextEntries
+        : readStyleEntries(el, previousValue)) ?? collectStyleEntries(style);
 
-  const previousEntries = collectCurrentStyleEntries(el);
   let didWrite = false;
-
   for (const [propertyName] of previousEntries) {
-    if (nextEntries.has(propertyName)) {
+    if (nextEntries.has(propertyName) || !style.getPropertyValue(propertyName))
       continue;
-    }
-
     style.removeProperty(propertyName);
     didWrite = true;
   }
 
   for (const [propertyName, propertyValue] of nextEntries) {
-    if (previousEntries.get(propertyName) === propertyValue) {
-      continue;
-    }
+    if (readStyleEntry(style, propertyName) === propertyValue) continue;
+    const important = propertyValue.endsWith(IMPORTANT_SUFFIX);
+    style.setProperty(
+      propertyName,
+      important
+        ? propertyValue.slice(0, -IMPORTANT_SUFFIX.length)
+        : propertyValue,
+      important ? 'important' : ''
+    );
+    didWrite = true;
+  }
 
-    style.setProperty(propertyName, propertyValue);
+  if (isEmpty && style.length === 0) {
+    el.removeAttribute('style');
     didWrite = true;
   }
 
@@ -314,6 +439,15 @@ export function applyStaticScalarPropsToElement(
   }
 }
 
+const EMPTY_CLASS_TOKENS: string[] = [];
+
+/** Class tokens Askr last applied; `null` means unknown. */
+function previousClassTokens(previousValue: unknown): string[] | null {
+  return previousValue === null || previousValue === false
+    ? EMPTY_CLASS_TOKENS
+    : tokenizeClassValue(previousValue);
+}
+
 function tokenizeClassValue(value: unknown): string[] | null {
   if (typeof value !== 'string') {
     return null;
@@ -341,6 +475,14 @@ function patchClassList(
       }
     }
     if (identical) {
+      // Nothing changed since the last apply; restore any owned token that
+      // other code removed without touching tokens it added.
+      for (const token of nextTokens) {
+        if (!el.classList.contains(token)) {
+          el.classList.add(token);
+          incrementPerfMetric('classListPatchOps');
+        }
+      }
       return;
     }
   }
@@ -394,7 +536,6 @@ export function applyClassPropValue(
   const nextString = String(value);
   if (
     !descriptor &&
-    previousValue === undefined &&
     nextString.length > 0 &&
     readElementClassName(el) === nextString
   ) {
@@ -403,7 +544,7 @@ export function applyClassPropValue(
   }
   const nextTokens = tokenizeClassValue(nextString);
   const previousTokens =
-    descriptor?.lastClassTokens ?? tokenizeClassValue(previousValue);
+    descriptor?.lastClassTokens ?? previousClassTokens(previousValue);
 
   if (nextTokens && previousTokens) {
     patchClassList(el, previousTokens, nextTokens);
@@ -440,12 +581,14 @@ export function applyScalarPropValue(
     (value === false && !keepsFalseValue(key))
   ) {
     if (key === 'class' || key === 'className') {
-      const previousTokens = descriptor?.lastClassTokens;
-      if (previousTokens && previousTokens.length > 0) {
+      const previousTokens = descriptor
+        ? descriptor.lastClassTokens
+        : previousClassTokens(previousValue);
+      if (previousTokens === null) {
+        writeElementClassName(el, '');
+      } else if (previousTokens.length > 0) {
         el.classList.remove(...previousTokens);
         incrementPerfMetric('classListPatchOps');
-      } else {
-        writeElementClassName(el, '');
       }
       if (descriptor) {
         descriptor.lastClassTokens = [];
@@ -455,7 +598,7 @@ export function applyScalarPropValue(
     } else if (key === 'checked' || key === 'selected') {
       applyFormControlProp(el, key, false, tagName);
     } else if (key === 'style') {
-      applyStylePropValue(el, null);
+      applyStylePropValue(el, null, previousValue);
     } else {
       removeRenderedAttribute(el, key);
     }
@@ -465,7 +608,7 @@ export function applyScalarPropValue(
   if (key === 'class' || key === 'className') {
     applyClassPropValue(el, value, previousValue, descriptor);
   } else if (key === 'style') {
-    applyStylePropValue(el, value);
+    applyStylePropValue(el, value, previousValue);
   } else if (isFormControlProp(key)) {
     applyFormControlProp(el, key, value, tagName);
   } else if (key === 'dangerouslySetInnerHTML') {
@@ -484,11 +627,46 @@ export function applyScalarPropValue(
   }
 }
 
+/** Whether any prop in `props` renders the attribute `attributeName`. */
+function rendersAttribute(
+  el: Element,
+  props: Record<string, unknown>,
+  attributeName: string
+): boolean {
+  for (const propName in props) {
+    if (
+      !isSkippedProp(propName) &&
+      !parseEventName(propName) &&
+      isRenderedPropValue(propName, props[propName]) &&
+      getRenderedAttributeName(el, propName) === attributeName
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Remove what Askr rendered for props that are absent from `props`.
+ *
+ * With `previousProps` (the props Askr last applied) only attributes, class
+ * tokens and style properties Askr wrote are removed; anything other code
+ * added is preserved. Props still present in `props` are reconciled by the
+ * caller. Without a record (markup Askr did not create, such as SSR output
+ * being adopted) every attribute not in `props` is treated as stale.
+ */
 export function removeStaleAttributes(
   el: Element,
   vnode: unknown,
-  props: Record<string, unknown>
+  props: Record<string, unknown>,
+  previousProps?: AppliedProps,
+  reactiveProps?: ReadonlyMap<string, ReactivePropCleanupEntry>
 ): void {
+  if (previousProps !== undefined) {
+    removeStaleOwnedProps(el, vnode, props, previousProps, reactiveProps);
+    return;
+  }
+
   const desiredAttributes: string[] = [];
   const key = extractKey(vnode);
 
@@ -534,6 +712,49 @@ export function removeStaleAttributes(
         : desiredAttributes.includes(attributeName))
     ) {
       removeRenderedAttribute(el, attribute.name);
+    }
+  }
+}
+
+function removeStaleOwnedProps(
+  el: Element,
+  vnode: unknown,
+  props: Record<string, unknown>,
+  previousProps: AppliedProps,
+  reactiveProps: ReadonlyMap<string, ReactivePropCleanupEntry> | undefined
+): void {
+  if (extractKey(vnode) === undefined) {
+    if (el.hasAttribute('data-key')) el.removeAttribute('data-key');
+    if (el.hasAttribute('data-askr-key-kind')) {
+      el.removeAttribute('data-askr-key-kind');
+    }
+  }
+
+  // The record only holds rendered, attribute-bearing props.
+  for (const propName in previousProps) {
+    if (propName in props) continue;
+
+    if (propName === 'class' || propName === 'className') {
+      if (!('class' in props) && !('className' in props)) {
+        applyScalarPropValue(
+          el,
+          'class',
+          null,
+          el.localName,
+          getPreviousAppliedValue(previousProps, propName, reactiveProps)
+        );
+      }
+    } else if (propName === 'style') {
+      applyStylePropValue(
+        el,
+        null,
+        getPreviousAppliedValue(previousProps, propName, reactiveProps)
+      );
+    } else {
+      const attributeName = getRenderedAttributeName(el, propName);
+      if (!rendersAttribute(el, props, attributeName)) {
+        el.removeAttribute(attributeName);
+      }
     }
   }
 }

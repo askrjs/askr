@@ -75,6 +75,10 @@ export class BlueprintBinding implements ReactivePropCleanupEntry {
     if (this.group) cleanupGroupedBinding(this.group, this);
   }
 
+  readAppliedValue(): unknown {
+    return this.hasValue ? this.lastValue : undefined;
+  }
+
   updateFn(nextValue: unknown): void {
     if (this.group) updateGroupedBinding(this.group, this, nextValue);
   }

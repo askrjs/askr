@@ -101,6 +101,14 @@ describe('SSG hydration bundle', () => {
     // attribute names, the unitless CSS property list for numeric style `px`
     // units, and the enumerated attributes that render `false` (~2.5 KB).
     // Both renderers need them to emit the same, valid markup.
-    expect(initialBytes).toBeLessThanOrEqual(260 * 1024);
+    // 262 KiB, raised again when prop reconciliation started diffing against
+    // the props Askr last applied (instead of the live DOM) so attributes,
+    // class tokens and style properties written by other code survive
+    // re-renders. That ownership tracking, including its rollback snapshots
+    // and reactive/static transitions, is ~1.8 KB of core renderer code
+    // (measured 267,611 bytes, just over 261 KiB).
+    // 263 KiB: fx lifecycle ownership (#468/#469) and the hydration auth
+    // snapshot reader (#456) add ~0.9 KB of client code (measured 268,538 bytes).
+    expect(initialBytes).toBeLessThanOrEqual(263 * 1024);
   });
 });

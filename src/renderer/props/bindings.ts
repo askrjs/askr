@@ -1,6 +1,14 @@
 import { keepsFalseValue } from '../../common/prop-classification';
 import { getDelegatedHandlersForElement } from './events';
-import { applyScalarPropValue, removeStaleAttributes } from './attributes';
+import {
+  applyScalarPropValue,
+  getAppliedProps,
+  getPreviousAppliedValue,
+  isFormControlProp,
+  isRenderedPropValue,
+  recordAppliedProps,
+  removeStaleAttributes,
+} from './attributes';
 import {
   elementListeners,
   elementRefs,
@@ -192,6 +200,7 @@ export function syncElementPropBindings(
 ): void {
   const existingListeners = elementListeners.get(el);
   const existingReactiveProps = getElementReactivePropsCleanupMap(el);
+  const previousProps = getAppliedProps(el);
   let desiredListenerKeys: Set<string> | null = null;
   let desiredDelegatedEventNames: Set<string> | null = null;
   let desiredReactivePropNames: Set<string> | null = null;
@@ -215,13 +224,34 @@ export function syncElementPropBindings(
 
     if (value === undefined || value === null || value === false) {
       if (
-        !(
-          listenerKey &&
-          removeElementListener(el, existingListeners, listenerKey)
-        ) &&
-        !removeReactivePropBinding(existingReactiveProps, key)
-      )
-        applyScalarPropValue(el, key, value, domVNode.type as string);
+        listenerKey &&
+        removeElementListener(el, existingListeners, listenerKey)
+      ) {
+        continue;
+      }
+      const previousValue = getPreviousAppliedValue(
+        previousProps,
+        key,
+        existingReactiveProps
+      );
+      removeReactivePropBinding(existingReactiveProps, key);
+      // Skip props Askr did not render last time: whatever sits under that
+      // name now belongs to other code. Form controls stay controlled: a
+      // false `checked` still resets the live property.
+      if (
+        previousProps === undefined ||
+        previousValue !== null ||
+        isRenderedPropValue(key, value) ||
+        isFormControlProp(key)
+      ) {
+        applyScalarPropValue(
+          el,
+          key,
+          value,
+          domVNode.type as string,
+          previousValue
+        );
+      }
       continue;
     }
     if (typeof value === 'function' && !eventProp && key !== 'ref') {
@@ -229,16 +259,24 @@ export function syncElementPropBindings(
       if (existingReactiveProps && existingReactiveProps.size > 0) {
         (desiredReactivePropNames ??= new Set()).add(key);
       }
+      // A new binding replacing a static value starts from what Askr
+      // rendered, so its first commit patches only owned tokens.
       syncReactivePropBinding(
         el,
         key,
         value as () => unknown,
         domVNode,
+        existingEntry,
         existingEntry
+          ? undefined
+          : getPreviousAppliedValue(previousProps, key, existingReactiveProps)
       );
       continue;
     }
 
+    const previousValue = eventProp
+      ? undefined
+      : getPreviousAppliedValue(previousProps, key, existingReactiveProps);
     removeReactivePropBinding(existingReactiveProps, key);
     if (eventProp && listenerKey) {
       const disposition = syncElementListener(
@@ -254,11 +292,24 @@ export function syncElementPropBindings(
         (desiredDelegatedEventNames ??= new Set()).add(eventProp.eventName);
       }
     } else {
-      applyScalarPropValue(el, key, value, domVNode.type as string);
+      applyScalarPropValue(
+        el,
+        key,
+        value,
+        domVNode.type as string,
+        previousValue
+      );
     }
   }
 
-  removeStaleAttributes(el, domVNode, props);
+  removeStaleAttributes(
+    el,
+    domVNode,
+    props,
+    previousProps,
+    existingReactiveProps
+  );
+  recordAppliedProps(el, props);
   pruneElementListeners(
     el,
     existingListeners,

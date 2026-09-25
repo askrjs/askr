@@ -241,6 +241,19 @@ function DialogButton({ onPress, onClose, disabled }) {
 }
 ```
 
+`mergeProps(base, injected)` rules:
+
+- Non-handler keys in `base` whose value is not `undefined` overwrite
+  `injected` (base wins).
+- `on*` handlers present in both are composed; `injected` runs first.
+- A `base` value of `undefined` means "not provided" and never overwrites an
+  injected value, so forwarding an optional prop that was not supplied
+  (`onClick={props.onClick}`) keeps the primitive's handler and ARIA.
+- `null` is an explicit value: pass it to clear an injected prop; intrinsic
+  `on*` handler props accept `null` for this.
+- `mergeInteractionProps` builds on these rules but keeps the policy's
+  `disabled` (even `undefined`) so the policy alone decides disabled state.
+
 ### OK CORRECT: User handlers compose with foundation handlers
 
 ```typescript

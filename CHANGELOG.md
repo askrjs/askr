@@ -12,6 +12,62 @@
   so `preventDefault()` in them takes effect. Hydrated nodes use the same
   delegated listeners as client-rendered ones, so a client-rendered child's
   handler runs before (and can stop) a hydrated ancestor's handler.
+- fix(router): `hydrateSPA()` no longer redirects a server-authorized page to
+  the login route when the browser cannot resolve the identity itself (for
+  example httpOnly-cookie sessions). Apps opt in with the new
+  `auth.dehydrate(context)` hook, which selects the minimal identity snapshot
+  (`authenticated`, `principal`, `tenant`, `scopes`; never the session)
+  serialized into the hydration payload. Hydration uses it for the initial
+  route; navigations use `auth.resolve`, or keep the snapshot when no resolver
+  is configured. Nothing about the identity is serialized without the hook.
+  `RouteAuthOptions.resolve` is now optional.
+- fix(fx): `scheduleTimeout()`, `scheduleIdle()` and `scheduleRetry()` now
+  cancel pending work when the component that scheduled them unmounts, as
+  documented. Calls made from a mounted component's `task()`, `watch()`
+  callback, mount/commit operation or event handler bind to that component's
+  lifetime, including portal content (owned by the writer) and handlers
+  wrapped by `debounceEvent()`, `throttleEvent()`, `rafEvent()` or
+  `scheduleEventHandler()`. Scheduled callbacks and retry attempts run as the
+  scheduling component, so work they reschedule (for example a polling loop)
+  also stops on unmount, and a stable portal handler follows the writer that
+  last rendered it. A synchronous scheduler flush inside a handler no
+  longer runs unrelated queued work as that handler's component. Previously no
+  cleanup was ever registered and timers fired after unmount. The unreachable
+  SSR branches in these helpers are removed, and `scheduleRetry()` settles
+  when `fn` throws synchronously or returns a non-promise.
+- fix(fx): `throttle(fn, ms, { leading: false })` waits the full interval
+  after an idle gap instead of firing on the next tick, and a throttle without
+  a trailing edge no longer retains the last arguments.
+- fix(fx): `debounceEvent({ leading: true })` and the default
+  `throttleEvent()` no longer call the handler twice for a single event. The
+  trailing edge only runs when another event arrived after the leading call.
+  Both now share their edge logic with `debounce()` and `throttle()`, and
+  `debounceEvent().flush()` only runs a pending trailing call.
+- fix(foundations): `mergeProps` no longer lets a `base` value of `undefined`
+  overwrite an injected prop. Forwarding an optional prop that was not supplied
+  (`onClick={props.onClick}`) used to wipe the primitive's handler or ARIA
+  attribute; `undefined` now means "not provided". Pass `null` to clear an
+  injected prop explicitly; intrinsic `on*` handler props now accept `null` in
+  their types. `mergeInteractionProps` still lets the policy own `disabled`, so
+  an enabled native policy clears a fixed `disabled` from the user or child.
+- fix(data): an inline `createQuery({ key, fetch })` no longer warns about a
+  conflicting shared query definition on every re-render, and no longer keeps
+  the first render's `fetch` closure forever. The reader that defines a key
+  now replaces its `fetch`, `isConsistent`, and `reconcile` on each render;
+  only other readers of the same key with a different definition warn, after
+  the current render work settles (a keyed row replacing the owner does not
+  warn). When the defining reader unmounts, a remaining reader's definition
+  takes over immediately. An in-flight fetch is checked and reconciled with the
+  callbacks it started with. `createQueryCollection()` entries are redefined on
+  each update, so `retry()` fetches with the entry's current `input`.
+- fix(ssr): text children of HTML `<script>` and `<style>` are written verbatim
+  instead of entity-escaped, so `a > b` no longer becomes `a &gt; b` and breaks
+  the CSS or JavaScript. In styles every `<` becomes the CSS escape `\3c `; in
+  scripts every `</`, `<script` and `<!--` is rewritten (JSON-safe), so content
+  cannot close the element or an ancestor. Text stays entity-escaped inside SVG
+  or MathML, `<style>` inside `<select>`, and under raw text or RCDATA ancestors
+  such as `<noscript>` and `<textarea>`. Element children inside these elements
+  now throw during SSR.
 - fix(router): route precedence is decided segment by segment, as documented:
   the first segment where two routes differ picks static > param > wildcard >
   splat, so `/docs/{*rest}` now beats `/{lang}/{page}` for `/docs/intro`
@@ -73,6 +129,14 @@
   development when a query has no registered server handler. The
   skipped-preload warning is tracked per runtime outside the frozen
   `DataRuntime`, so it logs once per query key and resolves `false` as intended.
+- fix(runtime): `derive()` no longer serves a value computed by a previous
+  render's closure (for example after a second render in the same flush from
+  `watch()` or `task()`, new props, or a local read from another derive). A
+  source change evaluates the derive once with the last render's function and
+  skips the owner re-render when the value is unchanged; when it changed, the
+  owner re-renders and evaluates its new function once more. A render-time
+  recompute of `derive()` or `selector()` now notifies downstream readers, so
+  derived values in other components no longer stay one update behind.
 - fix(runtime): hook-order enforcement now catches a render that claims fewer
   hooks than the first render, and a slot whose hook kind changes (for example
   `derive()` where the first render called `state()`). Previously only extra
@@ -80,6 +144,20 @@
   their public API (`createQuery()`, `onRouteChange()`, `<For>`). The unreachable
   monotonic index check is removed, and the internal `ComponentInstance`
   field `expectedStateIndices` is replaced by `expectedHookKinds`.
+- fix(renderer): re-renders no longer strip attributes, class tokens and inline
+  styles added by other code (focus traps setting `aria-hidden`/`inert`,
+  animation libraries setting `style.transform`, tooltips adding `data-*`,
+  `classList.add`). Prop reconciliation now diffs against the props Askr last
+  applied to each element instead of the live DOM, so only what Askr rendered is
+  removed or patched.
+
+- fix(ssr): sync `renderToString({ url, registry })`/`renderToStream()` no
+  longer follow auth redirects or render a denial marker with an implicit 200.
+  Redirect and deny decisions throw the new `SSRAccessDecisionError`, whose
+  `decision` matches what `renderRouteRequest()` returns. The sync path also no
+  longer starts route loaders: a loader route throws `SSRDataMissingError`
+  naming the route and pointing to `renderRouteRequest()`, and abandoned async
+  resolution no longer leaks an unhandled rejection.
 - breaking(ssr): sync `renderToString({ url, registry })`/`renderToStream()`
   no longer follow auth redirects or render a denial marker with an implicit 200. Redirect and deny decisions throw the new `SSRAccessDecisionError`, whose
   `decision` matches what `renderRouteRequest()` returns. The sync path also no

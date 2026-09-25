@@ -7,7 +7,7 @@
 import type { ReadableSource } from '../reactivity/readable';
 import type { ComponentInstance } from './instance';
 import type { AppRenderRuntime } from '../../common/app-render-runtime';
-import { getOwnershipSignal } from '../ownership/record';
+import { getOwnershipSignal, type OwnershipRecord } from '../ownership/record';
 
 export type ComponentScopeSnapshot = {
   instance: ComponentInstance | null;
@@ -24,6 +24,7 @@ type InlineRenderTrackingSnapshot = {
 let currentInstance: ComponentInstance | null = null;
 let currentPortalScope: object | null = null;
 let scopedAppRenderRuntime: AppRenderRuntime | undefined;
+let currentLifecycleOwner: OwnershipRecord | null = null;
 let stateIndex = 0;
 let globalRenderCounter = 0;
 
@@ -125,6 +126,68 @@ export function withAppRenderRuntime<T>(
   } finally {
     scopedAppRenderRuntime = previous;
   }
+}
+
+/**
+ * @internal Run committed lifecycle work (mount/commit operations, watch
+ * callbacks, event handlers) on behalf of `owner`, so post-render helpers can
+ * bind their own teardown to that component lifetime.
+ */
+export function withLifecycleOwner<T>(
+  owner: OwnershipRecord | null | undefined,
+  fn: () => T
+): T {
+  const previous = currentLifecycleOwner;
+  currentLifecycleOwner = owner ?? null;
+  try {
+    return fn();
+  } finally {
+    currentLifecycleOwner = previous;
+  }
+}
+
+/**
+ * @internal The component whose lifetime owns listeners and wrappers created
+ * in the current render scope. Portal hosts render content on behalf of the
+ * component that wrote it; each host render records that writer (or clears it
+ * when the writer is no longer live) before returning the content.
+ */
+export function getCurrentLifecycleInstance(): ComponentInstance | null {
+  return (
+    (currentInstance && getLivePortalErrorParent(currentInstance)) ??
+    currentInstance
+  );
+}
+
+/** @internal The live component that wrote a portal host's content, if any. */
+export function getLivePortalErrorParent(
+  instance: ComponentInstance
+): ComponentInstance | null {
+  const parent = instance._portalErrorParent;
+  if (
+    !parent ||
+    parent.owner.identity !== instance._portalErrorParentGeneration ||
+    parent.notifyUpdate === null
+  ) {
+    return null;
+  }
+  return parent;
+}
+
+/**
+ * @internal Capture ownership for a wrapper created now whose callback runs
+ * later. The returned resolver prefers the lifetime dispatching the call and
+ * falls back to the component (or committed work) that created the wrapper.
+ */
+export function captureLifecycleOwner(): () => OwnershipRecord | null {
+  const instance = getCurrentLifecycleInstance();
+  const owner = currentLifecycleOwner;
+  return () => currentLifecycleOwner ?? instance?.owner ?? owner;
+}
+
+/** @internal The component lifetime running the current committed work, if any. */
+export function getCurrentLifecycleOwner(): OwnershipRecord | null {
+  return currentLifecycleOwner;
 }
 
 export function getCurrentPortalScope(): object | null {
