@@ -13,6 +13,32 @@
   behaviour instead of private fields, and the browser form tests wait on the
   pending render instead of wall-clock timing.
 
+- fix(renderer): event handler errors are reported with `reportError()`, which
+  dispatches a `window` `error` event, instead of only being logged. This covers
+  delegated and direct listeners and `scheduleEventHandler`; the remaining
+  handlers for the event still run. Hosts without `reportError()` (Node, jsdom)
+  rethrow the error from a microtask, so it arrives as an `uncaughtException`
+  and test runners that fail on unhandled errors report it. Errors thrown by
+  function-valued (reactive) props now reach the nearest `ErrorBoundary`
+  (including one whose direct children contain the binding; bindings in a
+  fallback go to the boundary above), or are thrown from the update when there
+  is none. Previously they were a development-only warning and silent in
+  production.
+- fix(renderer): keyed fast paths no longer catch errors and retry through a
+  slower path. A row whose render throws now renders once per update instead of
+  up to three times, and the error surfaces once. Production commits no longer
+  capture an `Error().stack` for diagnostics.
+- chore(bench): the benchmark workflow runs only the existing tier1 and tier2
+  lanes, as one matrix job per tier, instead of 36 copy-pasted steps that also
+  invoked the removed `bench:tier3`/`bench:tier4` scripts. The browser-only
+  `precise_clock` input and its dead tier3/4 config are removed, artifacts are
+  uploaded per tier (`bench-results-stable-tier<N>`), and docs no longer
+  describe the deleted lanes, their guardrails, or hydration timings taken from
+  them. A `tests/checks` guard fails on bench scripts, configs, or files that
+  docs and workflows reference but do not exist.
+- chore(agents): AGENTS.md now explicitly allows maintainer-run release tooling
+  (`scripts/publish-order.mjs`) and prefers workflow matrices over copy-pasted
+  steps; `tests/checks` fails on any unlisted `scripts/*` file.
 - fix(router): when several page `fallback()`s match a URL, the deepest page
   prefix (counted in segments) now wins on the client and in sync and async
   SSR. Previously the longest prefix string won, so an encoded prefix such as

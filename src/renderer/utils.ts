@@ -12,6 +12,7 @@ import {
 } from '../runtime';
 import type { AppRenderRuntime } from '../common/app-render-runtime';
 import { logger } from '../common/logger';
+import { reportUncaughtError } from '../common/report-error';
 import {
   attributeNamespace,
   getPublicAttributeName,
@@ -171,19 +172,13 @@ export function createWrappedHandler(
             try {
               handler(event);
             } catch (error) {
-              logger.error('[Askr] Event handler error:', error);
+              reportUncaughtError(error);
             }
           }),
         flushAfter ? 'sync' : 'defer'
       );
     } catch (err) {
-      if (flushAfter) {
-        queueMicrotask(() => {
-          throw err;
-        });
-      } else {
-        logger.error('[Askr] Event handler error:', err);
-      }
+      reportUncaughtError(err);
     }
   };
 
@@ -234,20 +229,14 @@ export function createMutableWrappedHandler(
               try {
                 currentHandler(event);
               } catch (error) {
-                logger.error('[Askr] Event handler error:', error);
+                reportUncaughtError(error);
               }
             })
           ),
         flushAfter ? 'sync' : 'defer'
       );
     } catch (err) {
-      if (flushAfter) {
-        queueMicrotask(() => {
-          throw err;
-        });
-      } else {
-        logger.error('[Askr] Event handler error:', err);
-      }
+      reportUncaughtError(err);
     }
   };
 
@@ -470,12 +459,10 @@ export function getMaterializedKey(
  * Record DOM replace operation for diagnostics
  */
 export function recordDOMReplace(source: string): void {
-  try {
-    incDevCounter('__DOM_REPLACE_COUNT');
-    setDevValue(`__LAST_DOM_REPLACE_STACK_${source}`, new Error().stack);
-  } catch {
-    // ignore
-  }
+  // Stack capture is a development diagnostic; production never pays for it.
+  if (!DEVELOPMENT_BUILD_ENABLED) return;
+  incDevCounter('__DOM_REPLACE_COUNT');
+  setDevValue(`__LAST_DOM_REPLACE_STACK_${source}`, new Error().stack);
 }
 
 /**

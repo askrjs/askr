@@ -69,10 +69,6 @@ export const tier1BenchIncludes = ['benches/tier1/**/*.{ts,tsx}'] as const;
 
 export const tier2BenchIncludes = ['benches/tier2/**/*.{ts,tsx}'] as const;
 
-export const tier3BenchIncludes = ['benches/tier3/**/*.{ts,tsx}'] as const;
-
-export const tier4BenchIncludes = ['benches/tier4/**/*.{ts,tsx}'] as const;
-
 export const benchExcludes = ['benches/shared/_shared.*'] as const;
 
 export function createNodeEnvDefine(

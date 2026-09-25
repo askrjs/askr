@@ -397,7 +397,8 @@ describe('reactive props issues validation', () => {
 
     evaluations = 0;
     modeState!.set('throw');
-    flushScheduler();
+    // Without an ErrorBoundary the binding failure surfaces to the flush.
+    expect(() => flushScheduler()).toThrow('reactive prop failure');
 
     expect(subject?.getAttribute('data-value')).toBe('primary-1');
     expect(evaluations).toBe(1);
