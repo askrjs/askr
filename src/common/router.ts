@@ -129,7 +129,22 @@ export type RouteAuthResolver = (
 
 /** Auth configuration shared across a route registry or a single route. */
 export interface RouteAuthOptions {
-  resolve: RouteAuthResolver;
+  /**
+   * Resolve the identity for a request. When omitted, requests are anonymous
+   * unless the caller supplies an identity (for example `authContext` on the
+   * server, or an opted-in hydration snapshot for the initial client route).
+   */
+  resolve?: RouteAuthResolver;
+  /**
+   * Opt in to sending a minimal identity snapshot to the browser for
+   * hydration. Called on the server with the identity that authorized the
+   * page. `authenticated`, `principal`, `tenant`, and `scopes` of the result
+   * are serialized verbatim into the page, so return only what the client
+   * needs; the session is never sent. The client uses the snapshot to resolve
+   * the initial route and, without `resolve`, as its identity for
+   * navigations. Nothing crosses without this hook.
+   */
+  dehydrate?: (context: AuthContext) => Omit<AuthContext, 'session'>;
   loginPath?:
     | string
     | ((context: RouteContext) => string | PromiseLike<string>);

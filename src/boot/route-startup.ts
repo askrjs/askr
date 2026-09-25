@@ -1,3 +1,4 @@
+import type { AuthContext } from '@askrjs/auth';
 import type {
   ResolvedRoute,
   RouteAuthOptions,
@@ -62,7 +63,11 @@ type InitialRouteResult = Exclude<RouteRequestResult, { kind: 'redirect' }>;
  */
 export async function resolveInitialRoute(
   auth?: RouteAuthOptions,
-  source?: { registry: RouteRegistry; load?: boolean }
+  source?: {
+    registry: RouteRegistry;
+    load?: boolean;
+    authContext?: AuthContext;
+  }
 ): Promise<{ path: string; href: string; resolved: InitialRouteResult }> {
   let path = typeof window !== 'undefined' ? window.location.pathname : '/';
   let href =
@@ -88,6 +93,7 @@ export async function resolveInitialRoute(
       registry: source.registry,
       auth,
       load: source.load,
+      authContext: source.authContext,
     });
     if (!resolved || resolved.kind !== 'redirect') {
       return { path, href, resolved };

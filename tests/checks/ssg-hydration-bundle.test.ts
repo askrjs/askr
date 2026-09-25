@@ -107,6 +107,8 @@ describe('SSG hydration bundle', () => {
     // re-renders. That ownership tracking, including its rollback snapshots
     // and reactive/static transitions, is ~1.8 KB of core renderer code
     // (measured 267,611 bytes, just over 261 KiB).
-    expect(initialBytes).toBeLessThanOrEqual(262 * 1024);
+    // 263 KiB: fx lifecycle ownership (#468/#469) and the hydration auth
+    // snapshot reader (#456) add ~0.9 KB of client code (measured 268,538 bytes).
+    expect(initialBytes).toBeLessThanOrEqual(263 * 1024);
   });
 });
