@@ -12,6 +12,42 @@
   the update the component was due (a queued run, or a scheduled render it
   superseded), so the component renders again with the current state, as
   fine-grained bindings do since #546.
+- breaking(data): `dehydrateDataRuntime()` now throws a `TypeError` naming the
+  query key and property path when cached query data is not JSON
+  transport-safe (a `Date`, `Map`, `Set`, class instance, bigint, non-finite
+  number, `undefined`, accessor, or cyclic value). It was documented as
+  dropping non-serializable values, and in practice let `JSON.stringify()`
+  turn a `Date` into a string and a `Map` into `{}`. Query data now follows
+  the same transport rules as route hydration data. An SSR-mode
+  `prefetchQuery()` applies them as each value arrives and
+  `renderRouteRequest()` checks the data runtime before returning a streamed
+  result, so the render fails before a shell is sent. The shared validator
+  walks iteratively, so deeply nested data no longer overflows the stack, and
+  a fulfilled deferred that contains itself is reported as cyclic.
+- breaking(actions): a failed `action().submit()` now always rejects with an
+  `Error` whose message carries the HTTP status (`Action failed (403): ...`),
+  including non-JSON bodies on any status. The server value (the envelope
+  `error`, or the body itself such as an RFC 7807 problem, whose `detail` or
+  `title` is used for the message) is kept as `cause`. It used to throw the
+  raw envelope `error` value, and a non-JSON body surfaced as a JSON
+  `SyntaxError` that hid the status. 422 validation replays keep their
+  `ActionValidationError` shape, and a bodiless success (204, 205, or an empty
+  2xx body) resolves with `undefined` and still runs declared invalidations.
+- fix(ssr): dehydrated query data now travels in a separate `queries` record
+  of the hydration payload instead of the `resources` record, so a query key
+  such as `r:0` no longer replaces resource slot data and resource slots are
+  no longer hydrated into the client data runtime. HTML rendered before this
+  change carries query data under `resources`; a new client bundle hydrating
+  such HTML fetches that query data again instead of reusing it.
+- fix(data): concurrent `prefetchQuery()` calls for the same key and runtime
+  share one in-flight fetch. A joiner still rejects promptly with its own
+  `signal.reason`, and starts a replacement fetch as soon as the starting
+  context aborts. An `invalidate()` covering the key detaches the fetch: later
+  prefetches fetch again, and no caller of the detached fetch stores its
+  pre-invalidation result.
+- perf(data): invalidation skips invalidation-listener dispatch entirely when
+  no listener is registered (listeners come only from
+  `createInvalidationRecorder()`).
 
 - fix(hydration): markup verification (`hydrate: { verifyMarkup }`, on by
   default outside production) now also compares the server HTML with the DOM
