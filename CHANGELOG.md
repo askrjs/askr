@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- fix(ssr): `renderRouteRequest()` streams each deferred `Resolve` boundary as
+  soon as its value settles instead of awaiting boundaries one at a time in
+  declaration order, so a slow boundary no longer holds back faster ones.
+  Patches can arrive out of order; boundary ids stay deterministic. A `Resolve`
+  rendered inside a settled boundary's content now streams too (id `d:0.0`
+  under `d:0`) with the same request route state and auth, where its fallback
+  was previously never replaced.
 - fix(resources): a `resource()` deps change seen by a render that is rolled
   back (for example because a sibling component throws in the same render) no
   longer leaves the resource stuck `pending`. The new deps, loader and generation are
