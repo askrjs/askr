@@ -132,6 +132,64 @@ wrapping it. Full-stack applications instead return the route-request Web
 stream to `@askrjs/vite/server`, which composes template prefix, app chunks,
 and suffix without buffering the complete response.
 
+### Text inside `<script>` and `<style>`
+
+The HTML parser does not decode entities inside HTML `<script>` and `<style>`
+elements, so SSR writes their text children verbatim instead of
+entity-escaping them. CSS such as `ul > li` and scripts such as
+`a < b && c > d` reach the browser unchanged and match the text the client
+renderer creates, so hydration adopts the element in place.
+
+Only characters that could let markup form are rewritten, case-insensitively,
+over the concatenated text of all children, so a sequence split across children
+is caught:
+
+- In `<style>`, every `<` is written as the CSS escape `\3c ` (the space ends
+  the escape). No markup can form, whatever context the parser reads the text
+  in. Inside CSS strings, `url()`, and comments the escape denotes `<`.
+- In `<script>`, every `</` becomes `<\/`, so no closing tag of the script or
+  of any ancestor can form, and the `<` of `<script` and `<!--` is written as
+  `\u003C`. Inside JavaScript string, template, and regular-expression
+  literals, and inside JSON strings (`type="application/json"`, `importmap`,
+  `application/ld+json`), these rewrites denote the original characters, so
+  the content stays valid.
+
+Some text has no safe raw form, so it does not survive unchanged:
+
+- In scripts, `</`, `<!--`, and `<script` outside a string, template, or
+  regular-expression literal may change meaning or become a syntax error.
+  Keep them inside literals, where the rewrites are exact.
+- In styles, a `<` outside strings, `url()`, and comments reads back as an
+  escaped identifier instead of `<`. This affects custom property values that
+  contain `<` and range media queries such as `@media (width < 600px)`; write
+  those as `(max-width: 599.98px)` or `(600px > width)` instead.
+
+Raw text is written only for an HTML `<script>` or `<style>` whose ancestors
+are all ordinary HTML content. Otherwise SSR keeps the text entity-escaped:
+
+- Inside `<svg>` and `<math>` (foreign content), `<script>` and `<style>` are
+  ordinary elements whose text the parser reads as markup. HTML integration
+  points such as SVG `<foreignObject>`, `<desc>`, and `<title>`, MathML
+  `<annotation-xml>` with an HTML `encoding`, and MathML text elements (`<mi>`,
+  `<mo>`, `<mn>`, `<ms>`, `<mtext>`) return their children to HTML.
+- Inside `<select>`, including its `<option>` and `<optgroup>` children, the
+  parser ignores a `<style>` start tag and reads its text as markup, so
+  `<style>` text stays escaped. `<script>` is still parsed as a script there,
+  and `<template>` content returns to ordinary HTML.
+- Inside an element whose content the parser reads as text (`<noscript>`,
+  `<iframe>`, `<xmp>`, `<noembed>`, `<noframes>`, `<textarea>`, `<title>`,
+  `<plaintext>`), a nested `<script>` or `<style>` is not an element at all,
+  and raw content could close the ancestor.
+
+Portal content follows the context of the host it renders at.
+
+Children of `<script>` and `<style>` may be strings, numbers, fragments,
+components that return text, `Show`/`For`/`Case` boundaries, and error
+boundaries. Function children render nothing on the server, as they do in any
+other element. Element children throw during SSR, because they have no raw
+text form. `dangerouslySetInnerHTML` is still written as given and is not
+rewritten.
+
 ### Client hydration
 
 ```ts

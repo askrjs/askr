@@ -455,4 +455,56 @@ describe('query collections', () => {
       cleanup();
     }
   });
+  it('should retry with the latest input for an unchanged query key', async () => {
+    const runtime = createDataRuntime();
+    const fetched: string[] = [];
+    const tagged = defineQuery({
+      key: ({ id }: { id: string; tag: string }) => `tagged:${id}`,
+      fetch: async ({ id, tag }) => {
+        fetched.push(tag);
+        return { id, tag };
+      },
+    });
+    let setTag!: (value: string) => void;
+    let collection!: QueryCollection<
+      { id: string; tag: string },
+      { id: string; tag: string },
+      string
+    >;
+
+    const App = (): JSXElement => {
+      const tag = state('t1');
+      setTag = tag.set;
+      collection = createQueryCollection({
+        runtime,
+        query: tagged,
+        inputs: () => [{ id: 'a', tag: tag() }],
+        key: ({ id }) => id,
+      });
+      return <span>{collection.results.get('a')?.tag ?? '-'}</span>;
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settleCollection(collection);
+      expect(fetched).toEqual(['t1']);
+
+      setTag('t2');
+      flushScheduler();
+      await settle();
+      expect(collection.get('a')?.input.tag).toBe('t2');
+
+      const retried = collection.retry('a');
+      flushScheduler();
+      await retried;
+      await settleCollection(collection);
+
+      expect(fetched).toEqual(['t1', 't2']);
+      expect(container.textContent).toBe('t2');
+    } finally {
+      cleanup();
+    }
+  });
 });
