@@ -42,11 +42,15 @@ Public types:
   attributes) are normalized to their rendered attribute names, and `xlinkHref`, `xmlLang`,
   `xmlSpace`, and `xmlnsXlink` render as the namespaced `xlink:href`, `xml:lang`, `xml:space`,
   and `xmlns:xlink`. SVG attributes that are camelCase in SVG itself, such as `viewBox` and
-  `gradientUnits`, pass through unchanged. Client rendering and SSR apply the same mapping.
+  `gradientUnits`, pass through unchanged. Client rendering and SSR apply the same mapping,
+  on HTML elements too. Custom elements (tag names containing `-`) skip the SVG mapping and keep
+  their prop names. Prefixed names go into the `xlink`/`xml` namespaces only on SVG and MathML
+  elements, the same as the HTML parser.
 
   Values follow the usual JSX conventions on both client and server. A `true` HTML boolean
   attribute renders bare, and `false`, `null`, and `undefined` remove the attribute, except for
-  `aria-*` and the enumerated attributes `draggable`, `spellCheck`, and `contentEditable`, where
+  `aria-*` and the enumerated attributes `draggable`, `spellCheck`, `contentEditable`, and
+  `writingSuggestions`, where
   `false` renders the literal `"false"`. A numeric `style` entry gets a `px` unit
   (`style={{ width: 10 }}` is `width:10px`) unless the property is unitless (`opacity`,
   `zIndex`, `lineHeight`, `flexGrow`, `fontWeight`, and similar), the value is `0`, or the name

@@ -15,6 +15,7 @@ import {
   type ReactivePropCleanupEntry,
 } from './cleanup';
 import { keyedElements } from '../reconciliation/keyed';
+import { writeAttribute } from '../utils';
 import {
   getCurrentCommitTransaction,
   beginCommitTransaction,
@@ -53,7 +54,8 @@ interface TextSnapshot {
 }
 
 export interface RetainedElementSnapshot {
-  attributes: ReadonlyArray<[string, string]>;
+  /** Name, value and namespace, so rollback can restore `xlink:href` in place. */
+  attributes: ReadonlyArray<[string, string, string | null]>;
   childNodes: readonly Node[];
   delegatedListeners: readonly DelegatedListenerEntrySnapshot[];
   domCaptured: boolean;
@@ -128,12 +130,12 @@ function cloneReactivePropEntry(
 
 function copyRetainedAttributes(
   attributes: NamedNodeMap
-): ReadonlyArray<[string, string]> {
+): ReadonlyArray<[string, string, string | null]> {
   let attribute = attributes.item(0);
   if (!attribute) return EMPTY_SNAPSHOT_ENTRIES;
-  const result: Array<[string, string]> = [];
+  const result: Array<[string, string, string | null]> = [];
   for (let index = 0; attribute; attribute = attributes.item(++index)) {
-    result.push([attribute.name, attribute.value]);
+    result.push([attribute.name, attribute.value, attribute.namespaceURI]);
   }
   return result;
 }
@@ -250,9 +252,9 @@ function restoreAttributes(
     }
   }
 
-  for (const [name, value] of snapshot.attributes) {
+  for (const [name, value, namespace] of snapshot.attributes) {
     if (element.getAttribute(name) !== value) {
-      element.setAttribute(name, value);
+      writeAttribute(element, name, value, namespace);
     }
   }
 }

@@ -34,6 +34,7 @@ const ENUMERATED_FALSE_ATTRIBUTES = new Set([
   'contenteditable',
   'draggable',
   'spellcheck',
+  'writingsuggestions',
 ]);
 
 /**
@@ -56,16 +57,22 @@ export function normalizeStylePropertyName(propertyName: string): string {
     return propertyName;
   }
 
-  return propertyName.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
+  const kebab = propertyName.replace(
+    /[A-Z]/g,
+    (char) => `-${char.toLowerCase()}`
+  );
+  // `ms` is the one vendor prefix written lowercase in JSX (`msFlexPositive`).
+  return kebab.startsWith('ms-') ? `-${kebab}` : kebab;
 }
 
 /**
  * CSS properties (kebab-case, vendor prefix stripped) that accept a bare
- * number. Numeric values for every other property get a `px` unit, matching
+ * number. This follows React's unitless list, plus `font-size-adjust`,
+ * `initial-letter` and `math-depth`. Numeric values for every other property get a `px` unit, matching
  * the conventional JSX style contract.
  */
 const UNITLESS_STYLE_PROPERTIES = new Set(
-  'animation-iteration-count aspect-ratio border-image-outset border-image-slice border-image-width column-count columns fill-opacity flex flex-grow flex-shrink flood-opacity font-weight grid-area grid-column grid-column-end grid-column-start grid-row grid-row-end grid-row-start line-clamp line-height opacity order orphans scale stop-opacity stroke-dasharray stroke-dashoffset stroke-miterlimit stroke-opacity stroke-width tab-size widows z-index zoom'.split(
+  'animation-iteration-count aspect-ratio border-image-outset border-image-slice border-image-width box-flex box-flex-group box-ordinal-group column-count columns fill-opacity flex flex-grow flex-negative flex-order flex-positive flex-shrink flood-opacity font-size-adjust font-weight grid-area grid-column grid-column-end grid-column-span grid-column-start grid-row grid-row-end grid-row-span grid-row-start initial-letter line-clamp line-height mask-border-outset mask-border-slice mask-border-width math-depth opacity order orphans scale shape-image-threshold stop-opacity stroke-dasharray stroke-dashoffset stroke-miterlimit stroke-opacity stroke-width tab-size widows z-index zoom'.split(
     ' '
   )
 );

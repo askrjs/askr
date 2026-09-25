@@ -299,9 +299,7 @@ describe('attribute name and value serialization', () => {
 
       renderDOM(Unitless);
       const style = (container.firstElementChild as HTMLElement).style;
-      expect(style.getPropertyValue('-webkit-line-clamp')).not.toContain(
-        'px'
-      );
+      expect(style.getPropertyValue('-webkit-line-clamp')).not.toContain('px');
       expect(style.cssText).not.toContain('px');
     });
 

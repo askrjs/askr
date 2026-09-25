@@ -13,6 +13,7 @@ import { logger } from '../common/logger';
 import {
   attributeNamespace,
   getPublicAttributeName,
+  isCustomElementName,
 } from '../common/attr-names';
 import {
   isSkippedProp as isSkippedPropShared,
@@ -307,20 +308,26 @@ export function getRenderedAttributeName(
   el: Element,
   propName: string
 ): string {
-  const attributeName = getPublicAttributeName(propName);
+  const attributeName = getPublicAttributeName(
+    propName,
+    isCustomElementName(el.localName)
+  );
 
   return el.namespaceURI === SVG_NAMESPACE
     ? attributeName
     : attributeName.toLowerCase();
 }
 
-/** Write an attribute, placing `xlink:`/`xml:`/`xmlns:` names in their namespace. */
+/**
+ * Write an attribute, placing `xlink:`/`xml:`/`xmlns:` names on SVG and MathML
+ * elements in their namespace.
+ */
 export function writeAttribute(
   el: Element,
   attributeName: string,
-  value: string
+  value: string,
+  namespace = attributeNamespace(el.namespaceURI, attributeName)
 ): void {
-  const namespace = attributeNamespace(attributeName);
   if (namespace === null) {
     el.setAttribute(attributeName, value);
   } else {

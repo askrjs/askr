@@ -3,7 +3,10 @@
  */
 
 import type { Props } from '../common/props';
-import { getPublicAttributeName } from '../common/attr-names';
+import {
+  getPublicAttributeName,
+  isCustomElementName,
+} from '../common/attr-names';
 import {
   booleanAttributeValue,
   isSkippedProp,
@@ -53,9 +56,11 @@ function getEscapedAttrValue(value: string): string {
  */
 export function renderAttrsDirect(
   props: Props | undefined,
-  sink: Pick<RenderSink, 'write'>
+  sink: Pick<RenderSink, 'write'>,
+  tagName = ''
 ): void {
   if (!props || typeof props !== 'object') return;
+  const customElement = isCustomElementName(tagName);
 
   const propsObj = props as Record<string, unknown>;
   for (const key in propsObj) {
@@ -71,7 +76,7 @@ export function renderAttrsDirect(
     if (key.charCodeAt(0) === 95) continue; // '_'
 
     // Normalize public JSX prop names to their rendered HTML attribute names.
-    const attrName = getPublicAttributeName(key);
+    const attrName = getPublicAttributeName(key, customElement);
     assertAttributeName(attrName);
 
     // Handle style objects
