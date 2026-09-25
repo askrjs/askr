@@ -21,7 +21,11 @@
   queued until the current task finishes: one report per removed subtree (a
   single failure as-is, several as an `AggregateError`) and one per component.
   Error handlers run after the update, can update state, and cannot roll it
-  back. A throwing ref is no longer called with `null` twice. With
+  back. `For` row disposal failures (previously a development-only
+  `console.error`), provisional component cleanup failures during a failed
+  render (previously dropped), and an async mount cleanup that resolves after
+  unmount (previously `console.error`) are reported the same way. A throwing
+  ref is no longer called with `null` twice. With
   `cleanupStrict: true`, `cleanupApp()` now throws the failures of descendant
   refs, listeners, and components, including components rendered inside `For`,
   `Show`, and `Case`, instead of dropping them. In hosts without

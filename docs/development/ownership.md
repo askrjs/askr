@@ -33,7 +33,10 @@ throws, so a second teardown pass over the same element cannot report it again.
 `reportUncaughtErrorLater` queues reports and delivers them in order on the next
 microtask, after the render or commit that failed, so error handlers can write
 state and cannot interrupt or roll back that work. Every failure reaches
-exactly one channel: thrown to a strict caller or reported.
+exactly one channel: thrown to a strict caller or reported. The same deferred
+channel reports `For` item and removal disposal failures, provisional component
+cleanup failures during rollback (without replacing the creation error), and
+async mount cleanup that settles after its owner was disposed.
 An inactive route detaches its reads
 before user cleanup, so departed state cannot schedule its replacement.
 

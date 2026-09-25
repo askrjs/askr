@@ -4,7 +4,7 @@
 
 import type { DOMElement, VNode } from '../../common/vnode';
 import type { DOMRange } from '../../common/dom-range';
-import { isDevelopmentEnvironment } from '../../common/env';
+import { reportUncaughtErrorLater } from '../../common/report-error';
 import { type ComponentInstance } from '../component/instance';
 import { bindControlScopeErrorOwner } from '../component/error-boundary';
 import {
@@ -347,9 +347,7 @@ export function disposeItemInstance<T>(
   try {
     disposeChildScope(itemInstance.scope);
   } catch (err) {
-    if (isDevelopmentEnvironment()) {
-      console.error('[For] Cleanup error:', err);
-    }
+    reportUncaughtErrorLater(err);
   }
 
   if (!removedDom && !removedRange) {

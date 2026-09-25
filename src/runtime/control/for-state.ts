@@ -40,6 +40,7 @@ import { reconcileForItems } from './for-reconcile';
 import { registerCommitParticipant } from '../transactions/access';
 import { getRuntimeScopes, getRuntimeCleanup } from '../access';
 import { logger } from '../../common/logger';
+import { reportUncaughtErrorLater } from '../../common/report-error';
 import type { DOMRange } from '../../common/dom-range';
 import type { ContextFrame } from '../context/context';
 import {
@@ -485,9 +486,10 @@ function finalizeForStateRemovals<T>(
     );
   }
   if (cleanupErrors.length > 0) {
-    logger.error(
-      '[Askr] For removal cleanup failed:',
-      new AggregateError(cleanupErrors, 'For removal cleanup failed')
+    reportUncaughtErrorLater(
+      cleanupErrors.length === 1
+        ? cleanupErrors[0]
+        : new AggregateError(cleanupErrors, 'For removal cleanup failed')
     );
   }
 }
