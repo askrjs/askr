@@ -3,8 +3,11 @@ import {
   createOwnedFineGrainedEffect,
   incDevCounter,
   incrementPerfMetric,
+  restoreFineGrainedEffect,
+  saveFineGrainedEffect,
   type FineGrainedEffectHandle,
 } from '../../runtime';
+import { captureBindingRollback } from '../props/reactive-bindings';
 import { applyScalarPropValue } from '../props/attributes';
 import {
   REACTIVE_CHILDREN_KEY,
@@ -181,21 +184,45 @@ function updateGroupedBinding(
 ): void {
   if (!binding.active || !group.effect) return;
 
-  if (binding.kind === 'text') {
-    const nextSource = nextValue as ReactiveScalarChildSource;
-    const nextSlot = nextSource[0];
-    const nextCompute =
-      typeof nextValue === 'function'
-        ? (nextValue as () => unknown)
-        : nextSlot?.kind === 'dynamic'
-          ? nextSlot.compute
-          : null;
-    if (!nextCompute) return;
-    binding.compute = nextCompute;
-  } else {
-    binding.compute = nextValue as () => unknown;
+  let nextCompute = nextValue as (() => unknown) | null;
+  if (binding.kind === 'text' && typeof nextValue !== 'function') {
+    const nextSlot = (nextValue as ReactiveScalarChildSource)[0];
+    nextCompute = nextSlot?.kind === 'dynamic' ? nextSlot.compute : null;
   }
+  if (!nextCompute) return;
+  captureBindingRollback(group, saveBlueprintGroup, restoreBlueprintGroup);
+  binding.compute = nextCompute;
   group.effect.flush();
+}
+
+/** A group flush commits every binding in it, so the group rolls back whole. */
+function saveBlueprintGroup(
+  group: BlueprintBindingGroup,
+  entries: unknown[]
+): void {
+  entries.push(group);
+  saveFineGrainedEffect(entries, group.effect!);
+  for (const binding of group.bindings)
+    entries.push(
+      binding.compute,
+      binding.hasValue,
+      binding.lastValue,
+      binding.lastClassTokens
+    );
+}
+
+function restoreBlueprintGroup(entries: unknown[], index: number): void {
+  const group = entries[index] as BlueprintBindingGroup;
+  restoreFineGrainedEffect(entries, index + 1);
+  // One group: 1 + 7 effect slots, then four per binding. A stale text node
+  // is detected and replaced on the next commit.
+  let slot = index + 8;
+  for (const binding of group.bindings) {
+    binding.compute = entries[slot++] as () => unknown;
+    binding.hasValue = entries[slot++] as boolean;
+    binding.lastValue = entries[slot++];
+    binding.lastClassTokens = entries[slot++] as string[] | null;
+  }
 }
 
 function cleanupGroupedBinding(

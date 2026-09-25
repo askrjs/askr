@@ -9,6 +9,33 @@
   rendered inside a settled boundary's content now streams too (id `d:0.0`
   under `d:0`) with the same request route state and auth, where its fallback
   was previously never replaced.
+- fix(renderer): a failed render no longer leaves fine-grained bindings
+  (function-valued props and children) stale. A binding whose function the
+  render replaced kept the new value after the DOM rolled back, so later
+  renders saw nothing to change, and an update the binding was due to run in
+  the same flush was dropped. Bindings now roll back with the render and then
+  catch up with their state; see "Fine-grained bindings and rollback" in
+  docs/core/rendering.md.
+- fix(control): development and production now agree on invalid `For` keys and
+  `Case`/`Match` children. A null, undefined, or duplicate `For` key throws in
+  every build (production previously dropped rows and showed the last
+  duplicate's data), and a non-`Match` child of `Case` or a `Match` outside a
+  `Case` throws in every build (production previously dropped it). These errors
+  reach the nearest `ErrorBoundary`, including a duplicate key introduced by a
+  boundary-local list update, a list inside a `Show`/`Case` branch, and an
+  invalid `Case` child, which previously escaped the boundary. Component
+  errors rendered inside a `For`/`Show`/`Case` created above an
+  `ErrorBoundary` now reach that boundary too. `For` resolves each row key
+  once per update, and the development-only key-type-change check (which could
+  never fire) is removed.
+- fix(renderer): props whose live state is not the attribute now set the DOM
+  property. `<video muted>` sets `video.muted` (and keeps the attribute),
+  `<input indeterminate>` sets `input.indeterminate` without an attribute, and
+  object/array values on custom elements are assigned as properties. New
+  `prop:name` and `attr:name` escape hatches force either path. SSR renders
+  only attribute-backed values; property-only values apply on hydration. Removed
+  properties reset to their default, property writes roll back with a failed
+  commit, and the escape hatches keep the URL and raw-HTML guards.
 - fix(renderer): delegated event handlers now match native dispatch.
   Delegated listeners attach at each app root instead of `document.body`, so
   apps mounted in shadow roots or iframes receive events and nested apps each

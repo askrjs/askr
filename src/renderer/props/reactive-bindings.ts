@@ -1,11 +1,18 @@
 import {
   createFineGrainedEffect,
+  getCurrentCommitTransaction,
   getCurrentComponentInstance,
   isRenderingProtectedBoundaryContent,
   routeRenderedOutputErrorToBoundary,
   markFineGrainedEffectsDirtySource,
+  restoreFineGrainedEffect,
+  saveFineGrainedEffect,
   type FineGrainedEffectHandle,
 } from '../../runtime';
+import {
+  registerCommitParticipant,
+  type CommitParticipant,
+} from '../../runtime/transactions/access';
 import { isBenchMetricScopeActive, recordBenchCounter } from '../../runtime';
 import { incrementPerfMetric } from '../../runtime';
 import type { ReadableSource } from '../../runtime';
@@ -28,9 +35,86 @@ interface ReactivePropDescriptor {
   /** Last committed value; before the first commit, the seed baseline. */
   appliedValue: unknown;
   hasCommitted: boolean;
+  effect: FineGrainedEffectHandle<unknown> | null;
 }
 
 const reactivePropRegistry = new Set<ReactivePropDescriptor>();
+const BINDING_LOG = {};
+
+/** Blocks of `[...state, restore, stateLength]`, appended in change order. */
+interface BindingLog extends CommitParticipant {
+  entries: unknown[];
+}
+
+type RestoreBinding = (entries: unknown[], index: number) => void;
+
+function rollbackBindingLog(this: BindingLog): void {
+  const { entries } = this;
+  // Newest first: a binding changed twice ends at its earliest saved state.
+  for (let end = entries.length - 1; end > 0;) {
+    const start = end - 1 - (entries[end] as number);
+    (entries[end - 1] as RestoreBinding)(entries, start);
+    end = start - 1;
+  }
+}
+
+function mergeBindingLog(this: BindingLog, parent: CommitParticipant): void {
+  const { entries } = parent as BindingLog;
+  for (const entry of this.entries) entries.push(entry);
+}
+
+/**
+ * Record a binding's state before it changes in the open render transaction.
+ * One log per transaction holds every binding, so a successful render pays
+ * for flat entries, not per-binding participants or closures. Outside a
+ * transaction a binding update is its own commit.
+ */
+export function captureBindingRollback<K extends object>(
+  key: K,
+  save: (key: K, entries: unknown[]) => void,
+  restore: RestoreBinding
+): void {
+  const transaction = getCurrentCommitTransaction();
+  if (!transaction) return;
+  let log = transaction.participant<BindingLog>(BINDING_LOG, BINDING_LOG);
+  if (!log) {
+    log = {
+      key: BINDING_LOG,
+      kind: BINDING_LOG,
+      entries: [],
+      rollback: rollbackBindingLog,
+      merge: mergeBindingLog,
+    };
+    registerCommitParticipant(log);
+  }
+  const { entries } = log;
+  const start = entries.length;
+  save(key, entries);
+  entries.push(restore, entries.length - start);
+}
+
+function saveReactiveProp(
+  descriptor: ReactivePropDescriptor,
+  entries: unknown[]
+): void {
+  entries.push(
+    descriptor,
+    descriptor.propFn,
+    descriptor.appliedValue,
+    descriptor.hasCommitted,
+    descriptor.lastClassTokens
+  );
+  saveFineGrainedEffect(entries, descriptor.effect!);
+}
+
+function restoreReactiveProp(entries: unknown[], index: number): void {
+  const descriptor = entries[index] as ReactivePropDescriptor;
+  descriptor.propFn = entries[index + 1] as () => unknown;
+  descriptor.appliedValue = entries[index + 2];
+  descriptor.hasCommitted = entries[index + 3] as boolean;
+  descriptor.lastClassTokens = entries[index + 4] as string[] | null;
+  restoreFineGrainedEffect(entries, index + 5);
+}
 
 export function markReactivePropsDirtySource(
   source: ReadableSource<unknown>
@@ -57,9 +141,9 @@ function setupReactiveProp(
     lastClassTokens: null,
     appliedValue: seedValue,
     hasCommitted: false,
+    effect: null,
   };
 
-  let effectHandle: FineGrainedEffectHandle<unknown> | null = null;
   // Binding failures belong to the component that rendered the binding. An
   // ErrorBoundary's own children are protected by it; its fallback is not.
   const owner = getCurrentComponentInstance();
@@ -67,7 +151,7 @@ function setupReactiveProp(
     !!owner && isRenderingProtectedBoundaryContent(owner);
 
   reactivePropRegistry.add(descriptor);
-  effectHandle = createFineGrainedEffect({
+  descriptor.effect = createFineGrainedEffect({
     lane: 'reactive',
     compute: () => descriptor.propFn(),
     commit: (value, previousValue) => {
@@ -106,15 +190,17 @@ function setupReactiveProp(
 
   const cleanup = () => {
     reactivePropRegistry.delete(descriptor);
-    effectHandle?.cleanup();
-    effectHandle = null;
+    descriptor.effect?.cleanup();
+    descriptor.effect = null;
   };
 
   const updateFn = (nextFn: () => unknown): void => {
+    const effectHandle = descriptor.effect;
     if (!effectHandle) {
       return;
     }
 
+    captureBindingRollback(descriptor, saveReactiveProp, restoreReactiveProp);
     descriptor.propFn = nextFn;
     effectHandle.updateCompute(nextFn);
   };

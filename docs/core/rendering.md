@@ -15,6 +15,31 @@ child owners do not become live. Cleanup belonging to a successful commit runs
 only after the coherent DOM update. Cleanup failures are reported together and
 do not roll back an already successful render.
 
+### Fine-grained bindings and rollback
+
+A function-valued prop or child (`title={() => ...}`, `{() => count()}`) is a
+fine-grained binding. A binding always shows the current value of the state it
+reads. A failed render never leaves it stale: the render's own output rolls
+back to the last commit, while its bindings keep tracking state, including
+changes made in the same flush as the failure.
+
+```tsx
+function Counter() {
+  const count = state(1);
+  if (count() === 2) throw new Error('boom');
+  return (
+    <p>
+      <b>{() => count()}</b> <i>{count()}</i>
+    </p>
+  );
+}
+// After count.set(2): <b>2</b> <i>1</i>. The render rolled back; the binding
+// reflects the state.
+```
+
+Read the state in the render instead of a binding when a value must change
+together with the rest of the component's output.
+
 ### Transparent component ranges
 
 A component may return a Fragment or an array when it needs multiple sibling
@@ -87,6 +112,68 @@ setting `style.transform`, a tooltip adding `data-*`, or `classList.add(...)`.
 - Server-rendered markup that hydration cannot adopt as-is is treated as
   Askr-owned on its first update, so mismatched SSR attributes are still
   cleaned up.
+
+### Attributes and DOM properties
+
+Intrinsic props render as attributes, so SSR can serialize them and hydration
+can compare them. Form state is also synced to the live property: `value`,
+`checked` and `selected`. A few more props are written as DOM properties
+because their attribute does not control the live state:
+
+| Prop            | Element             | Written as                                    | SSR             |
+| --------------- | ------------------- | --------------------------------------------- | --------------- |
+| `muted`         | `<video>`/`<audio>` | `el.muted` and the `muted` attribute          | renders `muted` |
+| `indeterminate` | `<input>`           | `el.indeterminate` only                       | not rendered    |
+| object/array    | custom elements     | `el[name]` (primitive values stay attributes) | not rendered    |
+| `prop:name`     | any                 | `el.name`, assigned as-is (including `false`) | not rendered    |
+| `attr:name`     | any                 | the `name` attribute, never a property        | renders `name`  |
+
+```tsx
+function Media(props: { muted: boolean; stream: MediaStream; rows: Row[] }) {
+  return (
+    <>
+      <video muted={props.muted} prop:srcObject={props.stream} />
+      <input type="checkbox" indeterminate={() => someChecked()} />
+      <data-grid rows={props.rows} attr:theme="dark" />
+    </>
+  );
+}
+```
+
+Values SSR cannot render are applied when the client hydrates. Attributes a
+property reflects (`prop:href` sets `href`, `prop:hidden` sets `hidden`) are
+kept on re-render like any other attribute Askr rendered.
+
+When one of these props is removed, Askr puts the property back to its
+default: `muted` and `indeterminate` become `false`; a property that reflects
+to an attribute has that attribute removed; an own property (an expando, or a
+value set before a custom element upgraded) is deleted; other string
+properties become `''` and booleans `false`. Numeric properties with no
+attribute (`prop:volume`) keep their last value. A failed commit rolls
+property writes back with the rest of the element.
+
+The escape hatches keep the usual guards:
+
+- URL properties (`href`, `src`, `action`, `formAction`, `data`) are checked
+  after converting the value to a string, so a `URL` object or any value with
+  a `javascript:` `toString()` is dropped. Built-in elements receive the
+  checked string, so a `toString()` cannot change its answer after the
+  check. A blocked value also clears the property it replaces.
+- `attr:` URL attributes keep the attribute URL guard, `attr:on*` never
+  renders an inline handler, and `attr:` values must be text: objects
+  (including `attr:style={{...}}`) are not rendered on either side.
+- `prop:innerHTML`, `prop:outerHTML` and `prop:srcdoc` are ignored (use
+  `dangerouslySetInnerHTML`), as are `prop:__proto__`, `prop:constructor` and
+  `prop:prototype`.
+
+Custom element properties are assigned even if the element is not defined
+yet, as Lit's `.prop` bindings do. Until the element upgrades, the value is an
+own property that shadows the class's accessor, so an element that may be
+defined after it renders should re-read such properties in its constructor
+(the "lazy properties" pattern), or be defined before Askr renders it.
+
+A function value is still a reactive binding, so pass a callback property as
+`prop:onSelect={() => handler}`.
 
 See [Runtime](./runtime.md) for boot APIs.
 
