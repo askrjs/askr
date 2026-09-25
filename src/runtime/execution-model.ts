@@ -15,7 +15,7 @@ export function assertExecutionModel(model: ExecutionModel): void {
   if (cur && cur !== model) {
     throw new Error(
       `[Askr] mixing execution models is not allowed (current: ${cur}, attempted: ${model}). ` +
-        `Choose exactly one: createSPA, createSSR, or createIslands.`
+        `Choose exactly one: createSPA/hydrateSPA or createIslands.`
     );
   }
   if (!cur) g[EXECUTION_MODEL_KEY] = model;

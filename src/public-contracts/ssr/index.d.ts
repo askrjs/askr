@@ -246,6 +246,17 @@ declare function renderToString(
   ) => VNode | JSXElement | string | number | null
 ): string;
 declare function renderToString(opts: RouteRenderOptions): string;
+/**
+ * Escape a string for interpolation into a hand-written HTML document template,
+ * either as text content or inside a quoted attribute value. Replaces `&`, `<`,
+ * `>`, `"` and `'` with character references. Use it for every request-derived
+ * value a `document` renderer interpolates, such as `context.pathname`,
+ * `context.params` or loader data. Do not use it for `appHtml`, which is
+ * already rendered markup, or inside `<script>`/`<style>` raw text.
+ * `null` and `undefined` render as an empty string; other values are
+ * converted with `String()`.
+ */
+declare function escapeHtml(value: unknown): string;
 /** Stream a route request's rendered HTML to the response sink described by `opts`. */
 declare function renderToStream(opts: RouteStreamOptions): void;
 export {
@@ -262,6 +273,7 @@ export {
   type SSRStyleRegistrationValidation,
   type VNode,
   createRenderContext,
+  escapeHtml,
   getRenderContext,
   renderResolvedToStringSync,
   renderRouteRequest,

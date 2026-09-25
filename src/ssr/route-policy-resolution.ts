@@ -3,10 +3,7 @@ import type { RouteRequestResult } from '../common/router';
 import * as RouteModule from '../router/route';
 import { getRouteRenderContext } from '../router/resolution';
 import type { AuthContext } from '@askrjs/auth';
-import {
-  _resolveRouteMatchFromRoutes,
-  getMatchingRouteRecord,
-} from '../router/route-matching';
+import { getMatchingRouteRecord } from '../router/route-matching';
 import { SSRAccessDecisionError, SSRDataMissingError } from './errors';
 import type { RouteRenderOptions, SSRRoute } from './route-render';
 import {
@@ -48,20 +45,26 @@ export function resolvePolicyAwareSSRRoute(
   if (logicalHref === undefined) {
     throw new Error(`SSR: no route found for url: ${href}`);
   }
-  const logicalUrl = new URL(logicalHref, 'http://localhost');
-  const matched = _resolveRouteMatchFromRoutes(logicalUrl.pathname, routeTable);
+  // Match against manifest records, the same matcher resolveRouteRequest()
+  // and async SSR (renderRouteRequest) use, so sync and async SSR always pick
+  // the same route.
+  const matched = getMatchingRouteRecord(
+    logicalHref,
+    opts.registry.manifest.records
+  );
+  // The registry's route table carries the same handlers as its records.
+  const route =
+    matched &&
+    routeTable.find((entry) => entry.handler === matched.record.handler);
 
-  if (!matched) {
+  if (!matched || !route) {
     throw new Error(`SSR: no route found for url: ${href}`);
   }
 
   // Reject loader routes before resolution starts, so neither the loader nor
   // its preload or lazy import is started for a render that cannot use them.
-  const record = getMatchingRouteRecord(
-    logicalHref,
-    opts.registry.manifest.records
-  )?.record;
-  if (typeof record?.options?.loader === 'function') {
+  const { record } = matched;
+  if (typeof record.options.loader === 'function') {
     throw new SSRDataMissingError(
       `SSR: route ${record.path} declares a loader, which renderToString()/renderToStream() do not run. Use renderRouteRequest() to await route loaders before rendering.`
     );
@@ -89,7 +92,7 @@ export function resolvePolicyAwareSSRRoute(
   }
 
   return {
-    route: matched.route,
+    route,
     params: matched.params,
     authContext: getRouteRenderContext(resolved)?.auth,
   };
