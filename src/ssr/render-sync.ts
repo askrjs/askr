@@ -29,7 +29,18 @@ import {
   withControlBoundaryChildren,
 } from './boundaries';
 import { renderAttrsDirect } from './attrs';
-import { VOID_ELEMENTS, escapeText } from './escape';
+import {
+  VOID_ELEMENTS,
+  escapeRawText,
+  escapeText,
+  type RawTextElement,
+} from './escape';
+import {
+  getChildNamespace,
+  getElementNamespace,
+  getRawTextElementInContext,
+  type SSRNamespace,
+} from './namespace';
 import { serializeHydrationRenderData } from './hydration-data';
 import { startRenderPhase, stopRenderPhase } from './render-keys';
 import type { RouteAppRenderInput } from './route-render';
@@ -95,9 +106,13 @@ export function inheritRenderableKey(
  * genuinely needs a string — but it gets one from the same renderer everything
  * else uses rather than from a second implementation.
  */
-function renderRenderableToString(value: unknown, ctx: RenderContext): string {
+function renderRenderableToString(
+  value: unknown,
+  ctx: RenderContext,
+  namespace: SSRNamespace
+): string {
   const sink = new StringSink();
-  renderRenderableSyncToSink(value, sink, ctx);
+  withNamespace(namespace, () => renderRenderableSyncToSink(value, sink, ctx));
   sink.end();
   return sink.toString();
 }
@@ -124,7 +139,11 @@ function resolveSSRPortals(html: string, ctx: RenderContext): string {
         foundHost = true;
         const content =
           activeHosts.has(host.token) && slot.hasValue
-            ? renderRenderableToString(slot.value, ctx)
+            ? renderRenderableToString(
+                slot.value,
+                ctx,
+                portalHostNamespaces.get(ctx)?.get(host.token) ?? 'html'
+              )
             : '';
         resolved = resolved.replace(host.token, () =>
           host.automatic &&
@@ -392,6 +411,137 @@ function sinkWrite3(
   sink.write(c);
 }
 
+/**
+ * Gather the text content of an HTML raw text element (`<script>`, `<style>`).
+ *
+ * The parser does not decode entities there, so the text is collected
+ * unescaped and neutralized as a whole by `escapeRawText`. Text may come from
+ * strings, numbers, fragments, components, and control and error boundaries;
+ * function children contribute nothing, as on the ordinary SSR text path.
+ * Range markers are omitted because a comment has no raw text form. Element
+ * children are rejected rather than serialized as markup the parser would
+ * read back as literal text.
+ */
+function collectRawText(
+  value: unknown,
+  element: RawTextElement,
+  ctx: RenderContext
+): string {
+  if (
+    value === null ||
+    value === undefined ||
+    typeof value === 'boolean' ||
+    typeof value === 'function'
+  ) {
+    return '';
+  }
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return String(value);
+  if (Array.isArray(value)) {
+    let text = '';
+    for (let i = 0; i < value.length; i++) {
+      text += collectRawText(value[i], element, ctx);
+    }
+    return text;
+  }
+  if (typeof value === 'object' && 'type' in value) {
+    const node = value as VNode | JSXElement;
+    const { type, props } = node;
+    if (typeof type === 'function') {
+      return collectRawText(
+        executeComponentSync(
+          type as Component,
+          props,
+          ctx,
+          getVNodeContextFrame(node) ?? null
+        ),
+        element,
+        ctx
+      );
+    }
+    if (type === __CONTROL_BOUNDARY__) {
+      return withControlBoundaryChildren(node, (children) =>
+        collectRawText(children, element, ctx)
+      );
+    }
+    if (type === __ERROR_BOUNDARY__) {
+      return collectErrorBoundaryRawText(node, element, ctx);
+    }
+    if (isFragmentType(type)) {
+      return collectRawText(getRenderableChildren(node), element, ctx);
+    }
+  }
+  throw new Error(
+    `SSR: <${element}> children must be text, but received ${describeRawTextChild(value)}.`
+  );
+}
+
+function collectErrorBoundaryRawText(
+  node: VNode | JSXElement,
+  element: RawTextElement,
+  ctx: RenderContext
+): string {
+  const boundaryState = getErrorBoundaryState(node);
+  const fallback = node.props?.fallback;
+  const reset = createErrorBoundaryReset(node);
+  if (boundaryState?.error != null) {
+    return collectRawText(
+      resolveErrorBoundaryFallbackNode(fallback, boundaryState.error, reset),
+      element,
+      ctx
+    );
+  }
+  try {
+    return collectRawText(node.props?.children, element, ctx);
+  } catch (error) {
+    if (boundaryState) {
+      boundaryState.error = error;
+      boundaryState.notified = true;
+    }
+    logger.error('[Askr] ErrorBoundary caught render error:', error);
+    return collectRawText(
+      resolveErrorBoundaryFallbackNode(fallback, error, reset),
+      element,
+      ctx
+    );
+  }
+}
+
+function describeRawTextChild(value: unknown): string {
+  if (value && typeof value === 'object' && 'type' in value) {
+    const type = (value as VNode).type;
+    return typeof type === 'string'
+      ? `an element <${type}>`
+      : 'a non-text node';
+  }
+  return `a value of type ${typeof value}`;
+}
+
+/**
+ * The parser context of the element being written (see `./namespace`).
+ *
+ * SSR renders synchronously, so one module-level cursor suffices: every
+ * element saves and restores it around its children, and each top-level render
+ * starts from `html`.
+ */
+let currentNamespace: SSRNamespace = 'html';
+
+/** Namespace context recorded where each portal host token was written. */
+const portalHostNamespaces = new WeakMap<
+  RenderContext,
+  Map<string, SSRNamespace>
+>();
+
+function withNamespace<T>(namespace: SSRNamespace, render: () => T): T {
+  const previous = currentNamespace;
+  currentNamespace = namespace;
+  try {
+    return render();
+  } finally {
+    currentNamespace = previous;
+  }
+}
+
 function renderNodeSyncToSink(
   node: VNode | JSXElement,
   sink: SinkTarget,
@@ -413,6 +563,12 @@ function renderNodeSyncToSink(
   if (typeof type === 'symbol') {
     if (type === SSR_PORTAL_HOST) {
       const token = String(props?.token ?? '');
+      let hostNamespaces = portalHostNamespaces.get(ctx);
+      if (!hostNamespaces) {
+        hostNamespaces = new Map();
+        portalHostNamespaces.set(ctx, hostNamespaces);
+      }
+      hostNamespaces.set(token, currentNamespace);
       const portalSink = sink as typeof sink & {
         writePortalHost?(token: string): void;
       };
@@ -501,6 +657,41 @@ function renderNodeSyncToSink(
     return;
   }
 
+  const parentNamespace = currentNamespace;
+  const tag = typeStr.toLowerCase();
+  const namespace = getElementNamespace(parentNamespace, tag);
+  currentNamespace = getChildNamespace(parentNamespace, namespace, tag, props);
+  try {
+    renderElementSyncToSink(
+      node,
+      typeStr,
+      getRawTextElementInContext(parentNamespace, namespace, tag),
+      sink,
+      ctx
+    );
+  } finally {
+    currentNamespace = parentNamespace;
+  }
+}
+
+/**
+ * Write a non-void intrinsic element. `rawTextElement` is set only for an
+ * HTML `<script>` / `<style>` whose ancestors are all ordinary HTML content
+ * (a `<style>` inside `<select>` is not parsed as one).
+ * The same tags in SVG or MathML are ordinary elements whose text the parser
+ * reads as markup, and inside a raw text or RCDATA ancestor (`noscript`,
+ * `textarea`, ...) raw content could close that ancestor, so both keep
+ * escaped text.
+ */
+function renderElementSyncToSink(
+  node: VNode | JSXElement,
+  typeStr: string,
+  rawTextElement: RawTextElement | null,
+  sink: SinkTarget,
+  ctx: RenderContext
+): void {
+  const { props } = node;
+
   const maybeDangerous = props
     ? (props as unknown as { dangerouslySetInnerHTML?: unknown })
         ?.dangerouslySetInnerHTML
@@ -524,6 +715,16 @@ function renderNodeSyncToSink(
   }
 
   const children = getRenderableChildren(node);
+
+  if (rawTextElement !== null) {
+    const text = collectRawText(children, rawTextElement, ctx);
+    sinkWrite2(sink, '<', typeStr);
+    renderAttrsDirect(props, sink);
+    sink.write('>');
+    sink.write(escapeRawText(text, rawTextElement));
+    sinkWrite3(sink, '</', typeStr, '>');
+    return;
+  }
 
   if (!children || (Array.isArray(children) && children.length === 0)) {
     sinkWrite2(sink, '<', typeStr);
@@ -612,7 +813,7 @@ export function renderToStringSync(
         throw new Error('renderToStringSync: wrapped component returned empty');
       }
       const sink = new StringSink();
-      renderNodeSyncToSink(node, sink, ctx);
+      withNamespace('html', () => renderNodeSyncToSink(node, sink, ctx));
       sink.end();
       const html = resolveSSRPortals(sink.toString(), ctx);
       options?.onContext?.(ctx);
@@ -653,7 +854,9 @@ export function renderSSRRouteAppToSink(input: RouteAppRenderInput): void {
         ctx
       );
       const appSink = new SSRPortalSink(sink);
-      renderRenderableSyncToSink(wrapWithDefaultPortal(app), appSink, ctx);
+      withNamespace('html', () =>
+        renderRenderableSyncToSink(wrapWithDefaultPortal(app), appSink, ctx)
+      );
       appSink.flush(ctx);
       if (ctx.deferredBoundaries.length === 0) {
         sink.write(

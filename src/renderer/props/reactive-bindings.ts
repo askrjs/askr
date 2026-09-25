@@ -24,6 +24,9 @@ interface ReactivePropDescriptor {
   propFn: () => unknown;
   tagName: string;
   lastClassTokens: string[] | null;
+  /** Last committed value; before the first commit, the seed baseline. */
+  appliedValue: unknown;
+  hasCommitted: boolean;
 }
 
 const reactivePropRegistry = new Set<ReactivePropDescriptor>();
@@ -38,14 +41,21 @@ function setupReactiveProp(
   el: Element,
   propName: string,
   propFn: () => unknown,
-  tagName: string
-): { cleanup: () => void; updateFn: (nextFn: () => unknown) => void } {
+  tagName: string,
+  seedValue: unknown
+): {
+  cleanup: () => void;
+  updateFn: (nextFn: () => unknown) => void;
+  readAppliedValue: () => unknown;
+} {
   const descriptor: ReactivePropDescriptor = {
     el,
     propName,
     propFn,
     tagName,
     lastClassTokens: null,
+    appliedValue: seedValue,
+    hasCommitted: false,
   };
 
   let effectHandle: FineGrainedEffectHandle<unknown> | null = null;
@@ -63,9 +73,11 @@ function setupReactiveProp(
         propName,
         value,
         tagName,
-        previousValue,
+        descriptor.hasCommitted ? previousValue : descriptor.appliedValue,
         descriptor
       );
+      descriptor.appliedValue = value;
+      descriptor.hasCommitted = true;
     },
     equals: (previousValue, nextValue) => {
       if (Object.is(previousValue, nextValue)) {
@@ -101,6 +113,8 @@ function setupReactiveProp(
   return {
     cleanup,
     updateFn,
+    readAppliedValue: () =>
+      descriptor.hasCommitted ? descriptor.appliedValue : undefined,
   };
 }
 
@@ -109,12 +123,14 @@ export function createReactivePropCleanupEntry(
   el: Element,
   propName: string,
   propFn: () => unknown,
-  tagName: string
+  tagName: string,
+  seedValue?: unknown
 ): ReactivePropCleanupEntry {
-  const reactive = setupReactiveProp(el, propName, propFn, tagName);
+  const reactive = setupReactiveProp(el, propName, propFn, tagName, seedValue);
 
   return {
     cleanup: reactive.cleanup,
+    readAppliedValue: reactive.readAppliedValue,
     updateFn: (nextValue) => {
       reactive.updateFn(nextValue as () => unknown);
     },
@@ -153,7 +169,8 @@ export function syncReactivePropBinding(
   key: string,
   value: () => unknown,
   vnode: Pick<DOMElement, 'type'>,
-  existingEntry: ReactivePropCleanupEntry | undefined
+  existingEntry: ReactivePropCleanupEntry | undefined,
+  seedValue?: unknown
 ): void {
   if (existingEntry && existingEntry.fnRef === value) return;
   if (existingEntry?.updateFn) {
@@ -164,7 +181,13 @@ export function syncReactivePropBinding(
   if (existingEntry) existingEntry.cleanup();
   getOrCreateReactivePropsCleanupMap(el).set(
     key,
-    createReactivePropCleanupEntry(el, key, value, vnode.type as string)
+    createReactivePropCleanupEntry(
+      el,
+      key,
+      value,
+      vnode.type as string,
+      seedValue
+    )
   );
 }
 

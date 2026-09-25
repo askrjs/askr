@@ -432,6 +432,12 @@ export interface ReactivePropCleanupEntry {
   fnRef: unknown;
   /** @internal Blueprint scalar bindings store their compute directly. */
   groupedScalar?: boolean;
+  /**
+   * @internal The value this binding last applied to the DOM, or `undefined`
+   * before its first commit. Seeds owned-only diffing when the prop turns
+   * static or is removed.
+   */
+  readAppliedValue?: () => unknown;
   restoreFn?: (nextValue: unknown) => ReactivePropCleanupEntry;
   updateFn?: (nextValue: unknown) => void;
 }
