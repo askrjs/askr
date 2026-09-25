@@ -415,7 +415,7 @@ function createContainerListener(eventName: string): EventListener {
       // rather than the live DOM: a listener may detach nodes meanwhile.
       // `depth` is the shadow depth of the current node relative to the
       // target; leaving a shadow root above the target's tree retargets
-      // to its host, and entering a slot from an assigned node goes deeper.
+      // to its host, and entering a slot from a node assigned to it goes deeper.
       const retarget = composedEnd > 0 && composed[0] !== e.target;
       let target: EventTarget | null = retarget ? composed[0] : e.target;
       let depth = 0;
@@ -434,10 +434,7 @@ function createContainerListener(eventName: string): EventListener {
               target = (node as ShadowRoot).host;
               targetDepth = depth;
             }
-          } else if (
-            (node as Node).nodeName === 'SLOT' &&
-            (path[i - 1] as Node).parentNode !== node
-          ) {
+          } else if (i > 0 && (path[i - 1] as Element).assignedSlot === node) {
             depth++;
           }
         }

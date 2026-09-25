@@ -435,6 +435,46 @@ describe('event delegation matches native dispatch in a real browser', () => {
     expect(calls).toEqual(['light', 'shadow wrapper', 'host', 'outer']);
   });
 
+  test('should dispatch clicks on a slot and its fallback content inside an open shadow root', () => {
+    const { calls, moved } = renderIntoShadow((calls) => {
+      const record = (name: string) => (e: Event) =>
+        calls.push(`${name} ${(e.target as Element).id ?? 'text'}`);
+      return (
+        <div id="outer" onClick={record('outer')}>
+          <div id="host" onClick={record('host')} />
+          <div id="moved" onClick={record('shadow wrapper')}>
+            <slot id="fallback-slot" onClick={record('slot')}>
+              {'fallback'}
+            </slot>
+          </div>
+        </div>
+      );
+    });
+    const slot = moved.querySelector<HTMLSlotElement>('#fallback-slot')!;
+
+    // A click on fallback text targets the text node inside the slot.
+    slot.firstChild!.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, composed: true })
+    );
+    expect(calls).toEqual([
+      'slot text',
+      'shadow wrapper text',
+      'host host',
+      'outer host',
+    ]);
+
+    calls.length = 0;
+    slot.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, composed: true })
+    );
+    expect(calls).toEqual([
+      'slot fallback-slot',
+      'shadow wrapper fallback-slot',
+      'host host',
+      'outer host',
+    ]);
+  });
+
   test('should honor stopImmediatePropagation inside an open shadow root', () => {
     const { calls, moved } = renderIntoShadow((calls) => (
       <div id="host" onClick={() => calls.push('host')}>

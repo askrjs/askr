@@ -141,6 +141,10 @@ describe('SSG hydration bundle', () => {
     // removed properties, the URL/raw-HTML guards and rollback snapshots add
     // ~2.4 KB (measured 273,240 bytes). Without it those props cannot reach
     // the element at all.
-    expect(initialBytes).toBeLessThanOrEqual(269 * 1024);
+    // 270 KiB: delegated events follow composedPath() into open shadow roots
+    // with native `target` retargeting, and fall back to the target's
+    // ancestry when a host's composed path skips ancestors (#534; measured
+    // 275,545 bytes against 275,117 on main).
+    expect(initialBytes).toBeLessThanOrEqual(270 * 1024);
   });
 });
