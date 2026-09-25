@@ -21,7 +21,7 @@ import {
   AccessRedirectDecision,
 } from '../core.js';
 import { JSXElement, Props } from '../elements.js';
-import { AuthContext } from '@askrjs/auth';
+import { AuthContext } from '../peer-types.js';
 declare const PAGE_RENDER_ENVELOPE_VERSION: 1;
 interface PageRenderEnvelope {
   readonly version: typeof PAGE_RENDER_ENVELOPE_VERSION;
@@ -177,7 +177,7 @@ declare function renderToStringSync(
     envelope?: PageRenderEnvelope;
     cspNonce?: string;
     /** @internal Request-local authentication for deferred SSR passes. */
-    authContext?: import('@askrjs/auth').AuthContext;
+    authContext?: AuthContext;
     /** @internal Capture request-local registrations produced by this pass. */
     onContext?: (ctx: RenderContext) => void;
   }

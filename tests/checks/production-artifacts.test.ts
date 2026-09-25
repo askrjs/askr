@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest';
 const rootDir = path.resolve(import.meta.dirname, '../..');
 const distDir = path.join(rootDir, 'dist');
 
+const optionalPeers = ['@askrjs/auth', '@askrjs/schema'];
+
 function readProductionJavaScript(): string {
   if (!fs.existsSync(distDir)) {
     throw new Error('dist is missing; run npm run build before test:checks');
@@ -66,5 +68,30 @@ describe('production artifact purity', () => {
     expect(source).not.toContain('queuedSchedulerWork');
     expect(source).not.toContain('Duplicate key');
     expect(source).not.toContain('DEVELOPMENT_BUILD_ENABLED = true');
+  });
+
+  it('should reference optional peer packages from declarations only', () => {
+    const source = readProductionJavaScript();
+    const peerImports = [
+      ...source.matchAll(
+        /(?:\bfrom\s*|\bimport\s*\(?\s*)["'](@askrjs\/(?:auth|schema))(?:\/[^"']*)?["']/g
+      ),
+    ].map((match) => match[0]);
+
+    expect(peerImports).toEqual([]);
+  });
+
+  it('should declare type-only packages as optional peers', () => {
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8')
+    );
+
+    for (const name of optionalPeers) {
+      expect(manifest.dependencies?.[name], name).toBeUndefined();
+      expect(manifest.peerDependencies?.[name], name).toBe('>=0.3.0 <0.4.0');
+      expect(manifest.peerDependenciesMeta?.[name], name).toEqual({
+        optional: true,
+      });
+    }
   });
 });
