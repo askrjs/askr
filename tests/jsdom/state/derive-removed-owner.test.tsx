@@ -321,8 +321,15 @@ describe('derive() owned by a component an ancestor is about to remove (#523)', 
     expect(container.textContent).toBe('one');
   });
 
-  for (const depth of [2, 3]) {
-    it(`should not evaluate a <For> row derive when each reads a ${depth}-level derive chain`, () => {
+  // With 'a' the surviving row's value is unchanged, so nothing else is
+  // queued when the removed row's cell comes up in the derived lane.
+  for (const [depth, next] of [
+    [2, 'c'],
+    [3, 'c'],
+    [2, 'a'],
+    [3, 'a'],
+  ] as const) {
+    it(`should not evaluate a <For> row derive when each reads a ${depth}-level derive chain (shrink to ${next})`, () => {
       const island = createTestContainer();
       let setItems!: (v: Item[]) => void;
       let items!: () => Item[];
@@ -358,11 +365,11 @@ describe('derive() owned by a component an ancestor is about to remove (#523)', 
       try {
         createIsland({ root: island.container, component: List });
         flushScheduler();
-        expect(island.container.textContent, `depth ${depth}`).toBe('ab');
+        expect(island.container.textContent).toBe('ab');
 
-        setItems([{ name: 'c' }]);
+        setItems([{ name: next }]);
         flushScheduler();
-        expect(island.container.textContent, `depth ${depth}`).toBe('c');
+        expect(island.container.textContent).toBe(next);
       } finally {
         island.cleanup();
       }
