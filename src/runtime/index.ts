@@ -1,5 +1,9 @@
 export * from './access';
 export { prepareRetainedComponentUpdate } from './component/retained-update';
+export {
+  isFunctionChildType,
+  liftFunctionChildren,
+} from './component/function-children';
 export * from './ownership/child-scope';
 export type {
   ComponentFunction,

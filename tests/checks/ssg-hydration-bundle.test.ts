@@ -127,6 +127,12 @@ describe('SSG hydration bundle', () => {
     // 264 KiB: #507 and #529 each fit 263 KiB alone but not together (the
     // production update-loop guard plus the derived-write guard; measured
     // 269,744 bytes on main after both merged).
-    expect(initialBytes).toBeLessThanOrEqual(264 * 1024);
+    // 265 KiB: function children render the same on the client as on the
+    // server (#517): one-level readable unwrap, function items in component
+    // fragment/array results and ErrorBoundary children rendered through a
+    // small reactive component, binding setup for hydrated elements, and
+    // error routing for function children. About 1.2 KB (measured 270,613
+    // bytes, from 269,428 on main).
+    expect(initialBytes).toBeLessThanOrEqual(265 * 1024);
   });
 });

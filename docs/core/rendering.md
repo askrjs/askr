@@ -174,7 +174,12 @@ follows, whichever cell is selected. Only that one level is read: any other
 function in a function child's result (returned directly, or inside an array
 or fragment it returns) renders nothing, and so does a component that returns
 a function or a cell. Elements a function child returns keep their own
-reactive children and props. Both renderers follow these rules, so server
+reactive children and props.
+
+Function children are not limited to elements. A function or cell among the
+items of a fragment or array a component returns, such as a layout that
+renders `<>{props.children}</>`, and a function child of `ErrorBoundary`,
+render and update the same way. Both renderers follow these rules, so server
 markup and client output agree.
 
 A function child or prop that throws is a render error on both sides: the

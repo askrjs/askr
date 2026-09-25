@@ -40,6 +40,7 @@ import {
   attachOwnership,
 } from '../ownership/record';
 import { runScheduledComponent } from './commit';
+import { liftFunctionChildItems } from './function-children';
 import { sealInlineRenderSnapshot } from '../transactions/render';
 import {
   captureInlineRenderSnapshot as captureLifecycleInlineRenderSnapshot,
@@ -371,7 +372,7 @@ function executeComponentSync(
     }
 
     didComplete = true;
-    return result;
+    return liftFunctionChildItems(result);
   } finally {
     sealInlineRenderSnapshot(instance);
     if (!didComplete) {

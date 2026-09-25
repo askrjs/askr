@@ -9,13 +9,22 @@
   server markup matches the client and hydration adopts it in place. On both
   server and client, a function child that returns a `state`/`derive` cell
   renders that cell's value (and the client follows it); any other function
-  in a function child's result, or returned by a component, renders nothing.
-  Hydrating an element returned by a function child now sets up that
+  in a function child's result renders nothing. A component that returns a
+  function or a cell itself renders nothing, but function and cell items in
+  the fragment or array a component returns (for example a layout that
+  renders `<>{props.children}</>`), and a function child of `ErrorBoundary`,
+  now render reactively on the client as they do on the server; the client
+  dropped them. `ErrorBoundary` no longer wraps text or fragment content in a
+  `<div>` on the client. Hydrating an element returned by a function child now sets up that
   element's own function children instead of clearing them. A function
   child that throws on the client now goes to the nearest `ErrorBoundary`,
   or is thrown from the update without one, like a reactive prop; it was
   logged and swallowed, leaving the element empty, while the server
   rendered the boundary's fallback.
+- fix(renderer): a child list that starts with an item that renders nothing
+  (a plain object, a function, `true`) no longer duplicates the following
+  text or elements when it updates existing nodes, such as server markup
+  being hydrated (#544).
 - fix(ssr): `renderResolvedToStringSync()` no longer throws "no route found"
   for a route without params when `params` is omitted.
 - fix(renderer): event handler errors are reported with `reportError()`, which

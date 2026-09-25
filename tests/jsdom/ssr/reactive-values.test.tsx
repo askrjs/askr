@@ -201,6 +201,104 @@ describe('SSR reactive values', () => {
       },
       '<p data-count="5"></p>',
     ],
+    [
+      'a function child in a component fragment',
+      () => {
+        const Only = () => <>{() => 'a'}</>;
+        const WithText = () => (
+          <>
+            {'t'}
+            {() => 'a'}
+          </>
+        );
+        const WithElement = () => (
+          <>
+            <b>1</b>
+            {() => 'a'}
+          </>
+        );
+        return (
+          <div>
+            <section>
+              <Only />
+            </section>
+            <section>
+              <WithText />
+            </section>
+            <section>
+              <WithElement />
+            </section>
+          </div>
+        );
+      },
+      '<div><section>a</section><section>ta</section><section><b>1</b>a</section></div>',
+    ],
+    [
+      'a function child passed through a layout fragment',
+      () => {
+        const Layout = (props: { children?: unknown }) => (
+          <>
+            <h1>{'h'}</h1>
+            {props.children}
+          </>
+        );
+        const Bare = (props: { children?: unknown }) => <>{props.children}</>;
+        const label = state('S');
+        return (
+          <div>
+            <Layout>{() => label()}</Layout>
+            <Bare>{label}</Bare>
+          </div>
+        );
+      },
+      '<div><h1>h</h1>SS</div>',
+    ],
+    [
+      'function and state cell items of a component array result',
+      () => {
+        const label = state('S');
+        const Items = (() => [() => 'a', 'b', label]) as unknown as () => null;
+        return (
+          <div>
+            <Items />
+          </div>
+        );
+      },
+      '<div>abS</div>',
+    ],
+    [
+      'a function child of an ErrorBoundary',
+      () => {
+        const label = state('x');
+        return (
+          <div>
+            <ErrorBoundary fallback={() => <em>{'fallback'}</em>}>
+              {() => label()}
+            </ErrorBoundary>
+            <ErrorBoundary fallback={() => <em>{'fallback'}</em>}>
+              {() => <b>{label()}</b>}
+            </ErrorBoundary>
+            <ErrorBoundary fallback={() => <em>{'fallback'}</em>}>
+              {'t'}
+            </ErrorBoundary>
+          </div>
+        );
+      },
+      '<div>x<b>x</b>t</div>',
+    ],
+    [
+      'arrays that start with an item that renders nothing',
+      () => (
+        <div>
+          <p>{() => [() => 'z', 'x']}</p>
+          <p>{() => [{} as never, 'x']}</p>
+          <p>{[{} as never, 'x']}</p>
+          <p>{() => [<b>1</b>, {} as never, 'x']}</p>
+          <script>{() => [() => 'z', 'var a = 1;']}</script>
+        </div>
+      ),
+      '<div><p>x</p><p>x</p><p>x</p><p><b>1</b>x</p><script>var a = 1;</script></div>',
+    ],
   ];
 
   it.each(cases)(
@@ -280,6 +378,55 @@ describe('SSR reactive values', () => {
     expect(container.querySelector('i')!.textContent).toBe('r');
   });
 
+  it('should keep function children in component fragments reactive after hydration', async () => {
+    let label!: State<string>;
+    const Layout = (props: { children?: unknown }) => (
+      <>
+        <h1>{'h'}</h1>
+        {props.children}
+      </>
+    );
+    const Component = () => {
+      label = state('before');
+      return (
+        <div>
+          <Layout>{() => label()}</Layout>
+          <ErrorBoundary fallback={() => <em>{'fallback'}</em>}>
+            {() => <b>{label()}</b>}
+          </ErrorBoundary>
+        </div>
+      );
+    };
+
+    container.innerHTML = renderToStringSync(Component);
+    const serverRoot = container.firstElementChild;
+    await hydrate(Component);
+    expect(container.firstElementChild).toBe(serverRoot);
+    expect(container.textContent).toBe('hbeforebefore');
+
+    label.set('after');
+    flushScheduler();
+    expect(normalizeHtml(container.innerHTML)).toBe(
+      '<div><h1>h</h1>after<b>after</b></div>'
+    );
+  });
+
+  it('should render a function child at the top of a page fragment', async () => {
+    const Page = () => (
+      <>
+        {() => 'a'}
+        <b>{'1'}</b>
+      </>
+    );
+
+    expect(renderOnServer(Page)).toBe('a<b>1</b>');
+    expect(await renderOnClient(Page)).toBe('a<b>1</b>');
+
+    container.innerHTML = renderToStringSync(Page);
+    await hydrate(Page);
+    expect(normalizeHtml(container.innerHTML)).toBe('a<b>1</b>');
+  });
+
   it('should evaluate each function child and prop once on the server', () => {
     let childReads = 0;
     let propReads = 0;
@@ -347,6 +494,14 @@ describe('SSR reactive values', () => {
     const fallback = () => <em>{'fallback'}</em>;
 
     const boundaryCases: Array<[string, Page]> = [
+      [
+        'a throwing direct function child',
+        () => (
+          <div>
+            <ErrorBoundary fallback={fallback}>{fail}</ErrorBoundary>
+          </div>
+        ),
+      ],
       [
         'a throwing function child',
         () => (
@@ -445,6 +600,37 @@ describe('SSR reactive values', () => {
       expect(onError).toHaveBeenCalledTimes(1);
       expect((onError.mock.calls[0][0] as Error).message).toBe('child failed');
       expect(container.querySelector('em')?.textContent).toBe('fallback');
+    });
+
+    it('should route a direct ErrorBoundary function child that starts throwing to it', async () => {
+      let broken!: State<boolean>;
+      const onError = vi.fn();
+      const Component = () => {
+        broken = state(false);
+        return (
+          <div>
+            <ErrorBoundary fallback={fallback} onError={onError}>
+              {() => {
+                if (broken()) throw new Error('direct failed');
+                return 'ok';
+              }}
+            </ErrorBoundary>
+          </div>
+        );
+      };
+
+      container.innerHTML = renderToStringSync(Component);
+      await hydrate(Component);
+      expect(container.textContent).toBe('ok');
+
+      broken.set(true);
+      flushScheduler();
+
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect((onError.mock.calls[0][0] as Error).message).toBe('direct failed');
+      expect(normalizeHtml(container.innerHTML)).toBe(
+        '<div><em>fallback</em></div>'
+      );
     });
   });
 });

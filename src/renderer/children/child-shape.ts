@@ -1,8 +1,11 @@
 import { isFragmentType, STATIC_CHILDREN } from '../../common/jsx';
-import { __CONTROL_BOUNDARY__ } from '../../common/vnode';
+import { __CONTROL_BOUNDARY__, __ERROR_BOUNDARY__ } from '../../common/vnode';
 import { hasTransparentComponentResult } from '../../common/control';
 import { logger } from '../../common/logger';
-import { getCurrentComponentInstance } from '../../runtime';
+import {
+  getCurrentComponentInstance,
+  isFunctionChildType,
+} from '../../runtime';
 import { getRuntimeEnv } from '../env';
 import { _isDOMElement, type DOMElement } from '../types';
 import { isSkippedProp, parseEventName } from '../utils';
@@ -26,6 +29,18 @@ export function isEmptyChild(child: unknown): boolean {
   return child === null || child === undefined || child === false;
 }
 
+/**
+ * A child that occupies no DOM position: an empty child, or a value that is
+ * neither text nor a vnode (`true`, a plain object, a function in a static
+ * child list). Positional commits skip these so later children stay aligned
+ * with the nodes already in the parent, such as server markup being hydrated.
+ */
+export function rendersNothing(child: unknown): boolean {
+  return (
+    isEmptyChild(child) || (!isScalarChild(child) && !_isDOMElement(child))
+  );
+}
+
 /** A child that renders as text. */
 export function isScalarChild(child: unknown): child is string | number {
   return typeof child === 'string' || typeof child === 'number';
@@ -38,7 +53,11 @@ export function isComponentChild(child: unknown): child is DOMElement {
   );
 }
 
-/** Which kinds a child list contains. `element` covers intrinsics and components. */
+/**
+ * Which kinds a child list contains. `element` covers intrinsics and
+ * components; `empty` covers every child that renders nothing
+ * (see {@link rendersNothing}).
+ */
 export interface ChildKinds {
   empty: boolean;
   scalar: boolean;
@@ -56,15 +75,15 @@ export function collectChildKinds(children: readonly unknown[]): ChildKinds {
   };
   for (let i = 0; i < children.length; i++) {
     const child = children[i];
-    if (isEmptyChild(child)) {
-      kinds.empty = true;
-    } else if (isScalarChild(child)) {
+    if (isScalarChild(child)) {
       kinds.scalar = true;
     } else if (_isDOMElement(child)) {
       kinds.element = true;
       if (typeof (child as DOMElement).type === 'function') {
         kinds.component = true;
       }
+    } else {
+      kinds.empty = true;
     }
   }
   return kinds;
@@ -79,6 +98,7 @@ export function isTransparentComponentResult(result: unknown): boolean {
     Array.isArray(result) ||
     (_isDOMElement(result) &&
       ((result as DOMElement).type === __CONTROL_BOUNDARY__ ||
+        (result as DOMElement).type === __ERROR_BOUNDARY__ ||
         hasTransparentComponentResult((result as DOMElement).type) ||
         isFragmentVNode(result)))
   );
@@ -117,7 +137,9 @@ function warnMissingKeys(children: unknown[]): void {
 
   for (const item of children) {
     if (typeof item === 'object' && item !== null && 'type' in item) {
-      if ((item as DOMElement).type === __CONTROL_BOUNDARY__) continue;
+      const type = (item as DOMElement).type;
+      // A function item keeps its position; it is not a list of elements.
+      if (type === __CONTROL_BOUNDARY__ || isFunctionChildType(type)) continue;
       elementCount += 1;
       const rawKey =
         (item as DOMElement).key ??
