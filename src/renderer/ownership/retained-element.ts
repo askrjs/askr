@@ -127,6 +127,7 @@ function cloneReactivePropEntry(
     cleanup: entry.cleanup,
     fnRef: entry.fnRef,
     groupedScalar: entry.groupedScalar,
+    readAppliedValue: entry.readAppliedValue,
     restoreFn: entry.restoreFn,
     updateFn: entry.updateFn,
   };

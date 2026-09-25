@@ -342,7 +342,12 @@ flowchart LR
   materialization, hydration adoption, and every prop sync; retained-element
   and root-host rollback snapshots restore it). The record keeps only rendered
   attribute-bearing props, with reactive bindings as a marker, so it holds no
-  children or closures. Removals, class
+  children or closures. For a marker the baseline is read from the binding's
+  last committed value, and a new binding replacing a static value is seeded
+  from the record, so reactive/static switches also patch only owned class
+  tokens and style properties. Form-control props (`value`, `checked`,
+  `selected`) are always applied so a falsy value keeps the control
+  controlled. Removals, class
   token patches and style patches diff against that record, so attributes,
   class tokens and style properties written by other code are preserved.
   Retained scalar attributes and nonempty classes are compared with the live DOM

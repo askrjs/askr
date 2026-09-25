@@ -1,6 +1,7 @@
-import { expect, test } from 'vite-plus/test';
+import { expect, test, vi } from 'vite-plus/test';
 import { state, type State } from '../../../src';
 import {
+  applyStylePropValue,
   getAppliedProps,
   recordAppliedProps,
 } from '../../../src/renderer/props/attributes';
@@ -422,7 +423,10 @@ test.each([
       mode.set(to);
       flushScheduler();
       expect(container.querySelector('p')).toBe(paragraph);
-      expect(paragraph.className).toBe(`${expectedClass} ext`);
+      expect(paragraph.className.split(' ').sort()).toEqual([
+        expectedClass,
+        'ext',
+      ]);
       expect(paragraph.getAttribute('style')).toContain(expectedStyle);
       expect(paragraph.style.transform).toBe('scale(2)');
       expect(paragraph.style.getPropertyValue('color')).toBe('blue');
@@ -492,3 +496,15 @@ test('should refresh the applied-props baseline on the static fast path', () => 
     cleanup();
   }
 });
+
+test.each([5, ['color: red']])(
+  'should clear the style when the previous value %j was not a style',
+  (previousValue) => {
+    const element = document.createElement('p');
+    element.setAttribute('style', 'color: red');
+    const cssText = vi.spyOn(element.style, 'cssText', 'set');
+    applyStylePropValue(element, null, previousValue);
+    expect(cssText.mock.calls).not.toContainEqual(['null']);
+    expect(element.hasAttribute('style')).toBe(false);
+  }
+);

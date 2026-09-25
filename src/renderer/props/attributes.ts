@@ -9,6 +9,7 @@ import { isDevelopmentEnvironment } from '../../common/env';
 import { logger } from '../../common/logger';
 import { incrementPerfMetric } from '../../runtime';
 import { setRef } from '../../foundations/utilities/compose-ref';
+import type { ReactivePropCleanupEntry } from '../ownership/cleanup';
 import {
   extractKey,
   getRenderedAttributeName,
@@ -22,7 +23,7 @@ import {
 } from '../utils';
 
 /** Props whose live DOM property must be synced alongside the attribute. */
-function isFormControlProp(key: string): boolean {
+export function isFormControlProp(key: string): boolean {
   return key === 'value' || key === 'checked' || key === 'selected';
 }
 
@@ -146,18 +147,24 @@ export function isRenderedPropValue(key: string, value: unknown): boolean {
 /**
  * @internal The value Askr last applied for `key`, as a diff baseline:
  * `null` when nothing was rendered, `undefined` when unknown (no record, or a
- * reactive binding owned the value).
+ * reactive binding that has not committed yet). For a reactive binding the
+ * value is read from the binding itself.
  */
 export function getPreviousAppliedValue(
   previousProps: AppliedProps | undefined,
-  key: string
+  key: string,
+  reactiveProps?: ReadonlyMap<string, ReactivePropCleanupEntry>
 ): unknown {
   if (previousProps === undefined) return undefined;
-  const value =
-    key === 'class' || key === 'className'
-      ? (previousProps.class ?? previousProps.className)
-      : previousProps[key];
-  return value === REACTIVE_APPLIED_VALUE ? undefined : (value ?? null);
+  const isClass = key === 'class' || key === 'className';
+  const value = isClass
+    ? (previousProps.class ?? previousProps.className)
+    : previousProps[key];
+  if (value !== REACTIVE_APPLIED_VALUE) return value ?? null;
+  const binding = isClass
+    ? (reactiveProps?.get('class') ?? reactiveProps?.get('className'))
+    : reactiveProps?.get(key);
+  return binding?.readAppliedValue?.();
 }
 
 export function applyFormControlProp(
@@ -349,16 +356,17 @@ export function applyStylePropValue(
   }
 
   const nextEntries = readStyleEntries(el, value);
-  const previousEntries =
-    previousValue === undefined
-      ? collectStyleEntries(style)
-      : previousValue === value
-        ? nextEntries
-        : readStyleEntries(el, previousValue);
-  if (!nextEntries || !previousEntries) {
+  if (!nextEntries) {
     style.cssText = String(value);
     return;
   }
+  // An unknown or unparseable baseline treats the whole style as Askr-owned.
+  const previousEntries =
+    (previousValue === undefined
+      ? null
+      : previousValue === value
+        ? nextEntries
+        : readStyleEntries(el, previousValue)) ?? collectStyleEntries(style);
 
   let didWrite = false;
   for (const [propertyName] of previousEntries) {
@@ -646,10 +654,11 @@ export function removeStaleAttributes(
   el: Element,
   vnode: unknown,
   props: Record<string, unknown>,
-  previousProps?: AppliedProps
+  previousProps?: AppliedProps,
+  reactiveProps?: ReadonlyMap<string, ReactivePropCleanupEntry>
 ): void {
   if (previousProps !== undefined) {
-    removeStaleOwnedProps(el, vnode, props, previousProps);
+    removeStaleOwnedProps(el, vnode, props, previousProps, reactiveProps);
     return;
   }
 
@@ -706,7 +715,8 @@ function removeStaleOwnedProps(
   el: Element,
   vnode: unknown,
   props: Record<string, unknown>,
-  previousProps: AppliedProps
+  previousProps: AppliedProps,
+  reactiveProps: ReadonlyMap<string, ReactivePropCleanupEntry> | undefined
 ): void {
   if (extractKey(vnode) === undefined) {
     if (el.hasAttribute('data-key')) el.removeAttribute('data-key');
@@ -726,14 +736,14 @@ function removeStaleOwnedProps(
           'class',
           null,
           el.localName,
-          getPreviousAppliedValue(previousProps, propName)
+          getPreviousAppliedValue(previousProps, propName, reactiveProps)
         );
       }
     } else if (propName === 'style') {
       applyStylePropValue(
         el,
         null,
-        getPreviousAppliedValue(previousProps, propName)
+        getPreviousAppliedValue(previousProps, propName, reactiveProps)
       );
     } else {
       const attributeName = getRenderedAttributeName(el, propName);

@@ -4,6 +4,7 @@ import {
   applyScalarPropValue,
   getAppliedProps,
   getPreviousAppliedValue,
+  isFormControlProp,
   isRenderedPropValue,
   recordAppliedProps,
   removeStaleAttributes,
@@ -232,14 +233,20 @@ export function syncElementPropBindings(
       ) {
         continue;
       }
+      const previousValue = getPreviousAppliedValue(
+        previousProps,
+        key,
+        existingReactiveProps
+      );
       removeReactivePropBinding(existingReactiveProps, key);
       // Skip props Askr did not render last time: whatever sits under that
-      // name now belongs to other code.
-      const previousValue = getPreviousAppliedValue(previousProps, key);
+      // name now belongs to other code. Form controls stay controlled: a
+      // false `checked` still resets the live property.
       if (
         previousProps === undefined ||
         previousValue !== null ||
-        isRenderedPropValue(key, value)
+        isRenderedPropValue(key, value) ||
+        isFormControlProp(key)
       ) {
         applyScalarPropValue(
           el,
@@ -256,16 +263,24 @@ export function syncElementPropBindings(
       if (existingReactiveProps && existingReactiveProps.size > 0) {
         (desiredReactivePropNames ??= new Set()).add(key);
       }
+      // A new binding replacing a static value starts from what Askr
+      // rendered, so its first commit patches only owned tokens.
       syncReactivePropBinding(
         el,
         key,
         value as () => unknown,
         domVNode,
+        existingEntry,
         existingEntry
+          ? undefined
+          : getPreviousAppliedValue(previousProps, key, existingReactiveProps)
       );
       continue;
     }
 
+    const previousValue = eventProp
+      ? undefined
+      : getPreviousAppliedValue(previousProps, key, existingReactiveProps);
     removeReactivePropBinding(existingReactiveProps, key);
     if (eventProp && listenerKey) {
       const disposition = syncElementListener(
@@ -286,12 +301,18 @@ export function syncElementPropBindings(
         key,
         value,
         domVNode.type as string,
-        getPreviousAppliedValue(previousProps, key)
+        previousValue
       );
     }
   }
 
-  removeStaleAttributes(el, domVNode, props, previousProps);
+  removeStaleAttributes(
+    el,
+    domVNode,
+    props,
+    previousProps,
+    existingReactiveProps
+  );
   recordAppliedProps(el, props);
   pruneElementListeners(
     el,
