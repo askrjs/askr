@@ -1,11 +1,14 @@
 /**
  * Render a reactive list as keyed child scopes.
  *
- * The `children` callback receives a snapshot item during boundary
- * reconciliation. A plain closure read of parent state is therefore not a
- * dependency of an existing row. Use `selector(() => value())` for keyed
- * membership reads, or a function-valued prop when only a DOM property needs
- * to update. See the reactive control-flow guide for the supported patterns:
+ * Each row keeps its DOM and local state while its key stays in the list. The
+ * `children` callback reruns an existing row when its item changes, when the
+ * parent rerenders with a new callback (so captured parent values stay
+ * current), and when a reactive value read directly in the callback changes;
+ * that read subscribes the row, not the parent. Use `selector(() => value())`
+ * for keyed membership reads so only rows whose membership changes rerun, or a
+ * function-valued prop when only a DOM property needs to update. See the
+ * reactive control-flow guide for the supported patterns:
  * https://github.com/askrjs/askr/blob/main/docs/guides/control-flow.md
  */
 
@@ -27,9 +30,9 @@ type ForBaseProps<T> = {
   each: ForEachSource<T>;
   fallback?: BoundaryChild;
   /**
-   * Row renderer. Parent reactive reads must use `selector()` or thunk props;
-   * closure-captured values are snapshotted when the row is created or
-   * reconciled; changing the parent source does not rerun an existing row.
+   * Row renderer. Existing rows rerun with the latest callback when the parent
+   * rerenders, and a reactive read in the callback subscribes that row. Prefer
+   * `selector()` or thunk props so only the affected rows or props update.
    */
   children: (item: T, index: () => number) => VNode;
 };
