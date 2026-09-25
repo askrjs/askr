@@ -319,6 +319,29 @@ describe('event delegation matches native dispatch in a real browser', () => {
     expect(calls).toEqual(['moved shadow-target moved', 'host host']);
   });
 
+  test('should keep retargeted targets when an inner handler detaches its node', () => {
+    const { calls, moved } = renderIntoShadow((calls) => (
+      <div
+        id="host"
+        onClick={(e: Event) => calls.push(`host ${(e.target as Element).id}`)}
+      >
+        <div id="moved">
+          <button
+            id="shadow-target"
+            onClick={(e: Event) => {
+              calls.push(`button ${(e.target as Element).id}`);
+              (e.currentTarget as Element).remove();
+            }}
+          />
+        </div>
+      </div>
+    ));
+
+    moved.querySelector<HTMLButtonElement>('#shadow-target')!.click();
+
+    expect(calls).toEqual(['button shadow-target', 'host host']);
+  });
+
   test('should read e.target.value in onInput inside an open shadow root', async () => {
     const { calls, moved } = renderIntoShadow((calls) => (
       <div id="host">

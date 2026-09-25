@@ -395,23 +395,6 @@ function getAncestryPath(event: Event, container: Element): EventTarget[] {
   return path;
 }
 
-/**
- * `target` as seen from `node`: retargeted to the host of each shadow root
- * that `node` is outside of, as native dispatch does.
- */
-function retargetFor(target: Node, node: Node): Node {
-  for (;;) {
-    const root = target.getRootNode();
-    if (!isShadowRoot(root)) return target;
-    for (let scope = node.getRootNode(); ;) {
-      if (scope === root) return target;
-      if (!isShadowRoot(scope)) break;
-      scope = scope.host.getRootNode();
-    }
-    target = root.host;
-  }
-}
-
 function createContainerListener(eventName: string): EventListener {
   return (e: Event) => {
     // Resolve the container per event instead of capturing it, so the
@@ -428,17 +411,36 @@ function createContainerListener(eventName: string): EventListener {
         composedEnd === -1 ? getAncestryPath(e, container) : composed;
       const end = composedEnd === -1 ? path.length : composedEnd;
       // Handlers inside a shadow tree see the real target, not the host.
-      const innerTarget =
-        composedEnd > 0 && composed[0] !== e.target
-          ? (composed[0] as Node)
-          : null;
+      // Retarget from the path's shape, which dispatch fixed up front,
+      // rather than the live DOM: a listener may detach nodes meanwhile.
+      // `depth` is the shadow depth of the current node relative to the
+      // target; leaving a shadow root above the target's tree retargets
+      // to its host, and entering a slot from an assigned node goes deeper.
+      const retarget = composedEnd > 0 && composed[0] !== e.target;
+      let target: EventTarget | null = retarget ? composed[0] : e.target;
+      let depth = 0;
+      let targetDepth = 0;
       const dispatchPath: Array<{
         node: Element;
         entry: DelegatedHandler;
+        target: EventTarget | null;
       }> = [];
       for (let i = 0; i < end; i++) {
         const node = path[i];
         if (node === container) break;
+        if (retarget) {
+          if (isShadowRoot(node as Node)) {
+            if (--depth < targetDepth) {
+              target = (node as ShadowRoot).host;
+              targetDepth = depth;
+            }
+          } else if (
+            (node as Node).nodeName === 'SLOT' &&
+            (path[i - 1] as Node).parentNode !== node
+          ) {
+            depth++;
+          }
+        }
         if (!isElementNode(node)) continue;
         if (PERF_BUILD_ENABLED) {
           incrementPerfMetric('delegatedAncestorHops');
@@ -457,23 +459,17 @@ function createContainerListener(eventName: string): EventListener {
               ? store
               : undefined;
         if (entry) {
-          dispatchPath.push({ node, entry });
+          dispatchPath.push({ node, entry, target });
         }
       }
 
       // Delegated events all bubble, so handlers run target-first, matching
       // native bubbling order.
-      for (const { node, entry } of dispatchPath) {
+      for (const { node, entry, target } of dispatchPath) {
         try {
           withAppRenderRuntime(entry.appRuntime, () =>
             withLifecycleOwner(entry.instance?.owner, () =>
-              entry.handler(
-                createDelegatedEventFacade(
-                  e,
-                  node,
-                  innerTarget ? retargetFor(innerTarget, node) : e.target
-                )
-              )
+              entry.handler(createDelegatedEventFacade(e, node, target))
             )
           );
         } catch (error) {

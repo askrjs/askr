@@ -10,7 +10,8 @@
   when a host's composed path skips ancestors. `change` and `submit`, which
   are not composed and never leave a shadow root, are no longer delegated and
   attach directly to their element, so `onChange` and `onSubmit` run inside
-  open and closed shadow roots. Delegated handlers inside closed shadow roots,
+  open and closed shadow roots; each element with one of these handlers now
+  carries its own native listener. Delegated handlers inside closed shadow roots,
   and delegated event types dispatched with `composed: false` inside a shadow
   root, still do not run; mount an app inside the shadow root instead.
 - fix(renderer): a failed keyed reconciliation commit now propagates to the
