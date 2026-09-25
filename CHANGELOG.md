@@ -17,6 +17,28 @@
   slower path. A row whose render throws now renders once per update instead of
   up to three times, and the error surfaces once. Production commits no longer
   capture an `Error().stack` for diagnostics.
+- fix(fx): `scheduleTimeout()`, `scheduleIdle()` and `scheduleRetry()` now
+  cancel pending work when the component that scheduled them unmounts, as
+  documented. Calls made from a mounted component's `task()`, `watch()`
+  callback, mount/commit operation or event handler bind to that component's
+  lifetime, including portal content (owned by the writer) and handlers
+  wrapped by `debounceEvent()`, `throttleEvent()`, `rafEvent()` or
+  `scheduleEventHandler()`. Scheduled callbacks and retry attempts run as the
+  scheduling component, so work they reschedule (for example a polling loop)
+  also stops on unmount, and a stable portal handler follows the writer that
+  last rendered it. A synchronous scheduler flush inside a handler no
+  longer runs unrelated queued work as that handler's component. Previously no
+  cleanup was ever registered and timers fired after unmount. The unreachable
+  SSR branches in these helpers are removed, and `scheduleRetry()` settles
+  when `fn` throws synchronously or returns a non-promise.
+- fix(fx): `throttle(fn, ms, { leading: false })` waits the full interval
+  after an idle gap instead of firing on the next tick, and a throttle without
+  a trailing edge no longer retains the last arguments.
+- fix(fx): `debounceEvent({ leading: true })` and the default
+  `throttleEvent()` no longer call the handler twice for a single event. The
+  trailing edge only runs when another event arrived after the leading call.
+  Both now share their edge logic with `debounce()` and `throttle()`, and
+  `debounceEvent().flush()` only runs a pending trailing call.
 - fix(foundations): `mergeProps` no longer lets a `base` value of `undefined`
   overwrite an injected prop. Forwarding an optional prop that was not supplied
   (`onClick={props.onClick}`) used to wipe the primitive's handler or ARIA

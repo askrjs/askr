@@ -5,8 +5,10 @@
 
 import {
   getCurrentAppRenderRuntime,
+  getCurrentLifecycleInstance,
   runRuntimeHandlerScope,
   withAppRenderRuntime,
+  withLifecycleOwner,
 } from '../runtime';
 import type { AppRenderRuntime } from '../common/app-render-runtime';
 import { logger } from '../common/logger';
@@ -216,18 +218,21 @@ export function createMutableWrappedHandler(
 } {
   let currentHandler = handler;
   let appRuntime = getCurrentAppRenderRuntime();
+  let instance = getCurrentLifecycleInstance();
 
   const wrapped: EventListener = (event: Event) => {
     try {
       runRuntimeHandlerScope(
         () =>
-          withAppRenderRuntime(appRuntime, () => {
-            try {
-              currentHandler(event);
-            } catch (error) {
-              reportUncaughtError(error);
-            }
-          }),
+          withAppRenderRuntime(appRuntime, () =>
+            withLifecycleOwner(instance?.owner, () => {
+              try {
+                currentHandler(event);
+              } catch (error) {
+                reportUncaughtError(error);
+              }
+            })
+          ),
         flushAfter ? 'sync' : 'defer'
       );
     } catch (err) {
@@ -240,6 +245,7 @@ export function createMutableWrappedHandler(
     updateHandler(nextHandler: EventListener) {
       currentHandler = nextHandler;
       appRuntime = getCurrentAppRenderRuntime();
+      instance = getCurrentLifecycleInstance();
     },
   };
 }

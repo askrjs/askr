@@ -1,5 +1,6 @@
 import { logger } from '../../common/logger';
 import { type ComponentInstance } from './instance';
+import { getLivePortalErrorParent } from './scope';
 
 export function createBoundaryReset(instance: ComponentInstance): () => void {
   return () => {
@@ -41,20 +42,6 @@ export function reportBoundaryError(
   }
 
   logger.error('[Askr] ErrorBoundary caught render error:', error);
-}
-
-function getLivePortalErrorParent(
-  instance: ComponentInstance
-): ComponentInstance | null {
-  const parent = instance._portalErrorParent;
-  if (
-    !parent ||
-    parent.owner.identity !== instance._portalErrorParentGeneration ||
-    parent.notifyUpdate === null
-  ) {
-    return null;
-  }
-  return parent;
 }
 
 function findLiveErrorBoundary(

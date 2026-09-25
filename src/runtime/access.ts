@@ -14,8 +14,10 @@ import type { ScheduledWork } from './scheduled-work';
 export { ScheduledWork } from './scheduled-work';
 export { SCHEDULER_LANES } from './scheduler';
 import {
+  captureLifecycleOwner,
   clearCurrentComponentScope,
   endComponentScope,
+  withLifecycleOwner,
 } from './component/scope';
 
 type RuntimeTask = () => void;
@@ -120,16 +122,19 @@ export function markRuntimeReactivePropsDirtySource(
 
 /**
  * Wrap an event listener so its work runs inside a scheduler handler scope.
+ * The listener runs as the component (or committed work) that wrapped it, so
+ * fx scheduled work it starts is cancelled when that component unmounts.
  *
  * Resolves the active scheduler per call rather than closing over the module
  * singleton, so a runtime constructed with its own scheduler schedules its own
  * handlers.
  */
 export function scheduleEventHandler(handler: EventListener): EventListener {
+  const resolveOwner = captureLifecycleOwner();
   return (event: Event) => {
     try {
       getRuntimeScheduler().runInHandlerScope(() => {
-        handler.call(null, event);
+        withLifecycleOwner(resolveOwner(), () => handler.call(null, event));
       });
     } catch (error) {
       reportUncaughtError(error);
