@@ -1,10 +1,16 @@
 import { teardownNodeSubtree } from './cleanup';
 import { writeAttribute } from '../utils';
+import {
+  getAppliedProps,
+  restoreAppliedProps,
+  type AppliedProps,
+} from '../props/attributes';
 type RootNodeSnapshot = {
   node: Node;
   children: Node[];
   /** Name, value and namespace, so rollback can restore `xlink:href` in place. */
   attributes: Array<[string, string, string | null]> | null;
+  appliedProps: AppliedProps | undefined;
   nodeValue: string | null;
 };
 
@@ -31,6 +37,7 @@ function captureRootTree(root: Element | null): RootHostTreeSnapshot | null {
               attribute.namespaceURI,
             ])
           : null,
+      appliedProps: node instanceof Element ? getAppliedProps(node) : undefined,
       nodeValue: node.nodeValue,
     });
 
@@ -93,6 +100,7 @@ function restoreRootTree(snapshot: RootHostTreeSnapshot | null): unknown[] {
             writeAttribute(node, name, value, namespace);
           }
         }
+        restoreAppliedProps(node, entry.appliedProps);
       } else if (!(node instanceof Element)) {
         node.nodeValue = entry.nodeValue;
       }

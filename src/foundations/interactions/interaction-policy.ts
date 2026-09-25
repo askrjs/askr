@@ -123,6 +123,7 @@ export function applyInteractionPolicy({
  *
  * Event handlers are composed (policy first).
  * Refs are always composed.
+ * `disabled` is owned by the policy when it sets the key (even to undefined).
  * Policy props MUST take precedence to enforce invariants.
  */
 export function mergeInteractionProps(
@@ -134,6 +135,13 @@ export function mergeInteractionProps(
     ? mergePropsBase(userProps, childProps)
     : childProps;
   const out = mergePropsBase(policyProps, mergedUserChild);
+
+  // The policy owns `disabled`: an enabled policy (`disabled: undefined`)
+  // must clear a fixed `disabled` from the user or child, which mergeProps
+  // would otherwise keep because `undefined` means "not provided" there.
+  if (Object.prototype.hasOwnProperty.call(policyProps, 'disabled')) {
+    out.disabled = policyProps.disabled;
+  }
 
   // Ensure policy handlers always run first
   for (const k in out) {
