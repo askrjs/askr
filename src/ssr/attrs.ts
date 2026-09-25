@@ -12,7 +12,7 @@ import {
   isSkippedProp,
   keepsFalseValue,
 } from '../common/prop-classification';
-import { isUnsafeUrlAttribute } from '../common/url';
+import { isUnsafeUrlAttribute, rejectUnsafeUrlAttribute } from '../common/url';
 import {
   ATTRIBUTE_PROP_PREFIX,
   isPropertyOnlyProp,
@@ -172,7 +172,7 @@ export function renderAttrsDirect(
 
     // Regular attributes
     const strValue = String(value);
-    if (isUnsafeUrlAttribute(attrName, strValue)) continue;
+    if (rejectUnsafeUrlAttribute(attrName, strValue)) continue;
     sink.write(' ');
     sink.write(attrName);
     sink.write('="');

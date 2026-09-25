@@ -1,4 +1,6 @@
 import { getPublicAttributeName } from './attr-names';
+import { isDevelopmentEnvironment } from './env';
+import { logger } from './logger';
 
 const SAFE_URL_SCHEMES = new Set(['http', 'https', 'mailto', 'sms', 'tel']);
 const SCRIPT_URL_SCHEMES = new Set(['javascript', 'vbscript']);
@@ -107,4 +109,48 @@ export function isUnsafeUrlAttribute(key: string, value: unknown): boolean {
     return !isSafeResourceUrl(String(value));
   }
   return false;
+}
+
+const WARNED_URL_PREVIEW_LENGTH = 80;
+const WARNED_URL_LIMIT = 256;
+// Attribute/value pairs already reported. A component re-render and the
+// hydration verification render re-check the same value; each is reported
+// once. Cleared at the limit so arbitrary data cannot grow it without bound.
+const warnedUrls = new Set<string>();
+// Bidi overrides/isolates and line/paragraph separators would let a crafted
+// value reorder or break the console line.
+const MISLEADING_PREVIEW_CHARS_RE = /[\u202A-\u202E\u2066-\u2069\u2028\u2029]/g;
+
+function warnUnsafeUrl(name: string, text: string): void {
+  const key = `${name}=${text}`;
+  if (warnedUrls.has(key)) return;
+  if (warnedUrls.size >= WARNED_URL_LIMIT) warnedUrls.clear();
+  warnedUrls.add(key);
+
+  const preview = (
+    text.length > WARNED_URL_PREVIEW_LENGTH
+      ? `${text.slice(0, WARNED_URL_PREVIEW_LENGTH)}...`
+      : text
+  ).replace(MISLEADING_PREVIEW_CHARS_RE, '?');
+  const allowed = SCRIPT_URL_RESOURCE_ATTRIBUTES.has(name)
+    ? 'script-executing schemes are never rendered'
+    : `only relative URLs and ${[...SAFE_URL_SCHEMES].join(', ')} are allowed`;
+  logger.warn(
+    `[Askr] Omitted ${name}=${JSON.stringify(preview)}: the ` +
+      `"${urlScheme(text)}:" scheme is blocked (${allowed}).`
+  );
+}
+
+/**
+ * {@link isUnsafeUrlAttribute} for a value about to be rendered: in
+ * development, a blocked value logs a warning naming the attribute and scheme,
+ * once per attribute and value, so a stripped custom-scheme link (`vscode:`,
+ * `slack:`) is not silent.
+ */
+export function rejectUnsafeUrlAttribute(key: string, value: unknown): boolean {
+  if (!isUnsafeUrlAttribute(key, value)) return false;
+  if (isDevelopmentEnvironment()) {
+    warnUnsafeUrl(getPublicAttributeName(key).toLowerCase(), String(value));
+  }
+  return true;
 }
