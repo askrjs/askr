@@ -194,6 +194,10 @@ route('/settings', SettingsPage, {
 });
 ```
 
+Server-resolved identities (for example from httpOnly cookies) do not cross
+to the browser unless the app opts in with `auth.dehydrate`. See
+[Hydrating authenticated pages](ssr.md#hydrating-authenticated-pages).
+
 ## Read the current route
 
 Inside a component, call `currentRoute()`:

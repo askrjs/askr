@@ -1,6 +1,10 @@
 import type { AuthContext } from '@askrjs/auth';
 import type { RouteMode } from '../common/router';
 import { getActiveRenderContext } from '../common/render-context';
+import type { PageRenderEnvelope } from '../common/page-render-envelope';
+
+/** @internal Hydration envelope key for the app's opted-in auth snapshot. */
+export const HYDRATED_AUTH = 'au';
 
 const anonymous: AuthContext = Object.freeze({
   authenticated: false,
@@ -34,4 +38,19 @@ export function setCurrentAuth(context: AuthContext, mode: RouteMode): void {
 /** @internal Drop the client identity. Part of the router-wide reset. */
 export function resetClientAuth(): void {
   clientAuth = anonymous;
+}
+
+/**
+ * @internal The server's opted-in identity snapshot, used only to resolve the
+ * initial route the server already authorized. Never a source of truth.
+ */
+export function readHydratedAuth(
+  envelope: PageRenderEnvelope | null
+): AuthContext | undefined {
+  const value = envelope?.framework[HYDRATED_AUTH] as AuthContext | undefined;
+  if (value === undefined) return undefined;
+  if (typeof value?.authenticated !== 'boolean') {
+    throw new TypeError('[Askr] Malformed hydration auth snapshot.');
+  }
+  return value;
 }

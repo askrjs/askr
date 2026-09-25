@@ -90,6 +90,50 @@ complete report. The selector is a transport/security boundary, not a static
 subtree declaration: hydrated components must still be able to render from the
 selected data.
 
+## Hydrating authenticated pages
+
+The server resolves the identity for a request (for example from an httpOnly
+session cookie passed to `renderRouteRequest({ authContext })`). By default,
+none of that identity reaches the browser: the hydration payload contains no
+principal, session, tenant, or `authenticated` flag. `hydrateSPA()` then
+resolves the initial route again with the client `auth.resolve`, and a client
+that cannot see the cookie is anonymous, so a protected page would redirect to
+the login route as soon as it hydrates.
+
+Opt in with `auth.dehydrate` to send a minimal identity snapshot for hydration:
+
+```ts
+const registry = createRouteRegistry(routes, {
+  auth: {
+    loginPath: '/login',
+    dehydrate: (auth) => ({
+      authenticated: auth.authenticated,
+      principal: auth.principal
+        ? { id: auth.principal.id, roles: auth.principal.roles }
+        : null,
+      session: null,
+      tenant: null,
+    }),
+  },
+});
+```
+
+- `dehydrate` runs on the server with the identity that authorized the page.
+  Return only the fields the initial render and the route's `auth`
+  requirements need. Only the `AuthContext` fields `authenticated`,
+  `principal`, `session`, `tenant`, and `scopes` of the returned object are
+  serialized; never return tokens or session secrets.
+- The snapshot is JSON-encoded into the page's hydration payload with the same
+  escaping as route data, so it is readable by any script on the page.
+- `hydrateSPA()` uses the snapshot, instead of calling `auth.resolve`, only to
+  resolve and render the initial route the server already authorized, so
+  `currentAuth()` matches the server render. Later navigations resolve the
+  identity with `auth.resolve`; without one they are anonymous. The snapshot
+  is not a credential and grants nothing: the server remains responsible for
+  authorizing requests and data.
+- `auth.resolve` is optional, so an app whose identity is only visible to the
+  server can configure `{ loginPath, dehydrate }` alone.
+
 ## URL-based rendering
 
 Use the URL-based helpers when the server should resolve routes explicitly.

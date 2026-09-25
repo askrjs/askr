@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- fix(router): `hydrateSPA()` no longer redirects a server-authorized page to
+  the login route when the browser cannot resolve the identity itself (for
+  example httpOnly-cookie sessions). Apps opt in with the new
+  `auth.dehydrate(context)` hook, which selects the minimal identity snapshot
+  serialized into the hydration payload; hydration uses it only for the initial
+  route, and navigations still use `auth.resolve`. Nothing about the identity is
+  serialized without the hook. `RouteAuthOptions.resolve` is now optional.
 - breaking(data): `defineQuery()` fetchers now receive the input and the abort
   signal as separate arguments, `fetch(input, { signal })`, instead of one
   merged `{ ...input, signal }` object. The merged shape dropped primitive

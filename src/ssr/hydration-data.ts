@@ -3,8 +3,12 @@ import type { SSRData } from './context';
 import type { DataRuntime } from '../data/types';
 import { dehydrateDataRuntime } from '../data/query-registry';
 import { isDeferred } from '../common/deferred-value';
+import type { AuthContext } from '@askrjs/auth';
+import type { RouteAuthOptions } from '../common/router';
+import { HYDRATED_AUTH } from '../router/auth';
 import {
   createPageRenderEnvelope,
+  withPageFramework,
   isEmptyPageRenderEnvelope,
   isPageRenderEnvelope,
   type PageRenderEnvelope,
@@ -43,6 +47,31 @@ function hydrationReplacer(_key: string, value: unknown): unknown {
     };
   }
   return { [DEFERRED_PAYLOAD]: 'pending' };
+}
+
+/**
+ * Add the app's opted-in identity projection to a hydration envelope. Without
+ * `auth.dehydrate`, nothing about the identity reaches the page. Only the
+ * `AuthContext` fields of the projection are kept.
+ */
+export function withHydratedAuth(
+  envelope: PageRenderEnvelope,
+  options: RouteAuthOptions | undefined,
+  context: AuthContext | undefined
+): PageRenderEnvelope {
+  if (!options?.dehydrate || !context) return envelope;
+  const { authenticated, principal, session, tenant, scopes } =
+    options.dehydrate(context);
+  return withPageFramework(envelope, {
+    ...envelope.framework,
+    [HYDRATED_AUTH]: {
+      authenticated,
+      principal,
+      session,
+      tenant,
+      ...(scopes ? { scopes } : {}),
+    },
+  });
 }
 
 export function serializeHydrationRenderData(

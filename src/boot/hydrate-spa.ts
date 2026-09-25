@@ -11,6 +11,7 @@ import {
   setServerLocation,
 } from '../router/route';
 import { clearRouteState } from '../router/store';
+import { readHydratedAuth } from '../router/auth';
 import { assertExecutionModel } from '../runtime';
 import { createAppRenderRuntime } from '../common/app-render-runtime';
 import {
@@ -122,6 +123,9 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     } = await resolveInitialRoute(routeAuth, {
       registry: config.registry,
       load: false,
+      // The server already enforced auth for this page. Its opted-in identity
+      // snapshot decides the initial render only; navigations use `resolve`.
+      authContext: readHydratedAuth(hydrationRenderData),
     });
     setServerLocation(currentUrl);
     if (isProductionEnvironment()) lockRouteRegistration();
