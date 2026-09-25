@@ -112,6 +112,10 @@ describe('SSG hydration bundle', () => {
     // Still within 263 KiB after production builds now keep the scheduler update-loop
     // guard (previously compiled out, so loops hung the page) plus the release
     // hooks that keep dropped work reschedulable, about 800 bytes.
-    expect(initialBytes).toBeLessThanOrEqual(263 * 1024);
+    // 264 KiB: For key validation and Case child validation now ship in
+    // production (they only ran in development, so production silently dropped
+    // rows), and control boundaries record an output owner so their errors reach
+    // the enclosing ErrorBoundary (#441/#446, measured 270,181 bytes).
+    expect(initialBytes).toBeLessThanOrEqual(264 * 1024);
   });
 });
