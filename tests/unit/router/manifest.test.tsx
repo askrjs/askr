@@ -16,8 +16,16 @@ import {
   resolveRoute,
   _applyManifest,
 } from '../../../src/router/route';
-import { resolveRouteFromRoutes } from '../../../src/router/route-matching';
-import { parseSegments, computeRank } from '../../../src/router/match';
+import {
+  _resolveRouteMatchFromRoutes,
+  computeMatchesFromRouteRecords,
+  resolveRouteFromRoutes,
+} from '../../../src/router/route-matching';
+import {
+  compareRouteSpecificity,
+  computeRank,
+  parseSegments,
+} from '../../../src/router/match';
 import {
   clearRouteState,
   getRouteList,
@@ -122,30 +130,45 @@ describe('createRouteRegistry()', () => {
 // ---------------------------------------------------------------------------
 
 describe('computeRank()', () => {
+  const rank = (path: string) => computeRank(parseSegments(path));
+
   it('should score catch-all as -1', () => {
     expect(computeRank([{ kind: 'catchall', value: '*' }])).toBe(-1);
   });
 
-  it('should score wildcard as 1', () => {
-    expect(computeRank([{ kind: 'wildcard', value: '*' }])).toBe(1);
+  it('should rank static > param > wildcard > splat at the same position', () => {
+    expect(rank('/users')).toBeGreaterThan(rank('/{id}'));
+    expect(rank('/{id}')).toBeGreaterThan(rank('/*'));
+    expect(rank('/{id}')).toBeGreaterThan(rank('/{*rest}'));
+    expect(rank('/{*rest}')).toBeGreaterThan(rank('/*'));
   });
 
-  it('should score param as 2', () => {
-    expect(computeRank([{ kind: 'param', value: 'id' }])).toBe(2);
+  it('should let the first differing segment decide', () => {
+    expect(rank('/docs/{*rest}')).toBeGreaterThan(rank('/{lang}/{page}'));
+    expect(rank('/x/{a}/{b}')).toBeGreaterThan(rank('/{a}/x/y'));
+    expect(rank('/docs')).toBeGreaterThan(rank('/docs/{*rest}'));
   });
 
-  it('should score static as 3', () => {
-    expect(computeRank([{ kind: 'static', value: 'users' }])).toBe(3);
-  });
-
-  it('should sum multi-segment paths', () => {
-    // /users/{id} → static(3) + param(2) = 5
-    expect(
-      computeRank([
-        { kind: 'static', value: 'users' },
-        { kind: 'param', value: 'id' },
-      ])
-    ).toBe(5);
+  it('should agree with compareRouteSpecificity', () => {
+    const paths = [
+      '/docs',
+      '/docs/{*rest}',
+      '/docs/{page}',
+      '/docs/api',
+      '/{lang}/{page}',
+      '/items/*',
+      '/{*rest}',
+      '/*',
+    ];
+    for (const a of paths) {
+      for (const b of paths) {
+        const order = compareRouteSpecificity(
+          parseSegments(a),
+          parseSegments(b)
+        );
+        expect(Math.sign(rank(b) - rank(a))).toBe(Math.sign(order));
+      }
+    }
   });
 });
 
@@ -348,14 +371,15 @@ describe('manifest shape', () => {
   });
 
   it('should include pre-computed rank on each record', () => {
-    route('/posts/{slug}', () => null); // 3 + 2 = 5
-    route('/*', () => null); // 0
+    route('/posts/{slug}', () => null);
+    route('/*', () => null);
 
     const m = currentManifest();
     const slugRecord = m.records.find((r) => r.path === '/posts/{slug}')!;
     const fallback = m.records.find((r) => r.path === '/*')!;
 
-    expect(slugRecord.rank).toBe(5);
+    expect(slugRecord.rank).toBe(computeRank(slugRecord.segments));
+    expect(slugRecord.rank).toBeGreaterThan(fallback.rank);
     expect(fallback.rank).toBe(-1);
     expect(fallback.isFallback).toBe(true);
   });
@@ -800,5 +824,125 @@ describe('route precedence', () => {
     const resolved = resolveRoute('/posts/%E0%A4%A');
     expect(resolved).not.toBeNull();
     expect(resolved!.params).toEqual({ slug: '%E0%A4%A' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Segment-by-segment precedence (static > param > wildcard > splat)
+// ---------------------------------------------------------------------------
+
+describe('segment-by-segment precedence', () => {
+  // Each case declares the expected loser first so declaration order can
+  // never be what picks the winner.
+  const cases: Array<{
+    name: string;
+    routes: readonly string[];
+    url: string;
+    winner: string;
+  }> = [
+    {
+      name: 'static prefix + splat beats params at the first segment',
+      routes: ['/{lang}/{page}', '/docs/{*rest}'],
+      url: '/docs/intro',
+      winner: '/docs/{*rest}',
+    },
+    {
+      name: 'static first segment beats a later static segment',
+      routes: ['/{a}/x/y', '/x/{a}/{b}'],
+      url: '/x/x/y',
+      winner: '/x/{a}/{b}',
+    },
+    {
+      name: 'static first segment beats more params',
+      routes: ['/{a}/{b}/{c}', '/x/*/*'],
+      url: '/x/y/z',
+      winner: '/x/*/*',
+    },
+    {
+      name: 'static beats param at the same depth',
+      routes: ['/posts/{slug}', '/posts/featured'],
+      url: '/posts/featured',
+      winner: '/posts/featured',
+    },
+    {
+      name: 'param beats wildcard at the same depth',
+      routes: ['/items/*', '/items/{id}'],
+      url: '/items/abc',
+      winner: '/items/{id}',
+    },
+    {
+      name: 'param beats splat at the same depth',
+      routes: ['/docs/{*rest}', '/docs/{page}'],
+      url: '/docs/intro',
+      winner: '/docs/{page}',
+    },
+    {
+      name: 'exact path beats an empty splat',
+      routes: ['/docs/{*rest}', '/docs'],
+      url: '/docs',
+      winner: '/docs',
+    },
+    {
+      name: 'deeper static beats a shallower splat',
+      routes: ['/docs/{*rest}', '/docs/api/{*rest}'],
+      url: '/docs/api/router',
+      winner: '/docs/api/{*rest}',
+    },
+    {
+      name: 'param beats the root catch-all',
+      routes: ['/*', '/{page}'],
+      url: '/about',
+      winner: '/{page}',
+    },
+    {
+      name: 'declaration order breaks exact ties',
+      routes: ['/a/{x}', '/a/{y}'],
+      url: '/a/value',
+      winner: '/a/{x}',
+    },
+  ];
+
+  for (const testCase of cases) {
+    it(`should pick ${testCase.winner} for ${testCase.url}: ${testCase.name}`, () => {
+      const registry = createRouteRegistry(() => {
+        for (const path of testCase.routes) {
+          route(path, () => path);
+        }
+      });
+      for (const path of testCase.routes) {
+        route(path, () => path);
+      }
+
+      // Client: registered route store records.
+      expect(resolveRoute(testCase.url)?.handler({})).toBe(testCase.winner);
+      // Plain route lists (SSR route tables).
+      expect(
+        resolveRouteFromRoutes(testCase.url, [...getRouteList()])?.handler({})
+      ).toBe(testCase.winner);
+      expect(
+        _resolveRouteMatchFromRoutes(testCase.url, registry.routes)?.route.path
+      ).toBe(testCase.winner);
+      // Registry manifest records (SSR request resolution, activity).
+      expect(
+        computeMatchesFromRouteRecords(
+          testCase.url,
+          registry.manifest.records
+        )[0]?.path
+      ).toBe(testCase.winner);
+    });
+  }
+
+  it('should order manifest records most specific first', () => {
+    route('/{lang}/{page}', () => null);
+    route('/*', () => null);
+    route('/docs/{*rest}', () => null);
+    route('/docs', () => null);
+
+    expect(currentManifest().records.map((record) => record.path)).toEqual([
+      '/docs',
+      '/docs/{*rest}',
+      '/{lang}/{page}',
+      '/*',
+    ]);
   });
 });

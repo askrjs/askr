@@ -701,7 +701,9 @@ describe.each(['development', 'production'])(
             if (looping && ++runs < safetyCap) a.set(value + 1);
             return 0;
           });
-          return <div>{`${String(d())}:${String(isSelected(0))}`}</div>;
+          // Not read by render, so the batch (not a re-render) evaluates it.
+          void d;
+          return <div>{String(isSelected(0))}</div>;
         },
       });
       flushScheduler();
@@ -746,7 +748,10 @@ describe.each(['development', 'production'])(
             if (looping && ++runs < safetyCap) a.set(value + 1);
             return value;
           });
-          return <div>{`${String(first())}:${String(second())}`}</div>;
+          // Not read by render, so the batch (not a re-render) evaluates them.
+          void first;
+          void second;
+          return <div />;
         },
       });
       flushScheduler();

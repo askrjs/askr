@@ -53,7 +53,9 @@ let currentDerivedSubscriber: DerivedSubscriber | null = null;
 let suppressComponentReadTrackingDepth = 0;
 let currentFineGrainedReadCollector: FineGrainedReadCollector | null = null;
 
-function scheduleReadableInstanceUpdate(instance: ComponentInstance): void {
+export function scheduleReadableInstanceUpdate(
+  instance: ComponentInstance
+): void {
   if (instance.owner.disposed || instance.hasPendingUpdate) {
     return;
   }
@@ -349,6 +351,19 @@ export function markReactivePropsDirtySource(
   } catch {
     // Keep readable notifications side-effect safe.
   }
+}
+
+/** Whether `instance` read `source` in its last committed render. */
+export function isReadableReadByInstance(
+  source: ReadableSource<unknown>,
+  instance: ComponentInstance
+): boolean {
+  const reader = source._readers?.get(instance);
+  return (
+    reader !== undefined &&
+    reader.generation === instance.owner.identity &&
+    reader.token === instance.lastRenderToken
+  );
 }
 
 export function notifyReadableReaders(

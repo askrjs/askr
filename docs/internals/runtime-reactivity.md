@@ -281,7 +281,19 @@ flowchart LR
   drain once per source after commit or restoration. Ordinary updates retain
   their existing notification timing.
 - `src/runtime/reactivity/derive.ts` tracks dependency reads and recomputes in the
-  scheduler's `derived` lane.
+  scheduler's `derived` lane. The derived lane evaluates a dirty cell eagerly
+  with the closure from its owner's last render, which is sound while the owner
+  has not re-rendered. If the owner is already queued to re-render and its
+  render reads the cell (directly or through other cells of the same owner),
+  the cell is left dirty for that render. An eager value that changed
+  re-renders an owner that reads it; an unchanged one keeps the `Object.is`
+  cutoff. A render marks a cell dirty when the flush version or its `derive()`
+  inputs (function, or `source`/`map`) changed, so a cell whose eager value
+  changed is evaluated a second time by the owner's new closure. Every
+  recompute that changes a published value notifies downstream readers,
+  skipping only the component currently rendering. `selector()` recomputes its
+  source record when the source identity changes and publishes that change to
+  its candidate readers.
 - `src/runtime/reactivity/readable.ts` is the shared substrate connecting state, derived
   values, reactive props, and component readers.
 - `src/runtime/access.ts` is the internal boundary for default scheduler and

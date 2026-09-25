@@ -68,6 +68,7 @@ export type BlueprintBinding = {
   fnRef: unknown;
   groupedScalar: boolean;
   cleanup(): void;
+  readAppliedValue(): unknown;
   updateFn(nextValue: unknown): void;
   restoreFn(nextValue: unknown): ReactivePropCleanupEntry;
 };

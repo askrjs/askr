@@ -14,7 +14,9 @@ import { createFlushLoopGuard } from '../flush-loop-guard';
 import { ScheduledWork } from '../scheduled-work';
 import {
   clearDerivedDependencySubscriptions,
+  isReadableReadByInstance,
   recordReadableRead,
+  scheduleReadableInstanceUpdate,
   syncDerivedDependencySubscriptions,
   type DerivedSubscriber,
   type ReadableSource,
@@ -34,6 +36,9 @@ interface DerivedCell<T> extends Derived<T>, DerivedSubscriber {
   _owner: ComponentInstance;
   _hookIndex: number;
   _compute: () => T;
+  /** The derive() inputs whose closure `_compute` wraps. */
+  _source: unknown;
+  _map: unknown;
   _value: T;
   _hasValue: boolean;
   _dirty: boolean;
@@ -78,6 +83,37 @@ function markDerivedCellDirty(cell: DerivedCell<unknown>): void {
   requestRuntimeWork('derived', derivedWork);
 }
 
+/**
+ * Whether the owner's render consumes this cell, directly or through other
+ * cells of the same owner. A change to such a cell has to re-render the
+ * owner, and the owner's next render replaces the closure.
+ */
+function isReadByOwnerRender(
+  cell: DerivedCell<unknown>,
+  visited: Set<DerivedCell<unknown>> = new Set()
+): boolean {
+  const owner = cell._owner;
+  if (isReadableReadByInstance(cell, owner)) {
+    return true;
+  }
+  visited.add(cell);
+  const subscribers = cell._derivedSubscribers;
+  if (!subscribers) {
+    return false;
+  }
+  for (const subscriber of subscribers) {
+    const dependent = subscriber as Partial<DerivedCell<unknown>>;
+    if (
+      dependent._owner === owner &&
+      !visited.has(dependent as DerivedCell<unknown>) &&
+      isReadByOwnerRender(dependent as DerivedCell<unknown>, visited)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function flushDirtyDerivedCells(): void {
   if (dirtyDerivedCells.size === 0) {
     return;
@@ -96,6 +132,18 @@ function flushDirtyDerivedCells(): void {
       next = pending.next();
       continue;
     }
+    // Eager evaluation uses the closure from the owner's last render. That is
+    // sound while the owner has not re-rendered: its captured locals are
+    // current. When the owner is already queued to re-render, the render
+    // will install a new closure, so leave the cell dirty for it.
+    if (
+      cell._active &&
+      cell._owner.hasPendingUpdate &&
+      isReadByOwnerRender(cell)
+    ) {
+      next = pending.next();
+      continue;
+    }
     // The dirty set is iterated live, so a cycle of writing derives would
     // never leave this walk. Skip a looping cell; it stays dirty and
     // recomputes on its next read.
@@ -106,7 +154,7 @@ function flushDirtyDerivedCells(): void {
       continue;
     }
     try {
-      recomputeDerivedCell(cell, true);
+      recomputeDerivedCell(cell);
     } catch (error) {
       (failures ??= []).push(error);
     }
@@ -121,10 +169,7 @@ function flushDirtyDerivedCells(): void {
   }
 }
 
-function recomputeDerivedCell<T>(
-  cell: DerivedCell<T>,
-  notifyDownstream: boolean
-): T {
+function recomputeDerivedCell<T>(cell: DerivedCell<T>): T {
   if (cell._evaluating) {
     throw new Error('derive() cannot read itself recursively');
   }
@@ -155,13 +200,29 @@ function recomputeDerivedCell<T>(
   syncDerivedDependencySubscriptions(cell, prevSources, nextSources);
   cell._sources = nextSources;
 
-  const valueChanged = !cell._hasValue || !Object.is(cell._value, nextValue);
+  const valueChanged = cell._hasValue && !Object.is(cell._value, nextValue);
   cell._hasValue = true;
   cell._value = nextValue;
   cell._lastRecomputeFlushVersion = getRuntimeFlushVersion();
 
-  if (valueChanged && notifyDownstream) {
-    notifyReadableSource(cell, { skipCurrentDerivedSubscriber: true });
+  // Outside a render, a changed value the owner's render consumes (possibly
+  // only through other cells of the owner) re-renders the owner. An
+  // unchanged value keeps the equality cutoff: no owner re-render.
+  if (
+    valueChanged &&
+    getCurrentComponentInstance() === null &&
+    isReadByOwnerRender(cell)
+  ) {
+    scheduleReadableInstanceUpdate(cell._owner);
+  }
+  // Publish every change to an already-published value, wherever the
+  // recompute happened (#431). The component currently rendering reads the
+  // new value directly and needs no follow-up render.
+  if (valueChanged) {
+    notifyReadableSource(cell, {
+      skipCurrentDerivedSubscriber: true,
+      skipInstance: getCurrentComponentInstance(),
+    });
   }
 
   return cell._value;
@@ -172,6 +233,8 @@ function createDerivedCell<T>(
   generation: object,
   store: Map<number, DerivedCell<unknown>>,
   hookIndex: number,
+  source: unknown,
+  map: unknown,
   compute: () => T
 ): DerivedCell<T> {
   const cell = function derivedGetter(): T {
@@ -191,12 +254,14 @@ function createDerivedCell<T>(
     }
 
     recordReadableRead(derivedCell);
-    return recomputeDerivedCell(derivedCell, derivedCell._pending);
+    return recomputeDerivedCell(derivedCell);
   } as DerivedCell<T>;
 
   cell._owner = instance;
   cell._hookIndex = hookIndex;
   cell._compute = compute;
+  cell._source = source;
+  cell._map = map;
   cell._value = undefined as T;
   cell._hasValue = false;
   cell._dirty = true;
@@ -243,15 +308,28 @@ function createDerivedCell<T>(
 function getOrCreateDerivedCell<T>(
   instance: ComponentInstance,
   hookIndex: number,
+  source: unknown,
+  map: unknown,
   compute: () => T
 ): DerivedCell<T> {
   const store = getDeriveStore(instance);
   const existing = store.get(hookIndex) as DerivedCell<T> | undefined;
   if (existing) {
-    existing._compute = compute;
-    if (existing._lastRecomputeFlushVersion !== getRuntimeFlushVersion()) {
+    // A new closure may capture different render locals, so a value computed
+    // by the previous closure cannot be served, even within the same flush.
+    // An eager derived-lane value is therefore evaluated again when the owner
+    // re-renders with new inputs; this second evaluation only happens when
+    // the value changed (or the owner re-rendered for another reason).
+    if (
+      existing._lastRecomputeFlushVersion !== getRuntimeFlushVersion() ||
+      !Object.is(existing._source, source) ||
+      !Object.is(existing._map, map)
+    ) {
       existing._dirty = true;
     }
+    existing._compute = compute;
+    existing._source = source;
+    existing._map = map;
     return existing;
   }
 
@@ -260,6 +338,8 @@ function getOrCreateDerivedCell<T>(
     instance.owner.identity,
     store,
     hookIndex,
+    source,
+    map,
     compute
   );
   store.set(hookIndex, created as DerivedCell<unknown>);
@@ -324,8 +404,10 @@ export function derive<TIn, TOut>(
   const cell = getOrCreateDerivedCell(
     instance,
     hookIndex,
+    source,
+    map,
     compute as () => TOut | null | TIn
   );
-  recomputeDerivedCell(cell, false);
+  recomputeDerivedCell(cell);
   return cell as Derived<TOut | null> | Derived<TIn>;
 }
