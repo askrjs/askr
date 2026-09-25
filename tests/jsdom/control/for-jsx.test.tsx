@@ -502,9 +502,11 @@ describe('For JSX primitive', () => {
       expect(
         container.querySelector('section')?.getAttribute('data-open')
       ).toBe('false');
+      // The parent rerender passes a fresh row callback, so the existing row
+      // renders the latest parent-built child instead of the first snapshot.
       expect(
         container.querySelector('[data-slot="panel-link"]')?.textContent
-      ).toBe('Panel open');
+      ).toBe('Panel closed');
       expect(appRenders).toBeLessThan(5);
     } finally {
       cleanup();
