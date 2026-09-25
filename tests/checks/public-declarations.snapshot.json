@@ -869,7 +869,7 @@
         "type LinkProps = LinkBaseProps & ({\n    href: string;\n    to?: never;\n} | {\n    href?: never;\n    to: RouteDestination;\n});"
       ],
       "navigate": [
-        "declare function navigate(path: string, options?: NavigateOptions): void;"
+        "declare function navigate(target: string | RouteDestination, options?: NavigateOptions): void;"
       ],
       "NavigateOptions": [
         "type NavigateOptions = {\n    history?: \"push\" | \"replace\";\n    replace?: boolean;\n    scroll?: NavigationScrollBehavior;\n    state?: unknown;\n};"
@@ -2074,7 +2074,7 @@
       "interface MutationTestRegistry {\n    readonly runtime: DataRuntime;\n    set<TInput, TResult>(key: string, mutation: Mutation<TInput, TResult>): void;\n    delete(key: string): void;\n    clear(): void;\n}"
     ],
     "navigate": [
-      "declare function navigate(path: string, options?: NavigateOptions): void;"
+      "declare function navigate(target: string | RouteDestination, options?: NavigateOptions): void;"
     ],
     "NavigateOptions": [
       "type NavigateOptions = {\n    history?: \"push\" | \"replace\";\n    replace?: boolean;\n    scroll?: NavigationScrollBehavior;\n    state?: unknown;\n};"

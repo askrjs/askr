@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- fix(router): navigation edge cases. `navigate()` and guard redirects to
+  another origin now load that URL with `location.assign()` (or `replace()`)
+  instead of rendering its path in-app. A hash that is not valid
+  percent-encoding (`#%E0`) no longer throws after the history entry was
+  written. `<Link target="_self">` is handled by the router. String targets for
+  `navigate()`, `<Link href>` and `redirect()` are always logical below a
+  registry `basePath`: `/app/settings` under `/app` now goes to
+  `/app/app/settings` instead of being treated as already mounted. Pass a
+  typed destination (`navigate(to(route, params))`, `<Link to>`) for a public
+  href.
 - chore(bench): the benchmark workflow runs only the existing tier1 and tier2
   lanes, as one matrix job per tier, instead of 36 copy-pasted steps that also
   invoked the removed `bench:tier3`/`bench:tier4` scripts. The browser-only

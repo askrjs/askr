@@ -72,6 +72,11 @@ export function parseTargetUrl(path: string): URL {
   return new URL(path, base);
 }
 
+/** Whether a parsed target shares the origin of the current document. */
+export function isCurrentOrigin(target: URL): boolean {
+  return target.origin === parseTargetUrl('/').origin;
+}
+
 export function getRegisteredAppsSnapshot(): AppRegistration[] {
   return [...registeredApps];
 }

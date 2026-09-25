@@ -147,7 +147,11 @@ Route declarations, loader and metadata contexts, `currentRoute()`, activity
 checks, and SSG output paths remain logical (`/reviews/book`). Browser and SSR
 matching remove `/website` first; typed destinations, `<Link>`, `navigate()`,
 guard/auth redirects, popstate, and query updates use the public mounted URL
-(`/website/reviews/book`). The same registry must be used for server rendering
+(`/website/reviews/book`). String targets passed to `navigate()`, `<Link href>`
+and `redirect()` are always logical, so a root-relative path always gains the
+base: under `/website`, `navigate('/website/news')` goes to
+`/website/website/news`. Typed destinations from `to()` already carry the
+public URL and are not prefixed again. The same registry must be used for server rendering
 and hydration. Use `basePath: ''` or omit it for an origin-root deployment.
 Vite's `base` remains responsible for JavaScript, CSS, and other asset URLs.
 
@@ -385,9 +389,13 @@ Registers a pathful miss route.
 Inside a component, call `currentRoute()` to read the current route snapshot,
 including entry-local `state` and `hasState`.
 
-## `navigate(path)`
+## `navigate(target)`
 
-Triggers client-side navigation. When navigation replaces the active route,
+Triggers client-side navigation. `target` is a logical path string or a typed
+destination from `to()`. A URL on another origin is not rendered by the
+router: Askr hands it to the browser with `location.assign()`, or
+`location.replace()` for replace history. Guard redirects to another origin
+load the same way. When navigation replaces the active route,
 Askr disposes route-local component state, resources, tasks, and abort signals
 before mounting the replacement. Reconciliation can preserve shared layout DOM
 nodes, but state that must survive navigation belongs in a shared layout,
@@ -427,6 +435,11 @@ import { Link } from '@askrjs/askr/router';
 ```
 
 `Link` accepts normal renderable child content. Imperative DOM `Node` children are not a supported public contract.
+
+`Link` handles a plain left click on a same-origin `http`/`https` URL in the
+router. It leaves the click to the browser for modifier keys, `download`, other
+origins, and a `target` naming another browsing context (`_blank`, a frame
+name). `target="_self"` still navigates in the router.
 
 Raw `href` values may be relative URLs or use `http`, `https`, `mailto`,
 `sms`, or `tel`. `Link` rejects other explicit schemes, including executable

@@ -204,6 +204,24 @@ function scrollToPosition(position: { x: number; y: number }): void {
   window.scrollTo(position.x, position.y);
 }
 
+/**
+ * Find the element a URL fragment indicates. Like the browser, try the raw
+ * fragment first, then its percent-decoded form. A fragment that is not valid
+ * percent-encoding (`#%E0`) has no decoded form, so only the raw id applies.
+ */
+function findFragmentTarget(fragment: string): HTMLElement | null {
+  const raw = document.getElementById(fragment);
+  if (raw) return raw;
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(fragment);
+  } catch (error) {
+    if (error instanceof URIError) return null;
+    throw error;
+  }
+  return decoded === fragment ? null : document.getElementById(decoded);
+}
+
 export function applyNavigationScroll(
   behavior?: NavigationScrollBehavior
 ): void {
@@ -214,8 +232,7 @@ export function applyNavigationScroll(
 
   const hash = typeof window !== 'undefined' ? window.location.hash : '';
   if (hash && typeof document !== 'undefined') {
-    const id = decodeURIComponent(hash.slice(1));
-    const target = document.getElementById(id);
+    const target = findFragmentTarget(hash.slice(1));
     if (target && typeof target.scrollIntoView === 'function') {
       target.scrollIntoView({ behavior: 'auto' });
       return;

@@ -45,16 +45,17 @@ function stripRouteBasePath(
   return `/${pathParts.slice(baseParts.length).join('/')}`;
 }
 
-/** Add a registry mount point to one logical root-relative route target. */
+/**
+ * Add a registry mount point to one logical root-relative route target. The
+ * target is always logical, so `/app/settings` under `/app` becomes
+ * `/app/app/settings`; callers holding a public href must not pass it here.
+ */
 export function addRouteBasePath(target: string, basePath: string): string {
   if (!basePath || !target.startsWith('/') || target.startsWith('//')) {
     return target;
   }
   const parsed = parsedTarget(target);
-  if (
-    parsed.origin !== 'http://askr.invalid' ||
-    stripRouteBasePath(parsed.pathname, basePath) !== undefined
-  ) {
+  if (parsed.origin !== 'http://askr.invalid') {
     return target;
   }
   return `${basePath}${parsed.pathname}${parsed.search}${parsed.hash}`;

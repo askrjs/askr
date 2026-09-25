@@ -224,6 +224,8 @@ const navigateOptions: NavigateOptions = {
 };
 expectAssignable<NavigateOptions>(navigateOptions);
 expectType<void>(navigate('/home', navigateOptions));
+expectType<void>(navigate(typedUserDestination, { history: 'replace' }));
+expectError(navigate({ path: '/home' }));
 
 const updateRouteQueryOptions: UpdateRouteQueryOptions = {
   history: 'replace',

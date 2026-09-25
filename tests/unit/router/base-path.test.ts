@@ -34,7 +34,7 @@ describe('route registry base paths', () => {
       '/website/reviews/book?q=yes#details'
     );
     expect(addRouteBasePath('/website/reviews/book', '/website')).toBe(
-      '/website/reviews/book'
+      '/website/website/reviews/book'
     );
     expect(
       removeRouteBasePath('/website/reviews/book?q=yes#details', '/website')
@@ -104,9 +104,6 @@ describe('route registry base paths', () => {
     expect(removeRouteBasePath('/caf%C3%A9', '/café')).toBe('/');
     expect(removeRouteBasePath('/a%20b/', '/a b')).toBe('/');
     expect(removeRouteBasePath('/cafe/menu', '/café')).toBeUndefined();
-    expect(addRouteBasePath('/caf%C3%A9/menu', '/café')).toBe(
-      '/caf%C3%A9/menu'
-    );
 
     const registry = createRouteRegistry(
       () => {

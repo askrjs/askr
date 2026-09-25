@@ -22,6 +22,7 @@ import {
   getCurrentHref,
   getCurrentPathname,
   getRegisteredAppsSnapshot,
+  isCurrentOrigin,
   parseTargetUrl,
   setCurrentRouteLocation,
   syncAppRegistrationLocation,
@@ -137,7 +138,7 @@ export function getRedirectHistoryMode(
   return replace === false ? 'push' : 'replace';
 }
 
-function getNavigationHistoryMode(
+export function getNavigationHistoryMode(
   options: NavigateOptions
 ): 'push' | 'replace' {
   if (options.history) {
@@ -311,7 +312,9 @@ export function applyNavigationTargets(
     }
 
     const redirectTarget = parseTargetUrl(resolved.to);
-    const redirectHref = `${redirectTarget.pathname}${redirectTarget.search}${redirectTarget.hash}`;
+    const redirectHref = isCurrentOrigin(redirectTarget)
+      ? `${redirectTarget.pathname}${redirectTarget.search}${redirectTarget.hash}`
+      : redirectTarget.href;
     if (redirectHref === href) {
       if (isDevelopmentEnvironment()) {
         logger.warn(
