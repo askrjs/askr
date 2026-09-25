@@ -69,6 +69,16 @@ export function runScheduledComponent(
       instance.renderRevision !== renderRevision
     ) {
       discardTransaction(transaction);
+      // A newer render took this update over and then rolled back, so the
+      // update never reached the DOM: render again.
+      if (
+        !owner.disposed &&
+        instance.owner === owner &&
+        owner.identity === ownershipGeneration &&
+        instance.evaluationGeneration === evaluationGeneration &&
+        instance.renderRevision === instance._rolledBackRevision
+      )
+        instance._enqueueRun?.();
       return;
     }
     try {

@@ -37,6 +37,13 @@ function Counter() {
 // reflects the state.
 ```
 
+The rule covers structural function children too, such as a list whose
+length follows state (`{() => Array.from({ length: n() }, ...)}`), inside an
+element or in a component's fragment or array result. It also covers a child
+component that re-renders on its own state: when that update joined a parent
+render that failed, the child renders again after the rollback. A failed render
+does not wait for the next state change to bring either of them up to date.
+
 Read the state in the render instead of a binding when a value must change
 together with the rest of the component's output.
 

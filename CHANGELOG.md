@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- fix(runtime): a failed render no longer leaves a structural function child
+  stale. A function child in a component's fragment or array result
+  (`<>{() => Array.from({ length: n() }, ...)}</>`) renders as a small
+  component; when its update joined a parent render that failed, the rollback
+  dropped that update, so the list kept the old item count until `n` changed
+  again, even after the parent recovered. The same applied to any child
+  component re-rendering on its own state. A rolled-back render now restores
+  the update the component was due (a queued run, or a scheduled render it
+  superseded), so the component renders again with the current state, as
+  fine-grained bindings do since #546.
+
 - fix(hydration): markup verification (`hydrate: { verifyMarkup }`, on by
   default outside production) now also compares the server HTML with the DOM
   the client renderer produces while hydrating it, so SSR/client renderer
