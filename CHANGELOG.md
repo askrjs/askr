@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- fix(boot): `createSPA({ dataRuntime })` and `hydrateSPA({ dataRuntime })` now
+  use the configured runtime consistently. `hydrateSPA` previously seeded the
+  custom runtime from the hydration payload while route-component queries read
+  the default one, so readers showed a loading state and refetched instead of
+  using the hydrated value. Route `preload` hooks (initial route and client
+  navigations) also prefetched into the default runtime, so readers of a
+  custom runtime never saw the preloaded data.
 - fix(runtime): `state.set()` now throws when called inside a `derive()` or
   `selector()` computation, including recomputes in the derived lane where no
   component is rendering. Previously only render-time recomputes were caught
