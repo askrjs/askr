@@ -4,7 +4,10 @@
  * Centralizes text and attribute escaping to avoid duplication
  * between sync and streaming SSR renderers.
  */
-import { normalizeStylePropertyName } from '../common/prop-classification';
+import {
+  normalizeStylePropertyName,
+  styleValueText,
+} from '../common/prop-classification';
 import { sanitizeCssValue } from '../common/css';
 
 // HTML5 void elements that don't have closing tags
@@ -213,7 +216,7 @@ export function styleObjToCss(value: unknown): string | null {
     if (v === null || v === undefined || v === false) continue;
 
     const prop = toKebabCached(k);
-    const safeValue = sanitizeCssValue(String(v));
+    const safeValue = sanitizeCssValue(styleValueText(prop, v));
     if (safeValue) {
       result += `${prop}:${safeValue};`;
     }
