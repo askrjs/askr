@@ -299,6 +299,26 @@ export function withDerivedReadTracking<T>(
   }
 }
 
+/**
+ * Call `fn` without recording any readable it reads as a dependency of the
+ * current component, derived computation, or fine-grained effect.
+ */
+export function readUntracked<T>(fn: () => T): T {
+  const prevDerivedSubscriber = currentDerivedSubscriber;
+  const prevCollector = currentFineGrainedReadCollector;
+  currentDerivedSubscriber = null;
+  currentFineGrainedReadCollector = null;
+  suppressComponentReadTrackingDepth += 1;
+
+  try {
+    return fn();
+  } finally {
+    suppressComponentReadTrackingDepth -= 1;
+    currentFineGrainedReadCollector = prevCollector;
+    currentDerivedSubscriber = prevDerivedSubscriber;
+  }
+}
+
 export function syncDerivedDependencySubscriptions(
   subscriber: DerivedSubscriber,
   prevSources: Set<ReadableSource<unknown>>,

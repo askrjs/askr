@@ -149,6 +149,25 @@ wrapping it. Full-stack applications instead return the route-request Web
 stream to `@askrjs/vite/server`, which composes template prefix, app chunks,
 and suffix without buffering the complete response.
 
+### Reactive values on the server
+
+Function children and props, and `state` or `derive` cells passed as children
+or props, are reactive on the client. The server
+calls each one once, without subscribing to what it reads, and renders the
+current value exactly as a static child or prop with that value: text is
+escaped, elements and arrays render as markup, and `null`, `undefined`, and
+`false` render nothing. Hydration therefore finds the same text and attributes
+and adopts the nodes in place, then keeps them reactive. Event handlers
+(`on*`) and `ref` are never called.
+
+```tsx
+function Greeting() {
+  const name = state('Ada');
+  return <p title={() => `Hello ${name()}`}>{name}</p>;
+}
+// SSR: <p title="Hello Ada">Ada</p>
+```
+
 ### Text inside `<script>` and `<style>`
 
 The HTML parser does not decode entities inside HTML `<script>` and `<style>`
@@ -202,8 +221,8 @@ Portal content follows the context of the host it renders at.
 
 Children of `<script>` and `<style>` may be strings, numbers, fragments,
 components that return text, `Show`/`For`/`Case` boundaries, and error
-boundaries. Function children render nothing on the server, as they do in any
-other element. Element children throw during SSR, because they have no raw
+boundaries, and function or readable children, which contribute their
+current value. Element children throw during SSR, because they have no raw
 text form. `dangerouslySetInnerHTML` is still written as given and is not
 rewritten.
 

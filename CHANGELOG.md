@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- fix(ssr): function children and props, and `state`/`derive` cells passed
+  as children or props, now render their current value on the
+  server instead of nothing (children) or the function's source text (props).
+  Each is called once, untracked, and escaped like a static value, so the
+  server markup matches the client and hydration adopts it in place.
+- fix(ssr): `renderResolvedToStringSync()` no longer throws "no route found"
+  for a route without params when `params` is omitted.
 - fix(runtime): `state.set()` now throws when called inside a `derive()` or
   `selector()` computation, including recomputes in the derived lane where no
   component is rendering. Previously only render-time recomputes were caught

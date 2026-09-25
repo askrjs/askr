@@ -3,7 +3,7 @@ import { __CONTROL_BOUNDARY__ } from '../common/control';
 import type { DOMElement } from '../common/vnode';
 import { __ERROR_BOUNDARY__ } from '../common/vnode';
 import { logger } from '../common/logger';
-import { getVNodeContextFrame } from '../runtime';
+import { getVNodeContextFrame, readUntracked } from '../runtime';
 import { SSR_PORTAL_ANCHOR, SSR_PORTAL_HOST } from '../common/portal';
 import {
   createRenderContext,
@@ -257,6 +257,16 @@ export function renderRenderableSyncToSink(
     renderChildrenSyncToSink(value, sink, ctx);
     return;
   }
+  if (typeof value === 'function') {
+    // A function or readable child is reactive on the client; the server
+    // renders its current value once, without subscribing to it.
+    renderRenderableSyncToSink(
+      readUntracked(value as () => unknown),
+      sink,
+      ctx
+    );
+    return;
+  }
   if (value && typeof value === 'object' && 'type' in value) {
     renderNodeSyncToSink(value as VNode, sink, ctx);
   }
@@ -416,8 +426,8 @@ function sinkWrite3(
  *
  * The parser does not decode entities there, so the text is collected
  * unescaped and neutralized as a whole by `escapeRawText`. Text may come from
- * strings, numbers, fragments, components, and control and error boundaries;
- * function children contribute nothing, as on the ordinary SSR text path.
+ * strings, numbers, fragments, components, control and error boundaries, and
+ * function or readable children, which contribute their current value.
  * Range markers are omitted because a comment has no raw text form. Element
  * children are rejected rather than serialized as markup the parser would
  * read back as literal text.
@@ -427,13 +437,11 @@ function collectRawText(
   element: RawTextElement,
   ctx: RenderContext
 ): string {
-  if (
-    value === null ||
-    value === undefined ||
-    typeof value === 'boolean' ||
-    typeof value === 'function'
-  ) {
+  if (value === null || value === undefined || typeof value === 'boolean') {
     return '';
+  }
+  if (typeof value === 'function') {
+    return collectRawText(readUntracked(value as () => unknown), element, ctx);
   }
   if (typeof value === 'string') return value;
   if (typeof value === 'number') return String(value);

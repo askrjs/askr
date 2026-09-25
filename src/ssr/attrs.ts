@@ -15,12 +15,23 @@ import {
 import { isUnsafeUrlAttribute } from '../common/url';
 import type { RenderSink } from './sink';
 import { escapeAttr, needsEscapeAttr, styleObjToCss } from './escape';
+import { readUntracked } from '../runtime';
 
 const ESCAPED_ATTR_VALUE_CACHE_LIMIT = 512;
 const escapedAttrValueCache = new Map<string, string>();
 
 function isEventHandler(key: string): boolean {
   return key.length >= 2 && key.slice(0, 2).toLowerCase() === 'on';
+}
+
+/**
+ * A function or readable prop is reactive on the client; the server renders
+ * its current value once, without subscribing to it.
+ */
+function resolvePropValue(value: unknown): unknown {
+  return typeof value === 'function'
+    ? readUntracked(value as () => unknown)
+    : value;
 }
 
 function assertAttributeName(name: string): void {
@@ -64,8 +75,6 @@ export function renderAttrsDirect(
 
   const propsObj = props as Record<string, unknown>;
   for (const key in propsObj) {
-    const value = propsObj[key];
-
     // Skip special props
     if (isSkippedProp(key) || key === 'dangerouslySetInnerHTML') continue;
 
@@ -78,6 +87,7 @@ export function renderAttrsDirect(
     // Normalize public JSX prop names to their rendered HTML attribute names.
     const attrName = getPublicAttributeName(key, customElement);
     assertAttributeName(attrName);
+    const value = resolvePropValue(propsObj[key]);
 
     // Handle style objects
     if (attrName === 'style') {
@@ -149,7 +159,7 @@ export function getRenderedAttributeValue(
     const attrName = getPublicAttributeName(key);
     if (attrName.toLowerCase() !== name) continue;
 
-    const value = propsObj[key];
+    const value = resolvePropValue(propsObj[key]);
     if (attrName === 'style') {
       const css = typeof value === 'string' ? value : styleObjToCss(value);
       if (!css) continue;
