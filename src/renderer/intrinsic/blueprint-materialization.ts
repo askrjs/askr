@@ -1,4 +1,4 @@
-import { materializeFreshKey } from '../props/attributes';
+import { materializeFreshKey, recordAppliedProps } from '../props/attributes';
 import { isFragmentVNode } from '../children/child-shape';
 import { isBenchMetricScopeActive, recordBenchCounter } from '../../runtime';
 import {
@@ -72,6 +72,7 @@ export function prepareElementBlueprint(
   if (propCount !== shape.propCount) return false;
 
   materializeFreshKey(element, vnode, props);
+  recordAppliedProps(element, props);
   if (shouldPublishBindings) {
     deferred.push(BLUEPRINT_PUBLISH_BINDINGS, element, props);
   }

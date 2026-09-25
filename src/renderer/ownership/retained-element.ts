@@ -17,6 +17,11 @@ import {
 import { keyedElements } from '../reconciliation/keyed';
 import { writeAttribute } from '../utils';
 import {
+  getAppliedProps,
+  restoreAppliedProps,
+  type AppliedProps,
+} from '../props/attributes';
+import {
   getCurrentCommitTransaction,
   beginCommitTransaction,
   applyTransaction,
@@ -54,6 +59,7 @@ interface TextSnapshot {
 }
 
 export interface RetainedElementSnapshot {
+  appliedProps: AppliedProps | undefined;
   /** Name, value and namespace, so rollback can restore `xlink:href` in place. */
   attributes: ReadonlyArray<[string, string, string | null]>;
   childNodes: readonly Node[];
@@ -123,6 +129,7 @@ function cloneReactivePropEntry(
     cleanup: entry.cleanup,
     fnRef: entry.fnRef,
     groupedScalar: entry.groupedScalar,
+    readAppliedValue: entry.readAppliedValue,
     restoreFn: entry.restoreFn,
     updateFn: entry.updateFn,
   };
@@ -198,6 +205,7 @@ export function snapshotRetainedElement(
   const keyedMap = keyedElements.get(element);
 
   return {
+    appliedProps: getAppliedProps(element),
     attributes: bindingsOnly
       ? EMPTY_SNAPSHOT_ENTRIES
       : copyRetainedAttributes(element.attributes),
@@ -564,6 +572,7 @@ export function restoreRetainedElement(
           () => restoreAttributes(element, snapshot),
         ]
       : []),
+    () => restoreAppliedProps(element, snapshot.appliedProps),
     () => restoreReactiveProps(element, snapshot),
     () => restoreRef(element, snapshot),
     () => restoreListeners(element, snapshot),

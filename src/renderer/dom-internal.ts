@@ -13,6 +13,7 @@ import {
   applyFormControlProp,
   applyStaticScalarPropsToElement,
   hasMatchingStaticProps,
+  recordAppliedProps,
   isDangerousInnerHTMLPayload,
   materializeFreshKey,
   materializeKey,
@@ -281,6 +282,7 @@ function createIntrinsicElement(
     }
 
     materializeFreshKey(el, node, props);
+    recordAppliedProps(el, props);
 
     const staticCreateFastPath = tryGetStaticCreateFastPathShape(
       props,
@@ -429,6 +431,7 @@ function applyElementUpdateFromVnode(
       !forceChildrenUpdate &&
       hasMatchingStaticProps(el, props, vnode.type as string)
     ) {
+      recordAppliedProps(el, props);
       if (shouldUpdateChildren) {
         const children =
           (props.children as VNode | VNode[] | undefined) ?? vnode.children;
