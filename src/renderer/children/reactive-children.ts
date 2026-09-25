@@ -5,9 +5,20 @@ import {
   type ChildScope,
 } from '../../runtime';
 import {
+  beginComponentScope,
+  endComponentScope,
+  FUNCTION_CHILD_NEEDS_COMPONENT,
   getCurrentComponentInstance,
+  getExecutionContextFrame,
+  getVNodeContextFrame,
   isRenderingProtectedBoundaryContent,
+  liftFunctionChildren,
+  markVNodeTreeWithContextFrame,
+  readFunctionChildValue,
   routeRenderedOutputErrorToBoundary,
+  runFunctionChildWithoutComponent,
+  withContext,
+  type ComponentInstance,
 } from '../../runtime';
 import { incDevCounter } from '../../runtime';
 import {
@@ -59,7 +70,7 @@ let reactiveChildScopeId = 0;
 
 interface ScalarChildBinding {
   source: ReactiveScalarChildSource;
-  effect: FineGrainedEffectHandle<string> | null;
+  effect: FineGrainedEffectHandle<unknown> | null;
 }
 
 function saveScalarChildBinding(
@@ -107,8 +118,10 @@ export function trySyncScalarChildSequenceInPlace(
 }
 
 /**
- * Route a reactive child failure like a reactive prop binding: to the nearest
- * ErrorBoundary of the component that rendered it, else thrown from the update.
+ * A failing function child belongs to the component that rendered it, like a
+ * failing reactive prop: an ErrorBoundary's own children go to that boundary,
+ * anything else to the nearest boundary above, and with no boundary the error
+ * is thrown from the update that ran it.
  */
 function createReactiveChildErrorHandler(): (error: unknown) => void {
   const owner = getCurrentComponentInstance();
@@ -122,6 +135,98 @@ function createReactiveChildErrorHandler(): (error: unknown) => void {
       throw error;
     }
   };
+}
+
+/**
+ * Read a function child bound directly to an element, without a component.
+ * It runs in the context frame of the position it was written in. Returns
+ * FUNCTION_CHILD_NEEDS_COMPONENT when the run asked for a component (a hook,
+ * `Show`/`For`/`Case`, a resource): the binding then upgrades.
+ */
+export function readFunctionChildWithoutComponent(
+  child: () => unknown
+): unknown {
+  const frame = getVNodeContextFrame(child) ?? null;
+  const read = () =>
+    runFunctionChildWithoutComponent(null, () => readFunctionChildValue(child));
+  const value = frame
+    ? withContext(getExecutionContextFrame(frame), read)
+    : read();
+  return value === FUNCTION_CHILD_NEEDS_COMPONENT
+    ? value
+    : markVNodeTreeWithContextFrame(value, frame);
+}
+
+/** Elements whose function children render as `FunctionChild` components. */
+const functionChildComponentElements = new WeakSet<Element>();
+
+/**
+ * Render `children` with each function child as a mounted `FunctionChild`
+ * component, owned by `owner` (the component that rendered the element).
+ */
+function renderFunctionChildComponents(
+  el: Element,
+  children: unknown,
+  host: ReactiveChildDOMHost,
+  owner: ComponentInstance | null
+): void {
+  const scope = beginComponentScope({ instance: owner });
+  try {
+    host.updateElementChildren(el, liftFunctionChildren(children) as VNode[]);
+  } finally {
+    endComponentScope(scope);
+  }
+}
+
+/**
+ * A text-bound function child needed a component: from now on the element's
+ * function children render as components (see `syncReactiveScalarChild`).
+ */
+export function upgradeFunctionChildren(
+  el: Element,
+  children: unknown[],
+  host: ReactiveChildDOMHost,
+  owner: ComponentInstance | null
+): void {
+  functionChildComponentElements.add(el);
+  const cleanupMap = getElementReactivePropsCleanupMap(el);
+  const entry = cleanupMap?.get(REACTIVE_CHILDREN_KEY);
+  if (entry) {
+    cleanupMap!.delete(REACTIVE_CHILDREN_KEY);
+    if (cleanupMap!.size === 0) elementReactivePropsCleanup.delete(el);
+    entry.cleanup();
+  }
+  renderFunctionChildComponents(el, children, host, owner);
+}
+
+/** The element's children as written, from a text binding's slots. */
+function scalarSourceChildren(source: ReactiveScalarChildSource): unknown[] {
+  return source.map((slot) =>
+    slot.kind === 'static' ? slot.value : slot.compute
+  );
+}
+
+type ScalarChildSetup = {
+  owner: ComponentInstance | null;
+  /** The first run, during setup, needed a component; nothing was bound. */
+  needsComponent: boolean;
+  cleanup: () => void;
+  updateFn: (nextSource: ReactiveScalarChildSource) => void;
+};
+
+/** Read every slot; the whole run needs a component if any slot does. */
+function readScalarSlots(source: ReactiveScalarChildSource): unknown {
+  const values: unknown[] = [];
+  for (const slot of source) {
+    if (slot.kind === 'static') {
+      values.push(slot.value);
+      continue;
+    }
+    const value = readFunctionChildWithoutComponent(slot.compute);
+    if (value === FUNCTION_CHILD_NEEDS_COMPONENT) return value;
+    values.push(value);
+  }
+  return values;
 }
 
 /** Structural child updates run in a retained record so failures roll back. */
@@ -139,20 +244,32 @@ function setupReactiveScalarChild(
   el: Element,
   source: ReactiveScalarChildSource,
   host: ReactiveChildDOMHost
-): {
-  cleanup: () => void;
-  updateFn: (nextSource: ReactiveScalarChildSource) => void;
-} {
+): ScalarChildSetup {
   let currentSource = source;
+  let upgradeSource = () => currentSource;
   const onError = createReactiveChildErrorHandler();
+  const owner = getCurrentComponentInstance();
+  // Set when the first run, which happens during setup, needs a component.
+  let upgradeDuringSetup = false;
+  let settingUp = true;
+  const needsComponent = (): void => {
+    if (settingUp) upgradeDuringSetup = true;
+    else
+      upgradeFunctionChildren(
+        el,
+        scalarSourceChildren(upgradeSource()),
+        host,
+        owner
+      );
+  };
 
   if (source.length === 1 && source[0]?.kind === 'dynamic') {
-    // A stale owned text node after rollback is detected and replaced.
     let ownedTextNode =
       el.childNodes.length === 1 && el.firstChild?.nodeType === Node.TEXT_NODE
         ? (el.firstChild as Text)
         : null;
     const binding: ScalarChildBinding = { source, effect: null };
+    upgradeSource = () => binding.source;
 
     binding.effect = createFineGrainedEffect({
       lane: 'reactive',
@@ -164,11 +281,16 @@ function setupReactiveScalarChild(
           );
         }
 
-        const rawValue = currentSlot.compute();
+        const rawValue = readFunctionChildWithoutComponent(currentSlot.compute);
+        if (rawValue === FUNCTION_CHILD_NEEDS_COMPONENT) return rawValue;
         const normalized = normalizeOwnedReactiveTextValue(rawValue);
         return normalized ?? (rawValue as string);
       },
       commit: (value) => {
+        if (value === FUNCTION_CHILD_NEEDS_COMPONENT) {
+          needsComponent();
+          return;
+        }
         const normalized = normalizeOwnedReactiveTextValue(value);
 
         if (normalized === null) {
@@ -212,7 +334,10 @@ function setupReactiveScalarChild(
       onError,
     });
 
+    settingUp = false;
     return {
+      owner,
+      needsComponent: upgradeDuringSetup,
       cleanup: () => {
         binding.effect?.cleanup();
         binding.effect = null;
@@ -237,7 +362,10 @@ function setupReactiveScalarChild(
             );
           }
 
-          const rawValue = currentSlot.compute();
+          const rawValue = readFunctionChildWithoutComponent(
+            currentSlot.compute
+          );
+          if (rawValue === FUNCTION_CHILD_NEEDS_COMPONENT) return rawValue;
           const normalized = normalizeOwnedReactiveTextValue(rawValue);
           return normalized ?? (rawValue as string);
         });
@@ -248,11 +376,12 @@ function setupReactiveScalarChild(
   let effectHandle: FineGrainedEffectHandle<unknown> | null =
     createFineGrainedEffect({
       lane: 'reactive',
-      compute: () =>
-        currentSource.map((slot) =>
-          slot.kind === 'static' ? slot.value : slot.compute()
-        ),
+      compute: () => readScalarSlots(currentSource),
       commit: (values) => {
+        if (values === FUNCTION_CHILD_NEEDS_COMPONENT) {
+          needsComponent();
+          return;
+        }
         if (!Array.isArray(values)) {
           throw new Error(
             '[Askr] Reactive scalar children must evaluate to a slot array.'
@@ -311,7 +440,10 @@ function setupReactiveScalarChild(
       onError,
     });
 
+  settingUp = false;
   return {
+    owner,
+    needsComponent: upgradeDuringSetup,
     cleanup: () => {
       effectHandle?.cleanup();
       effectHandle = null;
@@ -322,11 +454,7 @@ function setupReactiveScalarChild(
       }
 
       currentSource = nextSource;
-      effectHandle.updateCompute(() =>
-        currentSource.map((slot) =>
-          slot.kind === 'static' ? slot.value : slot.compute()
-        )
-      );
+      effectHandle.updateCompute(() => readScalarSlots(currentSource));
     },
   };
 }
@@ -338,6 +466,16 @@ export function createReactiveScalarChildCleanupEntry(
   host: ReactiveChildDOMHost
 ): ReactivePropCleanupEntry {
   const reactive = setupReactiveScalarChild(el, source, host);
+  if (reactive.needsComponent) {
+    reactive.cleanup();
+    upgradeFunctionChildren(
+      el,
+      scalarSourceChildren(source),
+      host,
+      reactive.owner
+    );
+    return { cleanup() {}, fnRef: null };
+  }
   return {
     cleanup: reactive.cleanup,
     updateFn: (nextValue) => {
@@ -353,13 +491,77 @@ export function createReactiveScalarChildCleanupEntry(
   };
 }
 
+type BoundaryChildBinding = {
+  owner: ComponentInstance | null;
+  /** The first render, during setup, needed a component; see ScalarChildBinding. */
+  needsComponent: boolean;
+  cleanup: () => void;
+  updateFn: (nextValue: unknown) => void;
+};
+
+/** A function child's scope renders in the context of the position it was written in. */
+function setFunctionChildScopeFrame(scope: ChildScope, child: unknown): void {
+  const frame = getVNodeContextFrame(child);
+  if (frame) scope.componentInstance.ownerFrame = frame;
+}
+
+/**
+ * Render a function child in its child scope. The scope counts as a
+ * component only while the function itself runs; a run that asks for one
+ * renders nothing and requests the upgrade, which runs once the render has
+ * been committed.
+ */
+function readFunctionChildInScope(
+  scope: ChildScope,
+  child: () => unknown,
+  requestUpgrade: () => void
+): VNode {
+  const value = runFunctionChildWithoutComponent(scope.componentInstance, () =>
+    readFunctionChildValue(child)
+  );
+  if (value === FUNCTION_CHILD_NEEDS_COMPONENT) {
+    requestUpgrade();
+    return null as unknown as VNode;
+  }
+  return normalizeReactiveChildBoundaryVNode(value as VNode);
+}
+
+function createBoundaryUpgrade(
+  el: Element,
+  host: ReactiveChildDOMHost,
+  owner: ComponentInstance | null,
+  children: () => unknown[]
+) {
+  let requested = false;
+  let settingUp = true;
+  let done = false;
+  return {
+    request(): void {
+      requested = true;
+    },
+    /** Whether setup ended with an upgrade pending (the caller performs it). */
+    finishSetup(): boolean {
+      settingUp = false;
+      return requested;
+    },
+    afterCommit(): void {
+      if (!requested || settingUp || done) return;
+      done = true;
+      upgradeFunctionChildren(el, children(), host, owner);
+    },
+  };
+}
+
 function setupReactiveChildBoundary(
   el: Element,
   childFn: () => VNode,
   host: ReactiveChildDOMHost
-): { cleanup: () => void; updateFn: (nextValue: unknown) => void } {
+): BoundaryChildBinding {
   let currentChildFn = childFn;
   const parentInstance = getCurrentComponentInstance();
+  const upgrade = createBoundaryUpgrade(el, host, parentInstance, () => [
+    currentChildFn,
+  ]);
   const entry: { scope: ChildScope; nodes: Node[] } = {
     scope: createChildScope(
       parentInstance,
@@ -371,13 +573,15 @@ function setupReactiveChildBoundary(
           host
         );
         syncReactiveChildExpectedNodes(el, expectedNodes);
+        upgrade.afterCommit();
       }
     ),
     nodes: [],
   };
 
+  setFunctionChildScopeFrame(entry.scope, currentChildFn);
   entry.scope.render(() =>
-    normalizeReactiveChildBoundaryVNode(currentChildFn())
+    readFunctionChildInScope(entry.scope, currentChildFn, upgrade.request)
   );
   syncReactiveChildExpectedNodes(
     el,
@@ -385,6 +589,8 @@ function setupReactiveChildBoundary(
   );
 
   return {
+    owner: parentInstance,
+    needsComponent: upgrade.finishSetup(),
     cleanup: () => {
       const dom = entry.scope.dom;
       const nodes = entry.nodes;
@@ -403,6 +609,7 @@ function setupReactiveChildBoundary(
     },
     updateFn: (nextValue: unknown) => {
       currentChildFn = nextValue as () => VNode;
+      setFunctionChildScopeFrame(entry.scope, currentChildFn);
       rerenderChildScope(entry.scope);
       const expectedNodes = commitReactiveChildBoundaryEntryNodes(
         el,
@@ -410,6 +617,7 @@ function setupReactiveChildBoundary(
         host
       );
       syncReactiveChildExpectedNodes(el, expectedNodes);
+      upgrade.afterCommit();
     },
   };
 }
@@ -418,9 +626,14 @@ function setupReactiveChildBoundarySequence(
   el: Element,
   source: ReactiveChildBoundarySequenceSource,
   host: ReactiveChildDOMHost
-): { cleanup: () => void; updateFn: (nextValue: unknown) => void } {
+): BoundaryChildBinding {
   let currentSource = source;
   const parentInstance = getCurrentComponentInstance();
+  const upgrade = createBoundaryUpgrade(el, host, parentInstance, () =>
+    currentSource.map((slot) =>
+      slot.kind === 'dynamic' ? slot.compute : slot.value
+    )
+  );
   const entries: ReactiveChildBoundarySequenceEntry[] = [];
   const dynamicEntries: Array<{
     index: number;
@@ -435,6 +648,7 @@ function setupReactiveChildBoundarySequence(
 
   const syncSequence = () => {
     syncReactiveChildSequenceNodes(el, entries, host);
+    upgrade.afterCommit();
   };
 
   const parentNamespace = getParentNamespace(el);
@@ -484,14 +698,20 @@ function setupReactiveChildBoundarySequence(
   }
 
   for (const dynamicEntry of dynamicEntries) {
+    setFunctionChildScopeFrame(
+      dynamicEntry.entry.scope,
+      (currentSource[dynamicEntry.index] as { compute: () => VNode }).compute
+    );
     dynamicEntry.entry.scope.render(() =>
-      normalizeReactiveChildBoundaryVNode(
+      readFunctionChildInScope(
+        dynamicEntry.entry.scope,
         (
           currentSource[dynamicEntry.index] as {
             kind: 'dynamic';
             compute: () => VNode;
           }
-        ).compute()
+        ).compute,
+        upgrade.request
       )
     );
   }
@@ -499,6 +719,8 @@ function setupReactiveChildBoundarySequence(
   syncSequence();
 
   return {
+    owner: parentInstance,
+    needsComponent: upgrade.finishSetup(),
     cleanup: () => {
       for (const dynamicEntry of dynamicEntries) {
         const dom = dynamicEntry.entry.scope.dom;
@@ -525,6 +747,11 @@ function setupReactiveChildBoundarySequence(
     updateFn: (nextValue: unknown) => {
       currentSource = nextValue as ReactiveChildBoundarySequenceSource;
       for (const dynamicEntry of dynamicEntries) {
+        setFunctionChildScopeFrame(
+          dynamicEntry.entry.scope,
+          (currentSource[dynamicEntry.index] as { compute: () => VNode })
+            .compute
+        );
         rerenderChildScope(dynamicEntry.entry.scope);
       }
       syncSequence();
@@ -537,12 +764,32 @@ export function syncReactiveScalarChild(
   children: unknown,
   host: ReactiveChildDOMHost
 ): boolean {
+  const cleanupMap = getElementReactivePropsCleanupMap(el);
+  const existingReactiveEntry = cleanupMap?.get(REACTIVE_CHILDREN_KEY);
+
+  // Once a function child of `el` has needed a component, its function
+  // children render as `FunctionChild` components.
+  if (functionChildComponentElements.has(el)) {
+    if (existingReactiveEntry) {
+      existingReactiveEntry.cleanup();
+      cleanupMap?.delete(REACTIVE_CHILDREN_KEY);
+      if (cleanupMap && cleanupMap.size === 0) {
+        elementReactivePropsCleanup.delete(el);
+      }
+    }
+    renderFunctionChildComponents(
+      el,
+      children,
+      host,
+      getCurrentComponentInstance()
+    );
+    return true;
+  }
+
   const reactiveChildSource = getReactiveScalarChildSource(children);
   const reactiveChildBoundary = getSingleReactiveChildBoundarySource(children);
   const reactiveChildBoundarySequence =
     getReactiveChildBoundarySequenceSource(children);
-  const cleanupMap = getElementReactivePropsCleanupMap(el);
-  const existingReactiveEntry = cleanupMap?.get(REACTIVE_CHILDREN_KEY);
 
   if (
     !reactiveChildSource &&
@@ -596,10 +843,17 @@ export function syncReactiveScalarChild(
     existingReactiveEntry?.cleanup();
 
     try {
-      getOrCreateElementReactiveCleanupMap(el).set(
-        REACTIVE_CHILDREN_KEY,
-        createReactiveScalarChildCleanupEntry(el, reactiveChildSource, host)
+      const entry = createReactiveScalarChildCleanupEntry(
+        el,
+        reactiveChildSource,
+        host
       );
+      if (!functionChildComponentElements.has(el)) {
+        getOrCreateElementReactiveCleanupMap(el).set(
+          REACTIVE_CHILDREN_KEY,
+          entry
+        );
+      }
       return true;
     } catch (error) {
       if (!reactiveChildBoundary && !reactiveChildBoundarySequence) {
@@ -640,6 +894,18 @@ export function syncReactiveScalarChild(
       reactiveChildBoundarySequence,
       host
     );
+    if (reactive.needsComponent) {
+      reactive.cleanup();
+      upgradeFunctionChildren(
+        el,
+        reactiveChildBoundarySequence.map((slot) =>
+          slot.kind === 'dynamic' ? slot.compute : slot.value
+        ),
+        host,
+        reactive.owner
+      );
+      return true;
+    }
     getOrCreateElementReactiveCleanupMap(el).set(REACTIVE_CHILDREN_KEY, {
       cleanup: reactive.cleanup,
       updateFn: reactive.updateFn,
@@ -668,6 +934,11 @@ export function syncReactiveScalarChild(
   }
 
   const reactive = setupReactiveChildBoundary(el, reactiveChildBoundary, host);
+  if (reactive.needsComponent) {
+    reactive.cleanup();
+    upgradeFunctionChildren(el, [reactiveChildBoundary], host, reactive.owner);
+    return true;
+  }
   getOrCreateElementReactiveCleanupMap(el).set(REACTIVE_CHILDREN_KEY, {
     cleanup: reactive.cleanup,
     updateFn: reactive.updateFn,

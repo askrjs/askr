@@ -249,6 +249,84 @@ wrapping it. Full-stack applications instead return the route-request Web
 stream to `@askrjs/vite/server`, which composes template prefix, app chunks,
 and suffix without buffering the complete response.
 
+### Reactive values on the server
+
+Function children and props, and `state` or `derive` cells passed as children
+or props, are reactive on the client. The server
+calls each one once, without subscribing to what it reads, and renders the
+current value exactly as a static child or prop with that value: text is
+escaped, elements and arrays render as markup, and `null`, `undefined`, and
+`false` render nothing. Hydration therefore finds the same text and attributes
+and adopts the nodes in place, then keeps them reactive. Event handlers
+(`on*`) and `ref` are never called.
+
+```tsx
+function Greeting() {
+  const name = state('Ada');
+  return <p title={() => `Hello ${name()}`}>{name}</p>;
+}
+// SSR: <p title="Hello Ada">Ada</p>
+```
+
+A function child may return a cell, which is read in turn, so
+`{() => (useFull() ? fullName : shortName)}` renders, and on the client
+follows, whichever cell is selected. Only that one level is read: any other
+function in a function child's result (returned directly, or inside an array
+or fragment it returns) renders nothing, and so does a component that returns
+a function or a cell. Elements a function child returns keep their own
+reactive children and props.
+
+Function children are not limited to elements. A function or cell among the
+items of a fragment or array a component returns, such as a layout that
+renders `<>{props.children}</>`, a function child of `ErrorBoundary`, and a
+function child of `Portal` render and update the same way. Both renderers
+follow these rules, so server markup and client output agree.
+
+A function child may use what a component body uses: hooks such as
+`state()`, `resource()`, `task()` and `watch()`; `Show`, `For` and `Case`;
+and `readScope()`, which sees the providers around the position the function
+was written in (including a provider rendered by a wrapper component around
+it). The server renders every function child as a small component
+(`FunctionChild`). The client does the same among fragment, array,
+`ErrorBoundary` and `Portal` children. Inside an element, a function child
+that only reads values is bound straight to the DOM with no component; the
+first time a run asks for a component (a hook, `Show`/`For`/`Case`, a
+resource), that run is abandoned and the element's function children become
+`FunctionChild` components from then on. That first read runs again as the
+component, so code before the first hook can run twice: once on mount (or on
+the run that first reaches a hook) and again after the upgrade. Keep side
+effects out of that part of the function.
+
+Either way, hooks run in the function's call order, keep their state across
+re-runs and run lifecycle work. When a run calls a different sequence of
+hooks than the last one, for example `{() => (open() ? <Show .../> : 'none')}`
+or a `state()` called only in one branch, the function child remounts: its
+previous hooks are disposed (their cleanups run before the new run's
+`task()` work) and it starts again with
+fresh state, instead of reporting a hook-order error as a component body
+does. A remount also recreates the DOM the function child rendered, so an
+element inside it that had focus loses it; keep inputs outside a function
+child whose hooks change, or give it the same hooks on every run.
+
+```tsx
+<Theme value="dark">
+  <p>{() => readScope(Theme)}</p>
+  <div>
+    {() => (
+      <Show when={open} fallback={<em>closed</em>}>
+        <For each={items} by={(item) => item.id}>
+          {(item) => <Row item={item} />}
+        </For>
+      </Show>
+    )}
+  </div>
+</Theme>
+```
+
+A function child or prop that throws is a render error on both sides: the
+nearest `ErrorBoundary` renders its fallback, and without one the render (or
+the client update) throws.
+
 ### Text inside `<script>` and `<style>`
 
 The HTML parser does not decode entities inside HTML `<script>` and `<style>`
@@ -302,8 +380,8 @@ Portal content follows the context of the host it renders at.
 
 Children of `<script>` and `<style>` may be strings, numbers, fragments,
 components that return text, `Show`/`For`/`Case` boundaries, and error
-boundaries. Function children render nothing on the server, as they do in any
-other element. Element children throw during SSR, because they have no raw
+boundaries, and function or readable children, which contribute their
+current value. Element children throw during SSR, because they have no raw
 text form. `dangerouslySetInnerHTML` is still written as given and is not
 rewritten.
 

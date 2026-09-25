@@ -141,6 +141,14 @@ describe('SSG hydration bundle', () => {
     // removed properties, the URL/raw-HTML guards and rollback snapshots add
     // ~2.4 KB (measured 273,240 bytes). Without it those props cannot reach
     // the element at all.
-    expect(initialBytes).toBeLessThanOrEqual(269 * 1024);
+    // 274 KiB: function children render the same on the client as on the
+    // server in every position (#517): the one-level readable unwrap,
+    // FunctionChild components (remounting when their hooks change) for
+    // fragment/array items and ErrorBoundary and Portal children, the
+    // on-demand upgrade of element function children when a run needs a
+    // component, context frames for function children, binding setup for
+    // hydrated elements and error routing. About 4.9 KB (measured 279,900
+    // bytes against 274,949 on main).
+    expect(initialBytes).toBeLessThanOrEqual(274 * 1024);
   });
 });

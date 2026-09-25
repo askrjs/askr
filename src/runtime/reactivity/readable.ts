@@ -3,7 +3,7 @@ import {
   isRuntimeSchedulerExecuting,
   markRuntimeReactivePropsDirtySource,
 } from '../access';
-import { getCurrentComponentInstance } from '../component/scope';
+import { peekCurrentComponentInstance } from '../component/scope';
 import type { ComponentInstance } from '../component/instance';
 import { adjustOwnershipDiagnostic } from '../diagnostics/ownership-diagnostics';
 
@@ -47,6 +47,30 @@ export function markReadableUsage(source: unknown): void {
       readable._hasEverBeenRead = true;
     }
   }
+}
+
+/**
+ * Whether `value` is a readable cell (`state`, `derive`, or a `For` item or
+ * index signal) rather than an ordinary function.
+ */
+export function isReadableSource(
+  value: unknown
+): value is ReadableSource<unknown> {
+  return (
+    typeof value === 'function' &&
+    ('_readers' in value || '_hasBeenRead' in value || '_markDirty' in value)
+  );
+}
+
+/**
+ * Read the value a function child renders: call it once and, when the result
+ * is itself a readable, read that too. A function child that returns a cell
+ * (`() => (cond() ? a : b)`) renders the cell's value; any other function in
+ * the result renders nothing.
+ */
+export function readFunctionChildValue(child: () => unknown): unknown {
+  const value = child();
+  return isReadableSource(value) ? value() : value;
 }
 
 let currentDerivedSubscriber: DerivedSubscriber | null = null;
@@ -115,7 +139,7 @@ export function recordReadableRead(source: ReadableSource<unknown>): void {
     return;
   }
 
-  const inst = getCurrentComponentInstance();
+  const inst = peekCurrentComponentInstance();
   if (!inst || inst._currentRenderToken === undefined) {
     return;
   }
@@ -295,6 +319,26 @@ export function withDerivedReadTracking<T>(
     return fn();
   } finally {
     suppressComponentReadTrackingDepth -= 1;
+    currentDerivedSubscriber = prevDerivedSubscriber;
+  }
+}
+
+/**
+ * Call `fn` without recording any readable it reads as a dependency of the
+ * current component, derived computation, or fine-grained effect.
+ */
+export function readUntracked<T>(fn: () => T): T {
+  const prevDerivedSubscriber = currentDerivedSubscriber;
+  const prevCollector = currentFineGrainedReadCollector;
+  currentDerivedSubscriber = null;
+  currentFineGrainedReadCollector = null;
+  suppressComponentReadTrackingDepth += 1;
+
+  try {
+    return fn();
+  } finally {
+    suppressComponentReadTrackingDepth -= 1;
+    currentFineGrainedReadCollector = prevCollector;
     currentDerivedSubscriber = prevDerivedSubscriber;
   }
 }

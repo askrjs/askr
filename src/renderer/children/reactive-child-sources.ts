@@ -80,6 +80,21 @@ function collectReactiveScalarChildSource(
   return false;
 }
 
+/** Whether `children` (through arrays and fragments) holds a function. */
+export function containsFunctionChild(children: unknown): boolean {
+  if (typeof children === 'function') return true;
+  if (Array.isArray(children)) {
+    for (const child of children) {
+      if (containsFunctionChild(child)) return true;
+    }
+    return false;
+  }
+  if (isFragmentVNode(children)) {
+    return containsFunctionChild(children.props?.children ?? children.children);
+  }
+  return false;
+}
+
 export function getReactiveScalarChildSource(
   children: unknown
 ): ReactiveScalarChildSource | null {
