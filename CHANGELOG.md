@@ -27,6 +27,63 @@
   (`https://site.example/page`) instead of a root-relative one, so code that
   wraps or spies on them sees the full URL. Enhanced action redirects are
   checked the same way and assigned as absolute URLs.
+- fix(resources): a synchronous `task()` registers its cleanup as it runs
+  instead of one microtask later, so removing its owner right after mount
+  (for example a function child remounting when its hooks change) runs the
+  cleanup before the replacement's task. A task that throws still reports
+  the error as before.
+- fix(ssr): function children and props, and `state`/`derive` cells passed
+  as children or props, now render their current value on the
+  server instead of nothing (children) or the function's source text (props).
+  Each is called once, untracked, and escaped like a static value, so the
+  server markup matches the client and hydration adopts it in place. On both
+  server and client, a function child that returns a `state`/`derive` cell
+  renders that cell's value (and the client follows it); any other function
+  in a function child's result renders nothing. A component that returns a
+  function or a cell itself renders nothing, but function and cell items in
+  the fragment or array a component returns (for example a layout that
+  renders `<>{props.children}</>`), and a function child of `ErrorBoundary`,
+  now render reactively on the client as they do on the server; the client
+  dropped them. `ErrorBoundary` no longer wraps text or fragment content in a
+  `<div>` on the client. A function child may use hooks
+  (`state()`, `resource()`, `task()`, `watch()`), `Show`/`For`/`Case` and
+  `readScope()` in every position, on both sides. The server renders each
+  one as a `FunctionChild` component; on the server these threw. On the
+  client, an element's function child that only reads values stays a direct
+  DOM binding, and upgrades in place to a mounted `FunctionChild` component
+  the first time a run asks for a component (code before the first hook then
+  runs again); a function child whose hooks change between runs remounts
+  with fresh state rather than reporting a hook-order error. Before, hooks there rendered
+  nothing, resources never resolved, and `readScope()` could read the wrong
+  provider. A function child of `Portal` now renders on the client. Parent
+  re-renders no longer remove the text of an element's function child when
+  the element is a component's root (`<div data-n={n}>{() => o()}</div>`),
+  also with element siblings. Hydrating an element returned by a function child now sets up that
+  element's own function children instead of clearing them. A function
+  child that throws on the client now goes to the nearest `ErrorBoundary`,
+  or is thrown from the update without one, like a reactive prop; it was
+  logged and swallowed, leaving the element empty, while the server
+  rendered the boundary's fallback.
+- fix(renderer): a child list that starts with an item that renders nothing
+  (a plain object, a function, `true`) no longer duplicates the following
+  text or elements when it updates existing nodes, such as server markup
+  being hydrated (#544).
+- fix(ssr): `renderResolvedToStringSync()` no longer throws "no route found"
+  for a route without params when `params` is omitted.
+- fix(renderer): a component returning a fragment or array now retains its
+  child components when it re-renders with new props. Matching children keep
+  their state and DOM identity, including after hydration; nested fragments
+  reconcile against the same flattened child list used at creation.
+- fix(control): existing `For` rows now render with the latest row callback.
+  A value the parent computed during render and captured in the callback (for
+  example `const current = selected()`) kept its first value in rows that were
+  already mounted. When the parent rerenders with a new callback, retained rows
+  rerun with it and keep their DOM, key, and local state; a stable callback
+  still skips them. A row that reruns on its own, because it read a reactive
+  value, now keeps its key: a component in that row previously lost its local
+  state when the row rendered again in the same flush. The docs now also state
+  that a reactive read inside the callback subscribes the row that made it
+  (they previously said it did not subscribe). See docs/guides/control-flow.md.
 - fix(renderer): a failed keyed reconciliation commit now propagates to the
   component update, which rolls the DOM back and routes the error to the
   nearest `ErrorBoundary` (or throws it from the flush). Previously any commit

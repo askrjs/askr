@@ -34,6 +34,7 @@ import {
   createRetainedHostInstanceSet,
 } from './host-replacement';
 import {
+  commitAsComponent,
   materializeComponentResultNode,
   retainMaterializedReplacementOwnerChain,
   retainReplacementOwnerChain,
@@ -107,11 +108,13 @@ export function updateRetainedComponentHost(
 
   if (
     existingHost instanceof Comment &&
-    syncComponentFragmentRange(
-      existingHost,
-      existingInstance,
-      scopedResult,
-      forceChildrenUpdate || existingInstance.owner.mounted === false
+    commitAsComponent(existingInstance, () =>
+      syncComponentFragmentRange(
+        existingHost,
+        existingInstance,
+        scopedResult,
+        forceChildrenUpdate || existingInstance.owner.mounted === false
+      )
     )
   ) {
     retainReplacementOwnerChain(
@@ -134,15 +137,17 @@ export function updateRetainedComponentHost(
       (scopedResult as DOMElement).type as string
     )
   ) {
-    withContext(snapshot, () => {
-      domHost.updateElementFromVnode(
-        existingHost,
-        inheritComponentKey(scopedResult as DOMElement, node),
-        true,
-        forceChildrenUpdate || existingInstance.owner.mounted === false
-      );
-      materializeKey(existingHost, node, props);
-    });
+    withContext(snapshot, () =>
+      commitAsComponent(existingInstance, () => {
+        domHost.updateElementFromVnode(
+          existingHost,
+          inheritComponentKey(scopedResult as DOMElement, node),
+          true,
+          forceChildrenUpdate || existingInstance.owner.mounted === false
+        );
+        materializeKey(existingHost, node, props);
+      })
+    );
     pruneComponentHostInstances(existingHost, liveRetainedInstances);
     return existingHost;
   }
@@ -203,15 +208,17 @@ export function updateRetainedComponentHost(
     typeof resolvedResult.result.type === 'string' &&
     tagNamesEqualIgnoreCase(existingHost.tagName, resolvedResult.result.type)
   ) {
-    withContext(snapshot, () => {
-      domHost.updateElementFromVnode(
-        existingHost,
-        inheritComponentKey(resolvedResult.result as DOMElement, node),
-        true,
-        forceChildrenUpdate || existingInstance.owner.mounted === false
-      );
-      materializeKey(existingHost, node, props);
-    });
+    withContext(snapshot, () =>
+      commitAsComponent(resolvedResult.owner, () => {
+        domHost.updateElementFromVnode(
+          existingHost,
+          inheritComponentKey(resolvedResult.result as DOMElement, node),
+          true,
+          forceChildrenUpdate || existingInstance.owner.mounted === false
+        );
+        materializeKey(existingHost, node, props);
+      })
+    );
     pruneComponentHostInstances(existingHost, liveRetainedInstances);
     return existingHost;
   }

@@ -3,6 +3,7 @@ import { notifyReadableSource } from './notify';
 import {
   claimHookIndex,
   getCurrentComponentInstance,
+  peekCurrentComponentInstance,
 } from '../component/scope';
 import { type ComponentInstance } from '../component/instance';
 import {
@@ -210,7 +211,7 @@ function recomputeDerivedCell<T>(cell: DerivedCell<T>): T {
   // unchanged value keeps the equality cutoff: no owner re-render.
   if (
     valueChanged &&
-    getCurrentComponentInstance() === null &&
+    peekCurrentComponentInstance() === null &&
     isReadByOwnerRender(cell)
   ) {
     scheduleReadableInstanceUpdate(cell._owner);
@@ -221,7 +222,7 @@ function recomputeDerivedCell<T>(cell: DerivedCell<T>): T {
   if (valueChanged) {
     notifyReadableSource(cell, {
       skipCurrentDerivedSubscriber: true,
-      skipInstance: getCurrentComponentInstance(),
+      skipInstance: peekCurrentComponentInstance(),
     });
   }
 

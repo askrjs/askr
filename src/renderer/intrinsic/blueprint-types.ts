@@ -1,4 +1,5 @@
-import type { ComponentInstance, FineGrainedEffectHandle } from '../../runtime';
+import type { ComponentInstance } from '../../runtime';
+import type { FineGrainedEffectHandle } from '../../runtime';
 import type { ReactiveChildDOMHost } from '../children/reactive-children';
 import type { ReactivePropCleanupEntry } from '../ownership/cleanup';
 
@@ -69,6 +70,8 @@ export type BlueprintBinding = {
   tagName: string | null;
   textNode: Text | null;
   compute: () => unknown;
+  readonly owner: ComponentInstance | null;
+  needsComponent: boolean;
   fnRef: unknown;
   groupedScalar: boolean;
   cleanup(): void;

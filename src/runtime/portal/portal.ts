@@ -29,6 +29,7 @@ import { createSSRPortalAnchor } from './ssr';
 import type { PortalOwner } from './lifetime';
 import { setPortalErrorParent } from './lifetime';
 import { definePortal } from './explicit';
+import { liftFunctionChildren } from '../component/function-children';
 export { definePortal } from './explicit';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
@@ -581,6 +582,10 @@ export const DefaultPortal: Portal<RenderableChild> = (() => {
 
 /** Write children to the {@link DefaultPortal} host wherever it is rendered. */
 export function Portal(props: PortalProps): JSXElement | null {
+  // A function child renders at the host as it would in place.
+  const children = liftFunctionChildren(props.children);
+  if (children !== props.children)
+    props = { ...props, children } as PortalProps;
   if (writeSSRPortal(DEFAULT_SSR_PORTAL_KEY, props.children)) {
     return createSSRPortalAnchor();
   }

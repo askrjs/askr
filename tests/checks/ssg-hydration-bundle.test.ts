@@ -152,6 +152,16 @@ describe('SSG hydration bundle', () => {
     // control validation (measured 274,824 bytes).
     // 270 KiB: with #443 on main (274,990 bytes), #459's navigation target
     // checks add ~1.2 KB (measured 276,199 bytes).
-    expect(initialBytes).toBeLessThanOrEqual(270 * 1024);
+    // 274 KiB: function children render the same on the client as on the
+    // server in every position (#517): the one-level readable unwrap,
+    // FunctionChild components (remounting when their hooks change) for
+    // fragment/array items and ErrorBoundary and Portal children, the
+    // on-demand upgrade of element function children when a run needs a
+    // component, context frames for function children, binding setup for
+    // hydrated elements and error routing. About 4.9 KB (measured 279,900
+    // bytes against 274,949 on main).
+    // 276 KiB after #459's navigation target and absolute-URL checks join
+    // #517's function children (measured 281,638 bytes on this branch).
+    expect(initialBytes).toBeLessThanOrEqual(276 * 1024);
   });
 });
