@@ -1,4 +1,5 @@
 import { saveScrollPosition } from './navigation-scroll';
+import { commitHistoryIndex, nextHistoryIndex } from './history-index';
 import {
   getCurrentHref,
   getRegisteredAppsSnapshot,
@@ -104,14 +105,17 @@ export function updateRouteQuery(
       ? window.history.state
       : {};
 
+  const historyIndex = nextHistoryIndex(historyMode);
   window.history[historyMode === 'replace' ? 'replaceState' : 'pushState'](
     {
       ...state,
       path: href,
+      askrIndex: historyIndex,
     },
     '',
     href
   );
+  commitHistoryIndex(historyIndex);
 
   setCurrentRouteLocation(url.pathname, href);
   for (const app of getRegisteredAppsSnapshot()) {

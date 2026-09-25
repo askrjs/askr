@@ -1,4 +1,5 @@
 import { keepsFalseValue } from '../../common/prop-classification';
+import { PROPERTY_PROP_PREFIX } from '../../common/dom-properties';
 import { getDelegatedHandlersForElement } from './events';
 import {
   applyScalarPropValue,
@@ -9,6 +10,7 @@ import {
   recordAppliedProps,
   removeStaleAttributes,
 } from './attributes';
+import { hasWrittenDomProperty, pruneStaleDomProperties } from './properties';
 import {
   elementListeners,
   elementRefs,
@@ -24,10 +26,6 @@ import {
   syncElementListener,
   removeElementListener,
   pruneElementListeners,
-} from './listeners';
-export {
-  beginHydrationDirectListenerMode,
-  endHydrationDirectListenerMode,
 } from './listeners';
 import {
   createReactivePropCleanupEntry,
@@ -134,8 +132,13 @@ export function applyPropsToElement(
       value === undefined ||
       value === null ||
       (value === false && !keepsFalseValue(key))
-    )
+    ) {
+      // `prop:` assigns falsy values verbatim; they are not "absent".
+      if (key.startsWith(PROPERTY_PROP_PREFIX)) {
+        applyScalarPropValue(el, key, value, tagName);
+      }
       continue;
+    }
 
     const eventProp = parseEventProp(key);
     if (eventProp) {
@@ -246,7 +249,8 @@ export function syncElementPropBindings(
         previousProps === undefined ||
         previousValue !== null ||
         isRenderedPropValue(key, value) ||
-        isFormControlProp(key)
+        isFormControlProp(key) ||
+        hasWrittenDomProperty(el, key)
       ) {
         applyScalarPropValue(
           el,
@@ -313,6 +317,7 @@ export function syncElementPropBindings(
     previousProps,
     existingReactiveProps
   );
+  pruneStaleDomProperties(el, props);
   recordAppliedProps(el, props);
   pruneElementListeners(
     el,

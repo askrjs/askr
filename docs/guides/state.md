@@ -147,7 +147,8 @@ function Example({
 }
 ```
 
-`Case` only accepts direct `Match` children. Each `Match` renders either a
+`Case` only accepts direct `Match` children; any other child, or a `Match`
+rendered outside a `Case`, throws in every build. Each `Match` renders either a
 plain JSX node or a zero-argument thunk.
 
 `Show` render functions receive the resolved truthy value. Literal falsey

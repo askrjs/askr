@@ -497,6 +497,7 @@ describe('event delegation', () => {
 
         expect(clicks).toBe(1);
       } finally {
+        cleanupApp(testContainer);
         document.body.removeChild(customContainer);
         // Reset to default
         setGlobalDelegationContainer(document.body);

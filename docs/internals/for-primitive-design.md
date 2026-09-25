@@ -59,7 +59,7 @@ The control primitives own only:
 - keyed reconciliation
 - ordered output
 - fallback selection
-- development validation
+- child and key validation
 
 ## Control Boundary VNodes
 
@@ -89,7 +89,7 @@ Each live key owns:
 - one cached vnode
 - one cached DOM root
 
-Reconciliation strategy and development key validation live in
+Reconciliation strategy and key validation live in
 `src/runtime/control/for-reconcile.ts`. Item and fallback child scopes live in
 `src/runtime/control/for-scopes.ts`. Reactive item and index accessor mechanics live in
 `src/runtime/control/for-signals.ts`; the scope owner calls into that helper to create
@@ -97,12 +97,24 @@ row-local item signals, proxy object/function property reads, pass array items
 through as native arrays, notify readable subscribers, and prune parent readers
 when a row updates without rerendering the owning component.
 
-Key validation is intentionally development-only. Development builds reject
-null or undefined keys, duplicate keys within one list, and keys whose string or
-number type changes across renders. Production builds do not allocate the
-validation `Set` or `Map`, and they emit no key-validation warning or error.
-Invalid keys therefore violate the `For` contract in production, and resulting
-row identity is unsupported rather than a reconciliation guarantee.
+Each reconcile pass resolves every row key once (`resolveForKeys`), and the
+reconciliation paths read those keys instead of calling `by` again. Every build
+rejects null or undefined keys and duplicate keys within one list before
+reconciling: the paths address rows by key, so letting a violation through
+would silently drop or merge rows. While the new keys match a prefix of the
+committed keys they cannot contain a duplicate, so a lookup `Set` is only built from
+the first divergence. A validation error rolls the `For` transaction back and
+reaches the nearest `ErrorBoundary`: on mount through the boundary's own
+render, and on a boundary-local update through the control boundary commit.
+
+Control child scopes (For rows, Show and Case branches) are owned by the
+component that created the control, which can sit above the `ErrorBoundary`
+the control renders inside. When a control boundary is materialized the
+renderer records its output owner: the component rendering at that point, or,
+for a control materialized by another control's local commit, that control's
+owner. Failures from the control's local commits and from components rendered
+in its child scopes route through that owner, so they reach the boundary
+around where the control was rendered.
 
 The `each` source is owned by the `For` boundary itself. List-source reads are tracked through a boundary-local fine-grained effect, so source changes dirty the `For` boundary instead of subscribing the parent component render. Same-order keyed updates can therefore stay row-local, while append, truncate, and reorder work still flow through keyed reconciliation.
 
@@ -133,7 +145,7 @@ Function children receive the resolved truthy value. Static children are rendere
 - selected branch key: an internal branch identity derived from match position plus user key
 - fallback is prop-only
 - replaced branches are disposed immediately
-- invalid direct children throw in development
+- a direct child that is not `Match` throws in every build when the `Case` is evaluated, so the nearest `ErrorBoundary` around the `Case` catches it
 
 `Match` only describes a branch:
 
@@ -144,7 +156,7 @@ type MatchProps = {
 };
 ```
 
-Using `Match` outside `Case` throws in development and returns `null` in production.
+Using `Match` outside `Case` throws in every build.
 
 ## Disposal Model
 

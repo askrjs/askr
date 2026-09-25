@@ -22,6 +22,7 @@ import {
 import { createIsland } from '../../../test-utils/render/create-island';
 import '../../../src/router/route';
 import { navigate } from '../../../src/router/navigate';
+import { loadDocument } from '../../../src/router/document-navigation';
 import { nextComponentInstanceId } from '../../../src/renderer/component/host-instances';
 import {
   deleteDevValue,
@@ -30,6 +31,10 @@ import {
   incDevCounter,
 } from '../../../src/runtime/diagnostics/dev-namespace';
 
+vi.mock('../../../src/router/document-navigation', () => ({
+  loadDocument: vi.fn(),
+  reloadDocument: vi.fn(),
+}));
 describe('prod fallbacks (DEV_ERRORS)', () => {
   let { container, cleanup } = createTestContainer();
   beforeEach(() => {
@@ -72,6 +77,7 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
       // Spec: missing-route warning should be suppressed in production.
       navigate('/missing');
       expect(warn).not.toHaveBeenCalled();
+      expect(loadDocument).toHaveBeenCalledWith('/missing', 'push');
 
       warn.mockRestore();
     } finally {
@@ -79,10 +85,9 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
     }
   });
 
-  it('should omit For key validation in production mode', () => {
+  it('should keep rejecting duplicate For keys in production mode', () => {
     const prev = process.env.NODE_ENV;
     process.env.NODE_ENV = 'production';
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     try {
       const Component = () => (
@@ -91,12 +96,11 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
         </For>
       );
 
+      // Spec: duplicate keys would silently drop rows, so they fail in every build.
       expect(() =>
         createIsland({ root: container, component: Component })
-      ).not.toThrow();
-      expect(warn).not.toHaveBeenCalled();
+      ).toThrow(/Duplicate For key detected: duplicate/);
     } finally {
-      warn.mockRestore();
       process.env.NODE_ENV = prev;
     }
   });

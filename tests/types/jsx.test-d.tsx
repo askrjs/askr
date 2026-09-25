@@ -316,6 +316,16 @@ const devButton = jsxDEV(
 expectType<JSXElement>(devButton);
 
 expectAssignable<JSXElement>(<div class="demo">demo</div>);
+expectAssignable<JSXElement>(
+  <input type="checkbox" indeterminate={() => true} />
+);
+expectAssignable<JSXElement>(
+  <div prop:customState={{ open: true }} attr:data-mode="raw" />
+);
+expectAssignable<JSXElement>(
+  <x-chart prop:series={[1, 2]} attr:theme="dark" />
+);
+expectAssignable<JSXElement>(jsx('input', { 'prop:defaultValue': 'x' }));
 expectAssignable<JSXElement>(<Badge label="Alert" tone="danger" />);
 expectAssignable<JSXElement>(
   <main class="page-shell" data-layout="app">
@@ -488,6 +498,8 @@ expectError(jsx('g', { checked: true }));
 expectError(jsx('form', { method: 123 }));
 expectError(jsx('input', { value: () => ({ bad: true }) }));
 expectError(jsx('input', { checked: 'yes' }));
+expectError(jsx('input', { indeterminate: 'yes' }));
+expectError(jsx('div', { 'attr:data-mode': { raw: true } }));
 expectError(jsx('input', { maxlength: '120' }));
 expectError(jsx('input', { readonly: 'true' }));
 expectError(jsx('input', { required: 'true' }));

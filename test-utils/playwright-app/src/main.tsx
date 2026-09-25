@@ -48,6 +48,7 @@ import {
 import { BenchmarkTable } from '../../../src/bench/components/benchmark-table';
 import { mountFormsScenario } from './scenarios/forms';
 import { mountHydrationFormScenario } from './scenarios/hydration-form';
+import { mountDomPropertiesHydrationScenario as mountDomPropertiesHydrationFixture } from './scenarios/dom-properties-hydration';
 import { mountRouteDataDehydrationScenario as mountRouteDataDehydrationFixture } from './scenarios/route-data-dehydration';
 import { mountBasePathScenario as mountBasePathFixture } from './scenarios/base-path';
 import { mountOrderTableScenario } from './scenarios/order-table';
@@ -1383,6 +1384,11 @@ async function mountSignupHydrationScenario(): Promise<void> {
   await mountHydrationFormScenario(root);
 }
 
+async function mountDomPropertiesHydrationScenario(): Promise<string> {
+  resetRoot();
+  return mountDomPropertiesHydrationFixture(root);
+}
+
 async function mountRouteDataDehydrationScenario(): Promise<void> {
   resetRoot();
   await mountRouteDataDehydrationFixture(root);
@@ -1653,6 +1659,7 @@ export {
   mountRouteDataDehydrationScenario,
   mountBasePathScenario,
   mountSignupHydrationScenario,
+  mountDomPropertiesHydrationScenario,
   profileBenchmarkOperations,
   runBrowserBench,
   runBrowserBenchSuite,
