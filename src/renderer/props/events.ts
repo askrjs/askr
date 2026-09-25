@@ -24,7 +24,7 @@ import {
   type ComponentInstance,
 } from '../../runtime';
 import type { AppRenderRuntime } from '../../common/app-render-runtime';
-import { logger } from '../../common/logger';
+import { reportUncaughtError } from '../../common/report-error';
 import { incrementPerfMetric } from '../../runtime';
 import { incDevCounter } from '../../runtime';
 
@@ -418,7 +418,8 @@ function createContainerListener(eventName: string): EventListener {
             )
           );
         } catch (error) {
-          logger.error('[Askr] Delegated event error:', error);
+          // Like native listeners: report, then keep dispatching.
+          reportUncaughtError(error);
         }
 
         if (e.cancelBubble) {

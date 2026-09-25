@@ -13,7 +13,6 @@ import {
   matchSegments,
   parseSegments,
   splitPathSegments,
-  staticSegmentMatches,
 } from './match';
 import type { InternalRoute, InternalRouteRecord } from './internal-types';
 import { getRouteRecords, isRouteStoreRoutes } from './store';
@@ -47,23 +46,45 @@ function cachedSortedList(
   return sorted;
 }
 
+const prefixSegsCache = new Map<string, ReturnType<typeof parseSegments>>();
+
+function cachedPrefixSegs(prefix: string): ReturnType<typeof parseSegments> {
+  let segments = prefixSegsCache.get(prefix);
+  if (!segments) {
+    segments = parseSegments(prefix);
+    prefixSegsCache.set(prefix, segments);
+  }
+  return segments;
+}
+
+/**
+ * Match a scoped fallback's page prefix against the start of `pathname`.
+ * Prefix segments match like route segments, so a fallback inside
+ * `page('/{lang}')` matches `/en/...` and captures `lang`; the rest of the
+ * path is the `*` capture.
+ */
 function matchFallbackPrefix(
   pathname: string,
   fallbackPrefix: string
 ): Record<string, string> | null {
   const urlParts = splitPathSegments(pathname);
-  const prefixParts = splitPathSegments(fallbackPrefix);
-  if (urlParts.length < prefixParts.length) {
+  const prefixSegments = cachedPrefixSegs(fallbackPrefix);
+  if (urlParts.length < prefixSegments.length) {
     return null;
   }
 
-  for (let i = 0; i < prefixParts.length; i++) {
-    if (!staticSegmentMatches(prefixParts[i], urlParts[i])) {
-      return null;
-    }
+  const prefixParams = matchSegments(
+    urlParts.slice(0, prefixSegments.length),
+    prefixSegments
+  );
+  if (prefixParams === null) {
+    return null;
   }
 
-  return { '*': formatCatchAllCapture(urlParts.slice(prefixParts.length)) };
+  return {
+    ...prefixParams,
+    '*': formatCatchAllCapture(urlParts.slice(prefixSegments.length)),
+  };
 }
 
 function findBestResolvedRouteFromRoutes(
@@ -89,65 +110,62 @@ function findBestResolvedRouteFromRoutes(
     }
   }
 
-  let bestFallback: InternalRoute | null = null;
-  let bestFallbackParams: Record<string, string> | null = null;
-  let bestPrefixLength = -1;
+  const fallback = findDeepestFallback(
+    normalized,
+    routeList as InternalRoute[]
+  );
+  return fallback ? { route: fallback.entry, params: fallback.params } : null;
+}
 
-  for (const route of routeList) {
-    const internalRoute = route as InternalRoute;
-    if (!internalRoute.fallbackPrefix) {
+/**
+ * Pick the scoped fallback whose prefix matches `pathname` with the most
+ * segments. Depth is counted in segments, not characters, so an encoded prefix
+ * such as `/caf%C3%A9` does not outrank a deeper `/café/x`; equal depths are
+ * ordered by segment specificity.
+ */
+function findDeepestFallback<T extends { fallbackPrefix?: string }>(
+  pathname: string,
+  entries: readonly T[]
+): { entry: T; params: Record<string, string> } | null {
+  let best: { entry: T; params: Record<string, string> } | null = null;
+  let bestSegments: ReturnType<typeof parseSegments> = [];
+
+  for (const entry of entries) {
+    if (!entry.fallbackPrefix) {
       continue;
     }
 
-    const params = matchFallbackPrefix(
-      normalized,
-      internalRoute.fallbackPrefix
-    );
+    const params = matchFallbackPrefix(pathname, entry.fallbackPrefix);
     if (params === null) {
       continue;
     }
 
-    if (internalRoute.fallbackPrefix.length > bestPrefixLength) {
-      bestFallback = internalRoute;
-      bestFallbackParams = params;
-      bestPrefixLength = internalRoute.fallbackPrefix.length;
+    // Deeper prefixes win; at equal depth the more specific prefix does
+    // (`/en/blog` over `/{lang}/blog`).
+    const segments = cachedPrefixSegs(entry.fallbackPrefix);
+    if (
+      best === null ||
+      segments.length > bestSegments.length ||
+      (segments.length === bestSegments.length &&
+        compareRouteSpecificity(segments, bestSegments) < 0)
+    ) {
+      best = { entry, params };
+      bestSegments = segments;
     }
   }
 
-  return bestFallback && bestFallbackParams
-    ? { route: bestFallback, params: bestFallbackParams }
-    : null;
+  return best;
 }
 
 function findBestScopedFallbackRecord(
   pathname: string,
   routeRecords: readonly RouteRecord[]
 ): { record: InternalRouteRecord; params: Record<string, string> } | null {
-  let bestRecord: InternalRouteRecord | null = null;
-  let bestParams: Record<string, string> | null = null;
-  let bestPrefixLength = -1;
-
-  for (const routeRecord of routeRecords) {
-    const record = routeRecord as InternalRouteRecord;
-    if (!record.fallbackPrefix) {
-      continue;
-    }
-
-    const params = matchFallbackPrefix(pathname, record.fallbackPrefix);
-    if (params === null) {
-      continue;
-    }
-
-    if (record.fallbackPrefix.length > bestPrefixLength) {
-      bestRecord = record;
-      bestParams = params;
-      bestPrefixLength = record.fallbackPrefix.length;
-    }
-  }
-
-  return bestRecord && bestParams
-    ? { record: bestRecord, params: bestParams }
-    : null;
+  const fallback = findDeepestFallback(
+    pathname,
+    routeRecords as readonly InternalRouteRecord[]
+  );
+  return fallback ? { record: fallback.entry, params: fallback.params } : null;
 }
 
 export function getMatchingRouteRecord(
@@ -271,11 +289,4 @@ export function resolveRouteFromRoutes(
 
   const match = findBestResolvedRouteFromRoutes(pathname, routeList);
   return match ? { handler: match.route.handler, params: match.params } : null;
-}
-
-export function _resolveRouteMatchFromRoutes(
-  pathname: string,
-  routeList: readonly Route[]
-): { route: Route; params: Record<string, string> } | null {
-  return findBestResolvedRouteFromRoutes(pathname, routeList);
 }
