@@ -39,6 +39,28 @@ export function notifyReadableSource(
     source,
     options?.skipCurrentDerivedSubscriber
   );
-  markReactivePropsDirtySource(source);
-  notifyReadableReaders(source, options?.skipInstance, options?.skipOwnedBy);
+  // A renderer failure while marking reactive props must neither be lost nor
+  // strand the component readers: finish the notification, then rethrow so
+  // the caller (an event handler, or the scheduler's failure aggregation for
+  // work running in a flush) reports it.
+  let propsFailure: { error: unknown } | null = null;
+  try {
+    markReactivePropsDirtySource(source);
+  } catch (error) {
+    propsFailure = { error };
+  }
+  try {
+    notifyReadableReaders(source, options?.skipInstance, options?.skipOwnedBy);
+  } catch (error) {
+    if (propsFailure) {
+      throw new AggregateError(
+        [propsFailure.error, error],
+        'Readable source notification failed'
+      );
+    }
+    throw error;
+  }
+  if (propsFailure) {
+    throw propsFailure.error;
+  }
 }

@@ -247,10 +247,22 @@ function isPresentRenderable(
   return value !== null && value !== undefined && value !== false;
 }
 
+/**
+ * @internal Whether a render or async resource frame is active, i.e. whether
+ * `readScope()` can be called without throwing.
+ */
+export function isScopeReadable(): boolean {
+  return activeScopeFrame() !== null;
+}
+
+// Render frame first (components), then async resource frame (resources).
+function activeScopeFrame(): ContextFrame | null {
+  return currentContextFrame || currentAsyncResourceFrame;
+}
+
 /** Read the current value of a {@link Scope} during component render or an async resource. */
 export function readScope<T>(context: Scope<T>): T {
-  // Check render frame first (components), then async resource frame (resources)
-  const frame = currentContextFrame || currentAsyncResourceFrame;
+  const frame = activeScopeFrame();
 
   if (!frame) {
     throw new Error(

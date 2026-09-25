@@ -321,7 +321,21 @@ Path syntax rules:
 Specificity order: static > param > wildcard > named splat > catch-all,
 compared segment by segment: the first segment where two routes differ decides.
 For `/docs/intro`, `/docs/{*rest}` beats `/{lang}/{page}` because its first
-segment is static; declaration order breaks exact ties.
+segment is static.
+
+Two routes that match exactly the same URLs are rejected when they are
+registered, because the later one could never be reached. Parameter and splat
+names, a trailing slash, and percent-encoding of static segments do not make
+routes distinct, and a `*` wildcard matches one segment exactly like a param
+(which always beats it). So `/users/{id}` and `/users/{userId}`, `/users/{id}`
+and `/users/*`, `/café` and
+`/caf%C3%A9`, or a page `index()` and a `route()` at the page path, throw
+`Duplicate route path "...": it matches the same URLs as "...", which is
+already registered.` A `fallback()` counts as a named splat at its prefix, so
+it conflicts with `route('/*')` at the root or `route('/users/{*rest}')` inside
+`page('/users')`. Each registry is checked separately. When both paths are
+the same template, declare it once and return each page's params from
+`entries()`.
 
 Askr matches percent-decoded paths. Static segments, `fallback()` prefixes and
 registry `basePath` values compare against the decoded URL, so
@@ -359,7 +373,12 @@ Registers a pathful miss route.
 - Inside `page()`, `fallback()` registers a miss route for that page subtree.
 - `fallback()` does not scope to `group()` because `group()` is pathless.
 - Inside a page subtree, `fallback()` must be declared directly in the `page()` scope.
-- Nearest pathful fallback wins.
+- Page prefix segments match like route segments, so a `fallback()` inside
+  `page('/{lang}')` handles misses under `/en/...` and `/fr/...` and receives
+  `lang` alongside the `*` capture.
+- Nearest pathful fallback wins: the one whose page prefix matches the most URL
+  segments, however those segments are percent-encoded. At equal depth the
+  more specific prefix wins (`/en/blog` over `/{lang}/blog`).
 
 ## `currentRoute()`
 

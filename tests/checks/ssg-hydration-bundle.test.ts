@@ -72,6 +72,18 @@ describe('SSG hydration bundle', () => {
     expect(bundledModules).not.toContain('src/runtime/portal/portal.ts');
     expect(bundledModules).not.toContain('src/router/authoring.ts');
     expect(bundledModules).not.toContain('src/router/deferred.tsx');
+    // SSR render-context storage resolves AsyncLocalStorage at run time; the
+    // client bundle never imports the Node builtin, statically or lazily.
+    for (const chunk of chunks) {
+      expect([...chunk.imports, ...chunk.dynamicImports]).not.toContainEqual(
+        expect.stringMatching(/async_hooks/)
+      );
+      expect(chunk.code).not.toMatch(
+        /\b(?:import|require)\s*\([^)]*async_hooks/
+      );
+      // Strict CSP (no 'unsafe-eval') must not break hydration bundles.
+      expect(chunk.code).not.toMatch(/\bnew Function\s*\(/);
+    }
 
     const chunksByFileName = new Map(
       chunks.map((chunk) => [chunk.fileName, chunk])
@@ -109,11 +121,17 @@ describe('SSG hydration bundle', () => {
     // (measured 267,611 bytes, just over 261 KiB).
     // 263 KiB: fx lifecycle ownership (#468/#469) and the hydration auth
     // snapshot reader (#456) add ~0.9 KB of client code (measured 268,538 bytes).
-    // 265 KiB for the DOM property path (`muted`, `indeterminate`, custom
+    // Still within 263 KiB after production builds now keep the scheduler update-loop
+    // guard (previously compiled out, so loops hung the page) plus the release
+    // hooks that keep dropped work reschedulable, about 800 bytes.
+    // 264 KiB: #507 and #529 each fit 263 KiB alone but not together (the
+    // production update-loop guard plus the derived-write guard; measured
+    // 269,744 bytes on main after both merged).
+    // 267 KiB for the DOM property path (`muted`, `indeterminate`, custom
     // element object props, `prop:`/`attr:`): the property table, resetting
-    // removed properties, the URL/raw-HTML guards and rollback snapshots are
-    // ~2.7 KB (measured 271,295 bytes). Without it those props cannot reach
-    // the element at all.
-    expect(initialBytes).toBeLessThanOrEqual(265 * 1024);
+    // removed properties, the URL/raw-HTML guards and rollback snapshots add
+    // ~2.7 KB (measured 272,395 bytes, just over 266 KiB). Without it those
+    // props cannot reach the element at all.
+    expect(initialBytes).toBeLessThanOrEqual(267 * 1024);
   });
 });
