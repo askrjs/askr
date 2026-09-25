@@ -43,6 +43,14 @@ element or in a component's fragment or array result. It also covers a child
 component that re-renders on its own state: when that update joined a parent
 render that failed, the child renders again after the rollback. A failed render
 does not wait for the next state change to bring either of them up to date.
+That catch-up render uses the child's last committed props with its current
+state. If it throws, its error is reported alongside the original one (an
+`AggregateError`, see [Update loop guard](./runtime.md#update-loop-guard)).
+
+Known limitation: after `hydrateSPA`, a structural function child with keyed
+items in a component's fragment or array result does not update when its
+state changes, whether or not a render failed. Unkeyed items, and structural
+function children inside an element, update as described above.
 
 Read the state in the render instead of a binding when a value must change
 together with the rest of the component's output.

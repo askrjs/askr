@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
-import { state, type State } from '../../../src/index';
+import { For, Show, state, type State } from '../../../src/index';
 import {
   createTestContainer,
   flushScheduler,
@@ -209,5 +209,223 @@ describe('structural reactive children and render transactions (#559)', () => {
     expect(
       Array.from(container.querySelectorAll('li')).map((li) => li.textContent)
     ).toEqual(['0', '1']);
+  });
+});
+
+function flushError(): unknown {
+  try {
+    flushScheduler();
+  } catch (error) {
+    return error;
+  }
+  return null;
+}
+
+function errorMessages(error: unknown): string[] {
+  const errors =
+    error instanceof AggregateError ? error.errors : error ? [error] : [];
+  return errors.map((entry) => (entry as Error).message);
+}
+
+// A child component's own update can join a parent render. When that render
+// rolls back, the child renders again on its own.
+describe('child component updates and render transactions (#559)', () => {
+  let { container, cleanup } = createTestContainer();
+  beforeEach(() => ({ container, cleanup } = createTestContainer()));
+  afterEach(() => cleanup());
+
+  function mountCatchUp(wrap: (render: () => unknown) => unknown): {
+    n: State<number>;
+    ok: State<boolean>;
+  } {
+    const refs = {} as { n: State<number>; ok: State<boolean> };
+
+    function Items() {
+      return <ul>{items(refs.n())}</ul>;
+    }
+
+    const App = () => {
+      refs.n = state(1);
+      refs.ok = state(true);
+      return (
+        <div>
+          {wrap(() => (
+            <Items />
+          ))}
+          <Guard value={2} ok={refs.ok()} />
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    return refs;
+  }
+
+  function Wrapper({ render }: { render: () => unknown }) {
+    return <section>{render()}</section>;
+  }
+
+  const shapes: Record<string, (render: () => unknown) => unknown> = {
+    'a wrapper chain': (render) => <Wrapper render={render} />,
+    'a For row': (render) => (
+      <For each={['row']} by={(item) => item}>
+        {() => render()}
+      </For>
+    ),
+    'a Show branch': (render) => <Show when={true}>{render()}</Show>,
+  };
+
+  for (const [name, wrap] of Object.entries(shapes)) {
+    it(`should re-render a child component inside ${name} after the render rolls back`, () => {
+      const { n, ok } = mountCatchUp(wrap);
+      expect(itemCount(container)).toBe(1);
+
+      ok.set(false);
+      n.set(2);
+      expect(errorMessages(flushError())).toEqual(['boom']);
+
+      expect(itemCount(container)).toBe(2);
+
+      ok.set(true);
+      flushScheduler();
+      expect(itemCount(container)).toBe(2);
+    });
+  }
+
+  it('should not re-render a child whose superseded update committed', () => {
+    let c!: State<number>;
+    let p!: State<number>;
+    let cRenders = 0;
+
+    function C() {
+      c = state(0);
+      cRenders += 1;
+      return <b>{c()}</b>;
+    }
+
+    const App = () => {
+      p = state(0);
+      return (
+        <div>
+          <C />
+          <i>{p()}</i>
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    expect(cRenders).toBe(1);
+
+    c.set(1);
+    p.set(1);
+    flushScheduler();
+
+    expect(container.querySelector('div')!.innerHTML).toBe('<b>1</b><i>1</i>');
+    // Mount, C's own update, and the parent's render of C, as before #559.
+    // The parent's render committed, so C's superseded update is not queued
+    // again.
+    expect(cRenders).toBe(3);
+  });
+
+  it('should report a catch-up render failure with the original error', () => {
+    // The catch-up render uses C's last committed props (max 1) with its
+    // current state (c 5), so it throws: the same errors as when C's own
+    // update runs before its parent's.
+    function run(order: 'parent-first' | 'child-first'): string[] {
+      const { container: root, cleanup: done } = createTestContainer();
+      let c!: State<number>;
+      let max!: State<number>;
+
+      function C(props: { max: number }) {
+        c = state(0);
+        if (c() > props.max) throw new Error('c-boom');
+        return <b>{c()}</b>;
+      }
+
+      function T(props: { v: number }) {
+        if (props.v === 5) throw new Error('t-boom');
+        return <i>{props.v}</i>;
+      }
+
+      const App = () => {
+        max = state(1);
+        return (
+          <div>
+            <C max={max()} />
+            <T v={max()} />
+          </div>
+        );
+      };
+
+      try {
+        createIsland({ root, component: App });
+        flushScheduler();
+        if (order === 'parent-first') {
+          max.set(5);
+          c.set(5);
+        } else {
+          c.set(5);
+          max.set(5);
+        }
+        const error = flushError();
+        expect(error).toBeInstanceOf(AggregateError);
+        return errorMessages(error);
+      } finally {
+        done();
+      }
+    }
+
+    // Both write orders report both errors, in execution order.
+    expect(run('parent-first')).toEqual(['t-boom', 'c-boom']);
+    expect(run('child-first')).toEqual(['c-boom', 't-boom']);
+  });
+
+  it('should stop re-rendering a child that always throws', () => {
+    let c!: State<number>;
+    let p!: State<number>;
+    let cRenders = 0;
+
+    function C() {
+      c = state(0);
+      cRenders += 1;
+      if (c() > 0) throw new Error('c-boom');
+      return <b>{c()}</b>;
+    }
+
+    const App = () => {
+      p = state(0);
+      return (
+        <div>
+          <C />
+          <i>{p()}</i>
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    cRenders = 0;
+
+    c.set(1);
+    p.set(1);
+    const first = errorMessages(flushError());
+    const firstRenders = cRenders;
+
+    // Nothing is left queued.
+    expect(flushError()).toBeNull();
+    expect(cRenders).toBe(firstRenders);
+
+    p.set(2);
+    const second = errorMessages(flushError());
+    // The same counts as before #559: C's own update and the parent's render
+    // of C each throw once; a later parent render tries C once more.
+    expect({ first, firstRenders, second, total: cRenders }).toEqual({
+      first: ['c-boom', 'c-boom'],
+      firstRenders: 2,
+      second: ['c-boom'],
+      total: 3,
+    });
   });
 });
