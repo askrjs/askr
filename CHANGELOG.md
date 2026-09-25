@@ -8,6 +8,10 @@
   inputs (a `QueryDefinition<number, ...>` fetcher only saw `{ signal }`) and
   let the abort signal overwrite an input field named `signal`. Rewrite
   `fetch: ({ id, signal }) => ...` as `fetch: ({ id }, { signal }) => ...`.
+  Old-style fetchers with an annotated parameter
+  (`({ id, signal }: { id: string; signal: AbortSignal })`) still compile at
+  the `defineQuery()` definition but fail to typecheck at the `createQuery()`
+  call site; move `signal` to the second argument.
   Inline `createQuery({ key, fetch })` fetchers are unchanged.
 - fix(resources): a resource hydrated from preloaded data keeps its value on
   later re-renders instead of resetting to pending and refetching. The preloaded

@@ -363,6 +363,7 @@ describe('query collections', () => {
       cleanup();
     }
   });
+
   it('should pass primitive collection inputs to the fetcher', async () => {
     const fetch = vi.fn(async (id: number, _ctx: { signal: AbortSignal }) => ({
       id,
