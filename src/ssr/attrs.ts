@@ -159,7 +159,7 @@ export function getRenderedAttributeValue(
     if (
       value === null ||
       value === undefined ||
-      (value === false && !isAriaAttribute(attrName))
+      (value === false && !keepsFalseValue(attrName))
     )
       continue;
     const strValue = String(value);
