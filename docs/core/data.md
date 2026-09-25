@@ -6,14 +6,22 @@ State management and async data primitives in Askr.
 
 Local component state uses `state()`.
 
-```ts
+```tsx run=data-state
 import { state } from '@askrjs/askr';
 
-const [count, setCount] = state(0);
+function Counter() {
+  // state() is render-scoped: call it inside a component.
+  const [count, setCount] = state(0);
 
-count(); // read current value
-setCount(1); // set a value
-setCount((n) => n + 1); // update with a function
+  // count() reads the current value; setCount() takes a value or an updater.
+  return (
+    <div>
+      <output>{count()}</output>
+      <button onClick={() => setCount(1)}>Set to 1</button>
+      <button onClick={() => setCount((n) => n + 1)}>+1</button>
+    </div>
+  );
+}
 ```
 
 `state()` returns a callable, iterable state cell. Destructure it as a
@@ -25,16 +33,24 @@ function, replace it with updater form such as `setHandler(() => nextHandler)`.
 
 `derive()` creates a computed value that re-evaluates when upstream state changes.
 
-```ts
+```tsx run=data-derive
 import { derive, state } from '@askrjs/askr';
 
-const [count, setCount] = state(0);
-const doubled = derive(() => count() * 2);
+function DoubledCounter() {
+  const [count, setCount] = state(0);
+  // doubled() automatically updates when count() changes
+  const doubled = derive(() => count() * 2);
 
-// doubled() automatically updates when count() changes
+  return (
+    <button onClick={() => setCount((n) => n + 1)}>
+      {count()} doubled is {doubled()}
+    </button>
+  );
+}
 ```
 
-Two-argument form separates the source read from the mapping function:
+Two-argument form separates the source read from the mapping function (like
+every `state()` and `derive()` call, this runs inside a component):
 
 ```ts
 const [user, setUser] = state({ name: 'Alex', age: 28 });
@@ -51,7 +67,7 @@ It manages loading state, cancellation, and errors automatically.
 Use `@askrjs/askr/data` for query and mutation state, and keep `resource()`
 for lifecycle-aware async work.
 
-```ts
+```ts run=data-resource-user-card
 import { resource } from '@askrjs/askr/resources';
 
 function UserCard({ id }: { id: string }) {
@@ -63,8 +79,8 @@ function UserCard({ id }: { id: string }) {
     [id]   // re-run when id changes
   );
 
-  if (user.pending || !user.value) return <div>Loading...</div>;
   if (user.error) return <div>Failed to load user</div>;
+  if (user.pending || !user.value) return <div>Loading...</div>;
   return <div>{user.value.name}</div>;
 }
 ```

@@ -123,20 +123,6 @@ export const tier2BenchOptions = {
   warmupIterations: 1,
 } satisfies Options;
 
-export const tier3BenchOptions = {
-  time: 1000,
-  iterations: 3,
-  warmupTime: 200,
-  warmupIterations: 1,
-} satisfies Options;
-
-export const tier4BenchOptions = {
-  time: 1500,
-  iterations: 2,
-  warmupTime: 150,
-  warmupIterations: 1,
-} satisfies Options;
-
 export function extendBenchOptions(
   base: Options,
   overrides: Partial<Options>

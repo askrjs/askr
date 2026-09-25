@@ -24,7 +24,7 @@ Returns an object with:
 - `error`
 - `refresh()`
 
-Example:
+Example (inside a component render):
 
 ```ts
 const user = resource(async ({ signal }) => {
@@ -32,8 +32,8 @@ const user = resource(async ({ signal }) => {
   return res.json();
 }, []);
 
-if (user.pending || !user.value) return 'loading';
 if (user.error) return 'failed';
+if (user.pending || !user.value) return 'loading';
 return user.value.name;
 ```
 

@@ -12,6 +12,7 @@ import type { VNode } from './types';
 
 export { SSRDataMissingError } from './context';
 export { SSRAccessDecisionError } from './errors';
+export { escapeHtml } from './escape';
 export type {
   DocumentRenderArgs,
   DocumentRenderContext,
