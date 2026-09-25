@@ -22,6 +22,7 @@ import {
   performBulkTextReplace,
 } from '../children/children';
 import { getRendererDOMHost } from '../dom-host';
+import { normalizeComponentChildren } from '../children/child-shape';
 import {
   updateMixedControlChildren,
   updateUnkeyedChildren,
@@ -387,7 +388,15 @@ export function processFragmentChildren(
   childArray: unknown[],
   cleanupRangeNode: (node: Node) => void
 ): void {
-  updateElementChildren(target, childArray, cleanupRangeNode);
+  // Creation flattens nested fragments and arrays into the target, so the
+  // update has to see the same flat list. Otherwise a nested fragment (the
+  // root wrapper holds the app's result beside the default portal host) is
+  // one opaque child and everything in it is rebuilt on every render.
+  updateElementChildren(
+    target,
+    normalizeComponentChildren(childArray),
+    cleanupRangeNode
+  );
 }
 
 export function tryFirstRenderKeyedChildren(

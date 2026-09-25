@@ -108,22 +108,39 @@ export function itemInstanceHydrationComplete(host: InstanceHostElement): void {
   }
 }
 
+/**
+ * Commit a component's result as that component.
+ *
+ * Child components in the result take this component as their vnode parent,
+ * and a retained child is only found again under the same parent. Creating,
+ * updating and hydrating a result all have to commit under this scope;
+ * committing under the caller's scope (the outer component whose render
+ * reached this host) misses every keyed child and remounts it.
+ */
+export function commitAsComponent<T>(
+  instance: ComponentInstance,
+  commit: () => T
+): T {
+  const previousInstance = enterDomCommitScope(instance);
+  try {
+    return commit();
+  } finally {
+    endComponentScope(previousInstance);
+  }
+}
+
 export function materializeComponentResultNode(
   childInstance: ComponentInstance,
   result: unknown,
   parentNamespace?: string
 ): Node {
-  const previousInstance = enterDomCommitScope(childInstance);
-  let dom: Node | null;
-  try {
-    dom = getRendererDOMHost().createComponentResultNode(
+  const dom = commitAsComponent(childInstance, () =>
+    getRendererDOMHost().createComponentResultNode(
       childInstance.fn,
       result,
       parentNamespace
-    );
-  } finally {
-    endComponentScope(previousInstance);
-  }
+    )
+  );
 
   return materializeResolvedComponentResultNode(childInstance, result, dom);
 }

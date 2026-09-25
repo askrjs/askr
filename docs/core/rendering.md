@@ -63,6 +63,12 @@ with an automatic portal host. Askr uses internal comment-anchored ranges to
 retain update and cleanup ownership; it does not insert a `div` or another
 visible host element.
 
+When a component returns a fragment or array containing child components,
+updating the parent with new props keeps each child's state and DOM node as
+long as its type and key still match. The same ownership applies to children
+inside nested fragments and to server nodes adopted during hydration. Change a
+child's key when it should start with fresh state.
+
 During hydration, a keyed `For` adopts only its own server-rendered rows even
 when a static or component child precedes it in the same parent. The unrelated
 sibling and every adopted row keep their DOM identity through later reorder
