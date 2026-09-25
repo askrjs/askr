@@ -4,7 +4,7 @@ import { cleanupComponentGeneration } from '../../runtime/component/cleanup';
 import type { OwnershipRecord } from '../../runtime/ownership/record';
 import { registerCommitEffect } from '../../runtime';
 import { registerCommitParticipant } from '../../runtime/transactions/access';
-import { logger } from '../../common/logger';
+import { reportUncaughtError } from '../../common/report-error';
 import { incDevCounter } from '../../runtime';
 import {
   clearDelegatedHandlersForElement,
@@ -143,14 +143,38 @@ export function removeElementRef(element: Element): void {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Teardown Error Collection
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Surface failures collected while draining a teardown. Every step runs
+ * before this is called. Strict callers receive the failures as a thrown
+ * AggregateError. Otherwise the failures are reported like an uncaught
+ * listener exception (`reportError`), in every build, so the caller's DOM
+ * update continues: a single failure as-is, several as one AggregateError.
+ */
+function surfaceTeardownErrors(
+  errors: unknown[],
+  strict: boolean,
+  message: string
+): void {
+  if (errors.length === 0) return;
+  if (strict) throw new AggregateError(errors, message);
+  reportUncaughtError(
+    errors.length === 1 ? errors[0] : new AggregateError(errors, message)
+  );
+}
+
+function throwCollectedErrors(errors: unknown[], message: string): void {
+  if (errors.length === 1) throw errors[0];
+  if (errors.length > 1) throw new AggregateError(errors, message);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Instance Cleanup Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-function cleanupSingleInstance(
-  node: InstanceHost,
-  errors: unknown[] | null,
-  strict: boolean
-): void {
+function cleanupSingleInstance(node: InstanceHost, errors: unknown[]): void {
   const instanceList = node.__ASKR_INSTANCES;
   const primaryInstance = node.__ASKR_INSTANCE;
   if (!instanceList && !primaryInstance) {
@@ -178,8 +202,7 @@ function cleanupSingleInstance(
       if (instance.owner === owner) cleanupComponent(instance);
       else cleanupComponentGeneration(instance, owner);
     } catch (err) {
-      if (strict) errors!.push(err);
-      else logger.warn('[Askr] cleanupComponent failed:', err);
+      errors.push(err);
     }
   }
 
@@ -195,42 +218,20 @@ function cleanupSingleInstance(
       primary && !primary.owner.disposed ? primary : retained?.[0]
     );
   } catch (e) {
-    if (strict) errors!.push(e);
+    errors.push(e);
   }
 }
 
-function teardownSingleElement(
-  element: Element,
-  errors: unknown[] | null,
-  strict: boolean
-): void {
+function teardownSingleElement(element: Element, errors: unknown[]): void {
   try {
     removeElementRef(element);
   } catch (err) {
-    if (strict) errors!.push(err);
-    else logger.warn('[Askr] removeElementRef failed:', err);
+    errors.push(err);
   }
 
-  try {
-    removeElementListeners(element);
-  } catch (err) {
-    if (strict) errors!.push(err);
-    else logger.warn('[Askr] removeElementListeners failed:', err);
-  }
-
-  try {
-    removeElementReactiveProps(element);
-  } catch (err) {
-    if (strict) errors!.push(err);
-    else logger.warn('[Askr] removeElementReactiveProps failed:', err);
-  }
-
-  try {
-    cleanupSingleInstance(element as InstanceHost, errors, strict);
-  } catch (err) {
-    if (strict) errors!.push(err);
-    else logger.warn('[Askr] cleanupSingleInstance failed:', err);
-  }
+  drainElementListeners(element, errors);
+  drainElementReactiveProps(element, errors);
+  cleanupSingleInstance(element as InstanceHost, errors);
 }
 
 // Walk descendant elements with minimal allocations.
@@ -323,43 +324,25 @@ export function cleanupInstanceIfPresent(
 ): void {
   if (!node) return;
 
-  const strict = opts?.strict ?? false;
-  const errors: unknown[] | null = strict ? [] : null;
+  const errors: unknown[] = [];
 
   // Clean up the node itself
-  try {
-    cleanupSingleInstance(node as InstanceHost, errors, strict);
-  } catch (err) {
-    if (strict) errors!.push(err);
-    else logger.warn('[Askr] cleanupInstanceIfPresent failed:', err);
-  }
+  cleanupSingleInstance(node as InstanceHost, errors);
 
   // Clean up any nested instances, including null-component comment hosts.
   try {
     forEachDescendantNode(node, (descendant) => {
-      try {
-        cleanupSingleInstance(descendant as InstanceHost, errors, strict);
-      } catch (err) {
-        if (strict) errors!.push(err);
-        else
-          logger.warn(
-            '[Askr] cleanupInstanceIfPresent descendant cleanup failed:',
-            err
-          );
-      }
+      cleanupSingleInstance(descendant as InstanceHost, errors);
     });
   } catch (err) {
-    if (strict) errors!.push(err);
-    else
-      logger.warn(
-        '[Askr] cleanupInstanceIfPresent descendant query failed:',
-        err
-      );
+    errors.push(err);
   }
 
-  if (errors && errors.length > 0) {
-    throw new AggregateError(errors, 'cleanupInstanceIfPresent failed');
-  }
+  surfaceTeardownErrors(
+    errors,
+    opts?.strict ?? false,
+    'cleanupInstanceIfPresent failed'
+  );
 }
 
 // Public helper to clean up any component instances under a node. Used by
@@ -388,40 +371,43 @@ export function retireNodeSubtree(node: Node): void {
   }
 }
 
+/**
+ * Tear down renderer bindings and component lifetimes for a node and all of
+ * its descendants. Every ref, listener, reactive prop, and component cleanup
+ * is attempted even when an earlier one throws. Failures are surfaced after
+ * the whole subtree drains: thrown when `opts.strict` is set, otherwise
+ * reported with `reportError` (see `surfaceTeardownErrors`).
+ */
 export function teardownNodeSubtree(
   node: Node | null,
   opts?: { strict?: boolean }
 ): void {
   if (!node) return;
 
-  const strict = opts?.strict ?? false;
-  const errors: unknown[] | null = strict ? [] : null;
+  const errors: unknown[] = [];
 
   if (!(node instanceof Element)) {
-    cleanupSingleInstance(node as InstanceHost, errors, strict);
-    if (errors && errors.length > 0) {
-      throw new AggregateError(errors, 'teardownNodeSubtree failed');
+    cleanupSingleInstance(node as InstanceHost, errors);
+  } else {
+    teardownSingleElement(node, errors);
+    try {
+      forEachDescendantNode(node, (descendant) => {
+        if (descendant instanceof Element) {
+          teardownSingleElement(descendant, errors);
+        } else {
+          cleanupSingleInstance(descendant as InstanceHost, errors);
+        }
+      });
+    } catch (err) {
+      errors.push(err);
     }
-    return;
   }
 
-  try {
-    teardownSingleElement(node, errors, strict);
-    forEachDescendantNode(node, (descendant) => {
-      if (descendant instanceof Element) {
-        teardownSingleElement(descendant, errors, strict);
-      } else {
-        cleanupSingleInstance(descendant as InstanceHost, errors, strict);
-      }
-    });
-  } catch (err) {
-    if (strict) errors!.push(err);
-    else logger.warn('[Askr] teardownNodeSubtree failed:', err);
-  }
-
-  if (errors && errors.length > 0) {
-    throw new AggregateError(errors, 'teardownNodeSubtree failed');
-  }
+  surfaceTeardownErrors(
+    errors,
+    opts?.strict ?? false,
+    'teardownNodeSubtree failed'
+  );
 }
 
 // Track reactive props cleanup functions and their function references
@@ -520,48 +506,84 @@ export function forEachElementReactivePropCleanup(
   }
 }
 
-export function removeElementReactiveProps(element: Element): void {
-  if (elementReactivePropsCleanup.has(element)) {
-    forEachElementReactivePropCleanup(element, (entry) => {
-      try {
-        entry.cleanup();
-      } catch (err) {
-        logger.warn('[Askr] reactive prop cleanup failed:', err);
-      }
-    });
-    elementReactivePropsCleanup.delete(element);
-  }
+function drainElementReactiveProps(element: Element, errors: unknown[]) {
+  if (!elementReactivePropsCleanup.has(element)) return;
+  forEachElementReactivePropCleanup(element, (entry) => {
+    try {
+      entry.cleanup();
+    } catch (err) {
+      errors.push(err);
+    }
+  });
+  elementReactivePropsCleanup.delete(element);
 }
 
-export function removeElementListeners(element: Element): void {
+/** Run every reactive prop cleanup, then throw any failures. */
+export function removeElementReactiveProps(element: Element): void {
+  const errors: unknown[] = [];
+  drainElementReactiveProps(element, errors);
+  throwCollectedErrors(errors, 'Reactive prop cleanup failed');
+}
+
+function drainElementListeners(element: Element, errors: unknown[]): void {
   const map = elementListeners.get(element);
   if (map) {
     for (const entry of map.values()) {
       incDevCounter('listenerRemoves');
-      if (entry.isDelegated) {
-        removeDelegatedListener(element, entry.eventName);
-      } else {
-        if (entry.options !== undefined)
+      try {
+        if (entry.isDelegated) {
+          removeDelegatedListener(element, entry.eventName);
+        } else if (entry.options !== undefined) {
           element.removeEventListener(
             entry.eventName,
             entry.handler,
             entry.options
           );
-        else element.removeEventListener(entry.eventName, entry.handler);
+        } else {
+          element.removeEventListener(entry.eventName, entry.handler);
+        }
+      } catch (err) {
+        errors.push(err);
       }
     }
     elementListeners.delete(element);
   }
 
-  clearDelegatedHandlersForElement(element);
+  try {
+    clearDelegatedHandlersForElement(element);
+  } catch (err) {
+    errors.push(err);
+  }
 }
 
+/** Remove every tracked listener, then throw any failures. */
+export function removeElementListeners(element: Element): void {
+  const errors: unknown[] = [];
+  drainElementListeners(element, errors);
+  throwCollectedErrors(errors, 'Listener cleanup failed');
+}
+
+/**
+ * Remove refs, listeners, and reactive props across a subtree without
+ * touching component lifetimes. Failures are reported like non-strict
+ * `teardownNodeSubtree` after every element is visited.
+ */
 export function removeAllListeners(root: Element | null): void {
   if (!root) return;
 
-  forEachElementInSubtree(root, (el) => {
-    removeElementRef(el);
-    removeElementListeners(el);
-    removeElementReactiveProps(el);
-  });
+  const errors: unknown[] = [];
+  try {
+    forEachElementInSubtree(root, (el) => {
+      try {
+        removeElementRef(el);
+      } catch (err) {
+        errors.push(err);
+      }
+      drainElementListeners(el, errors);
+      drainElementReactiveProps(el, errors);
+    });
+  } catch (err) {
+    errors.push(err);
+  }
+  surfaceTeardownErrors(errors, false, 'removeAllListeners failed');
 }

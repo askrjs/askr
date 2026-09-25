@@ -97,7 +97,13 @@ function cleanupRootInstance(
   clearDeferredHydrationBoundaries(rootElement);
   const errors: unknown[] = [];
   for (const phase of [
-    [() => teardownNodeSubtree(rootElement), () => cleanupComponent(instance)],
+    [
+      // Strict roots receive descendant teardown failures in their own
+      // AggregateError; ordinary roots have them reported by the renderer.
+      () =>
+        teardownNodeSubtree(rootElement, { strict: instance.cleanupStrict }),
+      () => cleanupComponent(instance),
+    ],
     callbacks ?? [],
   ]) {
     for (const callback of phase) {

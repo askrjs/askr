@@ -15,6 +15,30 @@ child owners do not become live. Cleanup belonging to a successful commit runs
 only after the coherent DOM update. Cleanup failures are reported together and
 do not roll back an already successful render.
 
+### Teardown errors
+
+When an update removes DOM, Askr tears down the removed subtree: callback refs
+receive `null`, listeners and fine-grained bindings are removed, and component
+lifetimes are disposed. Every one of these steps runs for every node in the
+subtree, even when an earlier one throws. After the whole subtree is torn down,
+the failures are reported with the platform `reportError()`, the same path
+[event handler errors](../advanced/event-delegation.md#handler-errors) take: a
+single failure as-is, several as one `AggregateError` in teardown order. This
+happens in development and production builds. The update is not rolled back,
+and the removed content is not restored.
+
+An `ErrorBoundary` does not catch teardown errors: they are not render errors,
+and the nearest boundary is often part of the content being removed. Hosts
+without `reportError()`, including Node and jsdom, rethrow the error from a
+microtask; stub `globalThis.reportError` in tests that throw from cleanup on
+purpose.
+
+A component's own cleanup functions (returned by mount operations, tasks, and
+watches) only warn in development unless the app sets `cleanupStrict: true`.
+With `cleanupStrict`, a component's cleanup failures reach teardown as an
+`AggregateError` and are reported the same way; `cleanupApp()` on a strict app
+throws them instead (see [cleanup](./runtime.md#cleanup)).
+
 ### Fine-grained bindings and rollback
 
 A function-valued prop or child (`title={() => ...}`, `{() => count()}`) is a

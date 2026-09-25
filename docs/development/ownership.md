@@ -15,7 +15,15 @@ lifetime before attaching it to its new owner; a former parent's disposal cannot
 retire that retained child. Independent roots and server requests are explicitly
 detached from the surrounding execution scope.
 Strict component cleanup aggregates failures after disposal; ordinary cleanup
-retains the development warning behavior. An inactive route detaches its reads
+retains the development warning behavior. Renderer teardown
+(`teardownNodeSubtree`, `cleanupInstanceIfPresent`, `removeAllListeners` in
+`renderer/ownership/cleanup.ts`) collects ref, listener, reactive binding, and
+component disposal failures while it drains the whole subtree, then surfaces
+them once: strict callers (`{ strict: true }`, used by root snapshot rollback
+and by `cleanupStrict` app cleanup) receive a thrown `AggregateError`; all
+other callers have them reported through `reportUncaughtError` (one error
+as-is, several as an `AggregateError`) so the DOM update or rollback that
+triggered teardown continues and keeps its own error. An inactive route detaches its reads
 before user cleanup, so departed state cannot schedule its replacement.
 
 Lifecycle callbacks capture the lifetime that invoked them. A returned cleanup
