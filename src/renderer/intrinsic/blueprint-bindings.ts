@@ -1,10 +1,14 @@
-import { logger } from '../../common/logger';
 import {
   createOwnedFineGrainedEffect,
   incDevCounter,
   incrementPerfMetric,
+  FUNCTION_CHILD_NEEDS_COMPONENT,
+  getCurrentComponentInstance,
+  isRenderingProtectedBoundaryContent,
+  routeRenderedOutputErrorToBoundary,
   restoreFineGrainedEffect,
   saveFineGrainedEffect,
+  type ComponentInstance,
   type FineGrainedEffectHandle,
 } from '../../runtime';
 import { captureBindingRollback } from '../props/reactive-bindings';
@@ -16,14 +20,16 @@ import {
   type ReactivePropCleanupEntry,
   teardownNodeSubtree,
 } from '../ownership/cleanup';
-import { getRuntimeEnvValue } from '../env';
 import {
   createReactivePropCleanupEntry,
   applyFreshElementBindings,
 } from '../props/bindings';
 import {
   createReactiveScalarChildCleanupEntry,
+  readFunctionChildWithoutComponent,
   syncReactiveScalarChild,
+  updateReactiveChildElements,
+  upgradeFunctionChildren,
   type ReactiveChildDOMHost,
 } from '../children/reactive-children';
 import {
@@ -49,6 +55,11 @@ export class BlueprintBinding implements ReactivePropCleanupEntry {
   lastValue: unknown = undefined;
   nextValue: unknown = undefined;
 
+  /** The component that rendered a text binding's function child. */
+  readonly owner: ComponentInstance | null;
+  /** The first run, during mount, needed a component. */
+  needsComponent = false;
+
   constructor(
     readonly kind: 'prop' | 'text',
     readonly element: Element,
@@ -58,6 +69,7 @@ export class BlueprintBinding implements ReactivePropCleanupEntry {
     public textNode: Text | null
   ) {
     this.compute = compute;
+    this.owner = kind === 'text' ? getCurrentComponentInstance() : null;
   }
 
   compute: () => unknown;
@@ -104,11 +116,31 @@ export class BlueprintBinding implements ReactivePropCleanupEntry {
   }
 }
 
+/** A text binding's function child needed a component (see reactive-children). */
+function upgradeBlueprintTextBinding(
+  binding: BlueprintBinding,
+  host: ReactiveChildDOMHost
+): void {
+  binding.needsComponent = false;
+  upgradeFunctionChildren(
+    binding.element,
+    [binding.compute],
+    host,
+    binding.owner
+  );
+}
+
 function commitBlueprintBinding(
   binding: BlueprintBinding,
   value: unknown,
   host: ReactiveChildDOMHost
 ): void {
+  if (value === FUNCTION_CHILD_NEEDS_COMPONENT) {
+    // During mount the binding is not registered yet; the mount upgrades it.
+    if (binding.group) upgradeBlueprintTextBinding(binding, host);
+    else binding.needsComponent = true;
+    return;
+  }
   const previousValue = binding.lastValue;
   if (binding.hasValue && Object.is(previousValue, value)) return;
 
@@ -147,7 +179,8 @@ function commitBlueprintBinding(
     const normalized = normalizeOwnedReactiveTextValue(value);
     if (normalized === null) {
       binding.textNode = null;
-      host.updateElementChildren(
+      updateReactiveChildElements(
+        host,
         binding.element,
         value as VNode | VNode[] | undefined
       );
@@ -158,7 +191,7 @@ function commitBlueprintBinding(
         binding.element.firstChild !== textNode ||
         binding.element.lastChild !== textNode
       ) {
-        host.updateElementChildren(binding.element, normalized);
+        updateReactiveChildElements(host, binding.element, normalized);
         textNode =
           binding.element.childNodes.length === 1 &&
           binding.element.firstChild?.nodeType === Node.TEXT_NODE
@@ -243,7 +276,12 @@ function computeBlueprintBindings(
 ): BlueprintBinding[] {
   const group = this._owner;
   for (const binding of group.bindings) {
-    if (binding.active) binding.nextValue = binding.compute();
+    if (binding.active) {
+      binding.nextValue =
+        binding.kind === 'text'
+          ? readFunctionChildWithoutComponent(binding.compute)
+          : binding.compute();
+    }
   }
   return group.bindings;
 }
@@ -269,12 +307,18 @@ function blueprintBindingsChanged(
   return false;
 }
 
+// Same routing as a single reactive prop binding: the nearest ErrorBoundary
+// of the component that rendered the group, else thrown from the update.
 function reportBlueprintBindingError(
   this: BlueprintOwnedEffect,
   error: unknown
 ): void {
-  if (getRuntimeEnvValue('NODE_ENV') !== 'production') {
-    logger.warn('[Askr] Blueprint reactive update failed:', error);
+  const { owner, protectedByOwner } = this._owner;
+  if (
+    !owner ||
+    !routeRenderedOutputErrorToBoundary(owner, error, protectedByOwner)
+  ) {
+    throw error;
   }
 }
 
@@ -284,12 +328,15 @@ export function mountBlueprintBindingGroup(
 ): void {
   if (bindings.length === 0) return;
 
+  const owner = getCurrentComponentInstance();
   const group: BlueprintBindingGroup = {
     _coalesceForItemReads: true,
     bindings,
     activeCount: bindings.length,
     effect: null,
     host,
+    owner,
+    protectedByOwner: !!owner && isRenderingProtectedBoundaryContent(owner),
   };
   const effect = createOwnedFineGrainedEffect(
     'reactive',
@@ -312,6 +359,9 @@ export function mountBlueprintBindingGroup(
       setFreshElementReactivePropCleanup(binding.element, bindingKey, binding);
       previousElement = binding.element;
     }
+  }
+  for (const binding of bindings) {
+    if (binding.needsComponent) upgradeBlueprintTextBinding(binding, host);
   }
 }
 

@@ -60,8 +60,8 @@ import {
   AuthContext as AuthContext$1,
   AuthRequirement,
   AuthRequirement as AuthRequirement$1,
-} from '@askrjs/auth';
-import { ObjectSchema } from '@askrjs/schema';
+  ObjectSchema,
+} from '../peer-types.js';
 /** A single query-string value accepted by {@link updateRouteQuery}. */
 type RouteQueryParamValue = string | number | boolean | null | undefined;
 /** A query-string value, or an array of them for a repeated param. */
@@ -277,9 +277,12 @@ declare class RouteDataLoadError extends Error {
 }
 /** Policy decision: allow the route to render. */
 declare function allow(): AccessAllowDecision;
-/** Policy decision: redirect the visitor to `to`. */
+/**
+ * Policy decision: redirect the visitor to `to`. A string is a logical path
+ * that gains the registry `basePath`; a `to()` destination is used as-is.
+ */
 declare function redirect(
-  to: string,
+  to: string | RouteDestination,
   init?: {
     status?: AccessRedirectStatus;
     replace?: boolean;

@@ -5,22 +5,18 @@ on:
   schedule:
     - cron: '15 3 * * *'
   push:
-    branches: [main]
+    branches: [develop, main]
   pull_request:
-    branches: [main]
+    branches: [develop, main]
 
 permissions:
   contents: read
 
 jobs:
   ci:
-    name: CI (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    name: CI (ubuntu-latest)
+    runs-on: ubuntu-latest
     timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
       - name: Checkout repository

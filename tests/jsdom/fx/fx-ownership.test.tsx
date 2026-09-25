@@ -36,6 +36,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 function settle(ms: number): void {
@@ -455,8 +456,9 @@ describe('fx scheduled work ownership', () => {
     ],
   ])(
     'should release the scheduleRetry owner listener when fn %s',
-    (_label, fn) => {
-      vi.spyOn(console, 'error').mockImplementation(() => {});
+    (label, fn) => {
+      const reportError = vi.fn();
+      vi.stubGlobal('reportError', reportError);
       const add = vi.spyOn(AbortSignal.prototype, 'addEventListener');
       const remove = vi.spyOn(AbortSignal.prototype, 'removeEventListener');
       const attempt = vi.fn(fn);
@@ -480,6 +482,9 @@ describe('fx scheduled work ownership', () => {
       expect(attempt).toHaveBeenCalledTimes(1);
       expect(add).toHaveBeenCalledTimes(1);
       expect(remove).toHaveBeenCalledTimes(1);
+      expect(reportError).toHaveBeenCalledTimes(
+        label === 'throws synchronously' ? 1 : 0
+      );
       cleanupApp(container);
       cleanup();
     }

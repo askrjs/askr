@@ -5,7 +5,6 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
-import { allowFrameworkWarnings } from '../../setup-env';
 
 function Guard({ value, ok }: { value: number; ok: boolean }) {
   if (value === 2 && !ok) throw new Error('boom');
@@ -170,7 +169,6 @@ describe('fine-grained bindings and render transactions', () => {
   });
 
   it('should retry a failed binding compute when a render passes the same function', () => {
-    allowFrameworkWarnings(/update failed/);
     let n!: State<number>;
     let tick!: State<number>;
     let broken = false;
@@ -201,9 +199,10 @@ describe('fine-grained bindings and render transactions', () => {
     createIsland({ root: container, component: App });
     flushScheduler();
 
+    // With no ErrorBoundary, both failed bindings are thrown from the flush.
     broken = true;
     n.set(2);
-    flushScheduler();
+    expect(() => flushScheduler()).toThrow('Fine-grained effect failures');
 
     broken = false;
     tick.set(1);

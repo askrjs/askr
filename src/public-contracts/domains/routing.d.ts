@@ -1,7 +1,11 @@
 import { JSXElementType, JSXElement, Props } from '../elements.js';
 import '../jsx-globals.js';
-import { AuthContext, AuthRequirement } from '@askrjs/auth';
-import { InferSchema, ObjectSchema } from '@askrjs/schema';
+import {
+  AuthContext,
+  AuthRequirement,
+  InferSchema,
+  ObjectSchema,
+} from '../peer-types.js';
 import { state, selector } from './state.js';
 import { RenderableChild } from './context.js';
 import { QueryPrefetchContext } from './data.js';
@@ -151,10 +155,16 @@ interface RouteAuthOptions {
   dehydrate?: (context: AuthContext) => Omit<AuthContext, 'session'>;
   loginPath?:
     | string
-    | ((context: RouteContext) => string | PromiseLike<string>);
+    | RouteDestination
+    | ((
+        context: RouteContext
+      ) => string | RouteDestination | PromiseLike<string | RouteDestination>);
   authenticatedRedirectTo?:
     | string
-    | ((context: RouteContext) => string | PromiseLike<string>);
+    | RouteDestination
+    | ((
+        context: RouteContext
+      ) => string | RouteDestination | PromiseLike<string | RouteDestination>);
 }
 
 interface CommonAccessOptions {
@@ -261,14 +271,24 @@ interface RouteRef<
   readonly __search?: TSearch;
 }
 
-type RouteRefSearch<TSchema extends ObjectSchema<RouteSearch> | undefined> =
-  TSchema extends ObjectSchema<RouteSearch>
+type RouteRefSearch<TSchema extends ObjectSchema<RouteSearch> | undefined> = [
+  TSchema,
+] extends [undefined]
+  ? RouteSearch
+  : TSchema extends ObjectSchema<RouteSearch>
     ? InferSchema<TSchema>
     : RouteSearch;
 
-/** A resolved navigation target with a computed `href`, produced by {@link to}. */
+declare const routeDestinationBrand: unique symbol;
+
+/**
+ * A typed navigation target with a computed public `href`, produced by
+ * {@link to}. Branded so that only `to()` creates one: its `href` already
+ * includes the registry `basePath` and is never prefixed again.
+ */
 interface RouteDestination {
   readonly href: string;
+  readonly [routeDestinationBrand]: true;
 }
 
 /** Options accepted by the `page()` route-declaration helper. */

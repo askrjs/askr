@@ -136,11 +136,36 @@ describe('SSG hydration bundle', () => {
     // 265 KiB: client navigation tracks history entry indexes so a failed
     // back/forward returns to the rendered entry, and hands URLs no route can
     // render to the browser (~1.1 KB, #453-#455; measured 270,803 bytes).
+    // 266 KiB: navigation targets are checked so a path-like string such as
+    // `/\\evil.example` cannot become an open redirect (navigate, Link, guard
+    // and first-load redirects), and cross-origin redirects on first load are
+    // handed to the browser (#459; measured 271,618 bytes).
     // 267 KiB for the DOM property path (`muted`, `indeterminate`, custom
     // element object props, `prop:`/`attr:`): the property table, resetting
     // removed properties, the URL/raw-HTML guards and rollback snapshots add
     // ~2.4 KB (measured 273,240 bytes). Without it those props cannot reach
     // the element at all.
-    expect(initialBytes).toBeLessThanOrEqual(269 * 1024);
+    // 268 KiB once both landed: #459's navigation target checks plus the DOM
+    // property path above (measured 274,362 bytes).
+    // 269 KiB: #459 also refuses dot-segment paths that collapse to `//host`
+    // and writes absolute URLs to history, on top of #535's production
+    // control validation (measured 274,824 bytes).
+    // 270 KiB: with #443 on main (274,990 bytes), #459's navigation target
+    // checks add ~1.2 KB (measured 276,199 bytes).
+    // 274 KiB: function children render the same on the client as on the
+    // server in every position (#517): the one-level readable unwrap,
+    // FunctionChild components (remounting when their hooks change) for
+    // fragment/array items and ErrorBoundary and Portal children, the
+    // on-demand upgrade of element function children when a run needs a
+    // component, context frames for function children, binding setup for
+    // hydrated elements and error routing. About 4.9 KB (measured 279,900
+    // bytes against 274,949 on main).
+    // 276 KiB after #459's navigation target and absolute-URL checks join
+    // #517's function children (measured 281,638 bytes on this branch).
+    // #534 adds composedPath() traversal and target retargeting for open
+    // shadow roots (+543 bytes, 282,181 bytes total). It stays within 276 KiB.
+    // #542 compares the hydrated DOM with captured server markup when enabled
+    // (+510 bytes, 282,691 bytes total).
+    expect(initialBytes).toBeLessThanOrEqual(277 * 1024);
   });
 });

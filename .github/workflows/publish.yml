@@ -16,6 +16,10 @@ jobs:
     environment: npm
 
     steps:
+      - name: Require main release branch
+        shell: bash
+        run: test "$GITHUB_REF" = 'refs/heads/main'
+
       - name: Checkout repository
         uses: actions/checkout@v7
 

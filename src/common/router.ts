@@ -147,10 +147,16 @@ export interface RouteAuthOptions {
   dehydrate?: (context: AuthContext) => Omit<AuthContext, 'session'>;
   loginPath?:
     | string
-    | ((context: RouteContext) => string | PromiseLike<string>);
+    | RouteDestination
+    | ((
+        context: RouteContext
+      ) => string | RouteDestination | PromiseLike<string | RouteDestination>);
   authenticatedRedirectTo?:
     | string
-    | ((context: RouteContext) => string | PromiseLike<string>);
+    | RouteDestination
+    | ((
+        context: RouteContext
+      ) => string | RouteDestination | PromiseLike<string | RouteDestination>);
 }
 
 export interface CommonAccessOptions {
@@ -249,13 +255,24 @@ export interface RouteRef<
 export type RouteRefSearch<
   TSchema extends ObjectSchema<RouteSearch> | undefined,
 > =
-  TSchema extends ObjectSchema<RouteSearch>
-    ? InferSchema<TSchema>
-    : RouteSearch;
+  // Checked first so a route without `search` stays exact when the optional
+  // @askrjs/schema peer is absent and ObjectSchema degrades to `any`.
+  [TSchema] extends [undefined]
+    ? RouteSearch
+    : TSchema extends ObjectSchema<RouteSearch>
+      ? InferSchema<TSchema>
+      : RouteSearch;
 
-/** A resolved navigation target with a computed `href`, produced by {@link to}. */
+declare const routeDestinationBrand: unique symbol;
+
+/**
+ * A typed navigation target with a computed public `href`, produced by
+ * {@link to}. Branded so that only `to()` creates one: its `href` already
+ * includes the registry `basePath` and is never prefixed again.
+ */
 export interface RouteDestination {
   readonly href: string;
+  readonly [routeDestinationBrand]: true;
 }
 
 /** Options accepted by the `page()` route-declaration helper. */

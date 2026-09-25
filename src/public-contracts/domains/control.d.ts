@@ -1,7 +1,5 @@
 import { JSXElementType, JSXElement, Props } from '../elements.js';
 import '../jsx-globals.js';
-import { AuthContext, AuthRequirement } from '@askrjs/auth';
-import { InferSchema, ObjectSchema } from '@askrjs/schema';
 import { state, selector } from './state.js';
 import { VNode, RenderableChild, ContextFrame } from './context.js';
 import { ComponentInstance, ReadableSource } from './component.js';
@@ -51,6 +49,7 @@ interface ForItemInstance<T> {
   reactiveItemState: ReactiveForItemState<T> | null;
   indexSignal: ForIndexSignal;
   scope: ChildScope;
+  renderedWith: ForRenderItem<T> | null;
 }
 
 interface FineGrainedEffectHandle<T> {
@@ -89,6 +88,7 @@ interface ForState<T> {
   orderedVNodes: VNode[];
   byFn: ForKeySelector<T>;
   renderFn: ForRenderItem<T>;
+  _renderFnChanged: boolean;
   parentInstance: ComponentInstance | null;
   lastCommitStrategy: ForCommitStrategy;
   lastRemovedNodes: Node[];
@@ -125,6 +125,7 @@ interface ForItemTransactionSnapshot<T> {
       hasBeenRead: boolean;
     }
   > | null;
+  renderedWith: ForRenderItem<T> | null;
   scope: ChildScopeTransactionSnapshot;
 }
 
@@ -227,9 +228,9 @@ type ForBaseProps<T> = {
   each: ForEachSource<T>;
   fallback?: BoundaryChild;
   /**
-   * Row renderer. Parent reactive reads must use `selector()` or thunk props;
-   * closure-captured values are snapshotted when the row is created or
-   * reconciled; changing the parent source does not rerun an existing row.
+   * Row renderer. Existing rows rerun with the latest callback when the parent
+   * rerenders, and a reactive read in the callback subscribes that row. Prefer
+   * `selector()` or thunk props so only the affected rows or props update.
    */
   children: (item: T, index: () => number) => VNode;
 };

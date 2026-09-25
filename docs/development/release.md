@@ -18,9 +18,11 @@ Packages are published to npm under the `@askrjs` scope.
 
 The release flow is split across dedicated workflows:
 
-- `.github/workflows/ci.yml`: lint, build, publint, benchmark-contract,
-  architecture checks, public type contracts, unit/jsdom tests, a packed
-  clean-consumer smoke test, and Chromium integration coverage.
+- `.github/workflows/ci.yml`: Ubuntu checks on `develop` and `main`, including
+  lint, build, public type contracts, unit/jsdom tests, a packed clean-consumer
+  smoke test, and Chromium integration coverage.
+- `.github/workflows/matrix.yml`: the same checks on Ubuntu, Windows, and macOS
+  for pull requests to `main` and pushes to `main`.
 - `.github/workflows/quality.yml`: PR and scheduled replayable lifecycle sequences
   plus Chromium and Firefox on Linux and WebKit on macOS. Failed runs retain
   browser reports and seed-trace artifacts.
@@ -64,9 +66,11 @@ for the recorded package, consumer, browser, and performance evidence.
 
 The intended happy path is:
 
-1. Bump `package.json` to the release version and merge it to `main`.
-2. Run `publish.yml` manually.
-3. Confirm the workflow’s created-or-reused `v<version>` tag and npm publish.
+1. Bump `package.json` to the release version on `develop` and complete its checks.
+2. Promote `develop` to `main` with a pull request using a merge commit.
+3. Run `publish.yml` manually, selecting `main` as the workflow branch. The
+   workflow rejects any other branch.
+4. Confirm the workflow’s created-or-reused `v<version>` tag and npm publish.
 
 ## Pre-release checklist
 

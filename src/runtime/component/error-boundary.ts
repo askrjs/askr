@@ -90,7 +90,9 @@ export function bindControlScopeErrorOwner(
 }
 
 function findLiveErrorBoundary(
-  failedInstance: ComponentInstance
+  failedInstance: ComponentInstance,
+  followPortalWriters = true,
+  accept: (boundary: ComponentInstance) => boolean = () => true
 ): ComponentInstance | null {
   const visited = new Set<ComponentInstance>();
 
@@ -98,7 +100,9 @@ function findLiveErrorBoundary(
     const control = controlScopeStates.get(instance);
     const controlOwner = control ? controlOutputOwners.get(control) : undefined;
     return (
-      visit(getLivePortalErrorParent(instance)) ??
+      (followPortalWriters
+        ? visit(getLivePortalErrorParent(instance))
+        : null) ??
       (controlOwner
         ? controlOwner.protectedByOwner
           ? visit(controlOwner.instance)
@@ -126,7 +130,7 @@ function findLiveErrorBoundary(
     }
     visited.add(instance);
 
-    if (isLiveErrorBoundary(instance)) {
+    if (isLiveErrorBoundary(instance) && accept(instance)) {
       return instance;
     }
 
@@ -134,6 +138,21 @@ function findLiveErrorBoundary(
   };
 
   return visitAbove(failedInstance);
+}
+
+/**
+ * The nearest live ErrorBoundary enclosing `instance` where it renders (its
+ * component and control-flow owners, not the writer of portal content it
+ * hosts) that is currently showing its fallback.
+ */
+export function findEnclosingFallbackBoundary(
+  instance: ComponentInstance
+): ComponentInstance | null {
+  return findLiveErrorBoundary(
+    instance,
+    false,
+    (boundary) => boundary.errorBoundaryState?.error != null
+  );
 }
 
 function isLiveErrorBoundary(instance: ComponentInstance): boolean {

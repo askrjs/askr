@@ -37,7 +37,10 @@ encountered during the actual server render.
 
 Static pages can also be opened with client-only query strings or hashes. Strict
 verification compares the DOM with the queryless URL that generated the static
-HTML, then hydration applies the browser URL to the adopted route tree. For SSR
+HTML, then hydration applies the browser URL to the adopted route tree; the
+check that compares the server markup with the client-rendered output is
+skipped for such pages, because the client renders the browser URL on
+purpose. For SSR
 responses that were rendered from a query or hash, Askr records that render URL
 in the hydration envelope and verifies against it exactly.
 

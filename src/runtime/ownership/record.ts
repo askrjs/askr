@@ -26,6 +26,19 @@ export class OwnershipRecord {
   hadScopedChildren = false;
   reads: Set<ReadableSource<unknown>> | undefined;
   finalizer: { release(): void } | undefined;
+  /** Memoized pending-render check: `epoch * 2 + (pending ? 1 : 0)`. */
+  pendingCheck = 0;
+}
+
+let pendingCheckEpoch = 1;
+
+/** Invalidate every memoized pending-render check (#523). */
+export function invalidatePendingChecks(): void {
+  pendingCheckEpoch += 1;
+}
+
+export function getPendingCheckEpoch(): number {
+  return pendingCheckEpoch;
 }
 
 /** A shared view surface populated only by the public compatibility adapter. */

@@ -11,6 +11,9 @@ type ContextFrameCarrier = {
 const vnodeContextFrames = new WeakMap<object, ContextFrame>();
 
 export function getVNodeContextFrame(node: unknown): ContextFrame | undefined {
+  if (typeof node === 'function') {
+    return vnodeContextFrames.get(node);
+  }
   if (typeof node !== 'object' || node === null) {
     return undefined;
   }
@@ -59,6 +62,21 @@ export function markVNodeWithContextFrame(
   vnodeContextFrames.set(node, frame);
 }
 
+/**
+ * A function child is rendered like a component (see
+ * `component/function-children`), so it carries the context frame of the
+ * position it was written in, as a vnode does.
+ */
+function markFunctionChildContextFrame(
+  fn: object,
+  frame: ContextFrame,
+  overwrite: boolean
+): void {
+  if (overwrite || !vnodeContextFrames.has(fn)) {
+    vnodeContextFrames.set(fn, frame);
+  }
+}
+
 function isVNodeLike(value: unknown): boolean {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     return false;
@@ -103,6 +121,11 @@ export function markVNodeTreeWithContextFrame(
     for (const child of node) {
       markVNodeTreeWithContextFrame(child, frame, overwrite);
     }
+    return node;
+  }
+
+  if (typeof node === 'function') {
+    markFunctionChildContextFrame(node, frame, overwrite);
     return node;
   }
 
@@ -201,6 +224,17 @@ export function rebaseVNodeTreeWithContextFrame(
     for (const child of node) {
       rebaseVNodeTreeWithContextFrame(child, ownerFrame, previousOwnerFrame);
     }
+    return node;
+  }
+
+  if (typeof node === 'function') {
+    const existingFrame = vnodeContextFrames.get(node);
+    vnodeContextFrames.set(
+      node,
+      existingFrame
+        ? rebaseContextFrame(existingFrame, previousOwnerFrame, ownerFrame)
+        : ownerFrame
+    );
     return node;
   }
 

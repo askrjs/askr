@@ -122,11 +122,16 @@ export function executeComponentSync(
         typeof result === 'string' ||
         typeof result === 'number' ||
         typeof result === 'boolean' ||
+        // The client renders nothing for a component that returns a function.
+        typeof result === 'function' ||
         result === null ||
         result === undefined
       ) {
         const inner =
-          result === null || result === undefined || result === false
+          result === null ||
+          result === undefined ||
+          result === false ||
+          typeof result === 'function'
             ? ''
             : String(result);
         return {

@@ -2,6 +2,7 @@ import type { AuthContext, AuthDecision } from '@askrjs/auth';
 import type {
   AccessDecision,
   RouteAuthOptions,
+  RouteDestination,
   RouteContext,
   RouteHandler,
   RoutePolicy,
@@ -31,10 +32,12 @@ import {
 } from './route-hydration';
 import { withPageFramework } from '../common/page-render-envelope';
 import {
-  addRouteBasePath,
-  normalizeRouteBasePath,
-  removeRouteBasePath,
-} from './base-path';
+  checkAccessDecision,
+  exposeRedirectDecision,
+  redirectDecision,
+} from './policy';
+import { formatNavigationUrl, resolveNavigationUrl } from '../common/url';
+import { normalizeRouteBasePath, removeRouteBasePath } from './base-path';
 
 export { resolveRoute } from './route-matching';
 
@@ -242,10 +245,10 @@ function runPolicies(
               dataRuntime,
               index + 1
             )
-          : decision
+          : checkAccessDecision(decision)
       );
     }
-    if (result.kind !== 'allow') return result;
+    if (result.kind !== 'allow') return checkAccessDecision(result);
   }
   return buildRenderResult(
     record,
@@ -258,9 +261,10 @@ function runPolicies(
   );
 }
 
+type PathTarget = string | RouteDestination;
 type PathSetting =
-  | string
-  | ((context: RouteContext) => string | PromiseLike<string>);
+  | PathTarget
+  | ((context: RouteContext) => PathTarget | PromiseLike<PathTarget>);
 
 function resolvePath(
   value: PathSetting | undefined,
@@ -271,9 +275,9 @@ function resolvePath(
 }
 
 function appendNext(path: string, href: string): string {
-  const target = new URL(path, 'http://localhost');
+  const target = resolveNavigationUrl(path);
   target.searchParams.set('next', href);
-  return `${target.pathname}${target.search}${target.hash}`;
+  return formatNavigationUrl(target);
 }
 
 function mapAuthDecision(
@@ -292,15 +296,18 @@ function mapAuthDecision(
     decision.reason === 'unauthenticated' ? '/login' : '/',
     context
   );
-  const finalize = (path: string): AccessDecision => ({
-    kind: 'redirect',
-    to:
-      decision.reason === 'unauthenticated'
-        ? appendNext(path, context.href)
-        : path,
-    replace:
-      decision.reason === 'unauthenticated' ? context.mode === 'spa' : true,
-  });
+  const finalize = (path: PathTarget): AccessDecision =>
+    redirectDecision(
+      path,
+      {
+        replace:
+          decision.reason === 'unauthenticated' ? context.mode === 'spa' : true,
+      },
+      (href) =>
+        decision.reason === 'unauthenticated'
+          ? appendNext(href, context.href)
+          : href
+    );
   return isPromiseLike(target)
     ? Promise.resolve(target).then(finalize)
     : finalize(target);
@@ -391,10 +398,7 @@ export function resolveRouteRequest(
     });
     const exposeRedirect = (result: RouteRequestResult): RouteRequestResult =>
       result?.kind === 'redirect'
-        ? {
-            ...result,
-            to: addRouteBasePath(result.to, basePath),
-          }
+        ? exposeRedirectDecision(result, basePath)
         : result;
     const finalize = (authContext: AuthContext) => {
       if (!signal.aborted) setCurrentAuth(authContext, mode);

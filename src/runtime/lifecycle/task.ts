@@ -31,13 +31,20 @@ export function task(
 
   if (!slot.started) {
     slot.task = fn;
-    registerCommitOperation(async () => {
+    // A synchronous task hands back its cleanup synchronously, so it is owned
+    // at once: disposing the component right after (a remount) runs it
+    // before any later mount work. A throw still settles as a rejection.
+    registerCommitOperation(() => {
       if (slot.started) {
         return;
       }
 
       slot.started = true;
-      return await slot.task();
+      try {
+        return slot.task();
+      } catch (error) {
+        return Promise.reject(error);
+      }
     });
   }
 }
