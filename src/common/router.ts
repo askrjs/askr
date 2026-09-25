@@ -313,6 +313,8 @@ export interface RouteRequestOptions {
   signal?: AbortSignal;
   request?: Request;
   telemetry?: CoreTelemetry;
+  /** @internal Browser apps prefetch route `preload` data into their own runtime. */
+  dataRuntime?: import('../data/types').DataRuntime;
 }
 
 /** A resolved route request that should render `handler` with `params`. */

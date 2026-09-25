@@ -126,6 +126,12 @@ const user = createQuery({
 invalidate('user:', { runtime: dataRuntime });
 ```
 
+To isolate a whole routed app, pass the runtime to `createSPA({ dataRuntime })`
+or `hydrateSPA({ dataRuntime })`. The app then uses it everywhere: hydration
+seeds it from the server payload, `createQuery()` calls in route components
+read it without an explicit `runtime` option, and route `preload` hooks
+prefetch into it on the initial route and on every client navigation.
+
 ### Queries
 
 ```ts
