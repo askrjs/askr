@@ -18,8 +18,14 @@ Shared test harness code lives outside the suite layers:
 
 - `test-utils/fixtures`: reusable components and scenario data.
 - `test-utils/render`: jsdom render helpers and scheduler observation helpers.
+- `test-utils/playwright-app`: the browser benchmark and scenario app that
+  `tests/browser` imports.
 - `test-utils/router`, `test-utils/hydration`, `test-utils/perf`: reserved for
   layer-specific helpers as coverage grows.
+
+Everything under `test-utils/` is typechecked by `test-utils/tsconfig.json`,
+which `npm run typecheck` (and therefore `npm run lint`) runs alongside the
+`src` typecheck.
 
 ## Running Tests
 

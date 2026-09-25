@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- test(test-utils): `npm run typecheck` (and so `npm run lint`) now also
+  typechecks `test-utils/**`, including the Playwright browser app, through
+  `test-utils/tsconfig.json`. The existing type errors are fixed: fixtures
+  import `state` from the root entry, the playwright app's Vite config uses
+  `oxc.jsx`, and two scenarios no longer rely on unsafe nullable state reads.
 - fix(renderer): props whose live state is not the attribute now set the DOM
   property. `<video muted>` sets `video.muted` (and keeps the attribute),
   `<input indeterminate>` sets `input.indeterminate` without an attribute, and
