@@ -64,6 +64,12 @@ export interface ComponentExecution {
    * render so the binding can upgrade (see `component/scope`).
    */
   _functionChildFastPath?: boolean;
+  /** @internal A `FunctionChild` body: remount when its hook order changes. */
+  _remountOnHookOrderChange?: boolean;
+  /** @internal Set by a render of such a body whose hook order changed. */
+  _hookOrderChanged?: boolean;
+  /** @internal Bumped to remount a `FunctionChild`'s body. */
+  _functionChildGeneration?: number;
   fn: ComponentFunction;
   props: Props;
   target: Element | null;

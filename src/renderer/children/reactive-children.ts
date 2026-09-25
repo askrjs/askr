@@ -147,7 +147,7 @@ export function readFunctionChildWithoutComponent(
 ): unknown {
   const frame = getVNodeContextFrame(child) ?? null;
   const read = () =>
-    runFunctionChildWithoutComponent(() => readFunctionChildValue(child));
+    runFunctionChildWithoutComponent(null, () => readFunctionChildValue(child));
   const value = frame
     ? withContext(getExecutionContextFrame(frame), read)
     : read();
@@ -488,23 +488,24 @@ function setFunctionChildScopeFrame(scope: ChildScope, child: unknown): void {
 }
 
 /**
- * Render a function child in its (flagged) child scope. A render that asks for
- * a component renders nothing and requests the upgrade, which runs once the
- * render has been committed.
+ * Render a function child in its child scope. The scope counts as a
+ * component only while the function itself runs; a run that asks for one
+ * renders nothing and requests the upgrade, which runs once the render has
+ * been committed.
  */
 function readFunctionChildInScope(
+  scope: ChildScope,
   child: () => unknown,
   requestUpgrade: () => void
 ): VNode {
-  try {
-    return normalizeReactiveChildBoundaryVNode(
-      readFunctionChildValue(child) as VNode
-    );
-  } catch (error) {
-    if (error !== FUNCTION_CHILD_NEEDS_COMPONENT) throw error;
+  const value = runFunctionChildWithoutComponent(scope.componentInstance, () =>
+    readFunctionChildValue(child)
+  );
+  if (value === FUNCTION_CHILD_NEEDS_COMPONENT) {
     requestUpgrade();
     return null as unknown as VNode;
   }
+  return normalizeReactiveChildBoundaryVNode(value as VNode);
 }
 
 function createBoundaryUpgrade(
@@ -559,11 +560,10 @@ function setupReactiveChildBoundary(
     ),
     nodes: [],
   };
-  entry.scope.componentInstance._functionChildFastPath = true;
 
   setFunctionChildScopeFrame(entry.scope, currentChildFn);
   entry.scope.render(() =>
-    readFunctionChildInScope(currentChildFn, upgrade.request)
+    readFunctionChildInScope(entry.scope, currentChildFn, upgrade.request)
   );
   syncReactiveChildExpectedNodes(
     el,
@@ -667,8 +667,6 @@ function setupReactiveChildBoundarySequence(
       syncSequence
     );
 
-    scope.componentInstance._functionChildFastPath = true;
-
     const dynamicEntry: Extract<
       ReactiveChildBoundarySequenceEntry,
       { kind: 'dynamic' }
@@ -688,6 +686,7 @@ function setupReactiveChildBoundarySequence(
     );
     dynamicEntry.entry.scope.render(() =>
       readFunctionChildInScope(
+        dynamicEntry.entry.scope,
         (
           currentSource[dynamicEntry.index] as {
             kind: 'dynamic';

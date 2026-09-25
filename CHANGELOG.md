@@ -21,7 +21,9 @@
   one as a `FunctionChild` component; on the server these threw. On the
   client, an element's function child that only reads values stays a direct
   DOM binding, and upgrades in place to a mounted `FunctionChild` component
-  the first time a run asks for a component; before, hooks there rendered
+  the first time a run asks for a component (code before the first hook then
+  runs again); a function child whose hooks change between runs remounts
+  with fresh state rather than reporting a hook-order error. Before, hooks there rendered
   nothing, resources never resolved, and `readScope()` could read the wrong
   provider. A function child of `Portal` now renders on the client. Parent
   re-renders no longer remove the text of an element's function child when

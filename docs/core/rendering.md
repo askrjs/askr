@@ -286,9 +286,17 @@ it). The server renders every function child as a small component
 that only reads values is bound straight to the DOM with no component; the
 first time a run asks for a component (a hook, `Show`/`For`/`Case`, a
 resource), that run is abandoned and the element's function children become
-`FunctionChild` components from then on. Either way, hooks follow component
-rules: they run in the function's call order, keep their state across
-re-runs, run lifecycle work, and report a changed hook order as an error.
+`FunctionChild` components from then on. That first read runs again as the
+component, so code before the first hook can run twice: once on mount (or on
+the run that first reaches a hook) and again after the upgrade. Keep side
+effects out of that part of the function.
+
+Either way, hooks run in the function's call order, keep their state across
+re-runs and run lifecycle work. When a run calls a different sequence of
+hooks than the last one, for example `{() => (open() ? <Show .../> : 'none')}`
+or a `state()` called only in one branch, the function child remounts: its
+previous hooks are disposed and it starts again with fresh state, instead of
+reporting a hook-order error as a component body does.
 
 ```tsx
 <Theme value="dark">

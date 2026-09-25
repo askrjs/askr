@@ -40,7 +40,10 @@ import {
   attachOwnership,
 } from '../ownership/record';
 import { runScheduledComponent } from './commit';
-import { liftFunctionChildItems } from './function-children';
+import {
+  liftFunctionChildItems,
+  remountFunctionChild,
+} from './function-children';
 import { sealInlineRenderSnapshot } from '../transactions/render';
 import {
   captureInlineRenderSnapshot as captureLifecycleInlineRenderSnapshot,
@@ -342,12 +345,17 @@ function executeComponentSync(
     // `values` map is lazily allocated to avoid per-render Map allocations
     // for components that do not use context.
     const executionFrame = getExecutionContextFrame(instance.ownerFrame);
-    const result = callWithContext(
-      executionFrame,
-      instance.fn,
-      instance.props,
-      context
-    );
+    let result: unknown;
+    try {
+      result = callWithContext(
+        executionFrame,
+        instance.fn,
+        instance.props,
+        context
+      );
+    } catch (error) {
+      if (!instance._hookOrderChanged) throw error;
+    }
 
     if (trackRenderTime) {
       const renderTime = Date.now() - renderStartTime;
@@ -363,7 +371,20 @@ function executeComponentSync(
     }
 
     // A later render must claim every slot the first render claimed.
-    verifyHookSequence(instance);
+    if (!instance._hookOrderChanged) {
+      try {
+        verifyHookSequence(instance);
+      } catch (error) {
+        if (!instance._hookOrderChanged) throw error;
+      }
+    }
+    if (instance._hookOrderChanged) {
+      // A FunctionChild whose hook order changed remounts with fresh state;
+      // this render is abandoned.
+      instance._hookOrderChanged = false;
+      remountFunctionChild(instance);
+      return null;
+    }
 
     // Mark first render complete after successful execution
     // This enables hook order validation on subsequent renders

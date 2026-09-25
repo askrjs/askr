@@ -17,7 +17,10 @@ import {
   STATIC_CHILDREN,
   type JSXElement,
 } from '../../common/jsx';
+import { markTransparentComponentResult } from '../../common/control';
 import { readFunctionChildValue } from '../reactivity/readable';
+import { getCurrentComponentInstance } from './scope';
+import type { ComponentInstance } from './instance';
 import {
   getVNodeContextFrame,
   markVNodeWithContextFrame,
@@ -89,11 +92,32 @@ function renderNothingForFunction(item: unknown): unknown {
 }
 
 /**
- * Renders one function item of a component result (see the module comment).
- * The value is wrapped in a fragment so it renders as a transparent range,
- * like the item would have in place, rather than in a host element.
+ * Renders one function item (see the module comment). The function runs in a
+ * body component, so a change in the hooks it calls (`() => (open() ? <Show/>
+ * : 'none')`) remounts the body (a new key) with fresh state instead of being
+ * reported as a hook-order violation.
  */
 export function FunctionChild(props: { read: () => unknown }): JSXElement {
+  const owner = getCurrentComponentInstance();
+  const generation = owner?._functionChildGeneration ?? 0;
+  return {
+    $$typeof: ELEMENT_TYPE,
+    type: FunctionChildBody,
+    key: generation,
+    props: { read: props.read, owner },
+  } as unknown as JSXElement;
+}
+
+type FunctionChildBodyProps = {
+  read: () => unknown;
+  owner: ComponentInstance | null;
+};
+
+function renderFunctionChildBody(props: FunctionChildBodyProps): JSXElement {
+  const instance = getCurrentComponentInstance();
+  if (instance) instance._remountOnHookOrderChange = true;
+  // The value renders as a fragment, so it occupies a transparent range like
+  // the item would in place, rather than a host element.
   return {
     $$typeof: ELEMENT_TYPE,
     type: Fragment,
@@ -106,6 +130,21 @@ export function FunctionChild(props: { read: () => unknown }): JSXElement {
       ],
     },
   } as unknown as JSXElement;
+}
+
+// A transparent result: the body renders in place, not in a host element.
+const FunctionChildBody = markTransparentComponentResult(
+  function FunctionChildBody(props: FunctionChildBodyProps): JSXElement {
+    return renderFunctionChildBody(props);
+  }
+);
+
+/** @internal Remount the FunctionChild whose body `instance` is. */
+export function remountFunctionChild(instance: ComponentInstance): void {
+  const owner = (instance.props as Partial<FunctionChildBodyProps>).owner;
+  if (!owner) return;
+  owner._functionChildGeneration = (owner._functionChildGeneration ?? 0) + 1;
+  owner._enqueueRun?.();
 }
 
 /** Whether a vnode type is the component that renders a lifted function item. */

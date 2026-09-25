@@ -103,7 +103,7 @@ export function withComponentScope<T>(
 
 export function getCurrentComponentInstance(): ComponentInstance | null {
   if (currentInstance?._functionChildFastPath === true) {
-    throw FUNCTION_CHILD_NEEDS_COMPONENT;
+    return requestFunctionChildComponent();
   }
   return currentInstance;
 }
@@ -111,48 +111,84 @@ export function getCurrentComponentInstance(): ComponentInstance | null {
 /**
  * @internal The instance rendering right now, for bookkeeping that is not a
  * request for a component (read tracking, derived-value notification). A
- * function child's fast run reports none.
+ * function child's text-binding run reports none.
  */
 export function peekCurrentComponentInstance(): ComponentInstance | null {
   return currentInstance === FUNCTION_CHILD_PROBE ? null : currentInstance;
 }
 
+/** @internal Whether any render scope, including a function child's run, is active. */
+export function hasCurrentRenderScope(): boolean {
+  return currentInstance !== null;
+}
+
 /**
- * A function child bound directly to the DOM first runs as a plain read, under
- * an instance flagged `_functionChildFastPath` (this stand-in for text
- * bindings, or the child scope of a binding beside elements). Asking for the
- * current component during that run (a hook, `Show`/`For`/`Case`, a
- * resource) aborts it with {@link FUNCTION_CHILD_NEEDS_COMPONENT}, and the
- * binding then upgrades to a mounted `FunctionChild` component.
+ * A function child bound directly to the DOM first runs as a plain read (see
+ * {@link readFunctionChildWithoutComponent}). Asking for the current
+ * component during that run (a hook, `Show`/`For`/`Case`, a resource) aborts
+ * it, and the binding then upgrades to a mounted `FunctionChild` component.
  */
 const FUNCTION_CHILD_PROBE = {
   portalScope: null,
   _functionChildFastPath: true,
 } as unknown as ComponentInstance;
 
-/** Thrown to abort a function child's fast run that needs a component. */
+/** Returned for a function child's run that needed a component. */
 export const FUNCTION_CHILD_NEEDS_COMPONENT: unique symbol = Symbol(
   'askr.function-child-needs-component'
 );
 
 /**
- * Run a function child's text binding without a component. Returns
- * {@link FUNCTION_CHILD_NEEDS_COMPONENT} when the run asked for one.
+ * Set when the current run asked for a component. It is checked after the
+ * run however it ended, so a function that catches every error (or is async)
+ * cannot hide the request.
+ */
+let functionChildNeedsComponent = false;
+
+function requestFunctionChildComponent(): never {
+  functionChildNeedsComponent = true;
+  throw FUNCTION_CHILD_NEEDS_COMPONENT;
+}
+
+function ignoreFunctionChildAbort(error: unknown): void {
+  if (error !== FUNCTION_CHILD_NEEDS_COMPONENT) throw error;
+}
+
+/**
+ * Run a function child's read without a component: under a stand-in instance
+ * for a text binding (`scopeInstance` null), or under the binding's child
+ * scope, flagged only while `read` itself runs. Returns
+ * {@link FUNCTION_CHILD_NEEDS_COMPONENT} when the run asked for a component.
  */
 export function runFunctionChildWithoutComponent<T>(
-  fn: () => T
+  scopeInstance: ComponentInstance | null,
+  read: () => T
 ): T | typeof FUNCTION_CHILD_NEEDS_COMPONENT {
-  const snapshot = beginComponentScope({
-    instance: FUNCTION_CHILD_PROBE,
-    stateIndex: 0,
-  });
+  const previousRequest = functionChildNeedsComponent;
+  functionChildNeedsComponent = false;
+  const snapshot = scopeInstance
+    ? null
+    : beginComponentScope({ instance: FUNCTION_CHILD_PROBE, stateIndex: 0 });
+  const previousFlag = scopeInstance?._functionChildFastPath;
+  if (scopeInstance) scopeInstance._functionChildFastPath = true;
   try {
-    return fn();
-  } catch (error) {
-    if (error === FUNCTION_CHILD_NEEDS_COMPONENT) return error;
-    throw error;
+    let value: T;
+    try {
+      value = read();
+    } catch (error) {
+      if (functionChildNeedsComponent) return FUNCTION_CHILD_NEEDS_COMPONENT;
+      throw error;
+    }
+    if (!functionChildNeedsComponent) return value;
+    const thenable = value as { then?: unknown };
+    if (thenable && typeof thenable.then === 'function') {
+      (value as PromiseLike<unknown>).then(undefined, ignoreFunctionChildAbort);
+    }
+    return FUNCTION_CHILD_NEEDS_COMPONENT;
   } finally {
-    endComponentScope(snapshot);
+    if (scopeInstance) scopeInstance._functionChildFastPath = previousFlag;
+    if (snapshot) endComponentScope(snapshot);
+    functionChildNeedsComponent = previousRequest;
   }
 }
 
@@ -393,6 +429,22 @@ function describeHookSequence(kinds: readonly HookKind[]): string {
  * or a different kind fails here, and a render that claims fewer fails in
  * `verifyHookSequence` once the render returns.
  */
+/** Thrown for a render whose hook order changed, when it remounts instead. */
+export const HOOK_ORDER_CHANGED: unique symbol = Symbol(
+  'askr.hook-order-changed'
+);
+
+/**
+ * A `FunctionChild` remounts when its hook order changes instead of reporting
+ * a violation. The flag is sticky, so a render that catches the throw still
+ * remounts.
+ */
+function hookOrderChanged(instance: ComponentInstance): void {
+  if (instance._remountOnHookOrderChange !== true) return;
+  instance._hookOrderChanged = true;
+  throw HOOK_ORDER_CHANGED;
+}
+
 export function claimHookIndex(
   instance: ComponentInstance,
   hookName: HookKind
@@ -409,6 +461,7 @@ export function claimHookIndex(
 
   const expected = expectedHookKinds[index];
   if (expected === undefined) {
+    hookOrderChanged(instance);
     throw new Error(
       `Hook order violation: ${formatHook(hookName)} called at index ${index}, ` +
         `but the first render only claimed ${expectedHookKinds.length} hook(s) ` +
@@ -417,6 +470,7 @@ export function claimHookIndex(
     );
   }
   if (expected !== hookName) {
+    hookOrderChanged(instance);
     throw new Error(
       `Hook order violation: ${formatHook(hookName)} called at index ${index}, ` +
         `but the first render called ${formatHook(expected)} at this index ` +
@@ -438,6 +492,7 @@ export function verifyHookSequence(instance: ComponentInstance): void {
   const claimed = instance.stateIndexCheck + 1;
   if (claimed >= expectedHookKinds.length) return;
   const missing = expectedHookKinds[claimed];
+  hookOrderChanged(instance);
   throw new Error(
     `Hook order violation: render claimed ${claimed} hook(s), ` +
       `but the first render claimed ${expectedHookKinds.length} ` +
