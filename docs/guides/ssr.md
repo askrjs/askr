@@ -21,6 +21,23 @@ Web stream only when a route contains an explicitly deferred value.
 Critical loader data is awaited before rendering. Wrap only non-critical
 promises with `defer()` and render them through `Resolve`.
 
+## Supported server runtimes
+
+Synchronous rendering (`renderToString()`, `renderToStringSync()`) works on any
+JavaScript runtime. `renderRouteRequest()` and other async render work keep each
+request's render context in `AsyncLocalStorage` so concurrent requests stay
+isolated. Askr resolves it on first use, in this order:
+
+1. `globalThis.AsyncLocalStorage`, for runtimes that expose it globally.
+2. `process.getBuiltinModule('node:async_hooks')`: Node.js 24+, Deno, Bun,
+   and Cloudflare Workers with the `nodejs_compat` flag.
+
+Neither path is a static import or evaluates code, so client bundles never pull
+in `node:async_hooks` and pages served under a CSP without `'unsafe-eval'` are
+unaffected. On a runtime that offers neither, synchronous rendering still works
+and async render work rejects with an error naming the missing
+`AsyncLocalStorage`.
+
 ## Deferred route responses
 
 Server adapters should call `renderRouteRequest()`. A route without pending
