@@ -121,17 +121,29 @@ test('should expose stable callback owners backed by the committed state readers
       return <output>{String(count())}</output>;
     });
     expect(owner).toBeDefined();
-    const generation = owner!._ownershipGeneration;
-    expect(count._readers?.get(owner!)?.generation).toBe(generation);
+    const initialEvaluations = evaluations;
+
+    // The committed read subscribes the owner: each write re-evaluates it,
+    // through the same retained owner, across successive commits.
     count.set(1);
     view.flush();
     expect(view.root.textContent).toBe('1');
-    expect(evaluations).toBeGreaterThanOrEqual(2);
-    expect(owner!._ownershipGeneration).toBe(generation);
-    expect(count._readers?.get(owner!)?.generation).toBe(generation);
+    expect(evaluations).toBeGreaterThan(initialEvaluations);
+    const afterFirstUpdate = evaluations;
+    count.set(2);
+    view.flush();
+    expect(view.root.textContent).toBe('2');
+    expect(evaluations).toBeGreaterThan(afterFirstUpdate);
+
+    // Unmounting releases the owner: later writes no longer reach it.
     view.unmount();
-    expect(owner!.notifyUpdate).toBeNull();
-    expect(count._readers?.has(owner!)).not.toBe(true);
+    const afterUnmount = evaluations;
+    expect(() => {
+      count.set(3);
+      view!.flush();
+    }).not.toThrow();
+    expect(evaluations).toBe(afterUnmount);
+    expect(view.root.textContent).not.toContain('3');
   } finally {
     try {
       view?.cleanup();

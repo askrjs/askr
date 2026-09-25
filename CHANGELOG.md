@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- perf(env): development/production checks and renderer debug-flag reads no
+  longer copy `process.env` on every call. `isProductionEnvironment()` runs on every component render, and
+  enumerating the environment is expensive on Windows, where it dominated
+  deep component trees (a 10,000-deep chain took ~60s in jsdom on Windows CI;
+  it now mounts in ~0.1s locally, down from ~2.9s).
+- test: scheduler tests now exercise the behaviour their names describe
+  (render-time writes, nested handlers, `scheduleEventHandler` deferral,
+  mid-flush lane order, the render-time write guard error), the runtime and
+  native owner-view consumer contracts assert observable behaviour instead of
+  private fields, and the browser form tests wait on the
+  pending render instead of wall-clock timing.
+
 - fix(ssr): `renderRouteRequest()` streams each deferred `Resolve` boundary as
   soon as its value settles instead of awaiting boundaries one at a time in
   declaration order, so a slow boundary no longer holds back faster ones.

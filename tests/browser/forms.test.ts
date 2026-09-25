@@ -3,9 +3,24 @@ import { page } from 'vite-plus/test/browser/context';
 import { loadBrowserHarness } from './_helpers';
 
 test.describe('account settings form workflow', () => {
+  // Saves stay pending until the test releases them, so the pending render is
+  // observable no matter how slowly the browser round-trips under load.
+  let pendingSaves: Array<() => void> = [];
+
+  async function completeSave(): Promise<void> {
+    await expect.poll(() => pendingSaves.length).toBe(1);
+    pendingSaves.shift()!();
+  }
+
   test.beforeEach(async () => {
+    pendingSaves = [];
     const app = await loadBrowserHarness();
-    app.mountAccountSettingsScenario();
+    app.mountAccountSettingsScenario(
+      () =>
+        new Promise<void>((resolve) => {
+          pendingSaves.push(resolve);
+        })
+    );
   });
 
   test('should edit, submit, and reset a controlled settings form', async () => {
@@ -25,22 +40,27 @@ test.describe('account settings form workflow', () => {
 
     await page.getByRole('button', { name: 'Save changes' }).click();
 
-    await expect(
-      page.getByRole('button', { name: 'Saving...' })
-    ).toBeDisabled();
+    await expect
+      .element(page.getByRole('button', { name: 'Saving...' }))
+      .toBeDisabled();
+    await completeSave();
     await expect
       .element(page.getByRole('status'))
       .toHaveTextContent('Saved account settings for Ada Lovelace.');
 
     await page.getByRole('button', { name: 'Reset' }).click();
 
-    await expect(page.getByLabelText('Full name')).toHaveValue('');
-    await expect(page.getByLabelText('Email address')).toHaveValue('');
-    await expect(
-      page.getByLabelText('Receive product updates')
-    ).not.toBeChecked();
-    await expect(page.getByLabelText('Account role')).toHaveValue('viewer');
-    await expect(page.getByRole('radio', { name: 'Email' })).toBeChecked();
+    await expect.element(page.getByLabelText('Full name')).toHaveValue('');
+    await expect.element(page.getByLabelText('Email address')).toHaveValue('');
+    await expect
+      .element(page.getByLabelText('Receive product updates'))
+      .not.toBeChecked();
+    await expect
+      .element(page.getByLabelText('Account role'))
+      .toHaveValue('viewer');
+    await expect
+      .element(page.getByRole('radio', { name: 'Email' }))
+      .toBeChecked();
   });
 
   test('should validate required fields and recover after correction', async () => {
@@ -60,6 +80,7 @@ test.describe('account settings form workflow', () => {
     await page.getByRole('button', { name: 'Save changes' }).click();
 
     await expect.poll(() => page.getByRole('alert').elements().length).toBe(0);
+    await completeSave();
     await expect
       .element(page.getByRole('status'))
       .toHaveTextContent('Saved account settings for Grace Hopper.');
@@ -73,7 +94,7 @@ test.describe('account settings form workflow', () => {
       .fill('Katherine Johnson');
 
     await expect.element(name).toHaveFocus();
-    await expect(name).toHaveValue('Katherine Johnson');
+    await expect.element(name).toHaveValue('Katherine Johnson');
     await expect
       .element(page.getByLabelText('Settings preview'))
       .toHaveTextContent(
