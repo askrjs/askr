@@ -22,6 +22,7 @@ import {
   isSkippedProp as isSkippedPropShared,
   keepsFalseValue,
 } from '../common/prop-classification';
+import { matchesDomPropertyProp } from '../common/dom-properties';
 import { isRuntimeEnvFlagEnabled } from './env';
 import { setDevValue, incDevCounter } from '../runtime';
 
@@ -134,13 +135,23 @@ export function getEventListenerOptions(
 }
 
 /**
- * Get default event listener options for passive events
+ * Get default event listener options for passive events. `wheel`,
+ * `touchstart` and `touchmove` opt out explicitly: a JSX handler for them is
+ * usually there to call `preventDefault()`, which browsers ignore in passive
+ * listeners (and default to passive on document-level targets).
  */
 export function getPassiveOptions(
   eventName: string
 ): AddEventListenerOptions | undefined {
   if (eventName === 'scroll') {
     return { passive: true };
+  }
+  if (
+    eventName === 'wheel' ||
+    eventName === 'touchstart' ||
+    eventName === 'touchmove'
+  ) {
+    return { passive: false };
   }
   return undefined;
 }
@@ -280,6 +291,8 @@ export function hasPropChanged(
     if (key === 'value' || key === 'checked') {
       return (el as HTMLElement & Record<string, unknown>)[key] !== value;
     }
+    const propertyMatch = matchesDomPropertyProp(el, key, value, el.localName);
+    if (propertyMatch !== null) return !propertyMatch;
     const attributeName = getRenderedAttributeName(el, key);
     const attr = el.getAttribute(attributeName);
     if (

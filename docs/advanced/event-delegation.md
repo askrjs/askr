@@ -1,6 +1,6 @@
 # Event Delegation
 
-Event delegation is an optimization that reduces memory usage and improves performance by attaching a single event listener at a container level (by default `document.body`) instead of individual listeners on each element.
+Event delegation is an optimization that reduces memory usage and improves performance by attaching a single event listener per event type at each app's root container (the `root` passed to `createIsland`, `createSPA` or `hydrateSPA`) instead of individual listeners on each element.
 
 ## How It Works
 
@@ -9,14 +9,35 @@ for the common case.
 
 These event types are delegated:
 
-- **Mouse events**: `click`, `dblclick`, `mousedown`, `mouseup`, `mousemove`
-- **Pointer events**: `pointerdown`, `pointerup`, `pointermove`, `pointercancel`
-- **Touch events**: `touchstart`, `touchend`, `touchmove`, `touchcancel`
+- **Mouse events**: `click`, `dblclick`, `mousedown`, `mouseup`, `mouseover`,
+  `mouseout`, `mousemove`
+- **Touch events**: `touchend`, `touchcancel`
 - **Keyboard events**: `keydown`, `keyup`, `keypress`
-- **Focus events**: `focusin`, `focusout`
-- **Form events**: `input`, `change`, `submit`, `reset`
+- **Form events**: `input`, `change`, `submit`
 
-Non-delegated events (e.g., `scroll`, `load`) attach listeners directly to elements.
+Every other event attaches a listener directly to its element, including:
+
+- **Non-bubbling events** such as `focus`, `blur`, `scroll`, `mouseenter`,
+  `mouseleave` and `load`. A handler only runs for its own element, as with
+  `addEventListener`: `onScroll` on a wrapper does not run when a scrollable
+  descendant scrolls, and `onFocus` on a group does not run when a child is
+  focused. Use `onFocusIn`/`onFocusOut` to observe focus changes inside a
+  subtree.
+- **`wheel`, `touchstart` and `touchmove`**, registered with
+  `{ passive: false }` so `preventDefault()` in `onWheel`, `onTouchStart` or
+  `onTouchMove` cancels scrolling and zooming. Browsers treat these listeners
+  as passive by default on document-level targets. Only elements that have
+  such a handler pay the cost of a non-passive listener.
+- **Pointer events** and other event types not listed above.
+
+Delegated handlers run target-first, in the same order as native bubbling.
+Server-rendered markup that is hydrated uses the same model as client-rendered
+nodes, so propagation and `stopPropagation()` behave identically whether a
+node was hydrated or created on the client.
+
+Because each app listens at its own root, apps mounted inside a shadow root or
+an iframe receive their events, and an app mounted inside another app's tree
+handles its own events before they bubble to the outer app.
 
 ## Usage
 
@@ -110,7 +131,7 @@ in tests that throw from handlers on purpose.
 
 ### Overhead
 
-- **Event bubbling**: Small cost for events to bubble to delegation container
+- **Event bubbling**: Small cost for events to bubble to the app root
 - **Target matching**: Minimal cost to find handler for target element
 
 For most applications, delegation is faster overall due to reduced memory allocation and cleanup.

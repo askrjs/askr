@@ -1,9 +1,15 @@
 /**
  * Event delegation system for Askr
  *
- * Provides efficient event handling by attaching listeners to a container
- * instead of individual elements. This significantly reduces memory usage
- * and improves performance when many elements have the same event type.
+ * Provides efficient event handling by attaching listeners to each app root
+ * container instead of individual elements. This significantly reduces memory
+ * usage and improves performance when many elements have the same event type.
+ *
+ * Only events that bubble and have no passive-listener intervention are
+ * delegated. Non-bubbling events (`focus`, `blur`, `scroll`, ...) and the
+ * events browsers treat as passive on document-level targets (`wheel`,
+ * `touchstart`, `touchmove`) attach directly to their element, so they keep
+ * native targeting and `preventDefault()` semantics.
  *
  * Delegated handling is enabled by default. Tests and internal runtime code
  * can still disable or re-enable it when they need to exercise both modes.
@@ -19,7 +25,6 @@ import {
 } from '../../runtime';
 import type { AppRenderRuntime } from '../../common/app-render-runtime';
 import { reportUncaughtError } from '../../common/report-error';
-import { getPassiveOptions } from '../utils';
 import { incrementPerfMetric } from '../../runtime';
 import { incDevCounter } from '../../runtime';
 
@@ -37,19 +42,13 @@ export interface DelegatedEventMap {
   mouseover: MouseEvent;
   mouseout: MouseEvent;
   mousemove: MouseEvent;
-  focus: FocusEvent;
-  blur: FocusEvent;
   input: InputEvent;
   change: Event;
   keydown: KeyboardEvent;
   keyup: KeyboardEvent;
   keypress: KeyboardEvent;
   submit: Event;
-  scroll: Event;
-  wheel: WheelEvent;
-  touchstart: TouchEvent;
   touchend: TouchEvent;
-  touchmove: TouchEvent;
   touchcancel: TouchEvent;
 }
 
@@ -61,19 +60,13 @@ const DELEGATED_EVENTS: (keyof DelegatedEventMap)[] = [
   'mouseover',
   'mouseout',
   'mousemove',
-  'focus',
-  'blur',
   'input',
   'change',
   'keydown',
   'keyup',
   'keypress',
   'submit',
-  'scroll',
-  'wheel',
-  'touchstart',
   'touchend',
-  'touchmove',
   'touchcancel',
 ];
 
@@ -82,7 +75,6 @@ interface DelegatedHandler {
   original: EventListener;
   appRuntime?: AppRenderRuntime;
   instance: ComponentInstance | null;
-  container: Element;
   eventName: string;
   options?: AddEventListenerOptions;
 }
@@ -162,18 +154,63 @@ function deleteDelegatedHandlerStore(element: Element): void {
   delegatedHandlerFallback.delete(element);
 }
 
-interface ContainerDelegatedListener {
-  handler: EventListener;
-  usage: number;
-}
-
 let eventDelegationEnabled = true;
 let defaultContainer: Element | null = null;
 let globalDelegationContainer: Element | null = null;
-const containerDelegatedListeners = new Map<
-  Element,
-  Map<string, ContainerDelegatedListener>
->();
+
+/** Number of elements holding a delegated handler, per event type. */
+const delegatedEventUsage = new Map<string, number>();
+
+/**
+ * A container with delegated listeners: a registered app root, or the
+ * fallback container for content rendered outside any root. Records only
+ * hold their element weakly, and listeners resolve the container from
+ * `currentTarget`, so an app root removed from the DOM without `cleanupApp`
+ * is not pinned by the delegation registry.
+ */
+interface DelegationContainer {
+  ref: WeakRef<Element>;
+  listeners: Map<string, EventListener>;
+  /** App roots listen for every delegated event type in use. */
+  root: boolean;
+}
+
+const delegationContainers = new WeakMap<Element, DelegationContainer>();
+const liveDelegationContainers = new Set<DelegationContainer>();
+
+function forEachDelegationContainer(
+  visit: (container: Element, record: DelegationContainer) => void
+): void {
+  for (const record of liveDelegationContainers) {
+    const container = record.ref.deref();
+    if (container) {
+      visit(container, record);
+    } else {
+      liveDelegationContainers.delete(record);
+    }
+  }
+}
+
+function getOrCreateDelegationContainer(
+  container: Element
+): DelegationContainer {
+  let record = delegationContainers.get(container);
+  if (!record) {
+    record = { ref: new WeakRef(container), listeners: new Map(), root: false };
+    delegationContainers.set(container, record);
+    liveDelegationContainers.add(record);
+  }
+  return record;
+}
+
+function releaseDelegationContainer(
+  container: Element,
+  record: DelegationContainer
+): void {
+  if (record.root || record.listeners.size > 0) return;
+  delegationContainers.delete(container);
+  liveDelegationContainers.delete(record);
+}
 
 export function isEventDelegationEnabled(): boolean {
   return eventDelegationEnabled;
@@ -188,62 +225,115 @@ export function enableEventDelegation(container?: Element): void {
   eventDelegationEnabled = true;
   if (container) {
     defaultContainer = container;
+    installFallbackContainerListeners();
   }
 }
 
 export function setGlobalDelegationContainer(container: Element): void {
   globalDelegationContainer = container;
+  installFallbackContainerListeners();
+}
+
+/**
+ * @internal Delegate events rendered under `root` at `root` itself, so apps
+ * mounted in shadow roots, iframes, or nested inside another app receive
+ * their own events.
+ */
+export function registerDelegationRoot(root: Element): void {
+  const record = getOrCreateDelegationContainer(root);
+  if (record.root) return;
+  record.root = true;
+  if (!eventDelegationEnabled) return;
+  for (const eventName of delegatedEventUsage.keys()) {
+    installContainerListener(root, eventName);
+  }
+}
+
+/** @internal Stop delegating at `root` once its app is torn down. */
+export function unregisterDelegationRoot(root: Element): void {
+  const record = delegationContainers.get(root);
+  if (!record?.root) return;
+  record.root = false;
+  if (root === getDelegationContainer()) return;
+  for (const [eventName, handler] of record.listeners) {
+    root.removeEventListener(eventName, handler);
+  }
+  record.listeners.clear();
+  releaseDelegationContainer(root, record);
 }
 
 function cleanupAllDelegatedListeners(): void {
-  for (const [container, listeners] of containerDelegatedListeners) {
-    for (const [eventName, entry] of listeners) {
-      removeContainerDelegatedListener(container, eventName, entry.handler);
+  forEachDelegationContainer((container, record) => {
+    for (const [eventName, handler] of record.listeners) {
+      container.removeEventListener(eventName, handler);
     }
-  }
-  containerDelegatedListeners.clear();
+    record.listeners.clear();
+    releaseDelegationContainer(container, record);
+  });
+  delegatedEventUsage.clear();
 }
 
-function usesDelegatedCapture(eventName: string): boolean {
-  return (
-    eventName === 'focus' || eventName === 'blur' || eventName === 'scroll'
-  );
+function installFallbackContainerListeners(): void {
+  if (!eventDelegationEnabled) return;
+  const container = getDelegationContainer();
+  if (!container) return;
+  for (const eventName of delegatedEventUsage.keys()) {
+    installContainerListener(container, eventName);
+  }
 }
 
-function removeContainerDelegatedListener(
-  container: Element,
-  eventName: string,
-  handler: EventListener
-): void {
-  if (usesDelegatedCapture(eventName)) {
-    container.removeEventListener(eventName, handler, true);
-    return;
+function installContainerListener(container: Element, eventName: string): void {
+  const record = getOrCreateDelegationContainer(container);
+  if (record.listeners.has(eventName)) return;
+  const handler = createContainerListener(eventName);
+  try {
+    container.addEventListener(eventName, handler);
+  } catch (error) {
+    releaseDelegationContainer(container, record);
+    throw error;
   }
-  container.removeEventListener(eventName, handler);
+  record.listeners.set(eventName, handler);
+}
+
+function removeContainerListeners(eventName: string): void {
+  forEachDelegationContainer((container, record) => {
+    const handler = record.listeners.get(eventName);
+    if (!handler) return;
+    container.removeEventListener(eventName, handler);
+    record.listeners.delete(eventName);
+    releaseDelegationContainer(container, record);
+  });
+}
+
+/** Listen at every app root and the fallback container for `eventName`. */
+function installDelegatedEvent(eventName: string): void {
+  try {
+    forEachDelegationContainer((container, record) => {
+      if (record.root) installContainerListener(container, eventName);
+    });
+    const fallback = getDelegationContainer();
+    if (fallback) {
+      installContainerListener(fallback, eventName);
+    }
+  } catch (error) {
+    removeContainerListeners(eventName);
+    throw error;
+  }
 }
 
 function decrementContainerListenerUsage(entry: DelegatedHandler): void {
-  const listeners = containerDelegatedListeners.get(entry.container);
-  const listener = listeners?.get(entry.eventName);
-  if (!listener) {
+  const usage = delegatedEventUsage.get(entry.eventName);
+  if (usage === undefined) {
     return;
   }
 
-  listener.usage -= 1;
-  if (listener.usage > 0) {
+  if (usage > 1) {
+    delegatedEventUsage.set(entry.eventName, usage - 1);
     return;
   }
 
-  removeContainerDelegatedListener(
-    entry.container,
-    entry.eventName,
-    listener.handler
-  );
-  listeners?.delete(entry.eventName);
-
-  if (listeners?.size === 0) {
-    containerDelegatedListeners.delete(entry.container);
-  }
+  delegatedEventUsage.delete(entry.eventName);
+  removeContainerListeners(entry.eventName);
 }
 
 function getDelegationContainer(): Element | null {
@@ -253,8 +343,94 @@ function getDelegationContainer(): Element | null {
   return null;
 }
 
+function isListeningContainer(node: Element, eventName: string): boolean {
+  return delegationContainers.get(node)?.listeners.has(eventName) ?? false;
+}
+
+function createContainerListener(eventName: string): EventListener {
+  return (e: Event) => {
+    // Resolve the container per event instead of capturing it, so the
+    // registry's listener map never holds the container strongly.
+    const container = e.currentTarget as Element;
+    runRuntimeHandlerScope(() => {
+      const path: EventTarget[] = [];
+      // Some browser hosts expose a composedPath that omits ordinary DOM
+      // ancestors (notably across document/container boundaries). Always
+      // supplement it with the native target ancestry so delegated
+      // handlers remain reliable after navigation and hydration.
+      const seenPathNodes = new Set<EventTarget>();
+      let node = e.target;
+      while (node) {
+        if (!seenPathNodes.has(node)) {
+          seenPathNodes.add(node);
+          path.push(node);
+        }
+        if (node === container) {
+          break;
+        }
+        node = isElementNode(node)
+          ? node.parentNode
+          : (node as Node).parentNode;
+      }
+      if (typeof e.composedPath === 'function') {
+        for (const composedNode of e.composedPath()) {
+          if (!seenPathNodes.has(composedNode)) {
+            seenPathNodes.add(composedNode);
+            path.push(composedNode);
+          }
+        }
+      }
+      const dispatchPath: Array<{
+        node: Element;
+        entry: DelegatedHandler;
+      }> = [];
+      for (const node of path) {
+        if (node === container) break;
+        if (!isElementNode(node)) continue;
+        if (PERF_BUILD_ENABLED) {
+          incrementPerfMetric('delegatedAncestorHops');
+        }
+        // A nested container (an app mounted inside this one) already
+        // dispatched the handlers below it while the event bubbled through.
+        if (isListeningContainer(node, eventName)) {
+          dispatchPath.length = 0;
+        }
+        const store = getDelegatedHandlerStore(node);
+        const entry = !store
+          ? undefined
+          : store instanceof Map
+            ? store.get(eventName)
+            : store.eventName === eventName
+              ? store
+              : undefined;
+        if (entry) {
+          dispatchPath.push({ node, entry });
+        }
+      }
+
+      // Delegated events all bubble, so handlers run target-first, matching
+      // native bubbling order.
+      for (const { node, entry } of dispatchPath) {
+        try {
+          withAppRenderRuntime(entry.appRuntime, () =>
+            withLifecycleOwner(entry.instance?.owner, () =>
+              entry.handler(createDelegatedEventFacade(e, node))
+            )
+          );
+        } catch (error) {
+          // Like native listeners: report, then keep dispatching.
+          reportUncaughtError(error);
+        }
+
+        if (e.cancelBubble) {
+          break;
+        }
+      }
+    }, 'sync');
+  };
+}
+
 function attachDelegatedListener(
-  container: Element,
   element: Element,
   eventName: string,
   handler: EventListener,
@@ -268,106 +444,9 @@ function attachDelegatedListener(
       ? existingStore.has(eventName)
       : existingStore?.eventName === eventName;
 
-  let containerListeners = containerDelegatedListeners.get(container);
-  if (!containerListeners) {
-    containerListeners = new Map();
-    containerDelegatedListeners.set(container, containerListeners);
-  }
-
-  let containerListener = containerListeners.get(eventName);
-  if (!containerListener) {
-    const delegatedHandler = (e: Event) => {
-      runRuntimeHandlerScope(() => {
-        const path: EventTarget[] = [];
-        // Some browser hosts expose a composedPath that omits ordinary DOM
-        // ancestors (notably across document/container boundaries). Always
-        // supplement it with the native target ancestry so delegated
-        // handlers remain reliable after navigation and hydration.
-        const seenPathNodes = new Set<EventTarget>();
-        let node = e.target;
-        while (node) {
-          if (!seenPathNodes.has(node)) {
-            seenPathNodes.add(node);
-            path.push(node);
-          }
-          if (node === container) {
-            break;
-          }
-          node = isElementNode(node)
-            ? node.parentNode
-            : (node as Node).parentNode;
-        }
-        if (typeof e.composedPath === 'function') {
-          for (const composedNode of e.composedPath()) {
-            if (!seenPathNodes.has(composedNode)) {
-              seenPathNodes.add(composedNode);
-              path.push(composedNode);
-            }
-          }
-        }
-        const dispatchPath: Array<{
-          node: Element;
-          entry: DelegatedHandler;
-        }> = [];
-        for (const node of path) {
-          if (node === container) break;
-          if (!isElementNode(node)) continue;
-          if (PERF_BUILD_ENABLED) {
-            incrementPerfMetric('delegatedAncestorHops');
-          }
-          const store = getDelegatedHandlerStore(node);
-          const entry = !store
-            ? undefined
-            : store instanceof Map
-              ? store.get(eventName)
-              : store.eventName === eventName
-                ? store
-                : undefined;
-          if (entry) {
-            dispatchPath.push({ node, entry });
-          }
-        }
-
-        // Delegated focus/blur/scroll listeners are installed in capture
-        // phase because these events do not bubble. Capture semantics require
-        // ancestors to run before the target (the native dispatch order),
-        // while ordinary delegated events retain target-first bubbling order.
-        if (
-          eventName === 'focus' ||
-          eventName === 'blur' ||
-          eventName === 'scroll'
-        ) {
-          dispatchPath.reverse();
-        }
-
-        for (const { node, entry } of dispatchPath) {
-          try {
-            withAppRenderRuntime(entry.appRuntime, () =>
-              withLifecycleOwner(entry.instance?.owner, () =>
-                entry.handler(createDelegatedEventFacade(e, node))
-              )
-            );
-          } catch (error) {
-            // Like native listeners: report, then keep dispatching.
-            reportUncaughtError(error);
-          }
-
-          if (e.cancelBubble) {
-            break;
-          }
-        }
-      }, 'sync');
-    };
-
-    const passiveOptions = getPassiveOptions(eventName);
-    const nonBubblingCapture = usesDelegatedCapture(eventName);
-    const listenerOptions = nonBubblingCapture
-      ? { ...(passiveOptions ?? options), capture: true }
-      : (passiveOptions ?? options);
-
-    container.addEventListener(eventName, delegatedHandler, listenerOptions);
-    containerListener = { handler: delegatedHandler, usage: 0 };
-    containerListeners.set(eventName, containerListener);
+  const usage = delegatedEventUsage.get(eventName);
+  if (usage === undefined) {
+    installDelegatedEvent(eventName);
   }
 
   setDelegatedHandlerForElement(
@@ -377,15 +456,12 @@ function attachDelegatedListener(
       original: originalHandler,
       appRuntime: getCurrentAppRenderRuntime(),
       instance: getCurrentLifecycleInstance(),
-      container,
       eventName,
       options,
     },
     existingStore
   );
-  if (!hadHandler) {
-    containerListener.usage += 1;
-  }
+  delegatedEventUsage.set(eventName, (usage ?? 0) + (hadHandler ? 0 : 1));
 }
 
 function setDelegatedHandlerForElement(
@@ -421,17 +497,13 @@ export function addDelegatedListener(
   originalHandler: EventListener,
   options?: AddEventListenerOptions
 ): void {
-  if (!eventDelegationEnabled) return;
-
-  const container = getDelegationContainer();
-  if (!container) return;
+  if (!eventDelegationEnabled || !getDelegationContainer()) return;
 
   if (DEVELOPMENT_BUILD_ENABLED) {
     incDevCounter('listenerAdds');
   }
 
   attachDelegatedListener(
-    container,
     element,
     eventName,
     handler,
@@ -448,17 +520,13 @@ export function addFreshDelegatedListener(
   originalHandler: EventListener,
   options?: AddEventListenerOptions
 ): void {
-  if (!eventDelegationEnabled) return;
-
-  const container = getDelegationContainer();
-  if (!container) return;
+  if (!eventDelegationEnabled || !getDelegationContainer()) return;
 
   if (DEVELOPMENT_BUILD_ENABLED) {
     incDevCounter('listenerAdds');
   }
 
   attachDelegatedListener(
-    container,
     element,
     eventName,
     handler,
@@ -480,12 +548,7 @@ export function updateDelegatedListener(
     return false;
   }
 
-  const container = getDelegationContainer();
-  if (
-    !container ||
-    existing.container !== container ||
-    !containerDelegatedListeners.get(existing.container)?.has(eventName)
-  ) {
+  if (!eventDelegationEnabled || !delegatedEventUsage.has(eventName)) {
     removeDelegatedListener(element, eventName);
     return false;
   }

@@ -28,7 +28,7 @@ export function tryMoveOnlyKeyedPath<T>(
   forState: ForState<T>,
   newArray: readonly T[],
   items: ForState<T>['items'],
-  byFn: ForState<T>['byFn'],
+  keys: readonly (string | number)[],
   oldLen: number
 ): VNode[] | null {
   const moveOnlyKeys: Array<string | number> = [];
@@ -37,7 +37,7 @@ export function tryMoveOnlyKeyedPath<T>(
 
   for (let i = 0; i < oldLen; i++) {
     const item = newArray[i];
-    const key = byFn(item, i);
+    const key = keys[i];
     const existing = items.get(key);
 
     if (
@@ -80,7 +80,7 @@ export function fullKeyedPath<T>(
   newArray: readonly T[],
   items: ForState<T>['items'],
   orderedKeys: Array<string | number>,
-  byFn: ForState<T>['byFn']
+  keys: readonly (string | number)[]
 ): VNode[] {
   const toRemove = new Set(orderedKeys);
   const newOrderedKeys: Array<string | number> = [];
@@ -91,7 +91,7 @@ export function fullKeyedPath<T>(
   // Single pass: iterate new array directly, no intermediate map
   for (let i = 0; i < newArray.length; i++) {
     const item = newArray[i];
-    const key = byFn(item, i);
+    const key = keys[i];
     if (BENCH_BUILD_ENABLED) {
       recordBenchEvent('keyLookup');
     }

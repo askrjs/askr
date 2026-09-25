@@ -8,6 +8,7 @@ import {
 } from 'vite-plus/test';
 import { state, type State } from '../../../src/index';
 import { ErrorBoundary } from '@askrjs/askr/components';
+import { For, Show } from '../../../src/control';
 import {
   DefaultPortal,
   Portal,
@@ -638,4 +639,49 @@ describe('ErrorBoundary (DEV ERRORS)', () => {
 
     errorSpy.mockRestore();
   });
+
+  it.each(['Show', 'For'] as const)(
+    'should catch a component update error rendered inside a %s created above the boundary',
+    (control) => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      let fail!: State<boolean>;
+
+      const Child = () => {
+        if (fail()) throw new Error('branch crash');
+        return <p id="branch-child">ok</p>;
+      };
+
+      const App = () => {
+        fail = state(false);
+        return (
+          <div>
+            <p id="outside">outside</p>
+            <ErrorBoundary fallback={<p id="branch-fallback">fallback</p>}>
+              <section>
+                {control === 'Show' ? (
+                  <Show when={() => true}>{() => <Child />}</Show>
+                ) : (
+                  <For each={() => [1]} by={(item) => item}>
+                    {() => <Child />}
+                  </For>
+                )}
+              </section>
+            </ErrorBoundary>
+          </div>
+        );
+      };
+
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      expect(container.querySelector('#branch-child')).toBeTruthy();
+
+      fail.set(true);
+      flushScheduler();
+
+      expect(container.querySelector('#outside')?.textContent).toBe('outside');
+      expect(container.querySelector('#branch-fallback')).toBeTruthy();
+
+      errorSpy.mockRestore();
+    }
+  );
 });

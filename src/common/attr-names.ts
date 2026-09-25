@@ -62,6 +62,9 @@ export function getPublicAttributeName(
   propName: string,
   customElement = false
 ): string {
+  // `attr:name` is the explicit attribute escape hatch: the name is used as
+  // written, never mapped and never routed to a DOM property.
+  if (propName.startsWith('attr:')) return propName.slice(5);
   return (
     PUBLIC_ATTRIBUTE_NAME_MAP[propName] ??
     (customElement ? undefined : SVG_ATTRIBUTE_NAME_MAP[propName]) ??

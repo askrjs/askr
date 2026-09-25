@@ -14,6 +14,40 @@
   private fields, and the browser form tests wait on the
   pending render instead of wall-clock timing.
 
+- fix(control): development and production now agree on invalid `For` keys and
+  `Case`/`Match` children. A null, undefined, or duplicate `For` key throws in
+  every build (production previously dropped rows and showed the last
+  duplicate's data), and a non-`Match` child of `Case` or a `Match` outside a
+  `Case` throws in every build (production previously dropped it). These errors
+  reach the nearest `ErrorBoundary`, including a duplicate key introduced by a
+  boundary-local list update, a list inside a `Show`/`Case` branch, and an
+  invalid `Case` child, which previously escaped the boundary. Component
+  errors rendered inside a `For`/`Show`/`Case` created above an
+  `ErrorBoundary` now reach that boundary too. `For` resolves each row key
+  once per update, and the development-only key-type-change check (which could
+  never fire) is removed.
+- fix(renderer): props whose live state is not the attribute now set the DOM
+  property. `<video muted>` sets `video.muted` (and keeps the attribute),
+  `<input indeterminate>` sets `input.indeterminate` without an attribute, and
+  object/array values on custom elements are assigned as properties. New
+  `prop:name` and `attr:name` escape hatches force either path. SSR renders
+  only attribute-backed values; property-only values apply on hydration. Removed
+  properties reset to their default, property writes roll back with a failed
+  commit, and the escape hatches keep the URL and raw-HTML guards.
+- fix(renderer): delegated event handlers now match native dispatch.
+  Delegated listeners attach at each app root instead of `document.body`, so
+  apps mounted in shadow roots or iframes receive events and nested apps each
+  dispatch their own handlers once. Non-bubbling events (`focus`, `blur`,
+  `scroll`) attach directly to their element, so an ancestor's `onScroll` or
+  `onFocus` no longer runs, ancestor-first, for a descendant. `onWheel`,
+  `onTouchStart` and `onTouchMove` attach directly with `{ passive: false }`,
+  so `preventDefault()` in them takes effect. Hydrated nodes use the same
+  delegated listeners as client-rendered ones, so a client-rendered child's
+  handler runs before (and can stop) a hydrated ancestor's handler.
+- fix(renderer): `onFocus` and `onBlur` no longer bubble: they only run when
+  their own element gains or loses focus, as with native `focus`/`blur`.
+  Container components that tracked focus inside a subtree with `onFocus`/
+  `onBlur` should migrate to `onFocusIn`/`onFocusOut`.
 - fix(resources): a `resource()` deps change seen by a render that is rolled
   back (for example because a sibling component throws in the same render) no
   longer leaves the resource stuck `pending`. The new deps, loader and generation are
@@ -221,6 +255,17 @@
   the `defineQuery()` definition but fail to typecheck at the `createQuery()`
   call site; move `signal` to the second argument.
   Inline `createQuery({ key, fetch })` fetchers are unchanged.
+- fix(router): client navigation no longer dead-ends on URLs no registered app
+  can render. A `Link` click or `navigate()` to an unmatched same-origin URL, or
+  one outside the registry `basePath`, now loads the URL as a document, and
+  Back/Forward to an unmatched entry reloads the page instead of leaving the old
+  page mounted under the new URL. A `fallback()` route still renders in place.
+  Navigating to the already-loaded URL with no route, or a fragment-only
+  Back/Forward on such a page, skips the load. A failed Back/Forward render or
+  rejected Back/Forward loader now returns with `history.go()` to the entry whose page
+  is still rendered instead of overwriting the entry the user landed on; Askr
+  stamps an `askrIndex` position into the history state it writes and reloads
+  when an entry written by other code makes positions unknown.
 - fix(resources): a resource hydrated from preloaded data keeps its value on
   later re-renders instead of resetting to pending and refetching. The preloaded
   value now seeds the resource, so `refresh()` and `deps` changes also work
