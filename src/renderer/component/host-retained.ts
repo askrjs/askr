@@ -13,13 +13,11 @@ import {
   withContext,
 } from '../../runtime';
 import { materializeKey } from '../props/attributes';
-import { normalizeComponentChildren } from '../children/child-shape';
 import { syncComponentFragmentRange } from './fragment-range';
 import { pruneComponentHostInstances } from './host-cleanup';
 import {
   getRendererDOMHost,
   type ElementWithContext,
-  type InstanceHostElement,
   type InstanceHostNode,
 } from '../dom-host';
 import {
@@ -27,7 +25,7 @@ import {
   isRouteRootComponentVNode,
   extractComponentIdentityKey,
 } from './host-instances';
-import { _isDOMElement, type DOMElement, type VNode } from '../types';
+import { _isDOMElement, type DOMElement } from '../types';
 import { tagNamesEqualIgnoreCase } from '../utils';
 import {
   beginComponentHostReplacement,
@@ -39,10 +37,7 @@ import {
   retainMaterializedReplacementOwnerChain,
   retainReplacementOwnerChain,
 } from './host-results';
-import {
-  resolveHostNestedComponentResult,
-  resolveWrapperHostResult,
-} from './host-nested-results';
+import { resolveHostNestedComponentResult } from './host-nested-results';
 export function updateRetainedComponentHost(
   existingHost: InstanceHostNode,
   existingInstance: ComponentInstance,
@@ -81,30 +76,6 @@ export function updateRetainedComponentHost(
   );
 
   const scopedResult = renderComponentInScope(existingInstance, snapshot);
-
-  if (
-    existingHost instanceof Element &&
-    (existingHost as InstanceHostElement).__ASKR_WRAPPER_HOST
-  ) {
-    const wrapperResult = resolveWrapperHostResult(
-      existingHost,
-      existingInstance,
-      scopedResult,
-      snapshot ?? null,
-      liveRetainedInstances
-    );
-    const previousInstance = enterDomCommitScope(wrapperResult.owner);
-    try {
-      domHost.updateElementChildren(
-        existingHost,
-        normalizeComponentChildren(wrapperResult.result) as VNode[]
-      );
-    } finally {
-      endComponentScope(previousInstance);
-    }
-    pruneComponentHostInstances(existingHost, liveRetainedInstances);
-    return existingHost;
-  }
 
   if (
     existingHost instanceof Comment &&

@@ -235,6 +235,17 @@ next positional child. Empty ranges retain their anchors for later hydration
 and updates. Client hydration validates the marker structure before adopting
 nodes, and SSR emits the same markers deterministically.
 
+A component result follows the same rule. A result that is one element is the
+component's host. A result that is text, several nodes, or another component
+whose own result spans a range occupies an anchored range among the
+component's siblings; the client never inserts a wrapper element, so its
+markup matches the server's apart from comments. A component that first
+renders nothing keeps a comment placeholder. When it later renders text or
+several nodes, the placeholder is replaced by an anchored range, and later
+renders, including a return to nothing, update that range in place. The
+automatic default-portal host and extension hosts that decline range
+replacement use the same anchored range.
+
 ## Renderer transactions
 
 Every rendering strategy joins the runtime's shared transaction coordinator.
