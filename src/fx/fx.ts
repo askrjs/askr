@@ -9,6 +9,7 @@ import {
 import type { OwnershipRecord } from '../runtime/ownership/record';
 import { isPromiseLike } from '../common/promise';
 import { logger } from '../common/logger';
+import { reportUncaughtError } from '../common/report-error';
 import { noopEventListener, noopEventListenerWithFlush } from './noop';
 import { createDebouncer, createThrottler } from './timing';
 
@@ -38,15 +39,16 @@ function throwIfDuringRender(): void {
 }
 
 /**
- * Helper: schedule a user callback through the global scheduler
+ * Schedule a user callback through the runtime scheduler. Its errors are
+ * reported like a native listener's (reportError) so the rest of the flush
+ * still runs.
  */
 function enqueueUserCallback(fn: () => void) {
   enqueueRuntimeTask(() => {
     try {
       fn();
     } catch (err) {
-      // Keep behavior consistent with other scheduler-queued work
-      logger.error('[Askr] FX handler error:', err);
+      reportUncaughtError(err);
     }
   });
 }
@@ -356,7 +358,7 @@ export function scheduleRetry<T>(
         p = withLifecycleOwner(owner, fn);
       } catch (e) {
         settle();
-        logger.error('[Askr] scheduleRetry error:', e);
+        reportUncaughtError(e);
         return;
       }
       if (!isPromiseLike(p)) {

@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- fix(renderer): a failed keyed reconciliation commit now propagates to the
+  component update, which rolls the DOM back and routes the error to the
+  nearest `ErrorBoundary` (or throws it from the flush). Previously any commit
+  error was swallowed and the parent was rebuilt with `replaceChildren()`,
+  which also tore down children that were being reused. Errors from grouped
+  blueprint bindings (the second and later instances of a component or `For`
+  row) now reach the nearest `ErrorBoundary` like single reactive props, or are
+  thrown from the update when there is none, instead of a development-only
+  warning.
+- fix(fx): errors thrown by `scheduleTimeout`/`scheduleIdle` callbacks, by
+  handlers run later by `debounceEvent`/`throttleEvent`/`rafEvent`, and by a
+  synchronous `scheduleRetry` throw are reported with `reportError()` like
+  event handler errors, instead of only being logged.
 - fix(resources): a `resource()` deps change seen by a render that is rolled
   back (for example because a sibling component throws in the same render) no
   longer leaves the resource stuck `pending`. The new deps, loader and generation are
