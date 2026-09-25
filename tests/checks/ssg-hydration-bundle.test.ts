@@ -101,6 +101,12 @@ describe('SSG hydration bundle', () => {
     // attribute names, the unitless CSS property list for numeric style `px`
     // units, and the enumerated attributes that render `false` (~2.5 KB).
     // Both renderers need them to emit the same, valid markup.
+    // 262 KiB, raised again when prop reconciliation started diffing against
+    // the props Askr last applied (instead of the live DOM) so attributes,
+    // class tokens and style properties written by other code survive
+    // re-renders. That ownership tracking, including its rollback snapshots
+    // and reactive/static transitions, is ~1.8 KB of core renderer code
+    // (measured 267,611 bytes, just over 261 KiB).
     // 262 KiB: the DOM property path (`muted`, `indeterminate`, custom
     // element object props, `prop:`/`attr:`) adds ~1.6 KB; without it those
     // props cannot reach the live element at all.

@@ -134,6 +134,50 @@ export function escapeText(text: string): string {
 }
 
 /**
+ * HTML elements whose content the parser reads as raw text: entities are not
+ * decoded, so their text must be emitted verbatim rather than entity-escaped.
+ * This holds only for HTML elements; in SVG or MathML `<script>` / `<style>`
+ * are ordinary elements (see `./namespace`).
+ */
+export type RawTextElement = 'script' | 'style';
+
+/** Return the raw text element kind for a lower-case HTML tag name. */
+export function getRawTextElement(tag: string): RawTextElement | null {
+  return tag === 'script' || tag === 'style' ? tag : null;
+}
+
+const SCRIPT_RAW_TEXT_RE = /<(\/|!--|script)/gi;
+
+/**
+ * Make text safe to emit verbatim inside an HTML raw text element.
+ *
+ * `<style>`: every `<` becomes the CSS escape `\3c ` (the space ends the
+ * escape and is consumed), so no markup can form whatever context the parser
+ * reads the text in. Inside CSS strings, `url()` and comments this denotes the
+ * original `<`; elsewhere (custom property values, range media queries) it
+ * reads back as an escaped identifier, since no escape can represent a bare
+ * `<` there.
+ *
+ * `<script>`: every `</` becomes `<\/`, so no end tag of this element or of
+ * any ancestor can form, and the `<` of `<!--` and `<script` is written as
+ * `\u003C`, which keeps the parser out of the script data (double) escaped
+ * states. Inside JS string, template and regex literals, and inside JSON
+ * strings (`application/json`, `importmap`, `application/ld+json`), each
+ * rewrite denotes the original characters; outside literals these sequences
+ * cannot be represented and may change meaning or fail to parse.
+ *
+ * Matching is case-insensitive. The whole text must be escaped at once: a
+ * sequence split across children only forms once they are concatenated.
+ */
+export function escapeRawText(text: string, element: RawTextElement): string {
+  if (!text.includes('<')) return text;
+  if (element === 'style') return text.replaceAll('<', '\\3c ');
+  return text.replace(SCRIPT_RAW_TEXT_RE, (_match, rest: string) =>
+    rest === '/' ? '<\\/' : `\\u003C${rest}`
+  );
+}
+
+/**
  * Escape HTML special characters in attribute values.
  * Single-pass scan: returns the original string unchanged when no special
  * characters are found, so callers can drop separate needsEscapeAttr checks.

@@ -23,15 +23,19 @@ export {
 export {
   claimHookIndex,
   beginComponentScope,
+  captureLifecycleOwner,
   endComponentScope,
   enterDomCommitScope,
   getCurrentComponentInstance,
   getCurrentAppRenderRuntime,
+  getCurrentLifecycleInstance,
+  getCurrentLifecycleOwner,
   getCurrentPortalScope,
   getCurrentStateIndex,
   getNextStateIndex,
   getSignal,
   withAppRenderRuntime,
+  withLifecycleOwner,
 } from './component/scope';
 export {
   beginCommitTransaction,

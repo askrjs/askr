@@ -455,6 +455,8 @@ expectAssignable<JSXElement>(
   </>
 );
 
+// null clears an injected handler through mergeProps, so handlers accept it.
+expectAssignable<JSXElement>(<button onClick={null} onKeyDown={null} />);
 expectError(jsx('button', { onClick: 'nope' }));
 expectError(jsx('button', { onMouseOver: 'nope' }));
 expectError(jsx('button', { href: '/docs' }));

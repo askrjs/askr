@@ -1,4 +1,4 @@
-import { incDevCounter } from '../../runtime';
+import { getCurrentLifecycleInstance, incDevCounter } from '../../runtime';
 import { isBenchMetricScopeActive, recordBenchCounter } from '../../runtime';
 import {
   isEventDelegationEnabled,
@@ -256,6 +256,9 @@ export function syncElementListener(
   if (useDelegation) {
     const existingDelegated = getDelegatedHandlerForElement(el, eventName);
     if (existingDelegated?.original === value) {
+      // A stable handler can be re-rendered by a different owner (a portal
+      // writer taking over), so the owner still follows the latest render.
+      existingDelegated.instance = getCurrentLifecycleInstance();
       return 'delegated';
     }
 
@@ -285,6 +288,7 @@ export function syncElementListener(
   const existing = existingListeners?.get(listenerKey);
 
   if (existing && existing.original === value) {
+    existing.updateHandler?.(value as EventListener);
     return 'direct';
   }
 
