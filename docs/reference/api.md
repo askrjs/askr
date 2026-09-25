@@ -96,12 +96,20 @@ children contracts are part of the supported public API.
 
 ## Examples
 
-```ts
+```tsx run=api-state-derive
 import { derive, state } from '@askrjs/askr';
 
-const [count, setCount] = state(0);
-const doubled = derive(() => count() * 2);
-setCount((value) => value + 1);
+function Counter() {
+  // state() and derive() are render-scoped: call them inside a component.
+  const [count, setCount] = state(0);
+  const doubled = derive(() => count() * 2);
+
+  return (
+    <button onClick={() => setCount((value) => value + 1)}>
+      Doubled: {doubled()}
+    </button>
+  );
+}
 ```
 
 ```ts

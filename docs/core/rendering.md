@@ -127,10 +127,17 @@ To keep route handlers app-only, pass a `document` callback that wraps the
 rendered app HTML into a full document:
 
 ```tsx
-const document = ({ appHtml, context }) => `<!doctype html>
+import {
+  escapeHtml,
+  renderToString,
+  type DocumentRenderer,
+} from '@askrjs/askr/ssr';
+import { registry } from './routes';
+
+const document: DocumentRenderer = ({ appHtml, context }) => `<!doctype html>
 <html lang="en">
   <head>
-    <title>${context.pathname}</title>
+    <title>${escapeHtml(context.pathname)}</title>
   </head>
   <body>
     ${appHtml}

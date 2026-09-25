@@ -27,6 +27,25 @@
   being hydrated (#544).
 - fix(ssr): `renderResolvedToStringSync()` no longer throws "no route found"
   for a route without params when `params` is omitted.
+- fix(boot): `createSPA({ dataRuntime })` and `hydrateSPA({ dataRuntime })` now
+  use the configured runtime consistently. `hydrateSPA` previously seeded the
+  custom runtime from the hydration payload while route-component queries read
+  the default one, so readers showed a loading state and refetched instead of
+  using the hydrated value. Route `preload` hooks (initial route and client
+  navigations) also prefetched into the default runtime, so readers of a
+  custom runtime never saw the preloaded data.
+- feat(ssr): `escapeHtml()` from `@askrjs/askr/ssr` escapes `&`, `<`, `>`, `"`
+  and `'` for request-derived values interpolated into a hand-written
+  `document` renderer template. It accepts any value; `null` and `undefined`
+  become an empty string. The SSR, SSG and rendering guides now use it.
+- docs: fix examples that failed at runtime. The API overview and core data
+  guide no longer call `state()`/`derive()` at module scope, the quick-start,
+  resources, core data and resources reference `resource()` examples check `error` before `pending || !value` so a failed first load no
+  longer shows "Loading..." forever, and the runtime-enforcement examples now
+  actually trigger the documented hook-order and render-mutation errors and
+  quote the real message. Doc fences tagged `run=<id>` are now imported and
+  exercised in jsdom by `npm run test:checks`
+  (`tests/checks/docs/runnable-snippets.test.ts`), not only type-checked.
 - fix(renderer): event handler errors are reported with `reportError()`, which
   dispatches a `window` `error` event, instead of only being logged. This covers
   delegated and direct listeners and `scheduleEventHandler`; the remaining
