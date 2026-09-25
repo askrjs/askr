@@ -36,28 +36,38 @@ export function isFormControlProp(key: string): boolean {
   return key === 'value' || key === 'checked' || key === 'selected';
 }
 
-/**
- * Attributes the renderer never writes: unsafe URLs, and inline event handler
- * attributes requested through the `attr:` escape hatch (SSR skips those too).
- */
-function isBlockedAttribute(key: string, value: unknown): boolean {
-  if (key.startsWith(ATTRIBUTE_PROP_PREFIX)) {
-    const name = key.slice(ATTRIBUTE_PROP_PREFIX.length);
-    // `attr:` renders text; SSR skips objects too, so both sides agree.
-    return (
-      (value !== null && typeof value === 'object') ||
-      name.slice(0, 2).toLowerCase() === 'on' ||
-      rejectUnsafeUrlAttribute(name, value)
-    );
-  }
-  return rejectUnsafeUrlAttribute(key, value);
-}
-
 /** Attribute text for a scalar prop, rendering HTML booleans bare. */
 function renderedScalarValue(el: Element, key: string, value: unknown): string {
   return value === true
     ? booleanAttributeValue(getRenderedAttributeName(el, key))
     : String(value);
+}
+
+/**
+ * The text to write for a scalar attribute prop, or `null` when the renderer
+ * never writes it: unsafe URLs, and inline event handler or object values
+ * requested through the `attr:` escape hatch (SSR skips those too). The value
+ * is converted once, and the checked text is the text written, so a
+ * `toString()` cannot pass the URL check and then return something else.
+ */
+function renderableAttributeText(
+  el: Element,
+  key: string,
+  value: unknown
+): string | null {
+  let name = key;
+  if (key.startsWith(ATTRIBUTE_PROP_PREFIX)) {
+    name = key.slice(ATTRIBUTE_PROP_PREFIX.length);
+    // `attr:` renders text; SSR skips objects too, so both sides agree.
+    if (
+      (value !== null && typeof value === 'object') ||
+      name.slice(0, 2).toLowerCase() === 'on'
+    ) {
+      return null;
+    }
+  }
+  const text = renderedScalarValue(el, key, value);
+  return rejectUnsafeUrlAttribute(name, text) ? null : text;
 }
 
 export function isDangerousInnerHTMLPayload(
@@ -460,10 +470,10 @@ export function applyStaticScalarPropsToElement(
       applyFormControlProp(el, key, value, tagName);
     } else if (key === 'dangerouslySetInnerHTML') {
       applyDangerousInnerHTMLValue(el, value);
-    } else if (isBlockedAttribute(key, value)) {
-      removeRenderedAttribute(el, key);
     } else {
-      setRenderedAttribute(el, key, renderedScalarValue(el, key, value));
+      const text = renderableAttributeText(el, key, value);
+      if (text === null) removeRenderedAttribute(el, key);
+      else setRenderedAttribute(el, key, text);
     }
   }
 }
@@ -646,12 +656,13 @@ export function applyScalarPropValue(
     applyFormControlProp(el, key, value, tagName);
   } else if (key === 'dangerouslySetInnerHTML') {
     applyDangerousInnerHTMLValue(el, value);
-  } else if (isBlockedAttribute(key, value)) {
-    removeRenderedAttribute(el, key);
   } else {
+    const nextValue = renderableAttributeText(el, key, value);
+    if (nextValue === null) {
+      removeRenderedAttribute(el, key);
+      return;
+    }
     const attributeName = getRenderedAttributeName(el, key);
-    const nextValue =
-      value === true ? booleanAttributeValue(attributeName) : String(value);
     if (el.getAttribute(attributeName) === nextValue) {
       incrementPerfMetric('skippedDomPropWrites');
       return;
