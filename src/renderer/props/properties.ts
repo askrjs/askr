@@ -1,5 +1,6 @@
 import { isCustomElementName } from '../../common/attr-names';
 import {
+  domPropertyValue,
   getDomPropertyName,
   isKnownBooleanProperty,
   PROPERTY_PROP_PREFIX,
@@ -7,34 +8,27 @@ import {
 } from '../../common/dom-properties';
 import { isDevelopmentEnvironment } from '../../common/env';
 import { logger } from '../../common/logger';
-import { isUnsafeUrlAttribute } from '../../common/url';
+import {
+  isUnsafeUrlAttribute,
+  SCRIPT_URL_RESOURCE_ATTRIBUTES,
+  UNSAFE_URL_SCHEME_ATTRIBUTES,
+} from '../../common/url';
 import { incrementPerfMetric } from '../../runtime';
 import { getRenderedAttributeName } from '../utils';
 
-/** One prop Askr wrote as a DOM property. */
-interface WrittenProperty {
-  name: string;
-  /** Attributes the element added or changed when the property was set. */
-  reflected: string[];
-}
-
 /**
- * Per element, the props Askr wrote as DOM properties. A property cannot be
- * "removed" like an attribute, so this is what lets an absent prop reset its
- * property, lets stale-attribute removal keep the attributes those properties
- * reflect, and lets a failed commit put the previous values back.
+ * Per element, the props Askr wrote as DOM properties, mapped to the property
+ * name. A property cannot be "removed" like an attribute, so this is what lets
+ * an absent prop reset its property and a failed commit put the old values
+ * back.
  */
-const writtenDomProperties = new WeakMap<
-  Element,
-  Map<string, WrittenProperty>
->();
+const writtenDomProperties = new WeakMap<Element, Map<string, string>>();
 
 type PropertyHost = Element & Record<string, unknown>;
 
 /**
  * Property names `prop:` never assigns: raw HTML sinks (use
- * `dangerouslySetInnerHTML`) and names that would change the element's
- * prototype chain.
+ * `dangerouslySetInnerHTML`) and names that would change the prototype chain.
  */
 const BLOCKED_PROPERTY_NAMES = new Set([
   'innerHTML',
@@ -45,125 +39,64 @@ const BLOCKED_PROPERTY_NAMES = new Set([
   'prototype',
 ]);
 
-function propertyValue(key: string, value: unknown): unknown {
-  return isKnownBooleanProperty(key) ? Boolean(value) : value;
-}
-
 function isBlockedPropertyName(name: string): boolean {
   if (!BLOCKED_PROPERTY_NAMES.has(name)) return false;
   if (isDevelopmentEnvironment()) {
-    logger.warn(
-      `[Askr] ${PROPERTY_PROP_PREFIX}${name} is ignored.` +
-        (name.endsWith('HTML') || name === 'srcdoc'
-          ? ' Use dangerouslySetInnerHTML to write raw HTML.'
-          : '')
-    );
+    logger.warn(`[Askr] ${PROPERTY_PROP_PREFIX}${name} is ignored.`);
   }
   return true;
 }
 
-function findPropertyDescriptor(
-  target: object,
-  name: string
-): PropertyDescriptor | undefined {
-  for (
-    let current: object | null = target;
-    current;
-    current = Object.getPrototypeOf(current) as object | null
-  ) {
-    const descriptor = Object.getOwnPropertyDescriptor(current, name);
-    if (descriptor) return descriptor;
-  }
-  return undefined;
+function isUrlPropertyName(name: string): boolean {
+  const lower = name.toLowerCase();
+  return (
+    UNSAFE_URL_SCHEME_ATTRIBUTES.has(lower) ||
+    SCRIPT_URL_RESOURCE_ATTRIBUTES.has(lower)
+  );
 }
 
-function assignProperty(el: Element, name: string, value: unknown): void {
-  try {
-    (el as PropertyHost)[name] = value;
-  } catch (error) {
-    const descriptor = findPropertyDescriptor(el, name);
-    if (
-      descriptor &&
-      (descriptor.writable === false ||
-        (descriptor.get !== undefined && descriptor.set === undefined))
-    ) {
-      throw new TypeError(
-        `[Askr] ${PROPERTY_PROP_PREFIX}${name} cannot be set: ` +
-          `<${el.localName}>.${name} is read-only.`
-      );
-    }
-    throw error;
-  }
-}
-
-function readAttributes(el: Element): Map<string, string> {
-  const values = new Map<string, string>();
-  const attributes = el.attributes;
-  for (let index = 0; index < attributes.length; index += 1) {
-    const attribute = attributes.item(index)!;
-    values.set(attribute.name, attribute.value);
-  }
-  return values;
-}
-
-/** Assign a property, recording the attributes the element reflects it to. */
-function writeProperty(
-  el: Element,
-  entry: WrittenProperty,
-  value: unknown
-): void {
-  if (Object.is((el as PropertyHost)[entry.name], value)) {
+function writeProperty(el: Element, name: string, value: unknown): void {
+  const host = el as PropertyHost;
+  if (Object.is(host[name], value)) {
     incrementPerfMetric('skippedDomPropWrites');
     return;
   }
-  const before = readAttributes(el);
-  assignProperty(el, entry.name, value);
-  const attributes = el.attributes;
-  for (let index = 0; index < attributes.length; index += 1) {
-    const attribute = attributes.item(index)!;
-    if (
-      before.get(attribute.name) !== attribute.value &&
-      !entry.reflected.includes(attribute.name)
-    ) {
-      entry.reflected.push(attribute.name);
-    }
-  }
+  host[name] = value;
 }
 
 /**
  * Put a property back to its default once Askr no longer sets it.
  *
  * - `muted`/`indeterminate` become `false`.
- * - A property that reflects to attributes (`href`, `title`, `hidden`,
- *   `className`, ...) has those attributes removed, which restores the
- *   element's own default.
+ * - A property with a same-named attribute (`href`, `title`, `hidden`,
+ *   `className` -> `class`, ...) has that attribute removed, which restores
+ *   the element's own default.
  * - An own property (an expando, or a value set before a custom element
  *   upgraded) is deleted.
  * - Otherwise strings become `''` and booleans `false`. Numbers keep their
  *   value (there is no safe generic default), and anything else becomes
  *   `undefined`.
  */
-function resetProperty(el: Element, key: string, entry: WrittenProperty): void {
+function resetProperty(el: Element, key: string, name: string): void {
   const host = el as PropertyHost;
   if (isKnownBooleanProperty(key)) {
-    assignProperty(el, entry.name, false);
+    writeProperty(el, name, false);
     return;
   }
-  if (entry.reflected.length > 0) {
-    for (const attributeName of entry.reflected) {
-      el.removeAttribute(attributeName);
-    }
+  const attributeName = getRenderedAttributeName(el, name);
+  if (el.hasAttribute(attributeName)) {
+    el.removeAttribute(attributeName);
     return;
   }
-  if (Object.prototype.hasOwnProperty.call(host, entry.name)) {
-    delete host[entry.name];
+  if (Object.prototype.hasOwnProperty.call(host, name)) {
+    delete host[name];
     return;
   }
-  const current = host[entry.name];
+  const current = host[name];
   if (typeof current === 'number') return;
-  assignProperty(
+  writeProperty(
     el,
-    entry.name,
+    name,
     typeof current === 'string'
       ? ''
       : typeof current === 'boolean'
@@ -174,10 +107,10 @@ function resetProperty(el: Element, key: string, entry: WrittenProperty): void {
 
 function forgetProperty(el: Element, key: string): void {
   const written = writtenDomProperties.get(el);
-  const entry = written?.get(key);
-  if (!entry) return;
+  const name = written?.get(key);
+  if (name === undefined) return;
   written!.delete(key);
-  resetProperty(el, key, entry);
+  resetProperty(el, key, name);
 }
 
 /**
@@ -205,12 +138,18 @@ export function applyDomPropertyProp(
 
   if (isBlockedPropertyName(name)) return true;
 
-  const next = propertyValue(key, value);
-  // The URL guard covers every value a URL property would stringify:
-  // strings, `URL` objects, anything with a `toString`.
-  if (next !== null && next !== undefined && isUnsafeUrlAttribute(name, next)) {
-    forgetProperty(el, key);
-    return true;
+  let next = domPropertyValue(key, value);
+  if (next !== null && next !== undefined && isUrlPropertyName(name)) {
+    // Built-in URL properties are strings anyway: convert once, check that
+    // text, and assign the same text, so a stateful `toString()` cannot pass
+    // the check and then return something else. Custom elements keep their
+    // value; it is still checked.
+    const text = String(next);
+    if (isUnsafeUrlAttribute(name, text)) {
+      forgetProperty(el, key);
+      return true;
+    }
+    if (!isCustomElementName(tagName)) next = text;
   }
 
   let written = writtenDomProperties.get(el);
@@ -218,10 +157,8 @@ export function applyDomPropertyProp(
     written = new Map();
     writtenDomProperties.set(el, written);
   }
-  let entry = written.get(key);
-  if (!entry) {
-    entry = { name, reflected: [] };
-    written.set(key, entry);
+  if (!written.has(key)) {
+    written.set(key, name);
     // A custom element prop that was an attribute: drop the old attribute so
     // it does not contradict the property.
     if (!key.startsWith(PROPERTY_PROP_PREFIX) && !isKnownBooleanProperty(key)) {
@@ -229,7 +166,7 @@ export function applyDomPropertyProp(
       if (el.hasAttribute(attributeName)) el.removeAttribute(attributeName);
     }
   }
-  writeProperty(el, entry, next);
+  writeProperty(el, name, next);
   return !propertyReflectsAttribute(key);
 }
 
@@ -241,38 +178,11 @@ export function pruneStaleDomProperties(
   const written = writtenDomProperties.get(el);
   if (!written) return;
 
-  for (const [key, entry] of written) {
+  for (const [key, name] of written) {
     if (Object.prototype.hasOwnProperty.call(props, key)) continue;
     written.delete(key);
-    resetProperty(el, key, entry);
+    resetProperty(el, key, name);
   }
-}
-
-/**
- * Attributes that properties Askr set are reflecting, which stale-attribute
- * removal must keep.
- */
-export function getReflectedAttributes(el: Element): readonly string[] {
-  const written = writtenDomProperties.get(el);
-  if (!written) return [];
-  const names: string[] = [];
-  for (const entry of written.values()) names.push(...entry.reflected);
-  return names;
-}
-
-/**
- * For the static-props fast paths: whether a property prop already holds the
- * value, or `null` when the prop is an attribute and must be compared there.
- */
-export function matchesDomPropertyProp(
-  el: Element,
-  key: string,
-  value: unknown,
-  tagName: string
-): boolean | null {
-  const name = getDomPropertyName(tagName, key, value);
-  if (name === null) return null;
-  return Object.is((el as PropertyHost)[name], propertyValue(key, value));
 }
 
 /** Whether Askr currently sets `key` on `el` as a DOM property. */
@@ -293,10 +203,8 @@ export function hasStaleDomProperties(
   return false;
 }
 
-/** Snapshot of the properties Askr wrote on one element, for rollback. */
-export interface DomPropertySnapshot {
-  entries: ReadonlyArray<[string, WrittenProperty, unknown]>;
-}
+/** Properties Askr wrote on one element (`[key, name, value]`), for rollback. */
+export type DomPropertySnapshot = ReadonlyArray<[string, string, unknown]>;
 
 /** @internal Capture the written properties and their current values. */
 export function snapshotDomProperties(
@@ -304,15 +212,11 @@ export function snapshotDomProperties(
 ): DomPropertySnapshot | undefined {
   const written = writtenDomProperties.get(el);
   if (!written || written.size === 0) return undefined;
-  const entries: Array<[string, WrittenProperty, unknown]> = [];
-  for (const [key, entry] of written) {
-    entries.push([
-      key,
-      { name: entry.name, reflected: [...entry.reflected] },
-      (el as PropertyHost)[entry.name],
-    ]);
-  }
-  return { entries };
+  return Array.from(written, ([key, name]) => [
+    key,
+    name,
+    (el as PropertyHost)[name],
+  ]);
 }
 
 /**
@@ -324,22 +228,20 @@ export function restoreDomProperties(
   snapshot: DomPropertySnapshot | undefined
 ): void {
   const written = writtenDomProperties.get(el);
-  const previousKeys = new Set(snapshot?.entries.map(([key]) => key));
+  const previousKeys = new Set(snapshot?.map(([key]) => key));
   if (written) {
-    for (const [key, entry] of written) {
-      if (!previousKeys.has(key)) resetProperty(el, key, entry);
+    for (const [key, name] of written) {
+      if (!previousKeys.has(key)) resetProperty(el, key, name);
     }
   }
   if (!snapshot) {
     writtenDomProperties.delete(el);
     return;
   }
-  const restored = new Map<string, WrittenProperty>();
-  for (const [key, entry, value] of snapshot.entries) {
-    restored.set(key, entry);
-    if (!Object.is((el as PropertyHost)[entry.name], value)) {
-      assignProperty(el, entry.name, value);
-    }
+  const restored = new Map<string, string>();
+  for (const [key, name, value] of snapshot) {
+    restored.set(key, name);
+    writeProperty(el, name, value);
   }
   writtenDomProperties.set(el, restored);
 }

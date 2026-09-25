@@ -104,6 +104,14 @@ describe('prop: review regressions', () => {
   });
 
   it('should apply the URL guard to non-string prop: values', () => {
+    // Safe on the first conversion, unsafe on every later one.
+    const statefulHref = () => {
+      let calls = 0;
+      return {
+        toString: () =>
+          calls++ === 0 ? 'https://example.com/ok' : 'javascript:alert(1)',
+      };
+    };
     let setUnsafe!: (next: boolean) => void;
     function App() {
       const unsafe = state(false);
@@ -123,6 +131,9 @@ describe('prop: review regressions', () => {
             c
           </a>
           <iframe prop:src={new URL('javascript:alert(1)')} />
+          <a data-case="stateful" prop:href={statefulHref()}>
+            e
+          </a>
           <a
             data-case="switch"
             prop:href={
@@ -137,6 +148,11 @@ describe('prop: review regressions', () => {
 
     const { container, cleanup } = mount(App);
     try {
+      // The checked text is what gets assigned, not the object.
+      expect(
+        container.querySelector<HTMLAnchorElement>('[data-case="stateful"]')!
+          .href
+      ).toBe('https://example.com/ok');
       for (const name of ['url', 'to-string', 'reactive']) {
         const anchor = container.querySelector<HTMLAnchorElement>(
           `[data-case="${name}"]`
@@ -277,21 +293,6 @@ describe('prop: review regressions', () => {
       expect(div.getAttribute('style')).toBe(server.getAttribute('style'));
       expect(div.getAttribute('style')).toBeNull();
       expect(div.getAttribute('data-x')).toBe('1');
-    } finally {
-      cleanup();
-    }
-  });
-
-  it('should explain read-only prop: names', () => {
-    function App() {
-      return <div prop:tagName="SPAN" />;
-    }
-    const { container, cleanup } = createTestContainer();
-    try {
-      expect(() => {
-        createIsland({ root: container, component: App });
-        flushScheduler();
-      }).toThrow(/prop:tagName.*read-only/);
     } finally {
       cleanup();
     }

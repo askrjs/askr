@@ -21,10 +21,7 @@ import {
   isSkippedProp as isSkippedPropShared,
   keepsFalseValue,
 } from '../common/prop-classification';
-import {
-  getDomPropertyName,
-  isKnownBooleanProperty,
-} from '../common/dom-properties';
+import { matchesDomPropertyProp } from '../common/dom-properties';
 import { getRuntimeEnv } from './env';
 import { setDevValue, incDevCounter } from '../runtime';
 
@@ -295,14 +292,8 @@ export function hasPropChanged(
     if (key === 'value' || key === 'checked') {
       return (el as HTMLElement & Record<string, unknown>)[key] !== value;
     }
-    const propertyName = getDomPropertyName(el.localName, key, value);
-    if (propertyName !== null) {
-      const expected = isKnownBooleanProperty(key) ? Boolean(value) : value;
-      return !Object.is(
-        (el as Element & Record<string, unknown>)[propertyName],
-        expected
-      );
-    }
+    const propertyMatch = matchesDomPropertyProp(el, key, value, el.localName);
+    if (propertyMatch !== null) return !propertyMatch;
     const attributeName = getRenderedAttributeName(el, key);
     const attr = el.getAttribute(attributeName);
     if (

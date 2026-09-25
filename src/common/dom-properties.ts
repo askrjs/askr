@@ -87,3 +87,26 @@ export function isPropertyOnlyProp(
     !propertyReflectsAttribute(key)
   );
 }
+
+/** The value a property prop assigns: `muted`/`indeterminate` are booleans. */
+export function domPropertyValue(key: string, value: unknown): unknown {
+  return key === 'muted' || key === 'indeterminate' ? Boolean(value) : value;
+}
+
+/**
+ * For the static-props fast paths: whether a property prop already holds the
+ * value, or `null` when the prop is an attribute and must be compared there.
+ */
+export function matchesDomPropertyProp(
+  el: Element,
+  key: string,
+  value: unknown,
+  tagName: string
+): boolean | null {
+  const name = getDomPropertyName(tagName, key, value);
+  if (name === null) return null;
+  return Object.is(
+    (el as Element & Record<string, unknown>)[name],
+    domPropertyValue(key, value)
+  );
+}

@@ -9,6 +9,7 @@ import { isUnsafeUrlAttribute } from '../../common/url';
 import {
   ATTRIBUTE_PROP_PREFIX,
   isPropertyOnlyProp,
+  matchesDomPropertyProp,
   propertyReflectsAttribute,
 } from '../../common/dom-properties';
 import { isDevelopmentEnvironment } from '../../common/env';
@@ -28,12 +29,7 @@ import {
   writeAttribute,
   writeElementClassName,
 } from '../utils';
-import {
-  applyDomPropertyProp,
-  getReflectedAttributes,
-  hasStaleDomProperties,
-  matchesDomPropertyProp,
-} from './properties';
+import { applyDomPropertyProp, hasStaleDomProperties } from './properties';
 
 /** Props whose live DOM property must be synced alongside the attribute. */
 export function isFormControlProp(key: string): boolean {
@@ -710,8 +706,6 @@ export function removeStaleAttributes(
   if (key !== undefined) {
     desiredAttributes.push('data-key', 'data-askr-key-kind');
   }
-  // Attributes reflected by properties Askr set (`prop:href` -> `href`).
-  desiredAttributes.push(...getReflectedAttributes(el));
 
   for (const propName in props) {
     if (isSkippedProp(propName)) continue;

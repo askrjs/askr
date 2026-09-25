@@ -131,17 +131,15 @@ The escape hatches keep the usual guards:
 
 - URL properties (`href`, `src`, `action`, `formAction`, `data`) are checked
   after converting the value to a string, so a `URL` object or any value with
-  a `javascript:` `toString()` is dropped. A blocked value also clears the
-  property it replaces.
+  a `javascript:` `toString()` is dropped. Built-in elements receive the
+  checked string, so a `toString()` cannot change its answer after the
+  check. A blocked value also clears the property it replaces.
 - `attr:` URL attributes keep the attribute URL guard, `attr:on*` never
-  renders an inline handler, and `attr:` values must be
-  text: objects (including `attr:style={{...}}`) are not rendered on either
-  side.
+  renders an inline handler, and `attr:` values must be text: objects
+  (including `attr:style={{...}}`) are not rendered on either side.
 - `prop:innerHTML`, `prop:outerHTML` and `prop:srcdoc` are ignored (use
   `dangerouslySetInnerHTML`), as are `prop:__proto__`, `prop:constructor` and
   `prop:prototype`.
-- Assigning a read-only property (`prop:tagName`) throws a `TypeError` naming
-  the prop.
 
 Custom element properties are assigned even if the element is not defined
 yet, as Lit's `.prop` bindings do. Until the element upgrades, the value is an
