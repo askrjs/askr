@@ -187,6 +187,68 @@ describe('resource() deps change in a rolled-back render (#471)', () => {
     }
   });
 
+  it('should refresh with the committed deps loader after a rolled-back deps change', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const load = vi.fn(async ({ id }: { id: string }) => `value:${id}`);
+    let id!: State<string>;
+    let fail!: State<boolean>;
+    let refresh!: () => void;
+
+    function Loader(props: { id: string }): JSXElement {
+      const current = props.id;
+      const result = resource(() => load({ id: current }), [current]);
+      refresh ??= result.refresh;
+      return (
+        <p id="value">
+          {result.pending ? 'loading' : `${String(result.value)}|${current}`}
+        </p>
+      );
+    }
+
+    const App = (): JSXElement => {
+      id = state('a');
+      fail = state(false);
+      return (
+        <div>
+          <Loader id={id()} />
+          <Bomb fail={fail()} />
+        </div>
+      );
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settleResourceWork();
+      expect(container.querySelector('#value')?.textContent).toBe('value:a|a');
+
+      id.set('b');
+      fail.set(true);
+      flushIgnoringRenderFailure();
+      await settleResourceWork();
+
+      // Refresh while the deps change is still uncommitted: it must reload
+      // the committed deps, not the rolled-back render's loader.
+      refresh();
+      flushIgnoringRenderFailure();
+      await Promise.resolve();
+      await Promise.resolve();
+      flushIgnoringRenderFailure();
+
+      id.set('a');
+      fail.set(false);
+      flushScheduler();
+      await settleResourceWork();
+
+      expect(container.querySelector('#value')?.textContent).toBe('value:a|a');
+      expect(load).not.toHaveBeenCalledWith({ id: 'b' });
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should fetch the new deps after an ErrorBoundary reset re-renders the same deps', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});

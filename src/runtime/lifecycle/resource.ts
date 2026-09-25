@@ -284,12 +284,13 @@ export function resource<T>(
   }
 
   const cell = h.cell!;
-  cell.setLoader(fn);
 
   // Detect dependency changes against the deps of the last committed render.
-  // On the client, cell.deps and cell.generation only advance when the render
-  // that saw the change commits: a rolled-back render must not consume the
-  // change, or the next render sees equal deps and never starts the fetch.
+  // On the client, cell.deps, cell.generation and the loader only advance when
+  // the render that saw the change commits: a rolled-back render must not
+  // consume the change, or the next render sees equal deps and never starts
+  // the fetch, and a refresh() would run the new deps' loader under the
+  // committed deps.
   const depsChanged =
     !cell.deps ||
     cell.deps.length !== deps.length ||
@@ -307,6 +308,7 @@ export function resource<T>(
     h.snapshot.error = null;
     try {
       if (inst.ssr) {
+        cell.setLoader(fn);
         cell.deps = deps.slice();
         cell.generation++;
         cell.pending = true;
@@ -323,6 +325,7 @@ export function resource<T>(
         h.uncommittedDeps = true;
         registerCommitOperationForInstance(inst, () => {
           h.uncommittedDeps = false;
+          cell.setLoader(fn);
           cell.deps = nextDeps;
           cell.generation++;
           cell.pending = true;
@@ -355,13 +358,16 @@ export function resource<T>(
       cur.snapshot.error = cell.error;
       // Do not call holder.set() here; this is still render.
     }
-  } else if (h.uncommittedDeps) {
-    // A render proposed different deps but was rolled back before commit, and
-    // this render is back on the committed deps: drop the loading state that
-    // render published so the snapshot matches the committed cell again.
-    h.uncommittedDeps = false;
-    h.snapshot.pending = cell.pending;
-    h.snapshot.error = cell.error;
+  } else {
+    cell.setLoader(fn);
+    if (h.uncommittedDeps) {
+      // A render proposed different deps but was rolled back before commit,
+      // and this render is back on the committed deps: drop the loading state
+      // that render published so the snapshot matches the committed cell.
+      h.uncommittedDeps = false;
+      h.snapshot.pending = cell.pending;
+      h.snapshot.error = cell.error;
+    }
   }
 
   // Return the stable snapshot object owned by the cell
