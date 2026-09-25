@@ -13,6 +13,22 @@
   open and closed shadow roots. Delegated handlers inside closed shadow roots,
   and delegated event types dispatched with `composed: false` inside a shadow
   root, still do not run; mount an app inside the shadow root instead.
+- fix(renderer): a failed keyed reconciliation commit now propagates to the
+  component update, which rolls the DOM back and routes the error to the
+  nearest `ErrorBoundary` (or throws it from the flush). Previously any commit
+  error was swallowed and the parent was rebuilt with `replaceChildren()`,
+  which also tore down children that were being reused. Errors from grouped
+  blueprint bindings (the second and later instances of a component or `For`
+  row) and from reactive child functions (`{() => ...}`) now reach the nearest
+  `ErrorBoundary` like single reactive props, or are thrown from the update
+  when there is none, instead of a development-only warning. A reactive child
+  update that fails while changing the element's children is rolled back
+  instead of left half-applied.
+- fix(fx): errors thrown by `scheduleTimeout`/`scheduleIdle` callbacks, by
+  handlers run later by `debounceEvent`/`throttleEvent`/`rafEvent`, and by
+  `scheduleRetry` (a synchronous throw, the last attempt's rejection, or a
+  throwing `backoff`) are reported with `reportError()` like
+  event handler errors, instead of only being logged.
 - build(deps): `@askrjs/auth` and `@askrjs/schema` are now optional peer
   dependencies instead of dependencies, so apps that do not use route auth or
   schemas no longer install auth's SAML/XML stack. Askr uses them for types

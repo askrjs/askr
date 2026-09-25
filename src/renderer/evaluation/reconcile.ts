@@ -142,22 +142,14 @@ function trackBulkTextStats(
   stats: ReturnType<typeof performBulkTextReplace>
 ): void {
   if (getRuntimeEnvValue('NODE_ENV') !== 'production') {
-    try {
-      setDevValue('__LAST_BULK_TEXT_FASTPATH_STATS', stats);
-      incDevCounter('bulkTextHits');
-    } catch {
-      // ignore
-    }
+    setDevValue('__LAST_BULK_TEXT_FASTPATH_STATS', stats);
+    incDevCounter('bulkTextHits');
   }
 }
 
 function trackBulkTextMiss(): void {
   if (getRuntimeEnvValue('NODE_ENV') !== 'production') {
-    try {
-      incDevCounter('bulkTextMisses');
-    } catch {
-      // ignore
-    }
+    incDevCounter('bulkTextMisses');
   }
 }
 
