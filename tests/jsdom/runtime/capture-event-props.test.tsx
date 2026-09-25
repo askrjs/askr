@@ -39,8 +39,9 @@ describe('capture event props', () => {
   });
 
   it('should allow cancellation given wheel and touch handlers when they call preventDefault', () => {
-    expect(getPassiveOptions('wheel')).toBeUndefined();
-    expect(getPassiveOptions('touchmove')).toBeUndefined();
+    expect(getPassiveOptions('wheel')).toEqual({ passive: false });
+    expect(getPassiveOptions('touchstart')).toEqual({ passive: false });
+    expect(getPassiveOptions('touchmove')).toEqual({ passive: false });
   });
 
   it('should pool shared handlers without crossing application runtime scopes', () => {
@@ -74,10 +75,13 @@ describe('capture event props', () => {
     expect(observedRuntimes).toEqual([firstRuntime, secondRuntime, undefined]);
   });
 
-  it('should dispatch non-bubbling focus handlers given a focused descendant', () => {
+  it('should not dispatch an ancestor onFocus given a focused descendant', () => {
     const events: string[] = [];
     const Component = () => (
-      <main onFocus={() => events.push('focus')}>
+      <main
+        onFocus={() => events.push('focus')}
+        onFocusIn={() => events.push('focusin')}
+      >
         <input />
       </main>
     );
@@ -86,11 +90,14 @@ describe('capture event props', () => {
     container
       .querySelector('input')!
       .dispatchEvent(new FocusEvent('focus', { bubbles: false }));
+    container
+      .querySelector('input')!
+      .dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
     flushScheduler();
-    expect(events).toEqual(['focus']);
+    expect(events).toEqual(['focusin']);
   });
 
-  it('should dispatch non-bubbling scroll handlers given a scrolled descendant', () => {
+  it('should dispatch only the target onScroll given a scrolled descendant', () => {
     const events: string[] = [];
     const Component = () => (
       <main onScroll={() => events.push('outer')}>
@@ -104,7 +111,7 @@ describe('capture event props', () => {
       container.querySelector('main > div');
     inner!.dispatchEvent(new Event('scroll', { bubbles: false }));
     flushScheduler();
-    expect(events).toEqual(['outer', 'inner']);
+    expect(events).toEqual(['inner']);
   });
 
   it('should preserve capture and bubble listeners for the same DOM event', () => {
