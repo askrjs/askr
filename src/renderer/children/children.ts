@@ -120,14 +120,10 @@ function commitBulkReplace(parent: Element, nodes: Node[]): number {
     fragment.appendChild(nodes[index]);
   }
 
-  try {
-    for (let node = parent.firstChild; node;) {
-      const next = node.nextSibling;
-      retireNodeSubtree(node);
-      node = next;
-    }
-  } catch {
-    // SLOW PATH: cleanup failure
+  for (let node = parent.firstChild; node;) {
+    const next = node.nextSibling;
+    retireNodeSubtree(node);
+    node = next;
   }
 
   recordDOMReplace('bulk-text-replace');
@@ -142,14 +138,10 @@ function recordBulkTextStats(stats: {
   tBuild: number;
   tCommit: number;
 }): void {
-  try {
-    setDevValue('__LAST_BULK_TEXT_FASTPATH_STATS', stats);
-    setDevValue('__LAST_FASTPATH_STATS', stats);
-    setDevValue('__LAST_FASTPATH_COMMIT_COUNT', 1);
-    incDevCounter('bulkTextFastpathHits');
-  } catch {
-    // Ignore stats errors
-  }
+  setDevValue('__LAST_BULK_TEXT_FASTPATH_STATS', stats);
+  setDevValue('__LAST_FASTPATH_STATS', stats);
+  setDevValue('__LAST_FASTPATH_COMMIT_COUNT', 1);
+  incDevCounter('bulkTextFastpathHits');
 }
 
 export function isBulkTextFastPathEligible(
@@ -256,10 +248,6 @@ function recordBulkDiag(data: Record<string, unknown>): void {
     getRuntimeEnvValue('NODE_ENV') !== 'production' ||
     getRuntimeEnvValue('ASKR_FASTPATH_DEBUG') === '1'
   ) {
-    try {
-      setDevValue('__BULK_DIAG', data);
-    } catch {
-      // Ignore
-    }
+    setDevValue('__BULK_DIAG', data);
   }
 }

@@ -5,7 +5,7 @@ import {
   requireUser,
   type AuthContext,
 } from '@askrjs/auth';
-import { createRouteRegistry, route } from '../../../src/router/route';
+import { createRouteRegistry, group, route } from '../../../src/router/route';
 import { resolveRouteRequest } from '../../../src/router/resolution';
 import {
   createRenderContext,
@@ -160,6 +160,52 @@ describe('route auth requirements', () => {
         })
       )
     ).resolves.toEqual({ kind: 'deny', status: 403 });
+  });
+
+  it('should require every inherited and route requirement in declaration order', async () => {
+    const calls: string[] = [];
+    const registry = (groupAllows: boolean) =>
+      createRouteRegistry(() => {
+        group(
+          {
+            auth: async () => {
+              calls.push('group');
+              return groupAllows
+                ? { allowed: true }
+                : { allowed: false, reason: 'forbidden' };
+            },
+          },
+          () => {
+            route('/admin', () => 'admin', {
+              auth: () => {
+                calls.push('route');
+                return { allowed: false, reason: 'forbidden' };
+              },
+            });
+          }
+        );
+      });
+
+    await expect(
+      Promise.resolve(
+        resolveRouteRequest('/admin', {
+          registry: registry(false),
+          authContext: user,
+        })
+      )
+    ).resolves.toEqual({ kind: 'deny', status: 403 });
+    expect(calls).toEqual(['group']);
+
+    calls.length = 0;
+    await expect(
+      Promise.resolve(
+        resolveRouteRequest('/admin', {
+          registry: registry(true),
+          authContext: user,
+        })
+      )
+    ).resolves.toEqual({ kind: 'deny', status: 403 });
+    expect(calls).toEqual(['group', 'route']);
   });
 
   it('should decide authorization before loader preload and query execution', async () => {
