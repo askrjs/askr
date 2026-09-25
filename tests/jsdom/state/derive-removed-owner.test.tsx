@@ -375,4 +375,72 @@ describe('derive() owned by a component an ancestor is about to remove (#523)', 
       }
     });
   }
+
+  // A selector() source in the chain feeding <For> recomputes in its own
+  // derived-lane batch; when a sibling derive is dirtied first, the row cells
+  // come up before the selector has re-marked the For source.
+  for (const shape of ['selector', 'derive-selector-derive'] as const) {
+    it(`should not evaluate a <For> row derive when each reads a ${shape} chain`, () => {
+      type Entry = { id: string };
+      const ALL: Entry[] = [{ id: 'a' }, { id: 'b' }];
+      const LOOKUP: Record<string, { name: string }> = {
+        a: { name: 'A' },
+        b: { name: 'B' },
+      };
+      let setSel!: (v: string) => void;
+      let setOther!: (v: number) => void;
+      let sel!: () => string;
+
+      function Sibling() {
+        const [other, so] = state(0);
+        setOther = so;
+        const d = derive(() => other() * 2);
+        return <b>{d()}</b>;
+      }
+
+      function Row() {
+        const name = derive(() => LOOKUP[sel()].name);
+        return <li>{name()}</li>;
+      }
+
+      function List() {
+        const [s, ss] = state('a');
+        sel = s;
+        setSel = ss;
+        let each: () => Entry[];
+        if (shape === 'selector') {
+          const isSel = selector(() => s());
+          each = () => ALL.filter((x) => isSel(x.id));
+        } else {
+          const current = derive(() => s());
+          const isSel = selector(() => current());
+          const visible = derive(() => ALL.filter((x) => isSel(x.id)));
+          each = () => visible();
+        }
+        return (
+          <ul>
+            <For each={each} by={(x) => x.id}>
+              {() => <Row />}
+            </For>
+          </ul>
+        );
+      }
+
+      const App = () => (
+        <div>
+          <Sibling />
+          <List />
+        </div>
+      );
+
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      expect(container.textContent).toBe('0A');
+
+      setOther(1);
+      setSel('zzz');
+      flushScheduler();
+      expect(container.textContent).toBe('2');
+    });
+  }
 });
