@@ -16,6 +16,39 @@
   their own element gains or loses focus, as with native `focus`/`blur`.
   Container components that tracked focus inside a subtree with `onFocus`/
   `onBlur` should migrate to `onFocusIn`/`onFocusOut`.
+- fix(resources): a `resource()` deps change seen by a render that is rolled
+  back (for example because a sibling component throws in the same render) no
+  longer leaves the resource stuck `pending`. The new deps, loader and generation are
+  committed with the render, so the next committed render still starts the
+  fetch, and one back on the committed deps keeps the committed value.
+- breaking(data): raw-string `invalidate(prefix)`, `invalidateOnInterval()`
+  and mutation `affects` prefixes now match whole `:`-delimited key segments.
+  `invalidate('user:1')` still matches `user:1` and `user:1:permissions` but no
+  longer matches `user:10`; prefixes ending in `:` (including every
+  `queryScope()` prefix) match as before. Only `:` is a segment boundary, so
+  raw prefixes built with other separators no longer match by text:
+  `invalidate('/api/users')` no longer matches `/api/users/1`, and
+  `invalidate('a.b')` no longer matches `a.b.c`. Move such keys to `:`
+  delimiters or `queryScope()`.
+- fix(boot): `createSPA({ dataRuntime })` and `hydrateSPA({ dataRuntime })` now
+  use the configured runtime consistently. `hydrateSPA` previously seeded the
+  custom runtime from the hydration payload while route-component queries read
+  the default one, so readers showed a loading state and refetched instead of
+  using the hydrated value. Route `preload` hooks (initial route and client
+  navigations) also prefetched into the default runtime, so readers of a
+  custom runtime never saw the preloaded data.
+- feat(ssr): `escapeHtml()` from `@askrjs/askr/ssr` escapes `&`, `<`, `>`, `"`
+  and `'` for request-derived values interpolated into a hand-written
+  `document` renderer template. It accepts any value; `null` and `undefined`
+  become an empty string. The SSR, SSG and rendering guides now use it.
+- docs: fix examples that failed at runtime. The API overview and core data
+  guide no longer call `state()`/`derive()` at module scope, the quick-start,
+  resources, core data and resources reference `resource()` examples check `error` before `pending || !value` so a failed first load no
+  longer shows "Loading..." forever, and the runtime-enforcement examples now
+  actually trigger the documented hook-order and render-mutation errors and
+  quote the real message. Doc fences tagged `run=<id>` are now imported and
+  exercised in jsdom by `npm run test:checks`
+  (`tests/checks/docs/runnable-snippets.test.ts`), not only type-checked.
 - fix(renderer): event handler errors are reported with `reportError()`, which
   dispatches a `window` `error` event, instead of only being logged. This covers
   delegated and direct listeners and `scheduleEventHandler`; the remaining
@@ -190,6 +223,17 @@
   the `defineQuery()` definition but fail to typecheck at the `createQuery()`
   call site; move `signal` to the second argument.
   Inline `createQuery({ key, fetch })` fetchers are unchanged.
+- fix(router): client navigation no longer dead-ends on URLs no registered app
+  can render. A `Link` click or `navigate()` to an unmatched same-origin URL, or
+  one outside the registry `basePath`, now loads the URL as a document, and
+  Back/Forward to an unmatched entry reloads the page instead of leaving the old
+  page mounted under the new URL. A `fallback()` route still renders in place.
+  Navigating to the already-loaded URL with no route, or a fragment-only
+  Back/Forward on such a page, skips the load. A failed Back/Forward render or
+  rejected Back/Forward loader now returns with `history.go()` to the entry whose page
+  is still rendered instead of overwriting the entry the user landed on; Askr
+  stamps an `askrIndex` position into the history state it writes and reloads
+  when an entry written by other code makes positions unknown.
 - fix(resources): a resource hydrated from preloaded data keeps its value on
   later re-renders instead of resetting to pending and refetching. The preloaded
   value now seeds the resource, so `refresh()` and `deps` changes also work

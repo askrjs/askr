@@ -85,11 +85,9 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     adoptSsrStyleCarriers(rootElement);
     const hydrationRenderData = takeHydrationRenderData(rootElement);
     const hydrationQueryCache = hydrationRenderData?.resources;
+    const dataRuntime = config.dataRuntime ?? getDefaultDataRuntime();
     if (hydrationQueryCache) {
-      hydrateDataRuntime(
-        config.dataRuntime ?? getDefaultDataRuntime(),
-        hydrationQueryCache
-      );
+      hydrateDataRuntime(dataRuntime, hydrationQueryCache);
     }
     // The auth snapshot is consumed by route resolution below; components
     // never see it through render data.
@@ -112,6 +110,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         framework: hydrationRenderDataForApp?.framework,
         route: hydrationRenderData?.route,
         hasRoute: hydrationRenderData !== null,
+        dataRuntime,
         routeRegistry: config.registry,
         routeAuth,
       }),
@@ -126,6 +125,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       registry: config.registry,
       load: false,
       authContext: hydratedAuth,
+      dataRuntime,
     });
     setServerLocation(currentUrl);
     if (isProductionEnvironment()) lockRouteRegistration();
@@ -159,7 +159,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
           resolved: hydrationResolved,
           options: {
             data: hydrationRenderDataForApp?.resources,
-            dataRuntime: config.dataRuntime ?? getDefaultDataRuntime(),
+            dataRuntime,
             envelope: hydrationRenderDataForApp ?? undefined,
             cspNonce: config.cspNonce,
           },

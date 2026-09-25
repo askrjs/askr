@@ -6,14 +6,22 @@ State management and async data primitives in Askr.
 
 Local component state uses `state()`.
 
-```ts
+```tsx run=data-state
 import { state } from '@askrjs/askr';
 
-const [count, setCount] = state(0);
+function Counter() {
+  // state() is render-scoped: call it inside a component.
+  const [count, setCount] = state(0);
 
-count(); // read current value
-setCount(1); // set a value
-setCount((n) => n + 1); // update with a function
+  // count() reads the current value; setCount() takes a value or an updater.
+  return (
+    <div>
+      <output>{count()}</output>
+      <button onClick={() => setCount(1)}>Set to 1</button>
+      <button onClick={() => setCount((n) => n + 1)}>+1</button>
+    </div>
+  );
+}
 ```
 
 `state()` returns a callable, iterable state cell. Destructure it as a
@@ -25,16 +33,24 @@ function, replace it with updater form such as `setHandler(() => nextHandler)`.
 
 `derive()` creates a computed value that re-evaluates when upstream state changes.
 
-```ts
+```tsx run=data-derive
 import { derive, state } from '@askrjs/askr';
 
-const [count, setCount] = state(0);
-const doubled = derive(() => count() * 2);
+function DoubledCounter() {
+  const [count, setCount] = state(0);
+  // doubled() automatically updates when count() changes
+  const doubled = derive(() => count() * 2);
 
-// doubled() automatically updates when count() changes
+  return (
+    <button onClick={() => setCount((n) => n + 1)}>
+      {count()} doubled is {doubled()}
+    </button>
+  );
+}
 ```
 
-Two-argument form separates the source read from the mapping function:
+Two-argument form separates the source read from the mapping function (like
+every `state()` and `derive()` call, this runs inside a component):
 
 ```ts
 const [user, setUser] = state({ name: 'Alex', age: 28 });
@@ -51,7 +67,7 @@ It manages loading state, cancellation, and errors automatically.
 Use `@askrjs/askr/data` for query and mutation state, and keep `resource()`
 for lifecycle-aware async work.
 
-```ts
+```ts run=data-resource-user-card
 import { resource } from '@askrjs/askr/resources';
 
 function UserCard({ id }: { id: string }) {
@@ -63,8 +79,8 @@ function UserCard({ id }: { id: string }) {
     [id]   // re-run when id changes
   );
 
-  if (user.pending || !user.value) return <div>Loading...</div>;
   if (user.error) return <div>Failed to load user</div>;
+  if (user.pending || !user.value) return <div>Loading...</div>;
   return <div>{user.value.name}</div>;
 }
 ```
@@ -83,6 +99,11 @@ function UserCard({ id }: { id: string }) {
 The `signal` parameter is an `AbortSignal`. Pass it to `fetch()` and any other cancellable
 APIs. When the component re-renders with new deps or unmounts, in-flight work is cancelled
 automatically.
+
+A deps change takes effect when the render that saw it commits. If that render
+is rolled back (for example because a sibling throws), the committed deps are
+unchanged, so the next committed render with the new deps still starts the
+fetch, and a render back on the committed deps keeps the committed value.
 
 ## Minimal data layer
 
@@ -109,6 +130,12 @@ const user = createQuery({
 
 invalidate('user:', { runtime: dataRuntime });
 ```
+
+To isolate a whole routed app, pass the runtime to `createSPA({ dataRuntime })`
+or `hydrateSPA({ dataRuntime })`. The app then uses it everywhere: hydration
+seeds it from the server payload, `createQuery()` calls in route components
+read it without an explicit `runtime` option, and route `preload` hooks
+prefetch into it on the initial route and on every client navigation.
 
 ### Queries
 
@@ -395,12 +422,20 @@ const admin = queryScope('admin');
 admin.invalidate(['buckets', 'main']);
 ```
 
-The raw `invalidate(prefix)` API performs a literal string-prefix match. For
-example, `invalidate('user:1')` also matches `user:10` and
-`user:1:permissions`. Include an unambiguous delimiter in hand-built prefix
-schemes, or prefer `queryScope()` when key segments can share textual prefixes;
-scoped keys encode segment boundaries so a `user` scope never invalidates a
-`users` scope.
+The raw `invalidate(prefix)` API matches whole `:`-delimited key segments. A
+key matches when it equals the prefix or continues it at a `:` boundary, so
+`invalidate('user:1')` matches `user:1` and `user:1:permissions` but not
+`user:10`, and `invalidate('user')` matches `user:2` but not `users`. A prefix
+that ends in `:` (such as `invalidate('user:')`) matches every key below it.
+`queryScope()` keys and prefixes always end in `:`, and scoped keys encode
+segment boundaries so a `user` scope never invalidates a `users` scope.
+
+Only `:` is a segment boundary. Keys built with other separators no longer
+match by raw text: `invalidate('/api/users')` does not match `/api/users/1`,
+and `invalidate('a.b')` does not match `a.b.c`. Use `:`-delimited keys (or
+`queryScope()`) for anything you want to invalidate as a group. The same
+segment rule applies to `invalidateOnInterval(prefix)` and to the prefixes a
+mutation returns from `affects`.
 
 Invalidation listeners run synchronously and may invalidate a different prefix
 to form a short, acyclic cascade. Re-entering a prefix that is already active

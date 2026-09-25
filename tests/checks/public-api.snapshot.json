@@ -413,6 +413,7 @@
     "SSRStyleRegistrationValidation",
     "VNode",
     "createRenderContext",
+    "escapeHtml",
     "getRenderContext",
     "renderResolvedToStringSync",
     "renderRouteRequest",

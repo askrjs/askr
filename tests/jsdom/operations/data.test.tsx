@@ -289,11 +289,18 @@ describe('data layer', () => {
     expect(usersFetch).toHaveBeenCalledTimes(1);
   });
 
-  it('should treat raw invalidation keys as literal string prefixes', async () => {
+  it('should match raw invalidation prefixes only at a key-segment boundary', async () => {
     const runtime = createDataRuntime();
     const fetches = new Map<string, ReturnType<typeof vi.fn>>();
 
-    for (const key of ['user:1', 'user:10', 'user:123', 'user:2']) {
+    for (const key of [
+      'user:1',
+      'user:1:permissions',
+      'user:10',
+      'user:123',
+      'user:2',
+      'users',
+    ]) {
       const fetch = vi.fn(async () => key);
       fetches.set(key, fetch);
       createQuery({ runtime, key, fetch });
@@ -304,9 +311,23 @@ describe('data layer', () => {
     await settle();
 
     expect(fetches.get('user:1')).toHaveBeenCalledTimes(2);
-    expect(fetches.get('user:10')).toHaveBeenCalledTimes(2);
-    expect(fetches.get('user:123')).toHaveBeenCalledTimes(2);
+    expect(fetches.get('user:1:permissions')).toHaveBeenCalledTimes(2);
+    expect(fetches.get('user:10')).toHaveBeenCalledTimes(1);
+    expect(fetches.get('user:123')).toHaveBeenCalledTimes(1);
     expect(fetches.get('user:2')).toHaveBeenCalledTimes(1);
+
+    invalidate('user', { runtime });
+    await settle();
+
+    expect(fetches.get('user:2')).toHaveBeenCalledTimes(2);
+    expect(fetches.get('user:10')).toHaveBeenCalledTimes(2);
+    expect(fetches.get('users')).toHaveBeenCalledTimes(1);
+
+    invalidate('user:', { runtime });
+    await settle();
+
+    expect(fetches.get('user:2')).toHaveBeenCalledTimes(3);
+    expect(fetches.get('users')).toHaveBeenCalledTimes(1);
   });
 
   it('should invalidate on an interval owned by a component', () => {

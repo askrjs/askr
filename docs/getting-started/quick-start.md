@@ -77,7 +77,7 @@ await createSPA({
 
 Keep route handlers synchronous. Fetch data in components using resources.
 
-```tsx
+```tsx run=quick-start-user
 import { resource } from '@askrjs/askr/resources';
 
 function User({ id }: { id: string }) {
@@ -89,8 +89,8 @@ function User({ id }: { id: string }) {
     [id]
   );
 
-  if (user.pending || !user.value) return <div>Loading...</div>;
   if (user.error) return <div>Failed to load user</div>;
+  if (user.pending || !user.value) return <div>Loading...</div>;
   return <div>{user.value.name}</div>;
 }
 ```

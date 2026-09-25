@@ -292,6 +292,10 @@ type MutationOptions<TInput, TResult> = {
       signal: AbortSignal;
     }
   ) => Promise<TResult>;
+  /**
+   * Query prefixes to invalidate after success, matched by `:`-delimited
+   * segment the same way as {@link invalidate}.
+   */
   affects?: (input: TInput, result: TResult) => string[];
   afterSuccess?: 'invalidate';
   runtime?: DataRuntime;
@@ -325,7 +329,13 @@ declare function createDataRuntime(options?: DataRuntimeOptions): DataRuntime;
 /** Get the process-wide default {@link DataRuntime} used when none is provided explicitly. */
 declare function getDefaultDataRuntime(): DataRuntime;
 
-/** Mark all cached queries whose key starts with `prefix` as stale, triggering a refresh. */
+/**
+ * Mark all cached queries under `prefix` as stale, triggering a refresh.
+ * Matching is by `:`-delimited segment: a key matches when it equals `prefix`,
+ * when `prefix` ends in `:`, or when the key continues `prefix` at a `:`
+ * (`'user:1'` matches `user:1:posts` but not `user:10`). Only `:` is a
+ * segment boundary; the empty prefix matches every key.
+ */
 declare function invalidate(prefix: string, options?: InvalidateOptions): void;
 
 /** Create a {@link QueryScope} that namespaces keys and invalidations under `namespace`. */
@@ -334,6 +344,7 @@ declare function queryScope(namespace: string): QueryScope;
 /**
  * Periodically invalidate queries matching `prefix` on a fixed interval,
  * optionally gated by active route, document visibility, or window focus.
+ * `prefix` matches key segments the same way as {@link invalidate}.
  */
 declare function invalidateOnInterval(
   prefix: string,
