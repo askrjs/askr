@@ -9,6 +9,20 @@
   the same flush was dropped. Bindings now roll back with the render and then
   catch up with their state; see "Fine-grained bindings and rollback" in
   docs/core/rendering.md.
+- fix(resources): a `resource()` deps change seen by a render that is rolled
+  back (for example because a sibling component throws in the same render) no
+  longer leaves the resource stuck `pending`. The new deps, loader and generation are
+  committed with the render, so the next committed render still starts the
+  fetch, and one back on the committed deps keeps the committed value.
+- breaking(data): raw-string `invalidate(prefix)`, `invalidateOnInterval()`
+  and mutation `affects` prefixes now match whole `:`-delimited key segments.
+  `invalidate('user:1')` still matches `user:1` and `user:1:permissions` but no
+  longer matches `user:10`; prefixes ending in `:` (including every
+  `queryScope()` prefix) match as before. Only `:` is a segment boundary, so
+  raw prefixes built with other separators no longer match by text:
+  `invalidate('/api/users')` no longer matches `/api/users/1`, and
+  `invalidate('a.b')` no longer matches `a.b.c`. Move such keys to `:`
+  delimiters or `queryScope()`.
 - fix(boot): `createSPA({ dataRuntime })` and `hydrateSPA({ dataRuntime })` now
   use the configured runtime consistently. `hydrateSPA` previously seeded the
   custom runtime from the hydration payload while route-component queries read

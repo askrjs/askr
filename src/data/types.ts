@@ -277,6 +277,10 @@ export type MutationOptions<TInput, TResult> = {
   /** Stable identity used by runtime-scoped mutation test overrides. */
   key?: string;
   action: (input: TInput, ctx: { signal: AbortSignal }) => Promise<TResult>;
+  /**
+   * Query prefixes to invalidate after success, matched by `:`-delimited
+   * segment the same way as {@link invalidate}.
+   */
   affects?: (input: TInput, result: TResult) => string[];
   afterSuccess?: 'invalidate';
   runtime?: DataRuntime;
