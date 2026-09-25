@@ -49,33 +49,33 @@ type IntrinsicRef =
   | null
   | undefined;
 interface IntrinsicEventProps {
-  onAbort?: BivariantHandler<Event>;
-  onBlur?: BivariantHandler<FocusEvent>;
-  onChange?: BivariantHandler<Event>;
-  onClick?: BivariantHandler<MouseEvent>;
-  onDblClick?: BivariantHandler<MouseEvent>;
-  onFocus?: BivariantHandler<FocusEvent>;
-  onInput?: BivariantHandler<InputEvent>;
-  onKeyDown?: BivariantHandler<KeyboardEvent>;
-  onKeyUp?: BivariantHandler<KeyboardEvent>;
-  onMouseDown?: BivariantHandler<MouseEvent>;
-  onMouseEnter?: BivariantHandler<MouseEvent>;
-  onMouseLeave?: BivariantHandler<MouseEvent>;
-  onMouseMove?: BivariantHandler<MouseEvent>;
-  onMouseOut?: BivariantHandler<MouseEvent>;
-  onMouseOver?: BivariantHandler<MouseEvent>;
-  onMouseUp?: BivariantHandler<MouseEvent>;
-  onPointerDown?: BivariantHandler<PointerEvent>;
-  onPointerDownCapture?: BivariantHandler<PointerEvent>;
-  onPointerEnter?: BivariantHandler<PointerEvent>;
-  onPointerLeave?: BivariantHandler<PointerEvent>;
-  onPointerMove?: BivariantHandler<PointerEvent>;
-  onPointerUp?: BivariantHandler<PointerEvent>;
-  onScroll?: BivariantHandler<Event>;
-  onSubmit?: BivariantHandler<SubmitEvent>;
-  onTouchEnd?: BivariantHandler<TouchEvent>;
-  onTouchStart?: BivariantHandler<TouchEvent>;
-  onWheel?: BivariantHandler<WheelEvent>;
+  onAbort?: BivariantHandler<Event> | null;
+  onBlur?: BivariantHandler<FocusEvent> | null;
+  onChange?: BivariantHandler<Event> | null;
+  onClick?: BivariantHandler<MouseEvent> | null;
+  onDblClick?: BivariantHandler<MouseEvent> | null;
+  onFocus?: BivariantHandler<FocusEvent> | null;
+  onInput?: BivariantHandler<InputEvent> | null;
+  onKeyDown?: BivariantHandler<KeyboardEvent> | null;
+  onKeyUp?: BivariantHandler<KeyboardEvent> | null;
+  onMouseDown?: BivariantHandler<MouseEvent> | null;
+  onMouseEnter?: BivariantHandler<MouseEvent> | null;
+  onMouseLeave?: BivariantHandler<MouseEvent> | null;
+  onMouseMove?: BivariantHandler<MouseEvent> | null;
+  onMouseOut?: BivariantHandler<MouseEvent> | null;
+  onMouseOver?: BivariantHandler<MouseEvent> | null;
+  onMouseUp?: BivariantHandler<MouseEvent> | null;
+  onPointerDown?: BivariantHandler<PointerEvent> | null;
+  onPointerDownCapture?: BivariantHandler<PointerEvent> | null;
+  onPointerEnter?: BivariantHandler<PointerEvent> | null;
+  onPointerLeave?: BivariantHandler<PointerEvent> | null;
+  onPointerMove?: BivariantHandler<PointerEvent> | null;
+  onPointerUp?: BivariantHandler<PointerEvent> | null;
+  onScroll?: BivariantHandler<Event> | null;
+  onSubmit?: BivariantHandler<SubmitEvent> | null;
+  onTouchEnd?: BivariantHandler<TouchEvent> | null;
+  onTouchStart?: BivariantHandler<TouchEvent> | null;
+  onWheel?: BivariantHandler<WheelEvent> | null;
 }
 /**
  * Props understood specially by intrinsic JSX elements.
