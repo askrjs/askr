@@ -34,10 +34,15 @@ describe('comment host cleanup', () => {
       version = state(0);
       shared = state(0);
       const current = version();
+      // Each generation keys a new reader. An unkeyed reader at the same
+      // position is the same component and is kept across renders.
       return (
         <>
           <section>{`route-${current}`}</section>
-          <NullReader label={`generation-${current}`} />
+          <NullReader
+            key={`generation-${current}`}
+            label={`generation-${current}`}
+          />
         </>
       );
     };

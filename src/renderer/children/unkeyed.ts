@@ -6,7 +6,11 @@ import { getRendererDOMHost, type ElementWithContext } from '../dom-host';
 import { getParentNamespace } from '../intrinsic/namespaces';
 import { findRangeEnd, isRangeStart } from '../ownership/ranges';
 import { tagsEqualIgnoreCase } from './static-reuse';
-import { collectChildKinds, isEmptyChild, isScalarChild } from './child-shape';
+import {
+  collectChildKinds,
+  isScalarChild,
+  rendersNothing,
+} from './child-shape';
 import { _isDOMElement, type DOMElement } from '../types';
 
 /**
@@ -231,7 +235,7 @@ function commitMixedContent(
   for (let i = 0; i < Math.max(allNodes.length, newChildren.length); i += 1) {
     const currentNode = allNodes[i];
     const next = newChildren[i];
-    const nextIsEmpty = isEmptyChild(next);
+    const nextIsEmpty = rendersNothing(next);
 
     if (nextIsEmpty && currentNode) {
       retireNodeSubtree(currentNode);
@@ -323,7 +327,7 @@ function commitElementsByPosition(
   for (let i = 0; i < max; i++) {
     const current = existing[i];
     const next = newChildren[i];
-    const nextIsEmpty = isEmptyChild(next);
+    const nextIsEmpty = rendersNothing(next);
 
     if (nextIsEmpty && current) {
       retireNodeSubtree(current);

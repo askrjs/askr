@@ -3,8 +3,9 @@ import {
   isRuntimeSchedulerExecuting,
   markRuntimeReactivePropsDirtySource,
 } from '../access';
-import { getCurrentComponentInstance } from '../component/scope';
+import { peekCurrentComponentInstance } from '../component/scope';
 import type { ComponentInstance } from '../component/instance';
+import { invalidatePendingChecks } from '../ownership/record';
 import { adjustOwnershipDiagnostic } from '../diagnostics/ownership-diagnostics';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
@@ -49,6 +50,30 @@ export function markReadableUsage(source: unknown): void {
   }
 }
 
+/**
+ * Whether `value` is a readable cell (`state`, `derive`, or a `For` item or
+ * index signal) rather than an ordinary function.
+ */
+export function isReadableSource(
+  value: unknown
+): value is ReadableSource<unknown> {
+  return (
+    typeof value === 'function' &&
+    ('_readers' in value || '_hasBeenRead' in value || '_markDirty' in value)
+  );
+}
+
+/**
+ * Read the value a function child renders: call it once and, when the result
+ * is itself a readable, read that too. A function child that returns a cell
+ * (`() => (cond() ? a : b)`) renders the cell's value; any other function in
+ * the result renders nothing.
+ */
+export function readFunctionChildValue(child: () => unknown): unknown {
+  const value = child();
+  return isReadableSource(value) ? value() : value;
+}
+
 let currentDerivedSubscriber: DerivedSubscriber | null = null;
 let suppressComponentReadTrackingDepth = 0;
 let currentFineGrainedReadCollector: FineGrainedReadCollector | null = null;
@@ -61,6 +86,7 @@ export function scheduleReadableInstanceUpdate(
   }
 
   instance.hasPendingUpdate = true;
+  invalidatePendingChecks();
   const task = instance._pendingFlushTask;
   if (task) {
     enqueueRuntimeTask(task);
@@ -71,6 +97,40 @@ export function scheduleReadableInstanceUpdate(
     instance.hasPendingUpdate = false;
     instance.notifyUpdate?.();
   });
+}
+
+type StaleNode = {
+  _dirty?: boolean;
+  _sources?: Set<ReadableSource<unknown>>;
+  /** A selector() candidate source's shared record. */
+  _record?: StaleNode;
+};
+
+/**
+ * @internal Whether `source` is a derived value (derive() cell or selector()
+ * record) that is dirty or reads, at any depth, one that is. A dirty value
+ * re-marks its dependents only when it recomputes, so its consumers still
+ * look clean until the chain has run (#523).
+ */
+export function isStaleSource(
+  source: ReadableSource<unknown>,
+  visited: Set<object>
+): boolean {
+  const node = (source as StaleNode)._record ?? (source as StaleNode);
+  if (node._dirty === true) {
+    return true;
+  }
+  const sources = node._sources;
+  if (!sources || visited.has(node)) {
+    return false;
+  }
+  visited.add(node);
+  for (const upstream of sources) {
+    if (isStaleSource(upstream, visited)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function recordReadableRead(source: ReadableSource<unknown>): void {
@@ -115,7 +175,7 @@ export function recordReadableRead(source: ReadableSource<unknown>): void {
     return;
   }
 
-  const inst = getCurrentComponentInstance();
+  const inst = peekCurrentComponentInstance();
   if (!inst || inst._currentRenderToken === undefined) {
     return;
   }
@@ -295,6 +355,26 @@ export function withDerivedReadTracking<T>(
     return fn();
   } finally {
     suppressComponentReadTrackingDepth -= 1;
+    currentDerivedSubscriber = prevDerivedSubscriber;
+  }
+}
+
+/**
+ * Call `fn` without recording any readable it reads as a dependency of the
+ * current component, derived computation, or fine-grained effect.
+ */
+export function readUntracked<T>(fn: () => T): T {
+  const prevDerivedSubscriber = currentDerivedSubscriber;
+  const prevCollector = currentFineGrainedReadCollector;
+  currentDerivedSubscriber = null;
+  currentFineGrainedReadCollector = null;
+  suppressComponentReadTrackingDepth += 1;
+
+  try {
+    return fn();
+  } finally {
+    suppressComponentReadTrackingDepth -= 1;
+    currentFineGrainedReadCollector = prevCollector;
     currentDerivedSubscriber = prevDerivedSubscriber;
   }
 }

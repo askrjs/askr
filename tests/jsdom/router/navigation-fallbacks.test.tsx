@@ -81,7 +81,7 @@ describe('navigation the client router cannot render', () => {
     await settle();
 
     expect(loadDocument).toHaveBeenCalledWith(
-      '/marketing/pricing?plan=pro',
+      `${window.location.origin}/marketing/pricing?plan=pro`,
       'push'
     );
     expect(window.location.pathname).toBe('/app/');
@@ -99,7 +99,10 @@ describe('navigation the client router cannot render', () => {
     click(view.container.querySelector('a')!);
     await settle();
 
-    expect(loadDocument).toHaveBeenCalledWith('/legacy/report', 'push');
+    expect(loadDocument).toHaveBeenCalledWith(
+      `${window.location.origin}/legacy/report`,
+      'push'
+    );
     expect(window.location.pathname).toBe('/');
     expect(view.container.textContent).toBe('Report');
   });
@@ -116,7 +119,10 @@ describe('navigation the client router cannot render', () => {
     navigate('/legacy/report', { replace: true });
     await settle();
 
-    expect(loadDocument).toHaveBeenCalledWith('/legacy/report', 'replace');
+    expect(loadDocument).toHaveBeenCalledWith(
+      `${window.location.origin}/legacy/report`,
+      'replace'
+    );
   });
 
   it('should not load the current URL again when no router can render it', () => {

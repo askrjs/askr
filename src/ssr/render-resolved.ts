@@ -74,7 +74,7 @@ function renderResolvedRouteToStringSync(
     return (
       resolved !== null &&
       resolved.handler === route.handler &&
-      sameRouteParams(resolved.params, params)
+      sameRouteParams(resolved.params, params ?? {})
     );
   });
 

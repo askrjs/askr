@@ -1,5 +1,6 @@
 import type { RouteAuthOptions, RouteRegistry } from '../common/router';
 import { isProductionEnvironment } from '../common/env';
+import { resolveNavigationUrl } from '../common/url';
 import type { ComponentInstance } from '../runtime';
 import { trackComponentRouteGeneration } from '../runtime/component/capabilities';
 import { lockRouteRegistration, syncCurrentRouteSnapshot } from './route';
@@ -70,6 +71,33 @@ export function parseTargetUrl(path: string): URL {
       : `http://localhost${pathname}${search}${hash}`;
 
   return new URL(path, base);
+}
+
+/** Whether a parsed target shares the origin of the current document. */
+export function isCurrentOrigin(target: URL): boolean {
+  return target.origin === parseTargetUrl('/').origin;
+}
+
+/**
+ * The absolute URL of a root-relative href on the current origin. Browsers
+ * read a root-relative `//host/x` as another host, so history writes and
+ * document loads never receive the root-relative form.
+ */
+export function toDocumentUrl(href: string): string {
+  const origin =
+    typeof window === 'undefined' ? undefined : window.location.origin;
+  return origin && origin !== 'null' ? `${origin}${href}` : href;
+}
+
+/**
+ * Parse a navigation or redirect target. Only a target written with an
+ * explicit `http:`/`https:` scheme may leave the current origin: a path-like
+ * string that the URL parser resolves elsewhere (`/\\evil.example`,
+ * `//evil.example`, `/.//evil.example`) would otherwise turn an app path into
+ * an open redirect.
+ */
+export function parseNavigationTarget(path: string): URL {
+  return resolveNavigationUrl(path, parseTargetUrl('').href);
 }
 
 export function getRegisteredAppsSnapshot(): AppRegistration[] {

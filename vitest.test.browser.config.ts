@@ -19,6 +19,10 @@ export default defineConfig({
     },
   },
   test: {
+    // Browser test files share the runner page's History API. WebKit limits
+    // that page to 100 pushState/replaceState calls per 10 seconds, so router
+    // suites must not run their history-heavy files concurrently.
+    fileParallelism: false,
     browser: {
       enabled: true,
       headless: true,
@@ -27,7 +31,7 @@ export default defineConfig({
     },
     globals: true,
     include: ['tests/browser/**/*.test.{ts,tsx}'],
-    setupFiles: ['tests/setup-env.ts'],
+    setupFiles: ['tests/setup-env.ts', 'tests/browser/history-write-budget.ts'],
   },
   resolve: {
     alias: createPackageAliases(),

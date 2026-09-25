@@ -1,8 +1,9 @@
-import { ownCleanup } from '../ownership/record';
+import { invalidatePendingChecks, ownCleanup } from '../ownership/record';
 import { notifyReadableSource } from './notify';
 import {
   claimHookIndex,
   getCurrentComponentInstance,
+  peekCurrentComponentInstance,
 } from '../component/scope';
 import { type ComponentInstance } from '../component/instance';
 import {
@@ -25,6 +26,10 @@ import {
 import { adjustOwnershipDiagnostic } from '../diagnostics/ownership-diagnostics';
 import { getRuntimeScheduler } from '../access';
 import { createFlushLoopGuard } from '../flush-loop-guard';
+import {
+  deferBehindPendingRender,
+  hasPendingOwnerRender,
+} from '../component/pending-render';
 
 declare const __ASKR_BENCH_BUILD__: boolean;
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
@@ -47,6 +52,8 @@ export interface Selector<T> {
 
 interface SelectorCandidateSource<T> extends ReadableSource<boolean> {
   _candidate: T;
+  /** The shared source record, so a stale record shows through (#523). */
+  _record: SelectorSourceRecord<T>;
 }
 
 type SelectorEquals<T> = {
@@ -73,6 +80,12 @@ interface SelectorSourceRecord<T> extends DerivedSubscriber {
   _sources: Set<ReadableSource<unknown>>;
   _pendingDependencySources?: Set<ReadableSource<unknown>>;
   _lanes: Map<SelectorEquals<T>, SelectorLane<T>>;
+  /**
+   * The component whose hook last bound this record. Only a render closure can
+   * read stale props, and a closure belongs to one owner; a record shared by
+   * several hooks has a stable source function (#523).
+   */
+  _owner?: ComponentInstance;
   _cleanup(): void;
 }
 
@@ -117,11 +130,18 @@ const selectorLoopGuard =
 function flushDirtySelectorRecords(): void {
   const scheduler = getRuntimeScheduler();
   let failures: unknown[] | null = null;
+  invalidatePendingChecks();
   for (const record of takeDirtySelectorRecords<
     SelectorSourceRecord<unknown>
   >()) {
     record._pending = false;
     if (!record._dirty) {
+      continue;
+    }
+    // A queued ancestor render or boundary reconcile decides whether the
+    // owner survives and with which props (#523).
+    if (record._owner && hasPendingOwnerRender(record._owner)) {
+      deferBehindPendingRender(record);
       continue;
     }
     // Skip a looping record; it stays dirty and recomputes on its next read.
@@ -155,11 +175,17 @@ function isDefaultSelectorEquals<T>(equals: SelectorEquals<T>): boolean {
   return equals === Object.is;
 }
 
-function createCandidateSource<T>(candidate: T): SelectorCandidateSource<T> {
+function createCandidateSource<T>(
+  lane: SelectorLane<T>,
+  candidate: T
+): SelectorCandidateSource<T> {
   // Candidate sources are identity/subscription records; unlike public
   // readables they are never invoked. Avoid allocating a closure per distinct
   // selector candidate (large keyed tables commonly create thousands).
-  return { _candidate: candidate } as unknown as SelectorCandidateSource<T>;
+  return {
+    _candidate: candidate,
+    _record: lane._record,
+  } as unknown as SelectorCandidateSource<T>;
 }
 
 function getCandidateSource<T>(
@@ -172,7 +198,7 @@ function getCandidateSource<T>(
       return cached;
     }
 
-    const created = createCandidateSource(candidate);
+    const created = createCandidateSource(lane, candidate);
     lane._objectCandidates.set(candidate, created);
     lane._objectCandidateSources.add(created);
     return created;
@@ -184,7 +210,7 @@ function getCandidateSource<T>(
     return cached;
   }
 
-  const created = createCandidateSource(candidate);
+  const created = createCandidateSource(lane, candidate);
   lane._primitiveCandidates.set(key, created);
   return created;
 }
@@ -300,7 +326,7 @@ function notifySelectorSource(source: SelectorCandidateSource<unknown>): void {
   // The component currently rendering reads the new value directly.
   notifyReadableSource(source, {
     skipCurrentDerivedSubscriber: true,
-    skipInstance: getCurrentComponentInstance(),
+    skipInstance: peekCurrentComponentInstance(),
   });
 }
 
@@ -409,6 +435,7 @@ function attachSelectorHookBinding<T>(
   hook._record = record;
   hook._lane = lane;
   lane._bindingCount += 1;
+  record._owner = hook._owner;
 }
 
 function detachSelectorHookBinding<T>(hook: SelectorHook<T>): void {

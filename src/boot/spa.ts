@@ -72,14 +72,13 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   if (isProductionEnvironment()) lockRouteRegistration();
 
   // Mount the currently-resolved route handler (if any)
-  const {
-    path,
-    href: currentUrl,
-    resolved,
-  } = await resolveInitialRoute(routeAuth, {
+  const initialRoute = await resolveInitialRoute(routeAuth, {
     registry: config.registry,
     dataRuntime,
   });
+  // A redirect left the origin; the browser is loading that document.
+  if (!initialRoute) return;
+  const { path, href: currentUrl, resolved } = initialRoute;
   setServerLocation(currentUrl);
   const appRuntime = createAppRenderRuntime({
     ...(resolved?.kind === 'render' && hasRouteRenderData(resolved)
