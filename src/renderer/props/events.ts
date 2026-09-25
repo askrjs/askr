@@ -12,7 +12,7 @@
 import { runRuntimeHandlerScope } from '../../runtime';
 import {
   getCurrentAppRenderRuntime,
-  getCurrentComponentInstance,
+  getCurrentLifecycleInstance,
   withAppRenderRuntime,
   withLifecycleOwner,
   type ComponentInstance,
@@ -375,7 +375,7 @@ function attachDelegatedListener(
       handler,
       original: originalHandler,
       appRuntime: getCurrentAppRenderRuntime(),
-      instance: getCurrentComponentInstance(),
+      instance: getCurrentLifecycleInstance(),
       container,
       eventName,
       options,
@@ -492,7 +492,7 @@ export function updateDelegatedListener(
   existing.handler = handler;
   existing.original = originalHandler;
   existing.appRuntime = getCurrentAppRenderRuntime();
-  existing.instance = getCurrentComponentInstance();
+  existing.instance = getCurrentLifecycleInstance();
   existing.options = options;
   return true;
 }

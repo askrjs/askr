@@ -5,7 +5,7 @@
 
 import {
   getCurrentAppRenderRuntime,
-  getCurrentComponentInstance,
+  getCurrentLifecycleInstance,
   runRuntimeHandlerScope,
   withAppRenderRuntime,
   withLifecycleOwner,
@@ -216,7 +216,7 @@ export function createMutableWrappedHandler(
 } {
   let currentHandler = handler;
   let appRuntime = getCurrentAppRenderRuntime();
-  let instance = getCurrentComponentInstance();
+  let instance = getCurrentLifecycleInstance();
 
   const wrapped: EventListener = (event: Event) => {
     try {
@@ -249,7 +249,7 @@ export function createMutableWrappedHandler(
     updateHandler(nextHandler: EventListener) {
       currentHandler = nextHandler;
       appRuntime = getCurrentAppRenderRuntime();
-      instance = getCurrentComponentInstance();
+      instance = getCurrentLifecycleInstance();
     },
   };
 }

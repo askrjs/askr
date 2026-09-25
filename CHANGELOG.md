@@ -6,8 +6,16 @@
   cancel pending work when the component that scheduled them unmounts, as
   documented. Calls made from a mounted component's `task()`, `watch()`
   callback, mount/commit operation or event handler bind to that component's
-  lifetime; previously no cleanup was ever registered and timers fired after
-  unmount. The unreachable SSR branches in these helpers are removed.
+  lifetime, including portal content (owned by the writer) and handlers
+  wrapped by `debounceEvent()`, `throttleEvent()`, `rafEvent()` or
+  `scheduleEventHandler()`. A synchronous scheduler flush inside a handler no
+  longer runs unrelated queued work as that handler's component. Previously no
+  cleanup was ever registered and timers fired after unmount. The unreachable
+  SSR branches in these helpers are removed, and `scheduleRetry()` settles
+  when `fn` throws synchronously or returns a non-promise.
+- fix(fx): `throttle(fn, ms, { leading: false })` waits the full interval
+  after an idle gap instead of firing on the next tick, and a throttle without
+  a trailing edge no longer retains the last arguments.
 - fix(fx): `debounceEvent({ leading: true })` and the default
   `throttleEvent()` no longer call the handler twice for a single event. The
   trailing edge only runs when another event arrived after the leading call.

@@ -23,10 +23,12 @@ export {
 export {
   claimHookIndex,
   beginComponentScope,
+  captureLifecycleOwner,
   endComponentScope,
   enterDomCommitScope,
   getCurrentComponentInstance,
   getCurrentAppRenderRuntime,
+  getCurrentLifecycleInstance,
   getCurrentLifecycleOwner,
   getCurrentPortalScope,
   getCurrentStateIndex,

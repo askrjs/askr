@@ -146,6 +146,27 @@ export function withLifecycleOwner<T>(
   }
 }
 
+/**
+ * @internal The component whose lifetime owns listeners and wrappers created
+ * in the current render scope. Portal hosts render content on behalf of the
+ * component that wrote it; each host render records that writer (or clears it
+ * when the writer is no longer live) before returning the content.
+ */
+export function getCurrentLifecycleInstance(): ComponentInstance | null {
+  return currentInstance?._portalErrorParent || currentInstance;
+}
+
+/**
+ * @internal Capture ownership for a wrapper created now whose callback runs
+ * later. The returned resolver prefers the lifetime dispatching the call and
+ * falls back to the component (or committed work) that created the wrapper.
+ */
+export function captureLifecycleOwner(): () => OwnershipRecord | null {
+  const instance = getCurrentLifecycleInstance();
+  const owner = currentLifecycleOwner;
+  return () => currentLifecycleOwner ?? instance?.owner ?? owner;
+}
+
 /** @internal The component lifetime running the current committed work, if any. */
 export function getCurrentLifecycleOwner(): OwnershipRecord | null {
   return currentLifecycleOwner;

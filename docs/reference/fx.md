@@ -41,9 +41,17 @@ unmounts.
 `scheduleTimeout`, `scheduleIdle`, and `scheduleRetry` throw when called during
 render. Call them from a mounted component's `task()`, `watch()` callback, or
 event handler: the pending work is then cancelled automatically when that
-component unmounts. Only the synchronous part of the task or callback is
-tracked, so work scheduled after an `await`, or outside any component, must be
-cancelled manually with the returned `cancel`.
+component unmounts. Handlers inside a portal belong to the component that
+wrote the portal content. Handlers wrapped by `debounceEvent`, `throttleEvent`,
+`rafEvent`, or `scheduleEventHandler` keep the owner of the event (or of the
+component that created the wrapper) when they run later. Only the synchronous
+part of the task or callback is tracked, so work scheduled after an `await`, or
+outside any component, must be cancelled manually with the returned `cancel`.
+`scheduleRetry` stops without retrying when `fn` throws synchronously or does
+not return a promise.
+
+`throttle(fn, ms, { leading: false })` waits the full `ms` after an idle gap
+before running the trailing call.
 
 ```tsx
 function Toast() {

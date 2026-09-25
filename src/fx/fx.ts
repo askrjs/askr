@@ -1,9 +1,13 @@
 import { getOwnershipSignal, ownCleanup } from '../runtime/ownership/record';
 import { enqueueRuntimeTask } from '../runtime';
 import {
+  captureLifecycleOwner,
   getCurrentComponentInstance,
   getCurrentLifecycleOwner,
+  withLifecycleOwner,
 } from '../runtime';
+import type { OwnershipRecord } from '../runtime/ownership/record';
+import { isPromiseLike } from '../common/promise';
 import { logger } from '../common/logger';
 import { noopEventListener, noopEventListenerWithFlush } from './noop';
 import { createDebouncer, createThrottler } from './timing';
@@ -66,9 +70,24 @@ function cancelWithLifecycleOwner(cancel: () => void): () => void {
   return () => signal.removeEventListener('abort', cancel);
 }
 
+/** Run a wrapped handler later as the lifetime that received its event. */
+function enqueueOwnedHandler(
+  handler: EventListener,
+  event: Event,
+  owner: OwnershipRecord | null
+): void {
+  enqueueUserCallback(() =>
+    withLifecycleOwner(owner, () => handler.call(null, event))
+  );
+}
+
 function enqueueEventHandler(handler: EventListener): EventInvoke {
-  return (_thisArg, [event]) => {
-    enqueueUserCallback(() => handler.call(null, event as Event));
+  return (_thisArg, [event, owner]) => {
+    enqueueOwnedHandler(
+      handler,
+      event as Event,
+      owner as OwnershipRecord | null
+    );
   };
 }
 
@@ -86,12 +105,13 @@ export function debounceEvent(
     return noopEventListenerWithFlush;
   }
 
+  const resolveOwner = captureLifecycleOwner();
   const debouncer = createDebouncer(enqueueEventHandler(handler), ms, options);
 
   const debounced = function (this: unknown, ev: Event) {
     // Disallow using returned handler during render
     throwIfDuringRender();
-    debouncer.call(null, [ev]);
+    debouncer.call(null, [ev, resolveOwner()]);
   } as EventListener & { cancel(): void; flush(): void };
 
   debounced.cancel = debouncer.cancel;
@@ -118,11 +138,12 @@ export function throttleEvent(
     return noopEventListener;
   }
 
+  const resolveOwner = captureLifecycleOwner();
   const throttler = createThrottler(enqueueEventHandler(handler), ms, options);
 
   const throttled = function (this: unknown, ev: Event) {
     throwIfDuringRender();
-    throttler.call(null, [ev]);
+    throttler.call(null, [ev, resolveOwner()]);
   } as EventListener & { cancel(): void };
 
   throttled.cancel = throttler.cancel;
@@ -143,8 +164,10 @@ export function rafEvent(
     return noopEventListener;
   }
 
+  const resolveOwner = captureLifecycleOwner();
   let frameId: RafHandle = null;
   let lastEvent: Event | null = null;
+  let lastOwner: OwnershipRecord | null = null;
 
   const scheduleFrame = () => {
     const rAF =
@@ -156,8 +179,10 @@ export function rafEvent(
       frameId = null;
       if (lastEvent) {
         const ev = lastEvent;
+        const owner = lastOwner;
         lastEvent = null;
-        enqueueUserCallback(() => handler.call(null, ev));
+        lastOwner = null;
+        enqueueOwnedHandler(handler, ev, owner);
       }
     });
   };
@@ -165,6 +190,7 @@ export function rafEvent(
   const fn = function (this: unknown, ev: Event) {
     throwIfDuringRender();
     lastEvent = ev;
+    lastOwner = resolveOwner();
     if (frameId === null) scheduleFrame();
   } as EventListener & { cancel(): void };
 
@@ -183,6 +209,7 @@ export function rafEvent(
       frameId = null;
     }
     lastEvent = null;
+    lastOwner = null;
   };
 
   if (inst) ownCleanup(inst.owner, () => fn.cancel());
@@ -309,20 +336,32 @@ export function scheduleRetry<T>(
     // Run user fn inside scheduler
     enqueueRuntimeTask(() => {
       if (cancelled) return;
-      // Call fn (it may be async)
-      const p = fn();
-      p.then(settle, () => {
-        if (cancelled) return;
-        if (index + 1 < maxAttempts) {
-          retryId = setTimeout(() => {
-            attempt(index + 1);
-          }, backoff(index));
-        } else {
-          settle();
-        }
-      }).catch((e) => {
+      let p: Promise<T>;
+      try {
+        p = fn();
+      } catch (e) {
+        settle();
         logger.error('[Askr] scheduleRetry error:', e);
-      });
+        return;
+      }
+      if (!isPromiseLike(p)) {
+        settle();
+        return;
+      }
+      Promise.resolve(p)
+        .then(settle, () => {
+          if (cancelled) return;
+          if (index + 1 < maxAttempts) {
+            retryId = setTimeout(() => {
+              attempt(index + 1);
+            }, backoff(index));
+          } else {
+            settle();
+          }
+        })
+        .catch((e) => {
+          logger.error('[Askr] scheduleRetry error:', e);
+        });
     });
   };
 

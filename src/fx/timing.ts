@@ -141,14 +141,16 @@ export function createThrottler(
         return;
       }
 
+      if (!trailing) return;
       lastArgs = args;
       lastThis = thisArg;
 
-      if (!leading && lastCallTime === null) {
+      // Without a leading edge, a call after an idle gap opens a full window.
+      if (!leading && timeSinceLastCall >= ms) {
         lastCallTime = callTime;
       }
 
-      if (trailing && timeoutId === null) {
+      if (timeoutId === null) {
         timeoutId = setTimeout(
           () => {
             timeoutId = null;
@@ -159,9 +161,8 @@ export function createThrottler(
             lastThis = null;
             invoke(pendingThis, pendingArgs!);
           },
-          lastCallTime === null
-            ? ms
-            : Math.max(0, ms - (callTime - lastCallTime))
+          // Reaching here means a window is open, so lastCallTime is set.
+          Math.max(0, ms - (callTime - lastCallTime!))
         );
       }
     },

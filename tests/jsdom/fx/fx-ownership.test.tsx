@@ -7,15 +7,23 @@ import {
   vi,
 } from 'vite-plus/test';
 import { cleanupApp, createIsland } from '@askrjs/askr/boot';
-import { state, type State } from '@askrjs/askr';
+import { Show, state, type State } from '@askrjs/askr';
 import { task, watch } from '@askrjs/askr/resources';
 import {
   debounceEvent,
+  rafEvent,
+  scheduleEventHandler,
   scheduleIdle,
   scheduleRetry,
   scheduleTimeout,
+  throttle,
   throttleEvent,
 } from '@askrjs/askr/fx';
+import { definePortal } from '../../../src/foundations/structures/portal';
+import {
+  enqueueRuntimeTask,
+  flushRuntimeScheduler,
+} from '../../../src/runtime';
 import {
   createTestContainer,
   flushScheduler,
@@ -27,6 +35,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 function settle(ms: number): void {
@@ -181,6 +190,182 @@ describe('fx scheduled work ownership', () => {
     cleanupApp(container);
     cleanup();
   });
+  it('should cancel scheduleTimeout from a portal handler when the writer unmounts', () => {
+    const { container, cleanup } = createTestContainer();
+    const fired = vi.fn();
+    const Overlay = definePortal();
+    let show!: State<boolean>;
+
+    function Writer() {
+      return Overlay.render({
+        children: (
+          <button
+            id="portal-button"
+            onClick={() => scheduleTimeout(100, fired)}
+          >
+            {'go'}
+          </button>
+        ),
+      });
+    }
+
+    createIsland({
+      root: container,
+      component: () => {
+        show = state(true);
+        return (
+          <div>
+            <Overlay />
+            <Show when={() => show()}>
+              <Writer />
+            </Show>
+          </div>
+        );
+      },
+    });
+    flushScheduler();
+    (container.querySelector('#portal-button') as HTMLElement).click();
+    flushScheduler();
+
+    show.set(false);
+    flushScheduler();
+    settle(200);
+
+    expect(fired).not.toHaveBeenCalled();
+    cleanupApp(container);
+    cleanup();
+  });
+
+  it('should not attribute unrelated queued work to a handler that flushes synchronously', () => {
+    const { container, cleanup } = createTestContainer();
+    const fired = vi.fn();
+
+    createIsland({
+      root: container,
+      component: () => (
+        <button onClick={() => flushRuntimeScheduler()}>{'go'}</button>
+      ),
+    });
+    flushScheduler();
+
+    // Queued by unrelated code before the click; it must not become owned
+    // by the clicked component when the handler flushes the scheduler.
+    enqueueRuntimeTask(() => {
+      scheduleTimeout(100, fired);
+    });
+    container.querySelector('button')!.click();
+    cleanupApp(container);
+    settle(200);
+
+    expect(fired).toHaveBeenCalledTimes(1);
+    cleanup();
+  });
+
+  it.each([
+    [
+      'throws synchronously',
+      (): Promise<void> => {
+        throw new Error('sync');
+      },
+    ],
+    [
+      'returns a non-promise',
+      (() => undefined) as unknown as () => Promise<void>,
+    ],
+  ])(
+    'should release the scheduleRetry owner listener when fn %s',
+    (_label, fn) => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      const add = vi.spyOn(AbortSignal.prototype, 'addEventListener');
+      const remove = vi.spyOn(AbortSignal.prototype, 'removeEventListener');
+      const attempt = vi.fn(fn);
+      const { container, cleanup } = createTestContainer();
+
+      createIsland({
+        root: container,
+        component: () => (
+          <button onClick={() => scheduleRetry(attempt, { maxAttempts: 3 })}>
+            {'go'}
+          </button>
+        ),
+      });
+      flushScheduler();
+      add.mockClear();
+      remove.mockClear();
+
+      container.querySelector('button')!.click();
+      settle(1000);
+
+      expect(attempt).toHaveBeenCalledTimes(1);
+      expect(add).toHaveBeenCalledTimes(1);
+      expect(remove).toHaveBeenCalledTimes(1);
+      cleanupApp(container);
+      cleanup();
+    }
+  );
+
+  it.each([
+    ['debounceEvent', (h: EventListener) => debounceEvent(10, h)],
+    ['throttleEvent', (h: EventListener) => throttleEvent(10, h)],
+    ['rafEvent', (h: EventListener) => rafEvent(h)],
+    ['scheduleEventHandler', (h: EventListener) => scheduleEventHandler(h)],
+  ] as const)(
+    'should own scheduleTimeout called from a %s-wrapped handler',
+    (_label, wrap) => {
+      const { container, cleanup } = createTestContainer();
+      const fired = vi.fn();
+
+      createIsland({
+        root: container,
+        component: () => {
+          const handler = wrap(() => {
+            scheduleTimeout(100, fired);
+          });
+          return <button onClick={handler}>{'go'}</button>;
+        },
+      });
+      flushScheduler();
+      container.querySelector('button')!.click();
+      settle(20);
+
+      cleanupApp(container);
+      settle(200);
+
+      expect(fired).not.toHaveBeenCalled();
+      cleanup();
+    }
+  );
+
+  it('should own scheduleTimeout from a handler wrapped in a task and attached natively', () => {
+    const { container, cleanup } = createTestContainer();
+    const fired = vi.fn();
+
+    createIsland({
+      root: container,
+      component: () => {
+        task(() => {
+          const listener = scheduleEventHandler(() => {
+            scheduleTimeout(100, fired);
+          });
+          container.addEventListener('custom', listener);
+          return () => container.removeEventListener('custom', listener);
+        });
+        return <div>{'mounted'}</div>;
+      },
+    });
+    flushScheduler();
+    const listener = vi.fn();
+    container.addEventListener('custom', listener);
+    container.dispatchEvent(new Event('custom'));
+    flushScheduler();
+
+    cleanupApp(container);
+    settle(200);
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(fired).not.toHaveBeenCalled();
+    cleanup();
+  });
 });
 
 describe('fx event helper edges', () => {
@@ -242,5 +427,21 @@ describe('fx event helper edges', () => {
     flushScheduler();
 
     expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it('should wait a full interval after an idle gap when throttle has no leading edge', () => {
+    const handler = vi.fn();
+    const throttled = throttle(handler, 100, { leading: false });
+
+    throttled('first');
+    vi.advanceTimersByTime(100);
+    expect(handler).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(500);
+    throttled('second');
+    vi.advanceTimersByTime(50);
+    expect(handler).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(50);
+    expect(handler).toHaveBeenLastCalledWith('second');
   });
 });
