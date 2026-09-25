@@ -127,6 +127,12 @@ describe('SSG hydration bundle', () => {
     // 264 KiB: #507 and #529 each fit 263 KiB alone but not together (the
     // production update-loop guard plus the derived-write guard; measured
     // 269,744 bytes on main after both merged).
+    // 265 KiB: #443 rolls fine-grained bindings back with a failed render and
+    // re-schedules their pending re-runs, so a failed render never leaves a
+    // binding stale (~1.4 KB; measured 270,755 bytes against 269,380 on main).
+    // Still within 264 KiB after For key and Case child validation started
+    // shipping in production and control boundaries began recording an output
+    // owner for ErrorBoundary routing (#441/#446, measured 269,556 bytes).
     // 265 KiB: client navigation tracks history entry indexes so a failed
     // back/forward returns to the rendered entry, and hands URLs no route can
     // render to the browser (~1.1 KB, #453-#455; measured 270,803 bytes).
@@ -135,7 +141,13 @@ describe('SSG hydration bundle', () => {
     // removed properties, the URL/raw-HTML guards and rollback snapshots add
     // ~2.4 KB (measured 273,240 bytes). Without it those props cannot reach
     // the element at all.
-    // #517 (function children rendered the same on client and server): TBD.
-    expect(initialBytes).toBeLessThanOrEqual(267 * 1024);
+    // 273 KiB: function children render the same on the client as on the
+    // server in every position (#517): the one-level readable unwrap,
+    // FunctionChild components for fragment/array items and ErrorBoundary and
+    // Portal children, the on-demand upgrade of element function children to
+    // FunctionChild when a run needs a component, context frames for function
+    // children, binding setup for hydrated elements and error routing. About
+    // 4.1 KB (measured 279,083 bytes against 274,990 on main).
+    expect(initialBytes).toBeLessThanOrEqual(273 * 1024);
   });
 });

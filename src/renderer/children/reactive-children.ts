@@ -23,8 +23,11 @@ import {
 import { incDevCounter } from '../../runtime';
 import {
   createFineGrainedEffect,
+  restoreFineGrainedEffect,
+  saveFineGrainedEffect,
   type FineGrainedEffectHandle,
 } from '../../runtime';
+import { captureBindingRollback } from '../props/reactive-bindings';
 import {
   elementReactivePropsCleanup,
   getElementReactivePropsCleanupMap,
@@ -63,6 +66,25 @@ import {
 export type { ReactiveChildDOMHost } from './reactive-child-dom';
 
 let reactiveChildScopeId = 0;
+
+interface ScalarChildBinding {
+  source: ReactiveScalarChildSource;
+  effect: FineGrainedEffectHandle<unknown> | null;
+}
+
+function saveScalarChildBinding(
+  binding: ScalarChildBinding,
+  entries: unknown[]
+): void {
+  entries.push(binding, binding.source);
+  saveFineGrainedEffect(entries, binding.effect!);
+}
+
+function restoreScalarChildBinding(entries: unknown[], index: number): void {
+  const binding = entries[index] as ScalarChildBinding;
+  binding.source = entries[index + 1] as ReactiveScalarChildSource;
+  restoreFineGrainedEffect(entries, index + 2);
+}
 
 function getOrCreateElementReactiveCleanupMap(
   el: Element
@@ -183,7 +205,7 @@ function scalarSourceChildren(source: ReactiveScalarChildSource): unknown[] {
   );
 }
 
-type ScalarChildBinding = {
+type ScalarChildSetup = {
   owner: ComponentInstance | null;
   /** The first run, during setup, needed a component; nothing was bound. */
   needsComponent: boolean;
@@ -210,8 +232,9 @@ function setupReactiveScalarChild(
   el: Element,
   source: ReactiveScalarChildSource,
   host: ReactiveChildDOMHost
-): ScalarChildBinding {
+): ScalarChildSetup {
   let currentSource = source;
+  let upgradeSource = () => currentSource;
   const routeReactiveChildError = createReactiveChildErrorRouter();
   const owner = getCurrentComponentInstance();
   // Set when the first run, which happens during setup, needs a component.
@@ -222,7 +245,7 @@ function setupReactiveScalarChild(
     else
       upgradeFunctionChildren(
         el,
-        scalarSourceChildren(currentSource),
+        scalarSourceChildren(upgradeSource()),
         host,
         owner
       );
@@ -233,88 +256,93 @@ function setupReactiveScalarChild(
       el.childNodes.length === 1 && el.firstChild?.nodeType === Node.TEXT_NODE
         ? (el.firstChild as Text)
         : null;
+    const binding: ScalarChildBinding = { source, effect: null };
+    upgradeSource = () => binding.source;
 
-    let effectHandle: FineGrainedEffectHandle<unknown> | null =
-      createFineGrainedEffect({
-        lane: 'reactive',
-        compute: () => {
-          const currentSlot = currentSource[0];
-          if (!currentSlot || currentSlot.kind !== 'dynamic') {
-            throw new Error(
-              '[Askr] Direct reactive text bindings require a single dynamic slot.'
-            );
-          }
-
-          const rawValue = readFunctionChildWithoutComponent(
-            currentSlot.compute
+    binding.effect = createFineGrainedEffect({
+      lane: 'reactive',
+      compute: () => {
+        const currentSlot = binding.source[0];
+        if (!currentSlot || currentSlot.kind !== 'dynamic') {
+          throw new Error(
+            '[Askr] Direct reactive text bindings require a single dynamic slot.'
           );
-          if (rawValue === FUNCTION_CHILD_NEEDS_COMPONENT) return rawValue;
-          const normalized = normalizeOwnedReactiveTextValue(rawValue);
-          return normalized ?? (rawValue as string);
-        },
-        commit: (value) => {
-          if (value === FUNCTION_CHILD_NEEDS_COMPONENT) {
-            needsComponent();
-            return;
-          }
-          const normalized = normalizeOwnedReactiveTextValue(value);
+        }
 
-          if (normalized === null) {
-            ownedTextNode = null;
-            host.updateElementChildren(
-              el,
-              value as unknown as VNode | VNode[] | undefined
-            );
-            return;
-          }
+        const rawValue = readFunctionChildWithoutComponent(currentSlot.compute);
+        if (rawValue === FUNCTION_CHILD_NEEDS_COMPONENT) return rawValue;
+        const normalized = normalizeOwnedReactiveTextValue(rawValue);
+        return normalized ?? (rawValue as string);
+      },
+      commit: (value) => {
+        if (value === FUNCTION_CHILD_NEEDS_COMPONENT) {
+          needsComponent();
+          return;
+        }
+        const normalized = normalizeOwnedReactiveTextValue(value);
 
-          if (!ownedTextNode && el.childNodes.length === 0) {
-            ownedTextNode = el.ownerDocument.createTextNode(normalized);
-            el.appendChild(ownedTextNode);
-            return;
-          }
+        if (normalized === null) {
+          ownedTextNode = null;
+          host.updateElementChildren(
+            el,
+            value as unknown as VNode | VNode[] | undefined
+          );
+          return;
+        }
 
-          if (
-            !ownedTextNode ||
-            el.childNodes.length !== 1 ||
-            el.firstChild !== ownedTextNode
-          ) {
-            host.updateElementChildren(el, normalized);
-            ownedTextNode =
-              el.childNodes.length === 1 &&
-              el.firstChild?.nodeType === Node.TEXT_NODE
-                ? (el.firstChild as Text)
-                : null;
-          }
+        if (!ownedTextNode && el.childNodes.length === 0) {
+          ownedTextNode = el.ownerDocument.createTextNode(normalized);
+          el.appendChild(ownedTextNode);
+          return;
+        }
 
-          if (!ownedTextNode) {
-            return;
-          }
+        if (
+          !ownedTextNode ||
+          el.childNodes.length !== 1 ||
+          el.firstChild !== ownedTextNode
+        ) {
+          host.updateElementChildren(el, normalized);
+          ownedTextNode =
+            el.childNodes.length === 1 &&
+            el.firstChild?.nodeType === Node.TEXT_NODE
+              ? (el.firstChild as Text)
+              : null;
+        }
 
-          if (ownedTextNode.data !== normalized) {
-            ownedTextNode.data = normalized;
-            incDevCounter('textNodeWrites');
-          }
-        },
-        onError: routeReactiveChildError,
-      });
+        if (!ownedTextNode) {
+          return;
+        }
+
+        if (ownedTextNode.data !== normalized) {
+          ownedTextNode.data = normalized;
+          incDevCounter('textNodeWrites');
+        }
+      },
+      onError: routeReactiveChildError,
+    });
 
     settingUp = false;
     return {
       owner,
       needsComponent: upgradeDuringSetup,
       cleanup: () => {
-        effectHandle?.cleanup();
-        effectHandle = null;
+        binding.effect?.cleanup();
+        binding.effect = null;
       },
       updateFn: (nextSource: ReactiveScalarChildSource) => {
+        const effectHandle = binding.effect;
         if (!effectHandle) {
           return;
         }
 
-        currentSource = nextSource;
+        captureBindingRollback(
+          binding,
+          saveScalarChildBinding,
+          restoreScalarChildBinding
+        );
+        binding.source = nextSource;
         effectHandle.updateCompute(() => {
-          const currentSlot = currentSource[0];
+          const currentSlot = binding.source[0];
           if (!currentSlot || currentSlot.kind !== 'dynamic') {
             throw new Error(
               '[Askr] Direct reactive text bindings require a single dynamic slot.'
