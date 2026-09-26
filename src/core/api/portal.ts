@@ -33,6 +33,8 @@ export interface PortalChannel {
   readonly write: Signal<Write | null>;
   /** Explicit hosts currently mounted (the automatic host yields to them). */
   readonly explicitHosts: Signal<number>;
+  /** A committed explicit host keeps the automatic host suppressed. */
+  explicitHostCommitted: boolean;
 }
 
 let nextWriteId = 0;
@@ -41,6 +43,7 @@ export function createPortalChannel(): PortalChannel {
   return {
     write: new Signal<Write | null>(null),
     explicitHosts: new Signal(0),
+    explicitHostCommitted: false,
   };
 }
 
@@ -201,7 +204,8 @@ export function DefaultPortal(props?: {
   const channel = defaultChannel();
   if (automatic) {
     // The automatic host renders only while no explicit host is mounted.
-    if (channel.explicitHosts.read() > 0) return null;
+    if (channel.explicitHosts.read() > 0 || channel.explicitHostCommitted)
+      return null;
     return renderWrite(channel.write.read());
   }
   const instance = currentComponent();
@@ -212,8 +216,11 @@ export function DefaultPortal(props?: {
       explicitHosts.delete(instance);
       channel.explicitHosts.write(channel.explicitHosts.peek() - 1);
     });
-    onCommit(instance, () => () => {
-      channel.explicitHosts.write(channel.explicitHosts.peek() - 1);
+    onCommit(instance, () => {
+      channel.explicitHostCommitted = true;
+      return () => {
+        channel.explicitHosts.write(channel.explicitHosts.peek() - 1);
+      };
     });
   }
   return renderWrite(channel.write.read());
