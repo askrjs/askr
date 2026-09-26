@@ -12,7 +12,9 @@ function Guard({ value, ok }: { value: number; ok: boolean }) {
 }
 
 function items(count: number) {
-  return Array.from({ length: count }, (_, index) => <li>{index}</li>);
+  return Array.from({ length: count }, (_, index) => (
+    <li key={index}>{index}</li>
+  ));
 }
 
 function itemCount(container: HTMLElement): number {

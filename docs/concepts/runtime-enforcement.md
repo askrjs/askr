@@ -5,8 +5,8 @@ Askr checks your component structure as it runs.
 ## Render diagnostics
 
 Development builds warn once per component instance when a render takes more
-than 5 ms. Test environments can raise that threshold or suppress warning
-output without disabling render timing or component counters:
+than 5 ms. Test environments can raise that threshold or turn the warnings
+off:
 
 ```ts
 import { configureRenderDiagnostics } from '@askrjs/askr';

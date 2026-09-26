@@ -9,7 +9,7 @@
  */
 
 import type { ComponentFunction } from '../../common/component';
-import { isFragmentType } from '../../common/jsx';
+import { STATIC_CHILDREN, isFragmentType } from '../../common/jsx';
 import type { Props } from '../../common/props';
 
 export const ELEMENT = 0;
@@ -86,7 +86,14 @@ function isHostNode(value: object): boolean {
 /** A function child's result treats nested functions as values. */
 export function functionChildOutput(value: unknown): unknown {
   if (typeof value === 'function') return null;
-  if (Array.isArray(value)) return value.map(functionChildOutput);
+  if (Array.isArray(value)) {
+    const mapped = value.map(functionChildOutput);
+    // Keep the static-children mark so a JSX child list stays one.
+    if ((value as { [STATIC_CHILDREN]?: boolean })[STATIC_CHILDREN]) {
+      Object.defineProperty(mapped, STATIC_CHILDREN, { value: true });
+    }
+    return mapped;
+  }
   if (value && typeof value === 'object') {
     const vnode = value as ElementLike;
     if (isFragmentType(vnode.type)) {

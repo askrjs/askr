@@ -480,7 +480,8 @@ function createDynamic(
     withOwner(ctx, node.instance),
     node,
     readDynamic(node),
-    true
+    true,
+    false
   );
   ctx.pass.markRendered(node.instance);
   return node;
@@ -518,6 +519,7 @@ export function updateDynamic(ctx: RenderContext, node: DynamicNode): void {
       withOwner(ctx, node.instance),
       node,
       readDynamic(node, ctx.pass),
+      false,
       false
     );
     ctx.pass.markRendered(node.instance);

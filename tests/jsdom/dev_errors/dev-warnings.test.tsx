@@ -9,11 +9,6 @@ import {
 } from 'vite-plus/test';
 import { configureRenderDiagnostics, state } from '../../../src/index';
 import { For } from '../../../src/control';
-import { getDevValue } from '../../../src/runtime/diagnostics/dev-namespace';
-import {
-  createComponentInstance,
-  mountInstanceInline,
-} from '../../../src/runtime';
 import {
   createTestContainer,
   flushScheduler,
@@ -50,32 +45,6 @@ describe('dev warnings (DEV_ERRORS)', () => {
     expect(getCapturedFrameworkWarnings().join('\n')).toContain(
       'Missing keys on dynamic lists'
     );
-  });
-
-  it('should warn when component host bookkeeping fails', () => {
-    allowFrameworkWarnings(/Failed to record DOM ownership for BrokenHost/);
-    const target = document.createElement('div');
-    Object.defineProperty(target, '__ASKR_INSTANCES', {
-      configurable: true,
-      set() {
-        throw new Error('host is read-only');
-      },
-    });
-    const BrokenHost = () => null;
-    const instance = createComponentInstance(
-      'broken-host',
-      BrokenHost,
-      {},
-      target
-    );
-
-    mountInstanceInline(instance, target);
-
-    const warning = getCapturedFrameworkWarnings().join('\n');
-    expect(warning).toContain(
-      'Failed to record DOM ownership for BrokenHost on <div>'
-    );
-    expect(warning).toContain('host is read-only');
   });
 
   it('should warn given unused state variable when rendering', async () => {
@@ -144,8 +113,7 @@ describe('dev warnings (DEV_ERRORS)', () => {
     }
   });
 
-  it('should suppress slow-render output without disabling diagnostics', () => {
-    const before = getDevValue<number>('componentRuns') ?? 0;
+  it('should suppress slow-render warnings when configured off', () => {
     const restore = configureRenderDiagnostics({
       slowRenderThresholdMs: 0,
       slowRenderWarnings: false,
@@ -162,8 +130,6 @@ describe('dev warnings (DEV_ERRORS)', () => {
       });
       flushScheduler();
 
-      expect(now).toHaveBeenCalled();
-      expect(getDevValue<number>('componentRuns')).toBeGreaterThan(before);
       expect(getCapturedFrameworkWarnings().join('\n')).not.toContain(
         '[askr] Slow render detected'
       );

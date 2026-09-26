@@ -1,3 +1,4 @@
+import { allowFrameworkWarnings } from '../../setup-env';
 import { routeRegistryFromTable } from '../../router-test-utils';
 import {
   describe,
@@ -534,6 +535,7 @@ describe('hydration (SSR)', () => {
     });
 
     it('should hydrate static keyed rows in place', async () => {
+      allowFrameworkWarnings(/Missing keys on dynamic lists in Component/);
       const rows = [
         { id: 1, label: 'alpha' },
         { id: 2, label: 'beta' },

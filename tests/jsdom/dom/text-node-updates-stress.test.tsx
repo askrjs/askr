@@ -5,8 +5,11 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
+import { allowFrameworkWarnings } from '../../setup-env';
 
 it('should isolate 1000 scalar text bindings from parent rerenders', async () => {
+  // The rows are an unkeyed dynamic list on purpose.
+  allowFrameworkWarnings(/Missing keys on dynamic lists in Component/);
   const { container, cleanup } = createTestContainer();
   let count: ReturnType<typeof state<number>> | null = null;
   let parentRenderCount = 0;

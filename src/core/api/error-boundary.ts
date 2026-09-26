@@ -8,7 +8,7 @@ import type {
   ErrorBoundaryProps,
 } from '../../common/error-boundary';
 import { logger } from '../../common/logger';
-import { ELEMENT_TYPE, Fragment } from '../../common/jsx';
+import { ELEMENT_TYPE, Fragment, STATIC_CHILDREN } from '../../common/jsx';
 import { isDevelopmentEnvironment } from '../../common/env';
 import { requireInstance, type ComponentInstance } from '../component/instance';
 import type { Owner } from '../reactive/owner';
@@ -77,6 +77,10 @@ function element(
   type: string | symbol,
   props: Record<string, unknown>
 ): unknown {
+  // The fallback's child lists are fixed, like static JSX children.
+  if (Array.isArray(props.children)) {
+    Object.defineProperty(props.children, STATIC_CHILDREN, { value: true });
+  }
   return { $$typeof: ELEMENT_TYPE, type, props, key: null };
 }
 

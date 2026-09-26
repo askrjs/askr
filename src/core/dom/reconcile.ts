@@ -11,6 +11,10 @@
  * a node go through the `NodeKinds` in the render context.
  */
 
+import { isProductionEnvironment } from '../../common/env';
+import { STATIC_CHILDREN } from '../../common/jsx';
+import { logger } from '../../common/logger';
+import { ComponentInstance } from '../component/instance';
 import type { Owner } from '../reactive/owner';
 import {
   descriptorType,
@@ -52,6 +56,46 @@ export interface RenderContext {
   readonly hydrate: { cursor: HydrationCursor; container: Node } | null;
 }
 
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
+
+const warnedMissingKeys = new WeakSet<Owner>();
+
+/**
+ * Warn (once per component, in development) about a dynamic array of more
+ * than one element with no keys. Static JSX child lists are marked and only
+ * searched for nested dynamic arrays.
+ */
+function warnMissingKeys(value: unknown, owner: Owner | null): void {
+  if (!Array.isArray(value)) return;
+  if ((value as { [STATIC_CHILDREN]?: boolean })[STATIC_CHILDREN] === true) {
+    for (const item of value) warnMissingKeys(item, owner);
+    return;
+  }
+  let elements = 0;
+  for (const item of value) {
+    if (typeof item !== 'object' || item === null) continue;
+    const vnode = item as { type?: unknown; key?: unknown };
+    if (vnode.type === undefined) continue;
+    if (vnode.key !== undefined && vnode.key !== null) return;
+    elements++;
+  }
+  if (elements < 2) return;
+  let component: Owner | null = owner;
+  while (component && !(component instanceof ComponentInstance)) {
+    component = component.parent;
+  }
+  const key = component ?? warnedMissingKeysAnonymous;
+  if (warnedMissingKeys.has(key)) return;
+  warnedMissingKeys.add(key);
+  const name =
+    (component as ComponentInstance | null)?.displayName || '<anonymous>';
+  logger.warn(
+    `Missing keys on dynamic lists in ${name}. Each child in a list should have a unique "key" prop.`
+  );
+}
+
+const warnedMissingKeysAnonymous = {} as Owner;
+
 export function withOwner(
   ctx: RenderContext,
   owner: Owner | null
@@ -89,8 +133,13 @@ export function reconcileChildren(
   ctx: RenderContext,
   parent: Parent,
   value: unknown,
-  fresh: boolean
+  fresh: boolean,
+  /** A function child's value is structural output, not a list to key. */
+  checkKeys = true
 ): RNode[] {
+  if (checkKeys && __ASKR_DEVELOPMENT_BUILD__ && !isProductionEnvironment()) {
+    warnMissingKeys(value, ctx.owner);
+  }
   const next = normalizeChildren(value);
   if (fresh) {
     const seen = new Set<Key>();
