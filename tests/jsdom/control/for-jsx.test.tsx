@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { resource, task } from '../../../src/resources';
-import { getCurrentComponentInstance } from '../../../src/runtime';
 import { For, Show } from '@askrjs/askr/control';
 import type { JSXElement } from '../../../src/jsx/types';
 import {
@@ -46,22 +45,26 @@ describe('For JSX primitive', () => {
     cleanup();
   });
 
-  it('should register one parent ownership boundary for all keyed rows', () => {
+  it('should dispose every keyed row when its list unmounts', () => {
     const { container, cleanup } = createTestContainer();
-    let appInstance: ReturnType<typeof getCurrentComponentInstance> = null;
+    let cleanups = 0;
 
-    const App = () => {
-      appInstance = getCurrentComponentInstance();
-      return (
-        <For each={Array.from({ length: 1000 }, (_, id) => id)} by={(id) => id}>
-          {(id) => <span>{id}</span>}
-        </For>
-      );
-    };
+    const App = () => (
+      <For each={Array.from({ length: 1000 }, (_, id) => id)} by={(id) => id}>
+        {(id) => {
+          task(() => () => {
+            cleanups += 1;
+          });
+          return <span>{id}</span>;
+        }}
+      </For>
+    );
 
     createIsland({ root: container, component: App });
-    expect(appInstance?._ownedChildScopes?.size).toBe(1);
+    expect(container.querySelectorAll('span')).toHaveLength(1000);
+    expect(cleanups).toBe(0);
     cleanup();
+    expect(cleanups).toBe(1000);
   });
 
   it('should update index accessors after keyed reorder', () => {
