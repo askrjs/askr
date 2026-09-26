@@ -69,8 +69,7 @@ export class ComponentInstance extends Owner {
 
   /** Run the component function. Called only through `computation`. */
   private invoke(): unknown {
-    const previous = currentInstance;
-    currentInstance = this;
+    const previous = enterInstance(this);
     this.hookIndex = 0;
     try {
       const context: ComponentContext = { signal: this.signal };
@@ -81,7 +80,7 @@ export class ComponentInstance extends Owner {
       this.renderCount++;
       return output;
     } finally {
-      currentInstance = previous;
+      enterInstance(previous);
     }
   }
 
@@ -125,6 +124,14 @@ function renderLaneScheduler(instance: ComponentInstance) {
 }
 
 let currentInstance: ComponentInstance | null = null;
+
+function enterInstance(
+  instance: ComponentInstance | null
+): ComponentInstance | null {
+  const previous = currentInstance;
+  currentInstance = instance;
+  return previous;
+}
 
 export function getCurrentInstance(): ComponentInstance | null {
   return currentInstance;

@@ -33,10 +33,8 @@ export class Owner {
   }
 
   lookup(key: unknown): unknown {
-    for (let owner: Owner | null = this; owner; owner = owner.parent) {
-      if (owner.context?.has(key)) return owner.context.get(key);
-    }
-    return undefined;
+    if (this.context?.has(key)) return this.context.get(key);
+    return this.parent?.lookup(key);
   }
 
   /** Detach from the parent without disposing (the caller disposes). */
