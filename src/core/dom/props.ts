@@ -72,24 +72,31 @@ export function applyInitialProps(
 ): void {
   const props = node.props;
   let scalars: Record<string, unknown> | null = null;
-  const handlers: Array<[string, unknown]> = [];
+  const flushScalars = () => {
+    if (!scalars) return;
+    const batch = scalars;
+    scalars = null;
+    if (adopted) {
+      pass.op(() => applyStaticScalarPropsToElement(node.el, batch, node.tag));
+    } else {
+      applyStaticScalarPropsToElement(node.el, batch, node.tag);
+    }
+  };
   for (const key in props) {
     if (isSkippedProp(key)) continue;
     const value = props[key];
     if (parseEventProp(key)) {
-      handlers.push([key, value]);
+      flushScalars();
+      if (adopted) pass.op(() => setHandler(node, key, value));
+      else setHandler(node, key, value);
     } else if (isBinding(key, value)) {
+      flushScalars();
       bind(pass, node, key, value, undefined, !adopted);
     } else if (!followsChildren(node.tag, key)) {
       (scalars ??= {})[key] = value;
     }
   }
-  const apply = () => {
-    for (const [key, value] of handlers) setHandler(node, key, value);
-    if (scalars) applyStaticScalarPropsToElement(node.el, scalars, node.tag);
-  };
-  if (adopted) pass.op(apply);
-  else apply();
+  flushScalars();
 }
 
 /** Write props that must follow the element's children. */
