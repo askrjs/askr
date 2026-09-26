@@ -9,6 +9,8 @@
  */
 
 import { ELEMENT_TYPE, Fragment, type JSXElement } from '../../common/jsx';
+import { isDevelopmentEnvironment } from '../../common/env';
+import { logger } from '../../common/logger';
 import type { Props } from '../../common/props';
 import { recordUndo } from '../component/journal';
 import { isRendering } from '../component/render-state';
@@ -185,6 +187,20 @@ function createRow(index: number, item: unknown): RowRecord {
           },
           set(_target, key, value) {
             const previous = overlay.get(key);
+            if (
+              !previous &&
+              typeof key !== 'symbol' &&
+              isDevelopmentEnvironment() &&
+              key in Object(source.peek())
+            ) {
+              logger.warn(
+                `[Askr] Assigning to "${String(key)}" on a <For> item shadows a ` +
+                  `property from the source data - it will not update when the ` +
+                  `source item changes and does not trigger a re-render. Use a ` +
+                  `different property name for cached/derived per-row values, or ` +
+                  `a state() cell for values that should be reactive.`
+              );
+            }
             const wasDeleted = deleted.delete(key);
             overlay.set(key, {
               value,
