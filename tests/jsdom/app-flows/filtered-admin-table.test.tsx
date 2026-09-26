@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { For } from '../../../src/control';
-import { derive } from '../../../src/runtime/reactivity/derive';
-import { state, type StateSetter } from '../../../src/runtime/reactivity/state';
+import { derive, state, type StateSetter } from '../../../src/index';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
