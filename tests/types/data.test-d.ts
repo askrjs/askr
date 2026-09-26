@@ -303,6 +303,11 @@ if (query.consistency === 'fresh' && !query.loading) {
 
 const mutation = createMutation({
   runtime: dataRuntime,
+  optimistic: (input: { id: string }, { signal }) => {
+    expectType<string>(input.id);
+    expectType<AbortSignal>(signal);
+    return () => {};
+  },
   action: async (input: { id: string }, { signal }) => {
     expectType<AbortSignal>(signal);
     return { length: input.id.length };

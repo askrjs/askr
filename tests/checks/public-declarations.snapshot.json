@@ -563,7 +563,7 @@
         "type Mutation<TInput, TResult> = MutationControls<TInput, TResult> & (MutationIdle | MutationPending | MutationSuccess<TResult> | MutationError);"
       ],
       "MutationOptions": [
-        "type MutationOptions<TInput, TResult> = {\n    key?: string;\n    action: (input: TInput, ctx: {\n        signal: AbortSignal;\n    }) => Promise<TResult>;\n    affects?: (input: TInput, result: TResult) => string[];\n    afterSuccess?: \"invalidate\";\n    runtime?: DataRuntime;\n};"
+        "type MutationOptions<TInput, TResult> = {\n    key?: string;\n    action: (input: TInput, ctx: {\n        signal: AbortSignal;\n    }) => Promise<TResult>;\n    optimistic?: (input: TInput, ctx: {\n        signal: AbortSignal;\n    }) => void | (() => void);\n    affects?: (input: TInput, result: TResult) => string[];\n    afterSuccess?: \"invalidate\";\n    runtime?: DataRuntime;\n};"
       ],
       "prefetchQuery": [
         "declare function prefetchQuery<TInput, TResult extends {}>(context: QueryPrefetchContext, query: QueryDefinition<TInput, TResult>, input: TInput): Promise<boolean>;"
@@ -2064,7 +2064,7 @@
       "type MutationIdle = {\n    status: \"idle\";\n    pending: false;\n    error: null;\n    result: null;\n};"
     ],
     "MutationOptions": [
-      "type MutationOptions<TInput, TResult> = {\n    key?: string;\n    action: (input: TInput, ctx: {\n        signal: AbortSignal;\n    }) => Promise<TResult>;\n    affects?: (input: TInput, result: TResult) => string[];\n    afterSuccess?: \"invalidate\";\n    runtime?: DataRuntime;\n};"
+      "type MutationOptions<TInput, TResult> = {\n    key?: string;\n    action: (input: TInput, ctx: {\n        signal: AbortSignal;\n    }) => Promise<TResult>;\n    optimistic?: (input: TInput, ctx: {\n        signal: AbortSignal;\n    }) => void | (() => void);\n    affects?: (input: TInput, result: TResult) => string[];\n    afterSuccess?: \"invalidate\";\n    runtime?: DataRuntime;\n};"
     ],
     "MutationPending": [
       "type MutationPending = {\n    status: \"pending\";\n    pending: true;\n    error: null;\n    result: null;\n};"

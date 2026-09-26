@@ -545,6 +545,34 @@ if (saveUser.status === 'error') {
 }
 ```
 
+For immediate feedback, `optimistic(input, { signal })` runs before `action`
+and may return a synchronous rollback function. Askr calls that rollback once
+if the write fails or is explicitly aborted; a successful write keeps the
+optimistic change and then applies `afterSuccess` invalidation. For example,
+inside a component with a `state()` value:
+
+```ts
+import { state } from '@askrjs/askr';
+import { createMutation } from '@askrjs/askr/data';
+
+const displayedName = state('Ada');
+const saveName = createMutation({
+  action: (name: string, { signal }) => userService.saveName(name, { signal }),
+  optimistic: (name) => {
+    const previous = displayedName();
+    displayedName.set(name);
+    return () => displayedName.set(previous);
+  },
+});
+```
+
+When writes overlap, each execution owns its rollback. If several writes
+change the same local value, guard the rollback with an application version
+or use separate state per write so an older failure cannot replace a newer
+successful value. Cancellation is best effort for the remote write: if an
+action ignores its aborted signal and later succeeds, its affected queries
+are still invalidated.
+
 Give mutations used in component tests a stable `key`. A runtime-scoped test
 registry can then replace the normal mutation cell without mocking the feature
 module:

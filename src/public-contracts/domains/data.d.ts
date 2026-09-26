@@ -286,6 +286,11 @@ type MutationOptions<TInput, TResult> = {
       signal: AbortSignal;
     }
   ) => Promise<TResult>;
+  /** Apply a synchronous optimistic change. Return a rollback for failure or abort. */
+  optimistic?: (
+    input: TInput,
+    ctx: { signal: AbortSignal }
+  ) => void | (() => void);
   /**
    * Query prefixes to invalidate after success, matched by `:`-delimited
    * segment the same way as {@link invalidate}.

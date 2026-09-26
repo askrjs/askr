@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- feat(data): mutations support a synchronous `optimistic` callback that
+  returns a rollback for failure or abort. Overlapping executions no longer
+  abort earlier writes by default; explicit abort cancels all pending writes.
+
 - fix(data): ownerless client queries now evict their cache lookup entry after
   `gcTime` (five minutes by default, or immediately with `gcTime: 0`) while
   the returned handle remains usable.

@@ -20,10 +20,12 @@ export class MutationCell<TInput, TResult> {
   private readonly source = createReadableSource();
   private readonly runtimeState: DataRuntimeState;
   private action: MutationOptions<TInput, TResult>['action'];
+  private optimistic?: MutationOptions<TInput, TResult>['optimistic'];
   private affects?: MutationOptions<TInput, TResult>['affects'];
   private afterSuccess?: MutationOptions<TInput, TResult>['afterSuccess'];
   private controller: AbortController | null = null;
   private readonly activeControllers = new Set<AbortController>();
+  private readonly rollbacks = new Map<AbortController, () => void>();
   private generation = 0;
 
   private state: MutationRecord<TResult> = {
@@ -38,12 +40,14 @@ export class MutationCell<TInput, TResult> {
   ) {
     this.runtimeState = runtimeState;
     this.action = options.action;
+    this.optimistic = options.optimistic;
     this.affects = options.affects;
     this.afterSuccess = options.afterSuccess;
   }
 
   setOptions(options: MutationOptions<TInput, TResult>): void {
     this.action = options.action;
+    this.optimistic = options.optimistic;
     this.affects = options.affects;
     this.afterSuccess = options.afterSuccess;
   }
@@ -80,6 +84,7 @@ export class MutationCell<TInput, TResult> {
     // A render may replace these callbacks while this execution is pending.
     // The operation must retain the definition it started with.
     const action = this.action;
+    const optimistic = this.optimistic;
     const affects = this.affects;
     const afterSuccess = this.afterSuccess;
     this.generation += 1;
@@ -93,8 +98,20 @@ export class MutationCell<TInput, TResult> {
 
     let result: TResult;
     try {
+      const rollback = optimistic?.(input, { signal: controller.signal });
+      if (rollback) this.rollbacks.set(controller, rollback);
       result = await action(input, { signal: controller.signal });
-    } catch (error) {
+      this.rollbacks.delete(controller);
+    } catch (cause) {
+      let error = cause;
+      try {
+        this.rollbackOptimistic(controller);
+      } catch (rollbackError) {
+        error = new AggregateError(
+          [cause, rollbackError],
+          'Mutation failed and its optimistic rollback failed'
+        );
+      }
       if (
         !isCurrentAsyncOperation(
           this.generation,
@@ -118,6 +135,7 @@ export class MutationCell<TInput, TResult> {
       throw error;
     } finally {
       this.activeControllers.delete(controller);
+      this.rollbacks.delete(controller);
     }
 
     const isCurrent = isCurrentAsyncOperation(
@@ -150,22 +168,41 @@ export class MutationCell<TInput, TResult> {
     }
 
     this.generation += 1;
-    const controllers = [...this.activeControllers];
-    this.activeControllers.clear();
     this.controller = null;
     if (this.state.status === 'pending') {
       this.setState({ status: 'idle', error: null, result: null });
     }
-    for (const controller of controllers) controller.abort();
+    this.cancelActive();
   }
 
   reset(): void {
     this.generation += 1;
-    const controllers = [...this.activeControllers];
-    this.activeControllers.clear();
     this.controller = null;
     this.setState({ status: 'idle', error: null, result: null });
-    for (const controller of controllers) controller.abort();
+    this.cancelActive();
+  }
+
+  private rollbackOptimistic(controller: AbortController): void {
+    const rollback = this.rollbacks.get(controller);
+    this.rollbacks.delete(controller);
+    rollback?.();
+  }
+
+  private cancelActive(): void {
+    const controllers = [...this.activeControllers];
+    this.activeControllers.clear();
+    const errors: unknown[] = [];
+    for (const controller of controllers) {
+      try {
+        this.rollbackOptimistic(controller);
+      } catch (error) {
+        errors.push(error);
+      }
+      controller.abort();
+    }
+    if (errors.length > 0) {
+      throw new AggregateError(errors, 'Optimistic mutation rollback failed');
+    }
   }
 }
 
