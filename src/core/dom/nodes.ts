@@ -141,7 +141,7 @@ function createHost(
   if (adopted) {
     ctx.pass.op(() => removeUnrenderedAttributes(adopted, props));
   }
-  if (ownsChildren(props)) {
+  if (props.dangerouslySetInnerHTML === undefined) {
     node.children = reconcileChildren(
       {
         ...ctx,
@@ -178,6 +178,15 @@ function patchHost(ctx: RenderContext, node: HostNode, props: Props): void {
       props.children,
       false
     );
+    if (
+      props.children === undefined ||
+      props.children === null ||
+      props.children === false
+    ) {
+      ctx.pass.op(() => {
+        if (node.el.firstChild) node.el.replaceChildren();
+      });
+    }
   }
   ctx.pass.op(() => {
     node.props = props;

@@ -162,6 +162,7 @@ ownership remains balanced when the row is later replaced or removed.
 Use `imperativeChildren` when a third-party widget owns all descendants of an
 intrinsic host. Askr will keep updating the host's attributes, event handlers,
 and ref, but it will not reconcile or detach the widget-owned DOM after mount.
+JSX children, if supplied, are rendered on the first mount only.
 
 ```tsx
 function EmbeddedWidget() {
@@ -171,7 +172,8 @@ function EmbeddedWidget() {
 
 The marker is renderer-only and is not emitted as an HTML attribute. Leave it
 off for normal declarative elements so removing JSX children continues to clear
-their DOM and lifecycle ownership normally.
+their DOM and lifecycle ownership normally. A managed host with no declared
+children also clears descendants inserted by other code on its next update.
 
 ### Attributes written by other code
 
