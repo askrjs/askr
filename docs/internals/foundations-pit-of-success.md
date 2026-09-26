@@ -219,8 +219,8 @@ function Menu() {
 import {
   applyInteractionPolicy,
   dismissable,
-  mergeProps,
 } from '@askrjs/askr/foundations/interactions';
+import { mergeProps } from '@askrjs/askr/foundations/utilities';
 
 function DialogButton({ onPress, onClose, disabled }) {
   const interaction = applyInteractionPolicy({
