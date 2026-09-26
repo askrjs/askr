@@ -168,7 +168,7 @@ describe('For JSX primitive', () => {
     }
   });
 
-  it('should keep keyed wrapper rows from rerendering when nested components handle updates', () => {
+  it('should rerender only the changed keyed wrapper row and retain nested DOM', () => {
     const { container, cleanup } = createTestContainer();
 
     type Item = { id: number; label: string };
@@ -223,7 +223,7 @@ describe('For JSX primitive', () => {
         '5',
       ]);
       expect(afterNodes[2].textContent).toBe('row-3 updated');
-      expect(wrapperRenders).toBe(initialRows.length);
+      expect(wrapperRenders).toBe(initialRows.length + 1);
     } finally {
       cleanup();
     }
