@@ -57,7 +57,6 @@ export class Scheduler {
   private readonly scopes = new SchedulerScopes();
   private running = false;
   private depth = 0;
-  private executionDepth = 0; // for compat with existing diagnostics
 
   // Monotonic flush version increments at end of each flush
   private flushVersion = 0;
@@ -263,7 +262,6 @@ export class Scheduler {
             }
 
             try {
-              this.executionDepth++;
               task();
             } catch (err) {
               failures.push(err);
@@ -272,7 +270,6 @@ export class Scheduler {
               // accounting balanced and continue draining siblings so a
               // single user callback cannot strand pending updates or flush
               // waiters.
-              if (this.executionDepth > 0) this.executionDepth--;
               executedTaskCount++;
               executedInLane++;
               didRunTask = true;
@@ -291,7 +288,6 @@ export class Scheduler {
     } finally {
       this.running = false;
       this.depth = 0;
-      this.executionDepth = 0;
 
       for (const lane of SCHEDULER_LANES) {
         const queue = this.lanes[lane];
@@ -393,7 +389,6 @@ export class Scheduler {
       queueLength: this.getPendingTaskCount(),
       running: this.running,
       depth: this.depth,
-      executionDepth: this.executionDepth,
       taskCount: this.taskCount,
       flushVersion: this.flushVersion,
       laneQueues: {
@@ -449,7 +444,7 @@ export class Scheduler {
   }
 
   isExecuting(): boolean {
-    return this.running || this.executionDepth > 0;
+    return this.running;
   }
 
   // Clear pending synchronous tasks (used by fastlane enter/exit)

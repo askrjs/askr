@@ -523,7 +523,6 @@ describe('scheduler invariants', () => {
     expect(getSchedulerState()).toMatchObject({
       queueLength: 0,
       running: false,
-      executionDepth: 0,
       taskCount: 0,
     });
 

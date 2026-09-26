@@ -2,6 +2,16 @@ import { describe, expect, it, vi } from 'vite-plus/test';
 import { Scheduler } from '../../../src/runtime/scheduler';
 
 describe('scheduler execution transitions', () => {
+  it('should expose running state without a redundant execution-depth field', () => {
+    const scheduler = new Scheduler();
+    const executing: boolean[] = [];
+    scheduler.enqueue(() => executing.push(scheduler.isExecuting()));
+    scheduler.flush();
+    expect(executing).toEqual([true]);
+    expect(scheduler.isExecuting()).toBe(false);
+    expect(scheduler.getState()).not.toHaveProperty('executionDepth');
+  });
+
   it('should reject work and report a failed bulk-commit probe', async () => {
     const scheduler = new Scheduler();
     const failure = new Error('probe failed');

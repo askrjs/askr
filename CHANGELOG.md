@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- breaking(runtime): scheduler diagnostic state no longer includes the
+  redundant `executionDepth` field; use `running` or `isExecuting()`.
+
 - fix(runtime): report failed bulk-commit probes and reject work while commit
   state is unknown instead of silently admitting it.
 

@@ -24,7 +24,6 @@ declare class Scheduler {
   private running;
   private inHandler;
   private depth;
-  private executionDepth;
   private flushVersion;
   private kickScheduled;
   private allowSyncProgress;
@@ -45,7 +44,6 @@ declare class Scheduler {
     queueLength: number;
     running: boolean;
     depth: number;
-    executionDepth: number;
     taskCount: number;
     flushVersion: number;
     laneQueues: {
