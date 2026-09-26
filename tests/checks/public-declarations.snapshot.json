@@ -39,9 +39,7 @@
         "declare function derive<TOut>(fn: () => TOut): Derived<TOut>;",
         "declare function derive<TIn, TOut>(source: SnapshotSource<TIn> | TIn | (() => TIn), map: (value: TIn) => TOut): Derived<TOut | null>;"
       ],
-      "Derived": [
-        "interface Derived<T> extends ReadableSource<T> {\n    (): T;\n}"
-      ],
+      "Derived": ["interface Derived<T> {\n    (): T;\n}"],
       "For": [
         "For: <T, K extends string | number = string | number>(props: ForProps<T, K>) => JSXElement"
       ],
@@ -124,7 +122,7 @@
       ],
       "state": ["declare function state<T>(initialValue: T): StateTuple<T>;"],
       "State": [
-        "interface State<T> extends ReadableSource<T> {\n    (): T;\n    set(...args: StateSetterArgs<T>): void;\n    [Symbol.iterator](): IterableIterator<StateTuple<T>[number]>;\n}"
+        "interface State<T> {\n    (): T;\n    set(...args: StateSetterArgs<T>): void;\n    [Symbol.iterator](): IterableIterator<StateTuple<T>[number]>;\n}"
       ],
       "StateSetter": [
         "type StateSetter<T> = (...args: StateSetterArgs<T>) => void;"
@@ -497,7 +495,7 @@
       ],
       "watch": [
         "declare function watch<TValue>(source: WatchSource<TValue>, callback: WatchCallback<TValue>): void;",
-        "declare function watch<const TSources extends readonly WatchSource<unknown>[]>(sources: TSources, callback: WatchCallback<WatchValues<TSources>>): void;"
+        "declare function watch<const TSources extends readonly WatchSource<unknown>[]>(sources: TSources extends WatchSource<unknown> ? never : TSources, callback: WatchCallback<WatchValues<TSources>>): void;"
       ],
       "WatchCallback": [
         "type WatchCallback<TValue> = (value: TValue, context: WatchContext<TValue>) => void | (() => void) | PromiseLike<void>;"
@@ -1539,9 +1537,7 @@
       "declare function derive<TIn, TOut>(source: SnapshotSource<TIn> | TIn | (() => TIn), map: (value: TIn) => TOut): Derived<TOut | null>;",
       "declare function derive<TOut>(fn: () => TOut): Derived<TOut>;"
     ],
-    "Derived": [
-      "interface Derived<T> extends ReadableSource<T> {\n    (): T;\n}"
-    ],
+    "Derived": ["interface Derived<T> {\n    (): T;\n}"],
     "DerivedSubscriber": [
       "interface DerivedSubscriber {\n    _markDirty(): void;\n    _pendingDependencySources?: Set<ReadableSource<unknown>>;\n}"
     ],
@@ -2682,7 +2678,7 @@
     ],
     "state": ["declare function state<T>(initialValue: T): StateTuple<T>;"],
     "State": [
-      "interface State<T> extends ReadableSource<T> {\n    (): T;\n    set(...args: StateSetterArgs<T>): void;\n    [Symbol.iterator](): IterableIterator<StateTuple<T>[number]>;\n}"
+      "interface State<T> {\n    (): T;\n    set(...args: StateSetterArgs<T>): void;\n    [Symbol.iterator](): IterableIterator<StateTuple<T>[number]>;\n}"
     ],
     "StateSetter": [
       "type StateSetter<T> = (...args: StateSetterArgs<T>) => void;"
@@ -2806,7 +2802,7 @@
     ],
     "watch": [
       "declare function watch<TValue>(source: WatchSource<TValue>, callback: WatchCallback<TValue>): void;",
-      "declare function watch<const TSources extends readonly WatchSource<unknown>[]>(sources: TSources, callback: WatchCallback<WatchValues<TSources>>): void;"
+      "declare function watch<const TSources extends readonly WatchSource<unknown>[]>(sources: TSources extends WatchSource<unknown> ? never : TSources, callback: WatchCallback<WatchValues<TSources>>): void;"
     ],
     "WatchCallback": [
       "type WatchCallback<TValue> = (value: TValue, context: WatchContext<TValue>) => void | (() => void) | PromiseLike<void>;"

@@ -28,6 +28,8 @@ function Counter() {
 `[getter, setter]` tuple as above, or retain the cell and use `count()` with
 `count.set(1)`; both forms are equivalent. If the state value itself is a
 function, replace it with updater form such as `setHandler(() => nextHandler)`.
+The callable and setter are the public state interface; subscription bookkeeping
+is managed by the runtime.
 
 ## Derived state
 

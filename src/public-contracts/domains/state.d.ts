@@ -1,6 +1,5 @@
 import { JSXElementType, JSXElement, Props } from '../elements.js';
 import '../jsx-globals.js';
-import { ReadableSource } from './component.js';
 import { capture } from './lifecycle.js';
 import { For } from './control.js';
 
@@ -11,7 +10,7 @@ import { For } from './control.js';
  * count();           // read: 0
  * count.set(1);      // write: triggers re-render
  */
-interface State<T> extends ReadableSource<T> {
+interface State<T> {
   (): T;
   set(...args: StateSetterArgs<T>): void;
   [Symbol.iterator](): IterableIterator<StateTuple<T>[number]>;
@@ -70,7 +69,7 @@ type SnapshotSourceBrand = {
 };
 
 /** A reactive derived value produced by {@link derive}; call it to read the current result. */
-interface Derived<T> extends ReadableSource<T> {
+interface Derived<T> {
   (): T;
 }
 
