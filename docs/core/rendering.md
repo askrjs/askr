@@ -562,6 +562,11 @@ Portal values are scoped to one server render root. A portal created with
 between routes or requests. Hydration adopts the server-rendered portal
 content and attaches its normal bindings.
 
+On the client, removing a portal writer clears its host content and disposes
+the content components, including their tasks, watches, and resources. Removing
+the host disposes those components as well. A named portal writer that leaves
+after another writer has taken the same channel does not clear the replacement.
+
 SSR and SSG retain internal comment anchors at default-portal writer positions
 and around default-portal host content. Hydration adopts the host range in
 place, including when an explicit host precedes its writer or has no content.

@@ -29,6 +29,7 @@ import { writeSSRPortal } from './ssr';
 import { createSSRPortalAnchor } from './ssr';
 import type { PortalOwner } from './lifetime';
 import { setPortalErrorParent } from './lifetime';
+import { retirePortalHostContent } from './lifetime';
 import { definePortal } from './explicit';
 import { liftFunctionChildren } from '../component/function-children';
 export { definePortal } from './explicit';
@@ -53,6 +54,8 @@ type DefaultPortalState = {
   portal: Portal<RenderableChild>;
   owner: PortalOwner | null;
   host: PortalOwner | null;
+  contentHosts: Set<ComponentInstance>;
+  contentHostCleanupOwners: WeakSet<object>;
   cleanupOwners: WeakSet<object>;
   explicitHostOwners: Map<object, ComponentInstance>;
   explicitHostCleanupOwners: WeakSet<object>;
@@ -161,6 +164,8 @@ function createDefaultPortalState(): DefaultPortalState {
     portal: definePortal<RenderableChild>(),
     owner: null,
     host: null,
+    contentHosts: new Set(),
+    contentHostCleanupOwners: new WeakSet(),
     cleanupOwners: new WeakSet<object>(),
     explicitHostOwners: new Map<object, ComponentInstance>(),
     explicitHostCleanupOwners: new WeakSet<object>(),
@@ -195,7 +200,7 @@ export function disposeDefaultPortalScope(scope: object | null): void {
 
   const state = _defaultPortalStates.get(scope);
   if (state) {
-    state.portal.render({ children: undefined });
+    applyDefaultPortalWrite(state, undefined, null);
     if (__ASKR_DEVELOPMENT_BUILD__) {
       clearPortalRegistrations(state);
     }
@@ -226,11 +231,14 @@ function applyDefaultPortalWrite(
   children: RenderableChild | undefined,
   owner: PortalOwner | null
 ): void {
-  state.portal.render({ children });
-  setDefaultPortalOwner(state, owner);
   if (isEmptyPortalValue(children)) {
+    for (const host of state.contentHosts) {
+      retirePortalHostContent(host);
+    }
     detachDefaultPortalHostOutput(state);
   }
+  state.portal.render({ children });
+  setDefaultPortalOwner(state, owner);
 }
 
 function isStaleDefaultPortalScope(scope: object): boolean {
@@ -533,9 +541,7 @@ export function clearDefaultPortalForInstance(
 
   _hasPendingDefaultPortalValue = false;
   _pendingDefaultPortalValue = undefined;
-  state.portal.render({ children: undefined });
-  setDefaultPortalOwner(state, null);
-  detachDefaultPortalHostOutput(state);
+  applyDefaultPortalWrite(state, undefined, null);
 }
 
 /**
@@ -560,6 +566,14 @@ export const DefaultPortal: Portal<RenderableChild> = (() => {
     }
 
     const state = getDefaultPortalState(scope);
+    if (owner) {
+      state.contentHosts.add(owner);
+      const generation = owner.owner.identity;
+      if (!state.contentHostCleanupOwners.has(generation)) {
+        state.contentHostCleanupOwners.add(generation);
+        ownCleanup(owner.owner, () => state.contentHosts.delete(owner));
+      }
+    }
     state.host = owner
       ? { instance: owner, generation: owner.owner.identity }
       : null;

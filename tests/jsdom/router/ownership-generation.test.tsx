@@ -512,7 +512,8 @@ describe('route ownership generations', () => {
     flushScheduler();
 
     expect(container.querySelector('[data-conditional-header]')).toBeNull();
-    expect(shared._readers?.size).toBe(2);
+    // The departed writer no longer keeps its portaled ReactiveComment alive.
+    expect(shared._readers?.size).toBe(1);
     expect(portalSource?._readers?.size).toBe(1);
     expect(portalSource?._readers?.has(departedPortal!)).toBe(false);
     for (const instance of departed) {
