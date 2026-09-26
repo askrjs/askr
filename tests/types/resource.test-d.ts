@@ -111,6 +111,26 @@ expectType<Error | null>(pendingStream.error);
 expectType<void>(pendingStream.restart());
 expectType<void>(pendingStream.close());
 
+const sourceStream = stream(
+  () => 'cursor-1',
+  async function* (cursor, { signal }) {
+    expectType<string>(cursor);
+    expectType<AbortSignal>(signal);
+    yield cursor;
+  },
+  { initialValue: 'cached' }
+);
+expectType<StreamResult<string>>(sourceStream);
+expectError(
+  stream(
+    () => 'cursor-1',
+    async function* () {
+      yield 'value';
+    },
+    { deps: ['cursor-1'] }
+  )
+);
+
 expectError(on(eventSource, transformer));
 expectError(timer(1000));
 expectError(timer(1000, () => {}, { when: [123] }));

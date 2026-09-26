@@ -83,6 +83,92 @@ async function settle(): Promise<void> {
 }
 
 describe('stream()', () => {
+  it('should restart from a render source after commit and retire the prior iterator', async () => {
+    const sources = {
+      first: new ControlledAsyncIterable<string>(),
+      second: new ControlledAsyncIterable<string>(),
+    };
+    const started: string[] = [];
+    let currentId!: State<'first' | 'second'>;
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({
+        root: container,
+        component: () => {
+          currentId = state<'first' | 'second'>('first');
+          const result = stream(currentId, (id, { signal }) => {
+            expect(signal).toBeInstanceOf(AbortSignal);
+            started.push(id);
+            return sources[id];
+          });
+          return <p>{result.value ?? 'pending'}</p>;
+        },
+      });
+      flushScheduler();
+      expect(started).toEqual(['first']);
+      sources.first.yield('one');
+      await settle();
+      expect(container.textContent).toBe('one');
+
+      currentId.set('second');
+      flushScheduler();
+      expect(started).toEqual(['first', 'second']);
+      expect(sources.first.returnCalls).toBe(1);
+      sources.second.yield('two');
+      await settle();
+      expect(container.textContent).toBe('two');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should retain the committed stream when a source-changing render rolls back', async () => {
+    const sources = new Map<string, ControlledAsyncIterable<string>>();
+    const started: string[] = [];
+    let setId!: (value: string) => void;
+    let setFailure!: (value: boolean) => void;
+    const Failure = ({ active }: { active: boolean }) => {
+      if (active) throw new Error('render failed');
+      return <span>{'ready'}</span>;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({
+        root: container,
+        component: () => {
+          const id = state('first');
+          const fail = state(false);
+          setId = id.set;
+          setFailure = fail.set;
+          stream(id, (value) => {
+            started.push(value);
+            const source = new ControlledAsyncIterable<string>();
+            sources.set(value, source);
+            return source;
+          });
+          return <Failure active={fail()} />;
+        },
+      });
+      flushScheduler();
+      expect(started).toEqual(['first']);
+
+      setId('second');
+      setFailure(true);
+      expect(() => flushScheduler()).toThrow();
+      await settle();
+      expect(started).toEqual(['first']);
+      expect(sources.get('first')?.returnCalls).toBe(0);
+
+      setFailure(false);
+      setId('third');
+      flushScheduler();
+      expect(started).toEqual(['first', 'third']);
+      expect(sources.get('first')?.returnCalls).toBe(1);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should start after commit and expose one stable latest-value snapshot', async () => {
     const source = new ControlledAsyncIterable<number>();
     let calls = 0;

@@ -66,6 +66,15 @@ interface StreamOptions<T> {
 type StreamSource<T> = (context: {
   signal: AbortSignal;
 }) => AsyncIterable<T> | PromiseLike<AsyncIterable<T>>;
+/** Connect a stream from an input read during a positional component render. */
+declare function stream<TSource, T>(
+  source: () => TSource,
+  connect: (
+    value: TSource,
+    context: { signal: AbortSignal }
+  ) => AsyncIterable<T> | PromiseLike<AsyncIterable<T>>,
+  options?: Omit<StreamOptions<T>, 'deps'>
+): StreamResult<T>;
 /** Subscribe to a streaming data source for the current component's lifetime, with auto reconnect/cleanup. */
 declare function stream<T>(
   source: StreamSource<T>,

@@ -525,6 +525,7 @@
         "interface RouteChangeOptions {\n    immediate?: boolean;\n}"
       ],
       "stream": [
+        "declare function stream<TSource, T>(source: () => TSource, connect: (value: TSource, context: {\n    signal: AbortSignal;\n}) => AsyncIterable<T> | PromiseLike<AsyncIterable<T>>, options?: Omit<StreamOptions<T>, \"deps\">): StreamResult<T>;",
         "declare function stream<T>(source: StreamSource<T>, options?: StreamOptions<T>): StreamResult<T>;"
       ],
       "StreamOptions": [
@@ -2672,7 +2673,8 @@
     ],
     "StateUpdater": ["type StateUpdater<T> = (prev: T) => T;"],
     "stream": [
-      "declare function stream<T>(source: StreamSource<T>, options?: StreamOptions<T>): StreamResult<T>;"
+      "declare function stream<T>(source: StreamSource<T>, options?: StreamOptions<T>): StreamResult<T>;",
+      "declare function stream<TSource, T>(source: () => TSource, connect: (value: TSource, context: {\n    signal: AbortSignal;\n}) => AsyncIterable<T> | PromiseLike<AsyncIterable<T>>, options?: Omit<StreamOptions<T>, \"deps\">): StreamResult<T>;"
     ],
     "StreamOptions": [
       "interface StreamOptions<T> {\n    deps?: readonly unknown[];\n    initialValue?: T;\n}"

@@ -81,13 +81,20 @@ declare function connectToCountStream(input: {
 
 function LiveCount({ cursor }: { cursor: string }) {
   const count = stream(
-    ({ signal }) => connectToCountStream({ cursor, signal }),
-    { deps: [cursor], initialValue: 0 }
+    () => cursor,
+    (currentCursor, { signal }) =>
+      connectToCountStream({ cursor: currentCursor, signal }),
+    { initialValue: 0 }
   );
 
   return <output data-status={count.status}>{count.value ?? 'connecting'}</output>;
 }
 ```
+
+The source-driven form reads its input during a positional render and
+reconnects only after a changed value commits. `stream(connect, { deps })`
+remains available for existing components. The source-driven form is not yet
+supported by the internal lifetime-setup prototype.
 
 The result object has stable identity and exposes:
 
@@ -99,8 +106,9 @@ The result object has stable identity and exposes:
 - `restart()`: aborts the current generation and starts a new one
 - `close()`: aborts the current generation and remains closed until `restart()`
 
-Dependency entries use shallow `Object.is` comparison. Changing `deps` restarts
-an active stream; changing only the source function does not. The adapter owns
+Inputs and legacy dependency entries use shallow `Object.is` comparison.
+Changing the input or `deps` restarts an active stream; changing only the
+connect function does not. The adapter owns
 cursor resume, deduplication, gap recovery, retry, and backoff policy. On
 completion the status becomes `closed`; non-abort failures become `error` while
 retaining the latest value. Component cleanup aborts the generation, calls the
