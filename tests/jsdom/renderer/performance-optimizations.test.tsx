@@ -2,7 +2,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { createIsland } from '@askrjs/askr/boot';
-import { getElementRefOwner } from '../../../src/renderer/ownership/cleanup';
 import {
   createTestContainer,
   flushScheduler,
@@ -264,14 +263,17 @@ describe('performance optimizations (RENDERER)', () => {
     });
 
     it('should release superseded inline callback-ref owners', () => {
-      const refs: Array<(element: Element | null) => void> = [];
+      const calls: Array<Array<Element | null>> = [];
       let increment!: () => void;
 
       const Component = () => {
         const count = state(0);
         increment = () => count.set((value) => value + 1);
-        const ref = (_element: Element | null) => undefined;
-        refs.push(ref);
+        const seen: Array<Element | null> = [];
+        calls.push(seen);
+        const ref = (element: Element | null) => {
+          seen.push(element);
+        };
         return <div ref={ref}>{String(count())}</div>;
       };
 
@@ -283,10 +285,11 @@ describe('performance optimizations (RENDERER)', () => {
         increment();
         flushScheduler();
         expect(container.firstElementChild).toBe(host);
-        expect(getElementRefOwner(refs.at(-2))).toBeUndefined();
+        // The superseded ref was attached, then released.
+        expect(calls.at(-2)).toEqual([host, null]);
       }
 
-      expect(getElementRefOwner(refs.at(-1))).toBe(host);
+      expect(calls.at(-1)).toEqual([host]);
     });
 
     it('should detach callback refs removed from reused host elements', () => {
