@@ -14,6 +14,7 @@ import type { Owner } from '../reactive/owner';
 import { schedule, type Job } from '../reactive/scheduler';
 import {
   createRenderContext,
+  componentOutput,
   namespaceAt,
   readDynamic,
   renderInstance,
@@ -80,7 +81,7 @@ function renderAfterUpdate(
     reconcileChildren(
       withOwner(ctx, instance),
       node,
-      computation._value,
+      componentOutput(computation._value),
       false
     );
     ctx.pass.markRendered(instance);

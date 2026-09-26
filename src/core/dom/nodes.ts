@@ -11,6 +11,7 @@ import type { Props } from '../../common/props';
 import { ComponentInstance } from '../component/instance';
 import type { Owner } from '../reactive/owner';
 import { reportUncaughtErrorLater } from '../../common/report-error';
+import { readValue } from '../reactive/readable';
 import {
   COMPONENT,
   ELEMENT,
@@ -272,7 +273,12 @@ export function renderInstance(
   const inner = withOwner(ctx, instance);
   const mark = ctx.pass.mark();
   try {
-    const children = reconcileChildren(inner, node, instance.render(), fresh);
+    const children = reconcileChildren(
+      inner,
+      node,
+      componentOutput(instance.render()),
+      fresh
+    );
     ctx.pass.markRendered(instance);
     const revision = ancestorContextRevision(instance);
     ctx.pass.op(() => {
@@ -285,7 +291,12 @@ export function renderInstance(
       reportUncaughtErrorLater(failure);
     }
     if (!instance.boundary(error)) throw error;
-    const children = reconcileChildren(inner, node, instance.render(), fresh);
+    const children = reconcileChildren(
+      inner,
+      node,
+      componentOutput(instance.render()),
+      fresh
+    );
     ctx.pass.markRendered(instance);
     const revision = ancestorContextRevision(instance);
     ctx.pass.op(() => {
@@ -293,6 +304,11 @@ export function renderInstance(
     });
     return children;
   }
+}
+
+/** A function returned by a component is a value, not a child slot. */
+export function componentOutput(value: unknown): unknown {
+  return typeof value === 'function' ? null : value;
 }
 
 // ---------------------------------------------------------------------------
@@ -313,7 +329,7 @@ function createDynamic(
   } as DynamicNode;
   node.instance = new ComponentInstance(
     ctx.owner,
-    () => node.fn() as ReturnType<ComponentFunction>,
+    () => readValue(node.fn) as ReturnType<ComponentFunction>,
     {},
     () => scheduleDynamicUpdate(node)
   );
@@ -331,7 +347,7 @@ function createDynamic(
 
 /** Run a function child's read now, tracking what it reads. */
 export function readDynamic(node: DynamicNode): unknown {
-  return node.instance.render();
+  return componentOutput(node.instance.render());
 }
 
 function patchDynamic(

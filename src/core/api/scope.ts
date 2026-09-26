@@ -4,7 +4,7 @@
  * the owner tree from the code that is running.
  */
 
-import { ELEMENT_TYPE, type JSXElement } from '../../common/jsx';
+import { ELEMENT_TYPE, Fragment, type JSXElement } from '../../common/jsx';
 import { getOwner } from '../reactive/owner';
 import { currentComponent } from './hooks';
 
@@ -28,7 +28,12 @@ function ScopeProvider(props: ProviderProps): unknown {
   if (typeof Node !== 'undefined' && props.children instanceof Node) {
     return null;
   }
-  return props.children;
+  return {
+    $$typeof: ELEMENT_TYPE,
+    type: Fragment,
+    props: { children: props.children },
+    key: null,
+  };
 }
 
 /** Create a scope whose value defaults to `defaultValue`. */

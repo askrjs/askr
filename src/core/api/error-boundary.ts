@@ -8,6 +8,7 @@ import type {
   ErrorBoundaryProps,
 } from '../../common/error-boundary';
 import { logger } from '../../common/logger';
+import { ELEMENT_TYPE, Fragment } from '../../common/jsx';
 import { requireInstance } from '../component/instance';
 import { hookSlot } from './hooks';
 
@@ -46,7 +47,14 @@ export function ErrorBoundary(props: ErrorBoundaryProps): unknown {
     return true;
   };
 
-  if (!slot.caught) return props.children;
+  if (!slot.caught) {
+    return {
+      $$typeof: ELEMENT_TYPE,
+      type: Fragment,
+      props: { children: props.children },
+      key: null,
+    };
+  }
 
   const reset = () => {
     if (!slot.caught) return;

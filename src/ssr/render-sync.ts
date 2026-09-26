@@ -205,6 +205,10 @@ function runComponent(instance: ComponentInstance): unknown {
   }
 }
 
+function componentOutput(value: unknown): unknown {
+  return typeof value === 'function' ? null : value;
+}
+
 function renderComponent(
   fn: ComponentFunction,
   props: Props,
@@ -216,7 +220,7 @@ function renderComponent(
   instance.serverContext = render.ctx;
   const output = runComponent(instance);
   if (!instance.boundary) {
-    withOwner(instance, () => renderValue(output, sink));
+    withOwner(instance, () => renderValue(componentOutput(output), sink));
     return;
   }
 
@@ -225,7 +229,7 @@ function renderComponent(
   const buffer = new BufferedSink();
   const restorePortals = capturePortalWrites(render.ctx);
   try {
-    withOwner(instance, () => renderValue(output, buffer));
+    withOwner(instance, () => renderValue(componentOutput(output), buffer));
   } catch (error) {
     restorePortals();
     // End the lifetimes the failed subtree started.
@@ -234,7 +238,7 @@ function renderComponent(
     }
     if (!instance.boundary(error)) throw error;
     const fallback = runComponent(instance);
-    withOwner(instance, () => renderValue(fallback, sink));
+    withOwner(instance, () => renderValue(componentOutput(fallback), sink));
     return;
   }
   buffer.publishTo(sink);
