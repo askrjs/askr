@@ -617,6 +617,54 @@ describe('placeholder application when range replacement is declined', () => {
     }
   });
 
+  it('should restore an in-place text update when publication fails', () => {
+    let value!: ReturnType<typeof state<string>>;
+    function Child() {
+      value = state('one');
+      return value();
+    }
+    const view = render(() => (
+      <section>
+        <Child />
+        <i>{'tail'}</i>
+      </section>
+    ));
+    const section = view.root.querySelector('section')!;
+    const text = Array.from(section.childNodes).find(
+      (node): node is Text => node instanceof Text
+    )!;
+    const renderer = getRuntimeRenderer();
+    const replace = renderer.replaceComponentRange.bind(renderer);
+    const replacement = vi
+      .spyOn(renderer, 'replaceComponentRange')
+      .mockImplementation((...args) => {
+        const host = replace(...args);
+        registerCommitParticipant({
+          publish() {
+            throw new Error('extension publication failed');
+          },
+        });
+        return host;
+      });
+    try {
+      value.set('two');
+      expect(() => view.flush()).toThrow('extension publication failed');
+      expect(markup(section.innerHTML)).toBe('one<i>tail</i>');
+      expect(text.data).toBe('one');
+
+      replacement.mockRestore();
+      value.set('three');
+      view.flush();
+      expect(markup(section.innerHTML)).toBe('three<i>tail</i>');
+      expect(
+        Array.from(section.childNodes).find((node) => node instanceof Text)
+      ).toBe(text);
+    } finally {
+      replacement.mockRestore();
+      view.cleanup();
+    }
+  });
+
   it('should update and clear the whole range on later declined commits', () => {
     let value!: ReturnType<typeof state<string | null>>;
     function Child() {

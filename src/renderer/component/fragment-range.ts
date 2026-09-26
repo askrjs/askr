@@ -460,6 +460,21 @@ export function syncTransparentRange(
     return false;
   }
 
+  if (componentRange && isScalarChild(result)) {
+    const text = range.start.nextSibling;
+    if (text instanceof Text && text.nextSibling === range.end) {
+      const next = String(result);
+      if (text.data !== next) {
+        const previous = text.data;
+        registerCommitRollback(() => {
+          text.data = previous;
+        });
+        text.data = next;
+      }
+      return true;
+    }
+  }
+
   const restoreFocus = captureParentFocus(range, parent);
   const normalizedChildren = normalizeComponentChildren(result) as VNode[];
   const preserveForeignHosts = Array.isArray(result);
