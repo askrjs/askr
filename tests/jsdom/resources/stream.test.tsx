@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { stream, type StreamResult } from '../../../src/resources';
-import { state, type State } from '../../../src/runtime';
+import { state, type State } from '../../../src/index';
 import { renderToStringSync } from '../../../src/ssr';
 import {
   createTestContainer,
