@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { renderToStringSync } from '../../../src/ssr';
-import { state } from '../../../src/runtime/reactivity/state';
+import { state } from '../../../src/index';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
