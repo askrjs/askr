@@ -29,6 +29,7 @@ import {
   type ReactiveForItemState,
 } from './for-signals';
 import { getRuntimeScopes } from '../access';
+import { peekLatestRenderToken } from '../component/scope';
 import { recordBenchCounter, recordBenchEvent } from '../diagnostics/for-bench';
 import type { ForItemTransactionSnapshot, ForState } from './for-state';
 import type { ReadableSource } from '../reactivity/readable';
@@ -190,7 +191,8 @@ function stageForSignalEffect<T>(
   source: ReadableSource<unknown>,
   notify: boolean,
   skipInstance: ComponentInstance | null = null,
-  skipOwnedBy: ComponentInstance | null = null
+  skipOwnedBy: ComponentInstance | null = null,
+  skipOwnedRenderedAfter: number | null = null
 ): boolean {
   const transaction = forState._transaction;
   if (!transaction) {
@@ -206,6 +208,18 @@ function stageForSignalEffect<T>(
     }
     if (existing.skipOwnedBy !== skipOwnedBy) {
       existing.skipOwnedBy = null;
+      existing.skipOwnedRenderedAfter = null;
+    } else if (
+      existing.skipOwnedRenderedAfter !== null &&
+      skipOwnedRenderedAfter !== null
+    ) {
+      // Only a render after the latest change has read the final value.
+      existing.skipOwnedRenderedAfter = Math.max(
+        existing.skipOwnedRenderedAfter,
+        skipOwnedRenderedAfter
+      );
+    } else {
+      existing.skipOwnedRenderedAfter ??= skipOwnedRenderedAfter;
     }
   } else {
     effects.set(source, {
@@ -213,20 +227,38 @@ function stageForSignalEffect<T>(
       notify,
       skipInstance,
       skipOwnedBy,
+      skipOwnedRenderedAfter,
     });
   }
   return true;
 }
 
-export function syncForItemIndex<T>(
+/** The row does not show the index change. */
+const INDEX_NOT_VISIBLE = 0;
+/** The row shows the index change and was marked dirty. */
+const INDEX_MARKED_DIRTY = 1;
+/** The row reads the index in its own scope and must rerun. */
+const INDEX_NEEDS_RERUN = 2;
+
+type IndexSyncResult =
+  | typeof INDEX_NOT_VISIBLE
+  | typeof INDEX_MARKED_DIRTY
+  | typeof INDEX_NEEDS_RERUN;
+
+/**
+ * Move the row's index signal to `nextIndex` and notify or stage its other
+ * readers. The caller reruns the row when this returns `INDEX_NEEDS_RERUN`, so
+ * an item change in the same pass can share that run.
+ */
+function applyForItemIndex<T>(
   forState: ForState<T>,
   itemInstance: ForItemInstance<T>,
   nextIndex: number
-): boolean {
+): IndexSyncResult {
   const indexSignal = itemInstance.indexSignal;
   const previousIndex = indexSignal.peek();
   if (previousIndex === nextIndex) {
-    return false;
+    return INDEX_NOT_VISIBLE;
   }
 
   if (indexSignal._hasBeenRead !== true) {
@@ -238,48 +270,61 @@ export function syncForItemIndex<T>(
       }
     }
     indexSignal.set(nextIndex, false);
-    return false;
+    return INDEX_NOT_VISIBLE;
   }
 
   captureForItemTransactionSnapshot(forState, itemInstance);
 
   const scopeReadsIndex = scopeReadsSource(itemInstance.scope, indexSignal);
-  const scopeDirectlyReadsIndex = scopeDirectlyReadsSource(
-    itemInstance.scope,
-    indexSignal
-  );
   if (forState._transaction) {
     const shouldNotify = indexSignal._hasBeenRead === true;
     indexSignal.set(nextIndex, false);
+    // Readers inside the row that render after this point (because the row
+    // reruns or is recommitted) already read the new index; notifying them
+    // again would render them twice. Owned readers that do not render again,
+    // such as a nested For row with a stable callback, are still notified.
+    const rowInstance = scopeReadsIndex
+      ? itemInstance.scope.componentInstance
+      : null;
     stageForSignalEffect(
       forState,
       indexSignal,
       shouldNotify,
-      scopeReadsIndex ? itemInstance.scope.componentInstance : null
+      rowInstance,
+      rowInstance,
+      rowInstance ? peekLatestRenderToken() : null
     );
     if (!scopeReadsIndex) {
-      return false;
+      return INDEX_NOT_VISIBLE;
     }
 
-    if (scopeDirectlyReadsIndex) {
-      rerenderItemInstance(forState, itemInstance, itemInstance.reactiveItem);
-    } else {
-      itemInstance.scope.markDirty();
+    if (scopeDirectlyReadsSource(itemInstance.scope, indexSignal)) {
+      return INDEX_NEEDS_RERUN;
     }
-    return true;
+    itemInstance.scope.markDirty();
+    return INDEX_MARKED_DIRTY;
   }
 
   if (!scopeReadsIndex) {
     syncForIndexSignal(indexSignal, nextIndex);
-    return false;
+    return INDEX_NOT_VISIBLE;
   }
 
   indexSignal.set(nextIndex, false);
   notifyForSignalReaders(indexSignal, itemInstance.scope.componentInstance);
+  return INDEX_NEEDS_RERUN;
+}
 
-  rerenderItemInstance(forState, itemInstance, itemInstance.reactiveItem);
-
-  return true;
+export function syncForItemIndex<T>(
+  forState: ForState<T>,
+  itemInstance: ForItemInstance<T>,
+  nextIndex: number
+): boolean {
+  const result = applyForItemIndex(forState, itemInstance, nextIndex);
+  if (result === INDEX_NEEDS_RERUN) {
+    rerenderItemInstance(forState, itemInstance, currentRowItem(itemInstance));
+  }
+  return result !== INDEX_NOT_VISIBLE;
 }
 
 function materializeItemVnode<T>(
@@ -411,48 +456,101 @@ function rerenderItemInstance<T>(
   renderItemScope(forState, itemInstance, item);
 }
 
-export function refreshForContextScopes<T>(forState: ForState<T>): void {
-  for (const itemInstance of forState.items.values()) {
-    captureForItemTransactionSnapshot(forState, itemInstance);
-    rerenderItemInstance(forState, itemInstance, itemInstance.reactiveItem);
-  }
+/**
+ * The value a row renders with. Object items render through their proxy, which
+ * always reads the current item. A plain item (a primitive, null, or an array)
+ * is passed by value, so only `item` holds its latest version. That includes a
+ * row created with an object whose item later became plain.
+ */
+function currentRowItem<T>(itemInstance: ForItemInstance<T>): T {
+  return itemInstance.reactiveItemState && canProxyForItem(itemInstance.item)
+    ? itemInstance.reactiveItem
+    : itemInstance.item;
 }
 
 /**
- * Rerender retained rows whose output came from an earlier row callback. The
- * parent passes a fresh closure on every render, so values it captured (such
- * as a `const` derived from state) reach existing rows without remounting
- * them. Rows about to be removed and rows created in this pass are skipped.
+ * Whether a retained row's output predates this pass: it came from an earlier
+ * row callback, or the For's context frame changed. Only meaningful while
+ * `reconcileForItems` runs.
+ */
+function hasStaleRowOutput<T>(
+  forState: ForState<T>,
+  itemInstance: ForItemInstance<T>
+): boolean {
+  return (
+    forState._contextFrameChanged ||
+    itemInstance.renderedWith !== forState.renderFn
+  );
+}
+
+/**
+ * Whether the reconcile path will rerun this retained row anyway, with its
+ * latest item, index, and callback. Every path calls `updateItemInstance` for a
+ * retained row whose item changed, which reruns a stale row, and
+ * `syncForItemIndex` for a retained row whose index changed, which reruns a row
+ * that reads its index in its own scope.
+ */
+function rowRerunsDuringReconcile<T>(
+  itemInstance: ForItemInstance<T>,
+  nextItem: T,
+  nextIndex: number
+): boolean {
+  if (itemInstance.item !== nextItem) {
+    return true;
+  }
+  const indexSignal = itemInstance.indexSignal;
+  return (
+    indexSignal._hasBeenRead === true &&
+    indexSignal.peek() !== nextIndex &&
+    scopeDirectlyReadsSource(itemInstance.scope, indexSignal)
+  );
+}
+
+/**
+ * Rerender retained rows whose output is stale: it came from an earlier row
+ * callback, or the context frame changed (`contextChanged`). The parent passes
+ * a fresh closure on every render, so values it captured (such as a `const`
+ * derived from state) reach existing rows without remounting them.
+ *
+ * Rows about to be removed and rows created in this pass are skipped. So are
+ * rows the reconcile path reruns anyway, so a refresh never adds a second run.
  */
 export function refreshForRowRenderers<T>(
   forState: ForState<T>,
   newArray: readonly T[],
-  keys: readonly (string | number)[]
+  keys: readonly (string | number)[],
+  contextChanged: boolean
 ): void {
   const { items, renderFn } = forState;
   for (let index = 0; index < keys.length; index++) {
     const itemInstance = items.get(keys[index]);
-    if (!itemInstance || itemInstance.renderedWith === renderFn) {
+    if (
+      !itemInstance ||
+      (!contextChanged && itemInstance.renderedWith === renderFn) ||
+      rowRerunsDuringReconcile(itemInstance, newArray[index], index)
+    ) {
       continue;
     }
-    if (itemInstance.reactiveItemState) {
-      captureForItemTransactionSnapshot(forState, itemInstance);
-      rerenderItemInstance(forState, itemInstance, itemInstance.reactiveItem);
-    } else if (itemInstance.item === newArray[index]) {
-      // A changed plain item rerenders with the new value during reconcile.
-      captureForItemTransactionSnapshot(forState, itemInstance);
-      rerenderItemInstance(forState, itemInstance, itemInstance.item);
-    }
+    captureForItemTransactionSnapshot(forState, itemInstance);
+    rerenderItemInstance(forState, itemInstance, currentRowItem(itemInstance));
   }
 }
 
+/**
+ * Apply a new item to a retained row. Pass `nextIndex` when the row also moves
+ * in this pass: the index is applied here too, so a row that shows both
+ * changes reruns once, with its latest item and index.
+ */
 export function updateItemInstance<T>(
   forState: ForState<T>,
   itemInstance: ForItemInstance<T>,
-  item: T
+  item: T,
+  nextIndex?: number
 ): boolean {
   if (itemInstance.item === item) {
-    return false;
+    return nextIndex === undefined
+      ? false
+      : syncForItemIndex(forState, itemInstance, nextIndex);
   }
 
   captureForItemTransactionSnapshot(forState, itemInstance);
@@ -463,7 +561,12 @@ export function updateItemInstance<T>(
   const scope = itemInstance.scope;
   let scopeReadsChangedSignal = false;
   const reactiveItemState = itemInstance.reactiveItemState;
-  if (!reactiveItemState) {
+  // A plain item cannot go through the proxy, even in a row created with an
+  // object. The row renders it as a value until it becomes an object again.
+  if (!reactiveItemState || !canProxyForItem(item)) {
+    if (nextIndex !== undefined) {
+      applyForItemIndex(forState, itemInstance, nextIndex);
+    }
     rerenderItemInstance(forState, itemInstance, item);
     return true;
   }
@@ -568,20 +671,32 @@ export function updateItemInstance<T>(
     itemSignal.set(item, notifyReaders);
   }
 
-  if (scopeReadsChangedSignal) {
-    const scopeReadsDirectly =
-      (itemSignal !== null && scopeDirectlyReadsSource(scope, itemSignal)) ||
-      changedPropertySignals.some(([propertySignal]) =>
-        scopeDirectlyReadsSource(scope, propertySignal)
-      );
-    if (scopeReadsDirectly) {
-      rerenderItemInstance(forState, itemInstance, itemInstance.reactiveItem);
-    } else {
-      scope.markDirty();
-    }
+  const indexResult =
+    nextIndex === undefined
+      ? INDEX_NOT_VISIBLE
+      : applyForItemIndex(forState, itemInstance, nextIndex);
+
+  // `refreshForRowRenderers` leaves a stale row with a changed item to this
+  // call, so it reruns here once, after the proxy sees the new item.
+  // A row that rendered a plain item did not read the proxy, so no property
+  // signal tells it the object is back.
+  const staleOutput =
+    hasStaleRowOutput(forState, itemInstance) || !canProxyForItem(previousItem);
+  if (
+    staleOutput ||
+    indexResult === INDEX_NEEDS_RERUN ||
+    (scopeReadsChangedSignal &&
+      ((itemSignal !== null && scopeDirectlyReadsSource(scope, itemSignal)) ||
+        changedPropertySignals.some(([propertySignal]) =>
+          scopeDirectlyReadsSource(scope, propertySignal)
+        )))
+  ) {
+    rerenderItemInstance(forState, itemInstance, itemInstance.reactiveItem);
+  } else if (scopeReadsChangedSignal) {
+    scope.markDirty();
   }
 
-  return visibleChange;
+  return visibleChange || staleOutput || indexResult !== INDEX_NOT_VISIBLE;
 }
 
 const FOR_FALLBACK_SCOPE_KEY = '__for-fallback__';

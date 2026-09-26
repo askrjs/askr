@@ -451,10 +451,17 @@ export function isReadableReadByInstance(
   );
 }
 
+/**
+ * Schedule every current reader of `source`. `skipOwnedBy` skips readers
+ * owned by that instance; with `skipOwnedRenderedAfter`, it skips only the
+ * owned readers whose render token is greater, because they rendered after
+ * the change and already read the new value.
+ */
 export function notifyReadableReaders(
   source: ReadableSource<unknown>,
   skipInstance?: ComponentInstance | null,
-  skipOwnedBy?: ComponentInstance | null
+  skipOwnedBy?: ComponentInstance | null,
+  skipOwnedRenderedAfter?: number | null
 ): boolean {
   source._version = (source._version ?? 0) + 1;
   const readers = source._readers;
@@ -478,7 +485,11 @@ export function notifyReadableReaders(
         }
         owner = owner.parentInstance;
       }
-      if (isOwned) {
+      if (
+        isOwned &&
+        (skipOwnedRenderedAfter == null ||
+          reader.token > skipOwnedRenderedAfter)
+      ) {
         continue;
       }
     }
