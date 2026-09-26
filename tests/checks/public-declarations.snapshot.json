@@ -510,7 +510,9 @@
         "declare function onRouteChange(fn: (current: RouteSnapshot, previous: RouteSnapshot | null) => RouteChangeCleanup, options?: RouteChangeOptions): void;"
       ],
       "resource": [
-        "declare function resource<T, const TDeps extends readonly unknown[]>(fn: (opts: {\n    signal: AbortSignal;\n}) => PromiseLike<T> | T, deps: TDeps): ResourceResult<T>;"
+        "declare function resource<TSource, T>(source: () => TSource, load: (value: TSource, opts: {\n    signal: AbortSignal;\n}) => PromiseLike<T> | T): ResourceResult<T>;",
+        "declare function resource<T, const TDeps extends readonly unknown[]>(fn: (opts: {\n    signal: AbortSignal;\n}) => PromiseLike<T> | T, deps: TDeps): ResourceResult<T>;",
+        "declare function resource<T>(fn: (opts: {\n    signal: AbortSignal;\n}) => PromiseLike<T> | T): ResourceResult<T>;"
       ],
       "ResourceResult": [
         "interface ResourceResult<T> {\n    value: T | null;\n    pending: boolean;\n    error: Error | null;\n    refresh(): void;\n}"
@@ -2339,7 +2341,9 @@
       "declare function resolveRouteRequest(target: string, options: RouteRequestOptions): RouteRequestResult | Promise<RouteRequestResult>;"
     ],
     "resource": [
-      "declare function resource<T, const TDeps extends readonly unknown[]>(fn: (opts: {\n    signal: AbortSignal;\n}) => PromiseLike<T> | T, deps: TDeps): ResourceResult<T>;"
+      "declare function resource<T, const TDeps extends readonly unknown[]>(fn: (opts: {\n    signal: AbortSignal;\n}) => PromiseLike<T> | T, deps: TDeps): ResourceResult<T>;",
+      "declare function resource<T>(fn: (opts: {\n    signal: AbortSignal;\n}) => PromiseLike<T> | T): ResourceResult<T>;",
+      "declare function resource<TSource, T>(source: () => TSource, load: (value: TSource, opts: {\n    signal: AbortSignal;\n}) => PromiseLike<T> | T): ResourceResult<T>;"
     ],
     "ResourceResult": [
       "interface ResourceResult<T> {\n    value: T | null;\n    pending: boolean;\n    error: Error | null;\n    refresh(): void;\n}"

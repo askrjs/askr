@@ -48,6 +48,16 @@ expectType<boolean>(asyncResource.pending);
 expectType<Error | null>(asyncResource.error);
 expectType<void>(asyncResource.refresh());
 
+const sourceResource = resource(
+  () => 'user-1',
+  async (id, { signal }) => {
+    expectType<string>(id);
+    expectType<AbortSignal>(signal);
+    return { id };
+  }
+);
+expectType<ResourceResult<{ id: string }>>(sourceResource);
+
 const syncResource = resource(({ signal }) => {
   expectType<AbortSignal>(signal);
   return 123;

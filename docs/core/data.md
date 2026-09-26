@@ -72,11 +72,11 @@ import { resource } from '@askrjs/askr/resources';
 
 function UserCard({ id }: { id: string }) {
   const user = resource(
-    async ({ signal }) => {
-      const res = await fetch(`/api/users/${id}`, { signal });
+    () => id,
+    async (currentId, { signal }) => {
+      const res = await fetch(`/api/users/${currentId}`, { signal });
       return res.json();
-    },
-    [id]   // re-run when id changes
+    }
   );
 
   if (user.error) return <div>Failed to load user</div>;
@@ -97,13 +97,14 @@ function UserCard({ id }: { id: string }) {
 ### Cancellation
 
 The `signal` parameter is an `AbortSignal`. Pass it to `fetch()` and any other cancellable
-APIs. When the component re-renders with new deps or unmounts, in-flight work is cancelled
-automatically.
+APIs. When the source changes or the component unmounts, in-flight work is
+cancelled automatically.
 
-A deps change takes effect when the render that saw it commits. If that render
-is rolled back (for example because a sibling throws), the committed deps are
-unchanged, so the next committed render with the new deps still starts the
-fetch, and a render back on the committed deps keeps the committed value.
+The source-driven form reads its source in a positional component render and
+starts the new loader after a successful commit. The
+`resource(loader, deps)` form remains available; its dependency
+change takes effect only when the render commits. If that render rolls back,
+the committed deps and resource value remain in force.
 
 ## Minimal data layer
 

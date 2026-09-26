@@ -12,6 +12,25 @@ import {
 } from '../../../test-utils/render/test-renderer';
 
 describe('lifetime setup component prototype', () => {
+  it('should reject source-driven resources until setup commits can own their source changes', async () => {
+    const Page = defineSetupComponent(() => {
+      resource(
+        () => 'first',
+        (value) => value
+      );
+      return () => <p>{'unreachable'}</p>;
+    });
+    const { container, cleanup } = createTestContainer();
+    const registry = routeRegistryFromTable([{ path: '/', handler: Page }]);
+    try {
+      await expect(createSPA({ root: container, registry })).rejects.toThrow(
+        /requires a positional component render/
+      );
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should reject positional hooks in the render callback', async () => {
     const Page = defineSetupComponent(() => () => {
       state(1);

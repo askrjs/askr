@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vite-plus/test';
 import { resource } from '../../../src/resources';
+import { state } from '../../../src';
 import {
   createTestContainer,
   flushScheduler,
@@ -9,6 +10,85 @@ import type { JSXElement } from '../../../src/jsx/types';
 import { createIsland } from '../../../test-utils/render/create-island';
 
 describe('resource() (unified async primitive) — gaps', () => {
+  it('should refetch from a tracked source and abort the previous request', async () => {
+    let setId!: (value: string) => void;
+    const requests: Array<{ id: string; signal: AbortSignal }> = [];
+    function App(): JSXElement {
+      const id = state('first');
+      setId = id.set;
+      const result = resource(id, (current, { signal }) => {
+        requests.push({ id: current, signal });
+        return new Promise<string>(() => {});
+      });
+      return <div>{result.value ?? 'pending'}</div>;
+    }
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await waitForNextEvaluation();
+      expect(requests.map(({ id }) => id)).toEqual(['first']);
+      expect(container.textContent).toBe('pending');
+
+      setId('second');
+      flushScheduler();
+      await waitForNextEvaluation();
+      expect(requests.map(({ id }) => id)).toEqual(['first', 'second']);
+      expect(requests[0].signal.aborted).toBe(true);
+    } finally {
+      cleanup();
+    }
+    expect(requests[1].signal.aborted).toBe(true);
+  });
+
+  it('should not start a source-driven request for a rolled-back render', async () => {
+    let setId!: (value: string) => void;
+    let setFailure!: (value: boolean) => void;
+    const requests: string[] = [];
+    const Failure = ({ active }: { active: boolean }): JSXElement => {
+      if (active) throw new Error('render failed');
+      return null;
+    };
+    function App(): JSXElement {
+      const id = state('first');
+      const fail = state(false);
+      setId = id.set;
+      setFailure = fail.set;
+      const result = resource(id, (current) => {
+        requests.push(current);
+        return current;
+      });
+      return (
+        <main>
+          <span>{result.value ?? 'pending'}</span>
+          <Failure active={fail()} />
+        </main>
+      );
+    }
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await waitForNextEvaluation();
+      expect(requests).toEqual(['first']);
+
+      setId('second');
+      setFailure(true);
+      expect(() => flushScheduler()).toThrow();
+      await waitForNextEvaluation();
+      expect(requests).toEqual(['first']);
+
+      setFailure(false);
+      setId('third');
+      flushScheduler();
+      await waitForNextEvaluation();
+      expect(requests).toEqual(['first', 'third']);
+      expect(container.textContent).toBe('third');
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should execute resource when component mounts', async () => {
     const calls: Array<string> = [];
 

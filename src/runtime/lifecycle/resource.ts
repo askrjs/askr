@@ -8,6 +8,7 @@ import { enqueueRuntimeLane } from '../access';
 import { registerCommitOperationForInstance } from '../component/lifecycle';
 import { brandSnapshotSource } from '../reactivity/snapshot-source';
 import { SSRDataMissingError } from '../../common/ssr-errors';
+import { isSetupComponent } from '../component/setup-prototype';
 import {
   getActiveRenderContext,
   getCurrentRenderData,
@@ -88,6 +89,12 @@ function resolveResourceWithoutInstance<T>(): ResourceResult<T> {
   );
 }
 
+/** Create a source-driven resource whose loader receives the latest source value. */
+export function resource<TSource, T>(
+  source: () => TSource,
+  load: (value: TSource, opts: { signal: AbortSignal }) => PromiseLike<T> | T
+): ResourceResult<T>;
+
 /** Creates a render-scoped async resource with cancellation and refresh; SSR has special data rules. */
 export function resource<T, const TDeps extends readonly unknown[]>(
   fn: (opts: { signal: AbortSignal }) => PromiseLike<T> | T,
@@ -105,6 +112,36 @@ export function resource<T, const TDeps extends readonly unknown[]>(
  * - during SSR, async results are disallowed and will throw synchronously
  */
 export function resource<T>(
+  fn: (opts: { signal: AbortSignal }) => PromiseLike<T> | T
+): ResourceResult<T>;
+
+export function resource<T, TSource = unknown>(
+  sourceOrLoader:
+    | (() => TSource)
+    | ((opts: { signal: AbortSignal }) => PromiseLike<T> | T),
+  depsOrLoader?:
+    | readonly unknown[]
+    | ((value: TSource, opts: { signal: AbortSignal }) => PromiseLike<T> | T)
+): ResourceResult<T> {
+  if (typeof depsOrLoader === 'function') {
+    const source = sourceOrLoader as () => TSource;
+    const load = depsOrLoader;
+    const instance = getCurrentComponentInstance();
+    if (instance && isSetupComponent(instance.fn)) {
+      throw new Error(
+        '[Askr] source-driven resource() currently requires a positional component render.'
+      );
+    }
+    const value = source();
+    return createResource<T>(({ signal }) => load(value, { signal }), [value]);
+  }
+  return createResource(
+    sourceOrLoader as (opts: { signal: AbortSignal }) => PromiseLike<T> | T,
+    depsOrLoader ?? []
+  );
+}
+
+function createResource<T>(
   fn: (opts: { signal: AbortSignal }) => PromiseLike<T> | T,
   deps: readonly unknown[] = []
 ): ResourceResult<T> {
