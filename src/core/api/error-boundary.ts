@@ -11,6 +11,7 @@ import { logger } from '../../common/logger';
 import { ELEMENT_TYPE, Fragment } from '../../common/jsx';
 import { isDevelopmentEnvironment } from '../../common/env';
 import { requireInstance } from '../component/instance';
+import { NATIVE_TYPE } from '../view/children';
 import { hookSlot } from './hooks';
 
 export type { ErrorBoundaryFallbackRender, ErrorBoundaryProps };
@@ -31,7 +32,10 @@ function errorMessage(error: unknown): string {
   }
 }
 
-function element(type: string, props: Record<string, unknown>): unknown {
+function element(
+  type: string | symbol,
+  props: Record<string, unknown>
+): unknown {
   return { $$typeof: ELEMENT_TYPE, type, props, key: null };
 }
 
@@ -123,7 +127,11 @@ export function ErrorBoundary(props: ErrorBoundaryProps): unknown {
     instance.computation.invalidate();
   };
   const fallback = props.fallback;
-  return typeof fallback === 'function'
-    ? (fallback as ErrorBoundaryFallbackRender)(slot.error, reset)
-    : (fallback ?? defaultFallback(slot.error, reset));
+  const output =
+    typeof fallback === 'function'
+      ? (fallback as ErrorBoundaryFallbackRender)(slot.error, reset)
+      : (fallback ?? defaultFallback(slot.error, reset));
+  return typeof Node !== 'undefined' && output instanceof Node
+    ? element(NATIVE_TYPE, { node: output })
+    : output;
 }

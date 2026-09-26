@@ -20,6 +20,8 @@ export const FUNCTION = 4;
 export const PORTAL = 6;
 /** A host node supplied directly as a child (e.g. an ErrorBoundary fallback). */
 export const NATIVE = 7;
+/** Explicitly adopted DOM node, used by an error-boundary fallback. */
+export const NATIVE_TYPE = Symbol.for('askr.core.native');
 
 export type Key = string | number | symbol;
 
@@ -149,7 +151,8 @@ export function normalizeChildren(
   }
 
   if (isHostNode(value)) {
-    out.push({ kind: NATIVE, key: undefined, node: value });
+    // Imperative nodes are not JSX children. A boundary fallback wraps the
+    // node explicitly so it can still be adopted at its own position.
     return out;
   }
 
@@ -195,6 +198,12 @@ export function normalizeChildren(
     });
   } else if (isFragmentType(type)) {
     out.push({ kind: FRAGMENT, key, children: propsOf(vnode).children });
+  } else if (type === NATIVE_TYPE) {
+    out.push({
+      kind: NATIVE,
+      key: undefined,
+      node: propsOf(vnode).node as object,
+    });
   } else {
     throw new Error(`[Askr] Unknown element type: ${String(type)}`);
   }
