@@ -78,8 +78,9 @@ styling. `@askrjs/ui` is headless. Pair it with `askr-themes` or your own CSS.
 
 A low-level primitive used to build framework structure or headless UI behavior. Structural
 foundations live in `@askrjs/askr/foundations`; lower-level helpers live in
-`@askrjs/askr/foundations/*`. `@askrjs/ui/foundations` re-exports the same
-canonical implementations for compatibility.
+`@askrjs/askr/foundations/*` (for example
+`@askrjs/askr/foundations/interactions`). `@askrjs/ui` imports these helpers;
+it does not publish a `foundations` subpath.
 
 ---
 

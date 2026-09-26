@@ -83,11 +83,14 @@ function RenameProjectForm() {
 identity and the page's CSRF token, succeeds through a validated 303 redirect,
 and re-renders validation failures with submitted values and field errors at 422. It is not intercepted automatically.
 
-Call `action().submit(input)` when the interaction is deliberately
-client-driven. It uses the same descriptor, handler, validation, cookies, and
-redirects, then processes the result and declared query invalidations. When the
-outcome includes a redirect, it performs full-document navigation so cookies,
-authentication, loaders, and SSR state all refresh together.
+`action(descriptor)` allocates component state for the submission status, so
+it follows the same rule as `state()`: call it during render, at the top level
+of the component. Call the returned `submit(input)` from event handlers when the
+interaction is deliberately client-driven. It uses the same descriptor, handler,
+validation, cookies, and redirects, then processes the result and declared query
+invalidations. When the outcome includes a redirect, it performs full-document
+navigation so cookies, authentication, loaders, and SSR state all refresh
+together.
 
 A failed client-driven submission rejects, and sets `state().error`, with one
 of two shapes. A 422 validation replay for the same action stays the

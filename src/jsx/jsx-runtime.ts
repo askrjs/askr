@@ -121,7 +121,9 @@ export function jsxDEV(
   };
 }
 
-// Production-style helpers: alias to the DEV factory for now
+// Production factories. These are separate copies of the `jsxDEV` body, not
+// aliases: `jsx` never marks static children and `jsxs` always does. Keep the
+// element shape and eager-control handling in sync with `jsxDEV`.
 /** JSX factory for elements with a single or no child, used by the `jsxImportSource` transform. */
 export function jsx(
   type: EagerControlPrimitive,

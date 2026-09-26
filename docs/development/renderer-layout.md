@@ -29,7 +29,9 @@ DOM rollback snapshots stay beside the owner and range indexes they restore.
 Component replacement and For commit orchestration retain their existing
 transaction and lifetime responsibilities.
 
-Published renderer extension contracts remain in the compatibility layer.
+Published renderer extension contracts are declared in
+`src/public-contracts/` and bound by `host-adapter.ts` and
+`public-dom-host.ts`.
 Architecture checks traverse nested renderer directories, enforce the central
 DOM metadata writer and runtime capability boundaries, and reject value-import
 cycles involving runtime or renderer modules.

@@ -110,4 +110,6 @@ entrypoint incompatibility.
 Before simplifying internals, first add a characterization test for the
 observable invariant. Remove the superseded ownership or rollback path in the
 same change; do not leave obsolete internal adapters or parallel cleanup paths.
-The public runtime and renderer compatibility adapters remain supported.
+The published runtime and renderer extension surfaces
+(`runtime/public-runtime.ts`, `runtime/public-ownership.ts`,
+`renderer/host-adapter.ts`, `renderer/public-dom-host.ts`) remain supported.

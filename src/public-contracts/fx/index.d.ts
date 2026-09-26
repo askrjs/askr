@@ -1,7 +1,13 @@
 import { scheduleEventHandler } from '../core.js';
 /**
- * Timing utilities — pure helpers for common async patterns
- * No framework coupling. No lifecycle awareness.
+ * Timing and event-scheduling helpers.
+ *
+ * The timing helpers (`debounce`, `throttle`, `once`, `defer`, `raf`, `idle`,
+ * `timeout`, `retry`) are plain functions with no runtime dependency. The
+ * event and `schedule*` helpers use the Askr scheduler and lifecycle ownership.
+ * `debounceEvent`, `throttleEvent`, and `rafEvent` reject invocation during
+ * render and cancel pending work on owner cleanup. `scheduleEventHandler`
+ * runs its handler in the captured owner's scope.
  */
 /** Options for {@link debounce}. */
 interface DebounceOptions {

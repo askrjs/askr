@@ -62,16 +62,16 @@ The [shared transaction coordinator](commit-protocol.md) publishes prepared
 ownership before settling departed lifetimes. Navigation retires the runtime
 generation directly; it does not discover descendants by walking DOM metadata.
 
-The compatibility adapter exposes the legacy component properties as views of
-the authoritative lifetime. Host callbacks and state reader maps retain the
+`runtime/public-ownership.ts` exposes the legacy component properties as views
+of the authoritative lifetime. Host callbacks and state reader maps retain the
 same component identity. Extension-created records are adopted in place when
 passed into the built-in host. Internal consumers use ownership capabilities
 and never read the legacy lifetime properties.
 The legacy scoped-child `Set` is a maintained index containing labelled scopes,
 not ordinary component children. An assigned collection retains its identity,
-including live additions and removals during disposal. The adapter translates
-those entries into the same lifetime drain. Native rendering does not allocate
-this compatibility collection unless an extension observes it.
+including live additions and removals during disposal. The public ownership
+views translate those entries into the same lifetime drain. Native rendering
+does not allocate this legacy collection unless an extension observes it.
 Active disposal leaves a caller-retained collection intact; inactive generation
 retirement clears it before the old generation's cleanup callbacks, preserving
 the published extension behavior in both cases.

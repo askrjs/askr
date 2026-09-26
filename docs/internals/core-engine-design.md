@@ -1,8 +1,11 @@
 # Internals: Core Engine Design
 
 The core separates lifetime ownership, execution, transactions, and host state.
-Published application and renderer extension contracts are maintained by the
-compatibility adapter; internal modules depend on capabilities and leaf contracts.
+Published application and renderer extension contracts are declared in
+`src/public-contracts/` and bound by a small set of public-surface modules
+(`runtime/public-runtime.ts`, `runtime/public-ownership.ts`,
+`renderer/host-adapter.ts`, and `renderer/public-dom-host.ts`); internal modules
+depend on capabilities and leaf contracts.
 
 The [runtime source layout](../development/runtime-layout.md) and
 [renderer source layout](../development/renderer-layout.md) map these owners
@@ -21,9 +24,9 @@ to their implementation directories.
 
 ```mermaid
 flowchart TB
-  public[Published contracts] --> compat[Compatibility adapter]
-  compat --> runtime[Runtime capabilities]
-  compat --> renderer[Browser renderer]
+  public[Published contracts] --> surface[Public-surface modules]
+  surface --> runtime[Runtime capabilities]
+  surface --> renderer[Browser renderer]
   boot[Boot composition] --> runtime
   boot --> renderer
   router[Router] --> root[Opaque root update contract]
@@ -86,11 +89,12 @@ Synchronous execution scopes restore through `finally`, including nested SSR.
 Default runtime selection and intentional browser history sharing remain public
 behavior.
 
-The compatibility adapter preserves `AskrRuntime`, renderer host signatures,
-observable extension properties, and exported subpaths. Its component views
+The public-surface modules implement `AskrRuntime`, renderer host signatures,
+and observable extension properties; the published subpaths are unchanged by
+the internal layout. Their component views
 reference authoritative internal state. Scoped-child collections are maintained
 indexes translated into the same lifetime graph when extensions mutate them.
-Internal modules never depend on compatibility shapes.
+Internal modules never depend on these published shapes.
 
 Native boot installs renderer capabilities directly. Public runtime views track
 that installation lazily, so applications do not load the extension translator
@@ -110,5 +114,6 @@ for those contracts.
 See [ownership](../development/ownership.md),
 [commit protocol](../development/commit-protocol.md),
 [renderer ownership](../development/renderer-ownership.md),
-[integrations](../development/integration-boundaries.md), and
+[integrations](../development/integration-boundaries.md),
+[runtime extension boundary](./runtime-extension-boundary.md), and
 [quality contracts](../development/quality-contracts.md).
