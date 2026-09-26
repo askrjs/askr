@@ -3,6 +3,7 @@
  * when a render takes longer than a threshold.
  */
 
+import { isProductionEnvironment } from '../../common/env';
 import { logger } from '../../common/logger';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
@@ -49,7 +50,11 @@ export function configureRenderDiagnostics(
 const warned = new WeakSet<object>();
 
 export function isTimingRenders(): boolean {
-  return __ASKR_DEVELOPMENT_BUILD__ && settings.slowRenderWarnings;
+  return (
+    __ASKR_DEVELOPMENT_BUILD__ &&
+    settings.slowRenderWarnings &&
+    !isProductionEnvironment()
+  );
 }
 
 export function reportRenderTime(
