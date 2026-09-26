@@ -10,9 +10,10 @@ import type {
 import { logger } from '../../common/logger';
 import { ELEMENT_TYPE, Fragment } from '../../common/jsx';
 import { isDevelopmentEnvironment } from '../../common/env';
-import { requireInstance } from '../component/instance';
+import { requireInstance, type ComponentInstance } from '../component/instance';
+import type { Owner } from '../reactive/owner';
 import { NATIVE_TYPE } from '../view/children';
-import { hookSlot } from './hooks';
+import { hookSlot, onCommit } from './hooks';
 
 export type { ErrorBoundaryFallbackRender, ErrorBoundaryProps };
 
@@ -20,6 +21,46 @@ interface BoundarySlot {
   caught: boolean;
   error: unknown;
   resetKey: unknown;
+}
+
+const boundarySlots = new WeakMap<Owner, BoundarySlot>();
+const recoveryHolds = new WeakMap<Owner, Set<() => void>>();
+
+/** The nearest ErrorBoundary above `owner`, or null. */
+export function nearestErrorBoundary(
+  owner: Owner | null
+): ComponentInstance | null {
+  for (let current = owner?.parent ?? null; current; current = current.parent) {
+    if (boundarySlots.has(current)) return current as ComponentInstance;
+  }
+  return null;
+}
+
+/**
+ * While `boundary` shows its fallback, defer `release` until the boundary
+ * commits a recovery or ends. Returns false (and does not call `release`)
+ * when the boundary is not showing a fallback.
+ */
+export function holdUntilBoundaryRecovers(
+  boundary: ComponentInstance,
+  release: () => void
+): boolean {
+  if (boundary.disposed || !boundarySlots.get(boundary)?.caught) return false;
+  let holds = recoveryHolds.get(boundary);
+  if (!holds) {
+    holds = new Set();
+    recoveryHolds.set(boundary, holds);
+    boundary.onCleanup(() => releaseHolds(boundary));
+  }
+  holds.add(release);
+  return true;
+}
+
+function releaseHolds(boundary: Owner): void {
+  const holds = recoveryHolds.get(boundary);
+  if (!holds) return;
+  recoveryHolds.delete(boundary);
+  for (const release of holds) release();
 }
 
 function errorMessage(error: unknown): string {
@@ -111,7 +152,12 @@ export function ErrorBoundary(props: ErrorBoundaryProps): unknown {
     return true;
   };
 
+  boundarySlots.set(instance, slot);
+
   if (!slot.caught) {
+    if (recoveryHolds.has(instance)) {
+      onCommit(instance, () => releaseHolds(instance));
+    }
     return {
       $$typeof: ELEMENT_TYPE,
       type: Fragment,

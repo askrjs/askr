@@ -20,6 +20,8 @@ import { effectScheduler, getFlushVersion } from '../reactive/scheduler';
 import { isRendering } from '../component/render-state';
 import { markReadable } from '../reactive/readable';
 import { isSnapshotSource } from './snapshot';
+import { isProductionEnvironment } from '../../common/env';
+import { logger } from '../../common/logger';
 
 export interface State<T> {
   (): T;
@@ -47,9 +49,20 @@ function isDerivedComputationActive(): boolean {
 }
 
 /** Create a callable state cell backed by `signal`. */
-export function createStateCell<T>(signal: Signal<T>): StateTuple<T> {
-  const read = (() => signal.read()) as State<T> & {
+export function createStateCell<T>(
+  signal: Signal<T>,
+  trackReads = false
+): StateTuple<T> {
+  const read = (
+    trackReads
+      ? () => {
+          read._everRead = true;
+          return signal.read();
+        }
+      : () => signal.read()
+  ) as State<T> & {
     _signal: Signal<T>;
+    _everRead?: boolean;
   };
   read._signal = signal;
   const set = (valueOrUpdater: T | ((prev: T) => T)): void => {
@@ -90,9 +103,35 @@ export function state<T>(initialValue: T): StateTuple<T> {
   const index = claimHook(instance, 'state');
   const existing = instance.hooks[index] as StateTuple<T> | undefined;
   if (existing) return existing;
-  const cell = createStateCell(new Signal(initialValue));
+  const development = !isProductionEnvironment();
+  const cell = createStateCell(new Signal(initialValue), development);
   instance.hooks[index] = cell;
+  if (development) warnUnusedStateOnUnmount(instance);
   return cell;
+}
+
+const unusedStateChecks = new WeakSet<ComponentInstance>();
+
+/**
+ * Warn, when a committed component unmounts, about state it never read. A
+ * branch that has not rendered is no evidence that its state is unused, so
+ * the check waits for the end of the component's lifetime.
+ */
+function warnUnusedStateOnUnmount(instance: ComponentInstance): void {
+  if (unusedStateChecks.has(instance)) return;
+  unusedStateChecks.add(instance);
+  instance.onCleanup(() => {
+    if (!instance.mounted) return;
+    const name = instance.displayName || '<anonymous>';
+    for (let index = 0; index < instance.hookKinds.length; index++) {
+      if (instance.hookKinds[index] !== 'state') continue;
+      const cell = instance.hooks[index] as { _everRead?: boolean };
+      if (cell._everRead) continue;
+      logger.warn(
+        `[askr] Unused state variable detected in ${name} at index ${index}. State should be read during render or removed.`
+      );
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------

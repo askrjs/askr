@@ -15,7 +15,7 @@ import {
   elementReactivePropsCleanup,
   elementRefs,
 } from '../../../src/renderer/ownership/cleanup';
-import { state, type State } from '../../../src/runtime/reactivity/state';
+import { state, type State } from '../../../src/index';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,

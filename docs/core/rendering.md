@@ -602,9 +602,10 @@ the host disposes those components as well. A named portal writer that leaves
 after another writer has taken the same channel does not clear the replacement.
 An error while rendering portal content reaches the writer's nearest
 `ErrorBoundary`, or a boundary around the host when the writer has none.
-Once an explicit `DefaultPortal` host commits, the automatic host stays
-suppressed for that app root, including while a boundary fallback removes the
-explicit host.
+While an explicit `DefaultPortal` host is mounted, the automatic host renders
+nothing. When the explicit host unmounts, content returns to the automatic
+host, except while an `ErrorBoundary` fallback has replaced the explicit host:
+the content stays off the automatic host until that boundary recovers.
 An imperative `DefaultPortal.render()` call outside a component writes to the
 single connected app root, if there is one. A write made before the first root
 mounts appears when that root mounts. With multiple connected roots, the write

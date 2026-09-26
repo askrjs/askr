@@ -12,7 +12,7 @@ import {
   _resetDefaultPortal,
 } from '../../../src/foundations/structures/portal';
 import { resource, task } from '../../../src/resources';
-import { state, type State } from '../../../src/runtime/reactivity/state';
+import { state, type State } from '../../../src/index';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,

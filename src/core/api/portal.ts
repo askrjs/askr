@@ -18,6 +18,10 @@ import { Signal } from '../reactive/graph';
 import { OWNED_TYPE } from '../view/children';
 import { currentComponent, onCommit } from './hooks';
 import {
+  holdUntilBoundaryRecovers,
+  nearestErrorBoundary,
+} from './error-boundary';
+import {
   DEFAULT_SSR_PORTAL_KEY,
   createSSRPortalHost,
   writeSSRPortal,
@@ -31,10 +35,11 @@ interface Write {
 
 export interface PortalChannel {
   readonly write: Signal<Write | null>;
-  /** Explicit hosts currently mounted (the automatic host yields to them). */
+  /**
+   * Explicit hosts currently mounted, or discarded by an ErrorBoundary
+   * fallback that has not recovered; the automatic host yields to them.
+   */
   readonly explicitHosts: Signal<number>;
-  /** A committed explicit host keeps the automatic host suppressed. */
-  explicitHostCommitted: boolean;
 }
 
 let nextWriteId = 0;
@@ -43,7 +48,6 @@ export function createPortalChannel(): PortalChannel {
   return {
     write: new Signal<Write | null>(null),
     explicitHosts: new Signal(0),
-    explicitHostCommitted: false,
   };
 }
 
@@ -204,8 +208,7 @@ export function DefaultPortal(props?: {
   const channel = defaultChannel();
   if (automatic) {
     // The automatic host renders only while no explicit host is mounted.
-    if (channel.explicitHosts.read() > 0 || channel.explicitHostCommitted)
-      return null;
+    if (channel.explicitHosts.read() > 0) return null;
     return renderWrite(channel.write.read());
   }
   const instance = currentComponent();
@@ -216,11 +219,15 @@ export function DefaultPortal(props?: {
       explicitHosts.delete(instance);
       channel.explicitHosts.write(channel.explicitHosts.peek() - 1);
     });
-    onCommit(instance, () => {
-      channel.explicitHostCommitted = true;
-      return () => {
+    const boundary = nearestErrorBoundary(instance);
+    onCommit(instance, () => () => {
+      const release = () =>
         channel.explicitHosts.write(channel.explicitHosts.peek() - 1);
-      };
+      // A host that a boundary fallback discarded keeps the content off the
+      // automatic host until the boundary recovers.
+      if (!boundary || !holdUntilBoundaryRecovers(boundary, release)) {
+        release();
+      }
     });
   }
   return renderWrite(channel.write.read());

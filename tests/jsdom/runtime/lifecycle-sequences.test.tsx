@@ -11,7 +11,7 @@ import {
   createComponentInstance,
 } from '../../../src/runtime';
 import { enqueueRuntimeLane } from '../../../src/runtime/access';
-import { state, type State } from '../../../src/runtime/reactivity/state';
+import { state, type State } from '../../../src/index';
 import {
   Portal,
   _resetDefaultPortal,

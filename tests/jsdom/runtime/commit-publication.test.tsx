@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
-import { state, type State } from '../../../src/runtime/reactivity/state';
+import { state, type State } from '../../../src/index';
 import {
   getCurrentComponentInstance,
   type ComponentInstance,

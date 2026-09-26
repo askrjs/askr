@@ -13,7 +13,7 @@ import type { AppRootHandle } from '../common/app-root';
 import type { ComponentFunction } from '../common/component';
 import { ELEMENT_TYPE, type JSXElement } from '../common/jsx';
 import { reportUncaughtErrorLater } from '../common/report-error';
-import { provideAppRuntime } from '../core/api/hooks';
+import { currentComponent, provideAppRuntime } from '../core/api/hooks';
 import { provideDefaultPortal } from '../core/api/portal';
 import { createRoot, type Root } from '../core/dom/root';
 import { flushSync } from '../core/reactive/scheduler';
@@ -72,6 +72,9 @@ interface RootViewProps {
 
 function RootView(props: RootViewProps, context?: unknown): unknown {
   provideAppRuntime(props.runtime);
+  // The handler runs inline; diagnostics name its hooks after it.
+  const instance = currentComponent();
+  if (instance) instance.name = props.handler.name || null;
   return props.handler({}, context as never);
 }
 

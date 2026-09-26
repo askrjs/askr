@@ -244,7 +244,7 @@ function createResource<T>(
       cell.snapshot.pending = seed.pending;
     }
     // Attach debug label (component name) for richer logs
-    cell.ownerName = inst.fn?.name || '<anonymous>';
+    cell.ownerName = inst.displayName || '<anonymous>';
     h.cell = cell;
     h.snapshot = cell.snapshot as ResourceResult<T>;
 

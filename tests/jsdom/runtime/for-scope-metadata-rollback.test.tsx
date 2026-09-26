@@ -8,7 +8,7 @@ import {
 } from 'vite-plus/test';
 import { For } from '../../../src/control';
 import { defineScope, readScope } from '../../../src/runtime/context/context';
-import { state, type State } from '../../../src/runtime/reactivity/state';
+import { state, type State } from '../../../src/index';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,

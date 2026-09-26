@@ -2,7 +2,7 @@ import { resetRouteState } from '../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { createSPA } from '@askrjs/askr/boot';
 import { definePortal } from '../../../src/runtime/portal/portal';
-import { state } from '../../../src/runtime/reactivity/state';
+import { state } from '../../../src/index';
 import type { ComponentInstance } from '../../../src/runtime';
 import type { ReadableSource } from '../../../src/runtime/reactivity/readable';
 import { navigate } from '../../../src/router/navigate';

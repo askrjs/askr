@@ -41,6 +41,8 @@ export class ComponentInstance extends Owner {
   hooks: unknown[] = [];
   hookKinds: HookKind[] = [];
   hookIndex = 0;
+  /** Name for diagnostics when the component function's name is not it. */
+  name: string | null = null;
   /** Set once the first render has committed. */
   mounted = false;
   renderCount = 0;
@@ -60,6 +62,10 @@ export class ComponentInstance extends Owner {
   boundary: ((error: unknown) => boolean) | null = null;
   contextRevision = 0;
   seenAncestorContextRevision = 0;
+
+  get displayName(): string {
+    return this.name ?? this.fn.name;
+  }
 
   constructor(
     parent: Owner | null,
@@ -105,7 +111,7 @@ export class ComponentInstance extends Owner {
       if (started) {
         reportRenderTime(
           this,
-          this.fn.name || '<anonymous>',
+          this.displayName || '<anonymous>',
           Date.now() - started
         );
       }
@@ -271,7 +277,7 @@ function hookOrderError(
   actual: HookKind | undefined,
   expected: HookKind | undefined
 ): Error {
-  const name = instance.fn.name || 'anonymous component';
+  const name = instance.displayName || 'anonymous component';
   return new HookOrderChangeError(
     instance,
     `[Askr] Hook order changed in ${name}: slot ${index} was ` +
