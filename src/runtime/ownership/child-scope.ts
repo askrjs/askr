@@ -77,7 +77,6 @@ export interface ChildScopeTransactionSnapshot {
   host: ChildScopeHostSnapshot | undefined;
   needsDomUpdate: boolean;
   hydrationPending: boolean;
-  hasPendingUpdate: boolean;
   renderFn: (() => VNode) | undefined;
   renderedOwnerFrame: ContextFrame | null;
 }
@@ -302,6 +301,12 @@ function renderScope(scope: MutableChildScope): VNode | undefined {
     scope.vnode = nextVNode;
     scope._renderedOwnerFrame = componentInstance.ownerFrame;
     scope.markDirty();
+    if (componentInstance.hasPendingUpdate) {
+      registerCommitRollback(() => {
+        if (!componentInstance.owner.disposed)
+          componentInstance.hasPendingUpdate = true;
+      });
+    }
     componentInstance.hasPendingUpdate = false;
     if ((componentInstance._pendingReadSources?.size ?? 0) > 0) {
       ensureChildScopeFlushTask(scope);
@@ -346,7 +351,6 @@ export function captureChildScopeTransactionSnapshot(
     host: getRuntimeScopes().captureChildScopeHost(scope),
     needsDomUpdate: scope.needsDomUpdate,
     hydrationPending: scope.hydrationPending,
-    hasPendingUpdate: scope.componentInstance.hasPendingUpdate,
     renderFn: mutableScope._renderFn,
     renderedOwnerFrame: mutableScope._renderedOwnerFrame,
   };
@@ -363,7 +367,6 @@ export function restoreChildScopeTransactionSnapshot(
   snapshot.host?.restore(scope);
   scope.needsDomUpdate = snapshot.needsDomUpdate;
   scope.hydrationPending = snapshot.hydrationPending;
-  scope.componentInstance.hasPendingUpdate = snapshot.hasPendingUpdate;
   mutableScope._renderFn = snapshot.renderFn;
   mutableScope._renderedOwnerFrame = snapshot.renderedOwnerFrame;
 }
