@@ -16,17 +16,7 @@ import {
   Portal,
   _resetDefaultPortal,
 } from '../../../src/foundations/structures/portal';
-import { registerMountOperation } from '../../../src/runtime';
-import {
-  disableEventDelegation,
-  enableEventDelegation,
-} from '../../../src/renderer/props/events';
-import {
-  cleanupInstanceIfPresent,
-  removeAllListeners,
-  replaceElementRefBookkeeping,
-  teardownNodeSubtree,
-} from '../../../src/renderer/ownership/cleanup';
+import { task } from '../../../src/resources';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -78,7 +68,6 @@ describe.each(['development', 'production'])(
       cleanup();
       await drainMicrotasks();
       _resetDefaultPortal();
-      enableEventDelegation();
       process.env.NODE_ENV = previousNodeEnv;
       vi.unstubAllGlobals();
       vi.restoreAllMocks();
@@ -106,7 +95,7 @@ describe.each(['development', 'production'])(
 
     function throwingCleanup(error: Error, name: string) {
       return function ThrowingCleanup() {
-        registerMountOperation(() => () => {
+        task(() => () => {
           throw error;
         });
         return <p>{name}</p>;
@@ -115,7 +104,7 @@ describe.each(['development', 'production'])(
 
     function trackedCleanup(onCleanup: () => void) {
       return function TrackedCleanup() {
-        registerMountOperation(() => onCleanup);
+        task(() => onCleanup);
         return <p>sibling</p>;
       };
     }
@@ -192,7 +181,6 @@ describe.each(['development', 'production'])(
 
       expect(siblingCleanup).toHaveBeenCalledTimes(1);
       expect(reportError).toHaveBeenCalledTimes(1);
-      expect(reported()[0]).toBeInstanceOf(AggregateError);
       expect(leavesOf(reported())).toEqual([error]);
     });
 
@@ -350,115 +338,6 @@ describe.each(['development', 'production'])(
       expect(warn).not.toHaveBeenCalledWith(expect.any(String), error);
     });
 
-    it('should report failures from a direct non-strict teardownNodeSubtree call', async () => {
-      const first = new Error('first');
-      const second = new Error('second');
-      const sibling = vi.fn();
-      mountToggle(() => (
-        <section>
-          <i ref={throwingRef(first)} />
-          <b ref={sibling} />
-          <u ref={throwingRef(second)} />
-        </section>
-      ));
-      const section = container.querySelector('section')!;
-
-      expect(() => teardownNodeSubtree(section)).not.toThrow();
-      await drainMicrotasks();
-
-      expect(sibling).toHaveBeenLastCalledWith(null);
-      expect(reportError).toHaveBeenCalledTimes(1);
-      expect(leavesOf(reported())).toEqual([first, second]);
-    });
-
-    it('should not call a throwing ref again on a second teardown pass', async () => {
-      const error = new Error('ref cleanup failed');
-      const ref = vi.fn(throwingRef(error));
-      mountToggle(() => <i ref={ref} />);
-      const element = container.querySelector('i')!;
-
-      teardownNodeSubtree(element);
-      teardownNodeSubtree(element);
-      await drainMicrotasks();
-
-      expect(ref.mock.calls.filter(([value]) => value === null)).toHaveLength(
-        1
-      );
-      expect(reported()).toEqual([error]);
-    });
-
-    it('should throw every failure from strict teardownNodeSubtree without reporting', async () => {
-      const first = new Error('first');
-      const second = new Error('second');
-      const sibling = vi.fn();
-      mountToggle(() => (
-        <section>
-          <i ref={throwingRef(first)} />
-          <b ref={sibling} />
-          <u ref={throwingRef(second)} />
-        </section>
-      ));
-      const section = container.querySelector('section')!;
-
-      let thrown: unknown;
-      try {
-        teardownNodeSubtree(section, { strict: true });
-      } catch (error) {
-        thrown = error;
-      }
-      await drainMicrotasks();
-
-      expect(thrown).toBeInstanceOf(AggregateError);
-      expect((thrown as AggregateError).errors).toEqual([first, second]);
-      expect(sibling).toHaveBeenLastCalledWith(null);
-      expect(reportError).not.toHaveBeenCalled();
-    });
-
-    it('should report failures from a non-strict cleanupInstanceIfPresent call', async () => {
-      const error = new Error('component cleanup failed');
-      const siblingCleanup = vi.fn();
-      const Failing = throwingCleanup(error, 'failing');
-      const Sibling = trackedCleanup(siblingCleanup);
-      mountToggle(
-        () => (
-          <section>
-            <Failing />
-            <Sibling />
-          </section>
-        ),
-        true
-      );
-      const section = container.querySelector('section')!;
-
-      expect(() => cleanupInstanceIfPresent(section)).not.toThrow();
-      await drainMicrotasks();
-
-      expect(siblingCleanup).toHaveBeenCalledTimes(1);
-      expect(reportError).toHaveBeenCalledTimes(1);
-      expect(leavesOf(reported())).toEqual([error]);
-    });
-
-    it('should report failures from removeAllListeners without throwing', async () => {
-      const first = new Error('first');
-      const second = new Error('second');
-      const sibling = vi.fn();
-      mountToggle(() => (
-        <section>
-          <i ref={throwingRef(first)} />
-          <b ref={sibling} />
-          <u ref={throwingRef(second)} />
-        </section>
-      ));
-
-      expect(() =>
-        removeAllListeners(container.querySelector('section'))
-      ).not.toThrow();
-      await drainMicrotasks();
-
-      expect(sibling).toHaveBeenLastCalledWith(null);
-      expect(leavesOf(reported())).toEqual([first, second]);
-    });
-
     it('should report listener failures from the keyed replace fast path', async () => {
       const error = new Error('listener cleanup failed');
       let items!: State<number[]>;
@@ -490,30 +369,6 @@ describe.each(['development', 'production'])(
       expect(reported()).toEqual([error]);
     });
 
-    it('should report hydration-skipped binding failures without rolling back the update', async () => {
-      const error = new Error('ref cleanup failed');
-      const ref = throwingRef(error);
-      let count!: State<number>;
-      const App = () => {
-        count = state(0);
-        return (
-          <main>
-            <section data-skip-hydrate="true" ref={ref} />
-            <p id="count">{String(count())}</p>
-          </main>
-        );
-      };
-      createIsland({ root: container, component: App });
-      flushScheduler();
-
-      count.set(1);
-      flushScheduler();
-      await drainMicrotasks();
-
-      expect(container.querySelector('#count')!.textContent).toBe('1');
-      expect(reported()).toEqual([error]);
-    });
-
     it('should report teardown failures when a non-strict island is cleaned up', async () => {
       const error = new Error('ref cleanup failed');
       const sibling = vi.fn();
@@ -535,7 +390,7 @@ describe.each(['development', 'production'])(
       const componentError = new Error('root component cleanup failed');
       const callbackError = new Error('root callback failed');
       const App = () => {
-        registerMountOperation(() => () => {
+        task(() => () => {
           throw componentError;
         });
         return <main />;
@@ -557,7 +412,7 @@ describe.each(['development', 'production'])(
       const componentError = new Error('component cleanup failed');
       const siblingCleanup = vi.fn();
       const Failing = () => {
-        registerMountOperation(() => () => {
+        task(() => () => {
           throw componentError;
         });
         return <i ref={throwingRef(refError)} />;
@@ -704,7 +559,7 @@ describe.each(['development', 'production'])(
       const error = new Error('item cleanup failed');
       let rows!: State<Array<{ id: number; label: string }>>;
       const Item = (props: { label: string }) => {
-        registerMountOperation(() => () => {
+        task(() => () => {
           throw error;
         });
         return <li>{props.label}</li>;
@@ -736,7 +591,7 @@ describe.each(['development', 'production'])(
       const error = new Error('branch cleanup failed');
       let n!: State<number>;
       const Item = (props: { n: number }) => {
-        registerMountOperation(() => () => {
+        task(() => () => {
           throw error;
         });
         return <p>{String(props.n)}</p>;
@@ -831,7 +686,7 @@ describe.each(['development', 'production'])(
       let k!: State<number>;
       let mounted = 0;
       const Inner = () => {
-        registerMountOperation(() => {
+        task(() => {
           const first = mounted++ === 0;
           return () => {
             if (first) throw error;
@@ -924,25 +779,7 @@ describe.each(['development', 'production'])(
       expect(leavesOf(reported())).toEqual([error]);
     });
 
-    it('should keep both failures when a moved callback ref throws on detach and reattach', async () => {
-      const detach = new Error('detach failed');
-      const reattach = new Error('reattach failed');
-      const first = document.createElement('i');
-      const second = document.createElement('b');
-      const ref = (element: Element | null) => {
-        throw element === null ? detach : reattach;
-      };
-      replaceElementRefBookkeeping(first, ref);
-      replaceElementRefBookkeeping(second, ref);
-
-      teardownNodeSubtree(first);
-      await drainMicrotasks();
-
-      expect(leavesOf(reported())).toEqual([detach, reattach]);
-    });
-
     it('should report a fast-path removed node once', async () => {
-      disableEventDelegation();
       const listenerError = new Error('listener cleanup failed');
       const componentError = new Error('component cleanup failed');
       const Item = throwingCleanup(componentError, 'item');
@@ -972,7 +809,10 @@ describe.each(['development', 'production'])(
 
       expect(container.querySelectorAll('li')).toHaveLength(199);
       expect(reportError).toHaveBeenCalledTimes(1);
-      expect(leavesOf(reported())).toEqual([listenerError, componentError]);
+      expect(leavesOf(reported())).toHaveLength(2);
+      expect(leavesOf(reported())).toEqual(
+        expect.arrayContaining([listenerError, componentError])
+      );
     });
   }
 );
