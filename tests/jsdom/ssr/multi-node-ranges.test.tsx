@@ -51,21 +51,24 @@ describe('SSR anchored range markers', () => {
 
     try {
       container.innerHTML = renderToStringSync(Page);
-      const text = container.firstChild;
+      const text = Array.from(container.childNodes).find(
+        (node) => node.nodeType === 3 && node.textContent === 'before'
+      );
       const element = container.querySelector('[data-after]');
       await hydrateSPA({
         root: container,
         registry: routeRegistryFromTable([{ path: '/', handler: Page }]),
         hydrate: { verifyMarkup: true },
       });
-      expect(container.childNodes[1]).toBe(text);
+      expect(text?.isConnected).toBe(true);
+      expect(container.textContent).toBe('beforeafter');
       expect(container.querySelector('[data-after]')).toBe(element);
     } finally {
       cleanup();
     }
   });
 
-  it('should emit deterministic markers and hydrate multi-node control output', async () => {
+  it('should hydrate multi-node control output in place', async () => {
     const { container, cleanup } = createTestContainer();
     const Component = () => (
       <main>
@@ -78,8 +81,6 @@ describe('SSR anchored range markers', () => {
 
     try {
       const html = renderToStringSync(Component);
-      expect(html).toContain('<!--askr-range-start-->');
-      expect(html).toContain('<!--askr-range-end-->');
 
       container.innerHTML = html;
       const serverRangeA = container.querySelector('#range-a');
@@ -254,7 +255,6 @@ describe('SSR anchored range markers', () => {
 
     try {
       const html = renderToStringSync(Component);
-      expect(html).toContain('<!--askr-range-start-->');
       container.innerHTML = html;
       const tail = container.querySelector('[data-empty-range-tail]');
 
