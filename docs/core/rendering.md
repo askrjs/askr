@@ -523,6 +523,10 @@ transparent component ranges, and SSR portal hosts are eligible for adoption
 only inside that scope. Keyed trees, reactive props, and any mismatch use the
 normal reconciliation path.
 
+A page root that returns several sibling nodes, including leading text, adopts
+each matching server node in place. The automatic default portal host does not
+consume one of those siblings when it has no server-rendered content.
+
 Ordinary client reconciliation never infers ownership from matching-looking
 DOM. Unmatched nodes and ranges are removed from a captured next sibling,
 their component subtrees are torn down exactly once, and newly rendered

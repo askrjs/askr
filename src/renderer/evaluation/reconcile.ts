@@ -140,6 +140,21 @@ function hasKeyedChildren(children: unknown[]): boolean {
   return false;
 }
 
+function hasOnlyAutomaticPortalKey(children: unknown[]): boolean {
+  const last = children[children.length - 1];
+  if (
+    !_isDOMElement(last) ||
+    last.key !== '__default_portal' ||
+    last.props?.__askrAutoDefaultPortal !== true
+  ) {
+    return false;
+  }
+  for (let index = 0; index < children.length - 1; index += 1) {
+    if (extractKey(children[index]) !== undefined) return false;
+  }
+  return true;
+}
+
 function trackBulkTextStats(
   stats: ReturnType<typeof performBulkTextReplace>
 ): void {
@@ -304,7 +319,12 @@ export function updateElementChildren(
     return;
   }
 
-  if (hasKeyedChildren(vnodeChildren)) {
+  // The route wrapper's trailing portal host has a key, but that key should
+  // not force its unkeyed page siblings through keyed reconciliation. The
+  // positional path can adopt matching server nodes and retain them on update.
+  if (hasOnlyAutomaticPortalKey(vnodeChildren)) {
+    reconcileUnkeyed(element, vnodeChildren);
+  } else if (hasKeyedChildren(vnodeChildren)) {
     const oldKeyMap = getOrBuildKeyMap(element);
     reconcileKeyed(element, vnodeChildren, oldKeyMap);
   } else {

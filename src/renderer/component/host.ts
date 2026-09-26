@@ -13,6 +13,7 @@ import {
   findStableHostInstanceByType,
 } from './host-instances';
 import { canReconcileComponentHost } from '../hydration/adoption';
+import { isHydrationAdoptionScopeActive } from '../hydration/adoption';
 import { getDefaultPortalHost } from '../../common/default-portal-runtime';
 import { findRangeEnd, isRangeStart } from '../ownership/ranges';
 import { adoptComponentHost } from './host-adoption';
@@ -75,7 +76,11 @@ function syncComponentElementInTransaction(
   preserveHydrationCursorOnEmpty = false
 ): Node | null {
   const existingHost =
-    currentDom instanceof Element || currentDom instanceof Comment
+    currentDom instanceof Element ||
+    currentDom instanceof Comment ||
+    (currentDom instanceof Text &&
+      hydrationRangeEnd !== undefined &&
+      isHydrationAdoptionScopeActive())
       ? (currentDom as InstanceHostNode)
       : null;
   const existingInstance = existingHost

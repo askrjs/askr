@@ -130,7 +130,7 @@ function createAttributeFreeStagingHost(parent: Element): Element {
 }
 
 function migrateAdoptedRangeOwners(
-  sourceNode: Element | Comment,
+  sourceNode: Node,
   rangeHost: InstanceHostNode,
   owners: Set<ComponentInstance>
 ): () => void {
@@ -265,7 +265,7 @@ function isRangeStartNode(node: Node): node is Comment {
 }
 
 export function adoptHydratedComponentRange(
-  existingHost: Element | Comment,
+  existingHost: Node,
   instance: ComponentInstance,
   result: unknown,
   endExclusive: Node | null,
@@ -297,8 +297,8 @@ export function adoptHydratedComponentRange(
   );
   const resolvedEndExclusive =
     matchedEnd === undefined ? endExclusive : matchedEnd;
-  const start = existingHost.ownerDocument.createComment(RANGE_START_MARKER);
-  const end = existingHost.ownerDocument.createComment(RANGE_END_MARKER);
+  const start = parent.ownerDocument.createComment(RANGE_START_MARKER);
+  const end = parent.ownerDocument.createComment(RANGE_END_MARKER);
   parent.insertBefore(start, existingHost);
   parent.insertBefore(end, resolvedEndExclusive);
   registerRange({ start, end, single: false }, instance);

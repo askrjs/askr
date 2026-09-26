@@ -147,9 +147,19 @@ function commitComponentAgainstSnapshot(
   index: number,
   currentNode: Node,
   next: DOMElement,
-  expectedLength: number
+  expectedChildren: unknown[]
 ): boolean {
-  const remainingExpected = expectedLength - index - 1;
+  const lastChild = expectedChildren[expectedChildren.length - 1];
+  const trailingAutomaticPortal =
+    _isDOMElement(lastChild) &&
+    lastChild.props?.__askrAutoDefaultPortal === true;
+  // The route wrapper adds this host after the page, but an empty host has
+  // no server node to reserve when the page claims its hydration range.
+  const remainingExpected =
+    expectedChildren.length -
+    index -
+    1 -
+    (trailingAutomaticPortal && index < expectedChildren.length - 1 ? 1 : 0);
   const hydrationRangeEndIndex = allNodes.length - remainingExpected;
   const hydrationRangeEnd =
     hydrationRangeEndIndex > index
@@ -271,7 +281,7 @@ function commitMixedContent(
           i,
           currentNode,
           next,
-          newChildren.length
+          newChildren
         )
       ) {
         continue;
@@ -302,7 +312,7 @@ function commitMixedContent(
         i,
         currentEl,
         next,
-        newChildren.length
+        newChildren
       )
     ) {
       replaceWithFresh(commit, currentEl, next);

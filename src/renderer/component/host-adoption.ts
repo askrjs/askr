@@ -129,7 +129,7 @@ function tryAdoptHydratedRange(
             (result === null || result === undefined || result === false)
         )
       : adoptHydratedComponentRange(
-          existingHost as Element | Comment,
+          existingHost,
           adoption.instance,
           result,
           hydrationRangeEnd,
@@ -189,7 +189,12 @@ export function adoptComponentHost(
   if (
     !(existingHost instanceof Element) &&
     !isSSRPortalHydrationAnchor(existingHost) &&
-    !markedHydrationEnd
+    !markedHydrationEnd &&
+    !(
+      existingHost instanceof Text &&
+      hydrationRangeEnd !== undefined &&
+      isHydrationAdoptionScopeActive()
+    )
   ) {
     return null;
   }
