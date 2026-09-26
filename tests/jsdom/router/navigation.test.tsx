@@ -15,7 +15,7 @@ import {
   vi,
 } from 'vite-plus/test';
 import { state } from '../../../src/index';
-import { registerMountOperation } from '../../../src/runtime';
+import { task } from '../../../src/resources';
 import { Portal } from '../../../src/foundations/structures/portal';
 import { createSPA } from '@askrjs/askr/boot';
 import { navigate, updateRouteQuery } from '../../../src/router/navigate';
@@ -245,7 +245,7 @@ describe('route navigation (ROUTER)', () => {
       vi.stubGlobal('reportError', reportError);
       window.history.replaceState({}, '', '/old');
       route('/old', () => {
-        registerMountOperation(() => () => {
+        task(() => () => {
           throw new Error('old route cleanup failed');
         });
         return <p>old route</p>;
