@@ -180,6 +180,8 @@ describe('SSG hydration bundle', () => {
     // ranges instead of wrapper elements, retains sibling ranges on updates,
     // and updates one text node in place with rollback (+371 bytes over
     // 285,439 on develop, 285,810 bytes total).
+    // #445 retains same-type links in a deep wrapper chain and groups a long
+    // host owner list by parent (+305 bytes, 286,115 bytes total).
     expect(initialBytes).toBeLessThanOrEqual(280 * 1024);
   });
 });

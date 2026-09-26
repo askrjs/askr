@@ -20,7 +20,7 @@ import {
   normalizeComponentChildren,
 } from '../children/child-shape';
 import {
-  findHostInstanceByType,
+  createChainLinkFinder,
   getVNodeComponentInstance,
   inheritComponentCleanupStrict,
   isRouteRootComponentVNode,
@@ -37,6 +37,10 @@ import {
 import type { InstanceHostNode } from '../dom-host';
 import { _isDOMElement, type DOMElement, type VNode } from '../types';
 import { assertComponentChainDepth } from './chain-depth';
+
+// Fresh chain links record depth 0. A retained walk can start at any link,
+// so its walk-relative depth must not become part of link identity.
+const CHAIN_LINK_WRAPPER_DEPTH = 0;
 
 function getNestedComponentVNode(result: unknown): DOMElement | null {
   if (_isDOMElement(result) && typeof result.type === 'function') {
@@ -116,6 +120,7 @@ export function resolveHostNestedComponentResult(
     node: DOMElement;
     previous: ComponentInstance | undefined;
   }> = [];
+  const findChainInstance = createChainLinkFinder(host);
 
   try {
     let nestedVNode = getNestedComponentVNode(currentResult);
@@ -123,12 +128,11 @@ export function resolveHostNestedComponentResult(
       assertComponentChainDepth(depth, activeParent);
       const nestedSnapshot =
         getVNodeContextFrame(nestedVNode) ?? activeSnapshot;
-      let nestedInstance = findHostInstanceByType(
-        host,
+      let nestedInstance = findChainInstance(
         nestedVNode.type as ComponentFunction,
         nestedVNode,
         activeParent,
-        depth
+        CHAIN_LINK_WRAPPER_DEPTH
       );
       const hadNestedInstance = !!nestedInstance;
 
@@ -153,7 +157,7 @@ export function resolveHostNestedComponentResult(
         nestedInstance,
         nestedVNode,
         activeParent,
-        depth
+        CHAIN_LINK_WRAPPER_DEPTH
       );
       if (hadNestedInstance) captureInlineRenderSnapshot(nestedInstance);
       setVNodeComponentInstance(nestedVNode, nestedInstance);
