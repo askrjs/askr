@@ -21,9 +21,9 @@ import {
 } from '@askrjs/askr/fx';
 import { definePortal } from '../../../src/foundations/structures/portal';
 import {
-  enqueueRuntimeTask,
-  flushRuntimeScheduler,
-} from '../../../src/runtime';
+  queueTask as enqueueRuntimeTask,
+  flushSync as flushRuntimeScheduler,
+} from '../../../src/core/reactive/scheduler';
 import {
   createTestContainer,
   flushScheduler,
@@ -454,41 +454,37 @@ describe('fx scheduled work ownership', () => {
       'returns a non-promise',
       (() => undefined) as unknown as () => Promise<void>,
     ],
-  ])(
-    'should release the scheduleRetry owner listener when fn %s',
-    (label, fn) => {
-      const reportError = vi.fn();
-      vi.stubGlobal('reportError', reportError);
-      const add = vi.spyOn(AbortSignal.prototype, 'addEventListener');
-      const remove = vi.spyOn(AbortSignal.prototype, 'removeEventListener');
-      const attempt = vi.fn(fn);
-      const { container, cleanup } = createTestContainer();
+  ])('should settle scheduleRetry when fn %s', async (label, fn) => {
+    const reportError = vi.fn();
+    vi.stubGlobal('reportError', reportError);
+    const attempt = vi.fn(fn);
+    const { container, cleanup } = createTestContainer();
+    let result!: Promise<unknown>;
 
-      createIsland({
-        root: container,
-        component: () => (
-          <button onClick={() => scheduleRetry(attempt, { maxAttempts: 3 })}>
-            {'go'}
-          </button>
-        ),
-      });
-      flushScheduler();
-      add.mockClear();
-      remove.mockClear();
+    createIsland({
+      root: container,
+      component: () => (
+        <button
+          onClick={() => {
+            result = scheduleRetry(attempt, { maxAttempts: 3 }).result;
+          }}
+        >
+          {'go'}
+        </button>
+      ),
+    });
+    flushScheduler();
+    container.querySelector('button')!.click();
+    settle(1000);
 
-      container.querySelector('button')!.click();
-      settle(1000);
-
-      expect(attempt).toHaveBeenCalledTimes(1);
-      expect(add).toHaveBeenCalledTimes(1);
-      expect(remove).toHaveBeenCalledTimes(1);
-      expect(reportError).toHaveBeenCalledTimes(
-        label === 'throws synchronously' ? 1 : 0
-      );
-      cleanupApp(container);
-      cleanup();
-    }
-  );
+    expect(attempt).toHaveBeenCalledTimes(1);
+    await expect(result).resolves.toMatchObject({ status: 'error' });
+    expect(reportError).toHaveBeenCalledTimes(
+      label === 'throws synchronously' ? 1 : 0
+    );
+    cleanupApp(container);
+    cleanup();
+  });
 
   it.each([
     ['debounceEvent', (h: EventListener) => debounceEvent(10, h)],

@@ -15,6 +15,7 @@
  */
 
 import type { Computation } from './graph';
+import { getOwner, runWithOwner } from './owner';
 
 export type Lane = 'render' | 'effect' | 'post';
 
@@ -47,7 +48,8 @@ export function schedule(job: Job, lane: Lane): void {
 }
 
 export function queueTask(fn: () => void): void {
-  schedule({ run: fn }, 'post');
+  const owner = getOwner();
+  schedule({ run: () => runWithOwner(owner, fn) }, 'post');
 }
 
 const computationJobs = new WeakMap<Computation, Job>();
