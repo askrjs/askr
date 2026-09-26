@@ -49,7 +49,6 @@ describe('scheduler (SPEC 2.2)', () => {
 
       expect(events).toEqual(['failed', 'sibling']);
       expect(scheduler.getState().queueLength).toBe(0);
-      expect(scheduler.getState().taskCount).toBe(0);
     });
 
     it('should remove waiters as soon as they time out', async () => {

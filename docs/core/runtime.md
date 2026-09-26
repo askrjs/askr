@@ -135,6 +135,8 @@ If the internal bulk-commit probe throws, the scheduler reports that failure
 and treats the commit as active, rejecting new work until the probe recovers.
 `isExecuting()` reports whether a flush is running; the diagnostic state no
 longer duplicates this as an execution-depth field.
+The queued-work count is `queueLength`; the separate compatibility
+`taskCount` field has been removed.
 
 If the same scheduled task runs more than 50 times in one flush (for example a
 component whose ref callback writes state it renders), the scheduler treats it

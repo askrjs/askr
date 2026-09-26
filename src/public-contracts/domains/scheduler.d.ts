@@ -28,7 +28,6 @@ declare class Scheduler {
   private kickScheduled;
   private allowSyncProgress;
   private waiters;
-  private taskCount;
   setBulkCommitProbe(probe: SchedulerBulkCommitProbe): void;
   private isBulkCommitActive;
   private hasPendingTasks;
@@ -44,7 +43,6 @@ declare class Scheduler {
     queueLength: number;
     running: boolean;
     depth: number;
-    taskCount: number;
     flushVersion: number;
     laneQueues: {
       derived: number;

@@ -239,7 +239,7 @@ function writeQualityTrace(
 function expectSchedulerQuiescent(): void {
   const scheduler = getSchedulerState();
   expect(scheduler.running).toBe(false);
-  expect(scheduler.taskCount).toBe(0);
+  expect(scheduler.queueLength).toBe(0);
 }
 
 describe('lifecycle sequence invariants', () => {

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vite-plus/test';
 import { Scheduler } from '../../../src/runtime/scheduler';
 
 describe('scheduler execution transitions', () => {
-  it('should expose running state without a redundant execution-depth field', () => {
+  it('should expose running and queue length without redundant counters', () => {
     const scheduler = new Scheduler();
     const executing: boolean[] = [];
     scheduler.enqueue(() => executing.push(scheduler.isExecuting()));
@@ -10,6 +10,7 @@ describe('scheduler execution transitions', () => {
     expect(executing).toEqual([true]);
     expect(scheduler.isExecuting()).toBe(false);
     expect(scheduler.getState()).not.toHaveProperty('executionDepth');
+    expect(scheduler.getState()).not.toHaveProperty('taskCount');
   });
 
   it('should reject work and report a failed bulk-commit probe', async () => {
@@ -59,7 +60,6 @@ describe('scheduler execution transitions', () => {
       await flushed;
       expect(scheduler.getState()).toMatchObject({
         queueLength: 0,
-        taskCount: 0,
         allowSyncProgress: false,
       });
     } finally {
@@ -122,7 +122,7 @@ describe('scheduler execution transitions', () => {
     expect(scheduler.getFlushVersion()).toBe(1);
     await Promise.resolve();
     expect(scheduler.getFlushVersion()).toBe(1);
-    expect(scheduler.getState().taskCount).toBe(0);
+    expect(scheduler.getState().queueLength).toBe(0);
   });
 
   it('should retain a lexical handler scope when the compatibility flag is cleared', async () => {

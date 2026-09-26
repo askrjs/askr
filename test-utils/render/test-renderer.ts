@@ -74,7 +74,7 @@ export async function waitForFlush(timeout = 2000): Promise<void> {
   // Use scheduler-based barrier to wait for the next flush.
   // If there are no pending tasks and scheduler is quiescent, resolve immediately.
   const state = globalScheduler.getState();
-  if (state.taskCount === 0 && !state.running) return;
+  if (state.queueLength === 0 && !state.running) return;
 
   // Otherwise wait for the next flushVersion (current + 1)
   const target =

@@ -50,7 +50,6 @@ describe('scheduled work admission', () => {
     expect(run).toHaveBeenCalledOnce();
     expect(scheduler.getState()).toMatchObject({
       queueLength: 0,
-      taskCount: 0,
     });
   });
 

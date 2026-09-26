@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- breaking(runtime): scheduler diagnostic state no longer includes
+  `taskCount`; use `queueLength` for pending work.
+
 - breaking(runtime): scheduler diagnostic state no longer includes the
   redundant `executionDepth` field; use `running` or `isExecuting()`.
 

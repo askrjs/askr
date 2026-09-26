@@ -67,9 +67,6 @@ export class Scheduler {
   // Waiters waiting for flushVersion >= target
   private waiters: FlushWaiter[] = [];
 
-  // Keep a lightweight taskCount for compatibility/diagnostics
-  private taskCount = 0;
-
   setBulkCommitProbe(probe: SchedulerBulkCommitProbe): void {
     this.bulkCommitProbe = probe;
   }
@@ -185,9 +182,8 @@ export class Scheduler {
       return;
     }
 
-    // Enqueue task and account counts
+    // Enqueue task and account for development diagnostics.
     this.lanes[lane].tasks.push(task);
-    this.taskCount++;
     if (__ASKR_DEVELOPMENT_BUILD__) {
       adjustOwnershipDiagnostic('queuedSchedulerWork', 1);
     }
@@ -229,8 +225,6 @@ export class Scheduler {
 
         for (const lane of SCHEDULER_LANES) {
           const laneQueue = this.lanes[lane];
-          let executedInLane = 0;
-
           while (laneQueue.head < laneQueue.tasks.length) {
             const task = laneQueue.tasks[laneQueue.head++];
             if (__ASKR_DEVELOPMENT_BUILD__) {
@@ -256,7 +250,6 @@ export class Scheduler {
                     )
                   );
                 }
-                executedInLane++;
                 continue;
               }
             }
@@ -271,13 +264,8 @@ export class Scheduler {
               // single user callback cannot strand pending updates or flush
               // waiters.
               executedTaskCount++;
-              executedInLane++;
               didRunTask = true;
             }
-          }
-
-          if (executedInLane > 0) {
-            this.taskCount = Math.max(0, this.taskCount - executedInLane);
           }
         }
 
@@ -389,7 +377,6 @@ export class Scheduler {
       queueLength: this.getPendingTaskCount(),
       running: this.running,
       depth: this.depth,
-      taskCount: this.taskCount,
       flushVersion: this.flushVersion,
       laneQueues: {
         derived: this.lanes.derived.tasks.length - this.lanes.derived.head,
@@ -459,7 +446,6 @@ export class Scheduler {
       queue.tasks.length = this.running ? queue.head : 0;
       if (!this.running) queue.head = 0;
     }
-    this.taskCount = Math.max(0, this.taskCount - remaining);
     if (__ASKR_DEVELOPMENT_BUILD__) {
       adjustOwnershipDiagnostic('queuedSchedulerWork', -remaining);
     }

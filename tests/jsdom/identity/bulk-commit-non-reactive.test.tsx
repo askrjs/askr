@@ -50,7 +50,7 @@ describe('bulk commit non-reactive invariants', () => {
       await waitForNextEvaluation();
 
       const beforeRenderCount = globalThis.__BULK_RENDER_COUNT!;
-      const schedBefore = globalScheduler.getState().taskCount;
+      const schedBefore = globalScheduler.getState().queueLength;
 
       // Trigger a bulk update; previously this could cause re-triggering loops
       try {
@@ -81,7 +81,7 @@ describe('bulk commit non-reactive invariants', () => {
       const maxTicks = 50;
       let quiesced = false;
       for (let i = 0; i < maxTicks; i++) {
-        const s = globalScheduler.getState().taskCount;
+        const s = globalScheduler.getState().queueLength;
         if (s === schedBefore) {
           quiesced = true;
           break;
@@ -101,7 +101,7 @@ describe('bulk commit non-reactive invariants', () => {
           ).__ASKR__ || {};
         console.error('ENQUEUE LOGS:', ns['__ENQUEUE_LOGS']);
         throw new Error(
-          `Scheduler did not quiesce to expected count ${schedBefore}; last observed ${globalScheduler.getState().taskCount}`
+          `Scheduler did not quiesce to expected count ${schedBefore}; last observed ${globalScheduler.getState().queueLength}`
         );
       }
 
