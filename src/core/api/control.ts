@@ -153,8 +153,8 @@ function ForRow<T>(props: RowProps<T>): Renderable {
 function validateKey(key: unknown, index: number): void {
   if (key === null || key === undefined) {
     throw new Error(
-      `[Askr] <For> key for the item at index ${index} is ${String(key)}; ` +
-        '`by` must return a string or number.'
+      `[askr] Invalid For key detected at index ${index}: ${String(key)}. ` +
+        'Keys should be stable, non-null, and unique within a For list.'
     );
   }
 }
@@ -189,6 +189,12 @@ export function For<T, K extends string | number = string | number>(
     const item = items[index];
     const key = by ? by(item, index) : index;
     validateKey(key, index);
+    if (live.has(key)) {
+      throw new Error(
+        `[askr] Duplicate For key detected: ${String(key)}. ` +
+          'Keys should be stable, non-null, and unique within a For list.'
+      );
+    }
     let row = rows.get(key);
     if (!row) {
       const signal = new Signal(index);
