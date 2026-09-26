@@ -20,7 +20,10 @@ import {
 } from '../../../src/data';
 import { PREFETCHED_QUERY_DATA_LIMIT } from '../../../src/data/data-runtime';
 import { cleanupApp, createSPA } from '@askrjs/askr/boot';
-import { createInvalidationRecorder } from '../../../src/testing';
+import {
+  createInvalidationRecorder,
+  createQueryTestRegistry,
+} from '../../../src/testing';
 import { addInvalidationListener } from '../../../src/data/testing';
 import { navigate } from '../../../src/router/navigate';
 import { route } from '../../../src/router/route';
@@ -893,12 +896,13 @@ describe('data layer', () => {
   });
 
   it('should not seed a test override reader from hydrated query data', () => {
-    const runtime = createDataRuntime();
+    const registry = createQueryTestRegistry();
+    const runtime = registry.runtime;
     runtime.queryData.set('users:override', { name: 'ssr' });
     const override = { data: { name: 'override' } } as unknown as Query<{
       name: string;
     }>;
-    runtime.queryTestOverrides.set('users:override', override);
+    registry.set('users:override', override);
     const userQuery = defineQuery({
       key: () => 'users:override',
       fetch: async () => ({ name: 'server' }),
@@ -948,8 +952,6 @@ describe('data layer', () => {
     const runtime = {
       queryCache: new Map<string, unknown>(),
       queryData: new Map<string, unknown>(),
-      queryTestOverrides: new Map<string, unknown>(),
-      mutationTestOverrides: new Map<string, unknown>(),
     };
     const userQuery = defineQuery({
       key: () => 'plain-runtime:user',

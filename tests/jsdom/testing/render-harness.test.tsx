@@ -6,6 +6,7 @@ import { createMutation, createQuery, queryScope } from '@askrjs/askr/data';
 import {
   cleanup,
   createMutationTestRegistry,
+  createQueryTestRegistry,
   dispatch,
   flush,
   mount,
@@ -107,11 +108,11 @@ describe('testing render harness', () => {
     const scope = queryScope('plain-render');
     const first = createMutationTestRegistry();
     const second = createMutationTestRegistry();
-    first.runtime.queryTestOverrides.set(
+    createQueryTestRegistry(first.runtime).set(
       scope.key('value'),
       queryState.fresh({ label: 'first' })
     );
-    second.runtime.queryTestOverrides.set(
+    createQueryTestRegistry(second.runtime).set(
       scope.key('value'),
       queryState.fresh({ label: 'second' })
     );

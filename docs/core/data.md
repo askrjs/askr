@@ -553,8 +553,8 @@ mutations.clear();
 
 Fixtures expose `setPending()`, `succeed(result)`, `fail(error)`, `abort()`,
 and `reset()` for deterministic state changes. Registry `delete()` and
-`clear()` reset removed mutations, and each registry owns an isolated data
-runtime. Pass that runtime as `dataRuntime` to `renderRoute()`, or to plain
+`clear()` reset removed mutations. Each registry creates an isolated data
+runtime by default. Pass that runtime as `dataRuntime` to `renderRoute()`, or to plain
 `render()`/`mount()` calls when the component does not need a router:
 
 ```tsx
@@ -565,6 +565,12 @@ const rendered = render(AccountSummary, {
   dataRuntime: queries.runtime,
 });
 ```
+
+Pass an existing runtime to `createQueryTestRegistry(runtime)` or
+`createMutationTestRegistry(runtime)` when one test needs both fixture kinds.
+Test override maps live inside that runtime and are managed through the
+registries; the public `DataRuntime` object exposes only `queryCache` and
+`queryData`.
 
 Each render owns its injected runtime for initial rendering, reactive work,
 delegated events, and cleanup. Omitting `dataRuntime` preserves the default

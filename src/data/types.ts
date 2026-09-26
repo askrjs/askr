@@ -12,18 +12,12 @@ export type QueryStaleReason = 'aborted' | 'error' | 'inconsistent';
 export interface DataRuntime {
   readonly queryCache: Map<string, unknown>;
   readonly queryData: Map<string, unknown>;
-  /** Test-only query overrides keyed by the canonical query key. */
-  readonly queryTestOverrides: Map<string, unknown>;
-  /** Test-only mutation overrides keyed by the canonical mutation key. */
-  readonly mutationTestOverrides: Map<string, unknown>;
 }
 
 /** Options for {@link createDataRuntime}. */
 export interface DataRuntimeOptions {
   queryCache?: Map<string, unknown>;
   queryData?: Map<string, unknown>;
-  queryTestOverrides?: Map<string, unknown>;
-  mutationTestOverrides?: Map<string, unknown>;
 }
 
 /** Reusable query definition for {@link defineQuery}: key, fetcher, and freshness checks. */

@@ -75,8 +75,6 @@ describe('query collection concurrency', () => {
     const runtime = {
       queryCache: new Map<string, unknown>(),
       queryData: new Map<string, unknown>(),
-      queryTestOverrides: new Map<string, unknown>(),
-      mutationTestOverrides: new Map<string, unknown>(),
     };
     const query = defineQuery({
       key: ({ id }: { id: number }) => `plain:${id}`,

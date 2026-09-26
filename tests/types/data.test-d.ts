@@ -41,8 +41,9 @@ const dataRuntime = createDataRuntime();
 expectType<DataRuntime>(dataRuntime);
 expectType<Map<string, unknown>>(dataRuntime.queryCache);
 expectType<Map<string, unknown>>(dataRuntime.queryData);
-expectType<Map<string, unknown>>(dataRuntime.queryTestOverrides);
-expectType<Map<string, unknown>>(dataRuntime.mutationTestOverrides);
+expectError(dataRuntime.queryTestOverrides);
+expectError(dataRuntime.mutationTestOverrides);
+expectError(createDataRuntime({ queryTestOverrides: new Map() }));
 expectType<DataRuntime>(getDefaultDataRuntime());
 expectType<DataRuntime>(createDataRuntime({ queryCache: new Map() }));
 const dataRuntimeOptions: DataRuntimeOptions = {

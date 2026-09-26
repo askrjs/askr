@@ -21,7 +21,7 @@
       "cspNonce": ["declare function cspNonce(): string | undefined;"],
       "CspNonceScope": ["CspNonceScope: Scope<string | undefined>"],
       "DataRuntime": [
-        "interface DataRuntime {\n    readonly queryCache: Map<string, unknown>;\n    readonly queryData: Map<string, unknown>;\n    readonly queryTestOverrides: Map<string, unknown>;\n    readonly mutationTestOverrides: Map<string, unknown>;\n}"
+        "interface DataRuntime {\n    readonly queryCache: Map<string, unknown>;\n    readonly queryData: Map<string, unknown>;\n}"
       ],
       "defineQuery": [
         "declare function defineQuery<TInput, TResult extends {}>(definition: QueryDefinition<TInput, TResult>): QueryDefinition<TInput, TResult>;"
@@ -529,10 +529,10 @@
         "declare function createQueryPrefetchContext(options?: {\n    runtime?: DataRuntime;\n    registry?: ServerQueryRegistry;\n    request?: Request;\n    signal?: AbortSignal;\n    mode?: \"ssr\" | \"spa\";\n    telemetry?: CoreTelemetry;\n}): QueryPrefetchContext;"
       ],
       "DataRuntime": [
-        "interface DataRuntime {\n    readonly queryCache: Map<string, unknown>;\n    readonly queryData: Map<string, unknown>;\n    readonly queryTestOverrides: Map<string, unknown>;\n    readonly mutationTestOverrides: Map<string, unknown>;\n}"
+        "interface DataRuntime {\n    readonly queryCache: Map<string, unknown>;\n    readonly queryData: Map<string, unknown>;\n}"
       ],
       "DataRuntimeOptions": [
-        "interface DataRuntimeOptions {\n    queryCache?: Map<string, unknown>;\n    queryData?: Map<string, unknown>;\n    queryTestOverrides?: Map<string, unknown>;\n    mutationTestOverrides?: Map<string, unknown>;\n}"
+        "interface DataRuntimeOptions {\n    queryCache?: Map<string, unknown>;\n    queryData?: Map<string, unknown>;\n}"
       ],
       "defineQuery": [
         "declare function defineQuery<TInput, TResult extends {}>(definition: QueryDefinition<TInput, TResult>): QueryDefinition<TInput, TResult>;"
@@ -681,10 +681,10 @@
         "declare function createInvalidationRecorder(): InvalidationRecorder;"
       ],
       "createMutationTestRegistry": [
-        "declare function createMutationTestRegistry(): MutationTestRegistry;"
+        "declare function createMutationTestRegistry(runtime?: DataRuntime): MutationTestRegistry;"
       ],
       "createQueryTestRegistry": [
-        "declare function createQueryTestRegistry(): QueryTestRegistry;"
+        "declare function createQueryTestRegistry(runtime?: DataRuntime): QueryTestRegistry;"
       ],
       "dispatch": [
         "declare function dispatch(target: EventTarget, event: Event | string, init?: DispatchEventInit): boolean;"
@@ -1442,7 +1442,7 @@
       "declare function createMutationFixture<TInput = unknown, TResult = unknown>(initial?: MutationFixtureInitial<TResult>): MutationFixture<TInput, TResult>;"
     ],
     "createMutationTestRegistry": [
-      "declare function createMutationTestRegistry(): MutationTestRegistry;"
+      "declare function createMutationTestRegistry(runtime?: DataRuntime): MutationTestRegistry;"
     ],
     "createQuery": [
       "declare function createQuery<T extends {}>(options: QueryOptions<T>): Query<T>;",
@@ -1455,7 +1455,7 @@
       "declare function createQueryPrefetchContext(options?: {\n    runtime?: DataRuntime;\n    registry?: ServerQueryRegistry;\n    request?: Request;\n    signal?: AbortSignal;\n    mode?: \"ssr\" | \"spa\";\n    telemetry?: CoreTelemetry;\n}): QueryPrefetchContext;"
     ],
     "createQueryTestRegistry": [
-      "declare function createQueryTestRegistry(): QueryTestRegistry;"
+      "declare function createQueryTestRegistry(runtime?: DataRuntime): QueryTestRegistry;"
     ],
     "createRef": [
       "declare function createRef<T extends Element = Element>(): Ref<T>;"
@@ -1482,10 +1482,10 @@
       "declare function currentRoute<TParams extends RouteParams = RouteParams, TState = unknown>(): RouteSnapshot<TParams, TState>;"
     ],
     "DataRuntime": [
-      "interface DataRuntime {\n    readonly queryCache: Map<string, unknown>;\n    readonly queryData: Map<string, unknown>;\n    readonly queryTestOverrides: Map<string, unknown>;\n    readonly mutationTestOverrides: Map<string, unknown>;\n}"
+      "interface DataRuntime {\n    readonly queryCache: Map<string, unknown>;\n    readonly queryData: Map<string, unknown>;\n}"
     ],
     "DataRuntimeOptions": [
-      "interface DataRuntimeOptions {\n    queryCache?: Map<string, unknown>;\n    queryData?: Map<string, unknown>;\n    queryTestOverrides?: Map<string, unknown>;\n    mutationTestOverrides?: Map<string, unknown>;\n}"
+      "interface DataRuntimeOptions {\n    queryCache?: Map<string, unknown>;\n    queryData?: Map<string, unknown>;\n}"
     ],
     "debounce": [
       "declare function debounce<T extends AnyFn>(fn: T, ms: number, options?: DebounceOptions): Scheduled<T> & {\n    cancel(): void;\n};"

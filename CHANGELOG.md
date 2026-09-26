@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- breaking(data): `DataRuntime` no longer exposes test override maps or accepts
+  them in `createDataRuntime()` options. Use the query and mutation test
+  registries to install fixtures. Both registries now accept an existing
+  runtime when a test needs to share one cache and fixture scope.
+
 - fix(types): intrinsic event props now cover the DOM global handler map,
   including animation, composition, drag, media, pointer-capture, and
   transition events. Their `Capture` variants receive the same event type.
