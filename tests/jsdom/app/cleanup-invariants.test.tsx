@@ -4,7 +4,7 @@ import {
   cleanupComponent,
   createComponentInstance,
 } from '../../../src/runtime';
-import { task } from '../../../src/runtime/operations';
+import { task } from '../../../src/resources';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
 
@@ -70,9 +70,8 @@ describe('cleanup invariants', () => {
 
   it('should handle rejected async tasks without an unhandled rejection', async () => {
     const { container, cleanup } = createTestContainer();
-    const consoleError = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
+    const reportError = vi.fn();
+    vi.stubGlobal('reportError', reportError);
 
     createIsland({
       root: container,
@@ -85,12 +84,11 @@ describe('cleanup invariants', () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(consoleError).toHaveBeenCalledWith(
-      '[Askr] async mount operation failed:',
+    expect(reportError).toHaveBeenCalledWith(
       expect.objectContaining({ message: 'task failed' })
     );
 
-    consoleError.mockRestore();
+    vi.unstubAllGlobals();
     cleanup();
   });
 });
