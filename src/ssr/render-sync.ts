@@ -412,7 +412,7 @@ function flattenText(value: unknown, element: RawTextElement): string[] {
           visit(child.children);
           break;
         case FUNCTION:
-          visit(untrack(() => readValue(child.fn)));
+          visit(functionChildOutput(untrack(() => readValue(child.fn))));
           break;
         case COMPONENT: {
           const render = state();
@@ -424,7 +424,7 @@ function flattenText(value: unknown, element: RawTextElement): string[] {
           instance.server = true;
           instance.serverContext = render.ctx;
           const output = runComponent(instance);
-          withOwner(instance, () => visit(output));
+          withOwner(instance, () => visit(componentOutput(output)));
           break;
         }
         case ELEMENT:
