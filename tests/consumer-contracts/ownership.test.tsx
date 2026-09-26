@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import {
   getDefaultRuntime,
   For,
@@ -11,7 +11,9 @@ import { render } from '@askrjs/askr/testing';
 
 type Owner = NonNullable<Parameters<RuntimeRendererHost['evaluate']>[3]>;
 
-test('should drain published owner lifetimes when child-index preparation throws', () => {
+test('should drain published owner lifetimes when child-index preparation throws', async () => {
+  const reportError = vi.fn();
+  vi.stubGlobal('reportError', reportError);
   const runtime = getDefaultRuntime();
   const original = runtime.renderer;
   let owner: Owner | undefined;
@@ -49,9 +51,14 @@ test('should drain published owner lifetimes when child-index preparation throws
     expect(owner!.mounted).toBe(false);
     view.unmount();
     expect(cleaned).toHaveLength(2);
+    expect(reportError).not.toHaveBeenCalled();
+    await Promise.resolve();
+    expect(reportError).toHaveBeenCalledTimes(1);
+    expect(reportError).toHaveBeenCalledWith(new Error('index unavailable'));
   } finally {
     view?.cleanup();
     runtime.configureRenderer(original);
+    vi.unstubAllGlobals();
   }
 });
 
