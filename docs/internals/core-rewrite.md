@@ -62,6 +62,47 @@ Seven rules. Every internal module has to fit one of them.
 7. **SSR runs the same component execution** with a string sink instead of a
    DOM.
 
+## Modules and ownership
+
+`src/core` is layered; each layer imports only from the layers listed for it,
+and `tests/checks/core-architecture.test.ts` enforces this and the absence of
+import cycles. The core imports nothing outside `src/common`.
+
+| Layer       | Owns                                                                                           | May import              |
+| ----------- | ---------------------------------------------------------------------------------------------- | ----------------------- |
+| `reactive`  | The owner tree (lifetimes), the reactive graph, and the scheduler                              | nothing                 |
+| `component` | Component instances, positional hooks, and whether a render is executing                       | `reactive`              |
+| `view`      | What a render result means: child descriptors shared by the DOM and SSR renderers              | nothing                 |
+| `dom`       | The rendered tree (DOM position), render passes, reconciliation, props, events, roots, updates | the three above         |
+| `api`       | Public primitives (`state()`, `derive()`, `selector()`, snapshots)                             | `reactive`, `component` |
+
+Within `dom`, each module has one job: `tree` (node model and DOM position
+queries), `pass` (provisional work: commit or discard), `reconcile` (child
+lists), `nodes` (creating, patching, and releasing each node kind), `props`
+(which prop is a value, handler, ref, or binding, and when it is written),
+`prop-values`, `dom-properties`, and `element-attributes` (how a value is
+written), `events`, `refs`, `teardown`, `updates` (standalone re-renders and
+error routing), and `root`.
+
+Ownership rules:
+
+- **Lifetimes belong to the owner tree.** Whoever renders content creates its
+  owners: a component instance owns its hooks, bindings, and child
+  components; a function child's computation owns what it renders; a root
+  owns the tree. The renderer ends a lifetime early by disposing its owner
+  when content leaves; it keeps no second lifetime graph.
+- **Provisional work belongs to the pass.** Only commit operations change
+  live DOM or committed renderer state. A discarded pass disposes the owners
+  it created and restores the few render-time values it changed (new props).
+- **DOM position belongs to the rendered tree.** A component instance holds
+  only a `view` pointer to its node; it never touches DOM.
+- **Timing belongs to the scheduler.** Nothing runs work inline except a
+  pass committing its own operations.
+- **Dependencies point inward.** The component layer reaches the renderer
+  only through the `RenderHost` interface, and `nodes` reaches standalone
+  updates only through an injected scheduler, so no layer depends on a
+  concrete layer above it.
+
 Hooks keep their positional contract (`state()` and friends claim slots by
 call order in a component body). That is public API and stays.
 
