@@ -128,10 +128,26 @@ export function channelOf(portal: object): PortalChannel | undefined {
 
 const DEFAULT_CHANNEL = Symbol('askr.default-portal');
 let fallbackChannel: PortalChannel | null = null;
+let fallbackAdoptable = false;
+const rootChannels = new Map<Element, PortalChannel>();
 
 /** Give everything rendered under `owner` its own default portal. */
-export function provideDefaultPortal(owner: Owner): PortalChannel {
-  const channel = createPortalChannel();
+export function provideDefaultPortal(
+  owner: Owner,
+  root?: Element
+): PortalChannel {
+  const channel =
+    root && rootChannels.size === 0 && fallbackAdoptable && fallbackChannel
+      ? fallbackChannel
+      : createPortalChannel();
+  if (root) {
+    rootChannels.set(root, channel);
+    fallbackChannel = null;
+    fallbackAdoptable = false;
+    owner.onCleanup(() => {
+      if (rootChannels.get(root) === channel) rootChannels.delete(root);
+    });
+  }
   (owner.context ??= new Map()).set(DEFAULT_CHANNEL, channel);
   return channel;
 }
@@ -148,7 +164,19 @@ function defaultChannel(): PortalChannel {
   const provided = getOwner()?.lookup(DEFAULT_CHANNEL) as
     | PortalChannel
     | undefined;
-  return provided ?? (fallbackChannel ??= createPortalChannel());
+  if (provided) return provided;
+  let connected: PortalChannel | null = null;
+  for (const [root, channel] of rootChannels) {
+    if (!root.isConnected) continue;
+    if (connected) {
+      fallbackAdoptable = false;
+      return fallbackChannel ?? (fallbackChannel = createPortalChannel());
+    }
+    connected = channel;
+  }
+  if (connected) return connected;
+  fallbackAdoptable = rootChannels.size === 0;
+  return fallbackChannel ?? (fallbackChannel = createPortalChannel());
 }
 
 export interface PortalProps {
@@ -199,4 +227,5 @@ DefaultPortal.render = (props: PortalProps): null => {
 /** Test isolation: forget the fallback default portal. */
 export function resetDefaultPortal(): void {
   fallbackChannel = null;
+  fallbackAdoptable = false;
 }

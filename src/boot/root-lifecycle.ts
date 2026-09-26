@@ -50,7 +50,7 @@ export class AppRoot implements AppRootHandle {
   ) {
     this.element = element;
     this.root = createRoot(element, { owner: null, hydrate });
-    provideDefaultPortal(this.root.owner);
+    provideDefaultPortal(this.root.owner, element);
     this.component = component;
     this.handler = component;
   }
