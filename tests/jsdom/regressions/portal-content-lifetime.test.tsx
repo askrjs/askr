@@ -5,8 +5,8 @@ import {
   _resetDefaultPortal,
   definePortal,
 } from '../../../src/foundations/structures/portal';
-import { resource, task, watch } from '../../../src/runtime/operations';
-import { state, type State } from '../../../src/runtime/reactivity/state';
+import { resource, task, watch } from '../../../src/resources';
+import { state, type State } from '../../../src/index';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,

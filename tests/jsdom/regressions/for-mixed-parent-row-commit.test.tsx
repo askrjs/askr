@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { For } from '../../../src/control';
 import { hydrateSPA } from '../../../src/boot';
 import { renderToStringSync } from '../../../src/ssr';
-import { state, type State } from '../../../src/runtime/reactivity/state';
+import { state, type State } from '../../../src/index';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
