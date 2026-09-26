@@ -100,7 +100,8 @@ Ownership rules:
   context lookup, subtree release, and owner disposal avoid recursive parent
   walks so transparent component chains do not consume the JavaScript call
   stack during traversal or teardown. Direct recursive component chains also
-  create and patch their hook-free wrappers in a loop.
+  create and patch their hook-free wrappers in a loop, including the server
+  render path used before hydration.
 - **Timing belongs to the scheduler.** Nothing runs work inline except a
   pass committing its own operations.
 - **Dependencies point inward.** The component layer reaches the renderer

@@ -216,36 +216,70 @@ function renderComponent(
   sink: SinkTarget
 ): void {
   const render = state();
-  const instance = new ComponentInstance(render.owner, fn, props);
-  instance.server = true;
-  instance.serverContext = render.ctx;
-  const output = runComponent(instance);
-  if (fn === Portal) {
-    sink.write(createSSRPortalAnchorToken(render.ctx.ssrPortals.nextHostId++));
-  }
-  if (!instance.boundary) {
-    withOwner(instance, () => renderValue(componentOutput(output), sink));
-    return;
-  }
-
-  // An error boundary: render the protected subtree into a buffer and drop
-  // it (and any portal content it wrote) if it throws.
-  const buffer = new BufferedSink();
-  const restorePortals = capturePortalWrites(render.ctx);
-  try {
-    withOwner(instance, () => renderValue(componentOutput(output), buffer));
-  } catch (error) {
-    restorePortals();
-    // End the lifetimes the failed subtree started.
-    for (const child of [...(instance.owned ?? [])]) {
-      if (child !== instance.computation) child.dispose();
+  let owner = render.owner;
+  for (;;) {
+    const instance = new ComponentInstance(owner, fn, props);
+    instance.server = true;
+    instance.serverContext = render.ctx;
+    const output = runComponent(instance);
+    if (fn === Portal) {
+      sink.write(
+        createSSRPortalAnchorToken(render.ctx.ssrPortals.nextHostId++)
+      );
     }
-    if (!instance.boundary(error)) throw error;
-    const fallback = runComponent(instance);
-    withOwner(instance, () => renderValue(componentOutput(fallback), sink));
+    const next =
+      instance.hooks.length === 0 && !instance.boundary
+        ? selfComponentChild(output, fn)
+        : null;
+    if (next) {
+      owner = instance;
+      fn = next.fn;
+      props = next.props;
+      continue;
+    }
+    if (!instance.boundary) {
+      withOwner(instance, () => renderValue(componentOutput(output), sink));
+      return;
+    }
+
+    // An error boundary: render the protected subtree into a buffer and drop
+    // it (and any portal content it wrote) if it throws.
+    const buffer = new BufferedSink();
+    const restorePortals = capturePortalWrites(render.ctx);
+    try {
+      withOwner(instance, () => renderValue(componentOutput(output), buffer));
+    } catch (error) {
+      restorePortals();
+      // End the lifetimes the failed subtree started.
+      for (const child of [...(instance.owned ?? [])]) {
+        if (child !== instance.computation) child.dispose();
+      }
+      if (!instance.boundary(error)) throw error;
+      const fallback = runComponent(instance);
+      withOwner(instance, () => renderValue(componentOutput(fallback), sink));
+      return;
+    }
+    buffer.publishTo(sink);
     return;
   }
-  buffer.publishTo(sink);
+}
+
+function selfComponentChild(
+  output: unknown,
+  fn: ComponentFunction
+): Extract<ChildDescriptor, { kind: typeof COMPONENT }> | null {
+  if (
+    !output ||
+    typeof output !== 'object' ||
+    Array.isArray(output) ||
+    (output as { type?: unknown }).type !== fn
+  ) {
+    return null;
+  }
+  const children = normalizeChildren(output);
+  return children.length === 1 && children[0].kind === COMPONENT
+    ? children[0]
+    : null;
 }
 
 function capturePortalWrites(ctx: RenderContext): () => void {
