@@ -32,17 +32,15 @@ describe('state.set() inside derived computations', () => {
     ).toThrow(DERIVED_WRITE_ERROR);
   });
 
-  // The owner never reads the computed values during render, so the only
-  // recompute after a source change is the eager one in the derived lane,
-  // where no component instance is current.
-  it('should reject a write from a derive() compute recomputed in the derived lane', () => {
+  it('should reject a write when a lazy derive() recomputes after a source change', () => {
     allowFrameworkWarnings(/Unused state variable detected in Component/);
     let count!: State<number>;
     let other!: State<number>;
+    let value!: () => number;
     const Component = () => {
       count = state(0);
       other = state(0);
-      derive(() => {
+      value = derive(() => {
         const next = count() * 2;
         if (next > 0) other.set(next);
         return next;
@@ -54,7 +52,7 @@ describe('state.set() inside derived computations', () => {
     flushScheduler();
 
     count.set(1);
-    expect(() => flushScheduler()).toThrow(DERIVED_WRITE_ERROR);
+    expect(() => value()).toThrow(DERIVED_WRITE_ERROR);
     expect(other()).toBe(0);
   });
 
