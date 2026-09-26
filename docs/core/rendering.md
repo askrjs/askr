@@ -87,10 +87,9 @@ That catch-up render uses the child's last committed props with its current
 state. If it throws, its error is reported alongside the original one (an
 `AggregateError`, see [Update loop guard](./runtime.md#update-loop-guard)).
 
-Known limitation: after `hydrateSPA`, a structural function child with keyed
-items in a component's fragment or array result does not update when its
-state changes, whether or not a render failed. Unkeyed items, and structural
-function children inside an element, update as described above.
+After `hydrateSPA`, structural function children in a component's fragment or
+array result keep updating for both keyed and unkeyed items, including after a
+failed render rolls back.
 
 Read the state in the render instead of a binding when a value must change
 together with the rest of the component's output.
