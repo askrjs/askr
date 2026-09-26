@@ -39,7 +39,7 @@ describe('for-fragment-child-prop-update-remount', () => {
                   ]}
                   by={(item) => item.id}
                 >
-                  {(item) => <li>{item.text}</li>}
+                  {(item) => <li data-row-id={item.id}>{item.text}</li>}
                 </For>
               }
             </>
@@ -52,23 +52,19 @@ describe('for-fragment-child-prop-update-remount', () => {
     flushScheduler();
 
     const ulBefore = container.querySelector('ul');
-    const row1Before = container.querySelector('[data-key="1"]');
-    const row2Before = container.querySelector('[data-key="2"]');
+    const row1Before = container.querySelector('[data-row-id="1"]');
+    const row2Before = container.querySelector('[data-row-id="2"]');
     expect(row1Before).not.toBeNull();
     expect(row2Before).not.toBeNull();
 
-    // This re-renders the whole component (toggle is read at the top level),
-    // producing a new <ul> vnode with a different class. The <ul> DOM element
-    // itself is retained (same position/type), so its children - the
-    // Fragment-wrapped <For> - go through the retained-element prop-update
-    // path (updateElementFromVnode -> element-children.ts), not a top-level
-    // evaluate() call.
+    // The parent re-renders a retained <ul> with a new class while the
+    // Fragment-wrapped list keeps the same keyed rows.
     toggle!.set(true);
     flushScheduler();
 
     expect(container.querySelector('ul')).toBe(ulBefore);
     expect((container.querySelector('ul') as HTMLElement).className).toBe('on');
-    expect(container.querySelector('[data-key="1"]')).toBe(row1Before);
-    expect(container.querySelector('[data-key="2"]')).toBe(row2Before);
+    expect(container.querySelector('[data-row-id="1"]')).toBe(row1Before);
+    expect(container.querySelector('[data-row-id="2"]')).toBe(row2Before);
   });
 });
