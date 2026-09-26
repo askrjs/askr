@@ -12,6 +12,8 @@ import { syncControlBoundaryScopeDom } from './range-sync';
 import { configureBoundaryCommitOwnerHost } from './commit-owner';
 export {
   clearControlBoundaryCommitOwner,
+  clearMixedParentCommitOwners,
+  registerMixedParentCommitOwners,
   registerControlBoundaryCommitOwner,
 } from './commit-owner';
 export {

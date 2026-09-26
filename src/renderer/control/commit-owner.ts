@@ -86,11 +86,126 @@ type CommitBoundaryChildren = (
 
 let commitBoundaryChildren: CommitBoundaryChildren | null = null;
 const controlBoundaryOwners = new WeakMap<Element, ControlBoundaryState>();
+type MixedParentCommit = {
+  children: VNode[];
+  commit: (children: VNode[]) => void;
+  states: Map<ControlBoundaryState, () => void>;
+};
+const mixedParentCommits = new WeakMap<Element, MixedParentCommit>();
+let mixedParentCommitSeen = false;
 
 export function configureBoundaryCommitOwnerHost(
   commit: CommitBoundaryChildren
 ): void {
   commitBoundaryChildren = commit;
+}
+
+/** Keep one local commit per mixed-parent For while its sibling list is live. */
+export function registerMixedParentCommitOwners(
+  parent: Element,
+  children: VNode[],
+  states: ControlBoundaryState[],
+  commit: (children: VNode[]) => void
+): void {
+  const existing = mixedParentCommits.get(parent);
+  if (
+    existing &&
+    states.length === existing.states.size &&
+    states.every(
+      (state) =>
+        existing.states.has(state) &&
+        state._enqueueBoundaryCommit === existing.states.get(state)
+    )
+  ) {
+    const previousChildren = existing.children;
+    const previousCommit = existing.commit;
+    registerCommitRollback(() => {
+      existing.children = previousChildren;
+      existing.commit = previousCommit;
+    });
+    existing.children = children;
+    existing.commit = commit;
+    for (const state of states) recordControlOutputOwner(state);
+    return;
+  }
+  const entry: MixedParentCommit = existing ?? {
+    children,
+    commit,
+    states: new Map(),
+  };
+  const previousChildren = entry.children;
+  const previousCommit = entry.commit;
+  const previousStates = new Map(entry.states);
+  const previousCallbacks = new Map(
+    [...new Set([...previousStates.keys(), ...states])].map((state) => [
+      state,
+      [state._enqueueBoundaryCommit, state._hasPendingBoundaryCommit] as const,
+    ])
+  );
+
+  registerCommitRollback(() => {
+    entry.children = previousChildren;
+    entry.commit = previousCommit;
+    entry.states = previousStates;
+    if (existing) mixedParentCommits.set(parent, entry);
+    else mixedParentCommits.delete(parent);
+    for (const [state, [enqueue, pending]] of previousCallbacks) {
+      state._enqueueBoundaryCommit = enqueue;
+      state._hasPendingBoundaryCommit = pending;
+    }
+  });
+
+  entry.children = children;
+  entry.commit = commit;
+  const next = new Set(states);
+  for (const [state, enqueue] of entry.states) {
+    if (next.has(state)) continue;
+    if (state._enqueueBoundaryCommit === enqueue) {
+      state._enqueueBoundaryCommit = null;
+      state._hasPendingBoundaryCommit = false;
+    }
+    entry.states.delete(state);
+  }
+  for (const state of next) {
+    recordControlOutputOwner(state);
+    if (
+      entry.states.has(state) &&
+      state._enqueueBoundaryCommit === entry.states.get(state)
+    )
+      continue;
+    const enqueue = () => {
+      if (
+        state._enqueueBoundaryCommit !== enqueue ||
+        state._hasPendingBoundaryCommit
+      )
+        return;
+      state._hasPendingBoundaryCommit = true;
+      enqueueRuntimeTask(() => {
+        state._hasPendingBoundaryCommit = false;
+        if (
+          mixedParentCommits.get(parent) !== entry ||
+          entry.states.get(state) !== enqueue ||
+          state._enqueueBoundaryCommit !== enqueue ||
+          !parent.isConnected
+        )
+          return;
+        runBoundaryCommit(state, () => entry.commit(entry.children));
+      });
+    };
+    entry.states.set(state, enqueue);
+    state._enqueueBoundaryCommit = enqueue;
+    state._hasPendingBoundaryCommit = false;
+  }
+  if (entry.states.size) {
+    mixedParentCommitSeen = true;
+    mixedParentCommits.set(parent, entry);
+  } else mixedParentCommits.delete(parent);
+}
+
+export function clearMixedParentCommitOwners(parent: Element): void {
+  if (!mixedParentCommitSeen) return;
+  const entry = mixedParentCommits.get(parent);
+  if (entry) registerMixedParentCommitOwners(parent, [], [], entry.commit);
 }
 
 function getCommitBoundaryChildren(): CommitBoundaryChildren {
