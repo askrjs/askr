@@ -133,6 +133,11 @@ export function applyDomPropertyProp(
 
   if (isBlockedPropertyName(name)) return true;
 
+  if (value === null || value === undefined) {
+    forgetProperty(el, key);
+    return true;
+  }
+
   let next = domPropertyValue(key, value);
   if (next !== null && next !== undefined && isUrlPropertyName(name)) {
     // Built-in URL properties are strings anyway: convert once, check that
