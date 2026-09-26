@@ -27,6 +27,7 @@ import {
   type Key,
 } from '../view/children';
 import type { ListenerMap } from './events';
+import type { HydrationCursor } from './hydration';
 
 export { COMPONENT, FRAGMENT, NATIVE, PORTAL, TEXT, type Key };
 export const HOST = ELEMENT;
@@ -74,6 +75,8 @@ export interface ComponentNode extends Base {
   kind: typeof COMPONENT;
   instance: ComponentInstance;
   children: RNode[];
+  /** Server portal output held until a deferred writer hydrates. */
+  deferredHydration?: { cursor: HydrationCursor; container: Node } | null;
 }
 
 export interface FragmentNode extends Base {

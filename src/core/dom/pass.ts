@@ -32,9 +32,12 @@ export interface PassMark {
   readonly rendered: number;
   readonly journal: number;
   readonly after: number;
+  readonly dormantPortalWriter: boolean;
 }
 
 export class Pass {
+  /** A server portal writer is inside a selectively hydrated host. */
+  hasDormantPortalWriter = false;
   private readonly ops: Array<Op | null> = [];
   private readonly created: Owner[] = [];
   /** Instances rendered by this pass, children before parents. */
@@ -84,6 +87,7 @@ export class Pass {
       rendered: this.renderedInstances.length,
       journal: journalMark(),
       after: this.afterCommit.length,
+      dormantPortalWriter: this.hasDormantPortalWriter,
     };
   }
 
@@ -93,6 +97,7 @@ export class Pass {
     this.ops.length = mark.ops;
     this.afterCommit.length = mark.after;
     this.renderedInstances.length = mark.rendered;
+    this.hasDormantPortalWriter = mark.dormantPortalWriter;
     rewindJournal(mark.journal, errors);
     for (const owner of this.created.splice(mark.created).reverse()) {
       owner.dispose(errors);
@@ -107,6 +112,7 @@ export class Pass {
       rendered: 0,
       journal: this.journalStart,
       after: 0,
+      dormantPortalWriter: false,
     });
   }
 

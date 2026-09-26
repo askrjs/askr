@@ -31,6 +31,20 @@ export class HydrationCursor {
 
   constructor(private readonly stopAt: Node | null = null) {}
 
+  /** Server nodes reserved for a portal host whose writer has not hydrated. */
+  heldNodes(container: Node): Node[] {
+    if (!this.stopAt) return [];
+    const nodes: Node[] = [];
+    let node = this.next.has(container)
+      ? this.next.get(container)!
+      : container.firstChild;
+    while (node && node !== this.stopAt) {
+      if (node.nodeType !== 8) nodes.push(node);
+      node = node.nextSibling;
+    }
+    return nodes;
+  }
+
   /**
    * Reserve the server nodes at `container`'s cursor for a render that runs
    * later. A server range (`askr-range-start` ... `askr-range-end`) is skipped

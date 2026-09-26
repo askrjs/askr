@@ -256,15 +256,8 @@ export async function applySelectiveHydration(
   interactionReplay: HydrationInteractionReplay
 ): Promise<void> {
   const hasBelowFoldDeferral = !!hydrateOptions.deferBelowFold;
-  let staticChildSlotsCacheSuspended = false;
   let releaseSelectiveHydrationResources = () => {};
-
-  const restoreStaticChildSlotsCache = () => {
-    if (!staticChildSlotsCacheSuspended) {
-      return;
-    }
-    staticChildSlotsCacheSuspended = false;
-  };
+  let registerSelectiveHydrationCleanup = () => {};
 
   if (hydrateOptions.skipSelectors?.length) {
     markSkippedElements(rootElement, hydrateOptions.skipSelectors);
@@ -272,7 +265,6 @@ export async function applySelectiveHydration(
 
   let deferredBoundaries: Element[] = [];
   if (hydrateOptions.deferBelowFold) {
-    staticChildSlotsCacheSuspended = true;
     const foldY = hydrateOptions.foldThreshold ?? window.innerHeight;
     deferredBoundaries = collectDeferredBelowFoldBoundaries(rootElement, foldY);
     interactionReplay.registerDeferredBoundaries(deferredBoundaries);
@@ -305,7 +297,6 @@ export async function applySelectiveHydration(
       selectiveHydrationResourcesReleased = true;
       unregisterRootCleanupCallback();
       window.removeEventListener('scroll', handleScroll);
-      restoreStaticChildSlotsCache();
       interactionReplay.clearDeferredBoundaries();
     };
 
@@ -313,10 +304,12 @@ export async function applySelectiveHydration(
       releaseSelectiveHydrationResources
     );
 
-    unregisterRootCleanupCallback = hooks.registerRootCleanupCallback(
-      rootElement,
-      releaseSelectiveHydrationResources
-    );
+    registerSelectiveHydrationCleanup = () => {
+      unregisterRootCleanupCallback = hooks.registerRootCleanupCallback(
+        rootElement,
+        releaseSelectiveHydrationResources
+      );
+    };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
   }
@@ -345,6 +338,7 @@ export async function applySelectiveHydration(
         appRuntime: source?.runtime,
       }
     );
+    registerSelectiveHydrationCleanup();
     await hooks.registerAppNavigation(rootElement, path, source);
   } catch (error) {
     releaseSelectiveHydrationResources();

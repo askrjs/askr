@@ -8,6 +8,7 @@
 
 import type { ComponentFunction } from '../../common/component';
 import type { Props } from '../../common/props';
+import { isSSRPortalWriterAnchor } from '../../common/portal';
 import { ComponentInstance, HookOrderChangeError } from '../component/instance';
 import { noteErrorOrigin } from '../component/errors';
 import type { Owner } from '../reactive/owner';
@@ -145,8 +146,9 @@ function createHost(
   };
   if (adopted?.hasAttribute(SKIP_HYDRATE)) {
     // Server markup that stays static until activated.
+    ctx.pass.hasDormantPortalWriter ||= containsPortalWriterAnchor(adopted);
     node.dormant = { owner: ctx.owner, ns };
-    dormantHosts.set(adopted, node);
+    ctx.pass.op(() => dormantHosts.set(adopted, node));
     return node;
   }
   applyInitialProps(ctx.pass, node, adopted !== null);
@@ -175,6 +177,16 @@ function createHost(
 
 const SKIP_HYDRATE = 'data-skip-hydrate';
 const dormantHosts = new WeakMap<Element, HostNode>();
+
+function containsPortalWriterAnchor(root: Element): boolean {
+  const pending = Array.from(root.childNodes);
+  while (pending.length) {
+    const node = pending.pop()!;
+    if (isSSRPortalWriterAnchor(node)) return true;
+    for (const child of node.childNodes) pending.push(child);
+  }
+  return false;
+}
 
 /** The dormant host adopted for `el`, if it has not been activated. */
 export function dormantHostFor(el: Element): HostNode | null {
@@ -377,7 +389,20 @@ export function deferHydratingRender(instance: ComponentInstance): boolean {
   const cursor = hydrate.cursor.reserve(hydrate.container);
   hydrate.cursor.deferred.push({
     render: () => {
-      if (instance.disposed || !instance.computation.stale) return;
+      if (instance.disposed) return;
+      if (!instance.computation.stale) {
+        if (ctx.pass.hasDormantPortalWriter) {
+          const held = cursor.heldNodes(hydrate.container);
+          node.children = held.map((dom) => ({
+            kind: NATIVE,
+            parent: node,
+            key: undefined,
+            node: dom,
+          }));
+          node.deferredHydration = { cursor, container: hydrate.container };
+        }
+        return;
+      }
       renderInstance(
         { ...ctx, hydrate: { cursor, container: hydrate.container } },
         node,
@@ -386,6 +411,46 @@ export function deferHydratingRender(instance: ComponentInstance): boolean {
     },
   });
   return true;
+}
+
+/** Adopt held server portal output when its deferred writer first runs. */
+export function hydrateDeferredComponent(
+  ctx: RenderContext,
+  node: ComponentNode,
+  output: unknown
+): void {
+  const deferred = node.deferredHydration!;
+  const previous = node.children;
+  const next = reconcileChildren(
+    withOwner({ ...ctx, hydrate: deferred }, node.instance),
+    node,
+    output,
+    true
+  );
+  const container = deferred.container;
+  const after = nextDomAfter(node);
+  ctx.pass.op(() => {
+    const retained = new Set(next.flatMap((child) => collectDom(child)));
+    for (const child of previous) {
+      for (const dom of collectDom(child)) {
+        if (!retained.has(dom)) dom.parentNode?.removeChild(dom);
+      }
+    }
+    let before = after;
+    for (let index = next.length - 1; index >= 0; index--) {
+      const doms = collectDom(next[index]);
+      for (let item = doms.length - 1; item >= 0; item--) {
+        const dom = doms[item];
+        if (dom.parentNode !== container || dom.nextSibling !== before) {
+          container.insertBefore(dom, before);
+        }
+        before = dom;
+      }
+    }
+    node.children = next;
+    node.deferredHydration = null;
+  });
+  ctx.pass.markRendered(node.instance);
 }
 
 export function renderInstance(
@@ -687,7 +752,10 @@ function release(node: RNode, errors: unknown[]): void {
     const frame = pending.pop()!;
     const current = frame.node;
     if (frame.finish) {
-      if (current.kind === HOST) releaseProps(current, errors);
+      if (current.kind === HOST) {
+        if (current.dormant) dormantHosts.delete(current.el);
+        releaseProps(current, errors);
+      }
       if (current.kind === COMPONENT || current.kind === DYNAMIC) {
         current.instance.dispose(errors);
       }

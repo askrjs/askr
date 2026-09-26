@@ -15,7 +15,10 @@ import { ELEMENT_TYPE, type JSXElement } from '../common/jsx';
 import { reportUncaughtErrorLater } from '../common/report-error';
 import { currentComponent, provideAppRuntime } from '../core/api/hooks';
 import { provideDefaultPortal } from '../core/api/portal';
+import { dormantHostFor, hydrateDormantHost } from '../core/dom/nodes';
+import { Pass } from '../core/dom/pass';
 import { createRoot, type Root } from '../core/dom/root';
+import { ROOT, type Parent } from '../core/dom/tree';
 import { flushSync } from '../core/reactive/scheduler';
 import { validateCspNonce } from '../csp-nonce';
 import {
@@ -240,12 +243,28 @@ export async function registerAppNavigation(
   initializeNavigation();
 }
 
-/** Deferred hydration boundaries are not supported by this renderer yet. */
 export function activateHydrationBoundary(
-  _rootElement: Element,
-  _boundary: Element
+  rootElement: Element,
+  boundary: Element
 ): boolean {
-  return false;
+  const app = appRoots.get(rootElement);
+  if (!app || !rootElement.contains(boundary)) return false;
+  const host = dormantHostFor(boundary);
+  if (!host) return false;
+  let parent: Parent | null = host.parent;
+  while (parent && parent.kind !== ROOT) parent = parent.parent;
+  if (parent !== app.root.node) return false;
+
+  const pass = new Pass();
+  try {
+    hydrateDormantHost(pass, host);
+  } catch (error) {
+    for (const failure of pass.discard()) reportUncaughtErrorLater(failure);
+    throw error;
+  }
+  pass.commit();
+  flushSync();
+  return true;
 }
 
 /**

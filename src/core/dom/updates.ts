@@ -16,6 +16,7 @@ import {
   createRenderContext,
   componentOutput,
   deferHydratingRender,
+  hydrateDeferredComponent,
   isHydratingRender,
   namespaceAt,
   renderInstance,
@@ -82,6 +83,10 @@ function renderAfterUpdate(
   }
   const mark = ctx.pass.mark();
   try {
+    if (node.deferredHydration) {
+      hydrateDeferredComponent(ctx, node, componentOutput(computation._value));
+      return;
+    }
     reconcileChildren(
       withOwner(ctx, instance),
       node,
