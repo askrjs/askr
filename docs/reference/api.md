@@ -96,6 +96,8 @@ automatic JSX transform. Askr does not declare a global `JSX` namespace; import
 `type JSX` from `@askrjs/askr/jsx-runtime` when naming JSX types. Standard HTML
 and SVG tag names are checked, so a misspelled tag is a type error. Hyphenated
 custom-element names remain available with flexible attributes.
+Intrinsic `ref` callbacks and object refs use the element type for their tag,
+such as `HTMLButtonElement` for `<button>` and `HTMLVideoElement` for `<video>`.
 
 ## Examples
 

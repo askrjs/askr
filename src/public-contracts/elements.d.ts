@@ -42,14 +42,19 @@ type IntrinsicFormValue =
   | readonly string[]
   | null
   | undefined;
-type IntrinsicRefTarget = Element | null;
-type IntrinsicRef =
-  | BivariantHandler<IntrinsicRefTarget>
+type IntrinsicRef<T extends Element = Element> =
+  | BivariantHandler<T | null>
   | {
-      current: IntrinsicRefTarget;
+      current: T | null;
     }
   | null
   | undefined;
+type IntrinsicElementForTag<Tag extends string> =
+  Tag extends keyof HTMLElementTagNameMap
+    ? HTMLElementTagNameMap[Tag]
+    : Tag extends keyof SVGElementTagNameMap
+      ? SVGElementTagNameMap[Tag]
+      : Element;
 interface IntrinsicEventProps {
   onAbort?: BivariantHandler<Event> | null;
   onBlur?: BivariantHandler<FocusEvent> | null;
@@ -368,7 +373,7 @@ interface TextareaIntrinsicProps extends IntrinsicProps {
   rows?: ReactiveProp<IntrinsicNumberValue>;
   value?: ReactiveProp<IntrinsicTextValue>;
 }
-interface KnownIntrinsicElementProps {
+interface KnownIntrinsicElementPropsBase {
   a: AnchorIntrinsicProps;
   article: LayoutIntrinsicProps;
   aside: LayoutIntrinsicProps;
@@ -421,6 +426,15 @@ interface KnownIntrinsicElementProps {
   tr: LayoutIntrinsicProps;
   ul: LayoutIntrinsicProps;
 }
+type WithElementRef<Props, Target extends Element> = {
+  [Key in keyof Props]: Key extends 'ref' ? IntrinsicRef<Target> : Props[Key];
+};
+type KnownIntrinsicElementProps = {
+  [Tag in keyof KnownIntrinsicElementPropsBase]: WithElementRef<
+    KnownIntrinsicElementPropsBase[Tag],
+    IntrinsicElementForTag<Tag>
+  >;
+};
 /** The element type marker for JSX fragments (`<>...</>`), groups children without a wrapper element. */
 declare const Fragment: unique symbol;
 /** A component function accepting `TProps`, usable as a JSX element's `type`. */
@@ -442,6 +456,8 @@ interface JSXElement {
 }
 export {
   IntrinsicFallbackProps,
+  IntrinsicRef,
+  IntrinsicElementForTag,
   JSXElementType,
   JSXComponent,
   KnownIntrinsicElementProps,

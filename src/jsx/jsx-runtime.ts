@@ -5,6 +5,8 @@
 
 import type {
   IntrinsicFallbackProps,
+  IntrinsicElementForTag,
+  IntrinsicRef,
   KnownIntrinsicElementProps,
   Props,
 } from '../common/props';
@@ -46,13 +48,25 @@ export namespace JSX {
         keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap,
         keyof KnownIntrinsicElementProps
       >
-    ]: IntrinsicFallbackProps;
+    ]: OtherIntrinsicProps<Tag>;
   };
 
   export interface ElementChildrenAttribute {
     children: unknown;
   }
 }
+
+type OtherIntrinsicProps<Tag extends string> = Omit<
+  IntrinsicFallbackProps,
+  'ref'
+> & { ref?: IntrinsicRef<IntrinsicElementForTag<Tag>> };
+
+type OtherIntrinsicTag =
+  | Exclude<
+      keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap,
+      keyof KnownIntrinsicElementProps
+    >
+  | `${string}-${string}`;
 
 function annotatePropsUsage(props: Props): void {
   for (const key in props) {
@@ -77,13 +91,13 @@ export function jsxDEV(
 ): unknown;
 export function jsxDEV<TTag extends keyof KnownIntrinsicElementProps>(
   type: TTag,
-  props: KnownIntrinsicElementProps[TTag] | null,
+  props: KnownIntrinsicElementProps[NoInfer<TTag>] | null,
   key?: string | number,
   isStaticChildren?: boolean
 ): JSXElement;
-export function jsxDEV<TTag extends string>(
-  type: Exclude<TTag, keyof KnownIntrinsicElementProps>,
-  props: IntrinsicFallbackProps | null,
+export function jsxDEV<TTag extends OtherIntrinsicTag>(
+  type: TTag,
+  props: OtherIntrinsicProps<TTag> | null,
   key?: string | number,
   isStaticChildren?: boolean
 ): JSXElement;
@@ -136,12 +150,12 @@ export function jsx(
 ): unknown;
 export function jsx<TTag extends keyof KnownIntrinsicElementProps>(
   type: TTag,
-  props: KnownIntrinsicElementProps[TTag] | null,
+  props: KnownIntrinsicElementProps[NoInfer<TTag>] | null,
   key?: string | number
 ): JSXElement;
-export function jsx<TTag extends string>(
-  type: Exclude<TTag, keyof KnownIntrinsicElementProps>,
-  props: IntrinsicFallbackProps | null,
+export function jsx<TTag extends OtherIntrinsicTag>(
+  type: TTag,
+  props: OtherIntrinsicProps<TTag> | null,
   key?: string | number
 ): JSXElement;
 export function jsx<TProps extends object>(
@@ -184,12 +198,12 @@ export function jsxs(
 ): unknown;
 export function jsxs<TTag extends keyof KnownIntrinsicElementProps>(
   type: TTag,
-  props: KnownIntrinsicElementProps[TTag] | null,
+  props: KnownIntrinsicElementProps[NoInfer<TTag>] | null,
   key?: string | number
 ): JSXElement;
-export function jsxs<TTag extends string>(
-  type: Exclude<TTag, keyof KnownIntrinsicElementProps>,
-  props: IntrinsicFallbackProps | null,
+export function jsxs<TTag extends OtherIntrinsicTag>(
+  type: TTag,
+  props: OtherIntrinsicProps<TTag> | null,
   key?: string | number
 ): JSXElement;
 export function jsxs<TProps extends object>(

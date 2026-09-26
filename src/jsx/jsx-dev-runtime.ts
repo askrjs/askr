@@ -4,6 +4,8 @@
  */
 import type {
   IntrinsicFallbackProps,
+  IntrinsicElementForTag,
+  IntrinsicRef,
   KnownIntrinsicElementProps,
   Props,
 } from '../common/props';
@@ -45,13 +47,25 @@ export namespace JSX {
         keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap,
         keyof KnownIntrinsicElementProps
       >
-    ]: IntrinsicFallbackProps;
+    ]: OtherIntrinsicProps<Tag>;
   };
 
   export interface ElementChildrenAttribute {
     children: unknown;
   }
 }
+
+type OtherIntrinsicProps<Tag extends string> = Omit<
+  IntrinsicFallbackProps,
+  'ref'
+> & { ref?: IntrinsicRef<IntrinsicElementForTag<Tag>> };
+
+type OtherIntrinsicTag =
+  | Exclude<
+      keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap,
+      keyof KnownIntrinsicElementProps
+    >
+  | `${string}-${string}`;
 
 function annotatePropsUsage(props: Record<string, unknown> | null): Props {
   const normalizedProps = (props ?? {}) as Props;
@@ -84,13 +98,13 @@ export function jsxDEV(
 ): unknown;
 export function jsxDEV<TTag extends keyof KnownIntrinsicElementProps>(
   type: TTag,
-  props: KnownIntrinsicElementProps[TTag] | null,
+  props: KnownIntrinsicElementProps[NoInfer<TTag>] | null,
   key?: string | number,
   isStaticChildren?: boolean
 ): JSXElement;
-export function jsxDEV<TTag extends string>(
-  type: Exclude<TTag, keyof KnownIntrinsicElementProps>,
-  props: IntrinsicFallbackProps | null,
+export function jsxDEV<TTag extends OtherIntrinsicTag>(
+  type: TTag,
+  props: OtherIntrinsicProps<TTag> | null,
   key?: string | number,
   isStaticChildren?: boolean
 ): JSXElement;

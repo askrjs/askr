@@ -46,12 +46,18 @@ type IntrinsicFormValue =
   | readonly string[]
   | null
   | undefined;
-type IntrinsicRefTarget = Element | null;
-type IntrinsicRef =
-  | BivariantHandler<IntrinsicRefTarget>
-  | { current: IntrinsicRefTarget }
+export type IntrinsicRef<T extends Element = Element> =
+  | BivariantHandler<T | null>
+  | { current: T | null }
   | null
   | undefined;
+
+export type IntrinsicElementForTag<Tag extends string> =
+  Tag extends keyof HTMLElementTagNameMap
+    ? HTMLElementTagNameMap[Tag]
+    : Tag extends keyof SVGElementTagNameMap
+      ? SVGElementTagNameMap[Tag]
+      : Element;
 
 interface IntrinsicEventProps {
   onAbort?: BivariantHandler<Event> | null;
@@ -399,7 +405,7 @@ export interface TextareaIntrinsicProps extends IntrinsicProps {
   value?: ReactiveProp<IntrinsicTextValue>;
 }
 
-export interface KnownIntrinsicElementProps {
+interface KnownIntrinsicElementPropsBase {
   a: AnchorIntrinsicProps;
   article: LayoutIntrinsicProps;
   aside: LayoutIntrinsicProps;
@@ -452,6 +458,17 @@ export interface KnownIntrinsicElementProps {
   tr: LayoutIntrinsicProps;
   ul: LayoutIntrinsicProps;
 }
+
+type WithElementRef<Props, Target extends Element> = {
+  [Key in keyof Props]: Key extends 'ref' ? IntrinsicRef<Target> : Props[Key];
+};
+
+export type KnownIntrinsicElementProps = {
+  [Tag in keyof KnownIntrinsicElementPropsBase]: WithElementRef<
+    KnownIntrinsicElementPropsBase[Tag],
+    IntrinsicElementForTag<Tag>
+  >;
+};
 
 export interface ComponentNode {
   type: 'component' | 'element' | 'text';

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- fix(types): intrinsic JSX and `jsx()` refs now use each tag's element type.
+  An `<input>` ref can no longer be passed to `<button>`, and callback refs
+  receive the correct element type. This includes standard tags outside the
+  explicitly tailored intrinsic-prop set.
+
 - breaking(types): Askr's JSX namespace now belongs only to the
   `jsxImportSource` runtime modules. Import `type JSX` from
   `@askrjs/askr/jsx-runtime` instead of using global `JSX`. Misspelled standard

@@ -10,6 +10,8 @@ import {
 
 const buttonRef = createRef<HTMLButtonElement>();
 expectType<Ref<HTMLButtonElement>>(buttonRef);
+const inputRef = createRef<HTMLInputElement>();
+const videoRef = createRef<HTMLVideoElement>();
 import {
   Fragment,
   jsx,
@@ -80,12 +82,19 @@ const callButton = jsx('button', {
     expectType<PointerEvent>(event);
   },
   ref: (element) => {
-    expectType<Element | null>(element);
+    expectType<HTMLButtonElement | null>(element);
   },
   value: 'save',
   children: 'go',
 });
 expectType<JSXElement>(callButton);
+expectError(jsx('button', { ref: inputRef }));
+expectError(<button ref={inputRef} />);
+expectAssignable<JSXElement>(<input ref={inputRef} />);
+expectAssignable<JSXElement>(<video ref={videoRef} />);
+expectError(<video ref={inputRef} />);
+expectError(jsx('video', { ref: inputRef }));
+jsx('video', { ref: videoRef });
 
 const callInput = jsx('input', {
   autocomplete: 'off',
