@@ -129,7 +129,13 @@ export class Pass {
       }
     }
     for (const instance of this.renderedInstances) {
-      if (!instance.disposed) mount(instance);
+      if (!instance.disposed) {
+        try {
+          mount(instance);
+        } catch (error) {
+          failures.push(error);
+        }
+      }
     }
     if (failures.length === 1) throw failures[0];
     if (failures.length > 1) {
@@ -141,6 +147,9 @@ export class Pass {
 /** Mark an instance committed and schedule its post-commit work. */
 function mount(instance: ComponentInstance): void {
   instance.mounted = true;
+  const syncQueue = instance.commitSyncQueue;
+  instance.commitSyncQueue = null;
+  for (const fn of syncQueue ?? []) fn();
   const queue = instance.commitQueue;
   if (!queue) return;
   instance.commitQueue = null;

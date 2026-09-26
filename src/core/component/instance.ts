@@ -47,6 +47,8 @@ export class ComponentInstance extends Owner {
   readonly computation: Computation<unknown>;
   /** Callbacks to run after this instance's next commit. */
   commitQueue: Array<() => void | Cleanup> | null = null;
+  /** Renderer bookkeeping that must settle before the next render job. */
+  commitSyncQueue: Array<() => void> | null = null;
   private abortController: AbortController | null = null;
   /** Renderer-owned view of this instance's committed output. */
   view: unknown = null;
@@ -88,6 +90,7 @@ export class ComponentInstance extends Owner {
     this.hookIndex = 0;
     // Commit work belongs to the render that registers it.
     this.commitQueue = null;
+    this.commitSyncQueue = null;
     try {
       const context: ComponentContext = this.server
         ? {
@@ -156,6 +159,10 @@ export class ComponentInstance extends Owner {
 
   onCommit(fn: () => void | Cleanup): void {
     (this.commitQueue ??= []).push(fn);
+  }
+
+  onCommitSync(fn: () => void): void {
+    (this.commitSyncQueue ??= []).push(fn);
   }
 
   protected override onDispose(): void {

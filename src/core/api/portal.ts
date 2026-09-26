@@ -81,7 +81,7 @@ function writeChannel(channel: PortalChannel, children: unknown): void {
       if (channel.write.peek()?.owner === instance) channel.write.write(null);
     });
   }
-  onCommit(instance, () => {
+  instance.onCommitSync(() => {
     const current = channel.write.peek();
     if (current?.owner === instance && Object.is(current.children, children)) {
       return;

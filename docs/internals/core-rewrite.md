@@ -148,6 +148,11 @@ replacement first.
 
 The rewrite is complete only when the contract suite is green.
 
+Portal channel writes settle when their writer's render commits. This queues
+the host update before the scheduler revisits portal descendants whose inputs
+changed in the same flush, so removed rows are disposed before they can read
+stale props.
+
 ## Remaining work
 
 The branch is a migration checkpoint, not a qualified release. Complete these
