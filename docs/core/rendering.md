@@ -454,6 +454,8 @@ child whose hooks change, or give it the same hooks on every run.
 A function child or prop that throws is a render error on both sides: the
 nearest `ErrorBoundary` renders its fallback, and without one the render (or
 the client update) throws.
+Without an explicit fallback, the boundary shows a visible alert with the
+error message and a retry button.
 
 ### Text inside `<script>` and `<style>`
 
