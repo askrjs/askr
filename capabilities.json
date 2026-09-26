@@ -6,11 +6,21 @@
       "intent": "reactive state and derived views",
       "package": "@askrjs/askr",
       "import": "@askrjs/askr",
-      "exports": ["state", "derive", "selector", "For"],
+      "exports": ["state", "derive", "selector"],
       "constraints": ["component render scope", "stable call order"],
-      "stability": "stable",
+      "stability": "preview",
       "docs": "https://github.com/askrjs/askr/blob/main/docs/guides/state.md",
       "docsPath": "docs/guides/state.md"
+    },
+    {
+      "intent": "declarative control flow",
+      "package": "@askrjs/askr",
+      "import": "@askrjs/askr/control",
+      "exports": ["For", "Show", "Case", "Match"],
+      "constraints": ["control boundaries keep their rendered ranges"],
+      "stability": "preview",
+      "docs": "https://github.com/askrjs/askr/blob/main/docs/guides/control-flow.md",
+      "docsPath": "docs/guides/control-flow.md"
     },
     {
       "intent": "data queries and mutations",
@@ -28,7 +38,7 @@
         "fetches are cancellable",
         "query collections require component render scope"
       ],
-      "stability": "stable",
+      "stability": "preview",
       "docs": "https://github.com/askrjs/askr/blob/main/docs/core/data.md",
       "docsPath": "docs/core/data.md"
     },
@@ -40,7 +50,7 @@
       "constraints": [
         "fixtures are test-only and do not perform network requests"
       ],
-      "stability": "stable",
+      "stability": "preview",
       "docs": "https://github.com/askrjs/askr/blob/main/docs/contributing/testing.md",
       "docsPath": "docs/contributing/testing.md"
     },
@@ -50,7 +60,7 @@
       "import": "@askrjs/askr/router",
       "exports": ["route", "Link", "navigate", "createRouteRegistry"],
       "constraints": ["route registry owns navigation"],
-      "stability": "stable",
+      "stability": "preview",
       "docs": "https://github.com/askrjs/askr/blob/main/docs/guides/router.md",
       "docsPath": "docs/guides/router.md"
     },
@@ -60,7 +70,7 @@
       "import": "@askrjs/askr/ssr",
       "exports": ["renderToString"],
       "constraints": ["browser globals require lazy client targets"],
-      "stability": "stable",
+      "stability": "preview",
       "docs": "https://github.com/askrjs/askr/blob/main/docs/guides/ssr.md",
       "docsPath": "docs/guides/ssr.md"
     },
@@ -70,7 +80,7 @@
       "import": "@askrjs/askr/ssg",
       "exports": ["createStaticGen"],
       "constraints": ["routes must be deterministic"],
-      "stability": "stable",
+      "stability": "preview",
       "docs": "https://github.com/askrjs/askr/blob/main/docs/guides/ssg.md",
       "docsPath": "docs/guides/ssg.md"
     },
@@ -80,7 +90,7 @@
       "import": "@askrjs/askr/components",
       "exports": ["ErrorBoundary"],
       "constraints": ["portal hosts are finalized during render"],
-      "stability": "stable",
+      "stability": "preview",
       "docs": "https://github.com/askrjs/askr/blob/main/docs/reference/api.md",
       "docsPath": "docs/reference/api.md"
     },
@@ -90,7 +100,7 @@
       "import": "@askrjs/askr/foundations/structures",
       "exports": ["Portal", "DefaultPortal"],
       "constraints": ["portal hosts are finalized during render"],
-      "stability": "stable",
+      "stability": "preview",
       "docs": "https://github.com/askrjs/askr/blob/main/docs/reference/api.md",
       "docsPath": "docs/reference/api.md"
     }

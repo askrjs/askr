@@ -4,22 +4,25 @@ Askr is a TypeScript UI runtime with getter-based state, tracked component
 renders and DOM bindings, transactional commits, and a shared route graph for
 browser and server rendering. Its platform packages add optional capabilities.
 
-It gives you a runtime, a headless UI system, optional theming, icon wrappers, and
-tooling - all designed to work together and share conventions.
+The core package owns rendering, reactivity, routing, data helpers, SSR, and
+SSG. Independently published packages add HTTP services, authentication,
+schemas, database access, UI, and tooling when an application needs them.
 
-## One platform, not a collection of libraries
+## Package boundaries
 
-The packages that make up Askr are designed as a cohesive whole:
+`@askrjs/askr` is the only required runtime package. Applications choose
+sibling packages explicitly:
 
-| Package       | Role                                               |
-| ------------- | -------------------------------------------------- |
-| `askr`        | Core runtime: rendering, routing, app lifecycle    |
-| `askr-ui`     | Headless UI primitives: behavior and accessibility |
-| `askr-themes` | Optional visual defaults: tokens and base styles   |
-| `askr-lucide` | Lucide icon wrappers built for Askr                |
-| `askr-cli`    | Generators and project scaffolding                 |
+- `@askrjs/server` and `@askrjs/node` add HTTP application and transport
+  layers. `@askrjs/auth` and `@askrjs/schema` provide contracts that core
+  routes and actions can use.
+- `@askrjs/orm` offers optional database access. `@askrjs/fetch` offers typed
+  HTTP contracts and clients.
+- `@askrjs/ui`, `@askrjs/themes`, and the other visual packages add optional
+  components and assets.
 
-Each package adds a specific capability. Only `askr` is required. The others are opt-in.
+See the [package map](../reference/package-map.md) for the complete list and
+import boundaries.
 
 ## What kind of apps Askr is for
 
@@ -30,14 +33,15 @@ Askr is particularly well suited to:
 - Settings-panel-heavy products
 - Structured frontends with consistent layouts
 
-## What Askr is not trying to be
+## Application choices
 
-Askr stays focused on frontend application structure. It does not provide:
+Askr packages provide HTTP, auth, and database integration points, while the
+application chooses its identity provider, database deployment, and hosting
+environment. The core runtime does not open a database connection or run an
+HTTP server by itself.
 
-- A backend or API layer
-- Authentication or session management
-- Database access
-- Deployment infrastructure
+The [platform overview](./platform-overview.md) shows how the optional layers
+compose around one route graph.
 
 ## Next steps
 

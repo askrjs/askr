@@ -3,22 +3,30 @@
 This reference defines the published package boundaries for the Askr platform.
 Package-specific details belong to the owning sibling repository.
 
-| Package          | Responsibility                                                                                          |
-| ---------------- | ------------------------------------------------------------------------------------------------------- |
-| `@askrjs/askr`   | Runtime, reactivity, typed routes, actions descriptors, query state, SSR, streaming boundaries, and SSG |
-| `@askrjs/schema` | The platform's executable `safeParse()` schema language and deterministic OpenAPI projection            |
-| `@askrjs/auth`   | Structural principal/claim contracts, authentication resolution, and route policy composition           |
-| `@askrjs/server` | Request contexts, API operations, page action handlers, CSRF, rate limiting, probes, and middleware     |
-| `@askrjs/node`   | Node HTTP transport with Web-stream backpressure, repeated headers, and cancellation                    |
-| `@askrjs/vite`   | Askr JSX integration and Vite-owned document composition                                                |
-| `@askrjs/i18n`   | Typed, application-owned catalogs, locale scopes, and hydration snapshots                               |
-| `@askrjs/otel`   | Optional-peer OpenTelemetry spans and redaction-safe structured logging                                 |
-| `@askrjs/ui`     | Headless, accessible interaction components                                                             |
-| `@askrjs/themes` | Optional theme scopes, styled components, tokens, and templates                                         |
-| `@askrjs/lucide` | Tree-shakeable Askr-native Lucide icon wrappers                                                         |
-| `@askrjs/charts` | Askr-native chart components                                                                            |
-| `@askrjs/monaco` | Askr-native Monaco editor integration                                                                   |
-| `@askrjs/cli`    | Project creation, action generation, OpenAPI drift checks, skills, and SSG commands                     |
+The core package's [capability manifest](../../capabilities.json) lists
+supported imports. Its `preview` stability label reflects the current 0.x API:
+published and usable, with contracts still eligible to evolve before 1.0.
+
+| Package           | Responsibility                                                                                          |
+| ----------------- | ------------------------------------------------------------------------------------------------------- |
+| `@askrjs/askr`    | Runtime, reactivity, typed routes, actions descriptors, query state, SSR, streaming boundaries, and SSG |
+| `@askrjs/schema`  | The platform's executable `safeParse()` schema language and deterministic OpenAPI projection            |
+| `@askrjs/auth`    | Structural principal/claim contracts, authentication resolution, and route policy composition           |
+| `@askrjs/server`  | Request contexts, API operations, page action handlers, CSRF, rate limiting, probes, and middleware     |
+| `@askrjs/node`    | Node HTTP transport with Web-stream backpressure, repeated headers, and cancellation                    |
+| `@askrjs/vite`    | Askr JSX integration and Vite-owned document composition                                                |
+| `@askrjs/fetch`   | Function-first typed HTTP contracts and clients                                                         |
+| `@askrjs/orm`     | Optional SQL-shaped data access with Postgres and SQLite adapters                                       |
+| `@askrjs/testing` | Transport-neutral request injection and HTTP testing utilities                                          |
+| `@askrjs/i18n`    | Typed, application-owned catalogs, locale scopes, and hydration snapshots                               |
+| `@askrjs/otel`    | Optional-peer OpenTelemetry spans and redaction-safe structured logging                                 |
+| `@askrjs/ui`      | Headless, accessible interaction components                                                             |
+| `@askrjs/themes`  | Optional theme scopes, styled components, tokens, and templates                                         |
+| `@askrjs/lucide`  | Tree-shakeable Askr-native Lucide icon wrappers                                                         |
+| `@askrjs/logos`   | Askr logo SVG wrappers                                                                                  |
+| `@askrjs/charts`  | Askr-native chart components                                                                            |
+| `@askrjs/monaco`  | Askr-native Monaco editor integration                                                                   |
+| `@askrjs/cli`     | Project creation, action generation, OpenAPI drift checks, skills, and SSG commands                     |
 
 ## Import guidance
 
@@ -29,6 +37,7 @@ import { defineScope, readScope, state } from '@askrjs/askr';
 import { ActionForm, action, defineAction } from '@askrjs/askr/actions';
 import { createSPA } from '@askrjs/askr/boot';
 import { createQuery } from '@askrjs/askr/data';
+import { For, Show } from '@askrjs/askr/control';
 import {
   defer,
   Link,
@@ -44,6 +53,10 @@ import { createStaticGen } from '@askrjs/askr/ssg';
 Import `schema`, `createI18n`, and `createTelemetry` from their owning sibling
 packages when those packages are installed.
 
+`@askrjs/testing` tests HTTP applications through request injection.
+`@askrjs/askr/testing` is a subpath of the core runtime for query-state test
+fixtures. They are separate packages and serve different tests.
+
 Action descriptors and schemas may enter the browser graph. Registered action
 handlers, secrets, stores, and server dependencies may not.
 
@@ -53,6 +66,7 @@ handlers, secrets, stores, and server dependencies may not.
 - Executable schemas are the only declared validation contract. `ctx.bind()` is
   available only when an application intentionally accepts unvalidated input.
 - i18n locale selection and telemetry exporters stay application-owned.
-- Databases, ORMs, identity providers, developer tools, vendor deployment
-  adapters, WebSockets, and proprietary telemetry backends stay outside the
-  platform.
+- `@askrjs/orm` is optional; the core runtime does not own a database
+  connection or migrations. Applications choose their database service.
+- Identity providers, vendor deployment adapters, WebSocket transports, and
+  proprietary telemetry backends stay outside the platform.

@@ -14,10 +14,12 @@ src/
 
 public/
 
-askr.config.ts        (optional - for SSG or advanced config)
 tsconfig.json
 vite.config.ts
 ```
+
+Askr does not automatically load `askr.config.ts`. The CLI's SSG command
+accepts an explicit `--config <path>` when a project needs an SSG config module.
 
 ## `src/routes/`
 
