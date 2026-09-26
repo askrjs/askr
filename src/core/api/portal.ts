@@ -63,7 +63,7 @@ function isEmpty(value: unknown): boolean {
 
 /** Record `children` as `channel`'s content once the current render commits. */
 function writeChannel(channel: PortalChannel, children: unknown): void {
-  if (writeSSRPortal(ssrKey(channel), children as never)) return;
+  if (writeSSRPortal(ssrKey(channel), children as never, getOwner())) return;
   const instance = currentComponent();
   if (!instance) {
     channel.write.write({ owner: getOwner(), id: ++nextWriteId, children });

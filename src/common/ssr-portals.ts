@@ -52,7 +52,8 @@ function createSSRPortalHost(
 
 function writeSSRPortal(
   key: object,
-  children: RenderableChild | undefined
+  children: RenderableChild | undefined,
+  owner?: unknown
 ): boolean {
   const current = getSSRPortalSlot(key);
   if (!current) {
@@ -60,6 +61,7 @@ function writeSSRPortal(
   }
   current.slot.hasValue = true;
   current.slot.value = children;
+  current.slot.owner = owner;
   return true;
 }
 

@@ -246,15 +246,23 @@ function renderComponent(
 }
 
 function capturePortalWrites(ctx: RenderContext): () => void {
-  const saved = new Map<object, { hasValue: boolean; value: unknown }>();
+  const saved = new Map<
+    object,
+    { hasValue: boolean; value: unknown; owner: unknown }
+  >();
   for (const [key, slot] of ctx.ssrPortals.slots) {
-    saved.set(key, { hasValue: slot.hasValue, value: slot.value });
+    saved.set(key, {
+      hasValue: slot.hasValue,
+      value: slot.value,
+      owner: slot.owner,
+    });
   }
   return () => {
     for (const [key, slot] of ctx.ssrPortals.slots) {
       const previous = saved.get(key);
       slot.hasValue = previous?.hasValue ?? false;
       slot.value = previous?.value as typeof slot.value;
+      slot.owner = previous?.owner;
     }
   };
 }
@@ -484,9 +492,11 @@ function resolvePortals(html: string, ctx: RenderContext): string {
         const active = host.automatic ? explicit.length === 0 : true;
         const content =
           active && slot.hasValue
-            ? renderToString(
-                slot.value,
-                state().portalNamespaces.get(host.token) ?? 'html'
+            ? withOwner((slot.owner as Owner | null) ?? state().owner, () =>
+                renderToString(
+                  slot.value,
+                  state().portalNamespaces.get(host.token) ?? 'html'
+                )
               )
             : '';
         resolved = resolved.replace(host.token, () => content);
