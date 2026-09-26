@@ -26,10 +26,9 @@ export {
   debounceEvent,
   throttleEvent,
   rafEvent,
+  scheduleEventHandler,
   scheduleTimeout,
   scheduleIdle,
   scheduleRetry,
   type RetryOutcome,
 } from './fx';
-
-export { scheduleEventHandler } from '../runtime';

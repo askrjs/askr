@@ -100,6 +100,14 @@ function enqueueOwnedHandler(
   );
 }
 
+/** Schedule a native listener under the owner that created it. */
+export function scheduleEventHandler(handler: EventListener): EventListener {
+  const resolveOwner = captureLifecycleOwner();
+  return (event: Event) => {
+    enqueueOwnedHandler(handler, event, resolveOwner());
+  };
+}
+
 function enqueueEventHandler(handler: EventListener): EventInvoke {
   return (_thisArg, [event, owner]) => {
     enqueueOwnedHandler(

@@ -32,7 +32,7 @@ export function task(
     if (slot.started) return;
     slot.started = true;
     try {
-      return slot.fn();
+      return withOwner(instance, slot.fn);
     } catch (error) {
       return Promise.reject(error);
     }
