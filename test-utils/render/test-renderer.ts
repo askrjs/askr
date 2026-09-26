@@ -9,7 +9,11 @@
  */
 
 import { globalScheduler } from '../../src/runtime/scheduler';
-import { flushSync as flushCoreScheduler } from '../../src/core/reactive/scheduler';
+import {
+  flushSync as flushCoreScheduler,
+  hasPendingWork as hasCorePendingWork,
+  waitForFlush as waitForCoreFlush,
+} from '../../src/core/reactive/scheduler';
 import { renderToStringSync } from '../../src/ssr';
 import type { SSRComponent } from '../../src/ssr';
 import { cleanupApp } from '../../src/boot';
@@ -78,13 +82,19 @@ export async function waitForFlush(timeout = 2000): Promise<void> {
   // Use scheduler-based barrier to wait for the next flush.
   // If there are no pending tasks and scheduler is quiescent, resolve immediately.
   const state = globalScheduler.getState();
-  if (state.queueLength === 0 && !state.running) return;
+  const coreFlush = hasCorePendingWork()
+    ? waitForCoreFlush()
+    : Promise.resolve();
+  if (state.queueLength === 0 && !state.running) return coreFlush;
 
   // Otherwise wait for the next flushVersion (current + 1)
   const target =
     (state as unknown as { flushVersion: number }).flushVersion + 1;
   try {
-    await globalScheduler.waitForFlush(target, timeout);
+    await Promise.all([
+      globalScheduler.waitForFlush(target, timeout),
+      coreFlush,
+    ]);
   } catch (err) {
     // Propagate with extra diagnostics
     const ns =
