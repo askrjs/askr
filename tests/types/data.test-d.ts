@@ -172,6 +172,7 @@ expectType<void>(invalidate('user:', { runtime: dataRuntime }));
 
 const scoped = queryScope('admin');
 expectType<QueryScope>(scoped);
+expectType<QueryScope>(queryScope('admin', { runtime: dataRuntime }));
 expectType<string>(scoped.key('buckets', 'main', 'files'));
 expectType<string>(scoped.prefix('buckets', 'main'));
 expectType<void>(scoped.invalidate(['buckets', 'main']));

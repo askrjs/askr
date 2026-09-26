@@ -336,8 +336,11 @@ declare function getDefaultDataRuntime(): DataRuntime;
  */
 declare function invalidate(prefix: string, options?: InvalidateOptions): void;
 
-/** Create a {@link QueryScope} that namespaces keys and invalidations under `namespace`. */
-declare function queryScope(namespace: string): QueryScope;
+/** Create a {@link QueryScope} that namespaces keys and can bind invalidations to a runtime. */
+declare function queryScope(
+  namespace: string,
+  options?: Pick<InvalidateOptions, 'runtime'>
+): QueryScope;
 
 /**
  * Periodically invalidate queries matching `prefix` on a fixed interval,

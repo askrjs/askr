@@ -31,9 +31,17 @@ export function invalidate(prefix: string, options?: InvalidateOptions): void {
   );
 }
 
-/** Create a {@link QueryScope} that namespaces keys and invalidations under `namespace`. */
-export function queryScope(namespace: string): QueryScope {
-  return createQueryScope(namespace, invalidate);
+/** Create a {@link QueryScope} that namespaces keys and can bind invalidations to a runtime. */
+export function queryScope(
+  namespace: string,
+  options?: Pick<InvalidateOptions, 'runtime'>
+): QueryScope {
+  return createQueryScope(namespace, (prefix, callOptions) =>
+    invalidate(prefix, {
+      ...callOptions,
+      runtime: callOptions?.runtime ?? options?.runtime,
+    })
+  );
 }
 
 const INVALIDATE_ON_INTERVAL_OPTIONS_ERROR =

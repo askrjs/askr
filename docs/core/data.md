@@ -422,6 +422,13 @@ const admin = queryScope('admin');
 admin.invalidate(['buckets', 'main']);
 ```
 
+For invalidation that may run after `await`, bind the scope to the app's data
+runtime when creating it: `queryScope('admin', { runtime: dataRuntime })`.
+The returned `invalidate()` uses that runtime even when no app render context is
+active. A runtime passed to an individual `scope.invalidate()` call overrides
+the bound runtime. Plain `invalidate()` still needs an explicit `{ runtime }`
+after an asynchronous boundary when the app uses a custom data runtime.
+
 The raw `invalidate(prefix)` API matches whole `:`-delimited key segments. A
 key matches when it equals the prefix or continues it at a `:` boundary, so
 `invalidate('user:1')` matches `user:1` and `user:1:permissions` but not

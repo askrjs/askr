@@ -195,6 +195,38 @@ describe('data layer', () => {
     expect(queryB.data).toEqual({ value: 'b:1' });
   });
 
+  it('should invalidate through a runtime-bound scope after an await', async () => {
+    const runtimeA = createDataRuntime();
+    const runtimeB = createDataRuntime();
+    const scope = queryScope('users', { runtime: runtimeA });
+    const key = scope.key('123');
+    let fetchCountA = 0;
+    let fetchCountB = 0;
+    const queryA = createQuery({
+      runtime: runtimeA,
+      key,
+      fetch: async () => ({ value: ++fetchCountA }),
+    });
+    const queryB = createQuery({
+      runtime: runtimeB,
+      key,
+      fetch: async () => ({ value: ++fetchCountB }),
+    });
+
+    await settle();
+    await Promise.resolve();
+    scope.invalidate(['123']);
+    await settle();
+
+    expect(queryA.data).toEqual({ value: 2 });
+    expect(queryB.data).toEqual({ value: 1 });
+
+    scope.invalidate(['123'], { runtime: runtimeB });
+    await settle();
+    expect(queryA.data).toEqual({ value: 2 });
+    expect(queryB.data).toEqual({ value: 2 });
+  });
+
   it('should invalidate canonical scoped query prefixes', () => {
     const recorder = createInvalidationRecorder();
     const admin = queryScope('admin');

@@ -646,7 +646,7 @@
         "interface QueryPrefetchContext {\n    readonly runtime: DataRuntime;\n    readonly request?: Request;\n    readonly signal: AbortSignal;\n    readonly mode: \"ssr\" | \"spa\";\n    prefetch<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>, input: TInput): Promise<boolean>;\n}"
       ],
       "queryScope": [
-        "declare function queryScope(namespace: string): QueryScope;"
+        "declare function queryScope(namespace: string, options?: Pick<InvalidateOptions, \"runtime\">): QueryScope;"
       ],
       "QueryScope": [
         "interface QueryScope {\n    key(...parts: QueryKeyPart[]): string;\n    prefix(...parts: QueryKeyPart[]): string;\n    invalidate(parts: readonly QueryKeyPart[], options?: InvalidateOptions): void;\n}"
@@ -2214,7 +2214,7 @@
       "type QueryRefreshing<T> = {\n    data: T;\n    error: null;\n    loading: false;\n    refreshing: true;\n    stale: true;\n    consistency: \"refreshing\";\n    staleReason: null;\n};"
     ],
     "queryScope": [
-      "declare function queryScope(namespace: string): QueryScope;"
+      "declare function queryScope(namespace: string, options?: Pick<InvalidateOptions, \"runtime\">): QueryScope;"
     ],
     "QueryScope": [
       "interface QueryScope {\n    key(...parts: QueryKeyPart[]): string;\n    prefix(...parts: QueryKeyPart[]): string;\n    invalidate(parts: readonly QueryKeyPart[], options?: InvalidateOptions): void;\n}"
