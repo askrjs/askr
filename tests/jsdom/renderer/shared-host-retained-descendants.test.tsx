@@ -111,3 +111,62 @@ describe('shared host descendants across a self re-render', () => {
     expect(events).toEqual(['page mount']);
   });
 });
+
+// A chain of the same component type records every link on the leaf host.
+// Re-rendering any link must find each deeper link by its parent, whichever
+// link the reconciliation walk starts from.
+describe('same-type wrapper chain across re-renders', () => {
+  let { container, cleanup } = createTestContainer();
+
+  beforeEach(() => {
+    ({ container, cleanup } = createTestContainer());
+  });
+
+  afterEach(() => cleanup());
+
+  it.each([
+    ['the root', ['root', 'root']],
+    ['a middle link', [2, 'root', 2]],
+    ['links at several depths', [3, 1, 'root', 2]],
+  ] as const)(
+    'should retain every link after re-rendering %s',
+    (_label, renders) => {
+      const depth = 4;
+      const counts: Array<State<number>> = [];
+      let rootLabel!: State<string>;
+
+      function Nested({ level, label }: { level: number; label: string }) {
+        const count = state(0);
+        counts[level] = count;
+        return level === 0 ? (
+          <button id="leaf">
+            {label}:{count()}
+          </button>
+        ) : (
+          <Nested level={level - 1} label={label + count()} />
+        );
+      }
+
+      function App() {
+        rootLabel = state('r');
+        return <Nested level={depth} label={rootLabel()} />;
+      }
+
+      createIsland({ root: container, component: App });
+      counts[0]!.set(7);
+      flushScheduler();
+      const leaf = container.querySelector('#leaf');
+      const mountedCounts = counts.slice();
+
+      renders.forEach((link, index) => {
+        if (link === 'root') rootLabel.set(`r${index}`);
+        else counts[link]!.set(index + 1);
+        flushScheduler();
+
+        expect(container.querySelector('#leaf')).toBe(leaf);
+        expect(leaf?.textContent?.endsWith(':7')).toBe(true);
+        expect(counts).toEqual(mountedCounts);
+      });
+    }
+  );
+});

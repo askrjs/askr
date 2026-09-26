@@ -1408,23 +1408,6 @@ function mountAdjacentForBoundariesScenario(): void {
   mountAdjacentForBoundariesFixture(root);
 }
 
-function mountDeepComponentNestingScenario(depth: number): void {
-  resetRoot();
-
-  function Nested({ remaining }: { remaining: number }) {
-    return remaining === 0 ? (
-      <button data-depth-leaf="true">leaf</button>
-    ) : (
-      <Nested remaining={remaining - 1} />
-    );
-  }
-
-  createIsland({
-    root,
-    component: () => <Nested remaining={depth} />,
-  });
-}
-
 function mountQueryCollectionScenario(): void {
   resetRoot();
 
@@ -1622,7 +1605,6 @@ Object.assign(window, {
     mountBasePathScenario,
     mountNavLinkForScenario,
     mountAdjacentForBoundariesScenario,
-    mountDeepComponentNestingScenario,
     mountQueryCollectionScenario,
     profileBenchmarkOperations,
     runBrowserBench,
@@ -1656,7 +1638,6 @@ export {
   mountInteractionScenario,
   mountNavLinkForScenario,
   mountAdjacentForBoundariesScenario,
-  mountDeepComponentNestingScenario,
   mountQueryCollectionScenario,
   mountOrdersScenario,
   mountRoutedShellScenario,

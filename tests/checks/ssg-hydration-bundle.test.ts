@@ -176,6 +176,12 @@ describe('SSG hydration bundle', () => {
     // 279 KiB: #473 shares in-flight route prefetches and walks the hydration
     // validator iteratively (+997 bytes over 283,909 on develop, 284,906
     // bytes total).
-    expect(initialBytes).toBeLessThanOrEqual(279 * 1024);
+    // 280 KiB: #558 gives text and multi-node component results anchored
+    // ranges instead of wrapper elements, retains sibling ranges on updates,
+    // and updates one text node in place with rollback (+371 bytes over
+    // 285,439 on develop, 285,810 bytes total).
+    // #445 retains same-type links in a deep wrapper chain and groups a long
+    // host owner list by parent (+305 bytes, 286,115 bytes total).
+    expect(initialBytes).toBeLessThanOrEqual(280 * 1024);
   });
 });

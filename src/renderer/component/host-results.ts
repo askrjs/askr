@@ -6,7 +6,6 @@ import {
   endComponentScope,
   type ComponentInstance,
 } from '../../runtime';
-import { isTransparentComponentResult } from '../children/child-shape';
 import { markHydrationHostAdopted } from '../hydration/adoption';
 import { pruneComponentHostInstances } from './host-cleanup';
 import {
@@ -177,14 +176,15 @@ export function materializeResolvedComponentResultNode(
     mountInstanceInline(childInstance, null);
     return dom;
   }
-  if (!isTransparentComponentResult(result)) {
-    const host = document.createElement('div') as InstanceHostElement;
-    host.appendChild(dom);
-    host.__ASKR_WRAPPER_HOST = true;
-    mountInstanceInline(childInstance, host);
-    return host;
+  // Text, and any multi-node result (a fragment, or a component whose own
+  // result spans a range), occupies an anchored range among its siblings,
+  // exactly where the server writes it. It never gets a wrapper element.
+  let nodes = dom;
+  if (!(dom instanceof DocumentFragment)) {
+    nodes = (dom.ownerDocument ?? document).createDocumentFragment();
+    nodes.appendChild(dom);
   }
-  const materialized = createDetachedRange(dom, childInstance, true);
+  const materialized = createDetachedRange(nodes, childInstance, true);
   const host = materialized.range.start as InstanceHostNode;
   const instances = host.__ASKR_INSTANCES ?? [];
   if (!instances.includes(childInstance)) {

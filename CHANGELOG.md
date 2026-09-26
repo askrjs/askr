@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+- fix(renderer): a chain of three or more components of the same type, each
+  returning the next directly, now keeps the state of every link when an
+  outer link re-renders. The update walk previously failed to find the deeper
+  links and recreated them, which also made updating a long chain quadratic in
+  its length. Updating a 10,000-component wrapper chain now takes linear time.
+  The runtime enforcement docs now state the nesting depths Askr guarantees
+  for each tree shape and rendering path: the 10,000-level guarantee covers
+  client wrapper chains only, while element nesting, server rendering, and
+  hydration recurse and are bounded by the engine's call stack.
+- fix(renderer): a component that renders text, or a component whose result
+  spans several nodes, no longer gets a wrapper `<div>` on the client. This
+  applied when the result was the first render or followed an empty first
+  render, including `<Portal>{'x'}</Portal>`, Portal function children,
+  wrapper fragments rendering text, and content in the automatic default-portal
+  host. The client now places that content among its siblings inside
+  `askr-range` comment anchors, matching the server markup. A nested
+  component that renders nothing and later renders text keeps its instance
+  and state.
+
 - fix(runtime): a failed render no longer leaves a structural function child
   stale. A function child in a component's fragment or array result
   (`<>{() => Array.from({ length: n() }, ...)}</>`) renders as a small
@@ -12,6 +31,26 @@
   the update the component was due (a queued run, or a scheduled render it
   superseded), so the component renders again with the current state, as
   fine-grained bindings do since #546.
+- fix(runtime): cleanup failures are no longer swallowed in production. When
+  an update removes DOM or an app is cleaned up, a callback ref that throws on
+  `null`, a listener that cannot be removed, a throwing component cleanup
+  function (from a mount operation, task, or watch), or a failing root cleanup
+  callback was logged with a development-only warning. Every cleanup step still
+  runs, and the failures are now reported with `reportError()` in every build,
+  queued until the current task finishes: one report per removed subtree (a
+  single failure as-is, several as an `AggregateError`) and one per component.
+  Error handlers run after the update, can update state, and cannot roll it
+  back. `For` row disposal failures (previously a development-only
+  `console.error`), provisional component cleanup failures during a failed
+  render (previously dropped), and an async mount cleanup that resolves after
+  unmount (previously `console.error`) are reported the same way. A throwing
+  ref is no longer called with `null` twice. With
+  `cleanupStrict: true`, `cleanupApp()` now throws the failures of descendant
+  refs, listeners, and components, including components rendered inside `For`,
+  `Show`, and `Case`, instead of dropping them. In hosts without
+  `reportError()`, such as jsdom and Node under Vitest, the failures surface as
+  unhandled errors; stub `globalThis.reportError` in tests that throw from
+  cleanup on purpose.
 - breaking(data): `dehydrateDataRuntime()` now throws a `TypeError` naming the
   query key and property path when cached query data is not JSON
   transport-safe (a `Date`, `Map`, `Set`, class instance, bigint, non-finite
@@ -49,6 +88,31 @@
   no listener is registered (listeners come only from
   `createInvalidationRecorder()`).
 
+- fix(runtime): cleanup failures are no longer swallowed in production. When
+  an update removes DOM or an app is cleaned up, a callback ref that throws on
+  `null`, a listener that cannot be removed, a throwing component cleanup
+  function (from a mount operation, task, or watch), or a failing root cleanup
+  callback was logged with a development-only warning. Every cleanup step still
+  runs, and the failures are now reported with `reportError()` in every build,
+  queued until the current task finishes: one report per removed DOM node, one
+  per component tree disposed together, and one per update for work that runs
+  after the update commits (a single failure as-is, several as an
+  `AggregateError`). Error handlers run after the update, can update state, and
+  cannot roll it back. `For` row disposal failures (previously a
+  development-only `console.error`), provisional component cleanup failures
+  during a failed render (previously dropped), an async mount cleanup that
+  resolves after unmount, cleanup of the previous route after navigation, and
+  mount or commit operations that throw after an update commits (all
+  previously `console.error`) are reported the same way. A throwing ref is no
+  longer called with `null` twice. With `cleanupStrict: true`, `cleanupApp()`
+  now throws the failures of descendant refs, listeners, and components,
+  including components rendered inside `For`, `Show`, and `Case` at any depth
+  and after re-renders, instead of dropping them; failures during ordinary
+  updates of a strict app are reported. A cleanup failure during server
+  rendering is thrown from the render call. In hosts without `reportError()`,
+  such as jsdom and Node under Vitest, reported failures surface as unhandled
+  errors; stub `globalThis.reportError` in tests that throw from cleanup on
+  purpose.
 - fix(hydration): markup verification (`hydrate: { verifyMarkup }`, on by
   default outside production) now also compares the server HTML with the DOM
   the client renderer produces while hydrating it, so SSR/client renderer

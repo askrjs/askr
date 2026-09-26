@@ -164,7 +164,11 @@ export interface DisposalPhases {
   begin?(): void;
   beforeCleanup?(): void;
   afterCleanup?(): void;
-  finish?(): void;
+  /**
+   * Complete the lifetime. `nested` is true while an enclosing lifetime of the
+   * same drain is still open; its failures then belong to that lifetime.
+   */
+  finish?(nested: boolean): void;
   recordError(message: string, error: unknown): void;
 }
 
@@ -344,7 +348,7 @@ export function disposeOwnership(
     if (finalizer)
       attempt('[Askr] owner finalization threw:', () => finalizer.release());
     try {
-      frame.phases.finish?.();
+      frame.phases.finish?.(stack.length > 1);
     } catch (error) {
       frame.unreported.push(error);
     }

@@ -1,4 +1,5 @@
 import { registerCommitParticipant } from '../../runtime/transactions/access';
+import { reportUncaughtErrorLater } from '../../common/report-error';
 import { ownCleanup } from '../../runtime/ownership/record';
 import { bindComponentHost } from '../ownership/nodes';
 import {
@@ -31,8 +32,10 @@ export function cleanupProvisionalComponentInstance(
 ): void {
   try {
     cleanupComponent(instance);
-  } catch {
-    // A rollback cleanup error must not replace the creation failure.
+  } catch (error) {
+    // A rollback cleanup error must not replace the creation failure, but it
+    // is still reported once the current task finishes.
+    reportUncaughtErrorLater(error);
   }
 }
 

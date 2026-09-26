@@ -24,11 +24,39 @@ diagnostic timing disabled, and the default development behavior is unchanged.
 
 ## Component nesting depth
 
-Askr expands single-child component wrapper chains iteratively during mount and
-reconciliation. The supported runtime guardrail mounts 10,000 nested components
-through the public `createIsland` boundary in Node and the supported browser
-engines, so wrapper-heavy generated UI does not depend on an engine's JavaScript
-call-stack size.
+How deep a tree can nest depends on its shape and on the rendering path.
+
+A wrapper chain is a component that returns the next component directly,
+without an element in between. On the client, Askr expands wrapper chains
+iteratively during mount, reconciliation, and teardown, so they do not depend
+on the engine's JavaScript call-stack size. Reconciliation retains each link
+and takes time linear in the chain's length.
+
+Everything else recurses once per level. That covers nesting through host
+elements, such as `<div><Next /></div>` or plain nested `<div>` elements, on
+every path. It also covers server rendering and hydration of wrapper chains.
+The engine's call stack bounds these depths.
+
+Askr's Node (jsdom) and Chromium, Firefox, and WebKit test suites guarantee
+these depths:
+
+| Tree shape                                  | Mount, update, teardown | Server render, hydration |
+| ------------------------------------------- | ----------------------- | ------------------------ |
+| Wrapper chain                               | 10,000 components       | 1,000 components         |
+| Element nesting, with or without components | 100 elements            | 100 elements             |
+
+Each guaranteed element level may also contain a component, as in
+`<div><Next /></div>`. The tests mount through `createIsland`, update both the
+deepest component and the root, and tear the island down. The server cases
+render through `renderToString`, hydrate with `hydrateSPA`, update, and tear
+down.
+
+Beyond these depths, the ceiling is engine-specific. In Node and Chromium,
+element-interleaved nesting overflows at roughly 200 to 400 levels depending
+on the path, with hydration and updates the lowest. Firefox allows somewhat
+more, and WebKit several times more. An overflow can surface as a `RangeError`
+or as an unrelated engine error raised while the stack is exhausted. Flatten
+generated markup that nests deeper, or split it into multiple render roots.
 
 The renderer retains a separate 100,000-wrapper safety limit for component
 output that never terminates. Reaching that limit throws an Askr error with the

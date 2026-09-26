@@ -36,6 +36,12 @@ vi.mock('../../../src/router/document-navigation', () => ({
   reloadDocument: vi.fn(),
 }));
 
+function cleanupMessages(value: unknown): string[] {
+  if (value instanceof AggregateError)
+    return value.errors.flatMap((nested) => cleanupMessages(nested));
+  return value instanceof Error ? [value.message] : [];
+}
+
 describe('route navigation (ROUTER)', () => {
   let { container, cleanup } = createTestContainer();
 
@@ -233,9 +239,10 @@ describe('route navigation (ROUTER)', () => {
     });
 
     it('should report strict cleanup errors after committing the destination route', async () => {
-      const consoleError = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
+      // Route retirement settles after the destination commits; its cleanup
+      // failures are reported through reportError once navigation finishes.
+      const reportError = vi.fn();
+      vi.stubGlobal('reportError', reportError);
       window.history.replaceState({}, '', '/old');
       route('/old', () => {
         registerMountOperation(() => () => {
@@ -256,14 +263,13 @@ describe('route navigation (ROUTER)', () => {
         expect(() => navigate('/next')).not.toThrow();
         expect(window.location.pathname).toBe('/next');
         expect(container.textContent).toContain('next route');
-        expect(consoleError).toHaveBeenCalledWith(
-          '[Askr] route cleanup failed:',
-          expect.objectContaining({
-            message: expect.stringMatching(/Cleanup failed|cleanup failed/i),
-          })
-        );
+        await Promise.resolve();
+        expect(reportError).toHaveBeenCalledTimes(1);
+        expect(cleanupMessages(reportError.mock.calls[0]![0])).toEqual([
+          'old route cleanup failed',
+        ]);
       } finally {
-        consoleError.mockRestore();
+        vi.unstubAllGlobals();
       }
     });
 

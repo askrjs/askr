@@ -12,6 +12,7 @@ import {
 } from '../../runtime';
 import { __CONTROL_BOUNDARY__ } from '../../common/vnode';
 import {
+  isScalarChild,
   isTransparentComponentRangeResult,
   normalizeComponentChildren,
 } from '../children/child-shape';
@@ -424,13 +425,17 @@ export function syncComponentFragmentRange(
     return false;
   }
 
-  return syncTransparentRange(range, result, forceUpdate);
+  // A component range holds whatever its component renders. Text, and a
+  // nested chain that resolves to one element, stay inside the range rather
+  // than replacing it, so the chain's instances keep their identity.
+  return syncTransparentRange(range, result, forceUpdate, true);
 }
 
 export function syncTransparentRange(
   range: DOMRange,
   result: unknown,
-  forceUpdate: boolean
+  forceUpdate: boolean,
+  componentRange = false
 ): boolean {
   const emptyResult =
     result === null || result === undefined || result === false;
@@ -439,6 +444,11 @@ export function syncTransparentRange(
   if (
     (!emptyResult &&
       !controlBoundaryResult &&
+      !(
+        componentRange &&
+        (isScalarChild(result) ||
+          (_isDOMElement(result) && typeof result.type === 'string'))
+      ) &&
       !isTransparentComponentRangeResult(result)) ||
     range.single
   ) {
@@ -448,6 +458,21 @@ export function syncTransparentRange(
   const parent = range.start.parentNode;
   if (!(parent instanceof Element) || range.end.parentNode !== parent) {
     return false;
+  }
+
+  if (componentRange && isScalarChild(result)) {
+    const text = range.start.nextSibling;
+    if (text instanceof Text && text.nextSibling === range.end) {
+      const next = String(result);
+      if (text.data !== next) {
+        const previous = text.data;
+        registerCommitRollback(() => {
+          text.data = previous;
+        });
+        text.data = next;
+      }
+      return true;
+    }
   }
 
   const restoreFocus = captureParentFocus(range, parent);

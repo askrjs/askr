@@ -29,18 +29,35 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 
+function reportedMessages(reportError: ReturnType<typeof vi.fn>): string[] {
+  const messages: string[] = [];
+  const collect = (value: unknown): void => {
+    if (value instanceof AggregateError) value.errors.forEach(collect);
+    else if (value instanceof Error) messages.push(value.message);
+  };
+  for (const [value] of reportError.mock.calls) collect(value);
+  return messages;
+}
+
 describe('provisional component ownership rollback', () => {
   let container: HTMLElement;
   let cleanup: () => void;
+  let reportError: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    // Rollback cleanup failures are reported without replacing the
+    // creation failure.
+    reportError = vi.fn();
+    vi.stubGlobal('reportError', reportError);
     ({ container, cleanup } = createTestContainer());
     _resetDefaultPortal();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
     _resetDefaultPortal();
+    await Promise.resolve();
+    vi.unstubAllGlobals();
   });
 
   it('should clean a fresh owner chain deepest-first and permit same-vnode recovery', async () => {
@@ -94,6 +111,8 @@ describe('provisional component ownership rollback', () => {
     expect(() => createIsland({ root: container, component: App })).toThrow(
       'fresh owner primary failure'
     );
+    await Promise.resolve();
+    expect(reportedMessages(reportError)).toEqual(['deep cleanup failed']);
     expect(abortOrder).toEqual(['deep', 'middle', 'outer']);
     expect(Array.from(abortCounts.values())).toEqual([1, 1, 1]);
     expect(getVNodeComponentInstance(sharedVNode)).toBeUndefined();
@@ -219,6 +238,8 @@ describe('provisional component ownership rollback', () => {
 
     rows.set([{ id: 1, incoming: true }]);
     expect(() => flushScheduler()).toThrow('retained nested primary failure');
+    await Promise.resolve();
+    expect(reportedMessages(reportError)).toEqual(['incoming cleanup failed']);
 
     expect(container.querySelector('[data-owner="retained"]')).toBe(
       retainedHost

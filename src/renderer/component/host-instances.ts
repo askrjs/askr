@@ -7,6 +7,7 @@ import {
   type ComponentInstance,
 } from '../../runtime';
 import { getDevValue, incDevCounter } from '../../runtime';
+import { resolveChildScopeAuthor } from '../../runtime/ownership/child-scope';
 import { getOwnedRange, RANGE_START_MARKER } from '../ownership/ranges';
 import type { InstanceHostNode } from '../dom-host';
 import type { DOMElement } from '../types';
@@ -26,7 +27,10 @@ export function isRouteRootComponentVNode(node: unknown): boolean {
 export function inheritComponentCleanupStrict(
   instance: ComponentInstance
 ): void {
-  const owner = getCurrentComponentInstance();
+  // Control-flow content inherits from the component that declared it. The
+  // child-scope record itself stays non-strict, so disposing a For item or
+  // branch reports its failures instead of throwing into the update.
+  const owner = resolveChildScopeAuthor(getCurrentComponentInstance());
   if (owner) {
     instance.cleanupStrict = owner.cleanupStrict;
   }
@@ -218,7 +222,9 @@ export function findHostInstanceByType(
   type: (props: Props) => unknown,
   node?: unknown,
   parent?: ComponentInstance | null,
-  wrapperDepth?: number
+  wrapperDepth?: number,
+  /** Owners whose recorded parent is `parent`; defaults to every owner. */
+  parentCandidates?: ComponentInstance[]
 ): ComponentInstance | null {
   const instances = host.__ASKR_INSTANCES;
   if (instances && instances.length > 0) {
@@ -240,7 +246,8 @@ export function findHostInstanceByType(
     }
 
     const key = extractComponentIdentityKey(node as DOMElement);
-    const identityMatches = instances.filter((instance) => {
+    const candidates = parentCandidates ?? instances;
+    const identityMatches = candidates.filter((instance) => {
       if (instance.owner.disposed || instance.fn !== type) return false;
       if (parent !== undefined && instance._vnodeParent !== parent) {
         return false;
@@ -303,6 +310,59 @@ export function findHostInstanceByType(
   }
 
   return null;
+}
+
+type ChainLinkFinder = (
+  type: (props: Props) => unknown,
+  node: unknown,
+  parent: ComponentInstance,
+  wrapperDepth: number
+) => ComponentInstance | null;
+
+/**
+ * Look up successive links of one wrapper chain on a shared host.
+ *
+ * A chain of N links records N owners on its terminal host. Scanning every
+ * owner for every link makes a retained walk quadratic, so a long owner list
+ * is grouped by recorded parent once per walk and regrouped if it changes.
+ * `findHostInstanceByType` still checks each candidate's live identity.
+ */
+export function createChainLinkFinder(host: InstanceHostNode): ChainLinkFinder {
+  let grouped: ComponentInstance[] | undefined;
+  let groupedLength = 0;
+  let byParent:
+    | Map<ComponentInstance | null | undefined, ComponentInstance[]>
+    | undefined;
+
+  return (type, node, parent, wrapperDepth) => {
+    const instances = host.__ASKR_INSTANCES;
+    // A short owner list is cheaper to scan than to group.
+    if (!instances || instances.length <= 16) {
+      return findHostInstanceByType(host, type, node, parent, wrapperDepth);
+    }
+    if (
+      !byParent ||
+      instances !== grouped ||
+      instances.length !== groupedLength
+    ) {
+      grouped = instances;
+      groupedLength = instances.length;
+      byParent = new Map();
+      for (const instance of instances) {
+        const group = byParent.get(instance._vnodeParent);
+        if (group) group.push(instance);
+        else byParent.set(instance._vnodeParent, [instance]);
+      }
+    }
+    return findHostInstanceByType(
+      host,
+      type,
+      node,
+      parent,
+      wrapperDepth,
+      byParent.get(parent) ?? []
+    );
+  };
 }
 
 /**
