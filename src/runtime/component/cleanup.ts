@@ -48,7 +48,7 @@ function componentDisposalPhases(owner: OwnershipRecord): DisposalPhases {
     beforeCleanup: active ? undefined : detachReads,
     afterCleanup: active ? detachReads : undefined,
     recordError,
-    finish() {
+    finish(nested) {
       try {
         if (active && instance.owner === owner) {
           try {
@@ -62,22 +62,21 @@ function componentDisposalPhases(owner: OwnershipRecord): DisposalPhases {
           instance._portalErrorParentGeneration = undefined;
         }
         if (__ASKR_DEVELOPMENT_BUILD__) untrackRouteGeneration(owner.identity);
-        // Strict lifetimes throw to the disposer after the drain. Ordinary
-        // lifetimes report once the current task finishes, in every build.
-        if (errors.length && strict)
-          throw new AggregateError(
-            errors,
-            `Cleanup failed for component ${instance.id}`
-          );
-        if (errors.length)
-          reportUncaughtErrorLater(
-            errors.length === 1
-              ? errors[0]
-              : new AggregateError(
+        // Strict lifetimes throw to the disposer after the drain. An ordinary
+        // lifetime hands its failures to the enclosing lifetime of the same
+        // drain, so the nearest strict ancestor or the drain's root decides;
+        // an ordinary root reports once the current task finishes.
+        if (errors.length) {
+          const failure =
+            strict || errors.length > 1
+              ? new AggregateError(
                   errors,
                   `Cleanup failed for component ${instance.id}`
                 )
-          );
+              : errors[0];
+          if (strict || nested) throw failure;
+          reportUncaughtErrorLater(failure);
+        }
       } finally {
         endComponentScope(savedScope);
       }

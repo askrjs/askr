@@ -191,9 +191,14 @@ the failures depends on the app's `cleanupStrict` option:
   production builds (see [teardown errors](./rendering.md#teardown-errors)).
 - With `cleanupStrict: true`, `cleanupApp()` throws one `AggregateError` after
   cleanup finishes. It contains every failure, including those of components
-  rendered inside `For`, `Show`, and `Case`, and none of them is also passed
-  to `reportError()`. Failures during ordinary updates of a strict app are
-  still reported rather than thrown, so an update is never interrupted.
+  rendered inside `For`, `Show`, and `Case` at any depth, and none of them is
+  also passed to `reportError()`. Failures during ordinary updates of a strict
+  app (removed rows, replaced components, an `ErrorBoundary` fallback, a
+  route change) are still reported rather than thrown, so an update is never
+  interrupted.
+
+Server rendering has no `reportError()`: a cleanup failure of a component
+rendered on the server is thrown from the render call instead.
 
 ## See also
 

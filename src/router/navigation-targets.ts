@@ -6,6 +6,7 @@ import type {
   RouteRequestResult,
 } from '../common/router';
 import { logger } from '../common/logger';
+import { reportUncaughtErrorLater } from '../common/report-error';
 import {
   beginCommitTransaction,
   discardTransaction,
@@ -511,9 +512,16 @@ function commitNavigationRoots(
       reportRouteCleanupErrors(errors);
     },
     settle() {
+      // The destination is committed: outgoing cleanup failures are reported
+      // like other post-commit cleanup failures, once navigation finishes.
       const errors: unknown[] = [];
       for (const root of roots) errors.push(...root.prepared.retire());
-      reportRouteCleanupErrors(errors);
+      if (errors.length)
+        reportUncaughtErrorLater(
+          errors.length === 1
+            ? errors[0]
+            : new AggregateError(errors, 'Route cleanup failed')
+        );
     },
     complete() {
       // A superseded request must not publish: returning from inside the try
@@ -526,8 +534,9 @@ function commitNavigationRoots(
         reconcileNavigationMetadata(targets);
         updateScroll();
       } catch (error) {
+        // Rethrown to the navigation caller after the commit; not also handed
+        // to the coordinator, which would report it a second time.
         completionFailure = { error };
-        throw error;
       } finally {
         // Publishes once on both the success and failure paths.
         for (const root of roots) root.prepared.publish();

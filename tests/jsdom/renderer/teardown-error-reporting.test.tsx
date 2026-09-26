@@ -9,7 +9,8 @@ import {
 import { state, type State } from '../../../src/index';
 import { cleanupApp } from '../../../src/boot';
 import { registerRootCleanupCallback } from '../../../src/boot/root-lifecycle';
-import { For, Show } from '../../../src/control';
+import { Case, For, Match, Show } from '../../../src/control';
+import { ErrorBoundary } from '@askrjs/askr/components';
 import {
   DefaultPortal,
   Portal,
@@ -23,6 +24,7 @@ import {
 import {
   cleanupInstanceIfPresent,
   removeAllListeners,
+  replaceElementRefBookkeeping,
   teardownNodeSubtree,
 } from '../../../src/renderer/ownership/cleanup';
 import { createIsland } from '../../../test-utils/render/create-island';
@@ -688,6 +690,290 @@ describe.each(['development', 'production'])(
         Array.from(container.querySelectorAll('ul > *'), (el) => el.textContent)
       ).toEqual(['2']);
       expect(leavesOf(reported())).toEqual([error]);
+    });
+
+    function captureCleanupApp(): unknown {
+      try {
+        cleanupApp(container);
+      } catch (caught) {
+        return caught;
+      }
+      return undefined;
+    }
+
+    it('should keep strict inheritance after a For row re-renders its component', async () => {
+      const error = new Error('item cleanup failed');
+      let rows!: State<Array<{ id: number; label: string }>>;
+      const Item = (props: { label: string }) => {
+        registerMountOperation(() => () => {
+          throw error;
+        });
+        return <li>{props.label}</li>;
+      };
+      const App = () => {
+        rows = state([{ id: 1, label: 'a' }]);
+        return (
+          <ul>
+            <For each={rows} by={(row) => row.id}>
+              {(row) => <Item label={row.label} />}
+            </For>
+          </ul>
+        );
+      };
+      createIsland({ root: container, component: App, cleanupStrict: true });
+      flushScheduler();
+      rows.set([{ id: 1, label: 'b' }]);
+      flushScheduler();
+      expect(container.querySelector('li')!.textContent).toBe('b');
+
+      const thrown = captureCleanupApp();
+      await drainMicrotasks();
+
+      expect(leavesOf([thrown])).toEqual([error]);
+      expect(reportError).not.toHaveBeenCalled();
+    });
+
+    it('should keep strict inheritance after a Show branch re-renders its component', async () => {
+      const error = new Error('branch cleanup failed');
+      let n!: State<number>;
+      const Item = (props: { n: number }) => {
+        registerMountOperation(() => () => {
+          throw error;
+        });
+        return <p>{String(props.n)}</p>;
+      };
+      const App = () => {
+        n = state(0);
+        return (
+          <main>
+            <Show when={() => true}>
+              <Item n={n()} />
+            </Show>
+          </main>
+        );
+      };
+      createIsland({ root: container, component: App, cleanupStrict: true });
+      flushScheduler();
+      n.set(1);
+      flushScheduler();
+      expect(container.querySelector('p')!.textContent).toBe('1');
+
+      const thrown = captureCleanupApp();
+      await drainMicrotasks();
+
+      expect(leavesOf([thrown])).toEqual([error]);
+      expect(reportError).not.toHaveBeenCalled();
+    });
+
+    const nestedControlFlows = {
+      For: (Item: () => unknown) => (
+        <ul>
+          <For each={[1]} by={(row) => row}>
+            {() => <Item />}
+          </For>
+        </ul>
+      ),
+      Show: (Item: () => unknown) => (
+        <div>
+          <Show when={() => true}>
+            <Item />
+          </Show>
+        </div>
+      ),
+      Case: (Item: () => unknown) => (
+        <div>
+          <Case>
+            <Match when={true}>
+              <Item />
+            </Match>
+          </Case>
+        </div>
+      ),
+    } as const;
+
+    for (const [kind, render] of Object.entries(nestedControlFlows)) {
+      function mountNested(cleanupStrict: boolean, error: Error) {
+        const Item = throwingCleanup(error, 'item');
+        const Wrapper = () => render(Item);
+        const App = () => (
+          <main>
+            <Wrapper />
+          </main>
+        );
+        createIsland({ root: container, component: App, cleanupStrict });
+        flushScheduler();
+      }
+
+      it(`should throw ${kind} descendant failures under a nested component from a strict island cleanup`, async () => {
+        const error = new Error(`${kind} item cleanup failed`);
+        mountNested(true, error);
+
+        const thrown = captureCleanupApp();
+        await drainMicrotasks();
+
+        expect(leavesOf([thrown])).toEqual([error]);
+        expect(reportError).not.toHaveBeenCalled();
+      });
+
+      it(`should report ${kind} descendant failures under a nested component exactly once`, async () => {
+        const error = new Error(`${kind} item cleanup failed`);
+        mountNested(false, error);
+
+        expect(captureCleanupApp()).toBeUndefined();
+        await drainMicrotasks();
+
+        expect(reportError).toHaveBeenCalledTimes(1);
+        expect(leavesOf(reported())).toEqual([error]);
+      });
+    }
+
+    it('should report a strict keyed replacement inside a For row', async () => {
+      const error = new Error('replaced cleanup failed');
+      let k!: State<number>;
+      let mounted = 0;
+      const Inner = () => {
+        registerMountOperation(() => {
+          const first = mounted++ === 0;
+          return () => {
+            if (first) throw error;
+          };
+        });
+        return <span>inner</span>;
+      };
+      const App = () => {
+        k = state(0);
+        return (
+          <ul>
+            <For each={[1]} by={(row) => row}>
+              {() => (
+                <li>
+                  <Inner key={k()} />
+                </li>
+              )}
+            </For>
+          </ul>
+        );
+      };
+      createIsland({ root: container, component: App, cleanupStrict: true });
+      flushScheduler();
+
+      k.set(1);
+      expect(() => flushScheduler()).not.toThrow();
+      await drainMicrotasks();
+
+      expect(container.querySelectorAll('span')).toHaveLength(1);
+      expect(leavesOf(reported())).toEqual([error]);
+      expect(consoleError).not.toHaveBeenCalledWith(
+        expect.stringContaining('committed lifecycle work failed'),
+        expect.anything()
+      );
+    });
+
+    it('should report a strict component type swap inside a Show branch', async () => {
+      const error = new Error('swapped cleanup failed');
+      let swapped!: State<boolean>;
+      const First = throwingCleanup(error, 'first');
+      const Second = () => <p>second</p>;
+      const App = () => {
+        swapped = state(false);
+        return (
+          <main>
+            <Show when={() => true}>{swapped() ? <Second /> : <First />}</Show>
+          </main>
+        );
+      };
+      createIsland({ root: container, component: App, cleanupStrict: true });
+      flushScheduler();
+
+      swapped.set(true);
+      expect(() => flushScheduler()).not.toThrow();
+      await drainMicrotasks();
+
+      expect(container.querySelector('p')!.textContent).toBe('second');
+      expect(leavesOf(reported())).toEqual([error]);
+    });
+
+    it('should report a strict sibling cleanup failure when an ErrorBoundary swaps to its fallback', async () => {
+      const error = new Error('sibling cleanup failed');
+      let broken!: State<boolean>;
+      const Sibling = throwingCleanup(error, 'sibling');
+      const Boom = () => {
+        if (broken()) throw new Error('render failed');
+        return <p>ok</p>;
+      };
+      const App = () => {
+        broken = state(false);
+        return (
+          <main>
+            <ErrorBoundary fallback={<p id="fallback">fallback</p>}>
+              <div>
+                <Sibling />
+                <Boom />
+              </div>
+            </ErrorBoundary>
+          </main>
+        );
+      };
+      createIsland({ root: container, component: App, cleanupStrict: true });
+      flushScheduler();
+
+      broken.set(true);
+      expect(() => flushScheduler()).not.toThrow();
+      await drainMicrotasks();
+
+      expect(container.querySelector('#fallback')).not.toBeNull();
+      expect(leavesOf(reported())).toEqual([error]);
+    });
+
+    it('should keep both failures when a moved callback ref throws on detach and reattach', async () => {
+      const detach = new Error('detach failed');
+      const reattach = new Error('reattach failed');
+      const first = document.createElement('i');
+      const second = document.createElement('b');
+      const ref = (element: Element | null) => {
+        throw element === null ? detach : reattach;
+      };
+      replaceElementRefBookkeeping(first, ref);
+      replaceElementRefBookkeeping(second, ref);
+
+      teardownNodeSubtree(first);
+      await drainMicrotasks();
+
+      expect(leavesOf(reported())).toEqual([detach, reattach]);
+    });
+
+    it('should report a fast-path removed node once', async () => {
+      disableEventDelegation();
+      const listenerError = new Error('listener cleanup failed');
+      const componentError = new Error('component cleanup failed');
+      const Item = throwingCleanup(componentError, 'item');
+      let items!: State<number[]>;
+      const App = () => {
+        items = state(Array.from({ length: 200 }, (_, index) => index + 1));
+        return (
+          <ul>
+            {items().map((id) => (
+              <li key={id} data-id={String(id)} onClick={() => {}}>
+                {id === 1 ? <Item /> : String(id)}
+              </li>
+            ))}
+          </ul>
+        );
+      };
+      createIsland({ root: container, component: App, cleanupStrict: true });
+      flushScheduler();
+      const removed = container.querySelector('[data-id="1"]')!;
+      removed.removeEventListener = () => {
+        throw listenerError;
+      };
+
+      items.set(items().slice(1).reverse());
+      flushScheduler();
+      await drainMicrotasks();
+
+      expect(container.querySelectorAll('li')).toHaveLength(199);
+      expect(reportError).toHaveBeenCalledTimes(1);
+      expect(leavesOf(reported())).toEqual([listenerError, componentError]);
     });
   }
 );

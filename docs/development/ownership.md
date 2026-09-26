@@ -16,12 +16,16 @@ retire that retained child. Independent roots and server requests are explicitly
 detached from the surrounding execution scope.
 Component cleanup collects failures while the lifetime drains. A strict
 component (`cleanupStrict`, inherited by descendants, including components
-rendered by control-flow child scopes) throws them to its disposer as one
-`AggregateError`. An ordinary component reports them through
+rendered by control-flow child scopes, on creation and on retained re-renders)
+throws them to its disposer as one `AggregateError`. An ordinary component
+nested in the same drain hands its failures to the enclosing lifetime
+(`DisposalPhases.finish(nested)`), so the nearest strict ancestor or the
+drain's root decides; an ordinary root reports them through
 `reportUncaughtErrorLater` (one error as-is, several as an `AggregateError`),
 in every build. Child-scope records themselves stay non-strict, so disposing a
-`For` item or branch never throws a descendant's strict failure into the update
-that removed it. Renderer teardown (`teardownNodeSubtree`,
+`For` item or branch as a drain root never throws a descendant's strict
+failure into the update that removed it. SSR temporary owners are strict, so
+their failures stay on the render's error path. Renderer teardown (`teardownNodeSubtree`,
 `cleanupInstanceIfPresent`, `removeAllListeners`, and the single-element
 helpers in `renderer/ownership/cleanup.ts`) collects ref, listener, reactive
 binding, and component disposal failures while it drains the whole subtree,
@@ -35,8 +39,12 @@ microtask, after the render or commit that failed, so error handlers can write
 state and cannot interrupt or roll back that work. Every failure reaches
 exactly one channel: thrown to a strict caller or reported. The same deferred
 channel reports `For` item and removal disposal failures, provisional component
-cleanup failures during rollback (without replacing the creation error), and
-async mount cleanup that settles after its owner was disposed.
+cleanup failures during rollback (without replacing the creation error), async
+mount cleanup that settles after its owner was disposed, route retirement after
+navigation commits, and the coordinator's settlement errors (departed-owner
+disposal and committed lifecycle work, one report per transaction). A
+settlement step that reports its failure to its own caller (a navigation
+history write) does not also hand it to the coordinator.
 An inactive route detaches its reads
 before user cleanup, so departed state cannot schedule its replacement.
 

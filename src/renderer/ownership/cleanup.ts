@@ -134,17 +134,25 @@ export function removeElementRef(element: Element): void {
     return;
   }
 
+  // Retire the binding even when the callback throws, so a later teardown
+  // pass over the same element cannot run (and report) it again.
+  const errors: unknown[] = [];
   try {
     applyRefValue(ref, null);
-  } finally {
-    // Retire the binding even when the callback throws, so a later teardown
-    // pass over the same element cannot run (and report) it again.
-    const nextOwner = getElementRefOwner(ref);
-    replaceElementRefBookkeeping(element, undefined);
-    if (typeof ref === 'function' && nextOwner && nextOwner !== element) {
+  } catch (error) {
+    errors.push(error);
+  }
+  const nextOwner = getElementRefOwner(ref);
+  replaceElementRefBookkeeping(element, undefined);
+  if (typeof ref === 'function' && nextOwner && nextOwner !== element) {
+    try {
       applyRefValue(ref, nextOwner);
+    } catch (error) {
+      errors.push(error);
     }
   }
+  if (errors.length === 1) throw errors[0];
+  if (errors.length > 1) throw new AggregateError(errors, 'Ref cleanup failed');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

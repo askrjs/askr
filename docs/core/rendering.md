@@ -33,11 +33,18 @@ throws cannot interrupt or roll back the update; Askr logs that failure with
 `console.error` instead. The update is not rolled back, and the removed content
 is not restored.
 
-Each removed subtree produces one report: a single failure as-is, several as one
-`AggregateError` in teardown order. Removing several subtrees in one update
-(for example, clearing a list whose rows each fail) produces one report per
-subtree. A component without `cleanupStrict` reports its own cleanup failures
-once, after its lifetime is fully disposed.
+Reports are grouped by the unit that was cleaned up, a single failure as-is and
+several as one `AggregateError`:
+
+- Each removed DOM node produces one report for its refs, listeners, bindings,
+  and the components hosted in it. Removing several nodes in one update (for
+  example, clearing a list whose rows each fail) produces one report per node.
+- A component tree disposed together produces one report: the failures of
+  descendant components without `cleanupStrict` are handed to the component
+  where disposal started, which reports them once.
+- Failures from work that runs after an update commits (disposing replaced
+  components, retiring the previous route, and mount or commit operations that
+  throw) produce one report per update.
 
 An `ErrorBoundary` does not catch teardown errors: they are not render errors,
 and the nearest boundary is often part of the content being removed. Hosts
