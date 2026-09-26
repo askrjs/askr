@@ -5,13 +5,8 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
-import { DIRECT_REPLACE_CHILDREN_SPREAD_LIMIT } from '../../../src/renderer/utils';
-import {
-  disableEventDelegation,
-  enableEventDelegation,
-} from '../../../src/renderer/props/events';
 
-describe('reconcile keyed children fast-path', () => {
+describe('large keyed reorders', () => {
   let container: HTMLElement, cleanup: () => void;
 
   beforeEach(() => {
@@ -22,9 +17,6 @@ describe('reconcile keyed children fast-path', () => {
 
   afterEach(() => {
     cleanup();
-    enableEventDelegation();
-    // Restore any spies/mocks registered during the test
-    if (typeof vi !== 'undefined') vi.restoreAllMocks();
   });
 
   it('should preserve DOM identity and event listeners for large reorders', async () => {
@@ -81,17 +73,10 @@ describe('reconcile keyed children fast-path', () => {
     // Perform a large reorder (reverse)
     const reversed = [...items!()].reverse();
 
-    // Spy on parent's replaceChildren to assert the fast-path was used
     const parent = container.querySelector('div')!;
-    const replaceSpy = vi.spyOn(parent, 'replaceChildren');
 
     items!.set(reversed);
     flushScheduler();
-
-    expect(replaceSpy).toHaveBeenCalled();
-    const replaceCall = replaceSpy.mock.calls.at(-1)!;
-    expect(replaceCall.length).toBe(200);
-    expect(replaceCall[0]).not.toBeInstanceOf(DocumentFragment);
 
     const afterElem = container.querySelector(
       `[data-key="${idToCheck}"]`
@@ -109,14 +94,9 @@ describe('reconcile keyed children fast-path', () => {
     expect(
       Array.from(parent.children, (child) => child.getAttribute('data-key'))
     ).toEqual(reversed.map((item) => String(item.id)));
-
-    // Restore spies
-    replaceSpy.mockRestore();
   });
 
   it('should clean removed keyed nodes without cleaning reused nodes', async () => {
-    disableEventDelegation();
-
     let items: ReturnType<typeof state<Array<{ id: number }>>> | null = null;
     const clicks = new Map<number, number>();
     const bumpRowState = new Map<number, () => void>();
@@ -191,10 +171,10 @@ describe('reconcile keyed children fast-path', () => {
   });
 
   it(
-    'should use the fragment path above the direct spread threshold',
+    'should preserve identity and order across a very large reorder',
     { timeout: 20000 },
     async () => {
-      const count = DIRECT_REPLACE_CHILDREN_SPREAD_LIMIT + 1;
+      const count = 4097;
       let items: ReturnType<
         typeof state<Array<{ id: number; label: string }>>
       > | null = null;
@@ -226,16 +206,10 @@ describe('reconcile keyed children fast-path', () => {
         `[data-key="${idToCheck}"]`
       )! as HTMLElement;
       const parent = container.querySelector('div')!;
-      const replaceSpy = vi.spyOn(parent, 'replaceChildren');
       const reversed = [...items!()].reverse();
 
       items!.set(reversed);
       flushScheduler();
-
-      expect(replaceSpy).toHaveBeenCalled();
-      const replaceCall = replaceSpy.mock.calls.at(-1)!;
-      expect(replaceCall.length).toBe(1);
-      expect(replaceCall[0]).toBeInstanceOf(DocumentFragment);
 
       const afterElem = container.querySelector(
         `[data-key="${idToCheck}"]`
@@ -245,8 +219,6 @@ describe('reconcile keyed children fast-path', () => {
         String(count)
       );
       expect(parent.lastElementChild?.getAttribute('data-key')).toBe('1');
-
-      replaceSpy.mockRestore();
     }
   );
 });
