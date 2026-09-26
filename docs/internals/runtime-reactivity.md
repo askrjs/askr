@@ -74,10 +74,11 @@ flowchart LR
 
 ## Component and For Implementation Ownership
 
-Published runtime contracts live in the compatibility adapter. Internal modules
-use leaf execution, lifetime, scheduling, and host capabilities. The former
-component facades have been removed; `runtime/index.ts` exports the internal
-capabilities used by other subsystems.
+Published runtime contracts are declared in `src/public-contracts/` and
+implemented by `runtime/public-runtime.ts` and `runtime/public-ownership.ts`.
+Internal modules use leaf execution, lifetime, scheduling, and host
+capabilities. The former component facades have been removed;
+`runtime/index.ts` exports the internal capabilities used by other subsystems.
 
 `component/instance.ts` owns synchronous execution and inline rendering.
 `component/scope.ts` owns the current component, portal scope, and hook cursor.

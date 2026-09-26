@@ -46,8 +46,9 @@ their outer scope exits, and clearing during a flush does not schedule an extra
 epoch. A standalone empty progress scope still advances the version. Flush
 waiters observe completed epochs, rather than scope entry or queued work.
 
-These directories are internal implementation paths. Published package entrypoints
-and maintained declarations remain in the compatibility layer. Architecture tests
+These directories are internal implementation paths. Maintained declarations
+live in `src/public-contracts/`, and the published runtime surface is
+implemented by `public-runtime.ts` and `public-ownership.ts`. Architecture tests
 traverse the nested directories, enforce the existing capability boundaries, and
 reject runtime/renderer value-import cycles.
 

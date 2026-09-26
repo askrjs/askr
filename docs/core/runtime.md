@@ -89,22 +89,10 @@ receives complete native `evaluation`, `cleanup`, `scopes`, `keys`, and
 Later role and method replacement remains observable; callbacks receive their
 role object as `this`. Legacy renderer hosts remain supported.
 
-Component owners, child scopes, and reactive sources cross this API as frozen,
-empty opaque handles. Identity follows the underlying record across rerenders.
-Native delegates reject forged, wrong-kind, and foreign-factory handles before
-mutation. Handles add no disposal or generation semantics. Returned ranges
-expose only readonly `start`, `end`, and `single` fields.
-
-Stable intrinsic patches preflight the complete supported tree. A declined
-patch executes no components and changes no DOM, bindings, refs, or cleanup.
-Components, boundaries, fragments, reactive children, and dangerous HTML use
-ordinary synchronization. Application errors retain transaction rollback.
-
-Commit participants are keyed by kind and identity. Re-registering the same
-object is idempotent; a distinct collision must explicitly keep the first
-participant or merge into it. Nested joins validate all collisions before
-transferring membership. A throwing merge discards affected transactions and
-drains rollback before propagating the initiating error.
+Component owners, child scopes, and reactive sources reach host callbacks as
+opaque handles: compare them by identity and pass them back unchanged. The
+handle, patching, and commit rules that renderer maintainers rely on are in
+[Internals: Runtime extension boundary](../internals/runtime-extension-boundary.md).
 
 ## When work becomes observable
 

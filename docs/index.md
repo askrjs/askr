@@ -77,6 +77,7 @@ package boundaries in the platform.
 - [Internals: Control-flow primitive design](./internals/for-primitive-design.md)
 - [Internals: Foundations pit of success](./internals/foundations-pit-of-success.md)
 - [Internals: Router manifest](./internals/router-manifest.md)
+- [Internals: Runtime extension boundary](./internals/runtime-extension-boundary.md)
 - [Benchmarks: Stability](./benchmarks/stability.md)
 - [Benchmarks: Performance targets](./benchmarks/performance-targets.md)
 - [Migration: From React](./migration/from-react.md)

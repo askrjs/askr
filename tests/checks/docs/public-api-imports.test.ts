@@ -124,6 +124,11 @@ const forbiddenPatterns = [
     label: 'source-relative import',
     pattern: /\.\.\/src\//,
   },
+  {
+    // Foundations are published by this package; @askrjs/ui has no such subpath.
+    label: 'nonexistent @askrjs/ui/foundations import',
+    pattern: /@askrjs\/ui\/foundations/,
+  },
 ];
 
 function collectFiles(dirPath: string): string[] {

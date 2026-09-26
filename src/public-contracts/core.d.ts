@@ -1,4 +1,7 @@
-/** Compatibility re-export surface for maintained domain contracts. */
+/**
+ * Aggregates the maintained domain contracts in `domains/` so entrypoint
+ * declarations can import them from one module. Not a package subpath.
+ */
 import './jsx-globals.js';
 export {
   selector,

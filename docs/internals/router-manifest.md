@@ -231,5 +231,8 @@ The SSG pipeline walks `RouteManifest.records`. Records with `options.entries` a
 - The internal route-state reset clears the flat routes, records, namespace set, auth defaults,
   registration stacks, lazy import tracking, and registration lock.
 - Registration is locked after `createSPA` / `hydrateSPA` in production (not in tests).
-- The manifest is statically representable: it contains no closures that reference dynamic
-  runtime state, making it suitable for serialization and pre-compilation in future tooling.
+- The manifest is a runtime structure, not a serializable one. Records carry functions:
+  the page `component`, the composed `handler`, layout and page components, route options
+  such as `loader`, `preload`, `entries`, `policies`, and function-valued `meta`, and the
+  manifest-level `auth.resolve` resolver. Tooling that needs a static description must derive
+  one from the paths, segments, and ranks rather than serializing records.

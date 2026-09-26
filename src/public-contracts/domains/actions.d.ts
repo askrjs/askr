@@ -49,7 +49,13 @@ interface ActionStatus<TResult = unknown> {
   readonly error?: unknown;
 }
 
-/** Returns a command handle, rather than a hook. */
+/**
+ * Bind an action descriptor to the calling component and return its
+ * `{ state, submit }` handle. `action()` allocates its status with `state()`,
+ * so it follows the same rule: call it during component render, at the top
+ * level and in the same order on every render. `submit()` itself may be
+ * called from event handlers or other async work.
+ */
 declare function action<
   TInput extends Record<string, unknown>,
   TResult = unknown,

@@ -41,7 +41,11 @@ export function getPendingCheckEpoch(): number {
   return pendingCheckEpoch;
 }
 
-/** A shared view surface populated only by the public compatibility adapter. */
+/**
+ * Shared prototype for component records. `runtime/public-ownership.ts`
+ * installs the published legacy lifetime properties on it as views of the
+ * owning record; `component/instance.ts` adds the direct-range owner slot.
+ */
 export const componentRecordPrototype: object = {};
 
 // Capture the platform reason outside user execution. Retained signals must

@@ -374,7 +374,11 @@ awaited in declaration order. During client navigation, an auth result that
 settles after its request was aborted by a newer navigation is discarded, so
 `currentAuth()` continues to describe the navigation that actually committed.
 During server rendering it reads only the request render context, including
-deferred streaming boundaries, so concurrent requests cannot replace it. A
+deferred streaming boundaries. That context is request-scoped through
+`AsyncLocalStorage`, so concurrent requests cannot replace it; on a runtime
+without `AsyncLocalStorage`, Askr accepts only synchronous server renders and
+rejects async ones instead of sharing a context between requests (see
+[SSR](../guides/ssr.md)). A
 server render without request auth, such as `renderToString(Component)`, sees
 an anonymous identity; server-side route resolution never updates the
 browser-wide identity.
