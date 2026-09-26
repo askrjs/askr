@@ -240,6 +240,7 @@ describe('SSR raw text elements (<script>, <style>)', () => {
     const html = renderToStringSync(() => (
       <style>
         <ErrorBoundary fallback={() => 'a > b {}'}>
+          {'discarded'}
           <Boom />
         </ErrorBoundary>
       </style>

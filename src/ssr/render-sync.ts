@@ -424,7 +424,24 @@ function flattenText(value: unknown, element: RawTextElement): string[] {
           instance.server = true;
           instance.serverContext = render.ctx;
           const output = runComponent(instance);
-          withOwner(instance, () => visit(componentOutput(output)));
+          if (!instance.boundary) {
+            withOwner(instance, () => visit(componentOutput(output)));
+            break;
+          }
+          const start = out.length;
+          const restorePortals = capturePortalWrites(render.ctx);
+          try {
+            withOwner(instance, () => visit(componentOutput(output)));
+          } catch (error) {
+            out.length = start;
+            restorePortals();
+            for (const owner of Array.from(instance.owned ?? [])) {
+              if (owner !== instance.computation) owner.dispose();
+            }
+            if (!instance.boundary(error)) throw error;
+            const fallback = runComponent(instance);
+            withOwner(instance, () => visit(componentOutput(fallback)));
+          }
           break;
         }
         case ELEMENT:
