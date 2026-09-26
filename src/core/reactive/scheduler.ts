@@ -75,6 +75,7 @@ export function effectScheduler(
       job = {
         depth,
         run: () => computation.update(),
+        cancel: () => computation.dropScheduled(),
         onLimit,
         maxRuns,
         get skip() {
@@ -147,6 +148,7 @@ export function flushSync(): void {
       const count = (runCounts.get(job) ?? 0) + 1;
       runCounts.set(job, count);
       if (count > (job.maxRuns ?? MAX_RUNS_PER_FLUSH)) {
+        job.cancel?.();
         if (job.onLimit) {
           try {
             job.onLimit();

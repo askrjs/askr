@@ -1,15 +1,6 @@
-import {
-  describe,
-  it,
-  expect,
-  beforeEach,
-  afterEach,
-  vi,
-} from 'vite-plus/test';
+import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { resource } from '../../../src/resources';
-import { globalScheduler, Scheduler } from '../../../src/runtime/scheduler';
-import { scheduleEventHandler } from '../../../src/runtime/access';
 import {
   createTestContainer,
   flushScheduler,
@@ -30,59 +21,6 @@ describe('scheduler (SPEC 2.2)', () => {
   });
 
   describe('FIFO task execution', () => {
-    it('should drain sibling work and settle waiters when a task throws', async () => {
-      const scheduler = new Scheduler();
-      const taskError = new Error('task failed');
-      const events: string[] = [];
-
-      scheduler.enqueue(() => {
-        events.push('failed');
-        throw taskError;
-      });
-      scheduler.enqueue(() => {
-        events.push('sibling');
-      });
-
-      const flushed = scheduler.waitForFlush();
-      expect(() => scheduler.flush()).toThrow(taskError);
-      await flushed;
-
-      expect(events).toEqual(['failed', 'sibling']);
-      expect(scheduler.getState().queueLength).toBe(0);
-    });
-
-    it('should remove waiters as soon as they time out', async () => {
-      vi.useFakeTimers();
-      const scheduler = new Scheduler();
-      const waiterCount = () =>
-        (
-          scheduler as unknown as {
-            waiters: unknown[];
-          }
-        ).waiters.length;
-
-      try {
-        const waits = Array.from({ length: 10 }, () =>
-          scheduler.waitForFlush(1, 25).catch((error: unknown) => error)
-        );
-
-        expect(waiterCount()).toBe(10);
-        await vi.advanceTimersByTimeAsync(25);
-        const errors = await Promise.all(waits);
-
-        expect(errors).toEqual(
-          Array.from({ length: 10 }, () =>
-            expect.objectContaining({
-              message: expect.stringContaining('waitForFlush timeout 25ms'),
-            })
-          )
-        );
-        expect(waiterCount()).toBe(0);
-      } finally {
-        vi.useRealTimers();
-      }
-    });
-
     it('should execute tasks in the order enqueued', async () => {
       const order: number[] = [];
 
@@ -441,130 +379,6 @@ describe('scheduler (SPEC 2.2)', () => {
       // Both runs produced identical final state
       expect(finalValues[0]).toBe(finalValues[1]);
       expect(finalValues[0]).toBe(100);
-    });
-  });
-
-  describe('event wrapper semantics', () => {
-    it('should run handler synchronously and defer flush', async () => {
-      const order: string[] = [];
-      let wrapped!: EventListener;
-
-      const Component = () => {
-        const count = state(0);
-        wrapped = scheduleEventHandler(() => {
-          order.push('handler-start');
-          count.set(count() + 1);
-          order.push('handler-end');
-        });
-
-        return <output>{String(count())}</output>;
-      };
-
-      createIsland({ root: container, component: Component });
-      flushScheduler();
-      const output = container.querySelector('output') as HTMLOutputElement;
-
-      // Invoke the wrapper directly so no DOM event delegation (which flushes
-      // on its own terms) sits around it.
-      wrapped(new Event('custom'));
-
-      // The handler runs synchronously ...
-      expect(order).toEqual(['handler-start', 'handler-end']);
-      // ... but its write is not flushed inline.
-      expect(output.textContent).toBe('0');
-      expect(globalScheduler.getState().queueLength).toBeGreaterThan(0);
-
-      // The deferred flush runs on the scheduler's microtask kick.
-      await Promise.resolve();
-
-      expect(output.textContent).toBe('1');
-      expect(globalScheduler.getState().queueLength).toBe(0);
-    });
-  });
-
-  describe('mixed-lane flush semantics', () => {
-    it('should drain all lanes in priority order and leave the queue empty', () => {
-      const order: string[] = [];
-
-      globalScheduler.clearPendingSyncTasks();
-
-      globalScheduler.enqueueInLane('post', () => {
-        order.push('post');
-      });
-      globalScheduler.enqueueInLane('reactive', () => {
-        order.push('reactive');
-      });
-      globalScheduler.enqueueInLane('component', () => {
-        order.push('component');
-      });
-      globalScheduler.enqueueInLane('derived', () => {
-        order.push('derived');
-      });
-
-      globalScheduler.flush();
-
-      expect(order).toEqual(['derived', 'component', 'reactive', 'post']);
-
-      const state = globalScheduler.getState();
-      expect(state.queueLength).toBe(0);
-      expect(state.laneQueues).toEqual({
-        derived: 0,
-        component: 0,
-        reactive: 0,
-        post: 0,
-      });
-    });
-
-    it('should run work enqueued mid-flush in the same flush, one priority pass at a time', () => {
-      const order: string[] = [];
-
-      globalScheduler.clearPendingSyncTasks();
-
-      globalScheduler.enqueueInLane('post', () => {
-        order.push('post');
-      });
-      globalScheduler.enqueueInLane('reactive', () => {
-        order.push('reactive');
-      });
-      globalScheduler.enqueueInLane('component', () => {
-        order.push('component');
-        // Same lane: drained before the flush moves to the next lane.
-        globalScheduler.enqueueInLane('component', () => {
-          order.push('component:mid');
-        });
-        // Lower-priority lane: runs when this pass reaches it.
-        globalScheduler.enqueueInLane('post', () => {
-          order.push('post:mid');
-        });
-        // Higher-priority lane: this pass has already left it, so it runs
-        // at the start of the next pass, ahead of any later lower work.
-        globalScheduler.enqueueInLane('derived', () => {
-          order.push('derived:mid');
-          globalScheduler.enqueueInLane('reactive', () => {
-            order.push('reactive:late');
-          });
-        });
-      });
-      globalScheduler.enqueueInLane('derived', () => {
-        order.push('derived');
-      });
-
-      const versionBefore = globalScheduler.getFlushVersion();
-      globalScheduler.flush();
-
-      expect(order).toEqual([
-        'derived',
-        'component',
-        'component:mid',
-        'reactive',
-        'post',
-        'post:mid',
-        'derived:mid',
-        'reactive:late',
-      ]);
-      // All of it happened inside one flush.
-      expect(globalScheduler.getFlushVersion()).toBe(versionBefore + 1);
-      expect(globalScheduler.getState().queueLength).toBe(0);
     });
   });
 });

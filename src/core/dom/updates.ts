@@ -103,6 +103,7 @@ function scheduleDynamic(node: DynamicNode): void {
     job = {
       depth: node.depth,
       run: () => rerenderDynamic(node),
+      cancel: () => node.computation.dropScheduled(),
       get skip() {
         return node.computation.disposed || !node.computation.stale;
       },

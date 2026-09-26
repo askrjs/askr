@@ -105,6 +105,8 @@ export class Computation<T = unknown> extends Owner implements Source {
   _error: unknown = undefined;
   _hasError = false;
   _running = false;
+  /** The scheduler dropped this computation's pending run. */
+  _dropped = false;
   readonly _equals: Equals<T> | null;
   readonly _failedRunSources: 'union' | 'previous';
   /** How this computation reacts to going stale; null for lazily read values. */
@@ -180,6 +182,7 @@ export class Computation<T = unknown> extends Owner implements Source {
       trackingSources = previousSources;
     }
     this._state = CLEAN;
+    this._dropped = false;
     this.setSources(
       failed && this._failedRunSources === 'previous'
         ? new Set(this._sources ?? EMPTY)
@@ -251,12 +254,24 @@ export class Computation<T = unknown> extends Owner implements Source {
     this._sources = next.size ? next : null;
   }
 
+  /**
+   * The scheduler dropped this computation's pending run (loop guard or
+   * clear). It stays stale, and the next change schedules it again.
+   */
+  dropScheduled(): void {
+    if (!this.disposed && this._state !== CLEAN) this._dropped = true;
+  }
+
   _mark(state: NodeState): void {
-    if (this._state >= state || this.disposed) return;
+    if (this.disposed) return;
+    const dropped = this._dropped;
+    if (this._state >= state && !dropped) return;
     const wasClean = this._state === CLEAN;
-    this._state = state;
-    if (!wasClean) return;
+    if (state > this._state) this._state = state;
+    if (!wasClean && !dropped) return;
+    this._dropped = false;
     if (this._schedule) this._schedule(this as Computation);
+    if (!wasClean) return;
     const observers = this._observers;
     if (observers) {
       for (const observer of observers) observer._mark(CHECK);

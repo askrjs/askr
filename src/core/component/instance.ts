@@ -190,6 +190,7 @@ function renderLaneScheduler(instance: ComponentInstance) {
     job ??= {
       depth: instance.depth,
       run: () => renderHost?.rerender(instance),
+      cancel: () => instance.computation.dropScheduled(),
       get skip() {
         return instance.disposed || !instance.computation.stale;
       },
