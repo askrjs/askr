@@ -191,11 +191,6 @@ function clearHostMetadata(
   cleanupErrors: unknown[]
 ): void {
   clearHostOwners(node, (error) => cleanupErrors.push(error));
-  try {
-    delete node.__ASKR_WRAPPER_HOST;
-  } catch (error) {
-    cleanupErrors.push(error);
-  }
 }
 
 export function pruneComponentHostInstances(

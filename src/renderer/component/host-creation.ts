@@ -127,17 +127,23 @@ export function createComponentElement(
     const deepestEntry =
       nestedResolution.entries[nestedResolution.entries.length - 1];
 
+    // The deepest result can itself be empty; that empty result, not the
+    // unresolved chain, is what materializes.
+    const deepestInstance = deepestEntry
+      ? deepestEntry.instance
+      : childInstance;
+    const deepestResult = deepestEntry ? deepestEntry.result : scopedResult;
     let dom = snapshot
       ? withContext(snapshot, () =>
           materializeComponentResultNode(
-            deepestEntry?.instance ?? childInstance,
-            deepestEntry?.result ?? scopedResult,
+            deepestInstance,
+            deepestResult,
             parentNamespace
           )
         )
       : materializeComponentResultNode(
-          deepestEntry?.instance ?? childInstance,
-          deepestEntry?.result ?? scopedResult,
+          deepestInstance,
+          deepestResult,
           parentNamespace
         );
 

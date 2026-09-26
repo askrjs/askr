@@ -89,18 +89,24 @@ describe('DefaultPortal', () => {
     flushScheduler();
 
     expect(container.textContent).toContain('Toast');
-    const initialPortalHost = Array.from(container.children).find(
-      (element) => element.textContent === 'Toast'
+    // Text portal content sits among the root's children with no wrapper.
+    const initialPortalText = Array.from(container.childNodes).find(
+      (node) => node.nodeType === Node.TEXT_NODE && node.data === 'Toast'
     );
-    expect(initialPortalHost).toBeDefined();
+    expect(initialPortalText).toBeDefined();
+    expect(Array.from(container.children).map((el) => el.tagName)).toEqual([
+      'BUTTON',
+    ]);
 
     (container.querySelector('button') as HTMLButtonElement).click();
     flushScheduler();
 
     expect(container.textContent).not.toContain('Toast');
     expect(container.textContent).toContain('Updated');
-    expect(initialPortalHost?.isConnected).toBe(false);
     expect(container.textContent?.match(/Updated/g)).toHaveLength(1);
+    expect(Array.from(container.children).map((el) => el.tagName)).toEqual([
+      'BUTTON',
+    ]);
   });
 
   it('should preserve a replacement portal write adopted from a nested batch', () => {

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- fix(renderer): a component that renders text, or a component whose result
+  spans several nodes, no longer gets a wrapper `<div>` on the client. This
+  applied when the result was the first render or followed an empty first
+  render, including `<Portal>{'x'}</Portal>`, Portal function children,
+  wrapper fragments rendering text, and content in the automatic default-portal
+  host. The client now places that content among its siblings inside
+  `askr-range` comment anchors, matching the server markup. A nested
+  component that renders nothing and later renders text keeps its instance
+  and state.
+
 - fix(runtime): a failed render no longer leaves a structural function child
   stale. A function child in a component's fragment or array result
   (`<>{() => Array.from({ length: n() }, ...)}</>`) renders as a small

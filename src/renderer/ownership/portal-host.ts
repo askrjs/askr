@@ -29,7 +29,6 @@ export function detachPortalHostOutput(host: ComponentInstance): void {
 
   try {
     writeHostOwners(portalHost, undefined, undefined);
-    delete portalHost.__ASKR_WRAPPER_HOST;
   } catch {
     // Host metadata is best-effort on non-extensible DOM shims.
   }
