@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- fix(renderer): forced bulk reuse now propagates key attribute write failures
+  and restores a partially written key before changing that row's content.
+
 - fix(renderer): strip the forced positional bulk reuse diagnostic switch from
   production bundles; it remains available in development tests.
 
