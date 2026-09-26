@@ -227,6 +227,13 @@ export class Computation<T = unknown> extends Owner implements Source {
     this._mark(DIRTY);
   }
 
+  /** Retry after a later source change, without rerunning a discarded pass. */
+  deferRetry(): void {
+    if (this.disposed) return;
+    this._state = DIRTY;
+    this._dropped = true;
+  }
+
   private markObserversDirty(): void {
     const observers = this._observers;
     if (!observers) return;

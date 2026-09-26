@@ -22,7 +22,7 @@ import {
   type ChildDescriptor,
   type Key,
 } from '../view/children';
-import type { Pass } from './pass';
+import { CommitMutationError, type Pass } from './pass';
 import {
   COMPONENT,
   HOST,
@@ -223,18 +223,55 @@ export function reconcileChildren(
   }
 
   const removed = previous.filter((_, i) => !used[i]);
+  // Matched children already recorded their own patches; no list write is needed.
+  if (
+    removed.length === 0 &&
+    result.length === previous.length &&
+    result.every((node, index) => node === previous[index])
+  ) {
+    return result;
+  }
   const stable = longestIncreasingSubsequence(sources);
   const nodes = ctx.nodes;
   ctx.pass.fill(slot, () => {
-    const errors: unknown[] = [];
-    for (const node of removed) {
-      for (const dom of collectDom(node)) dom.parentNode?.removeChild(dom);
-      nodes.release(node, errors);
+    const positions: Array<{
+      node: Node;
+      parent: Node | null;
+      next: Node | null;
+    }> = [];
+    const record = (node: Node) => {
+      positions.push({ node, parent: node.parentNode, next: node.nextSibling });
+    };
+    ctx.pass.onStructuralCommit(
+      () => {
+        for (let index = positions.length - 1; index >= 0; index--) {
+          const { node, parent, next } = positions[index];
+          if (!parent) node.parentNode?.removeChild(node);
+          else if (node.parentNode !== parent || node.nextSibling !== next) {
+            parent.insertBefore(node, next);
+          }
+        }
+        parent.children = previous;
+      },
+      () => {
+        const errors: unknown[] = [];
+        for (const node of removed) nodes.release(node, errors);
+        reportTeardown(errors);
+      }
+    );
+    try {
+      placeChildren(parent, result, sources, stable, record);
+      for (const node of removed) {
+        for (const dom of collectDom(node)) {
+          record(dom);
+          dom.parentNode?.removeChild(dom);
+        }
+      }
+    } catch (error) {
+      throw new CommitMutationError(error);
     }
     parent.children = result;
     for (const node of result) node.parent = parent;
-    placeChildren(parent, result, sources, stable);
-    reportTeardown(errors);
   });
   return result;
 }
@@ -269,7 +306,8 @@ function placeChildren(
   parent: Parent,
   children: RNode[],
   sources: Int32Array,
-  stable: Set<number>
+  stable: Set<number>,
+  record: (node: Node) => void
 ): void {
   const container = containerOf(parent);
   let next: Node | null = endOf(parent);
@@ -283,6 +321,7 @@ function placeChildren(
     for (let j = nodes.length - 1; j >= 0; j--) {
       const dom = nodes[j];
       if (dom.parentNode !== container || dom.nextSibling !== next) {
+        record(dom);
         container.insertBefore(dom, next);
       }
       next = dom;

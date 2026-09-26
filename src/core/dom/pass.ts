@@ -6,7 +6,8 @@
  * state is recorded as an operation instead. `commit()` applies the
  * operations in order; `discard()` drops them, disposes every owner the pass
  * created, and rewinds the render journal (props and scope values set during
- * render). Nothing else is undone because nothing else was applied.
+ * render). A failed structural DOM write restores child lists that this pass
+ * already applied, then discards its provisional owners and subscriptions.
  *
  * Operations are recorded parent-first: a reconcile reserves its slot before
  * its children record theirs, so a parent places its children before the
@@ -26,6 +27,13 @@ import { queueTask } from '../reactive/scheduler';
 
 type Op = () => void;
 
+/** A structural DOM write failed before its render pass could publish. */
+export class CommitMutationError extends Error {
+  constructor(readonly failure: unknown) {
+    super('DOM commit failed');
+  }
+}
+
 export interface PassMark {
   readonly ops: number;
   readonly created: number;
@@ -38,11 +46,15 @@ export interface PassMark {
 export class Pass {
   /** A server portal writer is inside a selectively hydrated host. */
   hasDormantPortalWriter = false;
+  /** Prevent an aborted DOM commit from retrying itself in the same flush. */
+  commitAborted = false;
   private readonly ops: Array<Op | null> = [];
   private readonly created: Owner[] = [];
   /** Instances rendered by this pass, children before parents. */
   private readonly renderedInstances: ComponentInstance[] = [];
   private readonly afterCommit: Op[] = [];
+  private readonly structuralUndo: Op[] = [];
+  private readonly structuralSettle: Op[] = [];
   private readonly journalStart = journalMark();
 
   /** Record an operation on committed state. */
@@ -78,6 +90,12 @@ export class Pass {
   /** Run after all operations are applied (refs). */
   after(fn: Op): void {
     this.afterCommit.push(fn);
+  }
+
+  /** Restore a structural write on abort; release departed owners on success. */
+  onStructuralCommit(undo: Op, settle: Op): void {
+    this.structuralUndo.push(undo);
+    this.structuralSettle.push(settle);
   }
 
   mark(): PassMark {
@@ -117,12 +135,33 @@ export class Pass {
   }
 
   commit(): void {
-    settleJournal(this.journalStart);
     const failures: unknown[] = [];
     for (const op of this.ops) {
       if (!op) continue;
       try {
         op();
+      } catch (error) {
+        if (error instanceof CommitMutationError) {
+          this.commitAborted = true;
+          for (const undo of this.structuralUndo.reverse()) {
+            try {
+              undo();
+            } catch (failure) {
+              reportUncaughtErrorLater(failure);
+            }
+          }
+          for (const failure of this.discard()) {
+            reportUncaughtErrorLater(failure);
+          }
+          throw error.failure;
+        }
+        failures.push(error);
+      }
+    }
+    settleJournal(this.journalStart);
+    for (const settle of this.structuralSettle) {
+      try {
+        settle();
       } catch (error) {
         failures.push(error);
       }

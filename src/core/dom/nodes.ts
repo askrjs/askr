@@ -464,7 +464,10 @@ export function renderInstance(
   try {
     const output = renderComponent(ctx, node);
     if (instance.mounted) {
-      ctx.pass.onDiscard(() => instance.computation.invalidate());
+      ctx.pass.onDiscard(() => {
+        if (ctx.pass.commitAborted) instance.computation.deferRetry();
+        else instance.computation.invalidate();
+      });
     }
     const children = reconcileComponentOutput(inner, node, output, fresh);
     ctx.pass.markRendered(instance);
@@ -573,7 +576,10 @@ function reconcileComponentOutput(
     current = child;
     output = componentOutput(renderComponent(inner, child));
     if (instance.mounted) {
-      ctx.pass.onDiscard(() => instance.computation.invalidate());
+      ctx.pass.onDiscard(() => {
+        if (ctx.pass.commitAborted) instance.computation.deferRetry();
+        else instance.computation.invalidate();
+      });
     }
     creating = fresh;
   }
@@ -654,7 +660,10 @@ export function readDynamic(node: DynamicNode, pass?: Pass): unknown {
     pass ? (undo) => pass.onDiscard(undo) : undefined
   );
   if (pass && node.instance.mounted) {
-    pass.onDiscard(() => node.computation.invalidate());
+    pass.onDiscard(() => {
+      if (pass.commitAborted) node.computation.deferRetry();
+      else node.computation.invalidate();
+    });
   }
   return componentOutput(output);
 }

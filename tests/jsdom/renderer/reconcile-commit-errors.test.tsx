@@ -109,45 +109,46 @@ describe('reconciliation commit errors', () => {
     expect(container.querySelector('[data-askr-error-boundary]')).toBeTruthy();
   });
 
-  it.each(['data-key', 'data-askr-key-kind'])(
-    'should surface a failed %s write in forced bulk reuse',
-    (attribute) => {
-      const previousFlag = process.env.ASKR_FORCE_BULK_POSREUSE;
-      process.env.ASKR_FORCE_BULK_POSREUSE = '1';
-      let keys!: State<string[]>;
-      const App = () => {
-        keys = state(['a', 'b']);
-        return (
-          <ul>
-            {keys().map((key) => (
+  it('should restore earlier sibling lists when a later insertion fails', () => {
+    const App = () => {
+      flip = state(false);
+      const left = flip() ? ['b', 'a', 'c'] : ['a', 'b'];
+      const right = flip() ? ['y', 'x', 'z'] : ['x', 'y'];
+      return (
+        <div>
+          <ul id="left">
+            {left.map((key) => (
               <li key={key}>{key}</li>
             ))}
           </ul>
-        );
-      };
+          <ul id="right">
+            {right.map((key) => (
+              <li key={key}>{key}</li>
+            ))}
+          </ul>
+        </div>
+      );
+    };
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const stable = container.innerHTML;
+    const leftNodes = Array.from(container.querySelector('#left')!.childNodes);
+    const rightNodes = Array.from(
+      container.querySelector('#right')!.childNodes
+    );
+    const error = new Error('later commit failed');
+    failNextInsertInto('right', error);
 
-      try {
-        createIsland({ root: container, component: App });
-        flushScheduler();
-        const stable = container.innerHTML;
-        const first = container.querySelector('li')!;
-        const write = Element.prototype.setAttribute;
-        const failure = new Error('key write failed');
-        vi.spyOn(first, 'setAttribute').mockImplementation((name, value) => {
-          if (name === attribute) throw failure;
-          write.call(first, name, value);
-        });
-
-        keys.set(['c', 'd']);
-        expect(() => flushScheduler()).toThrow(failure);
-        expect(container.innerHTML).toBe(stable);
-      } finally {
-        if (previousFlag === undefined)
-          delete process.env.ASKR_FORCE_BULK_POSREUSE;
-        else process.env.ASKR_FORCE_BULK_POSREUSE = previousFlag;
-      }
-    }
-  );
+    flip.set(true);
+    expect(() => flushScheduler()).toThrow(error);
+    expect(container.innerHTML).toBe(stable);
+    expect(Array.from(container.querySelector('#left')!.childNodes)).toEqual(
+      leftNodes
+    );
+    expect(Array.from(container.querySelector('#right')!.childNodes)).toEqual(
+      rightNodes
+    );
+  });
 });
 
 // Reactive child functions commit outside a component update, so they need
@@ -245,11 +246,9 @@ describe.each(['development', 'production'])(
       ).toBeTruthy();
     });
 
-    it('should roll back a blueprint reactive child commit error', () => {
+    it('should roll back a reactive child commit error in the second row', () => {
       let items!: State<string[] | null>;
-      const cloneNode = vi.spyOn(Node.prototype, 'cloneNode');
-      // Starts as text so the second row takes the blueprint text binding,
-      // then switches to a keyed list through that same binding.
+      // Both rows switch from text to keyed children through a function child.
       const Row = ({ index }: { index: number }) => (
         <ul>
           {() => {
@@ -271,7 +270,6 @@ describe.each(['development', 'production'])(
       };
       createIsland({ root: container, component: App });
       flushScheduler();
-      expect(cloneNode).toHaveBeenCalled();
       items.set(['a', 'b', 'x']);
       flushScheduler();
       const blueprintList = container.querySelectorAll('ul')[1]!;

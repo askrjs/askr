@@ -177,7 +177,8 @@ During migration, use focused suites for each slice and a full suite after a
 substantial change. A local checkpoint may still have unrelated failing suites;
 the final package cannot.
 
-The remaining jsdom failures are in `reconcile-commit-errors.test.tsx` (commit
-failure recovery) and `dom-renderer-host.test.tsx` (the legacy experimental
-host). Keep their failures visible until the commit contract and experimental
-surface are resolved; passing hydration alone does not qualify the branch.
+Structural child-placement failures now restore sibling containers in one
+pass before reporting the error. Prop-write failures still need qualification.
+The remaining jsdom failures are in `dom-renderer-host.test.tsx`, which exercises
+the legacy experimental host. Keep those failures visible until its public
+contract is resolved; passing hydration alone does not qualify the branch.

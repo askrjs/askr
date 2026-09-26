@@ -36,7 +36,12 @@ function runPass(owner: Owner | null, render: (pass: Pass) => void): void {
     routeError(owner, error);
     return;
   }
-  pass.commit();
+  try {
+    pass.commit();
+  } catch (error) {
+    if (pass.commitAborted) routeError(owner, error);
+    else throw error;
+  }
 }
 
 function rerenderInstance(instance: ComponentInstance): void {
