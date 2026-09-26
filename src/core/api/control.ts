@@ -143,6 +143,8 @@ interface RowRecord {
   readonly readIndex: () => number;
   readonly source: Signal<unknown>;
   readonly readItem: () => unknown;
+  /** Replace the item, notifying only readers of properties that changed. */
+  writeItem(item: unknown): void;
 }
 
 interface RowProps<T> extends Props {
@@ -165,7 +167,17 @@ function createRow(index: number, item: unknown): RowRecord {
   const source = new Signal<unknown>(item);
   const overlay = new Map<string | symbol, PropertyDescriptor>();
   const deleted = new Set<string | symbol>();
+  /** One signal per property a reader has read through the proxy. */
+  const properties = new Map<string | symbol, Signal<unknown>>();
   let proxy: object | null = null;
+  const readProperty = (key: string | symbol): unknown => {
+    let property = properties.get(key);
+    if (!property) {
+      property = new Signal(Reflect.get(source.peek() as object, key));
+      properties.set(key, property);
+    }
+    return property.read();
+  };
   const row: RowRecord = {
     index: indexSource,
     readIndex: () => indexSource.read(),
@@ -183,7 +195,7 @@ function createRow(index: number, item: unknown): RowRecord {
             if (deleted.has(key)) return undefined;
             const own = overlay.get(key);
             if (own) return own.get ? own.get.call(proxy) : own.value;
-            return Reflect.get(source.read() as object, key);
+            return readProperty(key);
           },
           set(_target, key, value) {
             const previous = overlay.get(key);
@@ -256,6 +268,22 @@ function createRow(index: number, item: unknown): RowRecord {
       );
       return proxy;
     },
+    writeItem(item: unknown): void {
+      const previousItem = source.peek();
+      if (!source.write(item)) return;
+      recordRowUndo(() => {
+        source.write(previousItem);
+      });
+      if (typeof item !== 'object' || item === null) return;
+      for (const [key, property] of properties) {
+        const previous = property.peek();
+        if (property.write(Reflect.get(item, key))) {
+          recordRowUndo(() => {
+            property.write(previous);
+          });
+        }
+      }
+    },
   };
   return row;
 }
@@ -317,12 +345,7 @@ export function For<T, K extends string | number = string | number>(
       if (indexSource.write(index)) {
         recordRowUndo(() => indexSource.write(previous));
       }
-      const previousItem = row.source.peek();
-      if (row.source.write(item)) {
-        recordRowUndo(() => {
-          row!.source.write(previousItem);
-        });
-      }
+      row.writeItem(item);
     }
     live.add(key);
     output.push(

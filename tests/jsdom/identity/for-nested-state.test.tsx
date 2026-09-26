@@ -7,10 +7,6 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { For } from '../../../src/control';
-import {
-  disableEventDelegation,
-  enableEventDelegation,
-} from '../../../src/renderer/props/events';
 
 test('should update item locally when nested state changes without rerendering the parent', () => {
   const { container, cleanup } = createTestContainer();
@@ -236,7 +232,6 @@ test('should update only dirty For rows during no-reorder commits', () => {
 
 test('should clean removed For row listeners without cleaning retained rows', () => {
   const { container, cleanup } = createTestContainer();
-  disableEventDelegation();
 
   try {
     let rowsState!: ReturnType<typeof state<number[]>>;
@@ -304,7 +299,6 @@ test('should clean removed For row listeners without cleaning retained rows', ()
     expect(removedRow.textContent).to.equal('2:0');
     expect(retainedAfter.textContent).to.equal('3:2');
   } finally {
-    enableEventDelegation();
     cleanup();
   }
 });
