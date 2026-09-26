@@ -280,20 +280,11 @@ function updateKeyedElementsMap(
   parent: Element,
   keyedVnodes: Array<{ key: string | number; vnode: VNode }>
 ): void {
-  try {
-    const existing = keyedElements.get(parent);
-    const newKeyMap = existing
-      ? (existing.clear(), existing)
-      : new Map<string | number, Element>();
-
-    for (let index = 0; index < keyedVnodes.length; index += 1) {
-      const key = keyedVnodes[index].key;
-      const child = parent.children[index] as Element | undefined;
-      if (child) newKeyMap.set(key, child);
-    }
-
-    keyedElements.set(parent, newKeyMap);
-  } catch {
-    // Ignore errors updating key map
+  const nextKeyMap = new Map<string | number, Element>();
+  for (let index = 0; index < keyedVnodes.length; index += 1) {
+    const key = keyedVnodes[index].key;
+    const child = parent.children[index] as Element | undefined;
+    if (child) nextKeyMap.set(key, child);
   }
+  keyedElements.set(parent, nextKeyMap);
 }

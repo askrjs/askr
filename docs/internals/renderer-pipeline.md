@@ -172,6 +172,8 @@ through another path. The general keyed commit has no fallback either: a
 failed DOM move or removal propagates to the component update, which rolls the
 DOM back and routes the error to the nearest `ErrorBoundary` (or throws it from
 the flush) instead of rebuilding the parent with `replaceChildren()`.
+Bulk positional reuse publishes a fresh keyed map after updating rows; readers
+holding the previous map retain their snapshot throughout the update.
 
 ```mermaid
 flowchart LR
