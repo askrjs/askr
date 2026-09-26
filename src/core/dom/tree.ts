@@ -50,6 +50,11 @@ export interface HostNode extends Base {
   owner: ComponentInstance | null;
   /** Descendants belong to imperative code; children are not reconciled. */
   imperative: boolean;
+  /**
+   * Adopted server markup whose hydration is skipped or deferred
+   * (`data-skip-hydrate`): props and children wait for activation.
+   */
+  dormant?: { owner: Owner | null; ns: string | null } | null;
 }
 
 export interface TextNode extends Base {

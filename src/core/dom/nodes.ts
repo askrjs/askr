@@ -27,7 +27,7 @@ import {
   type Key,
 } from '../view/children';
 import type { Pass } from './pass';
-import { removeUnrenderedAttributes } from './hydration';
+import { HydrationCursor, removeUnrenderedAttributes } from './hydration';
 import { isDangerousInnerHTMLPayload } from './prop-values';
 import {
   applyInitialProps,
@@ -143,6 +143,12 @@ function createHost(
     owner: nearestInstance(ctx.owner),
     imperative: Boolean(props.imperativeChildren),
   };
+  if (adopted?.hasAttribute(SKIP_HYDRATE)) {
+    // Server markup that stays static until activated.
+    node.dormant = { owner: ctx.owner, ns };
+    dormantHosts.set(adopted, node);
+    return node;
+  }
   applyInitialProps(ctx.pass, node, adopted !== null);
   if (adopted) {
     ctx.pass.op(() => removeUnrenderedAttributes(adopted, props));
@@ -167,6 +173,50 @@ function createHost(
   return node;
 }
 
+const SKIP_HYDRATE = 'data-skip-hydrate';
+const dormantHosts = new WeakMap<Element, HostNode>();
+
+/** The dormant host adopted for `el`, if it has not been activated. */
+export function dormantHostFor(el: Element): HostNode | null {
+  const node = dormantHosts.get(el);
+  return node?.dormant ? node : null;
+}
+
+/**
+ * Hydrate a dormant host in place: claim its server children, then apply
+ * its props, listeners, and ref. The marker is removed when the pass
+ * commits, so a failed activation leaves it for a retry.
+ */
+export function hydrateDormantHost(pass: Pass, node: HostNode): void {
+  const dormant = node.dormant!;
+  const el = node.el;
+  const ctx = createRenderContext(pass, dormant.owner, dormant.ns, {
+    cursor: new HydrationCursor(),
+    container: el,
+  });
+  const props = node.props;
+  applyInitialProps(pass, node, true);
+  if (!isDangerousInnerHTMLPayload(props.dangerouslySetInnerHTML)) {
+    const children = reconcileChildren(
+      { ...ctx, ns: childNamespace(node.tag, dormant.ns) },
+      node,
+      props.children,
+      true
+    );
+    node.children = children;
+    pass.onDiscard(() => {
+      node.children = [];
+    });
+  }
+  applyTrailingProps(pass, node, props, true, true);
+  attachRef(pass, node, undefined);
+  pass.op(() => {
+    node.dormant = null;
+    dormantHosts.delete(el);
+    removeUnrenderedAttributes(el, props);
+  });
+}
+
 function ownsChildren(props: Props): boolean {
   return (
     !props.imperativeChildren &&
@@ -177,6 +227,13 @@ function ownsChildren(props: Props): boolean {
 function patchHost(ctx: RenderContext, node: HostNode, props: Props): void {
   const previous = node.props;
   if (previous === props) return;
+  if (node.dormant) {
+    // Activation hydrates with the latest props.
+    ctx.pass.op(() => {
+      node.props = props;
+    });
+    return;
+  }
   const wasManaged = ownsChildren(previous);
   const isManaged = ownsChildren(props);
   if (wasManaged && !isManaged) {
