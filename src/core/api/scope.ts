@@ -25,6 +25,9 @@ interface ProviderProps {
 
 function ScopeProvider(props: ProviderProps): unknown {
   currentComponent()?.provide(props.scopeKey, props.value);
+  if (typeof Node !== 'undefined' && props.children instanceof Node) {
+    return null;
+  }
   return typeof props.children === 'function'
     ? (props.children as () => unknown)()
     : props.children;

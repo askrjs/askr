@@ -8,15 +8,22 @@ import type { JSXElement } from '../../../src/jsx/types';
 import { createIsland } from '../../../test-utils/render/create-island';
 
 describe('context (CONTEXT_SPEC) — gaps', () => {
-  it('should create a renderer-transparent vnode given a callable scope', () => {
+  it('should render a scope without adding a DOM wrapper', () => {
     const Theme = defineScope('light');
-    const element = (
-      <Theme value="dark">
-        <span>child</span>
-      </Theme>
-    );
-
-    expect(element.type).not.toBe(Theme);
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({
+        root: container,
+        component: () => (
+          <Theme value="dark">
+            <span>child</span>
+          </Theme>
+        ),
+      });
+      expect(container.innerHTML).toBe('<span>child</span>');
+    } finally {
+      cleanup();
+    }
   });
 
   it('should allow child to read parent-provided context value', () => {
