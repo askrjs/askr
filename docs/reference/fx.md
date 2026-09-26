@@ -8,7 +8,9 @@ Timing and utility helpers are framework-independent.
 Arguments and receiver types are preserved; scheduled callback results are
 discarded, including leading execution. Move result handling into the callback
 instead of assigning or awaiting the wrapper result. Scheduling, coalescing,
-and the existing debounce/throttle `cancel()` methods are unchanged.
+and the existing debounce/throttle `cancel()` methods are unchanged. `raf()`
+also exposes `cancel()` to drop its pending frame; a later call can schedule
+another frame.
 
 ## Core timing utilities
 

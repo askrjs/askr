@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- fix(fx): `raf()` wrappers now expose `cancel()` and remain usable after a
+  callback throws.
+
 - breaking(fx): remove `defer(fn)` from `@askrjs/askr/fx`; use the platform's
   `queueMicrotask(fn)` for callback scheduling. `defer(promise)` remains in
   `@askrjs/askr/router` for deferred route data.

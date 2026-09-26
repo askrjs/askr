@@ -67,8 +67,9 @@ expectType<number>(onceOnly('value'));
 const rafCallback = raf((value: string) => {
   void value;
 });
-expectType<(value: string) => void>(rafCallback);
+expectType<((value: string) => void) & { cancel(): void }>(rafCallback);
 rafCallback('value');
+rafCallback.cancel();
 
 expectType<void>(idle(() => {}, { timeout: 10 }));
 expectType<Promise<void>>(timeout(10));

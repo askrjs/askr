@@ -765,7 +765,9 @@
         "declare function idle(fn: () => void, options?: {\n    timeout?: number;\n}): void;"
       ],
       "once": ["declare function once<T extends AnyFn>(fn: T): T;"],
-      "raf": ["declare function raf<T extends AnyFn>(fn: T): Scheduled<T>;"],
+      "raf": [
+        "declare function raf<T extends AnyFn>(fn: T): Scheduled<T> & {\n    cancel(): void;\n};"
+      ],
       "rafEvent": [
         "declare function rafEvent(handler: EventListener): EventListener & {\n    cancel(): void;\n};"
       ],
@@ -2256,7 +2258,9 @@
     "QueryTestRegistry": [
       "interface QueryTestRegistry {\n    readonly runtime: DataRuntime;\n    set<T extends {}>(key: string, query: Query<T>): void;\n    delete(key: string): void;\n    clear(): void;\n}"
     ],
-    "raf": ["declare function raf<T extends AnyFn>(fn: T): Scheduled<T>;"],
+    "raf": [
+      "declare function raf<T extends AnyFn>(fn: T): Scheduled<T> & {\n    cancel(): void;\n};"
+    ],
     "rafEvent": [
       "declare function rafEvent(handler: EventListener): EventListener & {\n    cancel(): void;\n};"
     ],

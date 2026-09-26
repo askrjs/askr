@@ -110,7 +110,7 @@ declare function once<T extends AnyFn>(fn: T): T;
  * update(); // same frame, no duplicate
  * ```
  */
-declare function raf<T extends AnyFn>(fn: T): Scheduled<T>;
+declare function raf<T extends AnyFn>(fn: T): Scheduled<T> & { cancel(): void };
 /**
  * Idle — schedule low-priority work
  *

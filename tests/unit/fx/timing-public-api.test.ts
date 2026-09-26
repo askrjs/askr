@@ -18,11 +18,13 @@ import {
 
 type FXGlobal = typeof globalThis & {
   requestAnimationFrame?: typeof requestAnimationFrame;
+  cancelAnimationFrame?: typeof cancelAnimationFrame;
   requestIdleCallback?: typeof requestIdleCallback;
 };
 
 const fxGlobal = globalThis as FXGlobal;
 const originalRequestAnimationFrame = fxGlobal.requestAnimationFrame;
+const originalCancelAnimationFrame = fxGlobal.cancelAnimationFrame;
 const originalRequestIdleCallback = fxGlobal.requestIdleCallback;
 
 beforeEach(() => {
@@ -35,6 +37,12 @@ afterEach(() => {
     Reflect.deleteProperty(fxGlobal, 'requestAnimationFrame');
   } else {
     fxGlobal.requestAnimationFrame = originalRequestAnimationFrame;
+  }
+
+  if (originalCancelAnimationFrame === undefined) {
+    Reflect.deleteProperty(fxGlobal, 'cancelAnimationFrame');
+  } else {
+    fxGlobal.cancelAnimationFrame = originalCancelAnimationFrame;
   }
 
   if (originalRequestIdleCallback === undefined) {
@@ -190,6 +198,53 @@ describe('fx public timing helpers', () => {
 
     expect(handler).toHaveBeenCalledTimes(1);
     expect(handler).toHaveBeenCalledWith('second');
+  });
+
+  it('should cancel pending raf() work and accept a later call', () => {
+    const callbacks = new Map<number, FrameRequestCallback>();
+    let nextId = 0;
+    fxGlobal.requestAnimationFrame = vi.fn((callback) => {
+      const id = ++nextId;
+      callbacks.set(id, callback);
+      return id;
+    });
+    fxGlobal.cancelAnimationFrame = vi.fn((id) => {
+      callbacks.delete(id);
+    });
+    const handler = vi.fn();
+    const scheduled = raf(handler);
+
+    scheduled();
+    scheduled.cancel();
+    expect(fxGlobal.cancelAnimationFrame).toHaveBeenCalledWith(1);
+    expect(callbacks.size).toBe(0);
+
+    scheduled();
+    expect(callbacks.size).toBe(1);
+    callbacks.get(2)!(16);
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it('should remain usable after a raf() callback throws', () => {
+    const callbacks: FrameRequestCallback[] = [];
+    fxGlobal.requestAnimationFrame = vi.fn((callback) => {
+      callbacks.push(callback);
+      return callbacks.length;
+    });
+    const handler = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        throw new Error('frame failed');
+      })
+      .mockImplementation(() => {});
+    const scheduled = raf(handler);
+
+    scheduled();
+    expect(() => callbacks[0]!(16)).toThrow('frame failed');
+    scheduled();
+    expect(callbacks).toHaveLength(2);
+    callbacks[1]!(32);
+    expect(handler).toHaveBeenCalledTimes(2);
   });
 
   it('should use requestIdleCallback when available and fall back to timeout when not', async () => {
