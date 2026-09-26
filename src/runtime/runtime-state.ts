@@ -2,6 +2,7 @@ import { globalScheduler, type Scheduler } from './scheduler';
 import type { RendererCapabilities } from './renderer-capabilities';
 import { CommitCoordinator } from './transactions/coordinator';
 import { logger } from '../common/logger';
+import { reportUncaughtErrorLater } from '../common/report-error';
 
 /**
  * The renderer host for an environment that has no DOM renderer.
@@ -117,9 +118,13 @@ export function createRuntimeState(
         logger.error('[Askr] transaction rollback failed:', error);
       },
       settlementErrors(errors) {
-        logger.error(
-          '[Askr] committed lifecycle work failed:',
-          new AggregateError(errors, 'Committed lifecycle work failed')
+        // Settlement runs after publication: the update stands, and its
+        // failures (departed-owner cleanup, lifecycle work) are reported like
+        // other post-commit errors once the current task finishes.
+        reportUncaughtErrorLater(
+          errors.length === 1
+            ? errors[0]
+            : new AggregateError(errors, 'Committed lifecycle work failed')
         );
       },
     }),

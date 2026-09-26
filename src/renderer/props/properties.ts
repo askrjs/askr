@@ -9,7 +9,7 @@ import {
 import { isDevelopmentEnvironment } from '../../common/env';
 import { logger } from '../../common/logger';
 import {
-  isUnsafeUrlAttribute,
+  rejectUnsafeUrlAttribute,
   SCRIPT_URL_RESOURCE_ATTRIBUTES,
   UNSAFE_URL_SCHEME_ATTRIBUTES,
 } from '../../common/url';
@@ -145,7 +145,7 @@ export function applyDomPropertyProp(
     // the check and then return something else. Custom elements keep their
     // value; it is still checked.
     const text = String(next);
-    if (isUnsafeUrlAttribute(name, text)) {
+    if (rejectUnsafeUrlAttribute(name, text)) {
       forgetProperty(el, key);
       return true;
     }

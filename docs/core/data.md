@@ -437,7 +437,13 @@ and `invalidate('a.b')` does not match `a.b.c`. Use `:`-delimited keys (or
 segment rule applies to `invalidateOnInterval(prefix)` and to the prefixes a
 mutation returns from `affects`.
 
-Invalidation listeners run synchronously and may invalidate a different prefix
+Invalidation listeners exist only for testing: `createInvalidationRecorder()`
+from `@askrjs/askr/testing` registers one, and it records invalidations from
+every data runtime until `stop()`. When no listener is registered (the normal
+case outside tests), invalidation skips listener dispatch and cascade
+bookkeeping entirely.
+
+Registered listeners run synchronously and may invalidate a different prefix
 to form a short, acyclic cascade. Re-entering a prefix that is already active
 throws an Askr cyclic-cascade error naming that prefix. Cascades with changing
 prefixes are capped at 100 nested events and fail with an Askr depth diagnostic

@@ -15,6 +15,46 @@ child owners do not become live. Cleanup belonging to a successful commit runs
 only after the coherent DOM update. Cleanup failures are reported together and
 do not roll back an already successful render.
 
+### Teardown errors
+
+When an update removes DOM, Askr tears down the removed subtree: callback refs
+receive `null`, listeners and fine-grained bindings are removed, and component
+lifetimes are disposed, running their cleanup functions (returned by mount
+operations, tasks, and watches). Every one of these steps runs for every node in
+the subtree, even when an earlier one throws. Each step runs at most once: a
+callback ref that throws is not called with `null` again.
+
+Failures are reported with the platform `reportError()`, the same path
+[event handler errors](../advanced/event-delegation.md#handler-errors) take, in
+development and production builds. Reports are queued and delivered in order
+once the current task finishes (on the next microtask), after the DOM update is
+complete. An `error` handler can therefore update state, and a handler that
+throws cannot interrupt or roll back the update; Askr logs that failure with
+`console.error` instead. The update is not rolled back, and the removed content
+is not restored.
+
+Reports are grouped by the unit that was cleaned up, a single failure as-is and
+several as one `AggregateError`:
+
+- Each removed DOM node produces one report for its refs, listeners, bindings,
+  and the components hosted in it. Removing several nodes in one update (for
+  example, clearing a list whose rows each fail) produces one report per node.
+- A component tree disposed together produces one report: the failures of
+  descendant components without `cleanupStrict` are handed to the component
+  where disposal started, which reports them once.
+- Failures from work that runs after an update commits (disposing replaced
+  components, retiring the previous route, and mount or commit operations that
+  throw) produce one report per update.
+
+An `ErrorBoundary` does not catch teardown errors: they are not render errors,
+and the nearest boundary is often part of the content being removed. Hosts
+without `reportError()`, including Node and jsdom, rethrow the error from a
+microtask, where Node and test runners treat it as an unhandled error. Stub
+`globalThis.reportError` in tests that throw from cleanup on purpose.
+
+`cleanupApp()` on an app created with `cleanupStrict: true` throws the failures
+instead of reporting them (see [cleanup](./runtime.md#cleanup)).
+
 ### Fine-grained bindings and rollback
 
 A function-valued prop or child (`title={() => ...}`, `{() => count()}`) is a
@@ -36,6 +76,21 @@ function Counter() {
 // After count.set(2): <b>2</b> <i>1</i>. The render rolled back; the binding
 // reflects the state.
 ```
+
+The rule covers structural function children too, such as a list whose
+length follows state (`{() => Array.from({ length: n() }, ...)}`), inside an
+element or in a component's fragment or array result. It also covers a child
+component that re-renders on its own state: when that update joined a parent
+render that failed, the child renders again after the rollback. A failed render
+does not wait for the next state change to bring either of them up to date.
+That catch-up render uses the child's last committed props with its current
+state. If it throws, its error is reported alongside the original one (an
+`AggregateError`, see [Update loop guard](./runtime.md#update-loop-guard)).
+
+Known limitation: after `hydrateSPA`, a structural function child with keyed
+items in a component's fragment or array result does not update when its
+state changes, whether or not a render failed. Unkeyed items, and structural
+function children inside an element, update as described above.
 
 Read the state in the render instead of a binding when a value must change
 together with the rest of the component's output.
@@ -146,6 +201,33 @@ function Media(props: { muted: boolean; stream: MediaStream; rows: Row[] }) {
 }
 ```
 
+Form state props accept a function or cell like any other prop, and the
+binding keeps the live property in sync: `value={() => name()}` on an
+`<input>` or `<textarea>`, `checked={() => on()}`, `selected={() => on()}`
+on an `<option>`, and `value={() => role()}` on a `<select>` (an array for
+`multiple`). A `<select>` value is applied again after the select's own
+children are created or updated, so options written directly inside it can
+come from the same render. Options rendered by a `For` or a function child
+are not tracked: the value is not re-applied when only they change, so keep a
+value's option rendered before selecting it.
+
+```tsx
+function RolePicker() {
+  const role = state('admin');
+  return (
+    <select
+      value={() => role()}
+      onChange={(event: Event) =>
+        role.set((event.currentTarget as HTMLSelectElement).value)
+      }
+    >
+      <option value="viewer">Viewer</option>
+      <option value="admin">Admin</option>
+    </select>
+  );
+}
+```
+
 Values SSR cannot render are applied when the client hydrates. Attributes a
 property reflects (`prop:href` sets `href`, `prop:hidden` sets `hidden`) are
 kept on re-render like any other attribute Askr rendered.
@@ -157,6 +239,27 @@ value set before a custom element upgraded) is deleted; other string
 properties become `''` and booleans `false`. Numeric properties with no
 attribute (`prop:volume`) keep their last value. A failed commit rolls
 property writes back with the rest of the element.
+
+URL attributes are checked the same way on the client and in SSR. `href`,
+`action`, `formAction` and `xlink:href` render only relative URLs or the
+`http`, `https`, `mailto`, `sms` and `tel` schemes. `src` and `data` render
+any URL except a script scheme (`javascript:`, `vbscript:`). The scheme is
+read case-insensitively after trimming the value and removing ASCII spaces
+and control characters (U+0000-U+0020, U+007F-U+009F) anywhere in it, so
+`java\tscript:` is still a script URL. A non-string value is converted to
+text once, and that text is both checked and written.
+
+A blocked value, such as a custom `vscode:` or `slack:` link in `href`, is
+omitted. In development Askr logs a warning naming the attribute and the
+blocked scheme, once per attribute and value; production omits it silently.
+To link to a trusted custom scheme, leave the `href` prop off and set the
+attribute from a ref. Askr does not remove attributes it did not render:
+
+```tsx
+<a ref={(el) => el?.setAttribute('href', 'vscode://file/src/app.ts')}>
+  Open in VS Code
+</a>
+```
 
 The escape hatches keep the usual guards:
 
@@ -179,7 +282,8 @@ defined after it renders should re-read such properties in its constructor
 (the "lazy properties" pattern), or be defined before Askr renders it.
 
 A function value is still a reactive binding, so pass a callback property as
-`prop:onSelect={() => handler}`.
+`prop:onSelect={() => handler}`. The binding's result is assigned as-is, even
+a cell: `prop:source={() => cell}` passes the cell, not its value.
 
 See [Runtime](./runtime.md) for boot APIs.
 
@@ -275,6 +379,12 @@ function in a function child's result (returned directly, or inside an array
 or fragment it returns) renders nothing, and so does a component that returns
 a function or a cell. Elements a function child returns keep their own
 reactive children and props.
+
+A function prop follows the same rule: `title={() => (useFull() ? fullName :
+shortName)}` renders the selected cell's value on the server and the client,
+and the client binding follows both the choice and the chosen cell.
+`prop:` is the exception: it assigns the function's result as-is, so
+`prop:source={() => cell}` hands the cell itself to a custom element.
 
 Function children are not limited to elements. A function or cell among the
 items of a fragment or array a component returns, such as a layout that

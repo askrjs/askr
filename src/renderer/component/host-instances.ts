@@ -7,6 +7,7 @@ import {
   type ComponentInstance,
 } from '../../runtime';
 import { getDevValue, incDevCounter } from '../../runtime';
+import { resolveChildScopeAuthor } from '../../runtime/ownership/child-scope';
 import { getOwnedRange, RANGE_START_MARKER } from '../ownership/ranges';
 import type { InstanceHostNode } from '../dom-host';
 import type { DOMElement } from '../types';
@@ -26,7 +27,10 @@ export function isRouteRootComponentVNode(node: unknown): boolean {
 export function inheritComponentCleanupStrict(
   instance: ComponentInstance
 ): void {
-  const owner = getCurrentComponentInstance();
+  // Control-flow content inherits from the component that declared it. The
+  // child-scope record itself stays non-strict, so disposing a For item or
+  // branch reports its failures instead of throwing into the update.
+  const owner = resolveChildScopeAuthor(getCurrentComponentInstance());
   if (owner) {
     instance.cleanupStrict = owner.cleanupStrict;
   }

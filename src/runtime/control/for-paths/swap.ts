@@ -1,5 +1,5 @@
 import type { VNode } from '../../../common/vnode';
-import { syncForItemIndex, updateItemInstance } from '../for-scopes';
+import { updateItemInstance } from '../for-scopes';
 import { recordBenchEvent } from '../../diagnostics/for-bench';
 import type { ForState } from '../for-state';
 import { setForCommitPending } from './pending';
@@ -98,17 +98,10 @@ export function trySwapPath<T>(
   }
   recordBenchEvent('itemReused');
 
-  if (firstExisting.item !== firstItem) {
-    updateItemInstance(forState, firstExisting, firstItem);
-  }
-
-  if (secondExisting.item !== secondItem) {
-    updateItemInstance(forState, secondExisting, secondItem);
-  }
-
-  syncForItemIndex(forState, firstExisting, firstMismatch);
-
-  syncForItemIndex(forState, secondExisting, secondMismatch);
+  // Each swapped row takes its new item and index in one call, so it reruns
+  // once. With an unchanged item, it only syncs the index.
+  updateItemInstance(forState, firstExisting, firstItem, firstMismatch);
+  updateItemInstance(forState, secondExisting, secondItem, secondMismatch);
 
   resultVNodes[firstMismatch] = firstExisting.scope.vnode as VNode;
   resultVNodes[secondMismatch] = secondExisting.scope.vnode as VNode;

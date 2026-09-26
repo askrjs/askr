@@ -39,6 +39,7 @@ import {
   tryGetStaticCreateFastPathShape,
 } from './children/child-shape';
 import {
+  getElementReactivePropsCleanupMap,
   removeAllListeners,
   removeElementReactiveProps,
   teardownNodeSubtree,
@@ -263,6 +264,25 @@ function createOwnedResultNodeWithBlueprint(
   );
 }
 
+/**
+ * A select can only take a value once its options exist, so the value is
+ * applied again after its children. A reactive value is read from its binding.
+ */
+function applySelectValueAfterOptions(
+  el: Element,
+  props: Record<string, unknown>,
+  type: string
+): void {
+  if (el.tagName !== 'SELECT') return;
+  const value =
+    typeof props.value === 'function'
+      ? getElementReactivePropsCleanupMap(el)
+          ?.get('value')
+          ?.readAppliedValue?.()
+      : props.value;
+  if (value != null) applyFormControlProp(el, 'value', value, type);
+}
+
 function createIntrinsicElement(
   node: DOMElement,
   type: string,
@@ -334,9 +354,7 @@ function createIntrinsicElement(
         if (dom) el.appendChild(dom);
       }
     }
-    if (el.tagName === 'SELECT' && props.value != null) {
-      applyFormControlProp(el, 'value', props.value, type);
-    }
+    applySelectValueAfterOptions(el, props, type);
     return el;
   } catch (error) {
     cleanupFailedDOMConstruction(el);
@@ -475,9 +493,7 @@ function applyElementUpdateFromVnode(
       return;
     }
     updateElementChildren(el, children, forceChildrenUpdate);
-    if (el.tagName === 'SELECT' && props.value != null) {
-      applyFormControlProp(el, 'value', props.value, vnode.type as string);
-    }
+    applySelectValueAfterOptions(el, props, vnode.type as string);
   }
 }
 

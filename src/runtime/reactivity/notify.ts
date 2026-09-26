@@ -18,6 +18,11 @@ export interface NotifyReadableSourceOptions {
   skipInstance?: ComponentInstance | null;
   /** Skip readers owned by this instance. */
   skipOwnedBy?: ComponentInstance | null;
+  /**
+   * Narrow `skipOwnedBy` to owned readers whose render token is greater than
+   * this one: they rendered after the change and already read the new value.
+   */
+  skipOwnedRenderedAfter?: number | null;
 }
 
 /**
@@ -50,7 +55,12 @@ export function notifyReadableSource(
     propsFailure = { error };
   }
   try {
-    notifyReadableReaders(source, options?.skipInstance, options?.skipOwnedBy);
+    notifyReadableReaders(
+      source,
+      options?.skipInstance,
+      options?.skipOwnedBy,
+      options?.skipOwnedRenderedAfter
+    );
   } catch (error) {
     if (propsFailure) {
       throw new AggregateError(

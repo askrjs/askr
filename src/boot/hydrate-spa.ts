@@ -84,7 +84,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     applyDeferredStreamPatches(rootElement);
     adoptSsrStyleCarriers(rootElement);
     const hydrationRenderData = takeHydrationRenderData(rootElement);
-    const hydrationQueryCache = hydrationRenderData?.resources;
+    const hydrationQueryCache = hydrationRenderData?.queries;
     const dataRuntime = config.dataRuntime ?? getDefaultDataRuntime();
     if (hydrationQueryCache) {
       hydrateDataRuntime(dataRuntime, hydrationQueryCache);

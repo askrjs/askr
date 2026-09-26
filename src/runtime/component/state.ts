@@ -88,6 +88,8 @@ export interface ComponentExecution {
   evaluationGeneration: number;
   /** Monotonic revision invalidates previously prepared output. */
   renderRevision: number;
+  /** @internal The revision of the last render that rolled back. */
+  _rolledBackRevision?: number;
   notifyUpdate: (() => void) | null;
   /** Prebound helpers avoid closures on each update. */
   _pendingFlushTask?: () => void;

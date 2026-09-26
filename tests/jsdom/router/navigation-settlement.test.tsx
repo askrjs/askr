@@ -63,7 +63,13 @@ describe('navigation during lifecycle settlement', () => {
     vi.spyOn(window.history, 'pushState').mockImplementationOnce(() => {
       throw failure;
     });
+    // The failure is thrown to the navigation caller only, not also reported.
+    const reportError = vi.fn();
+    vi.stubGlobal('reportError', reportError);
     expect(() => navigate('/second')).toThrow(failure);
+    await Promise.resolve();
+    expect(reportError).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
     expect(firstSignal.aborted).toBe(true);
     expect(secondSignal.aborted).toBe(false);
     expect(view.container.textContent).toBe('second');

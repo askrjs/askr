@@ -11,6 +11,10 @@ callback reruns an existing row, without remounting it, when:
 - a reactive value that the callback read directly, such as a parent `state()`
   getter, changes. The read subscribes the row, not the parent.
 
+Whatever causes the rerun, the row renders its latest item. An object item
+arrives as a proxy that reads the current item. Any other item, such as a
+primitive or an array, arrives as its latest value.
+
 Keys passed to `by` must be stable, non-null, and unique within the list. Keys
 are compared by identity, so `1` and `'1'` are different keys: changing a key's
 type remounts that row. Every build throws a descriptive error for a null,

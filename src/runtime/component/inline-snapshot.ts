@@ -16,6 +16,8 @@ export type InlineRenderSnapshot = {
   // reconciliation pass to fail to match it and force a spurious remount.
   hasVNodeKey: boolean;
   execution: ReturnType<typeof captureInlineExecution>;
+  /** Whether an update was queued; an inline render consumes it. */
+  hasPendingUpdate: boolean;
 };
 
 export function createInlineRenderSnapshot(
@@ -28,21 +30,29 @@ export function createInlineRenderSnapshot(
     parentLifetime: instance.owner.parent,
     hasVNodeKey: '_vnodeKey' in instance,
     execution: captureInlineExecution(instance),
+    hasPendingUpdate: instance.hasPendingUpdate,
   };
 }
 
+/**
+ * Undo a render that rolled back. An update the instance was due when that
+ * render took it over (a queued run, or a scheduled render it superseded) is
+ * not dropped: the instance renders again, so it still catches up with the
+ * state it reads, like a fine-grained binding does after a rollback.
+ */
 export function restoreInlineRenderSnapshot(
   snapshot: InlineRenderSnapshot
 ): void {
-  restoreInlineExecution(
-    snapshot.instance,
-    snapshot.execution,
-    snapshot.hasVNodeKey
-  );
-  snapshot.instance.owner.mounted = snapshot.mounted;
+  const { instance } = snapshot;
+  restoreInlineExecution(instance, snapshot.execution, snapshot.hasVNodeKey);
+  instance.owner.mounted = snapshot.mounted;
   adoptComponentParent(
-    snapshot.instance,
+    instance,
     snapshot.parentInstance,
     snapshot.parentLifetime ?? null
   );
+  // See runScheduledComponent: its superseded apply re-queues the instance.
+  instance._rolledBackRevision = instance.renderRevision;
+  if (snapshot.hasPendingUpdate && !instance.hasPendingUpdate)
+    instance._enqueueRun?.();
 }

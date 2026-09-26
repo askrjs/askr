@@ -4,12 +4,19 @@ const HYDRATION_RENDER_URL = 'hu';
 export interface PageRenderEnvelope {
   readonly version: typeof PAGE_RENDER_ENVELOPE_VERSION;
   readonly resources: Readonly<Record<string, unknown>>;
+  /**
+   * Dehydrated data-runtime query entries. Kept apart from `resources` so a
+   * query key can never collide with a resource slot key such as `r:0`.
+   * Omitted when there are none.
+   */
+  readonly queries?: Readonly<Record<string, unknown>>;
   readonly route: unknown;
   readonly framework: Readonly<Record<string, unknown>>;
 }
 
 type PageRenderEnvelopeInput = {
   readonly resources?: Readonly<Record<string, unknown>> | null;
+  readonly queries?: Readonly<Record<string, unknown>> | null;
   readonly route?: unknown;
   readonly framework?: Readonly<Record<string, unknown>> | null;
 };
@@ -26,6 +33,8 @@ export function createPageRenderEnvelope(
   return Object.freeze({
     version: PAGE_RENDER_ENVELOPE_VERSION,
     resources: ownedRecord(input.resources),
+    // Callers pass `queries` only when there are entries.
+    ...(input.queries ? { queries: ownedRecord(input.queries) } : {}),
     route: input.route,
     framework: ownedRecord(input.framework),
   });
@@ -66,36 +75,21 @@ export function replacePageRoute(
   value: unknown,
   route: unknown
 ): PageRenderEnvelope {
-  const current = pageRenderEnvelope(value);
-  return createPageRenderEnvelope({
-    resources: current.resources,
-    route,
-    framework: current.framework,
-  });
+  return createPageRenderEnvelope({ ...pageRenderEnvelope(value), route });
 }
 
 export function withPageResources(
   value: unknown,
   resources: Readonly<Record<string, unknown>> | null | undefined
 ): PageRenderEnvelope {
-  const current = pageRenderEnvelope(value);
-  return createPageRenderEnvelope({
-    resources,
-    route: current.route,
-    framework: current.framework,
-  });
+  return createPageRenderEnvelope({ ...pageRenderEnvelope(value), resources });
 }
 
 export function withPageFramework(
   value: unknown,
   framework: Readonly<Record<string, unknown>> | null | undefined
 ): PageRenderEnvelope {
-  const current = pageRenderEnvelope(value);
-  return createPageRenderEnvelope({
-    resources: current.resources,
-    route: current.route,
-    framework,
-  });
+  return createPageRenderEnvelope({ ...pageRenderEnvelope(value), framework });
 }
 
 export function withHydrationRenderUrl(
@@ -122,6 +116,7 @@ export function isEmptyPageRenderEnvelope(value: PageRenderEnvelope): boolean {
   return (
     value.route === undefined &&
     Object.keys(value.resources).length === 0 &&
+    Object.keys(value.queries ?? {}).length === 0 &&
     Object.keys(value.framework).length === 0
   );
 }

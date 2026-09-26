@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
-import { logger } from '../../../src/common/logger';
 import { createComponentInstance } from '../../../src/runtime';
 import { cleanupComponent } from '../../../src/runtime/component/cleanup';
 import { restartComponentGeneration } from '../../../src/runtime/component/generation';
@@ -68,7 +67,7 @@ describe('committed lifecycle operation isolation', () => {
     expect(instance.lifecycleSlots).toBeUndefined();
   });
 
-  it('should settle later mount and commit operations after earlier failures', () => {
+  it('should settle later mount and commit operations after earlier failures', async () => {
     const instance = createComponentInstance(
       'lifecycle-isolation',
       () => null,
@@ -78,7 +77,9 @@ describe('committed lifecycle operation isolation', () => {
     const calls: string[] = [];
     const mountCleanup = vi.fn();
     const commitCleanup = vi.fn();
-    const errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
+    // Settlement failures are reported through reportError after the task.
+    const reportError = vi.fn();
+    vi.stubGlobal('reportError', reportError);
 
     registerMountOperationForInstance(instance, () => {
       calls.push('mount-failed');
@@ -110,10 +111,12 @@ describe('committed lifecycle operation isolation', () => {
     expect(instance.mountOperations).toBeUndefined();
     expect(instance.commitOperations).toBeUndefined();
     expect(instance.owner.cleanups).toEqual([mountCleanup, commitCleanup]);
-    expect(errorSpy).toHaveBeenCalledTimes(1);
-    expect(errorSpy.mock.calls[0]?.[1]).toBeInstanceOf(AggregateError);
+    expect(reportError).not.toHaveBeenCalled();
+    await Promise.resolve();
+    expect(reportError).toHaveBeenCalledTimes(1);
+    expect(reportError.mock.calls[0]?.[0]).toBeInstanceOf(AggregateError);
 
-    errorSpy.mockRestore();
+    vi.unstubAllGlobals();
   });
 
   it('should skip rollback-only entries while preserving full commit order', () => {
