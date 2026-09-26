@@ -82,7 +82,7 @@ describe('SSR determinism (SSR)', () => {
     );
 
     expect(renderToStringSync(Component)).toBe(
-      '<ul><li data-index="0" data-key="a" data-askr-key-kind="string">alpha</li><li data-index="1" data-key="b" data-askr-key-kind="string">beta</li></ul>'
+      '<ul><li data-index="0">alpha</li><li data-index="1">beta</li></ul>'
     );
   });
 
@@ -249,7 +249,7 @@ describe('SSR child normalization', () => {
     );
 
     expect(renderToStringSync(App)).toBe(
-      '<span data-key="for" data-askr-key-kind="string">for:dark</span><span>show:dark</span><span>case:dark</span>'
+      '<span>for:dark</span><span>show:dark</span><span>case:dark</span>'
     );
   });
 
