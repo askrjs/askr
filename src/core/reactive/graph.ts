@@ -106,6 +106,7 @@ export class Computation<T = unknown> extends Owner implements Source {
   _hasError = false;
   _running = false;
   readonly _equals: Equals<T> | null;
+  readonly _failedRunSources: 'union' | 'previous';
   /** How this computation reacts to going stale; null for lazily read values. */
   _schedule: Scheduler | null;
 
@@ -113,12 +114,14 @@ export class Computation<T = unknown> extends Owner implements Source {
     owner: Owner | null,
     fn: () => T,
     schedule: Scheduler | null,
-    equals: Equals<T> | null = Object.is
+    equals: Equals<T> | null = Object.is,
+    failedRunSources: 'union' | 'previous' = 'union'
   ) {
     super(owner);
     this._fn = fn;
     this._schedule = schedule;
     this._equals = equals;
+    this._failedRunSources = failedRunSources;
   }
 
   /** Read the current value, recomputing if a source changed. */
@@ -177,7 +180,12 @@ export class Computation<T = unknown> extends Owner implements Source {
       trackingSources = previousSources;
     }
     this._state = CLEAN;
-    this.setSources(nextSources, failed);
+    this.setSources(
+      failed && this._failedRunSources === 'previous'
+        ? new Set(this._sources ?? EMPTY)
+        : nextSources,
+      failed && this._failedRunSources === 'union'
+    );
     if (this.disposed) return;
 
     if (failed) {

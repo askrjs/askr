@@ -73,7 +73,8 @@ export class ComponentInstance extends Owner {
       this,
       () => this.invoke(),
       onStale ?? renderLaneScheduler(this),
-      null
+      null,
+      'previous'
     );
   }
 
