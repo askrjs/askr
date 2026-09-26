@@ -743,9 +743,7 @@ describe('component-scoped lifecycle and polling checks', () => {
 
     expect(run).toHaveBeenCalledTimes(1);
     expect(cleanupTask).not.toHaveBeenCalled();
-    expect(container.querySelector('main')?.firstChild?.nodeType).toBe(
-      Node.COMMENT_NODE
-    );
+    expect(container.querySelector('main')?.textContent).toBe('');
 
     target.dispatchEvent(new Event('ping'));
     vi.advanceTimersByTime(110);
