@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { state } from '../../../src';
+import { derive, state } from '../../../src';
 import { createSPA, hydrateSPA } from '../../../src/boot';
 import { defineSetupComponent } from '../../../src/runtime/component/setup-prototype';
 import { renderToStringSync } from '../../../src/ssr';
@@ -111,6 +111,137 @@ describe('lifetime setup component prototype', () => {
     }
   });
 
+  it('should let setup-owned derived values and watches read current props', async () => {
+    let label: ReturnType<typeof state<string>>;
+    const observed: string[] = [];
+    const Child = defineSetupComponent<{ label: string }>(
+      (_initial, _context, currentProps) => {
+        const currentLabel = derive(() => currentProps().label);
+        watch(
+          () => currentProps().label,
+          (value) => observed.push(value)
+        );
+        return (props) => <p>{`${currentLabel()}:${props.label}`}</p>;
+      }
+    );
+    const Page = () => {
+      label = state('first');
+      return <Child label={label()} />;
+    };
+    const { container, cleanup } = createTestContainer();
+    const registry = routeRegistryFromTable([{ path: '/', handler: Page }]);
+
+    try {
+      await createSPA({ root: container, registry });
+      flushScheduler();
+      expect(container.textContent).toBe('first:first');
+      expect(observed).toEqual(['first']);
+      label!.set('second');
+      flushScheduler();
+      expect(container.textContent).toBe('second:second');
+      expect(observed).toEqual(['first', 'second']);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should restore setup prop reads when a sibling render rolls back', async () => {
+    let label: ReturnType<typeof state<string>>;
+    let fail: ReturnType<typeof state<boolean>>;
+    let readCurrent: () => { label: string } = () => ({ label: '' });
+    const Child = defineSetupComponent<{ label: string }>(
+      (_initial, _context, currentProps) => {
+        readCurrent = currentProps;
+        return (props) => <p>{props.label}</p>;
+      }
+    );
+    const Failure = ({ active }: { active: boolean }) => {
+      if (active) throw new Error('sibling failed');
+      return null;
+    };
+    const Page = () => {
+      label = state('first');
+      fail = state(false);
+      return (
+        <main>
+          <Child label={label()} />
+          <Failure active={fail()} />
+        </main>
+      );
+    };
+    const { container, cleanup } = createTestContainer();
+    const registry = routeRegistryFromTable([{ path: '/', handler: Page }]);
+
+    try {
+      await createSPA({ root: container, registry });
+      expect(readCurrent().label).toBe('first');
+      label!.set('second');
+      fail!.set(true);
+      expect(() => flushScheduler()).toThrow('sibling failed');
+      expect(readCurrent().label).toBe('first');
+      expect(container.querySelector('p')?.textContent).toBe('first');
+      fail!.set(false);
+      label!.set('third');
+      flushScheduler();
+      expect(readCurrent().label).toBe('third');
+      expect(container.querySelector('p')?.textContent).toBe('third');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should refresh setup-owned async work from current props and abort the old request', async () => {
+    let id: ReturnType<typeof state<string>>;
+    const requests: Array<{
+      id: string;
+      signal: AbortSignal;
+      resolve: (value: string) => void;
+    }> = [];
+    const Child = defineSetupComponent<{ id: string }>(
+      (_initial, _context, currentProps) => {
+        const result = resource<string>(({ signal }) => {
+          const requestId = currentProps().id;
+          return new Promise<string>((resolve) => {
+            requests.push({ id: requestId, signal, resolve });
+          });
+        });
+        watch(
+          () => currentProps().id,
+          (_nextId, context) => {
+            if (!context.initial) result.refresh();
+          }
+        );
+        return () => <p>{result.value ?? 'pending'}</p>;
+      }
+    );
+    const Page = () => {
+      id = state('first');
+      return <Child id={id()} />;
+    };
+    const { container, cleanup } = createTestContainer();
+    const registry = routeRegistryFromTable([{ path: '/', handler: Page }]);
+
+    try {
+      await createSPA({ root: container, registry });
+      await waitForNextEvaluation();
+      expect(requests.map((request) => request.id)).toEqual(['first']);
+      id!.set('second');
+      flushScheduler();
+      await waitForNextEvaluation();
+      expect(requests.map((request) => request.id)).toEqual([
+        'first',
+        'second',
+      ]);
+      expect(requests[0].signal.aborted).toBe(true);
+      requests[1].resolve('ready');
+      await waitForNextEvaluation();
+      expect(container.textContent).toBe('ready');
+    } finally {
+      cleanup();
+    }
+    expect(requests[1].signal.aborted).toBe(true);
+  });
+
   it('should render changing loop lengths and an early return', async () => {
     let items: ReturnType<typeof state<string[]>>;
     const Page = defineSetupComponent(() => {
@@ -203,6 +334,39 @@ describe('lifetime setup component prototype', () => {
       count!.set(2);
       flushScheduler();
       expect(container.querySelector('button')?.textContent).toBe('2');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should retain hydrated nodes when setup-owned values read later props', async () => {
+    let label: ReturnType<typeof state<string>>;
+    const Child = defineSetupComponent<{ label: string }>(
+      (_initial, _context, currentProps) => {
+        const currentLabel = derive(() => currentProps().label);
+        return () => <p>{currentLabel()}</p>;
+      }
+    );
+    const Page = () => {
+      label = state('first');
+      return <Child label={label()} />;
+    };
+    const { container, cleanup } = createTestContainer();
+    const registry = routeRegistryFromTable([{ path: '/', handler: Page }]);
+
+    try {
+      container.innerHTML = renderToStringSync(Page);
+      const serverParagraph = container.querySelector('p');
+      await hydrateSPA({
+        root: container,
+        registry,
+        hydrate: { verifyMarkup: true },
+      });
+      expect(container.querySelector('p')).toBe(serverParagraph);
+      label!.set('second');
+      flushScheduler();
+      expect(container.querySelector('p')).toBe(serverParagraph);
+      expect(serverParagraph?.textContent).toBe('second');
     } finally {
       cleanup();
     }

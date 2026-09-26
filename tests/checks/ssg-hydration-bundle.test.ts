@@ -186,6 +186,8 @@ describe('SSG hydration bundle', () => {
     // callbacks after removal (+1,883 bytes, 287,998 bytes total).
     // 283 KiB: #578 retires stale default portal SSR content after hydration
     // and preserves content for deferred writers (+1,360 bytes over 287,998).
-    expect(initialBytes).toBeLessThanOrEqual(283 * 1024);
+    // 284 KiB: #575's internal setup prototype tracks current props for
+    // setup-owned reactive reads (289,993 bytes, 201 above the prior cap).
+    expect(initialBytes).toBeLessThanOrEqual(284 * 1024);
   });
 });

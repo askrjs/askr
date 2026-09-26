@@ -52,11 +52,14 @@ internal until the gates below pass.
 The prototype test covers state updates across an early return and changing
 loop length, fresh render props, keyed remount, a failed update retaining its
 committed DOM and setup state, SSR output, hydration adoption, resource
-publication, and resource abort on cleanup. Existing positional callers stay
-on their current path. The prototype does not establish that setup closures
-over initial props are safe for `derive()`, `watch()`, or resource dependencies;
-live prop access and resource invalidation need an explicit contract and tests.
-It also cannot use eager `For`/`Show`/`Case` inside its render callback yet:
+publication, and resource abort on cleanup. A setup callback can read later
+props through its third `currentProps` accessor: derived values and watches
+track it, rollback restores its prior value, and hydration retains the server
+node after a prop update. A setup-owned resource can use the accessor and an
+owned watch to refresh on prop changes and abort an older request. This is an
+internal proof, not the final source-driven async API for #492. Existing
+positional callers stay on their current path. The prototype still cannot use
+eager `For`/`Show`/`Case` inside its render callback yet:
 those primitives still claim parent slots. A branch that creates a lifecycle
 value in setup responds only to **initial** props; later changes need a keyed
 child or a separately owned branch.
@@ -78,15 +81,16 @@ with 19.7% relative margin of error; another run on the same code was 63.7 ms.
 These single samples are context, not acceptance measurements.
 
 The paired tier 2 fixture mounts and cleans 100 stateful keyed rows, updates
-their parent, and reorders their keys. One low-noise run measured legacy/setup
-means of 2.194/2.224 ms for mount and cleanup, 2.166/2.083 ms for parent
-update, and 2.212/2.138 ms for reorder. Other runs had large outliers and
-relative margins of error as high as 55%, so the prototype has **no qualified
-performance result yet**. The fixture measures end-to-end time, not allocation
-bytes or teardown independently. Before public rollout, capture allocations
-and teardown separately, obtain at least three stable paired runs, and require
-no more than 15% regression in each case or tier 1 list updates. Qualify SSR
-and hydration independently because this machine's hydration samples vary.
+their parent, and reorders their keys. After adding `currentProps`, the last
+three production-mode same-runner captures on September 26 measured
+legacy/setup means (ms): mount and cleanup 1.871/1.817, 1.870/1.861,
+1.859/1.831; parent update 1.793/1.789, 1.848/1.835, 1.789/1.793; reorder
+1.864/1.874, 1.891/1.933, 1.844/1.876. All variants stayed within the 5%
+stable guardrail in those three pairs, with relative margins of error below
+5.5%. One earlier mount/cleanup capture measured 1.930/2.197 ms (+13.8%),
+so repeat qualification when measuring allocations and teardown separately.
+The fixture measures end-to-end time only. Qualify SSR, hydration, and touched
+tier 1 list guardrails independently before a public rollout.
 
 ## Consumers and migration
 

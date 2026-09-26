@@ -5,6 +5,11 @@ import type {
 import type { Props } from '../../common/props';
 import { getCurrentComponentInstance } from './scope';
 import { registerCommitRollback } from '../transactions/access';
+import {
+  recordReadableRead,
+  type ReadableSource,
+} from '../reactivity/readable';
+import { notifyReadableSource } from '../reactivity/notify';
 
 const SETUP_COMPONENT = Symbol('askr.setup-component-prototype');
 
@@ -16,7 +21,8 @@ type SetupComponent = ComponentFunction & {
 export function defineSetupComponent<TProps extends Props>(
   setup: (
     props: TProps,
-    context?: ComponentContext
+    context: ComponentContext | undefined,
+    currentProps: () => TProps
   ) => (props: TProps) => ReturnType<ComponentFunction>
 ): (
   props: TProps,
@@ -24,22 +30,48 @@ export function defineSetupComponent<TProps extends Props>(
 ) => ReturnType<ComponentFunction> {
   const renderers = new WeakMap<
     object,
-    (props: TProps) => ReturnType<ComponentFunction>
+    {
+      render: (props: TProps) => ReturnType<ComponentFunction>;
+      currentProps: TProps;
+      readProps: ReadableSource<TProps>;
+    }
   >();
   const component = ((props: TProps, context?: ComponentContext) => {
     const instance = getCurrentComponentInstance();
     if (!instance) {
       throw new Error('A setup component requires a component lifetime.');
     }
-    let render = renderers.get(instance);
-    if (!render) {
-      render = setup(props, context);
-      renderers.set(instance, render);
+    let slot = renderers.get(instance);
+    if (!slot) {
+      const created = {
+        render: null as unknown as (
+          props: TProps
+        ) => ReturnType<ComponentFunction>,
+        currentProps: props,
+        readProps: null as unknown as ReadableSource<TProps>,
+      };
+      const readProps = (() => {
+        recordReadableRead(readProps);
+        return created.currentProps;
+      }) as ReadableSource<TProps>;
+      created.readProps = readProps;
+      created.render = setup(props, context, readProps);
+      slot = created;
+      renderers.set(instance, slot);
       registerCommitRollback(() => renderers.delete(instance));
+    } else if (!Object.is(slot.currentProps, props)) {
+      const previousProps = slot.currentProps;
+      const currentSlot = slot;
+      slot.currentProps = props;
+      registerCommitRollback(() => {
+        currentSlot.currentProps = previousProps;
+        notifyReadableSource(currentSlot.readProps);
+      });
+      notifyReadableSource(slot.readProps);
     }
     instance._setupRenderActive = true;
     try {
-      return render(props);
+      return slot.render(props);
     } finally {
       instance._setupRenderActive = false;
     }
