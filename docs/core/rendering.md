@@ -15,6 +15,46 @@ child owners do not become live. Cleanup belonging to a successful commit runs
 only after the coherent DOM update. Cleanup failures are reported together and
 do not roll back an already successful render.
 
+### Teardown errors
+
+When an update removes DOM, Askr tears down the removed subtree: callback refs
+receive `null`, listeners and fine-grained bindings are removed, and component
+lifetimes are disposed, running their cleanup functions (returned by mount
+operations, tasks, and watches). Every one of these steps runs for every node in
+the subtree, even when an earlier one throws. Each step runs at most once: a
+callback ref that throws is not called with `null` again.
+
+Failures are reported with the platform `reportError()`, the same path
+[event handler errors](../advanced/event-delegation.md#handler-errors) take, in
+development and production builds. Reports are queued and delivered in order
+once the current task finishes (on the next microtask), after the DOM update is
+complete. An `error` handler can therefore update state, and a handler that
+throws cannot interrupt or roll back the update; Askr logs that failure with
+`console.error` instead. The update is not rolled back, and the removed content
+is not restored.
+
+Reports are grouped by the unit that was cleaned up, a single failure as-is and
+several as one `AggregateError`:
+
+- Each removed DOM node produces one report for its refs, listeners, bindings,
+  and the components hosted in it. Removing several nodes in one update (for
+  example, clearing a list whose rows each fail) produces one report per node.
+- A component tree disposed together produces one report: the failures of
+  descendant components without `cleanupStrict` are handed to the component
+  where disposal started, which reports them once.
+- Failures from work that runs after an update commits (disposing replaced
+  components, retiring the previous route, and mount or commit operations that
+  throw) produce one report per update.
+
+An `ErrorBoundary` does not catch teardown errors: they are not render errors,
+and the nearest boundary is often part of the content being removed. Hosts
+without `reportError()`, including Node and jsdom, rethrow the error from a
+microtask, where Node and test runners treat it as an unhandled error. Stub
+`globalThis.reportError` in tests that throw from cleanup on purpose.
+
+`cleanupApp()` on an app created with `cleanupStrict: true` throws the failures
+instead of reporting them (see [cleanup](./runtime.md#cleanup)).
+
 ### Fine-grained bindings and rollback
 
 A function-valued prop or child (`title={() => ...}`, `{() => count()}`) is a

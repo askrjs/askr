@@ -1,5 +1,6 @@
 import { isPromiseLike } from '../../common/promise';
 import { logger } from '../../common/logger';
+import { reportUncaughtErrorLater } from '../../common/report-error';
 import type { ComponentInstance } from '../component/instance';
 import { withLifecycleOwner } from '../component/scope';
 import { ownCleanup, type OwnershipRecord } from '../ownership/record';
@@ -124,7 +125,7 @@ function settleLifecycleOperationResult(
           try {
             cleanup();
           } catch (err) {
-            logger.error('[Askr] async mount cleanup failed:', err);
+            reportUncaughtErrorLater(err);
           }
         }
       },

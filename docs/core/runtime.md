@@ -180,6 +180,26 @@ if (hasApp('app')) {
 }
 ```
 
+Cleanup always finishes: every ref, listener, reactive binding, and component
+lifetime in the app is torn down even when one of them throws. What happens to
+the failures depends on the app's `cleanupStrict` option:
+
+- By default, `cleanupApp()` does not throw. Failures (a callback ref throwing
+  when it receives `null`, a listener that cannot be removed, a throwing
+  component cleanup function, a failing root cleanup callback) are reported
+  with `reportError()` once the current task finishes, in development and
+  production builds (see [teardown errors](./rendering.md#teardown-errors)).
+- With `cleanupStrict: true`, `cleanupApp()` throws one `AggregateError` after
+  cleanup finishes. It contains every failure, including those of components
+  rendered inside `For`, `Show`, and `Case` at any depth, and none of them is
+  also passed to `reportError()`. Failures during ordinary updates of a strict
+  app (removed rows, replaced components, an `ErrorBoundary` fallback, a
+  route change) are still reported rather than thrown, so an update is never
+  interrupted.
+
+Server rendering has no `reportError()`: a cleanup failure of a component
+rendered on the server is thrown from the render call instead.
+
 ## See also
 
 - [Routing](./routing.md)

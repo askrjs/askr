@@ -1,5 +1,4 @@
-import { isDevelopmentEnvironment } from '../../common/env';
-import { logger } from '../../common/logger';
+import { reportUncaughtErrorLater } from '../../common/report-error';
 import type { ComponentInstance } from './instance';
 import { clearCurrentComponentScope, endComponentScope } from './scope';
 import { cleanupReadableSubscriptionSources } from '../reactivity/readable';
@@ -25,15 +24,15 @@ function componentDisposalPhases(owner: OwnershipRecord): DisposalPhases {
   const active = instance.owner === owner;
   const hadRendererHost = Boolean(instance.target || instance._placeholder);
   let savedScope: ReturnType<typeof clearCurrentComponentScope>;
-  const errors: unknown[] | undefined = instance.cleanupStrict ? [] : undefined;
+  const strict = Boolean(instance.cleanupStrict);
+  const errors: unknown[] = [];
   const retiredScopes = active ? undefined : owner.scopedIndex;
   const detachReads = () => {
     retiredScopes?.clear();
     cleanupReadableSubscriptionSources(instance, owner.reads, owner.identity);
   };
-  const recordError = (message: string, error: unknown) => {
-    if (errors) errors.push(error);
-    else if (isDevelopmentEnvironment()) logger.warn(message, error);
+  const recordError = (_message: string, error: unknown) => {
+    errors.push(error);
   };
   return {
     begin() {
@@ -49,7 +48,7 @@ function componentDisposalPhases(owner: OwnershipRecord): DisposalPhases {
     beforeCleanup: active ? undefined : detachReads,
     afterCleanup: active ? detachReads : undefined,
     recordError,
-    finish() {
+    finish(nested) {
       try {
         if (active && instance.owner === owner) {
           try {
@@ -63,11 +62,21 @@ function componentDisposalPhases(owner: OwnershipRecord): DisposalPhases {
           instance._portalErrorParentGeneration = undefined;
         }
         if (__ASKR_DEVELOPMENT_BUILD__) untrackRouteGeneration(owner.identity);
-        if (errors?.length)
-          throw new AggregateError(
-            errors,
-            `Cleanup failed for component ${instance.id}`
-          );
+        // Strict lifetimes throw to the disposer after the drain. An ordinary
+        // lifetime hands its failures to the enclosing lifetime of the same
+        // drain, so the nearest strict ancestor or the drain's root decides;
+        // an ordinary root reports once the current task finishes.
+        if (errors.length) {
+          const failure =
+            strict || errors.length > 1
+              ? new AggregateError(
+                  errors,
+                  `Cleanup failed for component ${instance.id}`
+                )
+              : errors[0];
+          if (strict || nested) throw failure;
+          reportUncaughtErrorLater(failure);
+        }
       } finally {
         endComponentScope(savedScope);
       }
