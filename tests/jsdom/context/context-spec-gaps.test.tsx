@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vite-plus/test';
-import { defineScope, readScope } from '../../../src/runtime/context/context';
+import { defineScope, readScope } from '../../../src/index';
 import {
   createTestContainer,
   flushScheduler,
