@@ -9,6 +9,7 @@
 import type { ComponentFunction } from '../../common/component';
 import type { Props } from '../../common/props';
 import { ComponentInstance } from '../component/instance';
+import { noteErrorOrigin } from '../component/errors';
 import type { Owner } from '../reactive/owner';
 import { reportUncaughtErrorLater } from '../../common/report-error';
 import { readValue } from '../reactive/readable';
@@ -311,7 +312,10 @@ export function renderInstance(
     });
     return children;
   } catch (error) {
-    if (!instance.boundary) throw error;
+    if (!instance.boundary) {
+      noteErrorOrigin(instance.parent, error);
+      throw error;
+    }
     for (const failure of ctx.pass.rewind(mark)) {
       reportUncaughtErrorLater(failure);
     }

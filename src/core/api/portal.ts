@@ -12,6 +12,7 @@
  */
 
 import { ELEMENT_TYPE, type JSXElement } from '../../common/jsx';
+import { recordUndo } from '../component/journal';
 import { Owner, getOwner } from '../reactive/owner';
 import { Signal } from '../reactive/graph';
 import { OWNED_TYPE } from '../view/children';
@@ -206,11 +207,13 @@ export function DefaultPortal(props?: {
   const instance = currentComponent();
   if (instance && !instance.server && !explicitHosts.has(instance)) {
     explicitHosts.add(instance);
-    onCommit(instance, () => {
-      channel.explicitHosts.write(channel.explicitHosts.peek() + 1);
-      return () => {
-        channel.explicitHosts.write(channel.explicitHosts.peek() - 1);
-      };
+    channel.explicitHosts.write(channel.explicitHosts.peek() + 1);
+    recordUndo(() => {
+      explicitHosts.delete(instance);
+      channel.explicitHosts.write(channel.explicitHosts.peek() - 1);
+    });
+    onCommit(instance, () => () => {
+      channel.explicitHosts.write(channel.explicitHosts.peek() - 1);
     });
   }
   return renderWrite(channel.write.read());
