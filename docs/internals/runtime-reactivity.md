@@ -323,7 +323,8 @@ flowchart LR
   recompute that changes a published value notifies downstream readers,
   skipping only the component currently rendering. `selector()` recomputes its
   source record when the source identity changes and publishes that change to
-  its candidate readers.
+  its candidate readers. Each source record groups candidate subscriptions by
+  equality function; these groups are independent of scheduler lanes.
 - `src/runtime/reactivity/readable.ts` is the shared substrate connecting state, derived
   values, reactive props, and component readers.
   `withDerivedReadTracking()` marks a derive/selector computation as active,
