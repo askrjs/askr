@@ -187,6 +187,9 @@ function createDerived(
   return {
     computation,
     read: markReadable((() => {
+      if (computation.disposed) {
+        throw new Error(`${label} owner has been disposed`);
+      }
       if (computation._running) {
         throw new Error(`${label} cannot read itself recursively`);
       }
@@ -297,6 +300,9 @@ function createSelector<T>(
   watcher.run();
 
   const predicate = ((candidate: T) => {
+    if (watcher.disposed) {
+      throw new Error('selector() owner has been disposed');
+    }
     if (watcher._running) {
       throw new Error('selector() cannot read itself recursively');
     }

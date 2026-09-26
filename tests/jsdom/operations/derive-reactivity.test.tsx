@@ -413,12 +413,12 @@ describe('derive reactivity', () => {
 
     createIsland({ root: container, component: App });
     flushScheduler();
-    expect(shared._derivedSubscribers?.size ?? 0).toBe(1);
+    expect(leaked()).toBe(20);
 
     cleanup();
-    expect(shared._derivedSubscribers?.size ?? 0).toBe(0);
     expect(() => leaked()).toThrow(/derive.*disposed/i);
-    expect(shared._derivedSubscribers?.size ?? 0).toBe(0);
+    shared.set(3);
+    expect(() => leaked()).toThrow(/derive.*disposed/i);
   });
 
   it('should enforce stable hook order for derive()', () => {

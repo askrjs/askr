@@ -75,7 +75,8 @@ evaluation when its value is already current.
 
 Reading a derive from its own calculation throws a `derive()` recursion
 error. A selector source that calls its own selector throws a `selector()`
-recursion error.
+recursion error. Calling either value after its owning component is disposed
+also throws.
 
 Resource snapshots from `resource()` are not readable sources. Use
 `derive(snapshot, map)` or read `resource.value` in JSX; resource updates still

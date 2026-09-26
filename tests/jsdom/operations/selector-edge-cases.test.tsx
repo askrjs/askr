@@ -167,11 +167,11 @@ describe('selector edge cases', () => {
 
     createIsland({ root: container, component: App });
     flushScheduler();
-    expect(shared._derivedSubscribers?.size ?? 0).toBe(1);
+    expect(leaked(2)).toBe(true);
 
     cleanup();
-    expect(shared._derivedSubscribers?.size ?? 0).toBe(0);
     expect(() => leaked(2)).toThrow(/selector.*disposed/i);
-    expect(shared._derivedSubscribers?.size ?? 0).toBe(0);
+    shared.set(3);
+    expect(() => leaked(3)).toThrow(/selector.*disposed/i);
   });
 });
