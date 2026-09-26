@@ -81,6 +81,23 @@ function isHostNode(value: object): boolean {
   return typeof Node !== 'undefined' && value instanceof Node;
 }
 
+/** A function child's result treats nested functions as values. */
+export function functionChildOutput(value: unknown): unknown {
+  if (typeof value === 'function') return null;
+  if (Array.isArray(value)) return value.map(functionChildOutput);
+  if (value && typeof value === 'object') {
+    const vnode = value as ElementLike;
+    if (isFragmentType(vnode.type)) {
+      const props = propsOf(vnode);
+      return {
+        ...vnode,
+        props: { ...props, children: functionChildOutput(props.children) },
+      };
+    }
+  }
+  return value;
+}
+
 /** The descriptor's identity for matching against a previous render. */
 export function descriptorType(child: ChildDescriptor): unknown {
   switch (child.kind) {
@@ -145,10 +162,9 @@ export function normalizeChildren(
       }
       return out;
     }
-    throw new Error(
-      `[Askr] Objects are not valid as a child (found an object with keys ` +
-        `{${Object.keys(value as object).join(', ')}}).`
-    );
+    // Plain data objects have no visual representation. A surrounding array
+    // can still contain renderable siblings after one of these values.
+    return out;
   }
 
   const key = keyOf(vnode);

@@ -17,6 +17,7 @@ import {
   ELEMENT,
   FRAGMENT,
   FUNCTION,
+  functionChildOutput,
   NATIVE,
   PORTAL,
   TEXT,
@@ -329,7 +330,8 @@ function createDynamic(
   } as DynamicNode;
   node.instance = new ComponentInstance(
     ctx.owner,
-    () => readValue(node.fn) as ReturnType<ComponentFunction>,
+    () =>
+      functionChildOutput(readValue(node.fn)) as ReturnType<ComponentFunction>,
     {},
     () => scheduleDynamicUpdate(node)
   );

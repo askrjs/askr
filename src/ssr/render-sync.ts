@@ -32,6 +32,7 @@ import {
   PORTAL,
   TEXT,
   normalizeChildren,
+  functionChildOutput,
   type ChildDescriptor,
 } from '../core/view/children';
 import { DefaultPortal } from '../core/api/portal';
@@ -311,7 +312,10 @@ function renderChild(child: ChildDescriptor, sink: SinkTarget): void {
     }
     case FUNCTION:
       renderComponent(
-        () => readValue(child.fn) as ReturnType<ComponentFunction>,
+        () =>
+          functionChildOutput(
+            readValue(child.fn)
+          ) as ReturnType<ComponentFunction>,
         {},
         sink
       );
