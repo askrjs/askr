@@ -566,4 +566,128 @@ describe('placeholder application when range replacement is declined', () => {
       mounted.restore();
     }
   });
+
+  it('should restore a declined range when a later publication fails', () => {
+    let value!: ReturnType<typeof state<string>>;
+    function Child() {
+      value = state('');
+      return value() ? value() : null;
+    }
+    const view = render(() => (
+      <section>
+        <Child />
+        <i>{'tail'}</i>
+      </section>
+    ));
+    const renderer = getRuntimeRenderer();
+    const replacement = vi
+      .spyOn(renderer, 'replaceComponentRange')
+      .mockReturnValue(null);
+    const evaluate = renderer.evaluate.bind(renderer);
+    try {
+      value.set('one');
+      view.flush();
+      const previous = view.root.innerHTML;
+      const application = vi
+        .spyOn(renderer, 'evaluate')
+        .mockImplementation((...args) => {
+          evaluate(...args);
+          registerCommitParticipant({
+            publish() {
+              throw new Error('extension publication failed');
+            },
+          });
+        });
+      try {
+        value.set('two');
+        expect(() => view.flush()).toThrow('extension publication failed');
+      } finally {
+        application.mockRestore();
+      }
+      expect(view.root.innerHTML).toBe(previous);
+
+      value.set('three');
+      view.flush();
+      expect(markup(view.root.innerHTML)).toBe(
+        '<section>three<i>tail</i></section>'
+      );
+    } finally {
+      replacement.mockRestore();
+      view.cleanup();
+    }
+  });
+
+  it('should update and clear the whole range on later declined commits', () => {
+    let value!: ReturnType<typeof state<string | null>>;
+    function Child() {
+      value = state<string | null>(null);
+      return value();
+    }
+    const view = render(() => (
+      <section>
+        <Child />
+        <i>{'tail'}</i>
+      </section>
+    ));
+    const replacement = vi
+      .spyOn(getRuntimeRenderer(), 'replaceComponentRange')
+      .mockReturnValue(null);
+    try {
+      for (const next of ['one', 'two', null, 'three', 'four', null]) {
+        value.set(next);
+        view.flush();
+        expect(markup(view.root.innerHTML)).toBe(
+          `<section>${next ?? ''}<i>tail</i></section>`
+        );
+      }
+    } finally {
+      replacement.mockRestore();
+      view.cleanup();
+    }
+  });
+
+  it('should replace a declined multi-node range with an element', () => {
+    let value!: ReturnType<typeof state<number>>;
+    function Child() {
+      value = state(0);
+      const current = value();
+      if (current === 1)
+        return (
+          <>
+            {'a'}
+            <b>{'b'}</b>
+          </>
+        );
+      if (current === 2) return <em>{'e'}</em>;
+      return null;
+    }
+    const view = render(() => (
+      <section>
+        <Child />
+        <i>{'tail'}</i>
+      </section>
+    ));
+    const replacement = vi
+      .spyOn(getRuntimeRenderer(), 'replaceComponentRange')
+      .mockReturnValue(null);
+    try {
+      // An element host keeps extension evaluation inside it afterwards, so
+      // the range is replaced once, after being cleared and restored.
+      const expected = [
+        '<section>a<b>b</b><i>tail</i></section>',
+        '<section><i>tail</i></section>',
+        '<section>a<b>b</b><i>tail</i></section>',
+        '<section><em>e</em><i>tail</i></section>',
+      ];
+      [1, 0, 1, 2].forEach((next, index) => {
+        value.set(next);
+        view.flush();
+        expect(markup(view.root.innerHTML)).toBe(expected[index]);
+        expect(view.root.querySelectorAll('b').length).toBe(next === 1 ? 1 : 0);
+      });
+    } finally {
+      replacement.mockRestore();
+      view.cleanup();
+    }
+  });
 });

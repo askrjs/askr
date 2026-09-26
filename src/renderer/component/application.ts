@@ -3,6 +3,7 @@ import {
   captureOwnerRange,
   clearRangeOwner,
   createDetachedRange,
+  getOwnedRange,
   type DOMRange,
 } from '../ownership/ranges';
 import { logger } from '../../common/logger';
@@ -18,7 +19,47 @@ import {
 import { registerCommitRollback } from '../../runtime/transactions/access';
 import { runRetainedElementUpdate } from '../ownership/retained-element';
 import { cleanupDetachedComponentHost } from './host-cleanup';
+import { beginComponentHostReplacement } from './host-replacement';
 import type { InstanceHostNode } from '../dom-host';
+
+type Evaluation = ReturnType<typeof getRuntimeEvaluation>;
+
+/**
+ * Materialize a result an extension host declined to commit as a range
+ * replacement. One element or comment is the host; text and several nodes take
+ * an anchored range, exactly where the server writes them, never a wrapper.
+ */
+function materializeDeclinedResult(
+  instance: ComponentInstance,
+  result: unknown,
+  ownerDocument: Document,
+  renderer: Evaluation
+): Node {
+  if (result === null || result === undefined) {
+    return ownerDocument.createComment('');
+  }
+  const temporary = ownerDocument.createElement('div');
+  renderer.evaluate(result, temporary);
+  const onlyChild =
+    temporary.childNodes.length === 1 ? temporary.firstChild : null;
+  if (onlyChild instanceof Element || onlyChild instanceof Comment) {
+    temporary.removeChild(onlyChild);
+    return onlyChild;
+  }
+  const children = ownerDocument.createDocumentFragment();
+  while (temporary.firstChild) children.appendChild(temporary.firstChild);
+  return createDetachedRange(children, instance, true).fragment!;
+}
+
+function recordDeclinedHostOwner(
+  host: Node,
+  instance: ComponentInstance
+): void {
+  const indexed = host as Node & { __ASKR_INSTANCES?: ComponentInstance[] };
+  const instances = indexed.__ASKR_INSTANCES ?? [];
+  if (!instances.includes(instance)) instances.push(instance);
+  writeHostOwners(indexed, instances, instances[0] ?? instance);
+}
 
 /** DOM application only. Runtime publication and lifecycle settlement belong
  * to the enclosing transaction, regardless of the selected DOM strategy. */
@@ -72,6 +113,36 @@ export function applyComponentResult(
         );
         return true;
       }
+      const ownedRange = getOwnedRange(instance);
+      if (
+        ownedRange &&
+        !ownedRange.single &&
+        ownedRange.start === placeholder &&
+        placeholder!.parentNode
+      ) {
+        // An earlier declined commit anchored this component's result, so the
+        // whole range, not only its start anchor, is replaced or cleared.
+        const nextHost = beginComponentHostReplacement(
+          placeholder as InstanceHostNode,
+          instance,
+          null
+        ).replace(
+          () =>
+            materializeDeclinedResult(
+              instance,
+              result,
+              placeholder!.ownerDocument,
+              renderer
+            ),
+          (host) => recordDeclinedHostOwner(host, instance)
+        );
+        bindComponentHost(
+          instance,
+          nextHost instanceof Element ? nextHost : null,
+          nextHost instanceof Comment ? nextHost : undefined
+        );
+        return true;
+      }
       if (result === null || result === undefined) return true;
       const parent = placeholder!.parentNode;
       if (!parent) {
@@ -80,29 +151,21 @@ export function applyComponentResult(
         );
         return false;
       }
-      const temporary = placeholder!.ownerDocument.createElement('div');
-      renderer.evaluate(result, temporary);
-      const onlyChild =
-        temporary.childNodes.length === 1 ? temporary.firstChild : null;
-      let host: Element | Comment;
-      let nodes: Node[];
-      let inserted: Node;
-      let range: DOMRange | undefined;
-      if (onlyChild instanceof Element || onlyChild instanceof Comment) {
-        host = onlyChild;
-        nodes = [onlyChild];
-        inserted = onlyChild;
-      } else {
-        // Text and multi-node results take an anchored range among the
-        // siblings, exactly where the server writes them, never a wrapper.
-        const children = placeholder!.ownerDocument.createDocumentFragment();
-        while (temporary.firstChild) children.appendChild(temporary.firstChild);
-        const materialized = createDetachedRange(children, instance, true);
-        range = materialized.range;
-        host = range.start as Comment;
-        nodes = Array.from(materialized.fragment!.childNodes);
-        inserted = materialized.fragment!;
-      }
+      const inserted = materializeDeclinedResult(
+        instance,
+        result,
+        placeholder!.ownerDocument,
+        renderer
+      );
+      const nodes =
+        inserted instanceof DocumentFragment
+          ? Array.from(inserted.childNodes)
+          : [inserted];
+      const host = nodes[0] as Element | Comment;
+      const range: DOMRange | undefined =
+        inserted instanceof DocumentFragment
+          ? getOwnedRange(instance)
+          : undefined;
       registerCommitRollback(() => {
         const indexed = host as InstanceHostNode;
         const provisional = indexed.__ASKR_INSTANCES?.filter(
@@ -146,10 +209,7 @@ export function applyComponentResult(
         host instanceof Element ? host : null,
         host instanceof Comment ? host : undefined
       );
-      const indexed = host as Node & { __ASKR_INSTANCES?: ComponentInstance[] };
-      const instances = indexed.__ASKR_INSTANCES ?? [];
-      if (!instances.includes(instance)) instances.push(instance);
-      writeHostOwners(indexed, instances, instances[0] ?? instance);
+      recordDeclinedHostOwner(host, instance);
       return true;
     });
   } finally {

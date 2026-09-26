@@ -204,6 +204,30 @@ function removeRangeAtCursor(parent: Element, cursor: Node): Node | null {
   return next;
 }
 
+/** Whether a range start anchors a component's own result range. */
+function isComponentRangeStart(node: Node): boolean {
+  const host = node as Node & {
+    __ASKR_INSTANCE?: unknown;
+    __ASKR_INSTANCES?: unknown[];
+  };
+  return (
+    isRangeStart(node) &&
+    (Boolean(host.__ASKR_INSTANCE) || Boolean(host.__ASKR_INSTANCES?.length))
+  );
+}
+
+/**
+ * Whether a range at the cursor, after a non-`For` boundary committed, is the
+ * boundary's own previous output rather than a following sibling. A following
+ * component's result range must not be skipped as if the boundary owned it.
+ */
+function isBoundaryRangeAtCursor(
+  cursor: Node,
+  boundaryStarts: ReadonlySet<Node>
+): boolean {
+  return boundaryStarts.has(cursor) || !isComponentRangeStart(cursor);
+}
+
 function consumeUnmatchedTailAtCursor(
   parent: Element,
   cursor: Node
@@ -338,6 +362,13 @@ export function updateMixedControlChildren(
         }
       }
 
+      const boundaryStarts = new Set<Node>();
+      if (controlState.kind !== 'for') {
+        for (const range of getControlBoundaryRanges(controlState))
+          boundaryStarts.add(range.start);
+        for (const range of controlState.lastRemovedRanges)
+          boundaryStarts.add(range.start);
+      }
       const cursorAfterBoundary = cursor
         ? isRangeStart(cursor)
           ? (findRangeEnd(cursor)?.nextSibling ?? cursor.nextSibling)
@@ -371,10 +402,11 @@ export function updateMixedControlChildren(
           cursor && !ranges.some((range) => range.start === cursor);
         if (!cursor?.parentNode) {
           cursor = last.end.nextSibling;
-        } else if (cursorWasReplaced && isRangeStart(cursor)) {
-          const oldEnd = findRangeEnd(cursor);
-          cursor = oldEnd?.nextSibling ?? last.end.nextSibling;
-        } else if (isRangeStart(cursor)) {
+        } else if (
+          isRangeStart(cursor) &&
+          (!cursorWasReplaced ||
+            isBoundaryRangeAtCursor(cursor, boundaryStarts))
+        ) {
           const oldEnd = findRangeEnd(cursor);
           cursor = oldEnd?.nextSibling ?? last.end.nextSibling;
         } else {
@@ -388,7 +420,9 @@ export function updateMixedControlChildren(
               ? cursorAfterBoundary
               : null;
         const inactiveBoundaryEnd =
-          inactiveBoundaryCursor && isRangeStart(inactiveBoundaryCursor)
+          inactiveBoundaryCursor &&
+          isRangeStart(inactiveBoundaryCursor) &&
+          isBoundaryRangeAtCursor(inactiveBoundaryCursor, boundaryStarts)
             ? findRangeEnd(inactiveBoundaryCursor)
             : null;
         cursor =
@@ -399,7 +433,17 @@ export function updateMixedControlChildren(
       continue;
     }
 
-    if (cursor) {
+    // A range at the cursor is stale boundary output, unless it is the result
+    // range of the component this child reconciles with.
+    if (
+      cursor &&
+      !(
+        isComponentRangeStart(cursor) &&
+        _isDOMElement(child) &&
+        typeof child.type === 'function' &&
+        nodeMatchesFollowingVNode(cursor, child)
+      )
+    ) {
       cursor = removeRangeAtCursor(parent, cursor);
     }
 
@@ -434,7 +478,9 @@ export function updateMixedControlChildren(
         true
       );
       if (synced) {
-        cursor = synced.nextSibling;
+        cursor = isRangeStart(synced)
+          ? (findRangeEnd(synced)?.nextSibling ?? synced.nextSibling)
+          : synced.nextSibling;
         continue;
       }
     }
