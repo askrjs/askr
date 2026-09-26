@@ -19,6 +19,7 @@ import { isDevelopmentEnvironment } from '../../common/env';
 import { logger } from '../../common/logger';
 import {
   getRenderedAttributeName,
+  isSVGDomElement,
   readElementClassName,
   removeRenderedAttribute,
   setRenderedAttribute,
@@ -478,6 +479,7 @@ export function applyClassPropValue(
       return;
     }
     patchClassList(el, previousTokens, nextTokens);
+    dropEmptySvgClass(el);
     if (descriptor) {
       descriptor.lastClassTokens = nextTokens;
     }
@@ -487,6 +489,13 @@ export function applyClassPropValue(
   writeElementClassName(el, nextString);
   if (descriptor) {
     descriptor.lastClassTokens = nextTokens;
+  }
+}
+
+/** An SVG element renders no `class` attribute for an empty class list. */
+function dropEmptySvgClass(el: Element): void {
+  if (isSVGDomElement(el) && el.getAttribute('class') === '') {
+    el.removeAttribute('class');
   }
 }
 
@@ -522,6 +531,7 @@ export function applyScalarPropValue(
         writeElementClassName(el, '');
       } else if (previousTokens.length > 0) {
         el.classList.remove(...previousTokens);
+        dropEmptySvgClass(el);
       }
       if (descriptor) {
         descriptor.lastClassTokens = [];

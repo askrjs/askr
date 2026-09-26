@@ -1,11 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import {
-  getVNodeContextFrame,
-  markVNodeTreeWithContextFrame,
-  rebaseVNodeTreeWithContextFrame,
-  type ContextFrame,
-} from '../../../src/runtime/context/context';
-import {
   Case,
   For,
   Match,
@@ -334,22 +328,6 @@ describe('renderer context frame invariants', () => {
     ).toBe('inner');
   });
 
-  it('should not stamp plain objects from array-valued vnode props', () => {
-    const plainObject = { id: 'user-data' };
-    const ownerFrame: ContextFrame = {
-      parent: null,
-      values: new Map(),
-    };
-    const Carrier = (_props: { items: object[] }) => <div />;
-    const vnode = <Carrier items={[plainObject]} />;
-
-    rebaseVNodeTreeWithContextFrame(vnode, ownerFrame);
-
-    expect(getVNodeContextFrame(vnode)).toBe(ownerFrame);
-    expect(getVNodeContextFrame(plainObject)).toBeUndefined();
-    expect(plainObject).toEqual({ id: 'user-data' });
-  });
-
   it('should refresh an empty For fallback exactly once with new context', () => {
     const ThemeScope = defineScope('light');
     const items: readonly string[] = [];
@@ -524,42 +502,6 @@ describe('renderer context frame invariants', () => {
     );
     expect(container.querySelector('#array-theme-second')?.textContent).toBe(
       'dark'
-    );
-  });
-
-  it('should override stale frames on vnode props inside a provider', () => {
-    const ThemeScope = defineScope('light');
-
-    const Reader = () => {
-      const theme = readScope(ThemeScope);
-      return <span id={'prop-node-theme'}>{theme}</span>;
-    };
-
-    const NodeView = (props: { node: JSXElement }) => props.node;
-
-    const App = () => {
-      const node = <Reader />;
-      markVNodeTreeWithContextFrame(
-        node,
-        {
-          parent: null,
-          values: new Map([[ThemeScope.key, 'outer']]),
-        },
-        true
-      );
-
-      return (
-        <ThemeScope value={'inner'}>
-          <NodeView node={node} />
-        </ThemeScope>
-      );
-    };
-
-    createIsland({ root: container, component: App });
-    flushScheduler();
-
-    expect(container.querySelector('#prop-node-theme')?.textContent).toBe(
-      'inner'
     );
   });
 

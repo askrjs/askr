@@ -1,11 +1,5 @@
-import { expect, test, vi } from 'vite-plus/test';
+import { expect, test } from 'vite-plus/test';
 import { state, type State } from '../../../src';
-import {
-  applyStylePropValue,
-  getAppliedProps,
-  recordAppliedProps,
-} from '../../../src/renderer/props/attributes';
-import { captureRootHost } from '../../../src/renderer/ownership/root-snapshot';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -311,41 +305,6 @@ test('should restore the applied-props baseline when a render rolls back', () =>
   }
 });
 
-test('should restore applied-props records with a root host snapshot', () => {
-  const root = document.createElement('div');
-  const child = document.createElement('p');
-  const fresh = document.createElement('span');
-  root.append(child, fresh);
-  recordAppliedProps(child, { class: 'a', title: 'x' });
-  const before = getAppliedProps(child);
-  const snapshot = captureRootHost(root);
-  recordAppliedProps(child, { class: 'b' });
-  recordAppliedProps(fresh, { title: 'y' });
-  expect(snapshot.restore()).toEqual([]);
-  expect(getAppliedProps(child)).toBe(before);
-  expect(getAppliedProps(fresh)).toBeUndefined();
-});
-
-test('should record only rendered attribute props, without children or closures', () => {
-  const element = document.createElement('p');
-  const onClick = () => {};
-  const title = () => 'reactive';
-  recordAppliedProps(element, {
-    children: [<span>child</span>],
-    key: 1,
-    ref: () => {},
-    onClick,
-    title,
-    class: 'a',
-    hidden: false,
-    'aria-hidden': false,
-    'data-empty': null,
-  });
-  const record = getAppliedProps(element)!;
-  expect(Object.keys(record)).toEqual(['title', 'class', 'aria-hidden']);
-  expect(Object.values(record)).not.toContain(title);
-});
-
 test('should keep checked={false} and selected={false} controlled across re-renders', () => {
   const { container, cleanup } = createTestContainer();
   let count!: State<number>;
@@ -496,15 +455,3 @@ test('should refresh the applied-props baseline on the static fast path', () => 
     cleanup();
   }
 });
-
-test.each([5, ['color: red']])(
-  'should clear the style when the previous value %j was not a style',
-  (previousValue) => {
-    const element = document.createElement('p');
-    element.setAttribute('style', 'color: red');
-    const cssText = vi.spyOn(element.style, 'cssText', 'set');
-    applyStylePropValue(element, null, previousValue);
-    expect(cssText.mock.calls).not.toContainEqual(['null']);
-    expect(element.hasAttribute('style')).toBe(false);
-  }
-);

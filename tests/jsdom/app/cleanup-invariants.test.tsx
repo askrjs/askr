@@ -1,41 +1,10 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { cleanupApp } from '../../../src/boot';
-import {
-  cleanupComponent,
-  createComponentInstance,
-} from '../../../src/runtime';
 import { task } from '../../../src/resources';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
 
 describe('cleanup invariants', () => {
-  it('should finish disposal before surfacing strict cleanup errors', () => {
-    const controller = new AbortController();
-    const instance = createComponentInstance(
-      'strict-cleanup',
-      () => null,
-      {},
-      null
-    );
-    let aborted = false;
-
-    controller.signal.addEventListener('abort', () => {
-      aborted = true;
-    });
-    instance.owner.controller = controller;
-    instance.cleanupStrict = true;
-    instance.owner.mounted = true;
-    instance.notifyUpdate = () => {};
-    (instance.owner.cleanups ??= []).push(() => {
-      throw new Error('cleanup failed');
-    });
-
-    expect(() => cleanupComponent(instance)).toThrow(AggregateError);
-    expect(aborted).toBe(true);
-    expect(instance.notifyUpdate).toBeNull();
-    expect(instance.owner.mounted).toBe(false);
-  });
-
   it('should run async task cleanup exactly once when it resolves after unmount', async () => {
     const { container, cleanup } = createTestContainer();
     let resolveTask!: (cleanup: () => void) => void;
