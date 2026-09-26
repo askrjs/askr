@@ -242,7 +242,7 @@ export function reconcileChildren(
     const record = (node: Node) => {
       positions.push({ node, parent: node.parentNode, next: node.nextSibling });
     };
-    ctx.pass.onStructuralCommit(
+    ctx.pass.onReversibleCommit(
       () => {
         for (let index = positions.length - 1; index >= 0; index--) {
           const { node, parent, next } = positions[index];

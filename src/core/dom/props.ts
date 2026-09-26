@@ -10,6 +10,8 @@
  */
 
 import type { Props } from '../../common/props';
+import { isCustomElementName } from '../../common/attr-names';
+import { getDomPropertyName } from '../../common/dom-properties';
 import { isSkippedProp } from '../../common/prop-classification';
 import { setRef } from './refs';
 import { Computation } from '../reactive/graph';
@@ -23,6 +25,8 @@ import {
   setListener,
 } from './events';
 import type { Pass } from './pass';
+import { CommitMutationError } from './pass';
+import { getRenderedAttributeName } from './element-attributes';
 import {
   applyScalarPropValue,
   applyStaticScalarPropsToElement,
@@ -40,6 +44,45 @@ function isBinding(key: string, value: unknown): value is () => unknown {
 /** A `<select>` value can only select options that already exist. */
 function followsChildren(tag: string, key: string): boolean {
   return key === 'value' && tag === 'select';
+}
+
+function isSimpleAttribute(tag: string, key: string, value: unknown): boolean {
+  return (
+    !isCustomElementName(tag) &&
+    !key.includes(':') &&
+    getDomPropertyName(tag, key, value) === null &&
+    key !== 'class' &&
+    key !== 'className' &&
+    key !== 'style' &&
+    key !== 'value' &&
+    key !== 'checked' &&
+    key !== 'selected' &&
+    key !== 'dangerouslySetInnerHTML'
+  );
+}
+
+/** Record the live attribute before applying a reversible scalar write. */
+function writeSimpleAttribute(
+  pass: Pass,
+  node: HostNode,
+  key: string,
+  value: unknown,
+  previous: unknown
+): void {
+  const { el, tag } = node;
+  const name = getRenderedAttributeName(el, key);
+  pass.op(() => {
+    const before = el.getAttribute(name);
+    pass.onReversibleCommit(() => {
+      if (before === null) el.removeAttribute(name);
+      else el.setAttribute(name, before);
+    });
+    try {
+      applyScalarPropValue(el, key, value, tag, previous);
+    } catch (error) {
+      throw new CommitMutationError(error);
+    }
+  });
 }
 
 /** The last value each binding applied, for diffing its next write. */
@@ -150,6 +193,8 @@ export function patchProps(
     const old = previous[key];
     if (parseEventProp(key)) {
       pass.op(() => setHandler(node, key, undefined));
+    } else if (!isBinding(key, old) && isSimpleAttribute(tag, key, undefined)) {
+      writeSimpleAttribute(pass, node, key, undefined, old);
     } else {
       pass.op(() => {
         const binding = unbind(node, key);
@@ -185,7 +230,11 @@ export function patchProps(
     // A host may change a rendered value between passes. The scalar writer
     // compares against the live DOM and leaves equal values untouched.
     if (Object.is(value, old) && key === 'dangerouslySetInnerHTML') continue;
-    pass.op(() => applyScalarPropValue(el, key, value, tag, old));
+    if (isSimpleAttribute(tag, key, value)) {
+      writeSimpleAttribute(pass, node, key, value, old);
+    } else {
+      pass.op(() => applyScalarPropValue(el, key, value, tag, old));
+    }
   }
 }
 

@@ -178,7 +178,8 @@ substantial change. A local checkpoint may still have unrelated failing suites;
 the final package cannot.
 
 Structural child-placement failures now restore sibling containers in one
-pass before reporting the error. Prop-write failures still need qualification.
+pass before reporting the error. Standard element attribute writes also restore their
+previous values; form and property write failures still need qualification.
 The remaining jsdom failures are in `dom-renderer-host.test.tsx`, which exercises
 the legacy experimental host. Keep those failures visible until its public
 contract is resolved; passing hydration alone does not qualify the branch.

@@ -53,8 +53,8 @@ export class Pass {
   /** Instances rendered by this pass, children before parents. */
   private readonly renderedInstances: ComponentInstance[] = [];
   private readonly afterCommit: Op[] = [];
-  private readonly structuralUndo: Op[] = [];
-  private readonly structuralSettle: Op[] = [];
+  private readonly commitUndo: Op[] = [];
+  private readonly commitSettle: Op[] = [];
   private readonly journalStart = journalMark();
 
   /** Record an operation on committed state. */
@@ -92,10 +92,10 @@ export class Pass {
     this.afterCommit.push(fn);
   }
 
-  /** Restore a structural write on abort; release departed owners on success. */
-  onStructuralCommit(undo: Op, settle: Op): void {
-    this.structuralUndo.push(undo);
-    this.structuralSettle.push(settle);
+  /** Restore a reversible write on abort; settle its old lifetime on success. */
+  onReversibleCommit(undo: Op, settle: Op = () => {}): void {
+    this.commitUndo.push(undo);
+    this.commitSettle.push(settle);
   }
 
   mark(): PassMark {
@@ -143,7 +143,7 @@ export class Pass {
       } catch (error) {
         if (error instanceof CommitMutationError) {
           this.commitAborted = true;
-          for (const undo of this.structuralUndo.reverse()) {
+          for (const undo of this.commitUndo.reverse()) {
             try {
               undo();
             } catch (failure) {
@@ -159,7 +159,7 @@ export class Pass {
       }
     }
     settleJournal(this.journalStart);
-    for (const settle of this.structuralSettle) {
+    for (const settle of this.commitSettle) {
       try {
         settle();
       } catch (error) {

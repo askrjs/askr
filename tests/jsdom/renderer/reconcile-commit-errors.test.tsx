@@ -149,6 +149,40 @@ describe('reconciliation commit errors', () => {
       rightNodes
     );
   });
+
+  it('should restore an earlier attribute when a later attribute write fails', () => {
+    const App = () => {
+      flip = state(false);
+      return (
+        <div>
+          <button id="first" data-mode={flip() ? 'new' : 'old'}>
+            first
+          </button>
+          <button id="second" data-mode={flip() ? 'new' : 'old'}>
+            second
+          </button>
+        </div>
+      );
+    };
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const stable = container.innerHTML;
+    const second = container.querySelector('#second')!;
+    const write = second.setAttribute.bind(second);
+    const error = new Error('attribute write failed');
+    let armed = true;
+    vi.spyOn(second, 'setAttribute').mockImplementation((name, value) => {
+      if (armed && name === 'data-mode') {
+        armed = false;
+        throw error;
+      }
+      write(name, value);
+    });
+
+    flip.set(true);
+    expect(() => flushScheduler()).toThrow(error);
+    expect(container.innerHTML).toBe(stable);
+  });
 });
 
 // Reactive child functions commit outside a component update, so they need
