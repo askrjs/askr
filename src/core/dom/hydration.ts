@@ -16,6 +16,7 @@ import {
 } from '../../common/prop-classification';
 import type { Props } from '../../common/props';
 import { ATTRIBUTE_PROP_PREFIX } from '../../common/dom-properties';
+import { isSSRPortalHydrationAnchor } from '../../common/portal';
 import { getRenderedAttributeName } from './element-attributes';
 import { parseEventProp } from './events';
 
@@ -140,17 +141,24 @@ export function syncChildren(
   expected: readonly Node[],
   stopAt: Node | null = null
 ): void {
-  let cursor = container.firstChild;
+  // SSR portal anchors stay where the server put them.
+  const skipAnchors = (node: Node | null): Node | null => {
+    while (node && node !== stopAt && isSSRPortalHydrationAnchor(node)) {
+      node = node.nextSibling;
+    }
+    return node;
+  };
+  let cursor = skipAnchors(container.firstChild);
   for (const node of expected) {
     if (node === cursor) {
-      cursor = cursor.nextSibling;
+      cursor = skipAnchors(cursor.nextSibling);
     } else {
       container.insertBefore(node, cursor);
     }
   }
   while (cursor && cursor !== stopAt) {
     const next = cursor.nextSibling;
-    container.removeChild(cursor);
+    if (!isSSRPortalHydrationAnchor(cursor)) container.removeChild(cursor);
     cursor = next;
   }
 }

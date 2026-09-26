@@ -536,10 +536,16 @@ function resolvePortals(html: string, ctx: RenderContext): string {
                 )
               )
             : '';
+        // An unused automatic host renders nothing; a used one whose content
+        // is empty keeps its token as the hydration anchor.
         const hostContent =
-          host.defaultPortal && active && slot.hasValue
-            ? `<!--askr-range-start-->${content}<!--askr-range-end-->`
-            : content;
+          host.automatic && (!active || !slot.hasValue)
+            ? ''
+            : host.automatic && content === ''
+              ? host.token
+              : host.defaultPortal && active && slot.hasValue
+                ? `<!--askr-range-start-->${content}<!--askr-range-end-->`
+                : content;
         resolved = resolved.replace(host.token, () => hostContent);
       }
     }
