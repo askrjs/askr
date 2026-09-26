@@ -5,26 +5,26 @@
  * Public API surface — only users should import from here
  */
 
-export { configureRenderDiagnostics } from './runtime';
-export type { RenderDiagnosticsOptions } from './runtime';
+export { configureRenderDiagnostics } from './core/component/diagnostics';
+export type { RenderDiagnosticsOptions } from './core/component/diagnostics';
 
 // Runtime primitives
-export { derive, getSignal, selector, state } from './runtime';
+export { derive, getSignal, selector, state } from './core/api/state';
 export type {
   Derived,
   Selector,
   State,
   StateSetter,
   StateTuple,
-} from './runtime';
+} from './core/api/state';
 
 // Control flow
 export { Case, For, Match, Show } from './control';
 export type { CaseProps, ForProps, MatchProps, ShowProps } from './control';
 
 // Lexical scopes
-export { defineScope, readScope } from './runtime';
-export type { Scope } from './runtime';
+export { defineScope, readScope } from './core/api/scope';
+export type { Scope } from './core/api/scope';
 export { CspNonceScope, cspNonce } from './csp-nonce';
 export { registerSSRStyle } from './common/render-context';
 

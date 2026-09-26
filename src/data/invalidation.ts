@@ -1,10 +1,9 @@
 import {
-  documentVisible,
   routeActive,
   timer,
-  windowFocused,
   type ActivityPredicate,
-} from '../runtime';
+} from '../core/api/lifecycle';
+import { documentVisible, windowFocused } from '../resources/browser-activity';
 import {
   invalidateQueriesForRuntime,
   resolveDataRuntimeState,

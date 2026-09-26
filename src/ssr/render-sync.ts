@@ -1,231 +1,79 @@
-import { isFragmentType, type JSXElement } from '../common/jsx';
-import { __CONTROL_BOUNDARY__ } from '../common/control';
-import type { DOMElement } from '../common/vnode';
-import { __ERROR_BOUNDARY__ } from '../common/vnode';
-import { logger } from '../common/logger';
+/**
+ * Synchronous server rendering.
+ *
+ * Components run on the same execution path as in the browser (a component
+ * instance per element, positional hooks, scopes through the owner tree) and
+ * their output is interpreted with the same child descriptors as the DOM
+ * renderer. The server reads function children and props once, never
+ * subscribes, and ends every lifetime when the render finishes.
+ *
+ * The output is plain HTML: no marker comments or framework attributes.
+ * Portal hosts write tokens that are replaced with their final content once
+ * the render root completes.
+ */
+
+import type { AuthContext } from '@askrjs/auth';
+import { DEFERRED_BOUNDARY } from '../common/deferred-value';
+import type { JSXElement } from '../common/jsx';
+import { SSR_PORTAL_HOST } from '../common/portal';
+import { isPromiseLike } from '../common/promise';
+import type { Props } from '../common/props';
+import type { ComponentFunction } from '../common/component';
+import { ComponentInstance } from '../core/component/instance';
+import { untrack } from '../core/reactive/graph';
+import { Owner, runWithOwner } from '../core/reactive/owner';
+import { readValue } from '../core/reactive/readable';
 import {
-  FunctionChild,
-  getVNodeContextFrame,
-  markVNodeWithContextFrame,
-} from '../runtime';
-import { SSR_PORTAL_ANCHOR, SSR_PORTAL_HOST } from '../common/portal';
+  COMPONENT,
+  ELEMENT,
+  FRAGMENT,
+  FUNCTION,
+  NATIVE,
+  PORTAL,
+  TEXT,
+  normalizeChildren,
+  type ChildDescriptor,
+} from '../core/view/children';
+import { DefaultPortal } from '../core/api/portal';
+import { CspNonceScope, validateCspNonce } from '../csp-nonce';
+import { ELEMENT_TYPE, Fragment } from '../jsx';
+import { renderAttrsDirect, resolveReactiveAttributeProps } from './attrs';
 import {
   createRenderContext,
+  throwSSRDataMissing,
   withRenderContext,
   type RenderContext,
   type RenderRouteState,
   type SSRData,
 } from './context';
 import {
-  disposeSSRTemporaryOwners,
-  executeComponentSync,
-  renderSyncComponentRoot,
-  wrapWithDefaultPortal,
-  type Component,
-} from './component-runtime';
-import {
-  createErrorBoundaryReset,
-  getErrorBoundaryState,
-  getControlBoundaryState,
-  getRenderableChildren,
-  normalizeRenderableChildren,
-  resolveErrorBoundaryFallbackNode,
-  withControlBoundaryChildren,
-} from './boundaries';
-import { renderAttrsDirect, resolveReactiveAttributeProps } from './attrs';
-import {
   VOID_ELEMENTS,
   escapeRawText,
   escapeText,
   type RawTextElement,
 } from './escape';
+import { serializeHydrationRenderData } from './hydration-data';
 import {
   getChildNamespace,
   getElementNamespace,
   getRawTextElementInContext,
   type SSRNamespace,
 } from './namespace';
-import { serializeHydrationRenderData } from './hydration-data';
 import { startRenderPhase, stopRenderPhase } from './render-keys';
 import type { RouteAppRenderInput } from './route-render';
 import { StringSink } from './sink';
 import type { VNode } from './types';
-import type { AuthContext } from '@askrjs/auth';
-import { DEFERRED_BOUNDARY } from '../common/deferred-value';
-import { CspNonceScope, validateCspNonce } from '../csp-nonce';
 
-const __SSR_DEBUG =
-  process.env.NODE_ENV !== 'production' &&
-  (process.env.ASKR_SSR_DEBUG === '1' || process.env.ASKR_SSR_DEBUG === 'true');
-
-const RANGE_START = '<!--askr-range-start-->';
-const RANGE_END = '<!--askr-range-end-->';
-
-function isMultiRangeChild(child: unknown): boolean {
-  if (Array.isArray(child)) return true;
-  if (!child || typeof child !== 'object' || !('type' in child)) {
-    return false;
-  }
-  const vnode = child as VNode;
-  return isFragmentType(vnode.type);
-}
-
-export function inheritRenderableKey(
-  source: VNode | JSXElement,
-  result: VNode | JSXElement
-): VNode | JSXElement {
-  const inheritedKey = (source as DOMElement).key;
-  if (inheritedKey === undefined || inheritedKey === null) {
-    return result;
-  }
-
-  if (!result || typeof result !== 'object' || !('type' in result)) {
-    return result;
-  }
-
-  const resultVNode = result as DOMElement;
-  if (resultVNode.key === undefined || resultVNode.key === null) {
-    resultVNode.key = inheritedKey;
-  }
-
-  if (typeof resultVNode.type === 'string') {
-    if (!resultVNode.props) {
-      resultVNode.props = {};
-    }
-
-    if (resultVNode.props['data-key'] === undefined) {
-      resultVNode.props['data-key'] = String(inheritedKey);
-    }
-    if (resultVNode.props['data-askr-key-kind'] === undefined) {
-      resultVNode.props['data-askr-key-kind'] = typeof inheritedKey;
-    }
-  }
-
-  return result;
-}
-
-/**
- * Render a value to a string through the streaming renderer.
- *
- * Portal resolution splices content into the finished document by token, so it
- * genuinely needs a string — but it gets one from the same renderer everything
- * else uses rather than from a second implementation.
- */
-function renderRenderableToString(
-  value: unknown,
-  ctx: RenderContext,
-  namespace: SSRNamespace
-): string {
-  const sink = new StringSink();
-  withNamespace(namespace, () => renderRenderableSyncToSink(value, sink, ctx));
-  sink.end();
-  return sink.toString();
-}
-
-function resolveSSRPortals(html: string, ctx: RenderContext): string {
-  let resolved = html;
-  const renderedHosts = new Set<string>();
-
-  for (;;) {
-    let foundHost = false;
-
-    for (const slot of ctx.ssrPortals.slots.values()) {
-      const explicitHosts = slot.hosts.filter((host) => !host.automatic);
-      const activeHosts =
-        explicitHosts.length > 0
-          ? new Set(explicitHosts.map((host) => host.token))
-          : new Set(slot.hosts.map((host) => host.token));
-
-      for (const host of slot.hosts) {
-        if (renderedHosts.has(host.token)) {
-          continue;
-        }
-
-        foundHost = true;
-        const content =
-          activeHosts.has(host.token) && slot.hasValue
-            ? renderRenderableToString(
-                inheritPortalHostKey(
-                  slot.value,
-                  host.automatic
-                    ? undefined
-                    : portalHostKeys.get(ctx)?.get(host.token)
-                ),
-                ctx,
-                portalHostNamespaces.get(ctx)?.get(host.token) ?? 'html'
-              )
-            : '';
-        resolved = resolved.replace(host.token, () =>
-          host.automatic && (explicitHosts.length > 0 || !slot.hasValue)
-            ? ''
-            : host.automatic && content === ''
-              ? host.token
-              : host.defaultPortal
-                ? RANGE_START + content + RANGE_END
-                : content
-        );
-        renderedHosts.add(host.token);
-      }
-    }
-
-    if (!foundHost) {
-      return resolved;
-    }
-  }
-}
-
-class SSRPortalSink {
-  private bufferedChunks: string[] | null = null;
-
-  constructor(
-    private readonly sink: {
-      write(html: string): void;
-    }
-  ) {}
-
-  write(html: string): void {
-    if (!html) {
-      return;
-    }
-    if (this.bufferedChunks) {
-      this.bufferedChunks.push(html);
-      return;
-    }
-    this.sink.write(html);
-  }
-
-  writePortalHost(token: string): void {
-    this.bufferedChunks ??= [];
-    this.bufferedChunks.push(token);
-  }
-
-  flush(ctx: RenderContext): void {
-    if (!this.bufferedChunks) {
-      return;
-    }
-    this.sink.write(resolveSSRPortals(this.bufferedChunks.join(''), ctx));
-  }
-}
-
-/** The streaming target: `write` plus the optional batched and portal writes. */
+/** The streaming target: `write` plus optional portal host tokens. */
 type SinkTarget = {
   write(html: string): void;
-  write2?: (a: string, b: string) => void;
-  write3?: (a: string, b: string, c: string) => void;
   writePortalHost?: (token: string) => void;
 };
 
 /**
- * Collects writes so they can be published to a real sink, or dropped.
- *
- * An ErrorBoundary is transactional: markup its subtree produced before a
- * descendant threw must never reach the response, or the fallback lands inside
- * a half-written element. A sink cannot take output back, so the protected
- * subtree renders into one of these first.
- *
- * Portal host writes are recorded rather than flattened, because reaching the
- * real sink through `writePortalHost` is what puts it into portal-resolving
- * mode; replaying them preserves both that signal and the original order.
+ * Collects writes so they can be published or dropped. An ErrorBoundary's
+ * subtree renders into one first, so markup from a subtree that then throws
+ * never reaches the response.
  */
 class BufferedSink {
   private readonly operations: Array<{ portalHost: boolean; text: string }> =
@@ -250,148 +98,149 @@ class BufferedSink {
   }
 }
 
-export function renderRenderableSyncToSink(
-  value: unknown,
-  sink: SinkTarget,
-  ctx: RenderContext
-): void {
-  if (value === null || value === undefined || value === false) return;
-  if (typeof value === 'string') {
-    sink.write(escapeText(value));
-    return;
+/** Buffers output once a portal host appears so tokens can be resolved. */
+class PortalSink {
+  private buffered: string[] | null = null;
+
+  constructor(private readonly sink: { write(html: string): void }) {}
+
+  write(html: string): void {
+    if (!html) return;
+    if (this.buffered) this.buffered.push(html);
+    else this.sink.write(html);
   }
-  if (typeof value === 'number') {
-    sink.write(escapeText(String(value)));
-    return;
+
+  writePortalHost(token: string): void {
+    (this.buffered ??= []).push(token);
   }
-  if (Array.isArray(value)) {
-    renderChildrenSyncToSink(value, sink, ctx);
-    return;
+
+  flush(ctx: RenderContext): void {
+    if (this.buffered)
+      this.sink.write(resolvePortals(this.buffered.join(''), ctx));
   }
-  if (typeof value === 'function') {
-    renderRenderableSyncToSink(
-      renderFunctionChild(value as () => unknown, ctx),
-      sink,
-      ctx
+}
+
+// ---------------------------------------------------------------------------
+// Render state (SSR is synchronous: one cursor per nested render)
+
+interface ServerRender {
+  ctx: RenderContext;
+  owner: Owner;
+  namespace: SSRNamespace;
+  portalNamespaces: Map<string, SSRNamespace>;
+}
+
+let current: ServerRender | null = null;
+
+function state(): ServerRender {
+  if (!current) throw new Error('[Askr] No server render is active.');
+  return current;
+}
+
+function withOwner<T>(owner: Owner, fn: () => T): T {
+  const render = state();
+  const previous = render.owner;
+  render.owner = owner;
+  try {
+    return fn();
+  } finally {
+    render.owner = previous;
+  }
+}
+
+function withNamespace<T>(namespace: SSRNamespace, fn: () => T): T {
+  const render = state();
+  const previous = render.namespace;
+  render.namespace = namespace;
+  try {
+    return fn();
+  } finally {
+    render.namespace = previous;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Purity guard: server renders must be deterministic.
+
+const guardStack: Array<{ random: () => number; now: () => number }> = [];
+
+function pushPurityGuard(): void {
+  if (process.env.NODE_ENV === 'production') return;
+  guardStack.push({
+    random: Reflect.get(Math, 'random') as () => number,
+    now: Reflect.get(Date, 'now') as () => number,
+  });
+  Reflect.set(Math, 'random', () => {
+    throw new Error(
+      'SSR Strict Purity: Math.random is not allowed during synchronous SSR. Use the provided `ssr` context RNG instead.'
     );
-    return;
-  }
-  if (value && typeof value === 'object' && 'type' in value) {
-    renderNodeSyncToSink(value as VNode, sink, ctx);
-  }
-}
-
-/**
- * Render a function or readable child. As on the client, it runs as a small
- * component (`FunctionChild`) in the context it was written in, so hooks,
- * `Show`/`For` and `readScope` work; the server reads it once and does not
- * subscribe.
- */
-function renderFunctionChild(
-  child: () => unknown,
-  ctx: RenderContext
-): VNode | JSXElement {
-  return executeComponentSync(
-    FunctionChild as unknown as Component,
-    { read: child },
-    ctx,
-    getVNodeContextFrame(child) ?? null
-  );
-}
-
-function renderChildSyncToSink(
-  child: unknown,
-  sink: SinkTarget,
-  ctx: RenderContext
-): void {
-  renderRenderableSyncToSink(child, sink, ctx);
-}
-
-/**
- * Write a deferred boundary's pending content inside its resolve wrapper.
- *
- * The wrapper is known from the node's props, so the children stream into the
- * sink between the two markers rather than being rendered to a string first.
- */
-function renderDeferredBoundaryToSink(
-  node: VNode | JSXElement,
-  sink: SinkTarget,
-  ctx: RenderContext
-): void {
-  const id = String(node.props?.['id'] ?? '');
-  sink.write(`<askr-resolve data-askr-deferred="${id}">`);
-  renderRenderableSyncToSink(node.props?.['pending'], sink, ctx);
-  sink.write('</askr-resolve>');
-}
-
-/** Write one `For` row, bracketing it with range markers when it spans several nodes. */
-function renderForRangeChildToSink(
-  child: unknown,
-  sink: SinkTarget,
-  ctx: RenderContext
-): void {
-  if (
-    child &&
-    typeof child === 'object' &&
-    'type' in child &&
-    typeof (child as VNode).type === 'function'
-  ) {
-    const vnode = child as VNode | JSXElement;
-    const result = executeComponentSync(
-      vnode.type as Component,
-      vnode.props,
-      ctx,
-      getVNodeContextFrame(vnode) ?? null
+  });
+  Reflect.set(Date, 'now', () => {
+    throw new Error(
+      'SSR Strict Purity: Date.now is not allowed during synchronous SSR. Pass timestamps explicitly or use deterministic helpers.'
     );
-    renderForRangeChildToSink(inheritRenderableKey(vnode, result), sink, ctx);
-    return;
-  }
-
-  const spansRange = isMultiRangeChild(child);
-  if (spansRange) sink.write(RANGE_START);
-  renderChildSyncToSink(child, sink, ctx);
-  if (spansRange) sink.write(RANGE_END);
-}
-
-/**
- * Write a control boundary's children.
- *
- * Whether the boundary needs range markers is decided from the children
- * themselves, before any of them render, so the decision costs nothing and the
- * subtree can stream out as it is produced.
- */
-function renderControlChildrenToSink(
-  node: VNode | JSXElement,
-  sink: SinkTarget,
-  ctx: RenderContext
-): void {
-  const controlState = getControlBoundaryState(node);
-
-  withControlBoundaryChildren<void>(node, (children) => {
-    const values = children ?? [];
-
-    if (controlState?.kind === 'for') {
-      for (let index = 0; index < values.length; index += 1) {
-        renderForRangeChildToSink(values[index], sink, ctx);
-      }
-      return;
-    }
-
-    const spansRange = values.length !== 1 || isMultiRangeChild(values[0]);
-    if (spansRange) sink.write(RANGE_START);
-    renderChildrenSyncToSink(values, sink, ctx);
-    if (spansRange) sink.write(RANGE_END);
   });
 }
 
-/**
- * Snapshot portal writes before an ErrorBoundary renders its children. The
- * returned function discards writes made by a subtree that then failed, so the
- * fallback does not ship content the failed subtree wrote. Hosts it registered
- * stay: like a client host replaced by a fallback, they keep the portal
- * claimed, so content does not move to the automatic host.
- */
-function captureSSRPortalWrites(ctx: RenderContext): () => void {
+function popPurityGuard(): void {
+  if (process.env.NODE_ENV === 'production') return;
+  const previous = guardStack.pop();
+  if (previous) {
+    Reflect.set(Math, 'random', previous.random);
+    Reflect.set(Date, 'now', previous.now);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Components
+
+function runComponent(instance: ComponentInstance): unknown {
+  pushPurityGuard();
+  try {
+    const output = instance.render();
+    if (isPromiseLike(output)) throwSSRDataMissing();
+    return output;
+  } finally {
+    popPurityGuard();
+  }
+}
+
+function renderComponent(
+  fn: ComponentFunction,
+  props: Props,
+  sink: SinkTarget
+): void {
+  const render = state();
+  const instance = new ComponentInstance(render.owner, fn, props);
+  instance.server = true;
+  instance.serverContext = render.ctx;
+  const output = runComponent(instance);
+  if (!instance.boundary) {
+    withOwner(instance, () => renderValue(output, sink));
+    return;
+  }
+
+  // An error boundary: render the protected subtree into a buffer and drop
+  // it (and any portal content it wrote) if it throws.
+  const buffer = new BufferedSink();
+  const restorePortals = capturePortalWrites(render.ctx);
+  try {
+    withOwner(instance, () => renderValue(output, buffer));
+  } catch (error) {
+    restorePortals();
+    // End the lifetimes the failed subtree started.
+    for (const child of [...(instance.owned ?? [])]) {
+      if (child !== instance.computation) child.dispose();
+    }
+    if (!instance.boundary(error)) throw error;
+    const fallback = runComponent(instance);
+    withOwner(instance, () => renderValue(fallback, sink));
+    return;
+  }
+  buffer.publishTo(sink);
+}
+
+function capturePortalWrites(ctx: RenderContext): () => void {
   const saved = new Map<object, { hasValue: boolean; value: unknown }>();
   for (const [key, slot] of ctx.ssrPortals.slots) {
     saved.set(key, { hasValue: slot.hasValue, value: slot.value });
@@ -405,479 +254,290 @@ function captureSSRPortalWrites(ctx: RenderContext): () => void {
   };
 }
 
-function renderErrorBoundaryFallbackValueToSink(
-  fallback: unknown,
-  error: unknown,
-  reset: () => void,
-  sink: SinkTarget,
-  ctx: RenderContext
-): void {
-  const nextValue = resolveErrorBoundaryFallbackNode(fallback, error, reset);
+// ---------------------------------------------------------------------------
+// Values
 
-  if (Array.isArray(nextValue)) {
-    renderChildrenSyncToSink(normalizeRenderableChildren(nextValue), sink, ctx);
-    return;
-  }
-  renderChildSyncToSink(nextValue, sink, ctx);
+function isVNodeOf(value: unknown, type: symbol): value is VNode {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as { type?: unknown }).type === type
+  );
 }
 
-function renderChildrenSyncToSink(
-  children: unknown[] | undefined,
-  sink: { write(html: string): void },
-  ctx: RenderContext
-): void {
-  if (!children || !Array.isArray(children) || children.length === 0) return;
-  if (children.length >= 32) {
-    for (let i = 0; i < children.length; i++) {
-      renderRenderableSyncToSink(children[i], sink, ctx);
-    }
-    return;
-  }
-  for (let i = 0; i < children.length; i++) {
-    renderChildSyncToSink(children[i], sink, ctx);
-  }
-}
-
-function sinkWrite2(
-  sink: { write(html: string): void; write2?: (a: string, b: string) => void },
-  a: string,
-  b: string
-): void {
-  if (typeof sink.write2 === 'function') {
-    sink.write2(a, b);
-    return;
-  }
-  sink.write(a);
-  sink.write(b);
-}
-
-function sinkWrite3(
-  sink: {
-    write(html: string): void;
-    write3?: (a: string, b: string, c: string) => void;
-  },
-  a: string,
-  b: string,
-  c: string
-): void {
-  if (typeof sink.write3 === 'function') {
-    sink.write3(a, b, c);
-    return;
-  }
-  sink.write(a);
-  sink.write(b);
-  sink.write(c);
-}
-
-/**
- * Gather the text content of an HTML raw text element (`<script>`, `<style>`).
- *
- * The parser does not decode entities there, so the text is collected
- * unescaped and neutralized as a whole by `escapeRawText`. Text may come from
- * strings, numbers, fragments, components, control and error boundaries, and
- * function or readable children, which contribute their current value.
- * Range markers are omitted because a comment has no raw text form. Element
- * children are rejected rather than serialized as markup the parser would
- * read back as literal text.
- */
-function collectRawText(
-  value: unknown,
-  element: RawTextElement,
-  ctx: RenderContext
-): string {
-  if (value === null || value === undefined || typeof value === 'boolean') {
-    return '';
-  }
-  if (typeof value === 'function') {
-    return collectRawText(
-      renderFunctionChild(value as () => unknown, ctx),
-      element,
-      ctx
-    );
-  }
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number') return String(value);
+/** Render any renderable value. */
+export function renderValue(value: unknown, sink: SinkTarget): void {
   if (Array.isArray(value)) {
-    let text = '';
-    for (let i = 0; i < value.length; i++) {
-      text += collectRawText(value[i], element, ctx);
-    }
-    return text;
-  }
-  if (typeof value === 'object' && 'type' in value) {
-    const node = value as VNode | JSXElement;
-    const { type, props } = node;
-    if (typeof type === 'function') {
-      return collectRawText(
-        executeComponentSync(
-          type as Component,
-          props,
-          ctx,
-          getVNodeContextFrame(node) ?? null
-        ),
-        element,
-        ctx
-      );
-    }
-    if (type === __CONTROL_BOUNDARY__) {
-      return withControlBoundaryChildren(node, (children) =>
-        collectRawText(children, element, ctx)
-      );
-    }
-    if (type === __ERROR_BOUNDARY__) {
-      return collectErrorBoundaryRawText(node, element, ctx);
-    }
-    if (isFragmentType(type)) {
-      return collectRawText(getRenderableChildren(node), element, ctx);
-    }
-  }
-  throw new Error(
-    `SSR: <${element}> children must be text, but received ${describeRawTextChild(value)}.`
-  );
-}
-
-function collectErrorBoundaryRawText(
-  node: VNode | JSXElement,
-  element: RawTextElement,
-  ctx: RenderContext
-): string {
-  const boundaryState = getErrorBoundaryState(node);
-  const fallback = node.props?.fallback;
-  const reset = createErrorBoundaryReset(node);
-  if (boundaryState?.error != null) {
-    return collectRawText(
-      resolveErrorBoundaryFallbackNode(fallback, boundaryState.error, reset),
-      element,
-      ctx
-    );
-  }
-  const discardPortalWrites = captureSSRPortalWrites(ctx);
-  try {
-    return collectRawText(node.props?.children, element, ctx);
-  } catch (error) {
-    discardPortalWrites();
-    if (boundaryState) {
-      boundaryState.error = error;
-      boundaryState.notified = true;
-    }
-    logger.error('[Askr] ErrorBoundary caught render error:', error);
-    return collectRawText(
-      resolveErrorBoundaryFallbackNode(fallback, error, reset),
-      element,
-      ctx
-    );
-  }
-}
-
-function describeRawTextChild(value: unknown): string {
-  if (value && typeof value === 'object' && 'type' in value) {
-    const type = (value as VNode).type;
-    return typeof type === 'string'
-      ? `an element <${type}>`
-      : 'a non-text node';
-  }
-  return `a value of type ${typeof value}`;
-}
-
-/**
- * The parser context of the element being written (see `./namespace`).
- *
- * SSR renders synchronously, so one module-level cursor suffices: every
- * element saves and restores it around its children, and each top-level render
- * starts from `html`.
- */
-let currentNamespace: SSRNamespace = 'html';
-
-/** Namespace context recorded where each portal host token was written. */
-const portalHostNamespaces = new WeakMap<
-  RenderContext,
-  Map<string, SSRNamespace>
->();
-const portalHostKeys = new WeakMap<
-  RenderContext,
-  Map<string, string | number>
->();
-
-function inheritPortalHostKey(
-  value: unknown,
-  key: string | number | undefined
-): unknown {
-  if (
-    key === undefined ||
-    !value ||
-    typeof value !== 'object' ||
-    !('type' in value)
-  ) {
-    return value;
-  }
-
-  const vnode = value as DOMElement;
-  if (vnode.key !== undefined && vnode.key !== null) return value;
-  const copy: DOMElement = { ...vnode, props: { ...vnode.props } };
-  const frame = getVNodeContextFrame(vnode);
-  if (frame) markVNodeWithContextFrame(copy, frame);
-  return inheritRenderableKey(
-    { type: SSR_PORTAL_HOST, key },
-    copy as unknown as VNode
-  );
-}
-
-function withNamespace<T>(namespace: SSRNamespace, render: () => T): T {
-  const previous = currentNamespace;
-  currentNamespace = namespace;
-  try {
-    return render();
-  } finally {
-    currentNamespace = previous;
-  }
-}
-
-function renderNodeSyncToSink(
-  node: VNode | JSXElement,
-  sink: SinkTarget,
-  ctx: RenderContext
-): void {
-  const { type, props } = node;
-
-  if (typeof type === 'function') {
-    const result = executeComponentSync(
-      type as Component,
-      props,
-      ctx,
-      getVNodeContextFrame(node) ?? null
-    );
-    renderRenderableSyncToSink(inheritRenderableKey(node, result), sink, ctx);
+    for (const item of value) renderValue(item, sink);
     return;
   }
-
-  if (typeof type === 'symbol') {
-    if (type === SSR_PORTAL_HOST) {
-      const token = String(props?.token ?? '');
-      let hostNamespaces = portalHostNamespaces.get(ctx);
-      if (!hostNamespaces) {
-        hostNamespaces = new Map();
-        portalHostNamespaces.set(ctx, hostNamespaces);
-      }
-      hostNamespaces.set(token, currentNamespace);
-      const key = (node as DOMElement).key;
-      if (typeof key === 'string' || typeof key === 'number') {
-        let hostKeys = portalHostKeys.get(ctx);
-        if (!hostKeys) {
-          hostKeys = new Map();
-          portalHostKeys.set(ctx, hostKeys);
-        }
-        hostKeys.set(token, key);
-      }
-      const portalSink = sink as typeof sink & {
-        writePortalHost?(token: string): void;
-      };
-      if (portalSink.writePortalHost) {
-        portalSink.writePortalHost(token);
-      } else {
-        sink.write(token);
-      }
-      return;
-    }
-    if (type === SSR_PORTAL_ANCHOR) {
-      sink.write(String(props?.token ?? ''));
-      return;
-    }
-    if (isFragmentType(type)) {
-      const childrenArr = getRenderableChildren(node);
-      renderChildrenSyncToSink(childrenArr, sink, ctx);
-      return;
-    }
-    if (type === __CONTROL_BOUNDARY__) {
-      renderControlChildrenToSink(node, sink, ctx);
-      return;
-    }
-    if (type === DEFERRED_BOUNDARY) {
-      renderDeferredBoundaryToSink(node, sink, ctx);
-      return;
-    }
-    if (type === __ERROR_BOUNDARY__) {
-      const boundaryState = getErrorBoundaryState(node);
-      const fallback = props?.fallback;
-      const reset = createErrorBoundaryReset(node);
-
-      if (boundaryState?.error != null) {
-        renderErrorBoundaryFallbackValueToSink(
-          fallback,
-          boundaryState.error,
-          reset,
-          sink,
-          ctx
-        );
-        return;
-      }
-
-      // Buffered so a failure part-way through discards everything the
-      // subtree already produced instead of appending the fallback to it.
-      const protectedOutput = new BufferedSink();
-      const discardPortalWrites = captureSSRPortalWrites(ctx);
-      try {
-        renderChildrenSyncToSink(
-          normalizeRenderableChildren(props?.children),
-          protectedOutput,
-          ctx
-        );
-      } catch (error) {
-        discardPortalWrites();
-        if (boundaryState) {
-          boundaryState.error = error;
-          boundaryState.notified = true;
-        }
-        logger.error('[Askr] ErrorBoundary caught render error:', error);
-        renderErrorBoundaryFallbackValueToSink(
-          fallback,
-          error,
-          reset,
-          sink,
-          ctx
-        );
-        return;
-      }
-
-      // Publishing sits outside the guard: only a failure *while rendering* is
-      // recoverable, and replaying a completed subtree must not be able to
-      // append a fallback to markup it has already handed over.
-      protectedOutput.publishTo(sink);
-      return;
-    }
-    throw new Error(
-      `renderNodeSyncToSink: unsupported VNode symbol type: ${String(type)}`
-    );
+  if (isVNodeOf(value, SSR_PORTAL_HOST)) {
+    const token = String(value.props?.token ?? '');
+    state().portalNamespaces.set(token, state().namespace);
+    if (sink.writePortalHost) sink.writePortalHost(token);
+    else sink.write(token);
+    return;
   }
+  if (isVNodeOf(value, DEFERRED_BOUNDARY)) {
+    const id = String(value.props?.id ?? '');
+    sink.write(`<askr-resolve data-askr-deferred="${id}">`);
+    renderValue(value.props?.pending, sink);
+    sink.write('</askr-resolve>');
+    return;
+  }
+  for (const child of normalizeChildren(value)) renderChild(child, sink);
+}
 
-  const typeStr = type as string;
-  assertElementName(typeStr);
-  if (VOID_ELEMENTS.has(typeStr)) {
-    sinkWrite2(sink, '<', typeStr);
-    renderAttrsDirect(props, sink, typeStr);
+function renderChild(child: ChildDescriptor, sink: SinkTarget): void {
+  switch (child.kind) {
+    case TEXT:
+      sink.write(escapeText(child.text));
+      return;
+    case ELEMENT:
+      renderElement(child.tag, child.props, sink);
+      return;
+    case COMPONENT:
+      renderComponent(child.fn, child.props, sink);
+      return;
+    case FRAGMENT: {
+      const owner = child.owner as Owner | undefined;
+      if (owner) withOwner(owner, () => renderValue(child.children, sink));
+      else renderValue(child.children, sink);
+      return;
+    }
+    case FUNCTION:
+      renderValue(
+        untrack(() => runWithOwner(state().owner, () => readValue(child.fn))),
+        sink
+      );
+      return;
+    case PORTAL:
+    case NATIVE:
+      // Client-only content.
+      return;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Elements
+
+function assertElementName(name: string): void {
+  if (!/^[A-Za-z][A-Za-z0-9._:-]*$/.test(name)) {
+    throw new TypeError(`Invalid SSR element name: ${JSON.stringify(name)}`);
+  }
+}
+
+function renderElement(tag: string, props: Props, sink: SinkTarget): void {
+  assertElementName(tag);
+  if (VOID_ELEMENTS.has(tag)) {
+    sink.write('<' + tag);
+    renderAttrsDirect(props, sink, tag);
     sink.write(' />');
     return;
   }
 
-  const parentNamespace = currentNamespace;
-  const tag = typeStr.toLowerCase();
-  const namespace = getElementNamespace(parentNamespace, tag);
-  // `annotation-xml` reads its `encoding` to choose its children's context
-  // and then writes it, so a reactive value is read once for both.
-  const element =
-    tag === 'annotation-xml' ? resolveReactiveAttributeNode(node) : node;
-  currentNamespace = getChildNamespace(
-    parentNamespace,
-    namespace,
-    tag,
-    element.props
+  const render = state();
+  const parentNamespace = render.namespace;
+  const lower = tag.toLowerCase();
+  const namespace = getElementNamespace(parentNamespace, lower);
+  // `annotation-xml` reads its `encoding` to choose its children's context,
+  // so a reactive value is read once for both.
+  const elementProps =
+    lower === 'annotation-xml'
+      ? (resolveReactiveAttributeProps(props) ?? props)
+      : props;
+  const rawText = getRawTextElementInContext(parentNamespace, namespace, lower);
+  withNamespace(
+    getChildNamespace(parentNamespace, namespace, lower, elementProps),
+    () => writeElement(tag, elementProps, rawText, sink)
   );
-  try {
-    renderElementSyncToSink(
-      element,
-      typeStr,
-      getRawTextElementInContext(parentNamespace, namespace, tag),
-      sink,
-      ctx
-    );
-  } finally {
-    currentNamespace = parentNamespace;
-  }
 }
 
-function resolveReactiveAttributeNode(
-  node: VNode | JSXElement
-): VNode | JSXElement {
-  const props = resolveReactiveAttributeProps(node.props);
-  return props === node.props ? node : ({ ...node, props } as typeof node);
+function writeElement(
+  tag: string,
+  props: Props,
+  rawText: RawTextElement | null,
+  sink: SinkTarget
+): void {
+  const dangerous = (props as { dangerouslySetInnerHTML?: unknown })
+    .dangerouslySetInnerHTML;
+  sink.write('<' + tag);
+  renderAttrsDirect(props, sink, rawText === null ? tag : undefined);
+  sink.write('>');
+  if (dangerous !== undefined && dangerous !== null) {
+    if (typeof dangerous === 'object' && '__html' in dangerous) {
+      sink.write(String((dangerous as { __html: unknown }).__html));
+    } else {
+      renderValue(props.children, sink);
+    }
+  } else if (rawText !== null) {
+    sink.write(escapeRawText(collectRawText(props.children, rawText), rawText));
+  } else if (!props.imperativeChildren) {
+    renderValue(props.children, sink);
+  }
+  sink.write('</' + tag + '>');
 }
 
 /**
- * Write a non-void intrinsic element. `rawTextElement` is set only for an
- * HTML `<script>` / `<style>` whose ancestors are all ordinary HTML content
- * (a `<style>` inside `<select>` is not parsed as one).
- * The same tags in SVG or MathML are ordinary elements whose text the parser
- * reads as markup, and inside a raw text or RCDATA ancestor (`noscript`,
- * `textarea`, ...) raw content could close that ancestor, so both keep
- * escaped text.
+ * The text of a `<script>` or `<style>`: collected unescaped and neutralized
+ * as a whole. Element children are rejected rather than serialized as markup
+ * the parser would read back as literal text.
  */
-function renderElementSyncToSink(
-  node: VNode | JSXElement,
-  typeStr: string,
-  rawTextElement: RawTextElement | null,
-  sink: SinkTarget,
-  ctx: RenderContext
-): void {
-  const { props } = node;
+function collectRawText(value: unknown, element: RawTextElement): string {
+  return flattenText(value, element).join('');
+}
 
-  const maybeDangerous = props
-    ? (props as unknown as { dangerouslySetInnerHTML?: unknown })
-        ?.dangerouslySetInnerHTML
-    : undefined;
-
-  if (maybeDangerous !== undefined && maybeDangerous !== null) {
-    const dangerousHtml =
-      typeof maybeDangerous === 'object' && '__html' in maybeDangerous
-        ? String((maybeDangerous as { __html: unknown }).__html)
-        : undefined;
-    sinkWrite2(sink, '<', typeStr);
-    renderAttrsDirect(props, sink, typeStr);
-    sink.write('>');
-    if (dangerousHtml !== undefined) {
-      sink.write(dangerousHtml);
-    } else {
-      renderChildrenSyncToSink(getRenderableChildren(node), sink, ctx);
-    }
-    sinkWrite3(sink, '</', typeStr, '>');
-    return;
-  }
-
-  const children = getRenderableChildren(node);
-
-  if (rawTextElement !== null) {
-    const text = collectRawText(children, rawTextElement, ctx);
-    sinkWrite2(sink, '<', typeStr);
-    renderAttrsDirect(props, sink);
-    sink.write('>');
-    sink.write(escapeRawText(text, rawTextElement));
-    sinkWrite3(sink, '</', typeStr, '>');
-    return;
-  }
-
-  if (!children || (Array.isArray(children) && children.length === 0)) {
-    sinkWrite2(sink, '<', typeStr);
-    renderAttrsDirect(props, sink, typeStr);
-    sink.write('>');
-    sinkWrite3(sink, '</', typeStr, '>');
-    return;
-  }
-
-  if (Array.isArray(children) && children.length === 1) {
-    const only = children[0];
-    if (typeof only === 'string') {
-      const content = escapeText(only);
-      sinkWrite2(sink, '<', typeStr);
-      renderAttrsDirect(props, sink, typeStr);
-      sink.write('>');
-      sink.write(content);
-      sinkWrite3(sink, '</', typeStr, '>');
+function flattenText(value: unknown, element: RawTextElement): string[] {
+  const out: string[] = [];
+  const visit = (item: unknown): void => {
+    if (Array.isArray(item)) {
+      for (const entry of item) visit(entry);
       return;
     }
-    if (typeof only === 'number') {
-      const content = escapeText(String(only));
-      sinkWrite2(sink, '<', typeStr);
-      renderAttrsDirect(props, sink, typeStr);
-      sink.write('>');
-      sink.write(content);
-      sinkWrite3(sink, '</', typeStr, '>');
-      return;
+    for (const child of normalizeChildren(item)) {
+      switch (child.kind) {
+        case TEXT:
+          out.push(child.text);
+          break;
+        case FRAGMENT:
+          visit(child.children);
+          break;
+        case FUNCTION:
+          visit(untrack(() => readValue(child.fn)));
+          break;
+        case COMPONENT: {
+          const render = state();
+          const instance = new ComponentInstance(
+            render.owner,
+            child.fn,
+            child.props
+          );
+          instance.server = true;
+          instance.serverContext = render.ctx;
+          const output = runComponent(instance);
+          withOwner(instance, () => visit(output));
+          break;
+        }
+        case ELEMENT:
+          throw new Error(
+            `SSR: <${element}> children must be text, but received an element <${child.tag}>.`
+          );
+        default:
+          throw new Error(
+            `SSR: <${element}> children must be text, but received a non-text node.`
+          );
+      }
     }
-  }
+  };
+  visit(value);
+  return out;
+}
 
-  sinkWrite2(sink, '<', typeStr);
-  renderAttrsDirect(props, sink, typeStr);
-  sink.write('>');
-  renderChildrenSyncToSink(children, sink, ctx);
-  sinkWrite3(sink, '</', typeStr, '>');
+// ---------------------------------------------------------------------------
+// Portals
+
+function renderToString(value: unknown, namespace: SSRNamespace): string {
+  const sink = new StringSink();
+  withNamespace(namespace, () => renderValue(value, sink));
+  sink.end();
+  return sink.toString();
+}
+
+/** Replace portal host tokens with their portal's final content. */
+function resolvePortals(html: string, ctx: RenderContext): string {
+  let resolved = html;
+  const rendered = new Set<string>();
+  for (;;) {
+    let found = false;
+    for (const slot of ctx.ssrPortals.slots.values()) {
+      const explicit = slot.hosts.filter((host) => !host.automatic);
+      for (const host of slot.hosts) {
+        if (rendered.has(host.token)) continue;
+        found = true;
+        rendered.add(host.token);
+        const active = host.automatic ? explicit.length === 0 : true;
+        const content =
+          active && slot.hasValue
+            ? renderToString(
+                slot.value,
+                state().portalNamespaces.get(host.token) ?? 'html'
+              )
+            : '';
+        resolved = resolved.replace(host.token, () => content);
+      }
+    }
+    if (!found) return resolved;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Entry points
+
+function withServerRender<T>(ctx: RenderContext, fn: () => T): T {
+  const previous = current;
+  const owner = new Owner(null);
+  current = {
+    ctx,
+    owner,
+    namespace: 'html',
+    portalNamespaces: new Map(),
+  };
+  let result: T;
+  try {
+    result = fn();
+  } catch (error) {
+    current = previous;
+    owner.dispose();
+    throw error;
+  }
+  current = previous;
+  const errors = owner.dispose();
+  if (errors.length === 1) throw errors[0];
+  if (errors.length > 1) {
+    throw new AggregateError(errors, 'SSR temporary owner cleanup failed');
+  }
+  return result;
+}
+
+const AUTO_PORTAL = {
+  $$typeof: ELEMENT_TYPE,
+  type: DefaultPortal,
+  props: { __askrAutoDefaultPortal: true },
+  key: '__default_portal',
+};
+
+/** A root's output followed by the automatic default portal host. */
+function withDefaultPortal(output: unknown): JSXElement {
+  return {
+    $$typeof: ELEMENT_TYPE,
+    type: Fragment,
+    props: {
+      children: output == null ? [AUTO_PORTAL] : [output, AUTO_PORTAL],
+    },
+    key: null,
+  } as unknown as JSXElement;
+}
+
+function rootElement(
+  component: ComponentFunction,
+  props: Props,
+  nonce: string | undefined
+): JSXElement {
+  const Root: ComponentFunction = (_props, context) => {
+    const output = component(props, context);
+    if (isPromiseLike(output)) throwSSRDataMissing();
+    return withDefaultPortal(output) as never;
+  };
+  Object.defineProperty(Root, 'name', { value: component.name || 'Component' });
+  const element = {
+    $$typeof: ELEMENT_TYPE,
+    type: Root,
+    props: {},
+    key: null,
+  } as unknown as JSXElement;
+  return nonce === undefined
+    ? element
+    : CspNonceScope({ value: nonce, children: element });
 }
 
 /** Synchronously render a component to an HTML string, without route resolution. */
@@ -900,9 +560,8 @@ export function renderToStringSync(
     onContext?: (ctx: RenderContext) => void;
   }
 ): string {
-  const seed = options?.seed ?? 12345;
   const nonce = validateCspNonce(options?.cspNonce);
-  const ctx = createRenderContext(seed, {
+  const ctx = createRenderContext(options?.seed ?? 12345, {
     data: options?.data,
     envelope: options?.envelope,
     cspNonce: nonce,
@@ -913,40 +572,29 @@ export function renderToStringSync(
   return withRenderContext(ctx, () => {
     startRenderPhase(ctx.renderData);
     try {
-      const renderComponent =
-        nonce === undefined
-          ? component
-          : () =>
-              CspNonceScope({
-                value: nonce,
-                children: () => component(props) as never,
-              });
-      const node = renderSyncComponentRoot(
-        renderComponent as unknown as Component,
-        props || {},
-        ctx
-      );
-      if (!node) {
-        throw new Error('renderToStringSync: wrapped component returned empty');
-      }
-      const sink = new StringSink();
-      withNamespace('html', () => renderNodeSyncToSink(node, sink, ctx));
-      sink.end();
-      const html = resolveSSRPortals(sink.toString(), ctx);
-      options?.onContext?.(ctx);
-      return (
-        html +
-        serializeHydrationRenderData(
-          ctx.hydrationData ?? undefined,
-          ctx.dataRuntime as import('../data/types').DataRuntime | undefined
-        )
-      );
+      return withServerRender(ctx, () => {
+        const sink = new StringSink();
+        renderValue(
+          rootElement(
+            component as ComponentFunction,
+            (props ?? {}) as Props,
+            nonce
+          ),
+          sink
+        );
+        sink.end();
+        const html = resolvePortals(sink.toString(), ctx);
+        options?.onContext?.(ctx);
+        return (
+          html +
+          serializeHydrationRenderData(
+            ctx.hydrationData ?? undefined,
+            ctx.dataRuntime as import('../data/types').DataRuntime | undefined
+          )
+        );
+      });
     } finally {
-      try {
-        stopRenderPhase();
-      } finally {
-        disposeSSRTemporaryOwners(ctx);
-      }
+      stopRenderPhase();
     }
   });
 }
@@ -957,24 +605,19 @@ export function renderSSRRouteAppToSink(input: RouteAppRenderInput): void {
   withRenderContext(ctx, () => {
     startRenderPhase(ctx.renderData);
     try {
-      const renderHandler =
-        ctx.cspNonce === undefined
-          ? route.handler
-          : () =>
-              CspNonceScope({
-                value: ctx.cspNonce,
-                children: () => route.handler(params),
-              });
-      const app = executeComponentSync(
-        renderHandler as unknown as Component,
-        params,
-        ctx
-      );
-      const appSink = new SSRPortalSink(sink);
-      withNamespace('html', () =>
-        renderRenderableSyncToSink(wrapWithDefaultPortal(app), appSink, ctx)
-      );
-      appSink.flush(ctx);
+      withServerRender(ctx, () => {
+        const appSink = new PortalSink(sink);
+        renderValue(
+          rootElement(
+            ((routeParams: Props) =>
+              route.handler(routeParams as never)) as ComponentFunction,
+            params as Props,
+            ctx.cspNonce
+          ),
+          appSink
+        );
+        appSink.flush(ctx);
+      });
       if (ctx.deferredBoundaries.length === 0) {
         sink.write(
           serializeHydrationRenderData(
@@ -984,16 +627,7 @@ export function renderSSRRouteAppToSink(input: RouteAppRenderInput): void {
         );
       }
     } finally {
-      try {
-        stopRenderPhase();
-      } finally {
-        disposeSSRTemporaryOwners(ctx);
-      }
+      stopRenderPhase();
     }
   });
-}
-function assertElementName(name: string): void {
-  if (!/^[A-Za-z][A-Za-z0-9._:-]*$/.test(name)) {
-    throw new TypeError(`Invalid SSR element name: ${JSON.stringify(name)}`);
-  }
 }

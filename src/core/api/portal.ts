@@ -16,6 +16,11 @@ import { Owner, getOwner } from '../reactive/owner';
 import { Signal } from '../reactive/graph';
 import { OWNED_TYPE } from '../view/children';
 import { currentComponent, onCommit } from './hooks';
+import {
+  DEFAULT_SSR_PORTAL_KEY,
+  createSSRPortalHost,
+  writeSSRPortal,
+} from '../../common/ssr-portals';
 
 interface Write {
   readonly owner: Owner | null;
@@ -54,6 +59,7 @@ function isEmpty(value: unknown): boolean {
 
 /** Record `children` as `channel`'s content once the current render commits. */
 function writeChannel(channel: PortalChannel, children: unknown): void {
+  if (writeSSRPortal(ssrKey(channel), children as never)) return;
   const instance = currentComponent();
   if (!instance) {
     channel.write.write({ owner: getOwner(), id: ++nextWriteId, children });
@@ -98,7 +104,9 @@ export interface Portal<T = unknown> {
 export function definePortal<T = unknown>(): Portal<T> {
   const channel = createPortalChannel();
   function PortalHost(): JSXElement | null {
-    return renderWrite(channel.write.read());
+    return (
+      createSSRPortalHost(channel, false) ?? renderWrite(channel.write.read())
+    );
   }
   PortalHost.render = (props: { children?: T }): null => {
     writeChannel(channel, props.children);
@@ -128,7 +136,15 @@ export function provideDefaultPortal(owner: Owner): PortalChannel {
   return channel;
 }
 
+/** Server renders collect default-portal writes under one key. */
+function ssrKey(channel: PortalChannel): object {
+  return channel === serverDefaultChannel ? DEFAULT_SSR_PORTAL_KEY : channel;
+}
+
+const serverDefaultChannel = createPortalChannel();
+
 function defaultChannel(): PortalChannel {
+  if (currentComponent()?.server) return serverDefaultChannel;
   const provided = getOwner()?.lookup(DEFAULT_CHANNEL) as
     | PortalChannel
     | undefined;
@@ -149,8 +165,12 @@ export function Portal(props: PortalProps): null {
 export function DefaultPortal(props?: {
   __askrAutoDefaultPortal?: boolean;
 }): JSXElement | null {
+  const automatic = props?.__askrAutoDefaultPortal === true;
+  if (currentComponent()?.server) {
+    return createSSRPortalHost(DEFAULT_SSR_PORTAL_KEY, automatic, true);
+  }
   const channel = defaultChannel();
-  if (props?.__askrAutoDefaultPortal) {
+  if (automatic) {
     // The automatic host renders only while no explicit host is mounted.
     if (channel.explicitHosts.read() > 0) return null;
     return renderWrite(channel.write.read());
@@ -169,6 +189,12 @@ export function DefaultPortal(props?: {
 }
 
 const explicitHosts = new WeakSet<Owner>();
+
+/** `DefaultPortal.render()` writes to the default portal, like `<Portal>`. */
+DefaultPortal.render = (props: PortalProps): null => {
+  writeChannel(defaultChannel(), props.children);
+  return null;
+};
 
 /** Test isolation: forget the fallback default portal. */
 export function resetDefaultPortal(): void {

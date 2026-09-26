@@ -1,4 +1,4 @@
-import type { ActivityPredicate, ListenerTarget } from '../runtime';
+import type { ActivityPredicate, ListenerTarget } from '../core/api/lifecycle';
 
 /** Activity gates retain their permissive server defaults. */
 export function documentVisible(): ActivityPredicate {

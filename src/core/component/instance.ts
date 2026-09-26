@@ -17,6 +17,8 @@ import { Owner, getOwner, runWithOwner, type Cleanup } from '../reactive/owner';
 import { Computation } from '../reactive/graph';
 import { schedule, type Job } from '../reactive/scheduler';
 import { withRendering } from './render-state';
+import { isTimingRenders, reportRenderTime } from './diagnostics';
+import { recordUndo } from './journal';
 
 export type HookKind = string;
 
@@ -49,6 +51,8 @@ export class ComponentInstance extends Owner {
   view: unknown = null;
   /** Rendering on the server: lifecycle work that needs a commit is skipped. */
   server = false;
+  /** Server render context passed to the component as `context.ssr`. */
+  serverContext: unknown = undefined;
   /** Error boundary handler, when this instance is a boundary. */
   boundary: ((error: unknown) => boolean) | null = null;
 
@@ -76,10 +80,23 @@ export class ComponentInstance extends Owner {
     // Commit work belongs to the render that registers it.
     this.commitQueue = null;
     try {
-      const context: ComponentContext = { signal: this.signal };
+      const context: ComponentContext = this.server
+        ? {
+            signal: this.signal,
+            ssr: this.serverContext as ComponentContext['ssr'],
+          }
+        : { signal: this.signal };
+      const started = isTimingRenders() ? Date.now() : 0;
       const output = withRendering(() =>
         runWithOwner(this, () => this.fn(this.props, context))
       );
+      if (started) {
+        reportRenderTime(
+          this,
+          this.fn.name || '<anonymous>',
+          Date.now() - started
+        );
+      }
       verifyHookCount(this);
       this.renderCount++;
       return output;
@@ -93,6 +110,32 @@ export class ComponentInstance extends Owner {
     this.computation.run();
     if (this.computation._hasError) throw this.computation._error;
     return this.computation._value;
+  }
+
+  /**
+   * Make `value` visible under `key` to everything this instance renders.
+   * Called during render; undone if the render is discarded.
+   */
+  provide(key: unknown, value: unknown): void {
+    const context = (this.context ??= new Map());
+    const had = context.has(key);
+    const previous = context.get(key);
+    if (had && Object.is(previous, value)) return;
+    context.set(key, value);
+    recordUndo(() => {
+      if (had) context.set(key, previous);
+      else context.delete(key);
+    });
+  }
+
+  /** Replace props for the render that follows; undone if it is discarded. */
+  setProps(props: Props): void {
+    const previous = this.props;
+    if (previous === props) return;
+    this.props = props;
+    recordUndo(() => {
+      this.props = previous;
+    });
   }
 
   onCommit(fn: () => void | Cleanup): void {

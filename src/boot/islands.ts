@@ -1,5 +1,5 @@
 import { hasRegisteredRoutes } from '../router/route';
-import { assertExecutionModel } from '../runtime';
+import { assertExecutionModel } from '../common/execution-model';
 import { createAppRenderRuntime } from '../common/app-render-runtime';
 import { mountOrUpdate } from './root-lifecycle';
 import type { IslandConfig, IslandsConfig } from './types';

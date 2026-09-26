@@ -9,7 +9,7 @@ import type {
 } from '../common/router';
 import type { AuthRequirement } from '@askrjs/auth';
 import { getActiveRenderContext } from '../common/render-context';
-import { getCurrentAppRenderRuntime } from '../runtime';
+import { currentAppRuntime as getCurrentAppRenderRuntime } from '../core/api/hooks';
 import type {
   InternalRoute,
   InternalRouteRecord,

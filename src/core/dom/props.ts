@@ -13,6 +13,7 @@ import type { Props } from '../../common/props';
 import { isSkippedProp } from '../../common/prop-classification';
 import { setRef } from './refs';
 import { Computation } from '../reactive/graph';
+import { readValue } from '../reactive/readable';
 import { effectScheduler } from '../reactive/scheduler';
 import {
   parseEventProp,
@@ -59,22 +60,36 @@ function setHandler(node: HostNode, key: string, value: unknown): void {
   }
 }
 
-/** Write props to a new, detached element (children not yet created). */
-export function applyInitialProps(pass: Pass, node: HostNode): void {
+/**
+ * Write props to an element that has no committed props yet: a new, detached
+ * element (written now) or an adopted server element (`adopted`: recorded as
+ * commit operations).
+ */
+export function applyInitialProps(
+  pass: Pass,
+  node: HostNode,
+  adopted = false
+): void {
   const props = node.props;
   let scalars: Record<string, unknown> | null = null;
+  const handlers: Array<[string, unknown]> = [];
   for (const key in props) {
     if (isSkippedProp(key)) continue;
     const value = props[key];
     if (parseEventProp(key)) {
-      setHandler(node, key, value);
+      handlers.push([key, value]);
     } else if (isBinding(key, value)) {
-      bind(pass, node, key, value, undefined, true);
+      bind(pass, node, key, value, undefined, !adopted);
     } else if (!followsChildren(node.tag, key)) {
       (scalars ??= {})[key] = value;
     }
   }
-  if (scalars) applyStaticScalarPropsToElement(node.el, scalars, node.tag);
+  const apply = () => {
+    for (const [key, value] of handlers) setHandler(node, key, value);
+    if (scalars) applyStaticScalarPropsToElement(node.el, scalars, node.tag);
+  };
+  if (adopted) pass.op(apply);
+  else apply();
 }
 
 /** Write props that must follow the element's children. */
@@ -161,7 +176,7 @@ function bind(
   const binding: Computation<void> = new Computation<void>(
     node.owner,
     () => {
-      const value = read();
+      const value = key.startsWith('prop:') ? read() : readValue(read);
       applyScalarPropValue(el, key, value, tag, last);
       last = value;
       appliedByBinding.set(binding, value);
@@ -169,7 +184,7 @@ function bind(
     effectScheduler('effect', (node.owner?.depth ?? 0) + 1),
     null
   );
-  pass.created_(binding);
+  pass.own(binding);
   const install = () => {
     (node.bindings ??= new Map()).set(key, binding);
     binding.run();

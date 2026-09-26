@@ -116,12 +116,12 @@ export function notify(source: ReadableSource): void {
 
 const APP_RUNTIME = Symbol('askr.app-runtime');
 
-/** Make `runtime` visible to everything rendered under `owner`. */
-export function provideAppRuntime(
-  owner: Owner,
-  runtime: AppRenderRuntime
-): void {
-  (owner.context ??= new Map()).set(APP_RUNTIME, runtime);
+/**
+ * Make `runtime` the application runtime for everything the rendering
+ * component renders (undone if the render is discarded).
+ */
+export function provideAppRuntime(runtime: AppRenderRuntime | undefined): void {
+  getCurrentInstance()?.provide(APP_RUNTIME, runtime);
 }
 
 export function currentAppRuntime(): AppRenderRuntime | undefined {
@@ -136,6 +136,6 @@ export function withAppRuntime<T>(
   if (!runtime) return fn();
   const owner = new Owner(null);
   owner.parent = getOwner();
-  provideAppRuntime(owner, runtime);
+  owner.context = new Map([[APP_RUNTIME, runtime]]);
   return runWithOwner(owner, fn);
 }

@@ -1,12 +1,20 @@
-import { getOwnershipSignal, ownCleanup } from '../runtime/ownership/record';
-import { enqueueRuntimeTask } from '../runtime';
+import { queueTask as enqueueRuntimeTask } from '../core/reactive/scheduler';
 import {
-  captureLifecycleOwner,
-  getCurrentComponentInstance,
-  getCurrentLifecycleOwner,
-  withLifecycleOwner,
-} from '../runtime';
-import type { OwnershipRecord } from '../runtime/ownership/record';
+  currentComponent as getCurrentComponentInstance,
+  currentOwner as getCurrentLifecycleOwner,
+  withOwner as withLifecycleOwner,
+} from '../core/api/hooks';
+import type { Owner as OwnershipRecord } from '../core/reactive/owner';
+
+/** The owner an event arrives under, else the owner that created the handler. */
+function captureLifecycleOwner(): () => OwnershipRecord | null {
+  const captured = getCurrentLifecycleOwner();
+  return () => getCurrentLifecycleOwner() ?? captured;
+}
+
+function ownCleanup(owner: OwnershipRecord, cleanup: () => void): void {
+  owner.onCleanup(cleanup);
+}
 import { isPromiseLike } from '../common/promise';
 import { reportUncaughtError } from '../common/report-error';
 import { noopEventListener, noopEventListenerWithFlush } from './noop';
@@ -68,13 +76,17 @@ function cancelWithLifecycleOwner(
   cancel: () => void
 ): () => void {
   if (!owner) return noopRelease;
-  const signal = getOwnershipSignal(owner);
-  if (signal.aborted) {
+  if (owner.disposed) {
     cancel();
     return noopRelease;
   }
-  signal.addEventListener('abort', cancel, { once: true });
-  return () => signal.removeEventListener('abort', cancel);
+  let active = true;
+  owner.onCleanup(() => {
+    if (active) cancel();
+  });
+  return () => {
+    active = false;
+  };
 }
 
 /** Run a wrapped handler later as the lifetime that received its event. */
@@ -108,7 +120,7 @@ export function debounceEvent(
 ): EventListener & { cancel(): void; flush(): void } {
   const inst = getCurrentComponentInstance();
   // On SSR, event handlers are inert
-  if (inst && inst.ssr) {
+  if (inst && inst.server) {
     return noopEventListenerWithFlush;
   }
 
@@ -125,7 +137,7 @@ export function debounceEvent(
   debounced.flush = debouncer.flush;
 
   // Auto-cleanup when the creating component (or committed work) unmounts
-  const owner = inst?.owner ?? getCurrentLifecycleOwner();
+  const owner = inst ?? getCurrentLifecycleOwner();
   if (owner) ownCleanup(owner, debounced.cancel);
 
   return debounced;
@@ -138,7 +150,7 @@ export function throttleEvent(
   options?: { leading?: boolean; trailing?: boolean }
 ): EventListener & { cancel(): void } {
   const inst = getCurrentComponentInstance();
-  if (inst && inst.ssr) {
+  if (inst && inst.server) {
     return noopEventListener;
   }
 
@@ -152,7 +164,7 @@ export function throttleEvent(
 
   throttled.cancel = throttler.cancel;
 
-  const owner = inst?.owner ?? getCurrentLifecycleOwner();
+  const owner = inst ?? getCurrentLifecycleOwner();
   if (owner) ownCleanup(owner, throttled.cancel);
 
   return throttled;
@@ -163,7 +175,7 @@ export function rafEvent(
   handler: EventListener
 ): EventListener & { cancel(): void } {
   const inst = getCurrentComponentInstance();
-  if (inst && inst.ssr) {
+  if (inst && inst.server) {
     return noopEventListener;
   }
 
@@ -215,7 +227,7 @@ export function rafEvent(
     lastOwner = null;
   };
 
-  const owner = inst?.owner ?? getCurrentLifecycleOwner();
+  const owner = inst ?? getCurrentLifecycleOwner();
   if (owner) ownCleanup(owner, fn.cancel);
 
   return fn;

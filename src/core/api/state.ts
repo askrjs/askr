@@ -18,6 +18,7 @@ import {
 } from '../reactive/graph';
 import { effectScheduler, getFlushVersion } from '../reactive/scheduler';
 import { isRendering } from '../component/render-state';
+import { markReadable } from '../reactive/readable';
 import { isSnapshotSource } from './snapshot';
 
 export interface State<T> {
@@ -73,6 +74,7 @@ export function createStateCell<T>(signal: Signal<T>): StateTuple<T> {
     }
     signal.write(next);
   };
+  markReadable(read);
   read.set = set as State<T>['set'];
   (read as unknown as { [Symbol.iterator]: () => Iterator<unknown> })[
     Symbol.iterator
@@ -184,7 +186,7 @@ function createDerived(
   (computation as { _derived?: boolean })._derived = true;
   return {
     computation,
-    read: (() => computation.read()) as Derived<unknown>,
+    read: markReadable((() => computation.read()) as Derived<unknown>),
     setCompute(fn) {
       current = fn;
       computation.invalidate();

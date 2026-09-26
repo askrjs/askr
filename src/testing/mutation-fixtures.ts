@@ -1,5 +1,5 @@
 import type { Mutation } from '../data';
-import { recordReadableRead } from '../runtime';
+import { readSource as recordReadableRead } from '../core/api/hooks';
 import {
   createReadableSource,
   normalizeAsyncDataError,

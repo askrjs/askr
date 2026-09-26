@@ -83,7 +83,7 @@ function renderAfterUpdate(
       computation._value,
       false
     );
-    ctx.pass.rendered_(instance);
+    ctx.pass.markRendered(instance);
   } catch (error) {
     if (!instance.boundary) throw error;
     ctx.pass.rewind(mark);

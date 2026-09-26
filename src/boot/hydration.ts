@@ -5,9 +5,7 @@ import {
   type PageRenderEnvelope,
 } from '../common/page-render-envelope';
 import type { ResolvedRoute } from '../common/router';
-import type { ComponentFunction } from '../runtime';
-import { setStaticChildSlotsCacheEnabled } from '../renderer/dom';
-import { registerDeferredHydrationBoundary } from '../renderer';
+import type { ComponentFunction } from '../common/component';
 import type { BootAppRouteSource, HydrateSPAConfig } from './types';
 import { reviveDeferredValue } from '../common/deferred-value';
 import type { AppRenderRuntime } from '../common/app-render-runtime';
@@ -172,7 +170,6 @@ function collectDeferredBelowFoldBoundaries(
     const rect = element.getBoundingClientRect();
     if (rect.top >= foldY) {
       element.setAttribute('data-skip-hydrate', 'true');
-      registerDeferredHydrationBoundary(root, element);
       boundaries.push(element);
       continue;
     }
@@ -266,8 +263,6 @@ export async function applySelectiveHydration(
     if (!staticChildSlotsCacheSuspended) {
       return;
     }
-
-    setStaticChildSlotsCacheEnabled(true);
     staticChildSlotsCacheSuspended = false;
   };
 
@@ -277,7 +272,6 @@ export async function applySelectiveHydration(
 
   let deferredBoundaries: Element[] = [];
   if (hydrateOptions.deferBelowFold) {
-    setStaticChildSlotsCacheEnabled(false);
     staticChildSlotsCacheSuspended = true;
     const foldY = hydrateOptions.foldThreshold ?? window.innerHeight;
     deferredBoundaries = collectDeferredBelowFoldBoundaries(rootElement, foldY);

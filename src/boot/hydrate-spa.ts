@@ -12,7 +12,8 @@ import {
 } from '../router/route';
 import { clearRouteState } from '../router/store';
 import { readHydratedAuth, withoutHydratedAuth } from '../router/auth';
-import { assertExecutionModel, flushRuntimeScheduler } from '../runtime';
+import { assertExecutionModel } from '../common/execution-model';
+import { flushSync as flushRuntimeScheduler } from '../core/reactive/scheduler';
 import { createAppRenderRuntime } from '../common/app-render-runtime';
 import {
   startHydrationRenderPhase,
@@ -40,19 +41,10 @@ import {
   resolveInitialRoute,
 } from './route-startup';
 import type { HydrateSPAConfig } from './types';
-import {
-  finalizeDefaultPortalHydration,
-  withIntrinsicHydrationAdoption,
-} from '../renderer';
 import { hydrateDataRuntime } from '../data/query-registry';
 import { getDefaultDataRuntime } from '../data/data-runtime';
 import { resolveRootElement } from './root-element';
 import { validateCspNonce } from '../csp-nonce';
-import {
-  beginHydrationListenerTransaction,
-  commitHydrationListenerTransaction,
-  discardHydrationListenerTransaction,
-} from '../renderer/hydration/listener-transaction';
 import { beginHydrationInteractionReplay } from './hydration-interaction-replay';
 
 /**
@@ -146,12 +138,11 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         ? { handler: bindDeniedRouteHandler(resolved.status), params: {} }
         : resolved;
     const mountHydratedRoot: typeof mountOrUpdate = (...args) =>
-      withIntrinsicHydrationAdoption(() =>
-        mountOrUpdate(args[0], args[1], {
-          ...args[2],
-          cspNonce: config.cspNonce,
-        })
-      );
+      mountOrUpdate(args[0], args[1], {
+        ...args[2],
+        cspNonce: config.cspNonce,
+        hydrate: true,
+      });
 
     let verifyClientMarkup: (() => Promise<void>) | undefined;
     if (shouldVerifyHydrationMarkup(config)) {
@@ -226,7 +217,6 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
             stopHydrationRenderPhase();
           }
         }
-        finalizeDefaultPortalHydration(rootElement);
         flushRuntimeScheduler();
         if (!rootElement.querySelector('[data-skip-hydrate]')) {
           await verifyClientMarkup?.();
@@ -243,7 +233,6 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     if (hydrationRenderDataForApp) {
       startHydrationRenderPhase(hydrationRenderDataForApp);
     }
-    const listenerTransaction = beginHydrationListenerTransaction();
     try {
       mountHydratedRoot(
         rootElement,
@@ -255,12 +244,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
           appRuntime: appRouteSource.runtime,
         }
       );
-      commitHydrationListenerTransaction(listenerTransaction);
-      finalizeDefaultPortalHydration(rootElement);
       flushRuntimeScheduler();
-    } catch (error) {
-      discardHydrationListenerTransaction(listenerTransaction);
-      throw error;
     } finally {
       if (hydrationRenderDataForApp) {
         stopHydrationRenderPhase();

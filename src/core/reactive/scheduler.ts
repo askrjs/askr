@@ -24,6 +24,8 @@ export interface Job {
   run(): void;
   /** A disposed or already-satisfied job is skipped. */
   readonly skip?: boolean;
+  /** Called when the job is dropped without running (scheduler cleared). */
+  cancel?(): void;
 }
 
 export const MAX_RUNS_PER_FLUSH = 50;
@@ -169,6 +171,8 @@ export function waitForFlush(): Promise<void> {
 
 /** Drop all queued work (test isolation). */
 export function clearScheduler(): void {
+  const dropped = [...queued];
   for (const lane of Object.values(lanes)) lane.length = 0;
   queued.clear();
+  for (const job of dropped) job.cancel?.();
 }

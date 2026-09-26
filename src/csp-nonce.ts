@@ -1,4 +1,9 @@
-import { defineScope, isScopeReadable, readScope, type Scope } from './runtime';
+import {
+  defineScope,
+  isScopeReadable,
+  readScope,
+  type Scope,
+} from './core/api/scope';
 
 /** Lexical scope carrying the CSP nonce for the current render, if any. */
 export const CspNonceScope: Scope<string | undefined> = defineScope<

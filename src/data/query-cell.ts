@@ -5,20 +5,15 @@ import {
   staleQueryState,
   errorQueryState,
 } from './query-state';
-import { getComponentLifetimeIdentity } from '../runtime/component/capabilities';
 import { logger } from '../common/logger';
 import { getActiveRenderContext } from '../common/render-context';
 import {
-  adjustOwnershipDiagnostic,
-  requestRuntimeWork,
-  ScheduledWork,
-} from '../runtime';
-import {
   claimHookIndex,
-  getCurrentAppRenderRuntime,
-  getCurrentComponentInstance,
-} from '../runtime';
-import { recordReadableRead } from '../runtime';
+  currentAppRuntime as getCurrentAppRenderRuntime,
+  currentComponent as getCurrentComponentInstance,
+  readSource as recordReadableRead,
+} from '../core/api/hooks';
+import { schedule, type Job } from '../core/reactive/scheduler';
 import {
   ensureQueryCleanup,
   getQuerySlotStore,
@@ -63,16 +58,14 @@ type QueryCellOptions<T> = QueryOptions<T> & {
   readonly takeInitialData?: () => T | undefined;
 };
 
-class QueryStartWork extends ScheduledWork {
+/** Starts a query fetch in the flush; settles its promise if dropped. */
+class QueryStartWork implements Job {
   constructor(
-    run: () => void,
+    readonly run: () => void,
     private readonly settle: () => void
-  ) {
-    super(run);
-  }
+  ) {}
 
-  protected override cancel(): void {
-    super.cancel();
+  cancel(): void {
     this.settle();
   }
 }
@@ -112,7 +105,7 @@ export class QueryCell<T> {
   private definitionOwnerHook = -1;
   // Reader conflicts are checked after the current render work settles, so a
   // reader replacing the owner (e.g. a keyed row swap) is not a conflict.
-  private conflictCheck: ScheduledWork | null = null;
+  private conflictCheck: Job | null = null;
 
   private state: QueryState<T> = loadingQueryState<T>();
 
@@ -125,9 +118,6 @@ export class QueryCell<T> {
     this.options = options;
     this.key = key;
     this.cache = cache;
-    if (__ASKR_DEVELOPMENT_BUILD__) {
-      adjustOwnershipDiagnostic('queryCells', 1);
-    }
     if (options.initialData !== undefined) {
       this.state = freshQueryState(options.initialData);
     }
@@ -154,9 +144,6 @@ export class QueryCell<T> {
 
     hooks.set(hookIndex, null);
     this.ownerCount += 1;
-    if (__ASKR_DEVELOPMENT_BUILD__) {
-      adjustOwnershipDiagnostic('queryOwners', 1);
-    }
   }
 
   detach(generation: object, hookIndex: number): void {
@@ -166,9 +153,6 @@ export class QueryCell<T> {
     }
 
     this.ownerCount -= 1;
-    if (__ASKR_DEVELOPMENT_BUILD__) {
-      adjustOwnershipDiagnostic('queryOwners', -1);
-    }
     if (hooks.size === 0) {
       this.owners.delete(generation);
     }
@@ -257,10 +241,8 @@ export class QueryCell<T> {
       this.warnOnConflictingDefinition(options);
       return;
     }
-    this.conflictCheck ??= new ScheduledWork(() =>
-      this.warnOnConflictingReaders()
-    );
-    requestRuntimeWork('component', this.conflictCheck);
+    this.conflictCheck ??= { run: () => this.warnOnConflictingReaders() };
+    schedule(this.conflictCheck, 'render');
   }
 
   private warnOnConflictingReaders(): void {
@@ -314,9 +296,6 @@ export class QueryCell<T> {
     if (this.unownedTimer !== null) {
       clearTimeout(this.unownedTimer);
       this.unownedTimer = null;
-    }
-    if (__ASKR_DEVELOPMENT_BUILD__) {
-      adjustOwnershipDiagnostic('queryCells', -1);
     }
     this.controller?.abort();
     this.controller = null;
@@ -529,8 +508,7 @@ export class QueryCell<T> {
         this.pendingRefreshResolve = resolve;
       });
     }
-    requestRuntimeWork(
-      'component',
+    schedule(
       new QueryStartWork(
         () => {
           if (token !== this.pendingRefreshToken) {
@@ -551,7 +529,8 @@ export class QueryCell<T> {
           this.generation += 1;
           this.finishPendingRefresh(token);
         }
-      )
+      ),
+      'render'
     );
   }
 
@@ -789,7 +768,7 @@ function createLegacyQuery<T extends {}>(
   const hookIndex = claimHookIndex(instance, 'createQuery');
   ensureQueryCleanup(runtimeState, instance);
 
-  const generation = getComponentLifetimeIdentity(instance);
+  const generation: object = instance;
   const slotStore = getQuerySlotStore(runtimeState, instance);
   const existingSlot = slotStore.get(hookIndex);
   if (existingSlot && existingSlot.key === options.key) {

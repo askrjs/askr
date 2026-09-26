@@ -1,25 +1,29 @@
-import {
-  configureRootUpdateHost,
-  type PreparedRootUpdate,
-  type RootUpdateInput,
-} from '../common/root-update';
-import { clearRegisteredDefaultPortalForInstance } from '../common/default-portal-runtime';
+/**
+ * Route updates for application roots.
+ *
+ * `apply()` renders the destination (render phase only); `publish()` commits
+ * it; `rollback()` discards it and restores the root's previous route state.
+ * A navigation applies every root first and publishes only if all succeeded.
+ */
+
 import {
   clearStagedAppRenderRouteLocation,
   createAppRenderRuntime,
   stageAppRenderRouteLocation,
 } from '../common/app-render-runtime';
-import { captureComponentGeneration } from '../runtime/component/generation';
-import { executeComponent, type ComponentInstance } from '../runtime';
-import { captureRootHost } from '../renderer/ownership/root-snapshot';
+import {
+  configureRootUpdateHost,
+  type PreparedRootUpdate,
+  type RootUpdateInput,
+} from '../common/root-update';
+import type { PreparedRender } from '../core/dom/root';
 import { withoutRouteHydrationMetadata } from '../router/route-hydration';
+import type { AppRoot } from './root-lifecycle';
 import { wrapRootRouteHandler } from './root-handler';
 
 function prepare(root: object, input: RootUpdateInput): PreparedRootUpdate {
-  const instance = root as ComponentInstance;
-  const generation = captureComponentGeneration(instance);
-  const host = captureRootHost(instance.target);
-  const current = instance._appRenderRuntime;
+  const app = root as AppRoot;
+  const current = app.appRuntime;
   const runtime = createAppRenderRuntime({
     framework: withoutRouteHydrationMetadata(current?.framework),
     dataRuntime: current?.dataRuntime,
@@ -28,44 +32,56 @@ function prepare(root: object, input: RootUpdateInput): PreparedRootUpdate {
     route: input.routeData,
     hasRoute: input.hasRouteData,
   });
-  let applied = false;
+  const previous = {
+    appRuntime: app.appRuntime,
+    component: app.component,
+    handler: app.handler,
+    generation: app.generation,
+  };
+  let prepared: PreparedRender | null = null;
   let settled = false;
+
+  const restore = () => {
+    app.appRuntime = previous.appRuntime;
+    app.component = previous.component;
+    app.handler = previous.handler;
+    app.generation = previous.generation;
+  };
+
   return {
     apply() {
-      if (applied) return;
-      applied = true;
+      if (prepared || settled) return;
       stageAppRenderRouteLocation(runtime, input.href);
-      instance._appRenderRuntime = runtime;
+      app.appRuntime = runtime;
       if (input.replaceLifetime) {
-        clearRegisteredDefaultPortalForInstance(instance);
-        generation.prepare(
-          wrapRootRouteHandler(input.handler, instance._cspNonce),
-          {}
-        );
-        executeComponent(instance);
-      } else instance._enqueueRun?.();
+        app.component = input.handler;
+        app.handler = wrapRootRouteHandler(input.handler, app.cspNonce);
+        app.generation++;
+      }
+      try {
+        prepared = app.root.prepare(app.view());
+      } catch (error) {
+        restore();
+        clearStagedAppRenderRouteLocation(runtime);
+        throw error;
+      }
     },
     publish() {
+      if (settled) return;
+      settled = true;
+      prepared?.commit();
       clearStagedAppRenderRouteLocation(runtime);
     },
     rollback() {
       if (settled) return [];
       settled = true;
       clearStagedAppRenderRouteLocation(runtime);
-      return applied ? generation.rollback(() => host.restore()) : [];
+      const errors = prepared?.discard() ?? [];
+      restore();
+      return errors;
     },
     retire() {
-      if (settled) return [];
-      settled = true;
-      const errors: unknown[] = [];
-      if (applied && input.replaceLifetime) {
-        try {
-          generation.retire();
-        } catch (error) {
-          errors.push(error);
-        }
-      }
-      return errors;
+      return [];
     },
   };
 }

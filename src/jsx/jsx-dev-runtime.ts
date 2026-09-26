@@ -9,10 +9,7 @@ import type {
   KnownIntrinsicElementProps,
   Props,
 } from '../common/props';
-import {
-  isEagerControlPrimitive,
-  type EagerControlPrimitive,
-} from '../common/control';
+import type { EagerControlPrimitive } from '../common/control';
 import {
   ELEMENT_TYPE,
   Fragment,
@@ -20,11 +17,6 @@ import {
   type JSXElementType,
   type JSXElement,
 } from './types';
-import { markReadableUsage } from '../runtime';
-
-declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
-
-const DEVELOPMENT_BUILD_ENABLED = __ASKR_DEVELOPMENT_BUILD__;
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace JSX {
@@ -66,18 +58,6 @@ type OtherIntrinsicTag =
       keyof KnownIntrinsicElementProps
     >
   | `${string}-${string}`;
-
-function annotatePropsUsage(props: Record<string, unknown> | null): Props {
-  const normalizedProps = (props ?? {}) as Props;
-
-  if (DEVELOPMENT_BUILD_ENABLED) {
-    for (const key in normalizedProps) {
-      markReadableUsage(normalizedProps[key]);
-    }
-  }
-
-  return normalizedProps;
-}
 
 function markStaticChildren(props: Props): Props {
   if (Array.isArray(props.children)) {
@@ -126,14 +106,10 @@ export function jsxDEV(
   key?: string | number,
   isStaticChildren = false
 ): JSXElement | unknown {
-  const normalizedProps = annotatePropsUsage(props);
+  const normalizedProps = (props ?? {}) as Props;
   const preparedProps = isStaticChildren
     ? markStaticChildren(normalizedProps)
     : normalizedProps;
-
-  if (isEagerControlPrimitive(type)) {
-    return type(preparedProps);
-  }
 
   return {
     $$typeof: ELEMENT_TYPE,

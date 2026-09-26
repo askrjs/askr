@@ -1,9 +1,8 @@
-import {
-  getComponentLifetimeIdentity,
-  ownComponentCleanup,
-} from '../runtime/component/capabilities';
 import { getActiveRenderContext } from '../common/render-context';
-import { claimHookIndex, getCurrentComponentInstance } from '../runtime';
+import {
+  claimHookIndex,
+  currentComponent as getCurrentComponentInstance,
+} from '../core/api/hooks';
 import {
   readQueryData,
   resolveDataRuntimeState,
@@ -403,7 +402,7 @@ export function createQueryCollection<
     );
   }
 
-  const generation = getComponentLifetimeIdentity(instance);
+  const generation: object = instance;
   const runtimeState = resolveDataRuntimeState(options.runtime);
   const store = getCollectionStore(generation);
   let slot = store.get(hookIndex);
@@ -425,7 +424,7 @@ export function createQueryCollection<
       >,
     };
     store.set(hookIndex, slot);
-    ownComponentCleanup(instance, () => {
+    instance.onCleanup(() => {
       const current = store.get(hookIndex);
       try {
         current?.collection.dispose();

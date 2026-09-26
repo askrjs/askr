@@ -25,6 +25,7 @@ import {
   type Key,
 } from '../view/children';
 import type { Pass } from './pass';
+import { removeUnrenderedAttributes } from './hydration';
 import {
   applyInitialProps,
   applyTrailingProps,
@@ -84,9 +85,10 @@ export function namespaceAt(parent: Parent): string | null {
 export function createRenderContext(
   pass: Pass,
   owner: Owner | null,
-  ns: string | null
+  ns: string | null,
+  hydrate: RenderContext['hydrate'] = null
 ): RenderContext {
-  return { pass, owner, ns, nodes: domNodes };
+  return { pass, owner, ns, nodes: domNodes, hydrate };
 }
 
 /** Schedules a standalone update of a function child (see `updates`). */
@@ -115,9 +117,13 @@ function createHost(
   props: Props
 ): HostNode {
   const ns = elementNamespace(tag, ctx.ns);
-  const el = ns
-    ? document.createElementNS(ns, tag)
-    : document.createElement(tag);
+  const hydrate = ctx.hydrate;
+  const adopted = hydrate
+    ? hydrate.cursor.claimElement(hydrate.container, tag, ns)
+    : null;
+  const el =
+    adopted ??
+    (ns ? document.createElementNS(ns, tag) : document.createElement(tag));
   const node: HostNode = {
     kind: HOST,
     parent,
@@ -131,16 +137,27 @@ function createHost(
     owner: nearestInstance(ctx.owner),
     imperative: Boolean(props.imperativeChildren),
   };
-  applyInitialProps(ctx.pass, node);
+  applyInitialProps(ctx.pass, node, adopted !== null);
+  if (adopted) {
+    ctx.pass.op(() => removeUnrenderedAttributes(adopted, props));
+  }
   if (ownsChildren(props)) {
     node.children = reconcileChildren(
-      { ...ctx, ns: childNamespace(tag, ns) },
+      {
+        ...ctx,
+        ns: childNamespace(tag, ns),
+        hydrate:
+          adopted && hydrate
+            ? { cursor: hydrate.cursor, container: adopted }
+            : null,
+      },
       node,
       props.children,
       true
     );
   }
-  applyTrailingProps(node, props);
+  if (adopted) ctx.pass.op(() => applyTrailingProps(node, props));
+  else applyTrailingProps(node, props);
   attachRef(ctx.pass, node, undefined);
   return node;
 }
@@ -189,7 +206,7 @@ function createComponent(
   props: Props
 ): ComponentNode {
   const instance = new ComponentInstance(ctx.owner, fn, props);
-  ctx.pass.created_(instance);
+  ctx.pass.own(instance);
   const node: ComponentNode = {
     kind: COMPONENT,
     parent,
@@ -225,11 +242,7 @@ function patchComponent(
   if (!propsChanged(instance.props, props) && !instance.computation.stale) {
     return;
   }
-  const previous = instance.props;
-  instance.props = props;
-  ctx.pass.onDiscard(() => {
-    instance.props = previous;
-  });
+  instance.setProps(props);
   renderInstance(ctx, node, false);
 }
 
@@ -248,7 +261,7 @@ export function renderInstance(
   const mark = ctx.pass.mark();
   try {
     const children = reconcileChildren(inner, node, instance.render(), fresh);
-    ctx.pass.rendered_(instance);
+    ctx.pass.markRendered(instance);
     return children;
   } catch (error) {
     if (!instance.boundary) throw error;
@@ -257,7 +270,7 @@ export function renderInstance(
     }
     if (!instance.boundary(error)) throw error;
     const children = reconcileChildren(inner, node, instance.render(), fresh);
-    ctx.pass.rendered_(instance);
+    ctx.pass.markRendered(instance);
     return children;
   }
 }
@@ -284,7 +297,7 @@ function createDynamic(
     () => scheduleDynamicUpdate(node),
     null
   );
-  ctx.pass.created_(node.computation);
+  ctx.pass.own(node.computation);
   node.children = reconcileChildren(
     withOwner(ctx, node.computation),
     node,
@@ -381,14 +394,26 @@ function release(node: RNode, errors: unknown[]): void {
 export const domNodes: NodeKinds = {
   create(ctx, parent, child: ChildDescriptor): RNode {
     switch (child.kind) {
-      case TEXT:
+      case TEXT: {
+        const hydrate = ctx.hydrate;
+        const claimed = hydrate?.cursor.claimText(
+          hydrate.container,
+          child.text
+        );
+        if (claimed && claimed.data !== child.text) {
+          const text = child.text;
+          ctx.pass.op(() => {
+            claimed.data = text;
+          });
+        }
         return {
           kind: TEXT,
           parent,
           key: undefined,
-          node: document.createTextNode(child.text),
+          node: claimed ?? document.createTextNode(child.text),
           text: child.text,
         };
+      }
       case ELEMENT:
         return createHost(ctx, parent, child.key, child.tag, child.props);
       case COMPONENT:

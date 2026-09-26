@@ -32,6 +32,7 @@ import {
   type RNode,
 } from './tree';
 import { reportTeardown } from './teardown';
+import { syncChildren, type HydrationCursor } from './hydration';
 
 export interface NodeKinds {
   create(ctx: RenderContext, parent: Parent, child: ChildDescriptor): RNode;
@@ -47,6 +48,8 @@ export interface RenderContext {
   /** Namespace for new elements. */
   readonly ns: string | null;
   readonly nodes: NodeKinds;
+  /** Set while hydrating: claims server nodes inside `container`. */
+  readonly hydrate: { cursor: HydrationCursor; container: Node } | null;
 }
 
 export function withOwner(
@@ -92,8 +95,18 @@ export function reconcileChildren(
   if (fresh) {
     const result = next.map((child) => ctx.nodes.create(ctx, parent, child));
     if (parent.kind === HOST) {
-      for (const node of result) {
-        for (const dom of collectDom(node)) parent.el.appendChild(dom);
+      if (ctx.hydrate?.container === parent.el) {
+        const el = parent.el;
+        ctx.pass.op(() =>
+          syncChildren(
+            el,
+            result.flatMap((node) => collectDom(node))
+          )
+        );
+      } else {
+        for (const node of result) {
+          for (const dom of collectDom(node)) parent.el.appendChild(dom);
+        }
       }
     }
     return result;

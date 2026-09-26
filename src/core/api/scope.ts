@@ -24,10 +24,7 @@ interface ProviderProps {
 }
 
 function ScopeProvider(props: ProviderProps): unknown {
-  const instance = currentComponent();
-  if (instance) {
-    (instance.context ??= new Map()).set(props.scopeKey, props.value);
-  }
+  currentComponent()?.provide(props.scopeKey, props.value);
   return typeof props.children === 'function'
     ? (props.children as () => unknown)()
     : props.children;
