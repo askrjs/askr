@@ -28,9 +28,7 @@ function ScopeProvider(props: ProviderProps): unknown {
   if (typeof Node !== 'undefined' && props.children instanceof Node) {
     return null;
   }
-  return typeof props.children === 'function'
-    ? (props.children as () => unknown)()
-    : props.children;
+  return props.children;
 }
 
 /** Create a scope whose value defaults to `defaultValue`. */

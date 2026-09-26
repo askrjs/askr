@@ -78,6 +78,7 @@ export interface FragmentNode extends Base {
 export interface DynamicNode extends Base {
   kind: typeof DYNAMIC;
   fn: () => unknown;
+  instance: ComponentInstance;
   /** Reads `fn()`; owns the content it renders. */
   computation: Computation<unknown>;
   children: RNode[];

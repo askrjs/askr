@@ -59,7 +59,12 @@ export class ComponentInstance extends Owner {
   contextRevision = 0;
   seenAncestorContextRevision = 0;
 
-  constructor(parent: Owner | null, fn: ComponentFunction, props: Props) {
+  constructor(
+    parent: Owner | null,
+    fn: ComponentFunction,
+    props: Props,
+    onStale?: () => void
+  ) {
     super(parent);
     this.fn = fn;
     this.props = props;
@@ -67,7 +72,7 @@ export class ComponentInstance extends Owner {
     this.computation = new Computation<unknown>(
       this,
       () => this.invoke(),
-      renderLaneScheduler(this),
+      onStale ?? renderLaneScheduler(this),
       null
     );
   }

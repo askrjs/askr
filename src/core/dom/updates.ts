@@ -112,13 +112,14 @@ function scheduleDynamic(node: DynamicNode): void {
 function rerenderDynamic(node: DynamicNode): void {
   const computation = node.computation;
   if (computation.disposed || !computation.stale) return;
-  runPass(computation.parent, (pass) => {
+  runPass(node.instance.parent, (pass) => {
     const ctx = createRenderContext(
       pass,
-      computation,
+      node.instance,
       namespaceAt(node.parent!)
     );
     reconcileChildren(ctx, node, readDynamic(node), false);
+    pass.markRendered(node.instance);
   });
 }
 

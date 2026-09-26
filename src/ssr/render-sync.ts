@@ -21,7 +21,7 @@ import type { Props } from '../common/props';
 import type { ComponentFunction } from '../common/component';
 import { ComponentInstance } from '../core/component/instance';
 import { untrack } from '../core/reactive/graph';
-import { Owner, runWithOwner } from '../core/reactive/owner';
+import { Owner } from '../core/reactive/owner';
 import { readValue } from '../core/reactive/readable';
 import {
   COMPONENT,
@@ -306,8 +306,9 @@ function renderChild(child: ChildDescriptor, sink: SinkTarget): void {
       return;
     }
     case FUNCTION:
-      renderValue(
-        untrack(() => runWithOwner(state().owner, () => readValue(child.fn))),
+      renderComponent(
+        () => readValue(child.fn) as ReturnType<ComponentFunction>,
+        {},
         sink
       );
       return;

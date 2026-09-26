@@ -9,9 +9,7 @@
 import type { ComponentFunction } from '../../common/component';
 import type { Props } from '../../common/props';
 import { ComponentInstance } from '../component/instance';
-import { withRendering } from '../component/render-state';
 import type { Owner } from '../reactive/owner';
-import { Computation } from '../reactive/graph';
 import { reportUncaughtErrorLater } from '../../common/report-error';
 import {
   COMPONENT,
@@ -313,28 +311,27 @@ function createDynamic(
     children: [] as RNode[],
     depth: (nearestInstance(ctx.owner)?.depth ?? 0) + 1,
   } as DynamicNode;
-  node.computation = new Computation<unknown>(
+  node.instance = new ComponentInstance(
     ctx.owner,
-    () => withRendering(() => node.fn()),
-    () => scheduleDynamicUpdate(node),
-    null
+    () => node.fn() as ReturnType<ComponentFunction>,
+    {},
+    () => scheduleDynamicUpdate(node)
   );
-  ctx.pass.own(node.computation);
+  node.computation = node.instance.computation;
+  ctx.pass.own(node.instance);
   node.children = reconcileChildren(
-    withOwner(ctx, node.computation),
+    withOwner(ctx, node.instance),
     node,
     readDynamic(node),
     true
   );
+  ctx.pass.markRendered(node.instance);
   return node;
 }
 
 /** Run a function child's read now, tracking what it reads. */
 export function readDynamic(node: DynamicNode): unknown {
-  const computation = node.computation;
-  computation.run();
-  if (computation._hasError) throw computation._error;
-  return computation._value;
+  return node.instance.render();
 }
 
 function patchDynamic(
@@ -348,11 +345,12 @@ function patchDynamic(
     node.fn = previous;
   });
   reconcileChildren(
-    withOwner(ctx, node.computation),
+    withOwner(ctx, node.instance),
     node,
     readDynamic(node),
     false
   );
+  ctx.pass.markRendered(node.instance);
 }
 
 // ---------------------------------------------------------------------------
@@ -396,7 +394,7 @@ function release(node: RNode, errors: unknown[]): void {
       return;
     case DYNAMIC:
       for (const child of node.children) release(child, errors);
-      node.computation.dispose(errors);
+      node.instance.dispose(errors);
       return;
     case PORTAL:
       for (const child of node.children) {
