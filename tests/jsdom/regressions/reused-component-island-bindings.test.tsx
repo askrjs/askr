@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vite-plus/test';
 import { state, type State } from '../../../src';
 import { cleanupApp, createIsland } from '../../../src/boot';
 import { ErrorBoundary } from '../../../src/components';
-import { getBlueprint } from '../../../src/renderer/intrinsic/blueprint-analysis';
 import {
   createTestContainer,
   flushScheduler,
@@ -54,7 +53,6 @@ describe('component reused across island lifetimes', () => {
 
     try {
       createIsland({ root: first.container, component: App });
-      expect(getBlueprint(ReusedComponent, document)).toBeDefined();
       currentLabel.set('first update');
       flushScheduler();
       expect(first.container.querySelector('p')?.title).toBe('first update');

@@ -13,6 +13,7 @@ import type { Props } from '../../common/props';
 import { isSkippedProp } from '../../common/prop-classification';
 import { setRef } from './refs';
 import { Computation } from '../reactive/graph';
+import { deliverToBoundary } from '../component/errors';
 import { readValue } from '../reactive/readable';
 import { effectScheduler } from '../reactive/scheduler';
 import {
@@ -210,10 +211,14 @@ function bind(
   const binding: Computation<void> = new Computation<void>(
     node.owner,
     () => {
-      const value = key.startsWith('prop:') ? read() : readValue(read);
-      applyScalarPropValue(el, key, value, tag, last);
-      last = value;
-      appliedByBinding.set(binding, value);
+      try {
+        const value = key.startsWith('prop:') ? read() : readValue(read);
+        applyScalarPropValue(el, key, value, tag, last);
+        last = value;
+        appliedByBinding.set(binding, value);
+      } catch (error) {
+        if (!deliverToBoundary(node.owner, error)) throw error;
+      }
     },
     effectScheduler('effect', (node.owner?.depth ?? 0) + 1),
     null
