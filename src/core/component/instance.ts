@@ -86,7 +86,7 @@ export class ComponentInstance extends Owner {
             ssr: this.serverContext as ComponentContext['ssr'],
           }
         : { signal: this.signal };
-      const started = isTimingRenders() ? Date.now() : 0;
+      const started = !this.server && isTimingRenders() ? Date.now() : 0;
       const output = withRendering(() =>
         runWithOwner(this, () => this.fn(this.props, context))
       );

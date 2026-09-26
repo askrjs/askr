@@ -136,7 +136,7 @@ function Example({
   return (
     <>
       <Show when={user} fallback={<Login />}>
-        {(value) => <Dashboard user={value} />}
+        {(value: { id: string }) => <Dashboard user={value} />}
       </Show>
 
       <Case fallback={<NotFound />}>

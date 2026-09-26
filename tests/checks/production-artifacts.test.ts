@@ -67,7 +67,7 @@ describe('production artifact purity', () => {
     expect(source).not.toContain('queryOwners');
     expect(source).not.toContain('queryCells');
     expect(source).not.toContain('queuedSchedulerWork');
-    expect(source).not.toContain('Duplicate key');
+    // The core keyed reconciler rejects duplicate keys in every build.
     expect(source).not.toContain('DEVELOPMENT_BUILD_ENABLED = true');
   });
 

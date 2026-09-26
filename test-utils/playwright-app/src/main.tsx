@@ -328,7 +328,6 @@ function mountInputTypingScenario(): void {
 function HydrationBenchmarkPage() {
   hydrationRowsState = state<RowData[]>(hydrationRowsSeed);
   hydrationSelectedState = state<number | null>(null);
-  hydrationRowsState._hasBeenRead = true;
   const isSelected = selector(hydrationSelectedState);
 
   const select = (id: number) => hydrationSelectedState!.set(id);

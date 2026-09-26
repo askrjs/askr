@@ -12,7 +12,7 @@ function mount(view: unknown) {
 }
 
 describe('core renderer', () => {
-  it('renders and updates a stateful component', () => {
+  it('should render and update a stateful component', () => {
     let setCount!: (n: number) => void;
     let renders = 0;
     function Counter() {
@@ -36,7 +36,7 @@ describe('core renderer', () => {
     expect(renders).toBe(2);
   });
 
-  it('keeps multi-node component output transparent and keyed moves stable', () => {
+  it('should keep multi-node component output transparent and keyed moves stable', () => {
     let setItems!: (v: number[]) => void;
     function Pair() {
       return (
@@ -80,7 +80,7 @@ describe('core renderer', () => {
     expect(el.querySelector('li')).toBe(lis[1]);
   });
 
-  it('updates function children and props without re-rendering the component', () => {
+  it('should update function children and props without re-rendering the component', () => {
     let renders = 0;
     let setName!: (v: string) => void;
     function Greeting() {
@@ -97,7 +97,7 @@ describe('core renderer', () => {
     expect(renders).toBe(1);
   });
 
-  it('leaves committed DOM untouched when a re-render throws', () => {
+  it('should leave committed DOM untouched when a re-render throws', () => {
     let setCount!: (n: number) => void;
     function Child(props: { n: number }) {
       if (props.n === 2) throw new Error('boom');
@@ -123,7 +123,7 @@ describe('core renderer', () => {
     expect(el.innerHTML).toBe('<div><b>3</b><i>3</i></div>');
   });
 
-  it('dispatches events with batching', () => {
+  it('should dispatch events with batching', () => {
     function Button() {
       const [n, set] = state(0);
       return <button onClick={() => set(n() + 1)}>{n()}</button>;

@@ -40,7 +40,9 @@ export function clearControlBoundaryDomUpdateState(
 export function getControlBoundaryState(
   node: DOMElement
 ): ControlBoundaryState | null {
-  const controlState = node._controlState ?? null;
+  const controlState =
+    (node as DOMElement & { _controlState?: ControlBoundaryState })
+      ._controlState ?? null;
   const frame = getVNodeContextFrame(node);
   if (controlState && frame) {
     setControlBoundaryContextFrame(controlState, frame);

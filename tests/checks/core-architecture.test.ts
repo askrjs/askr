@@ -40,7 +40,7 @@ function imports(file: string): string[] {
 describe('core architecture', () => {
   const all = files(ROOT);
 
-  it('keeps each layer to its allowed dependencies', () => {
+  it('should keep each layer to its allowed dependencies', () => {
     const violations: string[] = [];
     for (const file of all) {
       const layer = relative(ROOT, file).split('/')[0];
@@ -66,7 +66,7 @@ describe('core architecture', () => {
     expect(violations).toEqual([]);
   });
 
-  it('has no import cycles', () => {
+  it('should have no import cycles', () => {
     const graph = new Map(
       all.map((file) => [
         file.replace(/\.ts$/, ''),

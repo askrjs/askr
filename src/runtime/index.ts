@@ -75,7 +75,7 @@ export {
 export * from './reactivity/derive';
 export * from './reactivity/effect';
 export * from './component/error-boundary';
-export * from './execution-model';
+export * from '../common/execution-model';
 export * from './control/for';
 export {
   prepareForCommitPlan,

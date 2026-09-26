@@ -9,6 +9,7 @@
  */
 
 import { globalScheduler } from '../../src/runtime/scheduler';
+import { flushSync as flushCoreScheduler } from '../../src/core/reactive/scheduler';
 import { renderToStringSync } from '../../src/ssr';
 import type { SSRComponent } from '../../src/ssr';
 
@@ -58,6 +59,7 @@ export function flushScheduler(): void {
   // Synchronously flush all pending tasks
   // This will throw if any task throws during execution
   globalScheduler.flush();
+  flushCoreScheduler();
 }
 
 /**

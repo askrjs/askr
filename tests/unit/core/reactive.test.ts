@@ -17,7 +17,7 @@ function effect(fn: () => void, owner: Owner | null = null) {
 }
 
 describe('reactive graph', () => {
-  it('recomputes derived values lazily and only when a source changed', () => {
+  it('should recompute derived values lazily and only when a source changed', () => {
     const a = new Signal(1);
     let runs = 0;
     const double = computed(() => {
@@ -34,7 +34,7 @@ describe('reactive graph', () => {
     expect(runs).toBe(2);
   });
 
-  it('cuts off propagation when a derived value does not change', () => {
+  it('should cut off propagation when a derived value does not change', () => {
     const a = new Signal(1);
     const parity = computed(() => a.read() % 2);
     const seen: number[] = [];
@@ -49,7 +49,7 @@ describe('reactive graph', () => {
     expect(seen).toEqual([1, 0]);
   });
 
-  it('is glitch-free across diamond dependencies', () => {
+  it('should be glitch-free across diamond dependencies', () => {
     const a = new Signal(1);
     const b = computed(() => a.read() + 1);
     const c = computed(() => a.read() * 10);
@@ -62,7 +62,7 @@ describe('reactive graph', () => {
     expect(seen).toEqual(['2:10', '3:20']);
   });
 
-  it('tracks dynamic dependencies', () => {
+  it('should track dynamic dependencies', () => {
     const flag = new Signal(true);
     const x = new Signal('x');
     const y = new Signal('y');
@@ -80,7 +80,7 @@ describe('reactive graph', () => {
     expect(seen).toEqual(['x', 'y2']);
   });
 
-  it('does not track reads inside untrack', () => {
+  it('should not track reads inside untrack', () => {
     const a = new Signal(1);
     let runs = 0;
     effect(() => {
@@ -92,7 +92,7 @@ describe('reactive graph', () => {
     expect(runs).toBe(1);
   });
 
-  it('stops observing sources when disposed', () => {
+  it('should stop observing sources when disposed', () => {
     const a = new Signal(1);
     const owner = new Owner(null);
     let runs = 0;
@@ -107,7 +107,7 @@ describe('reactive graph', () => {
     expect(a._observers?.size ?? 0).toBe(0);
   });
 
-  it('rethrows a derived failure on read and recovers when sources change', () => {
+  it('should rethrow a derived failure on read and recover when sources change', () => {
     const a = new Signal(0);
     const inverse = computed(() => {
       if (a.read() === 0) throw new Error('zero');
@@ -120,7 +120,7 @@ describe('reactive graph', () => {
 });
 
 describe('owner tree', () => {
-  it('disposes children before running its own cleanups, in reverse order', () => {
+  it('should dispose children before running its own cleanups, in reverse order', () => {
     const order: string[] = [];
     const root = new Owner(null);
     root.onCleanup(() => order.push('root'));
@@ -134,7 +134,7 @@ describe('owner tree', () => {
     expect(order).toEqual(['b2', 'b1', 'a.child', 'a', 'root']);
   });
 
-  it('finishes disposal when cleanups throw and returns every failure', () => {
+  it('should finish disposal when cleanups throw and return every failure', () => {
     const root = new Owner(null);
     const ran: string[] = [];
     root.onCleanup(() => ran.push('last'));
@@ -150,7 +150,7 @@ describe('owner tree', () => {
     expect(root.dispose()).toEqual([]);
   });
 
-  it('resolves context through ancestors', () => {
+  it('should resolve context through ancestors', () => {
     const root = new Owner(null);
     root.context = new Map([['theme', 'dark']]);
     const child = new Owner(new Owner(root));
