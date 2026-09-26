@@ -65,6 +65,13 @@ function isInputValue(tag: string, key: string): boolean {
   return key === 'value' && (tag === 'input' || tag === 'textarea');
 }
 
+function isBooleanControl(tag: string, key: string): boolean {
+  return (
+    (tag === 'input' && key === 'checked') ||
+    (tag === 'option' && key === 'selected')
+  );
+}
+
 /** Record the live attribute before applying a reversible scalar write. */
 function writeSimpleAttribute(
   pass: Pass,
@@ -108,6 +115,32 @@ function writeInputValue(
     });
     try {
       applyScalarPropValue(el, 'value', value, tag, previous);
+    } catch (error) {
+      throw new CommitMutationError(error);
+    }
+  });
+}
+
+/** Restore a checkbox or option's live state and reflected attribute. */
+function writeBooleanControl(
+  pass: Pass,
+  node: HostNode,
+  key: 'checked' | 'selected',
+  value: unknown,
+  previous: unknown
+): void {
+  const { el, tag } = node;
+  pass.op(() => {
+    const control = el as HTMLInputElement & HTMLOptionElement;
+    const beforeValue = control[key];
+    const beforeAttribute = el.getAttribute(key);
+    pass.onReversibleCommit(() => {
+      if (beforeAttribute === null) el.removeAttribute(key);
+      else el.setAttribute(key, beforeAttribute);
+      control[key] = beforeValue;
+    });
+    try {
+      applyScalarPropValue(el, key, value, tag, previous);
     } catch (error) {
       throw new CommitMutationError(error);
     }
@@ -224,6 +257,14 @@ export function patchProps(
       pass.op(() => setHandler(node, key, undefined));
     } else if (!isBinding(key, old) && isInputValue(tag, key)) {
       writeInputValue(pass, node, undefined, old);
+    } else if (!isBinding(key, old) && isBooleanControl(tag, key)) {
+      writeBooleanControl(
+        pass,
+        node,
+        key as 'checked' | 'selected',
+        undefined,
+        old
+      );
     } else if (!isBinding(key, old) && isSimpleAttribute(tag, key, undefined)) {
       writeSimpleAttribute(pass, node, key, undefined, old);
     } else {
@@ -263,6 +304,14 @@ export function patchProps(
     if (Object.is(value, old) && key === 'dangerouslySetInnerHTML') continue;
     if (isInputValue(tag, key)) {
       writeInputValue(pass, node, value, old);
+    } else if (isBooleanControl(tag, key)) {
+      writeBooleanControl(
+        pass,
+        node,
+        key as 'checked' | 'selected',
+        value,
+        old
+      );
     } else if (isSimpleAttribute(tag, key, value)) {
       writeSimpleAttribute(pass, node, key, value, old);
     } else {

@@ -179,9 +179,9 @@ the final package cannot.
 
 Structural child-placement failures now restore sibling containers in one
 pass before reporting the error. Standard element attribute writes also restore their
-previous values. Input and textarea value writes restore both the attribute and
-live value. Select, checked/selected, and other property write failures still
-need qualification.
+previous values. Input and textarea values, checkbox state, and option selection
+restore both the attribute and live property. Select value and other property
+write failures still need qualification.
 The remaining jsdom failures are in `dom-renderer-host.test.tsx`, which exercises
 the legacy experimental host. Keep those failures visible until its public
 contract is resolved; passing hydration alone does not qualify the branch.

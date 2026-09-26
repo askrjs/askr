@@ -219,6 +219,113 @@ describe('reconciliation commit errors', () => {
       expect(second.value).toBe('old');
     }
   );
+
+  it('should restore live checkbox state when a later checked attribute write fails', () => {
+    const App = () => {
+      flip = state(false);
+      return (
+        <div>
+          <input id="first" type="checkbox" checked={flip()} />
+          <input id="second" type="checkbox" checked={flip()} />
+        </div>
+      );
+    };
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const stable = container.innerHTML;
+    const first = container.querySelector<HTMLInputElement>('#first')!;
+    const second = container.querySelector<HTMLInputElement>('#second')!;
+    const write = second.setAttribute.bind(second);
+    const error = new Error('checked attribute write failed');
+    let armed = true;
+    vi.spyOn(second, 'setAttribute').mockImplementation((name, value) => {
+      if (armed && name === 'checked') {
+        armed = false;
+        throw error;
+      }
+      write(name, value);
+    });
+
+    flip.set(true);
+    expect(() => flushScheduler()).toThrow(error);
+    expect(container.innerHTML).toBe(stable);
+    expect(first.checked).toBe(false);
+    expect(second.checked).toBe(false);
+  });
+
+  it('should restore live option state when a later selected attribute write fails', () => {
+    const App = () => {
+      flip = state(false);
+      return (
+        <select multiple>
+          <option id="first" selected={flip()}>
+            First
+          </option>
+          <option id="second" selected={flip()}>
+            Second
+          </option>
+        </select>
+      );
+    };
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const stable = container.innerHTML;
+    const first = container.querySelector<HTMLOptionElement>('#first')!;
+    const second = container.querySelector<HTMLOptionElement>('#second')!;
+    const write = second.setAttribute.bind(second);
+    const error = new Error('selected attribute write failed');
+    let armed = true;
+    vi.spyOn(second, 'setAttribute').mockImplementation((name, value) => {
+      if (armed && name === 'selected') {
+        armed = false;
+        throw error;
+      }
+      write(name, value);
+    });
+
+    flip.set(true);
+    expect(() => flushScheduler()).toThrow(error);
+    expect(container.innerHTML).toBe(stable);
+    expect(first.selected).toBe(false);
+    expect(second.selected).toBe(false);
+  });
+
+  it('should preserve single-select choice when an option selected write fails', () => {
+    const App = () => {
+      flip = state(false);
+      return (
+        <select>
+          <option id="first" selected>
+            First
+          </option>
+          <option id="second" selected={flip()}>
+            Second
+          </option>
+        </select>
+      );
+    };
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const stable = container.innerHTML;
+    const first = container.querySelector<HTMLOptionElement>('#first')!;
+    const second = container.querySelector<HTMLOptionElement>('#second')!;
+    const write = second.setAttribute.bind(second);
+    const error = new Error('selected attribute write failed');
+    let armed = true;
+    vi.spyOn(second, 'setAttribute').mockImplementation((name, value) => {
+      if (armed && name === 'selected') {
+        armed = false;
+        throw error;
+      }
+      write(name, value);
+    });
+
+    flip.set(true);
+    expect(() => flushScheduler()).toThrow(error);
+    expect(container.innerHTML).toBe(stable);
+    expect(first.selected).toBe(true);
+    expect(second.selected).toBe(false);
+  });
 });
 
 // Reactive child functions commit outside a component update, so they need
