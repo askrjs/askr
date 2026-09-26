@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
  *
  *   reactive  <-  component  <-  view  <-  dom
  *                     ^
- *                    api
+ *                    api (also view)
  *
  * A layer imports only from the layers to its left. The core never imports
  * the previous runtime/renderer implementation or higher-level packages.
@@ -18,7 +18,7 @@ const LAYERS: Record<string, readonly string[]> = {
   component: ['reactive'],
   view: [],
   dom: ['reactive', 'component', 'view'],
-  api: ['reactive', 'component'],
+  api: ['reactive', 'component', 'view'],
 };
 const ALLOWED_OUTSIDE = ['common'];
 

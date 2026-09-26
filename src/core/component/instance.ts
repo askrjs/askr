@@ -47,6 +47,8 @@ export class ComponentInstance extends Owner {
   private abortController: AbortController | null = null;
   /** Renderer-owned view of this instance's committed output. */
   view: unknown = null;
+  /** Rendering on the server: lifecycle work that needs a commit is skipped. */
+  server = false;
   /** Error boundary handler, when this instance is a boundary. */
   boundary: ((error: unknown) => boolean) | null = null;
 
@@ -71,6 +73,8 @@ export class ComponentInstance extends Owner {
   private invoke(): unknown {
     const previous = enterInstance(this);
     this.hookIndex = 0;
+    // Commit work belongs to the render that registers it.
+    this.commitQueue = null;
     try {
       const context: ComponentContext = { signal: this.signal };
       const output = withRendering(() =>

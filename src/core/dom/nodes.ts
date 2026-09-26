@@ -18,6 +18,7 @@ import {
   ELEMENT,
   FRAGMENT,
   FUNCTION,
+  NATIVE,
   PORTAL,
   TEXT,
   type ChildDescriptor,
@@ -372,6 +373,7 @@ function release(node: RNode, errors: unknown[]): void {
       for (const child of node.children) release(child, errors);
       return;
     case TEXT:
+    case NATIVE:
       return;
   }
 }
@@ -398,11 +400,23 @@ export const domNodes: NodeKinds = {
           key: child.key,
           children: [],
         };
-        node.children = reconcileChildren(ctx, node, child.children, true);
+        node.children = reconcileChildren(
+          withOwner(ctx, (child.owner as Owner | undefined) ?? ctx.owner),
+          node,
+          child.children,
+          true
+        );
         return node;
       }
       case FUNCTION:
         return createDynamic(ctx, parent, child.fn);
+      case NATIVE:
+        return {
+          kind: NATIVE,
+          parent,
+          key: undefined,
+          node: child.node as Node,
+        };
       case PORTAL:
         return createPortal(
           ctx,
@@ -435,7 +449,18 @@ export const domNodes: NodeKinds = {
       case DYNAMIC:
         patchDynamic(ctx, node, (child as { fn: () => unknown }).fn);
         return;
-      case FRAGMENT:
+      case NATIVE:
+        return;
+      case FRAGMENT: {
+        const owner = (child as { owner?: Owner }).owner;
+        reconcileChildren(
+          withOwner(ctx, owner ?? ctx.owner),
+          node,
+          (child as { children: unknown }).children,
+          false
+        );
+        return;
+      }
       case PORTAL:
         reconcileChildren(
           ctx,

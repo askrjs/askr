@@ -8,7 +8,8 @@
  */
 
 import { reportUncaughtErrorLater } from '../../common/report-error';
-import { ComponentInstance, setRenderHost } from '../component/instance';
+import { routeError } from '../component/errors';
+import { type ComponentInstance, setRenderHost } from '../component/instance';
 import type { Owner } from '../reactive/owner';
 import { schedule, type Job } from '../reactive/scheduler';
 import {
@@ -21,19 +22,6 @@ import {
 import { Pass } from './pass';
 import { reconcileChildren, withOwner } from './reconcile';
 import type { ComponentNode, DynamicNode } from './tree';
-
-/** Deliver `error` to the nearest boundary above `owner`, else rethrow. */
-export function routeError(owner: Owner | null, error: unknown): void {
-  for (let o = owner; o; o = o.parent) {
-    if (o instanceof ComponentInstance && o.boundary && !o.disposed) {
-      if (o.boundary(error)) {
-        o.computation.invalidate();
-        return;
-      }
-    }
-  }
-  throw error;
-}
 
 function runPass(owner: Owner | null, render: (pass: Pass) => void): void {
   const pass = new Pass();

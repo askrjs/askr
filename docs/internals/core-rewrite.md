@@ -68,13 +68,13 @@ Seven rules. Every internal module has to fit one of them.
 and `tests/checks/core-architecture.test.ts` enforces this and the absence of
 import cycles. The core imports nothing outside `src/common`.
 
-| Layer       | Owns                                                                                           | May import              |
-| ----------- | ---------------------------------------------------------------------------------------------- | ----------------------- |
-| `reactive`  | The owner tree (lifetimes), the reactive graph, and the scheduler                              | nothing                 |
-| `component` | Component instances, positional hooks, and whether a render is executing                       | `reactive`              |
-| `view`      | What a render result means: child descriptors shared by the DOM and SSR renderers              | nothing                 |
-| `dom`       | The rendered tree (DOM position), render passes, reconciliation, props, events, roots, updates | the three above         |
-| `api`       | Public primitives (`state()`, `derive()`, `selector()`, snapshots)                             | `reactive`, `component` |
+| Layer       | Owns                                                                                                                 | May import                      |
+| ----------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| `reactive`  | The owner tree (lifetimes), the reactive graph, and the scheduler                                                    | nothing                         |
+| `component` | Component instances, positional hooks, and whether a render is executing                                             | `reactive`                      |
+| `view`      | What a render result means: child descriptors shared by the DOM and SSR renderers                                    | nothing                         |
+| `dom`       | The rendered tree (DOM position), render passes, reconciliation, props, events, roots, updates                       | the three above                 |
+| `api`       | Public primitives: `state()`, `derive()`, `selector()`, controls, scopes, portals, lifecycle hooks, and the hook kit | `reactive`, `component`, `view` |
 
 Within `dom`, each module has one job: `tree` (node model and DOM position
 queries), `pass` (provisional work: commit or discard), `reconcile` (child

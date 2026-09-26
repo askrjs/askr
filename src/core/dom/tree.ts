@@ -20,13 +20,14 @@ import {
   ELEMENT,
   FRAGMENT,
   FUNCTION,
+  NATIVE,
   PORTAL,
   TEXT,
   type Key,
 } from '../view/children';
 import type { ListenerMap } from './events';
 
-export { COMPONENT, FRAGMENT, PORTAL, TEXT, type Key };
+export { COMPONENT, FRAGMENT, NATIVE, PORTAL, TEXT, type Key };
 export const HOST = ELEMENT;
 export const DYNAMIC = FUNCTION;
 export const ROOT = 5;
@@ -55,6 +56,12 @@ export interface TextNode extends Base {
   kind: typeof TEXT;
   node: Text;
   text: string;
+}
+
+/** A DOM node supplied directly as a child; adopted as-is. */
+export interface NativeNode extends Base {
+  kind: typeof NATIVE;
+  node: Node;
 }
 
 export interface ComponentNode extends Base {
@@ -97,6 +104,7 @@ export interface RootNode {
 export type RNode =
   | HostNode
   | TextNode
+  | NativeNode
   | ComponentNode
   | FragmentNode
   | DynamicNode
@@ -136,6 +144,7 @@ export function firstDom(node: RNode): Node | null {
     case HOST:
       return node.el;
     case TEXT:
+    case NATIVE:
       return node.node;
     case PORTAL:
       return null;
@@ -154,6 +163,7 @@ export function collectDom(node: RNode, out: Node[] = []): Node[] {
       out.push(node.el);
       break;
     case TEXT:
+    case NATIVE:
       out.push(node.node);
       break;
     case PORTAL:

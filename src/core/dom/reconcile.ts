@@ -22,6 +22,7 @@ import type { Pass } from './pass';
 import {
   COMPONENT,
   HOST,
+  NATIVE,
   PORTAL,
   collectDom,
   containerOf,
@@ -63,6 +64,8 @@ function typeOf(node: RNode): unknown {
       return node.instance.fn;
     case PORTAL:
       return node.target;
+    case NATIVE:
+      return node.node;
     default:
       return node.kind;
   }

@@ -18,6 +18,8 @@ export const COMPONENT = 2;
 export const FRAGMENT = 3;
 export const FUNCTION = 4;
 export const PORTAL = 6;
+/** A host node supplied directly as a child (e.g. an ErrorBoundary fallback). */
+export const NATIVE = 7;
 
 export type Key = string | number | symbol;
 
@@ -30,8 +32,15 @@ export type ChildDescriptor =
       fn: ComponentFunction;
       props: Props;
     }
-  | { kind: typeof FRAGMENT; key: Key | undefined; children: unknown }
+  | {
+      kind: typeof FRAGMENT;
+      key: Key | undefined;
+      children: unknown;
+      /** Lifetime owner for the children, when not the rendering component. */
+      owner?: unknown;
+    }
   | { kind: typeof FUNCTION; key: undefined; fn: () => unknown }
+  | { kind: typeof NATIVE; key: undefined; node: object }
   | {
       kind: typeof PORTAL;
       key: Key | undefined;
@@ -41,6 +50,12 @@ export type ChildDescriptor =
 
 /** Element type rendering its children into `props.target`. */
 export const PORTAL_TYPE = Symbol.for('askr.core.portal');
+
+/**
+ * Element type rendering its children in place but owned by `props.owner`:
+ * portal content lives at its host's position and in its writer's lifetime.
+ */
+export const OWNED_TYPE = Symbol.for('askr.core.owned');
 
 interface ElementLike {
   type?: unknown;
@@ -62,6 +77,10 @@ function keyOf(vnode: ElementLike): Key | undefined {
   return key === null || key === undefined ? undefined : (key as Key);
 }
 
+function isHostNode(value: object): boolean {
+  return typeof Node !== 'undefined' && value instanceof Node;
+}
+
 /** The descriptor's identity for matching against a previous render. */
 export function descriptorType(child: ChildDescriptor): unknown {
   switch (child.kind) {
@@ -71,6 +90,8 @@ export function descriptorType(child: ChildDescriptor): unknown {
       return child.fn;
     case PORTAL:
       return child.target;
+    case NATIVE:
+      return child.node;
     default:
       return child.kind;
   }
@@ -110,6 +131,11 @@ export function normalizeChildren(
     return out;
   }
 
+  if (isHostNode(value)) {
+    out.push({ kind: NATIVE, key: undefined, node: value });
+    return out;
+  }
+
   const vnode = value as ElementLike;
   const type = vnode.type;
   if (type === undefined) {
@@ -142,6 +168,14 @@ export function normalizeChildren(
       key,
       target: props.target,
       children: props.children,
+    });
+  } else if (type === OWNED_TYPE) {
+    const props = propsOf(vnode);
+    out.push({
+      kind: FRAGMENT,
+      key,
+      children: props.children,
+      owner: props.owner,
     });
   } else if (isFragmentType(type)) {
     out.push({ kind: FRAGMENT, key, children: propsOf(vnode).children });
