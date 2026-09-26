@@ -591,10 +591,12 @@ Each render owns its injected runtime for initial rendering, reactive work,
 delegated events, and cleanup. Omitting `dataRuntime` preserves the default
 runtime behavior.
 
-Mutations own their own `AbortController`, abort the previous request when a new execution
-starts, and can mark affected queries as `pending-write` before refreshing them.
-`status` narrows `pending`, `result`, and `error`. `abort()` only cancels an in-flight
-execution, while `reset()` clears settled mutation state back to idle. Nullish thrown values
+Each mutation execution owns an `AbortController`. Starting another write keeps
+earlier writes running; the latest execution controls the visible mutation state,
+and every successful write invalidates its affected queries. `abort()` cancels
+all pending executions, including older ones after the latest has settled.
+`reset()` cancels pending executions and clears mutation state back to idle.
+`status` narrows `pending`, `result`, and `error`. Nullish thrown values
 are normalized before they reach `error`, so `status === 'error'` always carries a non-null
 error value.
 

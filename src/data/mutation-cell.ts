@@ -23,6 +23,7 @@ export class MutationCell<TInput, TResult> {
   private affects?: MutationOptions<TInput, TResult>['affects'];
   private afterSuccess?: MutationOptions<TInput, TResult>['afterSuccess'];
   private controller: AbortController | null = null;
+  private readonly activeControllers = new Set<AbortController>();
   private generation = 0;
 
   private state: MutationRecord<TResult> = {
@@ -84,9 +85,9 @@ export class MutationCell<TInput, TResult> {
     this.generation += 1;
     const generation = this.generation;
 
-    this.controller?.abort();
     const controller = new AbortController();
     this.controller = controller;
+    this.activeControllers.add(controller);
 
     this.setState({ status: 'pending', error: null, result: null });
 
@@ -115,6 +116,8 @@ export class MutationCell<TInput, TResult> {
         error: normalizeAsyncDataError(error, 'Unknown mutation error'),
       });
       throw error;
+    } finally {
+      this.activeControllers.delete(controller);
     }
 
     const isCurrent = isCurrentAsyncOperation(
@@ -129,8 +132,8 @@ export class MutationCell<TInput, TResult> {
       this.setState({ status: 'success', error: null, result });
     }
 
-    // A superseded operation may still commit remotely when its action ignores
-    // AbortSignal. Its successful effects must still invalidate cached data.
+    // Every successful write may have committed remotely, including an older
+    // execution whose result no longer owns the visible mutation state.
     if (afterSuccess === 'invalidate') {
       const prefixes = affects?.(input, result) ?? [];
       for (const prefix of new Set(prefixes)) {
@@ -142,21 +145,27 @@ export class MutationCell<TInput, TResult> {
   }
 
   abort(): void {
-    if (this.state.status !== 'pending') {
+    if (this.activeControllers.size === 0) {
       return;
     }
 
     this.generation += 1;
-    this.controller?.abort();
+    const controllers = [...this.activeControllers];
+    this.activeControllers.clear();
     this.controller = null;
-    this.setState({ status: 'idle', error: null, result: null });
+    if (this.state.status === 'pending') {
+      this.setState({ status: 'idle', error: null, result: null });
+    }
+    for (const controller of controllers) controller.abort();
   }
 
   reset(): void {
     this.generation += 1;
-    this.controller?.abort();
+    const controllers = [...this.activeControllers];
+    this.activeControllers.clear();
     this.controller = null;
     this.setState({ status: 'idle', error: null, result: null });
+    for (const controller of controllers) controller.abort();
   }
 }
 
