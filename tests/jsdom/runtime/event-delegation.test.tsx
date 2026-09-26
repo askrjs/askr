@@ -31,7 +31,7 @@ import {
   isDelegatedEvent,
   getDelegatedHandlerForElement,
 } from '../../../src/renderer/props/events';
-import { state } from '../../../src/runtime/reactivity/state';
+import { state } from '../../../src/index';
 import {
   enterDomCommitScope,
   getCurrentComponentInstance,

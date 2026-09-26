@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { createIsland } from '../../../src/boot';
-import { state } from '../../../src/runtime/reactivity/state';
+import { state } from '../../../src/index';
 import { For } from '../../../src/control';
 import type { ComponentFunction } from '../../../src/runtime';
 
