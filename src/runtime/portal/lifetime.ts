@@ -4,6 +4,7 @@ import {
   type ReadableSource,
 } from '../reactivity/readable';
 import { type ComponentInstance } from '../component/instance';
+import { disposeOwnership, type OwnershipRecord } from '../ownership/record';
 
 type PortalOwner = {
   instance: ComponentInstance;
@@ -30,8 +31,28 @@ function setPortalErrorParent(
   host._portalErrorParentGeneration = undefined;
 }
 
+function retirePortalHostContent(host: ComponentInstance | null): void {
+  if (!host || host.owner.disposed) return;
+  while (host.owner.head) disposeOwnership(host.owner.head);
+}
+
+function capturePortalHostContent(
+  host: ComponentInstance | null
+): OwnershipRecord[] {
+  const children: OwnershipRecord[] = [];
+  if (!host || host.owner.disposed) return children;
+  for (let child = host.owner.head; child; child = child.next)
+    children.push(child);
+  return children;
+}
+
+function retireCapturedPortalContent(children: OwnershipRecord[]): void {
+  for (const child of children) disposeOwnership(child);
+}
+
 function createPortalSlot<T>(): {
   read(): T | undefined;
+  peek(): T | undefined;
   write(value: T | undefined, owner: PortalOwner | null): void;
   getOwner(): PortalOwner | null;
 } {
@@ -46,6 +67,9 @@ function createPortalSlot<T>(): {
   return {
     read() {
       return source();
+    },
+    peek() {
+      return currentValue;
     },
     write(value: T | undefined, owner: PortalOwner | null) {
       const ownerChanged =
@@ -64,4 +88,11 @@ function createPortalSlot<T>(): {
     },
   };
 }
-export { PortalOwner, setPortalErrorParent, createPortalSlot };
+export {
+  PortalOwner,
+  setPortalErrorParent,
+  retirePortalHostContent,
+  capturePortalHostContent,
+  retireCapturedPortalContent,
+  createPortalSlot,
+};
