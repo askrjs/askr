@@ -43,6 +43,18 @@ declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
 const RECONCILE_MAX_ATTEMPTS = 3;
 const RECONCILE_RETRY_DELAY_MS = 25;
+const MAX_GC_TIME_MS = 2_147_483_647;
+
+function validateGcTime(gcTime: number | undefined): void {
+  if (
+    gcTime !== undefined &&
+    (!Number.isFinite(gcTime) || gcTime < 0 || gcTime > MAX_GC_TIME_MS)
+  ) {
+    throw new RangeError(
+      'Query gcTime must be a finite, non-negative timer delay.'
+    );
+  }
+}
 
 type QueryCellOptions<T> = QueryOptions<T> & {
   readonly definitionIdentity?: object;
@@ -84,6 +96,7 @@ export class QueryCell<T> {
   private reconcileSequence = 0;
   private destroyed = false;
   private ownerCount = 0;
+  private gcTimer: ReturnType<typeof setTimeout> | null = null;
   // Attached readers by lifetime and hook slot, with each reader's latest
   // definition (null until the reader defines one).
   private readonly owners = new Map<
@@ -106,6 +119,7 @@ export class QueryCell<T> {
     key: string,
     cache: Map<string, QueryCell<unknown>>
   ) {
+    validateGcTime(options.gcTime);
     this.options = options;
     this.key = key;
     this.cache = cache;
@@ -118,6 +132,10 @@ export class QueryCell<T> {
   }
 
   attach(generation: object, hookIndex: number): void {
+    if (this.gcTimer !== null) {
+      clearTimeout(this.gcTimer);
+      this.gcTimer = null;
+    }
     let hooks = this.owners.get(generation);
     if (!hooks) {
       hooks = new Map();
@@ -150,7 +168,18 @@ export class QueryCell<T> {
     }
 
     if (this.ownerCount <= 0) {
-      this.destroy();
+      const gcTime = this.options.gcTime ?? 0;
+      if (gcTime === 0 || this.state.data === null || isServerRender()) {
+        this.destroy();
+      } else {
+        this.generation += 1;
+        this.controller?.abort();
+        this.controller = null;
+        this.finishPendingRefresh();
+        this.definitionOwner = null;
+        this.definitionOwnerHook = -1;
+        this.gcTimer = setTimeout(() => this.destroy(), gcTime);
+      }
       return;
     }
 
@@ -188,6 +217,7 @@ export class QueryCell<T> {
     generation: object,
     hookIndex: number
   ): void {
+    validateGcTime(options.gcTime);
     const hooks = this.owners.get(generation);
     if (this.destroyed || !hooks?.has(hookIndex)) {
       return;
@@ -271,6 +301,10 @@ export class QueryCell<T> {
     }
 
     this.destroyed = true;
+    if (this.gcTimer !== null) {
+      clearTimeout(this.gcTimer);
+      this.gcTimer = null;
+    }
     if (__ASKR_DEVELOPMENT_BUILD__) {
       adjustOwnershipDiagnostic('queryCells', -1);
     }
@@ -279,7 +313,7 @@ export class QueryCell<T> {
     this.reconcileAttemptCount = 0;
     this.ownerCount = 0;
     this.owners.clear();
-    this.cache.delete(this.key);
+    if (this.cache.get(this.key) === this) this.cache.delete(this.key);
     this.finishPendingRefresh();
   }
 
@@ -368,6 +402,10 @@ export class QueryCell<T> {
     if (this.destroyed) {
       return Promise.resolve();
     }
+    if (this.gcTimer !== null) {
+      this.destroy();
+      return Promise.resolve();
+    }
 
     if (this.pendingRefresh) {
       if (this.pendingRefreshKind === 'invalidation') {
@@ -402,6 +440,10 @@ export class QueryCell<T> {
 
   invalidate(): Promise<void> {
     if (this.destroyed) {
+      return Promise.resolve();
+    }
+    if (this.gcTimer !== null) {
+      this.destroy();
       return Promise.resolve();
     }
 
@@ -686,6 +728,7 @@ function createCell<T>(
 function createLegacyQuery<T extends {}>(
   options: QueryCellOptions<T>
 ): Query<T> {
+  validateGcTime(options.gcTime);
   const instance = getCurrentComponentInstance();
   const runtimeState = resolveDataRuntimeState(options.runtime);
   const cache = runtimeState.queryCache;
@@ -730,6 +773,7 @@ function createLegacyQuery<T extends {}>(
   });
   cell.attach(generation, hookIndex);
   cell.define(options, generation, hookIndex);
+  cell.ensureStarted();
   return cell as unknown as Query<T>;
 }
 

@@ -272,6 +272,8 @@ type QueryOptions<T> = {
   runtime?: DataRuntime;
   initialData?: T;
   skipInitialFetch?: boolean;
+  /** Milliseconds to retain settled data after the last component reader unmounts. Defaults to 0. */
+  gcTime?: number;
 };
 
 /** Options for {@link createMutation}. */

@@ -1713,6 +1713,78 @@ describe('data layer', () => {
     }
   });
 
+  it('should reuse settled query data until its gcTime expires', async () => {
+    const runtime = createDataRuntime();
+    const fetch = vi.fn(async () => 'Ada');
+    const App = (): JSXElement => {
+      const query = createQuery({
+        runtime,
+        key: 'users:retained',
+        fetch,
+        gcTime: 50,
+      });
+      return <span>{query.data ?? 'loading'}</span>;
+    };
+    const { container, cleanup } = createTestContainer();
+
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+      expect(container.textContent).toBe('Ada');
+      expect(fetch).toHaveBeenCalledTimes(1);
+
+      vi.useFakeTimers();
+      cleanup();
+      expect(runtime.queryCache.has('users:retained')).toBe(true);
+
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      expect(container.textContent).toBe('Ada');
+      expect(fetch).toHaveBeenCalledTimes(1);
+
+      cleanup();
+      vi.advanceTimersByTime(49);
+      expect(runtime.queryCache.has('users:retained')).toBe(true);
+      vi.advanceTimersByTime(1);
+      expect(runtime.queryCache.has('users:retained')).toBe(false);
+    } finally {
+      cleanup();
+      vi.useRealTimers();
+    }
+  });
+
+  it('should evict an inactive retained query instead of fetching through its unmounted reader', async () => {
+    const runtime = createDataRuntime();
+    const fetch = vi.fn(async () => 'Ada');
+    const App = (): JSXElement => {
+      const query = createQuery({
+        runtime,
+        key: 'users:inactive-retained',
+        fetch,
+        gcTime: 50,
+      });
+      return <span>{query.data ?? 'loading'}</span>;
+    };
+    const { container, cleanup } = createTestContainer();
+
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+      expect(fetch).toHaveBeenCalledTimes(1);
+      cleanup();
+      expect(runtime.queryCache.has('users:inactive-retained')).toBe(true);
+
+      invalidate('users:inactive-retained', { runtime });
+      flushScheduler();
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(runtime.queryCache.has('users:inactive-retained')).toBe(false);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should keep the last value visible while prefix invalidation refreshes', async () => {
     let resolveFirst!: (value: string) => void;
     let resolveSecond!: (value: string) => void;

@@ -2223,7 +2223,7 @@
       "type QueryLoading = {\n    data: null;\n    error: null;\n    loading: true;\n    refreshing: false;\n    stale: false;\n    consistency: \"fresh\";\n    staleReason: null;\n};"
     ],
     "QueryOptions": [
-      "type QueryOptions<T> = {\n    key: string;\n    fetch: (ctx: {\n        signal: AbortSignal;\n    }) => Promise<T>;\n    isConsistent?: (data: T) => boolean;\n    reconcile?: (data: T, ctx: {\n        key: string;\n    }) => Promise<boolean> | boolean;\n    runtime?: DataRuntime;\n    initialData?: T;\n    skipInitialFetch?: boolean;\n};"
+      "type QueryOptions<T> = {\n    key: string;\n    fetch: (ctx: {\n        signal: AbortSignal;\n    }) => Promise<T>;\n    isConsistent?: (data: T) => boolean;\n    reconcile?: (data: T, ctx: {\n        key: string;\n    }) => Promise<boolean> | boolean;\n    runtime?: DataRuntime;\n    initialData?: T;\n    skipInitialFetch?: boolean;\n    gcTime?: number;\n};"
     ],
     "QueryPendingWrite": [
       "type QueryPendingWrite<T> = {\n    data: T;\n    error: null;\n    loading: false;\n    refreshing: true;\n    stale: true;\n    consistency: \"pending-write\";\n    staleReason: null;\n};"

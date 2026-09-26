@@ -143,6 +143,7 @@ expectType<void>(
 const query = createQuery({
   key: 'user:123',
   runtime: dataRuntime,
+  gcTime: 50,
   fetch: async ({ signal }) => {
     expectType<AbortSignal>(signal);
     return { id: '123', name: 'Ada' };
@@ -159,6 +160,7 @@ const query = createQuery({
 });
 
 expectType<Query<{ id: string; name: string }>>(query);
+expectError(createQuery({ key: 'bad-gc', fetch: async () => 1, gcTime: '50' }));
 expectType<{ id: string; name: string } | null>(query.data);
 expectType<{} | null>(query.error);
 expectType<boolean>(query.loading);

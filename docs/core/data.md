@@ -233,6 +233,13 @@ work settles, when a remaining reader defines the key differently. A reader that
 the owner in the same update (such as a keyed `For` row swap) is not a conflict. When the
 owning reader unmounts, a remaining reader's latest definition takes over immediately, so
 invalidations and refreshes never run an unmounted reader's callbacks.
+By default, the last reader's unmount evicts the query immediately. Set
+`gcTime` to a finite, non-negative number of milliseconds to retain a settled
+value in that data runtime's cache. A new reader before the deadline sees the
+cached value and supplies the next fetch definition; the timer restarts after
+its last unmount. An in-flight refresh is aborted when the last reader leaves.
+Invalidating an inactive retained key evicts it instead of fetching through an
+unmounted reader's callback.
 `createQueryCollection()` entries follow the same rules: each collection update redefines
 its entries, so `retry()` and invalidation fetch with the entry's current `input`.
 `stale` covers either a value that still exists but is known to be inconsistent, or an error

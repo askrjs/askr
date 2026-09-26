@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- feat(data): `createQuery()` accepts `gcTime` to retain settled data for a
+  bounded interval after the last component reader unmounts. The default
+  remains immediate eviction.
+
 - breaking(runtime): scheduler diagnostic state no longer includes
   `taskCount`; use `queueLength` for pending work.
 
