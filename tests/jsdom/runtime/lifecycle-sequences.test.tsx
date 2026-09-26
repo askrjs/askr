@@ -5,7 +5,7 @@ import { cleanupApp, createSPA, hydrateSPA } from '../../../src/boot';
 import { Case, For, Match, Show } from '../../../src/control';
 import { navigate } from '../../../src/router/navigate';
 import { createRouteRegistry, route } from '../../../src/router/route';
-import { resource, task } from '../../../src/runtime/operations';
+import { resource, task } from '../../../src/resources';
 import {
   cleanupComponent,
   createComponentInstance,
@@ -15,7 +15,7 @@ import { state, type State } from '../../../src/index';
 import {
   Portal,
   _resetDefaultPortal,
-} from '../../../src/runtime/portal/portal';
+} from '../../../src/foundations/structures/portal';
 import { renderToStringSync } from '../../../src/ssr';
 import {
   createTestContainer,

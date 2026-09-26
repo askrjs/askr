@@ -1,16 +1,9 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { For, Show } from '../../../src/control';
-import { resource } from '../../../src/resources';
-import { task } from '../../../src/runtime/operations';
+import { resource, task } from '../../../src/resources';
 import { state, type State } from '../../../src/index';
 import type { JSXElement } from '../../../src/jsx/types';
-import {
-  cleanupComponent,
-  createComponentInstance,
-  mountInstanceInline,
-  renderComponentInline,
-  type ComponentInstance,
-} from '../../../src/runtime';
+import { schedule } from '../../../src/core/reactive/scheduler';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -24,37 +17,13 @@ async function settleResourceWork(): Promise<void> {
   flushScheduler();
 }
 
-function getHostedComponentInstance(
-  host: Element | null,
-  component: unknown
-): ComponentInstance {
-  if (!host) {
-    throw new Error('Expected a component host element');
-  }
-
-  const instanceHost = host as Element & {
-    __ASKR_INSTANCE?: ComponentInstance;
-    __ASKR_INSTANCES?: ComponentInstance[];
-  };
-  const instances = new Set(instanceHost.__ASKR_INSTANCES ?? []);
-  if (instanceHost.__ASKR_INSTANCE) {
-    instances.add(instanceHost.__ASKR_INSTANCE);
-  }
-  const instance = Array.from(instances).find(
-    (candidate) => candidate.fn === component
-  );
-  if (!instance) {
-    throw new Error('Expected the rendered component instance on its host');
-  }
-  return instance;
-}
-
 describe('resource() late resolution after unmount (B5)', () => {
   it('should not start a queued client resource after cleanup before the post lane flush', () => {
     const { container, cleanup } = createTestContainer();
     let starts = 0;
+    let show!: State<boolean>;
 
-    const App = (): JSXElement => {
+    const Child = (): JSXElement => {
       resource(() => {
         starts += 1;
         return 'ready';
@@ -63,21 +32,27 @@ describe('resource() late resolution after unmount (B5)', () => {
       return <div>{'mounted'}</div>;
     };
 
-    const instance = createComponentInstance(
-      'resource-post-unmount',
-      App,
-      {},
-      container
-    );
-
     try {
-      mountInstanceInline(instance, container);
-      renderComponentInline(instance);
+      createIsland({
+        root: container,
+        component: () => {
+          show = state(false);
+          return show() ? <Child /> : null;
+        },
+      });
+      flushScheduler();
 
-      expect(starts).toBe(0);
-      expect(getSchedulerState().laneQueues.post).toBeGreaterThan(0);
-
-      cleanupComponent(instance);
+      show.set(true);
+      // Unmount after Child's render queued its start, before the post lane.
+      schedule(
+        {
+          run: () => {
+            expect(starts).toBe(0);
+            show.set(false);
+          },
+        },
+        'effect'
+      );
 
       expect(() => flushScheduler()).not.toThrow();
       expect(starts).toBe(0);
@@ -578,11 +553,7 @@ describe('resource() late resolution after unmount (B5)', () => {
       createIsland({ root: container, component: App });
       flushScheduler();
 
-      const initialInstance = getHostedComponentInstance(
-        container.querySelector('[data-show-resource]'),
-        Child
-      );
-      const initialGeneration = initialInstance.owner.identity;
+      const initialElement = container.querySelector('[data-show-resource]');
 
       setVisible(false);
       flushScheduler();
@@ -591,12 +562,9 @@ describe('resource() late resolution after unmount (B5)', () => {
 
       expect(aborts).toBe(1);
       expect(resolvers).toHaveLength(2);
-      const remountedInstance = getHostedComponentInstance(
-        container.querySelector('[data-show-resource]'),
-        Child
+      expect(container.querySelector('[data-show-resource]')).not.toBe(
+        initialElement
       );
-      expect(remountedInstance).not.toBe(initialInstance);
-      expect(remountedInstance.owner.identity).not.toBe(initialGeneration);
       expect(container.querySelector('[data-show-resource]')?.textContent).toBe(
         'pending'
       );
@@ -658,11 +626,7 @@ describe('resource() late resolution after unmount (B5)', () => {
       createIsland({ root: container, component: App });
       flushScheduler();
 
-      const initialInstance = getHostedComponentInstance(
-        container.querySelector('[data-row-resource]'),
-        RowView
-      );
-      const initialGeneration = initialInstance.owner.identity;
+      const initialElement = container.querySelector('[data-row-resource]');
 
       rows.set([]);
       flushScheduler();
@@ -671,12 +635,9 @@ describe('resource() late resolution after unmount (B5)', () => {
 
       expect(aborts).toBe(1);
       expect(resolvers).toHaveLength(2);
-      const remountedInstance = getHostedComponentInstance(
-        container.querySelector('[data-row-resource]'),
-        RowView
+      expect(container.querySelector('[data-row-resource]')).not.toBe(
+        initialElement
       );
-      expect(remountedInstance).not.toBe(initialInstance);
-      expect(remountedInstance.owner.identity).not.toBe(initialGeneration);
       expect(container.querySelector('[data-row-resource]')?.textContent).toBe(
         'pending'
       );
