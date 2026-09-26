@@ -18,8 +18,8 @@ import { createSPA } from '@askrjs/askr/boot';
 import { navigate } from '../../../src/router/navigate';
 import { route } from '../../../src/router/route';
 import { defer } from '../../../src/router/deferred';
-import { resource } from '../../../src/runtime/operations';
-import { getSignal } from '../../../src/runtime';
+import { resource } from '../../../src/resources';
+import { getSignal } from '../../../src/index';
 import {
   createTestContainer,
   flushScheduler,

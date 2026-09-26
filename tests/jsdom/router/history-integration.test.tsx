@@ -21,7 +21,7 @@ import {
 import { requireAnonymous, requireUser } from '@askrjs/auth';
 import { createSPA } from '@askrjs/askr/boot';
 import { state, type State } from '../../../src/index';
-import { task, watch } from '../../../src/runtime/operations';
+import { task, watch } from '../../../src/resources';
 import { navigate } from '../../../src/router/navigate';
 import {
   createRouteRegistry,
