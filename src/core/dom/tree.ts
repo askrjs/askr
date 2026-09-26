@@ -1,3 +1,4 @@
+import type { Owner } from '../reactive/owner';
 /**
  * The rendered tree: the renderer's record of what each child slot produced
  * and where its DOM lives. It is the only owner of DOM position.
