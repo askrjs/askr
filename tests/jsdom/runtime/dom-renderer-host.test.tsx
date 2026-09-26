@@ -6,9 +6,8 @@ import {
   type DOMRendererHost,
   type DOMComponentOwner,
   type DOMReactiveSource,
-  state,
-  type State,
-} from '../../../src';
+} from '../../../src/experimental';
+import { state, type State } from '../../../src';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,

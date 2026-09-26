@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { getDefaultRuntime } from '@askrjs/askr';
+import { getDefaultRuntime } from '@askrjs/askr/experimental';
 test('should expose the replacement host installed by native boot', async () => {
   const runtime = getDefaultRuntime();
   const original = runtime.renderer;

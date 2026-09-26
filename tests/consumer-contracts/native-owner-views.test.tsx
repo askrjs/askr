@@ -1,10 +1,9 @@
 import { expect, test, vi } from 'vitest';
+import { state, type State } from '@askrjs/askr';
 import {
   getDefaultRuntime,
-  state,
   type RuntimeRendererHost,
-  type State,
-} from '@askrjs/askr';
+} from '@askrjs/askr/experimental';
 import { cleanupApp, createIsland } from '@askrjs/askr/boot';
 
 type Owner = NonNullable<Parameters<RuntimeRendererHost['evaluate']>[3]>;

@@ -20,8 +20,8 @@ consumer evidence together.
 ## Runtime and renderer wiring
 
 `runtime/runtime-state.ts` owns scheduler and renderer wiring. Execution reads
-this internal state through `runtime/access.ts`. The public `AskrRuntime` object
-is implemented in `runtime/public-runtime.ts`; it retains the existing scheduler,
+this internal state through `runtime/access.ts`. The experimental `AskrRuntime`
+object is implemented in `runtime/public-runtime.ts`; it retains the scheduler,
 renderer getter, constructor options, and renderer replacement method.
 
 The process default runtime shares one wiring record with execution. Additional

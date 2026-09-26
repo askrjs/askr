@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { getDefaultRuntime } from '@askrjs/askr';
+import { getDefaultRuntime } from '@askrjs/askr/experimental';
 import { cleanupApp, createIsland } from '@askrjs/askr/boot';
 
 test('should preserve renderer configuration made after importing boot', () => {

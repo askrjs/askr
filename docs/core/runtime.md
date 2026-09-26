@@ -74,9 +74,11 @@ route that declares one.
 
 ## Runtime boundary
 
-The public runtime exposes `createRuntime()` and `getDefaultRuntime()`. Core implementation modules route
-default scheduler and renderer access through the internal runtime access
-boundary so hot paths do not import singleton globals directly.
+The construction-only `@askrjs/askr/experimental` subpath exposes
+`createRuntime()` and `getDefaultRuntime()` for runtime and renderer maintainers.
+Core implementation modules route default scheduler and renderer access through
+the internal runtime access boundary so hot paths do not import singleton
+globals directly.
 
 `createRuntime()` constructs scheduler and renderer wiring only. Mounting uses
 the default runtime; creating another runtime does not isolate mounted trees.

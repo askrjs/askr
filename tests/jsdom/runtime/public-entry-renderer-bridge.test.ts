@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vite-plus/test';
 import * as askr from '../../../src/index';
+import { getDefaultRuntime } from '../../../src/experimental';
 
 describe('public entry renderer bridge', () => {
   it('should configure the default runtime renderer host', () => {
-    const bridge = askr.getDefaultRuntime().renderer;
+    const bridge = getDefaultRuntime().renderer;
 
     expect(typeof bridge.evaluate).toBe('function');
     expect(typeof bridge.markReactivePropsDirtySource).toBe('function');

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- breaking(api): runtime construction and renderer-host extension exports moved
+  from `@askrjs/askr` to `@askrjs/askr/experimental`. Change their import path;
+  their behavior and signatures remain the same. The root retains application
+  primitives. The experimental subpath is for runtime and renderer maintainers;
+  `createRuntime()` does not isolate mounted trees.
+
 - fix(renderer): a chain of three or more components of the same type, each
   returning the next directly, now keeps the state of every link when an
   outer link re-renders. The update walk previously failed to find the deeper

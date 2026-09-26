@@ -4,7 +4,7 @@ import {
   createRuntime,
   getDefaultRuntime,
   type RuntimeRendererHost,
-} from '@askrjs/askr';
+} from '@askrjs/askr/experimental';
 
 const host: RuntimeRendererHost = {
   evaluate(node, target, context, owner) {

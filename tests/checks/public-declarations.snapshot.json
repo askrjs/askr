@@ -1,21 +1,12 @@
 {
   "exports": {
     ".": {
-      "AskrRuntime": [
-        "declare class AskrRuntime {\n    readonly scheduler: Scheduler;\n    constructor(options?: AskrRuntimeOptions);\n    get renderer(): RuntimeRendererHost;\n    configureRenderer(renderer: RuntimeRendererHost): void;\n}"
-      ],
-      "AskrRuntimeOptions": [
-        "interface AskrRuntimeOptions {\n    scheduler?: Scheduler;\n    renderer?: RuntimeRendererHost;\n}"
-      ],
       "Case": ["Case: (props: CaseProps) => JSXElement"],
       "CaseProps": [
         "type CaseProps = {\n    fallback?: BoundaryChild;\n    children?: unknown;\n};"
       ],
       "configureRenderDiagnostics": [
         "declare function configureRenderDiagnostics(options: RenderDiagnosticsOptions): () => void;"
-      ],
-      "createDOMRendererHost": [
-        "export declare function createDOMRendererHost(configure: (native: DOMRendererHost) => DOMRendererHost): RuntimeRendererHost;"
       ],
       "createQuery": [
         "declare function createQuery<T extends {}>(options: QueryOptions<T>): Query<T>;",
@@ -26,9 +17,6 @@
       ],
       "createRef": [
         "declare function createRef<T extends Element = Element>(): Ref<T>;"
-      ],
-      "createRuntime": [
-        "declare function createRuntime(options?: AskrRuntimeOptions): AskrRuntime;"
       ],
       "cspNonce": ["declare function cspNonce(): string | undefined;"],
       "CspNonceScope": ["CspNonceScope: Scope<string | undefined>"],
@@ -54,36 +42,6 @@
       "Derived": [
         "interface Derived<T> extends ReadableSource<T> {\n    (): T;\n}"
       ],
-      "DOMChildScope": [
-        "export interface DOMChildScope {\n    readonly [scopeBrand]: never;\n}"
-      ],
-      "DOMComponentOwner": [
-        "export interface DOMComponentOwner {\n    readonly [ownerBrand]: never;\n}"
-      ],
-      "DOMReactiveSource": [
-        "export interface DOMReactiveSource {\n    readonly [sourceBrand]: never;\n}"
-      ],
-      "DOMRendererCleanup": [
-        "export interface DOMRendererCleanup {\n    cleanupInstancesUnder(node: Node): void;\n    teardownNodeSubtree(root: Node): void;\n}"
-      ],
-      "DOMRendererEvaluation": [
-        "export interface DOMRendererEvaluation {\n    evaluate(node: unknown, target: Element | null, context?: object, retainedOwner?: DOMComponentOwner): void;\n    replaceComponentRange(owner: DOMComponentOwner, result: unknown, host: Element | Comment): Node | null;\n}"
-      ],
-      "DOMRendererHost": [
-        "export interface DOMRendererHost {\n    evaluation: DOMRendererEvaluation;\n    cleanup: DOMRendererCleanup;\n    scopes: DOMRendererScopes;\n    keys: DOMRendererKeys;\n    reactivity: DOMRendererReactivity;\n}"
-      ],
-      "DOMRendererKeys": [
-        "export interface DOMRendererKeys {\n    populateKeyMapForElement(parent: Element): void;\n    getKeyMapForElement(parent: Element): Map<string | number, Element> | undefined;\n    isKeyedReorderFastPathEligible(parent: Element, children: unknown[], oldKeyMap: Map<string | number, Element> | undefined): RuntimeKeyedReorderDecision;\n}"
-      ],
-      "DOMRendererRange": [
-        "export interface DOMRendererRange {\n    readonly start: Node;\n    readonly end: Node;\n    readonly single: boolean;\n}"
-      ],
-      "DOMRendererReactivity": [
-        "export interface DOMRendererReactivity {\n    markReactivePropsDirtySource(source: DOMReactiveSource): void;\n}"
-      ],
-      "DOMRendererScopes": [
-        "export interface DOMRendererScopes {\n    resolveChildScopeRange(scope: DOMChildScope): DOMRendererRange | null;\n}"
-      ],
       "For": [
         "For: <T, K extends string | number = string | number>(props: ForProps<T, K>) => JSXElement"
       ],
@@ -91,9 +49,6 @@
         "type ForProps<T, K extends string | number = string | number> = KeyedForProps<T, K> | IndexedForProps<T>;"
       ],
       "Fragment": ["Fragment: unique symbol"],
-      "getDefaultRuntime": [
-        "declare function getDefaultRuntime(): AskrRuntime;"
-      ],
       "getSignal": ["declare function getSignal(): AbortSignal;"],
       "hydrateDataRuntime": [
         "declare function hydrateDataRuntime(runtime: DataRuntime, data: unknown): void;"
@@ -149,12 +104,6 @@
       ],
       "RenderDiagnosticsOptions": [
         "interface RenderDiagnosticsOptions {\n    slowRenderWarnings?: boolean;\n    slowRenderThresholdMs?: number;\n}"
-      ],
-      "RuntimeKeyedReorderDecision": [
-        "interface RuntimeKeyedReorderDecision {\n    useFastPath: boolean;\n    totalKeyed: number;\n    totalChildren: number;\n    currentKeyCount: number;\n    moveCount: number;\n    lisLen: number;\n    hasPropChanges: boolean;\n    isWholeKeyedList: boolean;\n}"
-      ],
-      "RuntimeRendererHost": [
-        "interface RuntimeRendererHost {\n    evaluate(node: unknown, target: Element | null, context?: object, retainedOwner?: ComponentInstance): void;\n    cleanupInstancesUnder(node: Node): void;\n    replaceComponentRange(instance: ComponentInstance, result: unknown, host: Element | Comment): Node | null;\n    resolveChildScopeRange?(scope: ChildScope): DOMRange | null;\n    teardownNodeSubtree(root: Node): void;\n    populateKeyMapForElement(parent: Element): void;\n    getKeyMapForElement(parent: Element): Map<string | number, Element> | undefined;\n    isKeyedReorderFastPathEligible(parent: Element, children: unknown[], oldKeyMap: Map<string | number, Element> | undefined): RuntimeKeyedReorderDecision;\n    markReactivePropsDirtySource(source: ReadableSource<unknown>): void;\n}"
       ],
       "Scope": [
         "interface Scope<T> {\n    (props: {\n        value: T;\n        children?: ContextScopeChildren;\n    }): JSXElement;\n    readonly key: ContextKey;\n    readonly defaultValue: T;\n}"

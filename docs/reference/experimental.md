@@ -1,6 +1,9 @@
 # Experimental runtime extensions
 
 Import construction-only renderer wiring from `@askrjs/askr/experimental`.
+These exports moved from the package root. Existing imports of `createRuntime`,
+`getDefaultRuntime`, `AskrRuntime`, `createDOMRendererHost`, and their related
+types should use this subpath.
 This subpath exposes `createRuntime()`, `getDefaultRuntime()`, `AskrRuntime`,
 `createDOMRendererHost()`, and their renderer-host types for runtime and
 renderer maintainers.

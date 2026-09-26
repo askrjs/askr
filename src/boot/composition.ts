@@ -1,5 +1,6 @@
 import { installRootUpdateHost } from './root-update';
 import { ensureRendererBridge, installRendererBridge } from './runtime-wiring';
+import { installOwnershipViews } from '../runtime/public-ownership';
 
 let rootUpdateHosted = false;
 
@@ -19,6 +20,7 @@ function ensureRootUpdateHost(): void {
  * native renderer — that is the contract consumers rely on.
  */
 export function composeBrowserRuntime(): void {
+  installOwnershipViews();
   installRendererBridge();
   ensureRootUpdateHost();
 }
@@ -30,6 +32,7 @@ export function composeBrowserRuntime(): void {
  * installed across mounts.
  */
 export function ensureBrowserRuntime(): void {
+  installOwnershipViews();
   ensureRendererBridge();
   ensureRootUpdateHost();
 }
