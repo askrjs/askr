@@ -471,6 +471,12 @@ export function applyClassPropValue(
     descriptor?.lastClassTokens ?? previousClassTokens(previousValue);
 
   if (nextTokens && previousTokens) {
+    if (Object.is(value, previousValue)) {
+      for (const token of nextTokens) {
+        if (!el.classList.contains(token)) el.classList.add(token);
+      }
+      return;
+    }
     patchClassList(el, previousTokens, nextTokens);
     if (descriptor) {
       descriptor.lastClassTokens = nextTokens;

@@ -151,14 +151,11 @@ export function patchProps(
       });
       continue;
     }
-    // Form state can be changed by the user; re-apply the rendered value.
-    if (Object.is(value, old) && !isLiveFormProp(key)) continue;
+    // A host may change a rendered value between passes. The scalar writer
+    // compares against the live DOM and leaves equal values untouched.
+    if (Object.is(value, old) && key === 'dangerouslySetInnerHTML') continue;
     pass.op(() => applyScalarPropValue(el, key, value, tag, old));
   }
-}
-
-function isLiveFormProp(key: string): boolean {
-  return key === 'value' || key === 'checked' || key === 'selected';
 }
 
 function unbind(node: HostNode, key: string): Computation<void> | undefined {
