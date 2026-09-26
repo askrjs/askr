@@ -124,15 +124,17 @@ that corresponds to the public operation above.
 
 ## Update loop guard
 
-A scheduler flush drains every lane until no work remains. A task that throws is
+A scheduler flush runs queued work until none remains. A task that throws is
 consumed, the drain continues, and the flush rethrows the failure afterwards
-(an `AggregateError` when several tasks failed, in execution order).
+(an `AggregateError` when several tasks failed, in execution order). The order
+in which queued work runs is described in
+[Runtime reactivity internals](../internals/runtime-reactivity.md#scheduler-lanes).
 
 If the same scheduled task runs more than 50 times in one flush (for example a
 component whose ref callback writes state it renders), the scheduler treats it
 as an update loop: it drops that task, records an `exceeded MAX_FLUSH_DEPTH`
 error with the other failures, and keeps draining the remaining queued work, so
-earlier failures are still reported and later lanes are not stranded. Dropping a
+earlier failures are still reported and other queued work is not stranded. Dropping a
 task clears its owner's pending flag (unless another copy of it is still
 queued), so a later write schedules it again: a component re-renders on its
 next state change.

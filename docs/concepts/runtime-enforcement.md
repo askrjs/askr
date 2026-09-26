@@ -159,7 +159,7 @@ function Component() {
 **Error message:**
 
 ```text
-[Askr] state.set() cannot be called during component render. State mutations during render break the actor model and cause infinite loops. Move state updates to event handlers or use conditional rendering instead.
+[Askr] state.set() cannot be called during component render. A write during render would schedule another render of the same component and could loop forever. Move state updates to event handlers or use conditional rendering instead.
 ```
 
 Move the update into an event handler, such as
@@ -172,8 +172,9 @@ Render mutations cause infinite loops. Askr prevents them before they happen.
 ## Derived Computation Mutations
 
 `derive()` and `selector()` computations must be pure. They run during render
-and again in the scheduler's derived lane, where no component is rendering, so
-a write from one could re-trigger the computation in an update loop.
+and again when the scheduler recomputes them after a source changes, outside
+any component render, so a write from one could re-trigger the computation in
+an update loop.
 
 ### Caught at Runtime
 
@@ -195,6 +196,6 @@ function Component() {
 state.set() cannot be called inside a derive() or selector() computation.
 ```
 
-The check applies to every recompute, whether it runs during render or in the
-derived lane, in development and production builds. A same-value `set()` writes
+The check applies to every recompute, whether it runs during render or in a
+scheduled recompute, in development and production builds. A same-value `set()` writes
 nothing and is allowed. Move the write to an event handler.

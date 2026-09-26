@@ -241,7 +241,7 @@ export function mountInstanceInline(
  * This is the internal workhorse that manages async continuations and generation tracking.
  * Must always be called through the scheduler.
  *
- * ACTOR INVARIANT: This function is enqueued as a task, never called directly.
+ * SCHEDULER INVARIANT: This function is enqueued as a task, never called directly.
  */
 
 export function renderScopedComponent<T>(

@@ -1,5 +1,6 @@
 /**
- * Askr: Lane-scheduled deterministic UI framework
+ * Askr: TypeScript UI runtime with getter-based state, fine-grained bindings,
+ * transactional commits with rollback, and one route graph for SPA, SSR, and SSG.
  *
  * Public API surface — only users should import from here
  */

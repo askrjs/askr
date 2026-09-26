@@ -25,6 +25,11 @@ export function Counter() {
 }
 ```
 
+Calling `count()` during render subscribes `Counter` to the state cell. The
+component re-renders when it changes. A function child such as
+`{() => count()}` instead creates a binding that updates its DOM node without
+re-running the surrounding component.
+
 ## 2) Mount an island
 
 Use islands for a single mounted component (no router).

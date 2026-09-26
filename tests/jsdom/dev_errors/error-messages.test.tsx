@@ -53,9 +53,24 @@ describe('error messages (DEV ERRORS)', () => {
         return <div>{'x'}</div>;
       };
 
-      expect(() => createIsland({ root: container, component: Bad })).toThrow(
+      let error: unknown;
+      try {
+        createIsland({ root: container, component: Bad });
+      } catch (caught) {
+        error = caught;
+      }
+
+      expect(error).toBeInstanceOf(Error);
+      const message = (error as Error).message;
+      expect(message).toMatch(
         /state\.set\(\) cannot be called during component render/i
       );
+      // The explanation names the real failure mode: a render-time write
+      // schedules another render of the same component.
+      expect(message).toContain(
+        'A write during render would schedule another render of the same component and could loop forever.'
+      );
+      expect(message).not.toMatch(/actor/i);
     } finally {
       cleanup();
     }
