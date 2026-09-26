@@ -1,5 +1,6 @@
 import { expectAssignable, expectError, expectType } from 'tsd';
 import { schema } from '@askrjs/schema';
+import type { JSX } from '@askrjs/askr/jsx-runtime';
 import {
   ActionForm,
   action,

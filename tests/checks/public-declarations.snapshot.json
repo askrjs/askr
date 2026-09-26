@@ -626,6 +626,12 @@
       "AskrRuntimeOptions": [
         "interface AskrRuntimeOptions {\n    scheduler?: Scheduler;\n    renderer?: RuntimeRendererHost;\n}"
       ],
+      "createDOMRendererHost": [
+        "export declare function createDOMRendererHost(configure: (native: DOMRendererHost) => DOMRendererHost): RuntimeRendererHost;"
+      ],
+      "createRuntime": [
+        "declare function createRuntime(options?: AskrRuntimeOptions): AskrRuntime;"
+      ],
       "DOMChildScope": [
         "export interface DOMChildScope {\n    readonly [scopeBrand]: never;\n}"
       ],
@@ -656,20 +662,14 @@
       "DOMRendererScopes": [
         "export interface DOMRendererScopes {\n    resolveChildScopeRange(scope: DOMChildScope): DOMRendererRange | null;\n}"
       ],
+      "getDefaultRuntime": [
+        "declare function getDefaultRuntime(): AskrRuntime;"
+      ],
       "RuntimeKeyedReorderDecision": [
         "interface RuntimeKeyedReorderDecision {\n    useFastPath: boolean;\n    totalKeyed: number;\n    totalChildren: number;\n    currentKeyCount: number;\n    moveCount: number;\n    lisLen: number;\n    hasPropChanges: boolean;\n    isWholeKeyedList: boolean;\n}"
       ],
       "RuntimeRendererHost": [
         "interface RuntimeRendererHost {\n    evaluate(node: unknown, target: Element | null, context?: object, retainedOwner?: ComponentInstance): void;\n    cleanupInstancesUnder(node: Node): void;\n    replaceComponentRange(instance: ComponentInstance, result: unknown, host: Element | Comment): Node | null;\n    resolveChildScopeRange?(scope: ChildScope): DOMRange | null;\n    teardownNodeSubtree(root: Node): void;\n    populateKeyMapForElement(parent: Element): void;\n    getKeyMapForElement(parent: Element): Map<string | number, Element> | undefined;\n    isKeyedReorderFastPathEligible(parent: Element, children: unknown[], oldKeyMap: Map<string | number, Element> | undefined): RuntimeKeyedReorderDecision;\n    markReactivePropsDirtySource(source: ReadableSource<unknown>): void;\n}"
-      ],
-      "createDOMRendererHost": [
-        "export declare function createDOMRendererHost(configure: (native: DOMRendererHost) => DOMRendererHost): RuntimeRendererHost;"
-      ],
-      "createRuntime": [
-        "declare function createRuntime(options?: AskrRuntimeOptions): AskrRuntime;"
-      ],
-      "getDefaultRuntime": [
-        "declare function getDefaultRuntime(): AskrRuntime;"
       ]
     },
     "./testing": {
@@ -1067,7 +1067,6 @@
       "createRenderContext": [
         "declare function createRenderContext(seed?: number, opts?: {\n    url?: string;\n    data?: SSRData;\n    params?: Record<string, string>;\n    routes?: readonly Route[];\n    routeAuth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    basePath?: string;\n    signal?: AbortSignal;\n    dataRuntime?: unknown;\n    mode?: \"ssr\" | \"spa\";\n    queryPrefetch?: QueryPrefetchContext;\n    framework?: Readonly<Record<string, unknown>>;\n    envelope?: PageRenderEnvelope;\n    cspNonce?: string;\n}): RenderContext;"
       ],
-      "escapeHtml": ["declare function escapeHtml(value: unknown): string;"],
       "DocumentRenderArgs": [
         "interface DocumentRenderArgs {\n    appHtml: string;\n    context: DocumentRenderContext;\n}"
       ],
@@ -1077,6 +1076,7 @@
       "DocumentRenderer": [
         "type DocumentRenderer = (args: DocumentRenderArgs) => string;"
       ],
+      "escapeHtml": ["declare function escapeHtml(value: unknown): string;"],
       "getRenderContext": [
         "declare function getRenderContext(): RenderContext | null;"
       ],
@@ -1194,7 +1194,7 @@
         "declare function jsx(type: symbol, props: Props | null, key?: string | number): JSXElement;"
       ],
       "JSX": [
-        "declare namespace JSX {\n    type ElementType = string | symbol | ((props: never) => unknown);\n    interface Element extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements extends KnownIntrinsicElements {\n        [elem: string]: IntrinsicFallbackProps | KnownIntrinsicElementProps[keyof KnownIntrinsicElementProps];\n    }\n    interface ElementAttributesProperty {\n        props: Props;\n    }\n    interface ElementChildrenAttribute {\n        children: unknown;\n    }\n}"
+        "declare namespace JSX {\n    type ElementType = string | symbol | ((props: never) => unknown);\n    interface Element extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements extends KnownIntrinsicElements, OtherIntrinsicElements {\n        [elem: `${string}-${string}`]: IntrinsicFallbackProps;\n    }\n    type OtherIntrinsicElements = {\n        [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap, keyof KnownIntrinsicElementProps>]: IntrinsicFallbackProps;\n    };\n    interface ElementChildrenAttribute {\n        children: unknown;\n    }\n}"
       ],
       "JSXComponent": [
         "type JSXComponent<TProps extends object = Props> = {\n    bivarianceHack(props: TProps): unknown;\n}[\"bivarianceHack\"];"
@@ -1223,7 +1223,7 @@
     "./jsx-dev-runtime": {
       "Fragment": ["Fragment: unique symbol"],
       "JSX": [
-        "declare namespace JSX$2 {\n    type ElementType$2 = string | symbol | ((props: never) => unknown);\n    interface Element$2 extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements$2 extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements$2 extends KnownIntrinsicElements$2 {\n        [elem: string]: IntrinsicFallbackProps | KnownIntrinsicElementProps[keyof KnownIntrinsicElementProps];\n    }\n    interface ElementAttributesProperty$2 {\n        props: Props;\n    }\n    interface ElementChildrenAttribute$2 {\n        children: unknown;\n    }\n}"
+        "declare namespace JSX$2 {\n    type ElementType$2 = string | symbol | ((props: never) => unknown);\n    interface Element$2 extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements$2 extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements$2 extends KnownIntrinsicElements$2, OtherIntrinsicElements$2 {\n        [elem: `${string}-${string}`]: IntrinsicFallbackProps;\n    }\n    type OtherIntrinsicElements$2 = {\n        [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap, keyof KnownIntrinsicElementProps>]: IntrinsicFallbackProps;\n    };\n    interface ElementChildrenAttribute$2 {\n        children: unknown;\n    }\n}"
       ],
       "JSXComponent": [
         "type JSXComponent<TProps extends object = Props> = {\n    bivarianceHack(props: TProps): unknown;\n}[\"bivarianceHack\"];"
@@ -1572,7 +1572,6 @@
     "documentVisible": [
       "declare function documentVisible(): ActivityPredicate;"
     ],
-    "escapeHtml": ["declare function escapeHtml(value: unknown): string;"],
     "DOMChildScope": [
       "export interface DOMChildScope {\n    readonly [scopeBrand]: never;\n}"
     ],
@@ -1619,12 +1618,6 @@
     "Element$2": [
       "interface Element$2 extends JSXElement {\n    readonly __askrJsxElementBrand?: never;\n}"
     ],
-    "ElementAttributesProperty": [
-      "interface ElementAttributesProperty {\n    props: Props;\n}"
-    ],
-    "ElementAttributesProperty$2": [
-      "interface ElementAttributesProperty$2 {\n    props: Props;\n}"
-    ],
     "ElementChildrenAttribute": [
       "interface ElementChildrenAttribute {\n    children: unknown;\n}"
     ],
@@ -1652,6 +1645,7 @@
     "ErrorBoundaryProps": [
       "interface ErrorBoundaryProps extends Props {\n    children?: ErrorBoundaryContent;\n    fallback?: ErrorBoundaryFallbackValue | ErrorBoundaryFallbackRender;\n    onError?: (error: unknown) => void;\n    resetKey?: unknown;\n}"
     ],
+    "escapeHtml": ["declare function escapeHtml(value: unknown): string;"],
     "ExtractRoutePathParamNames": [
       "type ExtractRoutePathParamNames<Path extends string> = TrimRoutePathSlashes<StripRoutePathSuffix<Path>> extends `${infer Segment}/${infer Rest}` ? ExtractRouteSegmentParam<Segment> | ExtractRoutePathParamNames<Rest> : ExtractRouteSegmentParam<TrimRoutePathSlashes<StripRoutePathSuffix<Path>>>;"
     ],
@@ -1755,11 +1749,11 @@
     "HistoryScrollBehavior": [
       "type HistoryScrollBehavior = \"restore\" | \"top\" | \"preserve\";"
     ],
-    "hoverable": [
-      "declare function hoverable({ disabled, onEnter, onLeave }: HoverableOptions): HoverableResult;"
-    ],
     "HookKind": [
       "type HookKind = \"state\" | \"derive\" | \"selector\" | \"For\" | \"on\" | \"watch\" | \"task\" | \"stream\" | \"timer\" | \"createQuery\" | \"createQueryCollection\" | \"createMutation\" | \"onRouteChange\";"
+    ],
+    "hoverable": [
+      "declare function hoverable({ disabled, onEnter, onLeave }: HoverableOptions): HoverableResult;"
     ],
     "HoverableOptions": [
       "interface HoverableOptions {\n    disabled?: boolean;\n    onEnter?: (e: HoverEvent) => void;\n    onLeave?: (e: HoverEvent) => void;\n}"
@@ -1823,10 +1817,10 @@
       "type IntrinsicDataValue = string | number | boolean | null | undefined;"
     ],
     "IntrinsicElements": [
-      "interface IntrinsicElements extends KnownIntrinsicElements {\n    [elem: string]: IntrinsicFallbackProps | KnownIntrinsicElementProps[keyof KnownIntrinsicElementProps];\n}"
+      "interface IntrinsicElements extends KnownIntrinsicElements, OtherIntrinsicElements {\n    [elem: `${string}-${string}`]: IntrinsicFallbackProps;\n}"
     ],
     "IntrinsicElements$2": [
-      "interface IntrinsicElements$2 extends KnownIntrinsicElements$2 {\n    [elem: string]: IntrinsicFallbackProps | KnownIntrinsicElementProps[keyof KnownIntrinsicElementProps];\n}"
+      "interface IntrinsicElements$2 extends KnownIntrinsicElements$2, OtherIntrinsicElements$2 {\n    [elem: `${string}-${string}`]: IntrinsicFallbackProps;\n}"
     ],
     "IntrinsicEnumeratedValue": [
       "type IntrinsicEnumeratedValue = string | boolean | null | undefined;"
@@ -1912,10 +1906,10 @@
       "declare function jsx<TTag extends string>(type: Exclude<TTag, keyof KnownIntrinsicElementProps>, props: IntrinsicFallbackProps | null, key?: string | number): JSXElement;"
     ],
     "JSX": [
-      "declare namespace JSX {\n    type ElementType = string | symbol | ((props: never) => unknown);\n    interface Element extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements extends KnownIntrinsicElements {\n        [elem: string]: IntrinsicFallbackProps | KnownIntrinsicElementProps[keyof KnownIntrinsicElementProps];\n    }\n    interface ElementAttributesProperty {\n        props: Props;\n    }\n    interface ElementChildrenAttribute {\n        children: unknown;\n    }\n}"
+      "declare namespace JSX {\n    type ElementType = string | symbol | ((props: never) => unknown);\n    interface Element extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements extends KnownIntrinsicElements, OtherIntrinsicElements {\n        [elem: `${string}-${string}`]: IntrinsicFallbackProps;\n    }\n    type OtherIntrinsicElements = {\n        [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap, keyof KnownIntrinsicElementProps>]: IntrinsicFallbackProps;\n    };\n    interface ElementChildrenAttribute {\n        children: unknown;\n    }\n}"
     ],
     "JSX$2": [
-      "declare namespace JSX$2 {\n    type ElementType$2 = string | symbol | ((props: never) => unknown);\n    interface Element$2 extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements$2 extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements$2 extends KnownIntrinsicElements$2 {\n        [elem: string]: IntrinsicFallbackProps | KnownIntrinsicElementProps[keyof KnownIntrinsicElementProps];\n    }\n    interface ElementAttributesProperty$2 {\n        props: Props;\n    }\n    interface ElementChildrenAttribute$2 {\n        children: unknown;\n    }\n}"
+      "declare namespace JSX$2 {\n    type ElementType$2 = string | symbol | ((props: never) => unknown);\n    interface Element$2 extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements$2 extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements$2 extends KnownIntrinsicElements$2, OtherIntrinsicElements$2 {\n        [elem: `${string}-${string}`]: IntrinsicFallbackProps;\n    }\n    type OtherIntrinsicElements$2 = {\n        [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap, keyof KnownIntrinsicElementProps>]: IntrinsicFallbackProps;\n    };\n    interface ElementChildrenAttribute$2 {\n        children: unknown;\n    }\n}"
     ],
     "JSXComponent": [
       "type JSXComponent<TProps extends object = Props> = {\n    bivarianceHack(props: TProps): unknown;\n}[\"bivarianceHack\"];"
@@ -2108,6 +2102,12 @@
     ],
     "Orientation": [
       "type Orientation = \"horizontal\" | \"vertical\" | \"both\";"
+    ],
+    "OtherIntrinsicElements": [
+      "type OtherIntrinsicElements = {\n    [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap, keyof KnownIntrinsicElementProps>]: IntrinsicFallbackProps;\n};"
+    ],
+    "OtherIntrinsicElements$2": [
+      "type OtherIntrinsicElements$2 = {\n    [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap, keyof KnownIntrinsicElementProps>]: IntrinsicFallbackProps;\n};"
     ],
     "Outlet": ["declare function Outlet(): JSXElement;"],
     "OutputIntrinsicProps": [

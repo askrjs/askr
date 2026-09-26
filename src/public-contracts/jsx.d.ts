@@ -11,14 +11,18 @@ declare namespace JSX {
     readonly __askrJsxElementBrand?: never;
   }
   interface KnownIntrinsicElements extends KnownIntrinsicElementProps {}
-  interface IntrinsicElements extends KnownIntrinsicElements {
-    [elem: string]:
-      | IntrinsicFallbackProps
-      | KnownIntrinsicElementProps[keyof KnownIntrinsicElementProps];
+  interface IntrinsicElements
+    extends KnownIntrinsicElements, OtherIntrinsicElements {
+    [elem: `${string}-${string}`]: IntrinsicFallbackProps;
   }
-  interface ElementAttributesProperty {
-    props: Props;
-  }
+  type OtherIntrinsicElements = {
+    [
+      Tag in Exclude<
+        keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap,
+        keyof KnownIntrinsicElementProps
+      >
+    ]: IntrinsicFallbackProps;
+  };
   interface ElementChildrenAttribute {
     children: unknown;
   }

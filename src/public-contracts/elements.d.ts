@@ -440,20 +440,6 @@ interface JSXElement {
   /** Optional key (normalized by runtime) */
   key?: string | number | null;
 }
-declare global {
-  namespace JSX {
-    interface Element extends JSXElement {
-      readonly __askrJsxElementBrand?: never;
-    }
-    interface IntrinsicElements extends KnownIntrinsicElementProps {}
-    interface ElementAttributesProperty {
-      props: Props;
-    }
-    interface ElementChildrenAttribute {
-      children: unknown;
-    }
-  }
-}
 export {
   IntrinsicFallbackProps,
   JSXElementType,

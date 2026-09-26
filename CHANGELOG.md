@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- breaking(types): Askr's JSX namespace now belongs only to the
+  `jsxImportSource` runtime modules. Import `type JSX` from
+  `@askrjs/askr/jsx-runtime` instead of using global `JSX`. Misspelled standard
+  tags now fail typechecking; hyphenated custom elements remain supported.
+  The unused class-component `ElementAttributesProperty` hook was removed.
+
 - docs(scope): mark the published interaction and icon foundation subpaths as
   platform internal contracts for sibling UI and icon packages. Their imports
   and behavior remain available for those packages; application code should

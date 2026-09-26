@@ -34,15 +34,19 @@ export namespace JSX {
 
   export interface KnownIntrinsicElements extends KnownIntrinsicElementProps {}
 
-  export interface IntrinsicElements extends KnownIntrinsicElements {
-    [elem: string]:
-      | IntrinsicFallbackProps
-      | KnownIntrinsicElementProps[keyof KnownIntrinsicElementProps];
+  export interface IntrinsicElements
+    extends KnownIntrinsicElements, OtherIntrinsicElements {
+    [elem: `${string}-${string}`]: IntrinsicFallbackProps;
   }
 
-  export interface ElementAttributesProperty {
-    props: Props;
-  }
+  type OtherIntrinsicElements = {
+    [
+      Tag in Exclude<
+        keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap,
+        keyof KnownIntrinsicElementProps
+      >
+    ]: IntrinsicFallbackProps;
+  };
 
   export interface ElementChildrenAttribute {
     children: unknown;

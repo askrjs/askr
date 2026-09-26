@@ -91,9 +91,11 @@ the root.
 - `@askrjs/askr/jsx-runtime` - JSX factory exports plus `JSXElement`, `JSXComponent`, and `JSXElementType`
 - `@askrjs/askr/jsx-dev-runtime` - JSX development runtime exports plus the same JSX public types
 
-Both JSX runtime entrypoints also intentionally export the `JSX` namespace
-used by TypeScript's automatic JSX transform. Its intrinsic-element and
-children contracts are part of the supported public API.
+Both JSX runtime entrypoints export the `JSX` namespace used by TypeScript's
+automatic JSX transform. Askr does not declare a global `JSX` namespace; import
+`type JSX` from `@askrjs/askr/jsx-runtime` when naming JSX types. Standard HTML
+and SVG tag names are checked, so a misspelled tag is a type error. Hyphenated
+custom-element names remain available with flexible attributes.
 
 ## Examples
 
