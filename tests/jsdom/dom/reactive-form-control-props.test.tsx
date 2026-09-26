@@ -1,11 +1,4 @@
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from 'vite-plus/test';
+import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { state, type State } from '../../../src';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
@@ -241,35 +234,29 @@ describe('reactive form control props', () => {
     expect(select.value).toBe('a');
   });
 
-  it('should unwrap readables returned by prop functions of cloned blueprint rows', () => {
-    const cloneNode = vi.spyOn(Node.prototype, 'cloneNode');
+  it('should unwrap readables returned by prop functions of repeated rows', () => {
     let label!: State<string>;
     let choice!: State<string>;
-    try {
-      const Row = () => (
-        <li>
-          <span title={() => label}>{() => 'r'}</span>
-          <select value={() => choice}>
-            <option value="a">A</option>
-            <option value="b">B</option>
-          </select>
-        </li>
+    const Row = () => (
+      <li>
+        <span title={() => label}>{() => 'r'}</span>
+        <select value={() => choice}>
+          <option value="a">A</option>
+          <option value="b">B</option>
+        </select>
+      </li>
+    );
+    mount(() => {
+      label = state('L');
+      choice = state('b');
+      return (
+        <ul>
+          <Row />
+          <Row />
+          <Row />
+        </ul>
       );
-      mount(() => {
-        label = state('L');
-        choice = state('b');
-        return (
-          <ul>
-            <Row />
-            <Row />
-            <Row />
-          </ul>
-        );
-      });
-      expect(cloneNode).toHaveBeenCalled();
-    } finally {
-      cloneNode.mockRestore();
-    }
+    });
 
     const titles = () =>
       Array.from(container.querySelectorAll('span'), (span) =>

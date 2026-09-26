@@ -91,7 +91,9 @@ export function applyInitialProps(
       else setHandler(node, key, value);
     } else if (isBinding(key, value)) {
       flushScalars();
-      bind(pass, node, key, value, undefined, !adopted);
+      if (!followsChildren(node.tag, key)) {
+        bind(pass, node, key, value, undefined, !adopted);
+      }
     } else if (!followsChildren(node.tag, key)) {
       (scalars ??= {})[key] = value;
     }
@@ -100,10 +102,34 @@ export function applyInitialProps(
 }
 
 /** Write props that must follow the element's children. */
-export function applyTrailingProps(node: HostNode, props: Props): void {
+export function applyTrailingProps(
+  pass: Pass,
+  node: HostNode,
+  props: Props,
+  initial = false,
+  adopted = false
+): void {
   if (node.tag !== 'select' || !('value' in props)) return;
-  if (typeof props.value === 'function') return;
-  applyScalarPropValue(node.el, 'value', props.value, node.tag, undefined);
+  if (typeof props.value === 'function') {
+    if (initial)
+      bind(
+        pass,
+        node,
+        'value',
+        props.value as () => unknown,
+        undefined,
+        !adopted
+      );
+    else node.bindings?.get('value')?.run();
+    return;
+  }
+  if (initial && adopted) {
+    pass.op(() =>
+      applyScalarPropValue(node.el, 'value', props.value, node.tag, undefined)
+    );
+  } else {
+    applyScalarPropValue(node.el, 'value', props.value, node.tag, undefined);
+  }
 }
 
 /** Record the writes that turn `previous` into `next` on a committed element. */

@@ -156,8 +156,7 @@ function createHost(
       true
     );
   }
-  if (adopted) ctx.pass.op(() => applyTrailingProps(node, props));
-  else applyTrailingProps(node, props);
+  applyTrailingProps(ctx.pass, node, props, true, adopted !== null);
   attachRef(ctx.pass, node, undefined);
   return node;
 }
@@ -184,7 +183,8 @@ function patchHost(ctx: RenderContext, node: HostNode, props: Props): void {
     node.props = props;
     node.imperative = Boolean(props.imperativeChildren);
   });
-  if (node.tag === 'select') ctx.pass.op(() => applyTrailingProps(node, props));
+  if (node.tag === 'select')
+    ctx.pass.op(() => applyTrailingProps(ctx.pass, node, props));
   if (props.ref !== previous.ref) {
     attachRef(ctx.pass, { ...node, props }, previous.ref);
   }
