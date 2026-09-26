@@ -58,8 +58,17 @@ export function onCommit(
     if (result && typeof (result as PromiseLike<unknown>).then === 'function') {
       Promise.resolve(result).then(
         (cleanup) => {
-          if (typeof cleanup === 'function')
+          if (typeof cleanup !== 'function') return;
+          if (!instance.disposed) {
             instance.onCleanup(cleanup as Cleanup);
+            return;
+          }
+          // The component unmounted first: run the late cleanup now.
+          try {
+            (cleanup as Cleanup)();
+          } catch (error) {
+            reportUncaughtError(error);
+          }
         },
         (error) => reportLifecycleError(instance, error)
       );
