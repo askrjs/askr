@@ -1,4 +1,5 @@
 import type { RenderableChild } from '../../common/vnode';
+import { markNamedPortalHost } from '../../common/portal';
 import { getCurrentComponentInstance } from '../component/scope';
 import { createSSRPortalHost } from './ssr';
 import { writeSSRPortal } from './ssr';
@@ -87,6 +88,7 @@ export function definePortal<
       return null;
     };
 
+    markNamedPortalHost(PortalHost);
     return PortalHost as Portal<T>;
   }
 

@@ -213,6 +213,14 @@ function reconcileUnkeyedChild(
 ): Node | null {
   const parentNamespace = getParentNamespace(parent);
   const domHost = getRendererDOMHost();
+  // A keyed server host belongs to its keyed vnode, even when an unkeyed
+  // component appears earlier in the client child list.
+  if (
+    existing instanceof Element &&
+    getMaterializedKey(existing) !== undefined
+  ) {
+    existing = undefined;
+  }
 
   if (typeof child === 'string' || typeof child === 'number') {
     if (existing && existing.nodeType === 3) {

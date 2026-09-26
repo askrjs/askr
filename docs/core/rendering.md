@@ -571,7 +571,9 @@ the final value, matching the client runtime.
 Portal values are scoped to one server render root. A portal created with
 `definePortal()` can be reused by application code without carrying content
 between routes or requests. Hydration adopts the server-rendered portal
-content and attaches its normal bindings.
+content and attaches its normal bindings. Named portal hosts retain matching
+server nodes with or without a key, whether the writer renders before or after
+the host.
 
 On the client, removing a portal writer clears its host content and disposes
 the content components, including their tasks, watches, and resources. Removing

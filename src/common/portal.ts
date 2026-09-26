@@ -7,6 +7,16 @@
 export const SSR_PORTAL_HOST = Symbol.for('askr.ssr-portal-host');
 export const SSR_PORTAL_ANCHOR = Symbol.for('askr.ssr-portal-anchor');
 
+const namedPortalHosts = new WeakSet<Function>();
+
+export function markNamedPortalHost(host: Function): void {
+  namedPortalHosts.add(host);
+}
+
+export function isNamedPortalHost(host: unknown): boolean {
+  return typeof host === 'function' && namedPortalHosts.has(host);
+}
+
 const SSR_PORTAL_HOST_PREFIX = 'askr-portal:';
 const SSR_PORTAL_ANCHOR_PREFIX = 'askr-portal-anchor:';
 

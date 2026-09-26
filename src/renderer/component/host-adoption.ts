@@ -1,5 +1,8 @@
 import { renderComponentInScope } from './render-scope';
-import { isSSRPortalHydrationAnchor } from '../../common/portal';
+import {
+  isNamedPortalHost,
+  isSSRPortalHydrationAnchor,
+} from '../../common/portal';
 import {
   type ContextFrame,
   withContext,
@@ -11,6 +14,7 @@ import {
 } from '../../runtime';
 import { getCurrentContextFrame, getVNodeContextFrame } from '../../runtime';
 import { materializeKey } from '../props/attributes';
+import { writeHostOwners } from '../ownership/nodes';
 import {
   isScalarChild,
   isTransparentComponentRangeResult,
@@ -53,6 +57,7 @@ import {
 } from './host-results';
 import { resolveHostNestedComponentResult } from './host-nested-results';
 import { isHydrationAdoptionScopeActive } from '../hydration/adoption';
+import { registerCommitRollback } from '../../runtime/transactions/access';
 import { getDefaultPortalHost } from '../../common/default-portal-runtime';
 
 /**
@@ -262,6 +267,32 @@ export function adoptComponentHost(
     }
 
     const scopedResult = renderComponentInScope(hydrationInstance, snapshot);
+
+    if (
+      isHydrationAdoptionScopeActive() &&
+      isNamedPortalHost(type) &&
+      existingHost instanceof Element &&
+      (scopedResult === null ||
+        scopedResult === undefined ||
+        scopedResult === false)
+    ) {
+      // A host can render before its writer during hydration. Keep its server
+      // element for the slot update later in this mount to adopt in place.
+      const portalHost = existingHost as InstanceHostNode & Element;
+      const previousInstances = portalHost.__ASKR_INSTANCES?.slice();
+      const previousInstance = portalHost.__ASKR_INSTANCE;
+      registerCommitRollback(() =>
+        writeHostOwners(
+          portalHost,
+          previousInstances,
+          previousInstance,
+          previousInstances !== undefined,
+          previousInstance !== undefined
+        )
+      );
+      mountInstanceInline(hydrationInstance, portalHost);
+      return portalHost;
+    }
 
     if (
       type === getDefaultPortalHost() &&
