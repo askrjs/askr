@@ -15,6 +15,7 @@ import { Pass } from './pass';
 import { reconcileChildren } from './reconcile';
 import { ROOT, collectDom, type RootNode } from './tree';
 import { HydrationCursor, syncChildren } from './hydration';
+import { EVENT_ROOT_CONTAINER } from './events';
 import './updates';
 
 export interface PreparedRender {
@@ -46,6 +47,7 @@ export function createRoot(
   options: RootOptions = {}
 ): Root {
   const owner = new Owner(options.owner ?? getOwner());
+  (owner.context ??= new Map()).set(EVENT_ROOT_CONTAINER, container);
   const node: RootNode = {
     kind: ROOT,
     el: container,

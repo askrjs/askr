@@ -26,6 +26,25 @@ export interface Listener {
 
 export type ListenerMap = Map<string, Listener>;
 
+/** Root container visible to listeners through their component owner. */
+export const EVENT_ROOT_CONTAINER = Symbol('askr.event-root-container');
+
+const DELEGATED_EVENTS = new Set([
+  'click',
+  'dblclick',
+  'mousedown',
+  'mouseup',
+  'mouseover',
+  'mouseout',
+  'mousemove',
+  'touchend',
+  'touchcancel',
+  'keydown',
+  'keyup',
+  'keypress',
+  'input',
+]);
+
 /** `onClick` -> click, `onKeyDownCapture` -> keydown (capture); else null. */
 export function parseEventProp(propName: string): ParsedEvent | null {
   if (propName.length <= 2 || !propName.startsWith('on')) return null;
@@ -78,6 +97,21 @@ export function setListener(
     eventName: event.eventName,
     options,
     wrapped: (nativeEvent: Event) => {
+      if (
+        DELEGATED_EVENTS.has(nativeEvent.type) &&
+        typeof ShadowRoot !== 'undefined'
+      ) {
+        const nodeRoot = el.getRootNode();
+        if (
+          nodeRoot instanceof ShadowRoot &&
+          (
+            owner?.lookup(EVENT_ROOT_CONTAINER) as Element | undefined
+          )?.getRootNode() !== nodeRoot &&
+          (nodeRoot.mode === 'closed' || !nativeEvent.composed)
+        ) {
+          return;
+        }
+      }
       const current = listener.handler;
       outsideRendering(() =>
         batch(() =>
