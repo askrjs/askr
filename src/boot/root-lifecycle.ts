@@ -20,6 +20,7 @@ import {
   teardownNodeSubtree,
   activateHydrationBoundary as activateRendererHydrationBoundary,
   clearDeferredHydrationBoundaries,
+  finalizeDefaultPortalHydration,
 } from '../renderer';
 import {
   registerDelegationRoot,
@@ -255,6 +256,8 @@ export function activateHydrationBoundary(
 
   const activated = activateRendererHydrationBoundary(boundary);
   if (activated) {
+    flushRuntimeScheduler();
+    finalizeDefaultPortalHydration(rootElement);
     flushRuntimeScheduler();
   }
   return activated;

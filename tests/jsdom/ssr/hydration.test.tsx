@@ -1801,6 +1801,7 @@ describe('hydration (SSR)', () => {
           '#portal-deferred'
         ) as HTMLButtonElement;
         expect(portalButton).not.toBeNull();
+        expect(portalButton).toBe(serverPortalButton);
         portalButton.click();
         expect(clicks).toBe(1);
       } finally {

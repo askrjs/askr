@@ -28,6 +28,7 @@ export {
 export * from './dom';
 export { evaluate, clearDOMRange } from './evaluation/evaluate';
 export { withIntrinsicHydrationAdoption } from './hydration/adoption';
+export { finalizeDefaultPortalHydration } from './hydration/default-portal';
 export {
   clearDeferredHydrationBoundaries,
   registerDeferredHydrationBoundary,

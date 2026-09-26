@@ -12,7 +12,7 @@ import {
 } from '../router/route';
 import { clearRouteState } from '../router/store';
 import { readHydratedAuth, withoutHydratedAuth } from '../router/auth';
-import { assertExecutionModel } from '../runtime';
+import { assertExecutionModel, flushRuntimeScheduler } from '../runtime';
 import { createAppRenderRuntime } from '../common/app-render-runtime';
 import {
   startHydrationRenderPhase,
@@ -40,7 +40,10 @@ import {
   resolveInitialRoute,
 } from './route-startup';
 import type { HydrateSPAConfig } from './types';
-import { withIntrinsicHydrationAdoption } from '../renderer';
+import {
+  finalizeDefaultPortalHydration,
+  withIntrinsicHydrationAdoption,
+} from '../renderer';
 import { hydrateDataRuntime } from '../data/query-registry';
 import { getDefaultDataRuntime } from '../data/data-runtime';
 import { resolveRootElement } from './root-element';
@@ -223,6 +226,8 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
             stopHydrationRenderPhase();
           }
         }
+        finalizeDefaultPortalHydration(rootElement);
+        flushRuntimeScheduler();
         if (!rootElement.querySelector('[data-skip-hydrate]')) {
           await verifyClientMarkup?.();
         }
@@ -251,6 +256,8 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         }
       );
       commitHydrationListenerTransaction(listenerTransaction);
+      finalizeDefaultPortalHydration(rootElement);
+      flushRuntimeScheduler();
     } catch (error) {
       discardHydrationListenerTransaction(listenerTransaction);
       throw error;

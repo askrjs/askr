@@ -53,3 +53,10 @@ export function isSSRPortalHydrationAnchor(node: unknown): node is Comment {
       isSSRPortalMarkerData(data, SSR_PORTAL_ANCHOR_PREFIX))
   );
 }
+
+export function isSSRPortalWriterAnchor(node: unknown): node is Comment {
+  return (
+    isSSRPortalHydrationAnchor(node) &&
+    node.data.startsWith(SSR_PORTAL_ANCHOR_PREFIX)
+  );
+}

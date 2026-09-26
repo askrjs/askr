@@ -585,6 +585,9 @@ and around default-portal host content. Hydration adopts the host range in
 place, including when an explicit host precedes its writer or has no content.
 The anchors keep adjacent application nodes in position without a visible
 wrapper element. Unused or explicitly suppressed automatic hosts are omitted.
+After a fully hydrated render, server portal content is removed if the client
+has no writer; `verifyMarkup` reports that difference. Content remains visible
+while its writer is in a deferred hydration boundary and is claimed on reveal.
 
 ## Static Site Generation (SSG)
 
