@@ -670,6 +670,59 @@
         "interface ServerQueryRegistry {\n    readonly entries: readonly ServerQueryEntry<unknown, {}>[];\n    get<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>): ServerQueryHandler<TInput, TResult> | undefined;\n}"
       ]
     },
+    "./experimental": {
+      "AskrRuntime": [
+        "declare class AskrRuntime {\n    readonly scheduler: Scheduler;\n    constructor(options?: AskrRuntimeOptions);\n    get renderer(): RuntimeRendererHost;\n    configureRenderer(renderer: RuntimeRendererHost): void;\n}"
+      ],
+      "AskrRuntimeOptions": [
+        "interface AskrRuntimeOptions {\n    scheduler?: Scheduler;\n    renderer?: RuntimeRendererHost;\n}"
+      ],
+      "DOMChildScope": [
+        "export interface DOMChildScope {\n    readonly [scopeBrand]: never;\n}"
+      ],
+      "DOMComponentOwner": [
+        "export interface DOMComponentOwner {\n    readonly [ownerBrand]: never;\n}"
+      ],
+      "DOMReactiveSource": [
+        "export interface DOMReactiveSource {\n    readonly [sourceBrand]: never;\n}"
+      ],
+      "DOMRendererCleanup": [
+        "export interface DOMRendererCleanup {\n    cleanupInstancesUnder(node: Node): void;\n    teardownNodeSubtree(root: Node): void;\n}"
+      ],
+      "DOMRendererEvaluation": [
+        "export interface DOMRendererEvaluation {\n    evaluate(node: unknown, target: Element | null, context?: object, retainedOwner?: DOMComponentOwner): void;\n    replaceComponentRange(owner: DOMComponentOwner, result: unknown, host: Element | Comment): Node | null;\n}"
+      ],
+      "DOMRendererHost": [
+        "export interface DOMRendererHost {\n    evaluation: DOMRendererEvaluation;\n    cleanup: DOMRendererCleanup;\n    scopes: DOMRendererScopes;\n    keys: DOMRendererKeys;\n    reactivity: DOMRendererReactivity;\n}"
+      ],
+      "DOMRendererKeys": [
+        "export interface DOMRendererKeys {\n    populateKeyMapForElement(parent: Element): void;\n    getKeyMapForElement(parent: Element): Map<string | number, Element> | undefined;\n    isKeyedReorderFastPathEligible(parent: Element, children: unknown[], oldKeyMap: Map<string | number, Element> | undefined): RuntimeKeyedReorderDecision;\n}"
+      ],
+      "DOMRendererRange": [
+        "export interface DOMRendererRange {\n    readonly start: Node;\n    readonly end: Node;\n    readonly single: boolean;\n}"
+      ],
+      "DOMRendererReactivity": [
+        "export interface DOMRendererReactivity {\n    markReactivePropsDirtySource(source: DOMReactiveSource): void;\n}"
+      ],
+      "DOMRendererScopes": [
+        "export interface DOMRendererScopes {\n    resolveChildScopeRange(scope: DOMChildScope): DOMRendererRange | null;\n}"
+      ],
+      "RuntimeKeyedReorderDecision": [
+        "interface RuntimeKeyedReorderDecision {\n    useFastPath: boolean;\n    totalKeyed: number;\n    totalChildren: number;\n    currentKeyCount: number;\n    moveCount: number;\n    lisLen: number;\n    hasPropChanges: boolean;\n    isWholeKeyedList: boolean;\n}"
+      ],
+      "RuntimeRendererHost": [
+        "interface RuntimeRendererHost {\n    evaluate(node: unknown, target: Element | null, context?: object, retainedOwner?: ComponentInstance): void;\n    cleanupInstancesUnder(node: Node): void;\n    replaceComponentRange(instance: ComponentInstance, result: unknown, host: Element | Comment): Node | null;\n    resolveChildScopeRange?(scope: ChildScope): DOMRange | null;\n    teardownNodeSubtree(root: Node): void;\n    populateKeyMapForElement(parent: Element): void;\n    getKeyMapForElement(parent: Element): Map<string | number, Element> | undefined;\n    isKeyedReorderFastPathEligible(parent: Element, children: unknown[], oldKeyMap: Map<string | number, Element> | undefined): RuntimeKeyedReorderDecision;\n    markReactivePropsDirtySource(source: ReadableSource<unknown>): void;\n}"
+      ],
+      "createDOMRendererHost": [
+        "export declare function createDOMRendererHost(configure: (native: DOMRendererHost) => DOMRendererHost): RuntimeRendererHost;"
+      ],
+      "createRuntime": [
+        "declare function createRuntime(options?: AskrRuntimeOptions): AskrRuntime;"
+      ],
+      "getDefaultRuntime": [
+        "declare function getDefaultRuntime(): AskrRuntime;"
+      ]
+    },
     "./testing": {
       "cleanup": [
         "declare function cleanup(target: RenderResult | HTMLElement): void;"

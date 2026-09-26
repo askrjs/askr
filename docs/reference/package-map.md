@@ -53,6 +53,9 @@ import { createStaticGen } from '@askrjs/askr/ssg';
 Import `schema`, `createI18n`, and `createTelemetry` from their owning sibling
 packages when those packages are installed.
 
+`@askrjs/askr/experimental` contains construction-only runtime and renderer
+extension wiring for maintainers; see [Experimental runtime extensions](experimental.md).
+
 `@askrjs/testing` tests HTTP applications through request injection.
 `@askrjs/askr/testing` is a subpath of the core runtime for query-state test
 fixtures. They are separate packages and serve different tests.

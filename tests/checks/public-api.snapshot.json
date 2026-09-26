@@ -250,6 +250,25 @@
     "queryScope",
     "serveQuery"
   ],
+  "./experimental": [
+    "AskrRuntime",
+    "AskrRuntimeOptions",
+    "DOMChildScope",
+    "DOMComponentOwner",
+    "DOMReactiveSource",
+    "DOMRendererCleanup",
+    "DOMRendererEvaluation",
+    "DOMRendererHost",
+    "DOMRendererKeys",
+    "DOMRendererRange",
+    "DOMRendererReactivity",
+    "DOMRendererScopes",
+    "RuntimeKeyedReorderDecision",
+    "RuntimeRendererHost",
+    "createDOMRendererHost",
+    "createRuntime",
+    "getDefaultRuntime"
+  ],
   "./testing": [
     "InvalidationRecord",
     "InvalidationRecorder",

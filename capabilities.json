@@ -55,6 +55,20 @@
       "docsPath": "docs/contributing/testing.md"
     },
     {
+      "intent": "construction-only runtime and renderer extensions",
+      "package": "@askrjs/askr",
+      "import": "@askrjs/askr/experimental",
+      "exports": [
+        "createRuntime",
+        "getDefaultRuntime",
+        "createDOMRendererHost"
+      ],
+      "constraints": ["does not isolate mounted trees", "maintainer use"],
+      "stability": "experimental",
+      "docs": "https://github.com/askrjs/askr/blob/main/docs/reference/experimental.md",
+      "docsPath": "docs/reference/experimental.md"
+    },
+    {
       "intent": "routing and navigation",
       "package": "@askrjs/askr",
       "import": "@askrjs/askr/router",

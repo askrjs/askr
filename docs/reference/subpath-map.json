@@ -43,6 +43,10 @@
       "purpose": "query and mutation helpers",
       "stability": "stable"
     },
+    "./experimental": {
+      "purpose": "construction-only runtime and renderer extensions",
+      "stability": "experimental"
+    },
     "./testing": { "purpose": "consumer test helpers", "stability": "stable" },
     "./fx": { "purpose": "timing and effects", "stability": "stable" },
     "./router": {

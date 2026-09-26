@@ -20,9 +20,11 @@ describe('published subpath map', () => {
     expect(Object.keys(map.subpaths).sort()).toEqual(
       Object.keys(pkg.exports).sort()
     );
-    for (const entry of Object.values(map.subpaths)) {
+    for (const [subpath, entry] of Object.entries(map.subpaths)) {
       expect(entry.purpose.length).toBeGreaterThan(0);
-      expect(entry.stability).toBe('stable');
+      expect(entry.stability).toBe(
+        subpath === './experimental' ? 'experimental' : 'stable'
+      );
     }
   });
 
