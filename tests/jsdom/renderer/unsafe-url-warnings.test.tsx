@@ -1,5 +1,12 @@
-import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
-import { state } from '../../../src';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vite-plus/test';
+import { configureRenderDiagnostics, state } from '../../../src';
 import { logger } from '../../../src/common/logger';
 import { renderToStringSync } from '../../../src/ssr';
 import { createIsland } from '../../../test-utils/render/create-island';
@@ -34,6 +41,15 @@ function warnings(spy: ReturnType<typeof vi.spyOn>): string {
 }
 
 describe('unsafe URL development warnings', () => {
+  // These tests spy on every logger warning; keep timing noise out.
+  let restoreDiagnostics = () => {};
+  beforeEach(() => {
+    restoreDiagnostics = configureRenderDiagnostics({
+      slowRenderWarnings: false,
+    });
+  });
+  afterEach(() => restoreDiagnostics());
+
   afterEach(() => {
     vi.restoreAllMocks();
   });

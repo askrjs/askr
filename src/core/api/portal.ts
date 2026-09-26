@@ -40,6 +40,8 @@ export interface PortalChannel {
    * fallback that has not recovered; the automatic host yields to them.
    */
   readonly explicitHosts: Signal<number>;
+  /** Render order of the write the channel shows. */
+  renderOrder: number;
 }
 
 let nextWriteId = 0;
@@ -48,6 +50,7 @@ export function createPortalChannel(): PortalChannel {
   return {
     write: new Signal<Write | null>(null),
     explicitHosts: new Signal(0),
+    renderOrder: 0,
   };
 }
 
@@ -85,11 +88,25 @@ function writeChannel(channel: PortalChannel, children: unknown): void {
       if (channel.write.peek()?.owner === instance) channel.write.write(null);
     });
   }
+  // Writes commit children-first; render order decides which one shows.
+  const order = ++nextRenderOrder;
   instance.onCommitSync(() => {
+    let written = lastWrites.get(instance);
+    if (!written) {
+      written = new Map();
+      lastWrites.set(instance, written);
+    }
+    const repeated =
+      written.has(channel) && Object.is(written.get(channel), children);
+    written.set(channel, children);
     const current = channel.write.peek();
     if (current?.owner === instance && Object.is(current.children, children)) {
       return;
     }
+    // Re-writing an unchanged value does not take the channel back from a
+    // writer that rendered after this one.
+    if (repeated || order < channel.renderOrder) return;
+    channel.renderOrder = order;
     channel.write.write({
       owner: instance,
       id: current?.owner === instance ? current.id : ++nextWriteId,
@@ -99,6 +116,9 @@ function writeChannel(channel: PortalChannel, children: unknown): void {
 }
 
 const writers = new WeakMap<Owner, Set<PortalChannel>>();
+/** Each writer's last committed value, per channel. */
+const lastWrites = new WeakMap<Owner, Map<PortalChannel, unknown>>();
+let nextRenderOrder = 0;
 
 // ---------------------------------------------------------------------------
 // Named portals
