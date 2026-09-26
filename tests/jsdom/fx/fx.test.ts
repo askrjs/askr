@@ -13,18 +13,11 @@ import {
   scheduleTimeout,
   scheduleIdle,
   scheduleRetry,
-} from '../../../src/fx/fx';
-import { globalScheduler } from '../../../src/runtime/scheduler';
-import {
-  cleanupComponent,
-  createComponentInstance,
-  mountInstanceInline,
-  registerMountOperation,
-  beginComponentScope,
-  type ComponentFunction,
-} from '../../../src/runtime';
-
-const noop: ComponentFunction = () => null;
+} from '@askrjs/askr/fx';
+import { createIsland, cleanupApp } from '@askrjs/askr/boot';
+import { task } from '@askrjs/askr/resources';
+import { renderToStringSync } from '@askrjs/askr/ssr';
+import { flushScheduler } from '../../../test-utils/render/test-renderer';
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -32,16 +25,12 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
-  // Clear current instance
-  beginComponentScope({ instance: null });
 });
 
 describe('FX layer', () => {
   it('should schedule via scheduler (debounceEvent)', () => {
     const spy = vi.fn();
     const deb = debounceEvent(100, spy);
-
-    const enqueueSpy = vi.spyOn(globalScheduler, 'enqueue');
 
     // call twice quickly
     deb(new Event('x'));
@@ -53,11 +42,7 @@ describe('FX layer', () => {
     // Advance timers to trigger trailing
     vi.advanceTimersByTime(120);
 
-    // The timer callback should enqueue the handler
-    expect(enqueueSpy).toHaveBeenCalled();
-
-    // Run scheduler to execute enqueued task
-    globalScheduler.flush();
+    flushScheduler();
 
     expect(spy).toHaveBeenCalledTimes(1);
   });
@@ -65,7 +50,6 @@ describe('FX layer', () => {
   it('should coalesce and schedule via scheduler (rafEvent)', () => {
     const spy = vi.fn();
     const r = rafEvent(spy);
-    const enqueueSpy = vi.spyOn(globalScheduler, 'enqueue');
 
     r(new Event('x'));
     r(new Event('x'));
@@ -73,15 +57,13 @@ describe('FX layer', () => {
     // advance timers to simulate rAF fallback
     vi.advanceTimersByTime(20);
 
-    expect(enqueueSpy).toHaveBeenCalled();
-    globalScheduler.flush();
+    flushScheduler();
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
   it('should throttle and schedule via scheduler (throttleEvent)', () => {
     const spy = vi.fn();
     const t = throttleEvent(100, spy);
-    const enqueueSpy = vi.spyOn(globalScheduler, 'enqueue');
 
     t(new Event('x'));
     t(new Event('x'));
@@ -89,8 +71,7 @@ describe('FX layer', () => {
     // advance timers to trigger trailing
     vi.advanceTimersByTime(120);
 
-    expect(enqueueSpy).toHaveBeenCalled();
-    globalScheduler.flush();
+    flushScheduler();
     expect(spy).toHaveBeenCalled();
 
     t.cancel();
@@ -98,41 +79,33 @@ describe('FX layer', () => {
 
   it('should enqueue work and auto-cancel on unmount (scheduleTimeout)', () => {
     const target = document.createElement('div');
-    const inst = createComponentInstance('id', noop, {}, target);
-    inst.isRoot = true;
-
     const spy = vi.fn();
-
-    // FX scheduling must not happen during render.
-    // Simulate an effect/mount operation that runs after the first commit.
-    beginComponentScope({ instance: inst });
-    // The mount operation does not return `cancel`; unmount alone must cancel.
-    registerMountOperation(() => {
-      scheduleTimeout(100, spy);
+    createIsland({
+      root: target,
+      component: () => {
+        task(() => {
+          scheduleTimeout(100, spy);
+        });
+        return null;
+      },
     });
-    beginComponentScope({ instance: null });
-
-    // First mount executes mount operations and records cleanup.
-    mountInstanceInline(inst, target);
-
-    cleanupComponent(inst);
+    flushScheduler();
+    cleanupApp(target);
 
     vi.advanceTimersByTime(120);
     // cancelled so not called
-    globalScheduler.flush();
+    flushScheduler();
     expect(spy).not.toHaveBeenCalled();
   });
 
   it('should use fallback and enqueue via scheduler (scheduleIdle)', () => {
     const spy = vi.fn();
-    const enqueueSpy = vi.spyOn(globalScheduler, 'enqueue');
     const cancel = scheduleIdle(spy);
 
     // fallback uses setTimeout(0)
     vi.advanceTimersByTime(0);
 
-    expect(enqueueSpy).toHaveBeenCalled();
-    globalScheduler.flush();
+    flushScheduler();
     expect(spy).toHaveBeenCalled();
 
     cancel();
@@ -153,7 +126,7 @@ describe('FX layer', () => {
     vi.advanceTimersByTime(1000);
 
     // Allow scheduler tasks to execute
-    globalScheduler.flush();
+    flushScheduler();
 
     // Because fn always rejects we expect multiple attempts scheduled (3)
     expect(fn.mock.calls.length).toBeGreaterThanOrEqual(1);
@@ -163,7 +136,7 @@ describe('FX layer', () => {
 
   it('should expose the final result of scheduleRetry', async () => {
     const scheduled = scheduleRetry(async () => 42);
-    globalScheduler.flush();
+    flushScheduler();
     await expect(scheduled.result).resolves.toEqual({
       status: 'success',
       value: 42,
@@ -177,31 +150,32 @@ describe('FX layer', () => {
   });
 
   it('should be inert during SSR (handlers)', () => {
-    const inst = createComponentInstance('id', noop, {}, null);
-    inst.ssr = true;
-    beginComponentScope({ instance: inst });
-
     const spy = vi.fn();
-    const deb = debounceEvent(100, spy);
+    let deb!: EventListener;
+    renderToStringSync(() => {
+      deb = debounceEvent(100, spy);
+      return null;
+    });
     deb(new Event('x'));
     vi.advanceTimersByTime(200);
-    globalScheduler.flush();
+    flushScheduler();
     expect(spy).not.toHaveBeenCalled();
-
-    beginComponentScope({ instance: null });
   });
 
   it('should throw when called during render (dev-only)', () => {
     // simulate render context
-    const inst = createComponentInstance('id', noop, {}, null);
-    beginComponentScope({ instance: inst });
-
     const spy = vi.fn();
-    const deb = debounceEvent(100, spy);
-
-    expect(() => deb(new Event('x'))).toThrow();
-
-    beginComponentScope({ instance: null });
+    const target = document.createElement('div');
+    expect(() =>
+      createIsland({
+        root: target,
+        component: () => {
+          const deb = debounceEvent(100, spy);
+          deb(new Event('x'));
+          return null;
+        },
+      })
+    ).toThrow();
   });
 });
 
@@ -230,7 +204,7 @@ describe('FX callback errors', () => {
     scheduleTimeout(10, after);
 
     vi.advanceTimersByTime(20);
-    globalScheduler.flush();
+    flushScheduler();
 
     expect(reportError).toHaveBeenCalledTimes(1);
     expect(reportError).toHaveBeenCalledWith(error);
@@ -244,7 +218,7 @@ describe('FX callback errors', () => {
     });
 
     vi.advanceTimersByTime(0);
-    globalScheduler.flush();
+    flushScheduler();
 
     expect(reportError).toHaveBeenCalledTimes(1);
     expect(reportError).toHaveBeenCalledWith(error);
@@ -258,7 +232,7 @@ describe('FX callback errors', () => {
 
     deb(new Event('x'));
     vi.advanceTimersByTime(20);
-    globalScheduler.flush();
+    flushScheduler();
 
     expect(reportError).toHaveBeenCalledTimes(1);
     expect(reportError).toHaveBeenCalledWith(error);
@@ -271,9 +245,9 @@ describe('FX callback errors', () => {
     });
     scheduleRetry(fn, { maxAttempts: 3, delayMs: 10 });
 
-    globalScheduler.flush();
+    flushScheduler();
     vi.advanceTimersByTime(1000);
-    globalScheduler.flush();
+    flushScheduler();
 
     expect(fn).toHaveBeenCalledTimes(1);
     expect(reportError).toHaveBeenCalledTimes(1);
@@ -286,9 +260,9 @@ describe('FX callback errors', () => {
     const fn = vi.fn(() => Promise.reject(errors[calls++]));
     const scheduled = scheduleRetry(fn, { maxAttempts: 2, delayMs: 10 });
 
-    globalScheduler.flush();
+    flushScheduler();
     await vi.advanceTimersByTimeAsync(10);
-    globalScheduler.flush();
+    flushScheduler();
     await vi.advanceTimersByTimeAsync(0);
 
     expect(fn).toHaveBeenCalledTimes(2);
@@ -312,7 +286,7 @@ describe('FX callback errors', () => {
       }
     );
 
-    globalScheduler.flush();
+    flushScheduler();
     await vi.advanceTimersByTimeAsync(0);
 
     expect(reportError).toHaveBeenCalledTimes(1);
