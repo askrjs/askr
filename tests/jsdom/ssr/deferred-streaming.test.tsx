@@ -8,7 +8,7 @@ import {
 import { currentRoute } from '../../../src/router/activity';
 import { Link } from '../../../src/components/link';
 import { defer, Resolve, routeData } from '../../../src/router/deferred';
-import { state } from '../../../src/runtime/reactivity/state';
+import { state } from '../../../src/index';
 import {
   renderRouteRequest,
   renderRouteRequestToString,

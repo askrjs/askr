@@ -14,7 +14,7 @@ import {
 } from '../../../test-utils/render/test-renderer';
 import { hydrateSPA } from '../../../src/boot';
 import { renderToString } from '../../../src/ssr';
-import { state } from '../../../src/runtime/reactivity/state';
+import { state } from '../../../src/index';
 import { jsx } from '../../../src/jsx-runtime';
 
 describe('SSR event handling', () => {
