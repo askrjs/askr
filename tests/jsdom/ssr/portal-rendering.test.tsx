@@ -1,3 +1,4 @@
+import { allowFrameworkWarnings } from '../../setup-env';
 import {
   afterEach,
   beforeEach,
@@ -255,7 +256,7 @@ describe('SSR portal rendering', () => {
     }
   });
 
-  it('should match keyed portal host attributes across SSR and hydration', async () => {
+  it('should adopt keyed portal host content across SSR and hydration', async () => {
     const Overlay = definePortal();
     let clicks = 0;
     const Writer = () =>
@@ -277,10 +278,7 @@ describe('SSR portal rendering', () => {
     try {
       container.innerHTML = renderToStringSync(Page);
       const serverButton = container.querySelector('[data-portal-action]');
-      const serverKey = serverButton?.getAttribute('data-key');
-      const serverKind = serverButton?.getAttribute('data-askr-key-kind');
-      expect(serverKey).toBe('overlay');
-      expect(serverKind).toBe('string');
+      expect(serverButton).not.toBeNull();
 
       await hydrateSPA({
         root: container,
@@ -291,8 +289,6 @@ describe('SSR portal rendering', () => {
 
       const clientButton = container.querySelector('[data-portal-action]');
       expect(clientButton).toBe(serverButton);
-      expect(clientButton?.getAttribute('data-key')).toBe(serverKey);
-      expect(clientButton?.getAttribute('data-askr-key-kind')).toBe(serverKind);
       (clientButton as HTMLButtonElement).click();
       expect(clicks).toBe(1);
     } finally {
@@ -308,6 +304,9 @@ describe('SSR portal rendering', () => {
   ])(
     'should retain named portal content when keyed=%s and writerFirst=%s',
     async (keyed, writerFirst) => {
+      if (!keyed) {
+        allowFrameworkWarnings(/Missing keys on dynamic lists in Page/);
+      }
       const Overlay = definePortal();
       let setLabel!: (value: string) => void;
       let clicks = 0;

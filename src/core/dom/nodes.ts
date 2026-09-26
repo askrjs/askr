@@ -290,6 +290,47 @@ function ancestorContextRevision(instance: ComponentInstance): number {
  * failure anywhere in its subtree: the work recorded since it started is
  * rewound and it renders again showing its fallback.
  */
+/** The component rendering now while its root hydrates. */
+let hydratingRender: { ctx: RenderContext; node: ComponentNode } | null = null;
+
+function renderComponent(ctx: RenderContext, node: ComponentNode): unknown {
+  const previous = hydratingRender;
+  hydratingRender = ctx.hydrate ? { ctx, node } : null;
+  try {
+    return node.instance.render((undo) => ctx.pass.onDiscard(undo));
+  } finally {
+    hydratingRender = previous;
+  }
+}
+
+export function isHydratingRender(): boolean {
+  return hydratingRender !== null;
+}
+
+/**
+ * Render the hydrating component again after the rest of its root, claiming
+ * the server nodes reserved at its position (portal hosts whose content is
+ * written later in the same render).
+ */
+export function deferHydratingRender(instance: ComponentInstance): boolean {
+  const active = hydratingRender;
+  if (!active || active.node.instance !== instance) return false;
+  const { ctx, node } = active;
+  const hydrate = ctx.hydrate!;
+  const cursor = hydrate.cursor.reserve(hydrate.container);
+  hydrate.cursor.deferred.push({
+    render: () => {
+      if (instance.disposed || !instance.computation.stale) return;
+      renderInstance(
+        { ...ctx, hydrate: { cursor, container: hydrate.container } },
+        node,
+        true
+      );
+    },
+  });
+  return true;
+}
+
 export function renderInstance(
   ctx: RenderContext,
   node: ComponentNode,
@@ -299,7 +340,7 @@ export function renderInstance(
   const inner = withOwner(ctx, instance);
   const mark = ctx.pass.mark();
   try {
-    const output = instance.render((undo) => ctx.pass.onDiscard(undo));
+    const output = renderComponent(ctx, node);
     if (instance.mounted) {
       ctx.pass.onDiscard(() => instance.computation.invalidate());
     }
@@ -322,7 +363,7 @@ export function renderInstance(
     const children = reconcileChildren(
       inner,
       node,
-      componentOutput(instance.render((undo) => ctx.pass.onDiscard(undo))),
+      componentOutput(renderComponent(ctx, node)),
       fresh
     );
     ctx.pass.markRendered(instance);
@@ -408,9 +449,7 @@ function reconcileComponentOutput(
     rendered.push(child);
     inner = withOwner(inner, instance);
     current = child;
-    output = componentOutput(
-      instance.render((undo) => ctx.pass.onDiscard(undo))
-    );
+    output = componentOutput(renderComponent(inner, child));
     if (instance.mounted) {
       ctx.pass.onDiscard(() => instance.computation.invalidate());
     }

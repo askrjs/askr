@@ -64,11 +64,12 @@ export function createRoot(
     const pass = new Pass();
     const fresh = !mounted;
     const tail = node.tail?.parentNode === container ? node.tail : null;
+    const cursor = fresh && hydrate ? new HydrationCursor(tail) : null;
     const ctx = createRenderContext(
       pass,
       owner,
       namespaceAt(node),
-      fresh && hydrate ? { cursor: new HydrationCursor(tail), container } : null
+      cursor ? { cursor, container } : null
     );
     try {
       runWithOwner(owner, () => {
@@ -77,6 +78,8 @@ export function createRoot(
           return;
         }
         const children = reconcileChildren(ctx, node, value, true);
+        // Hosts that rendered before their portal content was written.
+        for (const deferred of cursor?.deferred ?? []) deferred.render();
         const adopting = ctx.hydrate !== null;
         pass.op(() => {
           node.children = children;

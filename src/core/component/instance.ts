@@ -25,6 +25,14 @@ export type HookKind = string;
 export interface RenderHost {
   /** Re-render a component instance on its own (scheduled update). */
   rerender(instance: ComponentInstance): void;
+  /** Whether the component rendering now is claiming server markup. */
+  isHydrating(): boolean;
+  /**
+   * While hydrating, render `instance` again once the rest of its root has
+   * rendered, claiming server nodes from where it rendered first. Returns
+   * false when not hydrating.
+   */
+  deferHydration(instance: ComponentInstance): boolean;
 }
 
 let renderHost: RenderHost | null = null;

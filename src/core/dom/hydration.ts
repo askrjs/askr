@@ -19,10 +19,53 @@ import { ATTRIBUTE_PROP_PREFIX } from '../../common/dom-properties';
 import { getRenderedAttributeName } from './element-attributes';
 import { parseEventProp } from './events';
 
+export interface DeferredHydration {
+  readonly render: () => void;
+}
+
 export class HydrationCursor {
   private readonly next = new Map<Node, Node | null>();
+  /** Renders to run after the root's hydrating render (portal hosts). */
+  readonly deferred: DeferredHydration[] = [];
 
   constructor(private readonly stopAt: Node | null = null) {}
+
+  /**
+   * Reserve the server nodes at `container`'s cursor for a render that runs
+   * later. A server range (`askr-range-start` ... `askr-range-end`) is skipped
+   * as a whole; the returned cursor claims inside it, or from the reserved
+   * position onward when there is no range.
+   */
+  reserve(container: Node): HydrationCursor {
+    let node = this.next.has(container)
+      ? this.next.get(container)!
+      : container.firstChild;
+    while (
+      node &&
+      node !== this.stopAt &&
+      node.nodeType === 3 &&
+      isInsignificantWhitespace(node as Text)
+    ) {
+      node = node.nextSibling;
+    }
+    if (node && isRangeMarker(node, 'askr-range-start')) {
+      let depth = 0;
+      let end: Node | null = node;
+      for (; end && end !== this.stopAt; end = end.nextSibling) {
+        if (isRangeMarker(end, 'askr-range-start')) depth++;
+        else if (isRangeMarker(end, 'askr-range-end') && --depth === 0) break;
+      }
+      if (end && end !== this.stopAt) {
+        this.next.set(container, end.nextSibling);
+        const inner = new HydrationCursor(end);
+        inner.next.set(container, node.nextSibling);
+        return inner;
+      }
+    }
+    const later = new HydrationCursor(this.stopAt);
+    later.next.set(container, node);
+    return later;
+  }
 
   private peek(container: Node): Node | null {
     let node = this.next.has(container)
@@ -78,6 +121,10 @@ export class HydrationCursor {
     this.advance(container, textNode);
     return textNode;
   }
+}
+
+function isRangeMarker(node: Node, data: string): boolean {
+  return node.nodeType === 8 && (node as Comment).data === data;
 }
 
 function isInsignificantWhitespace(node: Text): boolean {

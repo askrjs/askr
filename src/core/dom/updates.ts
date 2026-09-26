@@ -15,6 +15,8 @@ import { schedule, type Job } from '../reactive/scheduler';
 import {
   createRenderContext,
   componentOutput,
+  deferHydratingRender,
+  isHydratingRender,
   namespaceAt,
   renderInstance,
   setDynamicUpdateScheduler,
@@ -126,5 +128,9 @@ function rerenderDynamic(node: DynamicNode): void {
   });
 }
 
-setRenderHost({ rerender: rerenderInstance });
+setRenderHost({
+  rerender: rerenderInstance,
+  isHydrating: isHydratingRender,
+  deferHydration: deferHydratingRender,
+});
 setDynamicUpdateScheduler(scheduleDynamic);

@@ -13,6 +13,7 @@
 
 import { ELEMENT_TYPE, type JSXElement } from '../../common/jsx';
 import { recordUndo } from '../component/journal';
+import { getRenderHost } from '../component/instance';
 import { Owner, getOwner } from '../reactive/owner';
 import { Signal } from '../reactive/graph';
 import { OWNED_TYPE } from '../view/children';
@@ -90,6 +91,21 @@ function writeChannel(channel: PortalChannel, children: unknown): void {
   }
   // Writes commit children-first; render order decides which one shows.
   const order = ++nextRenderOrder;
+  if (getRenderHost()?.isHydrating()) {
+    // A hydrating host later in this render claims the server content now.
+    const previous = channel.write.peek();
+    const previousOrder = channel.renderOrder;
+    channel.renderOrder = order;
+    channel.write.write({
+      owner: instance,
+      id: previous?.owner === instance ? previous.id : ++nextWriteId,
+      children,
+    });
+    recordUndo(() => {
+      channel.write.write(previous);
+      channel.renderOrder = previousOrder;
+    });
+  }
   instance.onCommitSync(() => {
     let written = lastWrites.get(instance);
     if (!written) {
@@ -132,9 +148,11 @@ export interface Portal<T = unknown> {
 export function definePortal<T = unknown>(): Portal<T> {
   const channel = createPortalChannel();
   function PortalHost(): JSXElement | null {
-    return (
-      createSSRPortalHost(channel, false) ?? renderWrite(channel.write.read())
-    );
+    const ssr = createSSRPortalHost(channel, false);
+    if (ssr) return ssr;
+    const write = channel.write.read();
+    if (!write) deferWhileHydrating();
+    return renderWrite(write);
   }
   PortalHost.render = (props: { children?: T }): null => {
     writeChannel(channel, props.children);
@@ -229,7 +247,9 @@ export function DefaultPortal(props?: {
   if (automatic) {
     // The automatic host renders only while no explicit host is mounted.
     if (channel.explicitHosts.read() > 0) return null;
-    return renderWrite(channel.write.read());
+    const write = channel.write.read();
+    if (!write) deferWhileHydrating();
+    return renderWrite(write);
   }
   const instance = currentComponent();
   if (instance && !instance.server && !explicitHosts.has(instance)) {
@@ -250,10 +270,18 @@ export function DefaultPortal(props?: {
       }
     });
   }
-  return renderWrite(channel.write.read());
+  const write = channel.write.read();
+  if (!write) deferWhileHydrating();
+  return renderWrite(write);
 }
 
 const explicitHosts = new WeakSet<Owner>();
+
+/** A host rendered before its content: claim the server content later. */
+function deferWhileHydrating(): void {
+  const instance = currentComponent();
+  if (instance) getRenderHost()?.deferHydration(instance);
+}
 
 /** `DefaultPortal.render()` writes to the default portal, like `<Portal>`. */
 DefaultPortal.render = (props: PortalProps): null => {
