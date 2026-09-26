@@ -11,6 +11,7 @@
 import { ELEMENT_TYPE, Fragment, type JSXElement } from '../../common/jsx';
 import type { Props } from '../../common/props';
 import { recordUndo } from '../component/journal';
+import { isRendering } from '../component/render-state';
 import { Signal } from '../reactive/graph';
 import { currentComponent, hookSlot, onCommit } from './hooks';
 
@@ -138,6 +139,8 @@ export type ForProps<T, K extends string | number = string | number> = {
 interface RowRecord {
   readonly index: Signal<number>;
   readonly readIndex: () => number;
+  readonly source: Signal<unknown>;
+  readonly readItem: () => unknown;
 }
 
 interface RowProps<T> extends Props {
@@ -148,7 +151,97 @@ interface RowProps<T> extends Props {
 
 /** One list row: re-renders only when its item or the row callback changes. */
 function ForRow<T>(props: RowProps<T>): Renderable {
-  return props.render(props.item, props.row.readIndex);
+  return props.render(props.row.readItem() as T, props.row.readIndex);
+}
+
+function recordRowUndo(undo: () => void): void {
+  if (isRendering() && !currentComponent()?.server) recordUndo(undo);
+}
+
+function createRow(index: number, item: unknown): RowRecord {
+  const indexSource = new Signal(index);
+  const source = new Signal<unknown>(item);
+  const overlay = new Map<string | symbol, PropertyDescriptor>();
+  const deleted = new Set<string | symbol>();
+  let proxy: object | null = null;
+  const row: RowRecord = {
+    index: indexSource,
+    readIndex: () => indexSource.read(),
+    source,
+    readItem: () => {
+      const item = source.peek();
+      if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+        return item;
+      }
+      if (proxy) return proxy;
+      proxy = new Proxy(
+        {},
+        {
+          get(_target, key) {
+            if (deleted.has(key)) return undefined;
+            const own = overlay.get(key);
+            if (own) return own.get ? own.get.call(proxy) : own.value;
+            return Reflect.get(source.read() as object, key);
+          },
+          set(_target, key, value) {
+            const previous = overlay.get(key);
+            const wasDeleted = deleted.delete(key);
+            overlay.set(key, {
+              value,
+              writable: true,
+              enumerable: true,
+              configurable: true,
+            });
+            recordRowUndo(() => {
+              if (previous) overlay.set(key, previous);
+              else overlay.delete(key);
+              if (wasDeleted) deleted.add(key);
+            });
+            return true;
+          },
+          has(_target, key) {
+            return (
+              !deleted.has(key) &&
+              (overlay.has(key) || Reflect.has(source.read() as object, key))
+            );
+          },
+          ownKeys() {
+            return [
+              ...overlay.keys(),
+              ...Reflect.ownKeys(source.read() as object).filter(
+                (key) => !overlay.has(key) && !deleted.has(key)
+              ),
+            ];
+          },
+          getOwnPropertyDescriptor(_target, key) {
+            if (deleted.has(key)) return undefined;
+            const descriptor =
+              overlay.get(key) ??
+              Reflect.getOwnPropertyDescriptor(source.read() as object, key);
+            return descriptor
+              ? { ...descriptor, configurable: true }
+              : undefined;
+          },
+          getPrototypeOf() {
+            return Reflect.getPrototypeOf(source.read() as object);
+          },
+          deleteProperty(_target, key) {
+            const previous = overlay.get(key);
+            const wasDeleted = deleted.has(key);
+            overlay.delete(key);
+            deleted.add(key);
+            recordRowUndo(() => {
+              if (previous) overlay.set(key, previous);
+              if (!wasDeleted) deleted.delete(key);
+            });
+            return true;
+          },
+        }
+      );
+      return proxy;
+    },
+  };
+  return row;
 }
 
 function validateKey(key: unknown, index: number): void {
@@ -199,14 +292,20 @@ export function For<T, K extends string | number = string | number>(
     }
     let row = rows.get(key);
     if (!row) {
-      const signal = new Signal(index);
-      row = { index: signal, readIndex: () => signal.read() };
+      row = createRow(index, item);
       rows.set(key, row);
+      recordRowUndo(() => rows.delete(key));
     } else {
       const indexSource = row.index;
       const previous = indexSource.peek();
       if (indexSource.write(index)) {
-        recordUndo(() => indexSource.write(previous));
+        recordRowUndo(() => indexSource.write(previous));
+      }
+      const previousItem = row.source.peek();
+      if (row.source.write(item)) {
+        recordRowUndo(() => {
+          row!.source.write(previousItem);
+        });
       }
     }
     live.add(key);
