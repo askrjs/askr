@@ -176,6 +176,12 @@ In SSR mode a query with no registered server handler is skipped:
 `prefetchQuery()` resolves `false`, and outside production the runtime logs one
 `[Askr] skipped SSR query preload: <key>` warning per query key and data runtime.
 
+`dehydrateDataRuntime()` accepts only JSON-shaped query data. A `Date`, `Map`,
+`Set`, class instance, bigint, non-finite number, `undefined`, or cyclic value
+throws a `TypeError` naming the query key and path instead of being silently
+converted or dropped; see
+[route data transport](./ssr.md#route-data-transport-and-field-omission).
+
 Lifecycle and cleanup:
 
 - Use a request-owned runtime for SSR and a build-entry-owned runtime for SSG.
@@ -191,6 +197,18 @@ Lifecycle and cleanup:
   already owns or that already hold data. A prefetch whose key gains a mounted
   reader while it is in flight is discarded if that reader is still mounted
   when it resolves, so it cannot replace newer data on a later mount.
+- Concurrent prefetches of the same key into the same runtime share one
+  in-flight fetch, even across prefetch contexts. Joiners receive its outcome,
+  including a rejection. A joiner still honours its own `signal`: aborting it
+  rejects that joiner with `signal.reason` at once. When the starting
+  context's `signal` aborts, a joiner whose own signal is still live starts a
+  replacement fetch at once, even if the aborted fetch never settles. An
+  `invalidate()` covering the key detaches the fetch: later prefetches start a
+  new one, and no caller of the detached fetch stores its result (each
+  resolves `false`), even one that resumes after another caller stored it. A
+  fetch that never settles holds the key while its starting context stays
+  live, so give `fetch` or the server handler its own timeout, or pass a
+  `signal` to the prefetch context.
 - In the browser, at most 50 unread prefetched entries are kept per runtime;
   prefetching more evicts the oldest unread entry. Payload building outside
   the browser (SSR, SSG, or the `createPayload()` sequence above in any mode)

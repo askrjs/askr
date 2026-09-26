@@ -32,6 +32,14 @@ function nextRenderToken(): number {
   return ++globalRenderCounter;
 }
 
+/**
+ * The most recent render token handed out. Tokens only increase, so a reader
+ * whose token is greater started its render after this call.
+ */
+export function peekLatestRenderToken(): number {
+  return globalRenderCounter;
+}
+
 function captureScope(): ComponentScopeSnapshot {
   return {
     instance: currentInstance,

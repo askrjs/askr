@@ -148,6 +148,7 @@ interface ForTransaction<T> {
   pendingAppendStart: number | null;
   hasResolvedItemDom: boolean;
   needsSourceReconcile: boolean;
+  contextFrameChanged: boolean;
   itemSnapshots: Map<ForItemInstance<T>, ForItemTransactionSnapshot<T>> | null;
   unreadIndexSnapshots: Map<ForIndexSignal, number> | null;
   fallbackScopeSnapshot: ChildScopeTransactionSnapshot | null;
@@ -161,6 +162,7 @@ interface ForTransaction<T> {
       notify: boolean;
       skipInstance: ComponentInstance | null;
       skipOwnedBy: ComponentInstance | null;
+      skipOwnedRenderedAfter: number | null;
     }
   > | null;
   shouldClearDomUpdateState: boolean;

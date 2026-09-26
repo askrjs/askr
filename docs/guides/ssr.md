@@ -99,6 +99,19 @@ arrays, plain objects, and Askr deferred-value encoding are supported. Values
 whose JSON representation is lossy or ambiguous are rejected with the concrete
 route and property path.
 
+Query data follows the same transport rules. `dehydrateDataRuntime()` (and
+therefore every SSR/SSG render that embeds a data runtime) throws a
+`TypeError` naming the query key and property path when a cached value is not
+JSON-shaped, for example a `Date`, `Map`, `Set`, class instance, bigint,
+non-finite number, `undefined`, or cyclic reference. It never silently drops
+or coerces an entry; map such values to JSON-compatible data in the query
+`fetch` or server handler (for example an ISO string instead of a `Date`).
+An SSR-mode `prefetchQuery()` applies the same check as each value arrives,
+and `renderRouteRequest()` checks the whole data runtime before returning a
+streamed result, so query data from any source (a seeded `dataRuntime` or a
+custom prefetch context) rejects the render before a shell is sent rather than
+truncating the response.
+
 Use a synchronous route `dehydrate` selector to keep server-only or sensitive
 fields out of the browser payload:
 
