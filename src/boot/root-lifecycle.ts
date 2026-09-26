@@ -142,7 +142,10 @@ function interceptInnerHTML(app: AppRoot): void {
         return descriptor.get!.call(this);
       },
       set(this: Element, value: string) {
-        if (value === '' && appRoots.get(this) === app) disposeAppRoot(app);
+        if (value === '' && appRoots.get(this) === app) {
+          disposeAppRoot(app);
+          if (appRoots.has(this)) return;
+        }
         descriptor.set!.call(this, value);
       },
     });
