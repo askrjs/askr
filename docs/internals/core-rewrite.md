@@ -140,4 +140,22 @@ replacement first.
 5. Switch the public entry points, delete the old core and its pinned tests,
    and qualify performance against the tier 1 and tier 2 benchmarks.
 
-Each step lands only with the contract suite green.
+The rewrite is complete only when the contract suite is green.
+
+## Remaining work
+
+The branch is a migration checkpoint, not a qualified release. Complete these
+slices before removing the old implementation:
+
+| Slice                | Work                                                                                                                                                                                                                | Acceptance                                                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Route lifetimes      | Give route leaves fresh ownership while retaining shared layout DOM; settle route tasks, resources, portals, and navigation rollback.                                                                               | Router and routed app-flow suites pass without old runtime imports.                                                  |
+| DOM commits          | Finish provisional owner disposal, failed-commit recovery, keyed moves, refs, and event bindings in `src/core/dom`.                                                                                                 | Public DOM, identity, control, and error-boundary suites pass.                                                       |
+| Hydration            | Replace the deferred-boundary stub in `src/boot/root-lifecycle.ts` with boundary-local activation and event replay; finish cursor and portal adoption.                                                              | SSR hydration and browser hydration suites pass with markup verification enabled.                                    |
+| SSR parity           | Match client handling of function children, raw-text elements, props, portals, and route data.                                                                                                                      | SSR and SSG suites pass against the same public render contracts.                                                    |
+| Retire old internals | Rewrite tests that import `src/runtime` or `src/renderer` against public behavior, or remove implementation-pinned tests after equivalent public coverage exists. Then delete the old modules and obsolete bridges. | No production import or surviving test depends on the old core; architecture, declaration, and consumer checks pass. |
+| Qualification        | Run formatting, lint, build, types, the complete unit/jsdom/browser/check suite, and relevant tier 1/2 benchmarks. Pack the branch for sibling-package contract suites.                                             | Every required gate passes at the same head.                                                                         |
+
+During migration, use focused suites for each slice and a full suite after a
+substantial change. A local checkpoint may still have unrelated failing suites;
+the final package cannot.
