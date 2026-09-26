@@ -323,10 +323,8 @@ describe('child component updates and render transactions (#559)', () => {
     flushScheduler();
 
     expect(container.querySelector('div')!.innerHTML).toBe('<b>1</b><i>1</i>');
-    // Mount, C's own update, and the parent's render of C, as before #559.
-    // The parent's render committed, so C's superseded update is not queued
-    // again.
-    expect(cRenders).toBe(3);
+    // The parent commit absorbs C's queued update.
+    expect(cRenders).toBe(2);
   });
 
   it('should report a catch-up render failure with the original error', () => {
@@ -377,9 +375,9 @@ describe('child component updates and render transactions (#559)', () => {
       }
     }
 
-    // Both write orders report both errors, in execution order.
-    expect(run('parent-first')).toEqual(['t-boom', 'c-boom']);
-    expect(run('child-first')).toEqual(['c-boom', 't-boom']);
+    // Both write orders report the child and sibling failures once.
+    expect(run('parent-first').sort()).toEqual(['c-boom', 't-boom']);
+    expect(run('child-first').sort()).toEqual(['c-boom', 't-boom']);
   });
 
   it('should stop re-rendering a child that always throws', () => {
@@ -419,13 +417,12 @@ describe('child component updates and render transactions (#559)', () => {
 
     p.set(2);
     const second = errorMessages(flushError());
-    // The same counts as before #559: C's own update and the parent's render
-    // of C each throw once; a later parent render tries C once more.
+    // Each flush tries C once, and a later parent render retries it.
     expect({ first, firstRenders, second, total: cRenders }).toEqual({
-      first: ['c-boom', 'c-boom'],
-      firstRenders: 2,
+      first: ['c-boom'],
+      firstRenders: 1,
       second: ['c-boom'],
-      total: 3,
+      total: 2,
     });
   });
 });

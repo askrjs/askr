@@ -261,6 +261,7 @@ function patchComponent(
   if (
     !propsChanged(instance.props, props) &&
     !instance.computation.stale &&
+    !instance.computation._hasError &&
     instance.seenAncestorContextRevision === ancestorContextRevision(instance)
   ) {
     return;
@@ -293,10 +294,14 @@ export function renderInstance(
   const inner = withOwner(ctx, instance);
   const mark = ctx.pass.mark();
   try {
+    const output = instance.render((undo) => ctx.pass.onDiscard(undo));
+    if (instance.mounted) {
+      ctx.pass.onDiscard(() => instance.computation.invalidate());
+    }
     const children = reconcileChildren(
       inner,
       node,
-      componentOutput(instance.render((undo) => ctx.pass.onDiscard(undo))),
+      componentOutput(output),
       fresh
     );
     ctx.pass.markRendered(instance);
