@@ -183,6 +183,42 @@ describe('reconciliation commit errors', () => {
     expect(() => flushScheduler()).toThrow(error);
     expect(container.innerHTML).toBe(stable);
   });
+
+  it.each(['input', 'textarea'] as const)(
+    'should restore live %s values when a later value attribute write fails',
+    (Tag) => {
+      const App = () => {
+        flip = state(false);
+        return (
+          <div>
+            <Tag id="first" value={flip() ? 'new' : 'old'} />
+            <Tag id="second" value={flip() ? 'new' : 'old'} />
+          </div>
+        );
+      };
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      const stable = container.innerHTML;
+      const first = container.querySelector<HTMLInputElement>('#first')!;
+      const second = container.querySelector<HTMLInputElement>('#second')!;
+      const write = second.setAttribute.bind(second);
+      const error = new Error('value attribute write failed');
+      let armed = true;
+      vi.spyOn(second, 'setAttribute').mockImplementation((name, value) => {
+        if (armed && name === 'value') {
+          armed = false;
+          throw error;
+        }
+        write(name, value);
+      });
+
+      flip.set(true);
+      expect(() => flushScheduler()).toThrow(error);
+      expect(container.innerHTML).toBe(stable);
+      expect(first.value).toBe('old');
+      expect(second.value).toBe('old');
+    }
+  );
 });
 
 // Reactive child functions commit outside a component update, so they need

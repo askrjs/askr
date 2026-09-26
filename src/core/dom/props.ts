@@ -61,6 +61,10 @@ function isSimpleAttribute(tag: string, key: string, value: unknown): boolean {
   );
 }
 
+function isInputValue(tag: string, key: string): boolean {
+  return key === 'value' && (tag === 'input' || tag === 'textarea');
+}
+
 /** Record the live attribute before applying a reversible scalar write. */
 function writeSimpleAttribute(
   pass: Pass,
@@ -79,6 +83,31 @@ function writeSimpleAttribute(
     });
     try {
       applyScalarPropValue(el, key, value, tag, previous);
+    } catch (error) {
+      throw new CommitMutationError(error);
+    }
+  });
+}
+
+/** Restore both the reflected attribute and the live form value on abort. */
+function writeInputValue(
+  pass: Pass,
+  node: HostNode,
+  value: unknown,
+  previous: unknown
+): void {
+  const { el, tag } = node;
+  pass.op(() => {
+    const control = el as HTMLInputElement | HTMLTextAreaElement;
+    const beforeValue = control.value;
+    const beforeAttribute = el.getAttribute('value');
+    pass.onReversibleCommit(() => {
+      if (beforeAttribute === null) el.removeAttribute('value');
+      else el.setAttribute('value', beforeAttribute);
+      control.value = beforeValue;
+    });
+    try {
+      applyScalarPropValue(el, 'value', value, tag, previous);
     } catch (error) {
       throw new CommitMutationError(error);
     }
@@ -193,6 +222,8 @@ export function patchProps(
     const old = previous[key];
     if (parseEventProp(key)) {
       pass.op(() => setHandler(node, key, undefined));
+    } else if (!isBinding(key, old) && isInputValue(tag, key)) {
+      writeInputValue(pass, node, undefined, old);
     } else if (!isBinding(key, old) && isSimpleAttribute(tag, key, undefined)) {
       writeSimpleAttribute(pass, node, key, undefined, old);
     } else {
@@ -230,7 +261,9 @@ export function patchProps(
     // A host may change a rendered value between passes. The scalar writer
     // compares against the live DOM and leaves equal values untouched.
     if (Object.is(value, old) && key === 'dangerouslySetInnerHTML') continue;
-    if (isSimpleAttribute(tag, key, value)) {
+    if (isInputValue(tag, key)) {
+      writeInputValue(pass, node, value, old);
+    } else if (isSimpleAttribute(tag, key, value)) {
       writeSimpleAttribute(pass, node, key, value, old);
     } else {
       pass.op(() => applyScalarPropValue(el, key, value, tag, old));

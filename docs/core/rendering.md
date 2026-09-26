@@ -9,8 +9,8 @@ The default mode. Components are rendered into the DOM via
 `createSPA({ root, registry })` or `createIsland({ root, component })`.
 
 Keyed `For` updates publish through one renderer transaction. If evaluation or
-a structural DOM insertion or standard element attribute write fails, Askr restores the
-previously committed DOM and ownership
+a structural DOM insertion, standard element attribute write, or input/textarea
+value write fails, Askr restores the previously committed DOM and ownership
 state; provisional listeners, refs, portals, resources, subscriptions, and
 child owners do not become live. Cleanup belonging to a successful commit runs
 only after the coherent DOM update. Cleanup failures are reported together and
