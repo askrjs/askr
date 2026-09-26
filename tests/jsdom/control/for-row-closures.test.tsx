@@ -39,7 +39,8 @@ describe('For row closures', () => {
       recover = () => setFail(false);
       return (
         <ul>
-          <For each={items} by={(item) => item.id}>
+          {/* Read in App so the reorder and the failure share one render. */}
+          <For each={items()} by={(item) => item.id}>
             {(item, index) => {
               indices.set(item.id, index);
               return <li>{`${item.id}:${index()}`}</li>;
