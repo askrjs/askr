@@ -165,7 +165,9 @@ export function For<T, K extends string | number = string | number>(
 ): Renderable {
   const by = props.by;
   if (!by && props.byIndex !== true) {
-    throw new Error('[Askr] <For> requires either `by` or `byIndex={true}`.');
+    throw new Error(
+      '[Askr] <For> requires a stable `by` key function or `byIndex={true}`.'
+    );
   }
   if (by && props.byIndex) {
     throw new Error('[Askr] <For> accepts `by` or `byIndex`, not both.');
