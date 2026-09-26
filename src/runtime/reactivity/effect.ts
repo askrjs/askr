@@ -123,6 +123,7 @@ export interface FineGrainedEffectHandle<T> {
   cleanup(): void;
   updateCompute(nextCompute: () => T): void;
   flush(): void;
+  isPending(): boolean;
 }
 
 export interface CreateFineGrainedEffectOptions<T> {
@@ -681,6 +682,10 @@ class FineGrainedEffectImpl<T>
       unscheduleEffect(this);
       throw error;
     }
+  }
+
+  isPending(): boolean {
+    return dirtyEffectsByLane[this.lane].has(this);
   }
 
   flush(): void {

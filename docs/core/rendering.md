@@ -142,6 +142,11 @@ shares an element with text or other children, such as
 their DOM identity while rows update, reorder, or leave. A failed parent
 update retains the previous row commit boundary.
 
+When a row callback reads a getter directly and that getter changes with the
+list in one flush, the list reconcile absorbs the row's scheduled update.
+Removed rows do not run again, and retained rows render once with the latest
+item, index, and getter value.
+
 When a keyed row renders a transparent component range, the row continues to
 follow the component's current owned range after reactive resource, portal, or
 result updates. Parent reconciliation preserves that live range and its editor

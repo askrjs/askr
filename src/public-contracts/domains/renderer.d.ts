@@ -47,6 +47,7 @@ interface ChildScopeTransactionSnapshot {
   domTextData: string | undefined;
   needsDomUpdate: boolean;
   hydrationPending: boolean;
+  hasPendingUpdate: boolean;
   renderFn: (() => VNode) | undefined;
   renderedOwnerFrame: ContextFrame | null;
 }

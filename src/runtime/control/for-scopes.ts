@@ -110,7 +110,8 @@ function createForOwnedChildScope<T>(
     forState.parentInstance,
     key,
     enqueueForBoundaryScopeCommit,
-    forState._scopeOwnership
+    forState._scopeOwnership,
+    forState._sourceEffect
   );
   bindControlScopeErrorOwner(scope.componentInstance, forState);
   if (forState._contextFrame) {
