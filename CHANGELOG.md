@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- fix(types): intrinsic event props now cover the DOM global handler map,
+  including animation, composition, drag, media, pointer-capture, and
+  transition events. Their `Capture` variants receive the same event type.
+
 - fix(types): intrinsic JSX and `jsx()` refs now use each tag's element type.
   An `<input>` ref can no longer be passed to `<button>`, and callback refs
   receive the correct element type. This includes standard tags outside the

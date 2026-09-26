@@ -98,6 +98,10 @@ and SVG tag names are checked, so a misspelled tag is a type error. Hyphenated
 custom-element names remain available with flexible attributes.
 Intrinsic `ref` callbacks and object refs use the element type for their tag,
 such as `HTMLButtonElement` for `<button>` and `HTMLVideoElement` for `<video>`.
+Intrinsic event props cover the DOM `GlobalEventHandlersEventMap`, with
+conventional names such as `onAnimationEnd`, `onFocusIn`, and `onDragStart`.
+Appending `Capture` selects the capture phase. Pointer-capture event names,
+including `onGotPointerCapture`, remain separate events.
 
 ## Examples
 

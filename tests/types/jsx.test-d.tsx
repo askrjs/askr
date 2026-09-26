@@ -88,6 +88,15 @@ const callButton = jsx('button', {
   children: 'go',
 });
 expectType<JSXElement>(callButton);
+jsx('div', {
+  onFocusIn: (event) => expectType<FocusEvent>(event),
+  onAnimationEnd: (event) => expectType<AnimationEvent>(event),
+  onTransitionEnd: (event) => expectType<TransitionEvent>(event),
+  onDragStart: (event) => expectType<DragEvent>(event),
+  onCopy: (event) => expectType<ClipboardEvent>(event),
+  onGotPointerCapture: (event) => expectType<PointerEvent>(event),
+  onAnimationEndCapture: (event) => expectType<AnimationEvent>(event),
+});
 expectError(jsx('button', { ref: inputRef }));
 expectError(<button ref={inputRef} />);
 expectAssignable<JSXElement>(<input ref={inputRef} />);
