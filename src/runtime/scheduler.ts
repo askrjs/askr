@@ -10,6 +10,7 @@
  */
 
 import { isDevelopmentEnvironment } from '../common/env';
+import { reportUncaughtErrorLater } from '../common/report-error';
 import { assertSchedulingPrecondition, invariant } from '../common/invariant';
 import { recordSchedulerFlushTaskCount } from './diagnostics/perf-metrics';
 import { adjustOwnershipDiagnostic } from './diagnostics/ownership-diagnostics';
@@ -77,9 +78,10 @@ export class Scheduler {
   private isBulkCommitActive(): boolean {
     try {
       return this.bulkCommitProbe();
-    } catch (e) {
-      void e;
-      return false;
+    } catch (error) {
+      // An unknown commit state must not admit work into a possible commit.
+      reportUncaughtErrorLater(error);
+      return true;
     }
   }
 

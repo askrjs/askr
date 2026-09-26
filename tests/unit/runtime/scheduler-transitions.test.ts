@@ -1,7 +1,33 @@
-import { describe, expect, it } from 'vite-plus/test';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { Scheduler } from '../../../src/runtime/scheduler';
 
 describe('scheduler execution transitions', () => {
+  it('should reject work and report a failed bulk-commit probe', async () => {
+    const scheduler = new Scheduler();
+    const failure = new Error('probe failed');
+    const reporter = vi.fn();
+    const task = vi.fn();
+    vi.stubGlobal('reportError', reporter);
+    scheduler.setBulkCommitProbe(() => {
+      throw failure;
+    });
+    try {
+      try {
+        scheduler.enqueue(task);
+      } catch {
+        // Development builds reject work admitted during an active commit.
+      }
+      expect(scheduler.getState().queueLength).toBe(0);
+      await Promise.resolve();
+      expect(reporter).toHaveBeenCalledWith(failure);
+      expect(task).not.toHaveBeenCalled();
+    } finally {
+      scheduler.setBulkCommitProbe(() => false);
+      scheduler.clearPendingSyncTasks();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('should resume queued work after a synchronous progress callback throws', async () => {
     const scheduler = new Scheduler();
     const events: string[] = [];

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- fix(runtime): report failed bulk-commit probes and reject work while commit
+  state is unknown instead of silently admitting it.
+
 - fix(fx): `raf()` wrappers now expose `cancel()` and remain usable after a
   callback throws.
 
