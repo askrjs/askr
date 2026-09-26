@@ -29,6 +29,7 @@ export {
   scheduleTimeout,
   scheduleIdle,
   scheduleRetry,
+  type RetryOutcome,
 } from './fx';
 
 export { scheduleEventHandler } from '../runtime';

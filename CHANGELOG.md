@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- feat(fx): `scheduleRetry()` now returns a `result` promise with the final
+  success value, terminal error, or cancellation status. Terminal errors still
+  reach the host reporter.
+
 - breaking(runtime): remove the scheduler's mutable `setInHandler` flag.
   Use `runInHandlerScope()` to hold handler permissions for a lexical scope.
 

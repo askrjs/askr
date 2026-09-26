@@ -16,6 +16,7 @@ import {
   timeout,
   type DebounceOptions,
   type RetryOptions,
+  type RetryOutcome,
   type ThrottleOptions,
 } from '@askrjs/askr/fx';
 
@@ -100,7 +101,10 @@ expectType<() => void>(cancelIdle);
 cancelIdle();
 
 const scheduledRetry = scheduleRetry(async () => 1, retryOptions);
-expectType<{ cancel(): void }>(scheduledRetry);
+expectType<{
+  cancel(): void;
+  result: Promise<RetryOutcome<number>>;
+}>(scheduledRetry);
 scheduledRetry.cancel();
 
 expectType<EventListener>(scheduleEventHandler(() => {}));

@@ -13,6 +13,10 @@ import { noopEventListener, noopEventListenerWithFlush } from './noop';
 import { createDebouncer, createThrottler, type RetryOptions } from './timing';
 
 export type CancelFn = () => void;
+export type RetryOutcome<T> =
+  | { status: 'success'; value: T }
+  | { status: 'error'; error: unknown }
+  | { status: 'cancelled' };
 
 // Platform-specific timer handle types
 type TimeoutHandle = ReturnType<typeof setTimeout> | null;
@@ -321,7 +325,7 @@ export function scheduleIdle(
 export function scheduleRetry<T>(
   fn: () => Promise<T>,
   options?: RetryOptions
-): { cancel(): void } {
+): { cancel(): void; result: Promise<RetryOutcome<T>> } {
   throwIfDuringRender();
 
   const {
@@ -334,10 +338,16 @@ export function scheduleRetry<T>(
   let cancelled = false;
   let retryId: TimeoutHandle = null;
   let release = noopRelease;
+  let resolveResult!: (outcome: RetryOutcome<T>) => void;
+  const result = new Promise<RetryOutcome<T>>((resolve) => {
+    resolveResult = resolve;
+  });
 
-  const settle = () => {
+  const settle = (outcome: RetryOutcome<T>) => {
+    if (cancelled) return;
     cancelled = true;
     release();
+    resolveResult(outcome);
   };
 
   const attempt = (index: number) => {
@@ -350,29 +360,43 @@ export function scheduleRetry<T>(
       try {
         p = withLifecycleOwner(owner, fn);
       } catch (e) {
-        settle();
+        settle({ status: 'error', error: e });
         reportUncaughtError(e);
         return;
       }
       if (!isPromiseLike(p)) {
-        settle();
+        settle({
+          status: 'error',
+          error: new TypeError('scheduleRetry callback must return a promise'),
+        });
         return;
       }
       // The last attempt's rejection, like a throwing backoff(), has no
       // other observer, so it is reported rather than dropped.
       Promise.resolve(p)
-        .then(settle, (error: unknown) => {
-          if (cancelled) return;
-          if (index + 1 < maxAttempts) {
-            retryId = setTimeout(() => {
-              attempt(index + 1);
-            }, backoff(index));
-          } else {
-            settle();
-            reportUncaughtError(error);
+        .then(
+          (value) => settle({ status: 'success', value }),
+          (error: unknown) => {
+            if (cancelled) return;
+            if (index + 1 < maxAttempts) {
+              try {
+                retryId = setTimeout(() => {
+                  attempt(index + 1);
+                }, backoff(index));
+              } catch (backoffError) {
+                settle({ status: 'error', error: backoffError });
+                reportUncaughtError(backoffError);
+              }
+            } else {
+              settle({ status: 'error', error });
+              reportUncaughtError(error);
+            }
           }
-        })
-        .catch(reportUncaughtError);
+        )
+        .catch((error: unknown) => {
+          settle({ status: 'error', error });
+          reportUncaughtError(error);
+        });
     });
   };
 
@@ -381,7 +405,7 @@ export function scheduleRetry<T>(
       clearTimeout(retryId);
       retryId = null;
     }
-    settle();
+    settle({ status: 'cancelled' });
   };
 
   release = cancelWithLifecycleOwner(owner, cancel);
@@ -389,5 +413,5 @@ export function scheduleRetry<T>(
   // Start first attempt
   attempt(0);
 
-  return { cancel };
+  return { cancel, result };
 }

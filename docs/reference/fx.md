@@ -61,6 +61,10 @@ unmount. A callback whose component unmounted before it ran is skipped.
 `scheduleRetry` stops without retrying when `fn` throws synchronously or does
 not return a promise.
 `retry()` and `scheduleRetry()` accept the same `RetryOptions` shape.
+The returned handle has `cancel()` and a `result` promise. `result` resolves
+to `{ status: 'success', value }`, `{ status: 'error', error }`, or
+`{ status: 'cancelled' }`, so callers can inspect the terminal outcome without
+an unhandled rejection. Terminal errors still reach the host error reporter.
 
 Errors thrown by `scheduleTimeout` and `scheduleIdle` callbacks, by handlers
 run later by `debounceEvent`, `throttleEvent`, and `rafEvent`, a synchronous

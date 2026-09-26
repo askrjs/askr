@@ -784,7 +784,7 @@
         "declare function scheduleIdle(fn: () => void, options?: {\n    timeout?: number;\n}): CancelFn;"
       ],
       "scheduleRetry": [
-        "declare function scheduleRetry<T>(fn: () => Promise<T>, options?: RetryOptions): {\n    cancel(): void;\n};"
+        "declare function scheduleRetry<T>(fn: () => Promise<T>, options?: RetryOptions): {\n    cancel(): void;\n    result: Promise<RetryOutcome<T>>;\n};"
       ],
       "scheduleTimeout": [
         "declare function scheduleTimeout(ms: number, fn: () => void): CancelFn;"
@@ -798,7 +798,10 @@
       "ThrottleOptions": [
         "interface ThrottleOptions {\n    leading?: boolean;\n    trailing?: boolean;\n}"
       ],
-      "timeout": ["declare function timeout(ms: number): Promise<void>;"]
+      "timeout": ["declare function timeout(ms: number): Promise<void>;"],
+      "RetryOutcome": [
+        "type RetryOutcome<T> = {\n    status: \"success\";\n    value: T;\n} | {\n    status: \"error\";\n    error: unknown;\n} | {\n    status: \"cancelled\";\n};"
+      ]
     },
     "./router": {
       "AccessDecision": [
@@ -2550,7 +2553,7 @@
       "type SchedulerBulkCommitProbe = () => boolean;"
     ],
     "scheduleRetry": [
-      "declare function scheduleRetry<T>(fn: () => Promise<T>, options?: RetryOptions): {\n    cancel(): void;\n};"
+      "declare function scheduleRetry<T>(fn: () => Promise<T>, options?: RetryOptions): {\n    cancel(): void;\n    result: Promise<RetryOutcome<T>>;\n};"
     ],
     "SchedulerLane": [
       "type SchedulerLane = \"derived\" | \"component\" | \"reactive\" | \"post\";"
@@ -2822,6 +2825,9 @@
     ],
     "withRenderContextAsync": [
       "declare function withRenderContextAsync<T>(ctx: RenderContext, fn: () => T | PromiseLike<T>): Promise<T>;"
+    ],
+    "RetryOutcome": [
+      "type RetryOutcome<T> = {\n    status: \"success\";\n    value: T;\n} | {\n    status: \"error\";\n    error: unknown;\n} | {\n    status: \"cancelled\";\n};"
     ]
   }
 }

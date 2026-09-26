@@ -217,15 +217,21 @@ declare function scheduleIdle(
  * component's task, watch callback, or event handler, pending attempts are
  * also cancelled when that component is cleaned up.
  */
+type RetryOutcome<T> =
+  | { status: 'success'; value: T }
+  | { status: 'error'; error: unknown }
+  | { status: 'cancelled' };
 declare function scheduleRetry<T>(
   fn: () => Promise<T>,
   options?: RetryOptions
 ): {
   cancel(): void;
+  result: Promise<RetryOutcome<T>>;
 };
 export {
   type DebounceOptions,
   type RetryOptions,
+  type RetryOutcome,
   type ThrottleOptions,
   debounce,
   debounceEvent,

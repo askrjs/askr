@@ -286,6 +286,7 @@
   "./fx": [
     "DebounceOptions",
     "RetryOptions",
+    "RetryOutcome",
     "ThrottleOptions",
     "debounce",
     "debounceEvent",

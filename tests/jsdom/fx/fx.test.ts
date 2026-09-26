@@ -161,6 +161,21 @@ describe('FX layer', () => {
     cancelable.cancel();
   });
 
+  it('should expose the final result of scheduleRetry', async () => {
+    const scheduled = scheduleRetry(async () => 42);
+    globalScheduler.flush();
+    await expect(scheduled.result).resolves.toEqual({
+      status: 'success',
+      value: 42,
+    });
+  });
+
+  it('should expose cancellation of scheduleRetry', async () => {
+    const scheduled = scheduleRetry(async () => 42);
+    scheduled.cancel();
+    await expect(scheduled.result).resolves.toEqual({ status: 'cancelled' });
+  });
+
   it('should be inert during SSR (handlers)', () => {
     const inst = createComponentInstance('id', noop, {}, null);
     inst.ssr = true;
@@ -269,7 +284,7 @@ describe('FX callback errors', () => {
     const errors = [new Error('first'), new Error('last')];
     let calls = 0;
     const fn = vi.fn(() => Promise.reject(errors[calls++]));
-    scheduleRetry(fn, { maxAttempts: 2, delayMs: 10 });
+    const scheduled = scheduleRetry(fn, { maxAttempts: 2, delayMs: 10 });
 
     globalScheduler.flush();
     await vi.advanceTimersByTimeAsync(10);
@@ -279,21 +294,32 @@ describe('FX callback errors', () => {
     expect(fn).toHaveBeenCalledTimes(2);
     expect(reportError).toHaveBeenCalledTimes(1);
     expect(reportError).toHaveBeenCalledWith(errors[1]);
+    await expect(scheduled.result).resolves.toEqual({
+      status: 'error',
+      error: errors[1],
+    });
   });
 
   it('should report a throwing scheduleRetry backoff through reportError', async () => {
     const error = new Error('backoff failed');
-    scheduleRetry(() => Promise.reject(new Error('attempt')), {
-      maxAttempts: 2,
-      backoff: () => {
-        throw error;
-      },
-    });
+    const scheduled = scheduleRetry(
+      () => Promise.reject(new Error('attempt')),
+      {
+        maxAttempts: 2,
+        backoff: () => {
+          throw error;
+        },
+      }
+    );
 
     globalScheduler.flush();
     await vi.advanceTimersByTimeAsync(0);
 
     expect(reportError).toHaveBeenCalledTimes(1);
     expect(reportError).toHaveBeenCalledWith(error);
+    await expect(scheduled.result).resolves.toEqual({
+      status: 'error',
+      error,
+    });
   });
 });
