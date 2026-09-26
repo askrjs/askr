@@ -188,6 +188,7 @@ function createDerived(
     computation,
     read: markReadable((() => computation.read()) as Derived<unknown>),
     setCompute(fn) {
+      if (fn === current) return;
       current = fn;
       computation.invalidate();
     },
