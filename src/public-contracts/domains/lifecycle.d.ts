@@ -1,6 +1,5 @@
 import { JSXElementType, JSXElement, Props } from '../elements.js';
 import '../jsx-globals.js';
-import { ReadableSource } from './component.js';
 
 /** A gating condition for lifecycle primitives like {@link timer}; `true` means active. */
 type ActivityPredicate = () => boolean;
@@ -47,7 +46,7 @@ declare function task(
 ): void;
 
 /** A callable reactive source accepted by {@link watch}. */
-type WatchSource<T> = ReadableSource<T>;
+type WatchSource<T> = () => T;
 
 /** Values inferred from an ordered tuple of {@link WatchSource} accessors. */
 type WatchValues<TSources extends readonly WatchSource<unknown>[]> = {

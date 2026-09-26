@@ -503,7 +503,7 @@
       "WatchContext": [
         "interface WatchContext<TValue> {\n    readonly initial: boolean;\n    readonly previous: TValue | undefined;\n    readonly signal: AbortSignal;\n}"
       ],
-      "WatchSource": ["type WatchSource<T> = ReadableSource<T>;"],
+      "WatchSource": ["type WatchSource<T> = () => T;"],
       "WatchValues": [
         "type WatchValues<TSources extends readonly WatchSource<unknown>[]> = {\n    -readonly [TIndex in keyof TSources]: ReturnType<TSources[TIndex]>;\n};"
       ],
@@ -2810,7 +2810,7 @@
     "WatchContext": [
       "interface WatchContext<TValue> {\n    readonly initial: boolean;\n    readonly previous: TValue | undefined;\n    readonly signal: AbortSignal;\n}"
     ],
-    "WatchSource": ["type WatchSource<T> = ReadableSource<T>;"],
+    "WatchSource": ["type WatchSource<T> = () => T;"],
     "WatchValues": [
       "type WatchValues<TSources extends readonly WatchSource<unknown>[]> = {\n    -readonly [TIndex in keyof TSources]: ReturnType<TSources[TIndex]>;\n};"
     ],

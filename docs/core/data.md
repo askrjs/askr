@@ -30,6 +30,7 @@ function Counter() {
 function, replace it with updater form such as `setHandler(() => nextHandler)`.
 The callable and setter are the public state interface; subscription bookkeeping
 is managed by the runtime.
+The `watch()` source type likewise exposes only its callable read signature.
 
 ## Derived state
 
