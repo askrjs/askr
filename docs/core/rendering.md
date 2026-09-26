@@ -127,6 +127,8 @@ During hydration, a keyed `For` adopts only its own server-rendered rows even
 when a static or component child precedes it in the same parent. The unrelated
 sibling and every adopted row keep their DOM identity through later reorder
 and removal commits.
+Rows returned by components as text or fragments also retain their server nodes
+when text sits before or after the list, with markup verification enabled.
 
 In a mixed parent, an empty or newly emptied `For` also preserves the first
 following sibling as its reconciliation cursor. Later static nodes, components,

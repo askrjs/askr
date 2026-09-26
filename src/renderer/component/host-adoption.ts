@@ -11,7 +11,10 @@ import {
 } from '../../runtime';
 import { getCurrentContextFrame, getVNodeContextFrame } from '../../runtime';
 import { materializeKey } from '../props/attributes';
-import { isTransparentComponentRangeResult } from '../children/child-shape';
+import {
+  isScalarChild,
+  isTransparentComponentRangeResult,
+} from '../children/child-shape';
 import {
   adoptHydratedComponentRange,
   adoptMarkedHydratedComponentRange,
@@ -109,8 +112,12 @@ function tryAdoptHydratedRange(
     hydrationRangeEnd === undefined ||
     !(
       isTransparentComponentRangeResult(result) ||
+      (existingHost instanceof Text && isScalarChild(result)) ||
       (markedHydrationEnd &&
-        (result === null || result === undefined || result === false))
+        (isScalarChild(result) ||
+          result === null ||
+          result === undefined ||
+          result === false))
     )
   ) {
     return null;
