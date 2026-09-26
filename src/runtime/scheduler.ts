@@ -419,13 +419,6 @@ export class Scheduler {
     }
   }
 
-  setInHandler(v: boolean) {
-    this.scopes.setHandlerFlag(v);
-    if (!v) {
-      this.scheduleFlushKick();
-    }
-  }
-
   isInHandler(): boolean {
     return this.scopes.inHandler;
   }

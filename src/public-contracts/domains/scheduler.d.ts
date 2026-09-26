@@ -56,7 +56,6 @@ declare class Scheduler {
   getFlushVersion(): number;
   flushIfQueued(): void;
   runInHandlerScope<T>(fn: () => T, flushMode?: 'defer' | 'sync'): T;
-  setInHandler(v: boolean): void;
   isInHandler(): boolean;
   isExecuting(): boolean;
   clearPendingSyncTasks(): number;

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- breaking(runtime): remove the scheduler's mutable `setInHandler` flag.
+  Use `runInHandlerScope()` to hold handler permissions for a lexical scope.
+
 - feat(data): mutations support a synchronous `optimistic` callback that
   returns a rollback for failure or abort. Overlapping executions no longer
   abort earlier writes by default; explicit abort cancels all pending writes.

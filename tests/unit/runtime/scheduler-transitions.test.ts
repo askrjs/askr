@@ -68,21 +68,14 @@ describe('scheduler execution transitions', () => {
     }
   });
 
-  it('should recheck handler scope when a previously queued kick runs', async () => {
+  it('should expose only lexical handler scopes', () => {
     const scheduler = new Scheduler();
-    const events: string[] = [];
-    scheduler.enqueue(() => events.push('task'));
-    scheduler.setInHandler(true);
-    try {
-      await Promise.resolve();
-      expect(events).toEqual([]);
-      expect(scheduler.getFlushVersion()).toBe(0);
-    } finally {
-      scheduler.setInHandler(false);
-      await Promise.resolve();
-    }
-    expect(events).toEqual(['task']);
-    expect(scheduler.getFlushVersion()).toBe(1);
+    expect('setInHandler' in scheduler).toBe(false);
+    expect(scheduler.isInHandler()).toBe(false);
+    scheduler.runInHandlerScope(() => {
+      expect(scheduler.isInHandler()).toBe(true);
+    });
+    expect(scheduler.isInHandler()).toBe(false);
   });
 
   it('should let the outermost empty progress scope complete its epoch', () => {
@@ -125,19 +118,19 @@ describe('scheduler execution transitions', () => {
     expect(scheduler.getState().queueLength).toBe(0);
   });
 
-  it('should retain a lexical handler scope when the compatibility flag is cleared', async () => {
+  it('should retain an outer lexical handler scope after the inner scope ends', async () => {
     const scheduler = new Scheduler();
     const events: string[] = [];
     const scopes: boolean[] = [];
     scheduler.runInHandlerScope(() => {
-      scheduler.setInHandler(false);
       scopes.push(scheduler.isInHandler());
       scheduler.runInHandlerScope(() => {
         scheduler.enqueue(() => events.push('task'));
       }, 'sync');
+      scopes.push(scheduler.isInHandler());
       events.push('outer done');
     });
-    expect(scopes).toEqual([true]);
+    expect(scopes).toEqual([true, true]);
     expect(events).toEqual(['outer done']);
     await Promise.resolve();
     expect(events).toEqual(['outer done', 'task']);
