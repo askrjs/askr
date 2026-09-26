@@ -71,6 +71,7 @@ import {
   verifyHookSequence,
 } from './scope';
 import { DIRECT_RANGE_OWNER } from '../../common/dom-range';
+import { isSetupComponent } from './setup-prototype';
 
 Object.defineProperty(componentRecordPrototype, DIRECT_RANGE_OWNER, {
   value: true,
@@ -373,7 +374,7 @@ function executeComponentSync(
     }
 
     // A later render must claim every slot the first render claimed.
-    if (!instance._hookOrderChanged) {
+    if (!instance._hookOrderChanged && !isSetupComponent(instance.fn)) {
       try {
         verifyHookSequence(instance);
       } catch (error) {
