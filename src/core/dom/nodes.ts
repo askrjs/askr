@@ -474,31 +474,31 @@ function createPortal(
 // ---------------------------------------------------------------------------
 
 function release(node: RNode, errors: unknown[]): void {
-  switch (node.kind) {
-    case HOST:
-      for (const child of node.children) release(child, errors);
-      releaseProps(node, errors);
-      return;
-    case COMPONENT:
-      for (const child of node.children) release(child, errors);
-      node.instance.dispose(errors);
-      return;
-    case DYNAMIC:
-      for (const child of node.children) release(child, errors);
-      node.instance.dispose(errors);
-      return;
-    case PORTAL:
-      for (const child of node.children) {
-        for (const dom of collectDom(child)) dom.parentNode?.removeChild(dom);
-        release(child, errors);
+  const pending: Array<{ node: RNode; finish: boolean; detach?: boolean }> = [
+    { node, finish: false },
+  ];
+  while (pending.length) {
+    const frame = pending.pop()!;
+    const current = frame.node;
+    if (frame.finish) {
+      if (current.kind === HOST) releaseProps(current, errors);
+      if (current.kind === COMPONENT || current.kind === DYNAMIC) {
+        current.instance.dispose(errors);
       }
-      return;
-    case FRAGMENT:
-      for (const child of node.children) release(child, errors);
-      return;
-    case TEXT:
-    case NATIVE:
-      return;
+      continue;
+    }
+    if (frame.detach) {
+      for (const dom of collectDom(current)) dom.parentNode?.removeChild(dom);
+    }
+    if (current.kind === TEXT || current.kind === NATIVE) continue;
+    pending.push({ node: current, finish: true });
+    for (let i = current.children.length - 1; i >= 0; i--) {
+      pending.push({
+        node: current.children[i],
+        finish: false,
+        detach: current.kind === PORTAL,
+      });
+    }
   }
 }
 

@@ -150,6 +150,20 @@ describe('owner tree', () => {
     expect(root.dispose()).toEqual([]);
   });
 
+  it('should dispose a deeply nested lifetime without overflowing the stack', () => {
+    const root = new Owner(null);
+    let leaf = root;
+    for (let i = 0; i < 20_000; i++) leaf = new Owner(leaf);
+    let cleaned = false;
+    leaf.onCleanup(() => {
+      cleaned = true;
+    });
+
+    expect(root.dispose()).toEqual([]);
+    expect(cleaned).toBe(true);
+    expect(leaf.disposed).toBe(true);
+  });
+
   it('should resolve context through ancestors', () => {
     const root = new Owner(null);
     root.context = new Map([['theme', 'dark']]);

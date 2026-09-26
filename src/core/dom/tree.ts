@@ -141,36 +141,45 @@ export function containerOf(parent: Parent): Element {
 }
 
 export function firstDom(node: RNode): Node | null {
-  switch (node.kind) {
-    case HOST:
-      return node.el;
-    case TEXT:
-    case NATIVE:
-      return node.node;
-    case PORTAL:
-      return null;
-    default:
-      for (const child of node.children) {
-        const dom = firstDom(child);
-        if (dom) return dom;
-      }
-      return null;
+  const pending: RNode[] = [node];
+  while (pending.length) {
+    const current = pending.pop()!;
+    switch (current.kind) {
+      case HOST:
+        return current.el;
+      case TEXT:
+      case NATIVE:
+        return current.node;
+      case PORTAL:
+        break;
+      default:
+        for (let i = current.children.length - 1; i >= 0; i--) {
+          pending.push(current.children[i]);
+        }
+    }
   }
+  return null;
 }
 
 export function collectDom(node: RNode, out: Node[] = []): Node[] {
-  switch (node.kind) {
-    case HOST:
-      out.push(node.el);
-      break;
-    case TEXT:
-    case NATIVE:
-      out.push(node.node);
-      break;
-    case PORTAL:
-      break;
-    default:
-      for (const child of node.children) collectDom(child, out);
+  const pending: RNode[] = [node];
+  while (pending.length) {
+    const current = pending.pop()!;
+    switch (current.kind) {
+      case HOST:
+        out.push(current.el);
+        break;
+      case TEXT:
+      case NATIVE:
+        out.push(current.node);
+        break;
+      case PORTAL:
+        break;
+      default:
+        for (let i = current.children.length - 1; i >= 0; i--) {
+          pending.push(current.children[i]);
+        }
+    }
   }
   return out;
 }

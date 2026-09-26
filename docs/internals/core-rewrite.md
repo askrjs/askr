@@ -96,6 +96,9 @@ Ownership rules:
   it created and restores the few render-time values it changed (new props).
 - **DOM position belongs to the rendered tree.** A component instance holds
   only a `view` pointer to its node; it never touches DOM.
+- **Deep trees are walked iteratively.** DOM lookup, subtree release, and
+  owner disposal use explicit worklists so transparent component chains do
+  not consume the JavaScript call stack during traversal or teardown.
 - **Timing belongs to the scheduler.** Nothing runs work inline except a
   pass committing its own operations.
 - **Dependencies point inward.** The component layer reaches the renderer

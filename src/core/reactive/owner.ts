@@ -93,14 +93,31 @@ function runCleanups(owner: Owner, errors: unknown[]): void {
 }
 
 function disposeTree(owner: Owner, errors: unknown[]): void {
-  if (owner.disposed) return;
-  owner.disposed = true;
-  disposeChildren(owner, errors);
-  runCleanups(owner, errors);
-  try {
-    (owner as unknown as { onDispose(): void }).onDispose();
-  } catch (error) {
-    errors.push(error);
+  const pending: Array<{ owner: Owner; finish: boolean; detach?: boolean }> = [
+    { owner, finish: false },
+  ];
+  while (pending.length) {
+    const frame = pending.pop()!;
+    const current = frame.owner;
+    if (frame.finish) {
+      runCleanups(current, errors);
+      try {
+        (current as unknown as { onDispose(): void }).onDispose();
+      } catch (error) {
+        errors.push(error);
+      }
+      continue;
+    }
+    if (frame.detach) current.parent = null;
+    if (current.disposed) continue;
+    current.disposed = true;
+    pending.push({ owner: current, finish: true });
+    const children = current.owned;
+    current.owned = null;
+    if (!children) continue;
+    for (const child of children) {
+      pending.push({ owner: child, finish: false, detach: true });
+    }
   }
 }
 
