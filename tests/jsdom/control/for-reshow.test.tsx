@@ -41,10 +41,10 @@ describe('For inside Show', () => {
   ])(
     'should render $name when re-shown in the same flush',
     ({ next, revision: nextRevision, expected }) => {
-    const { container, cleanup } = createTestContainer();
-    let hide: () => void = () => {};
-    let reveal: () => void = () => {};
-    const clicks: string[] = [];
+      const { container, cleanup } = createTestContainer();
+      let hide: () => void = () => {};
+      let reveal: () => void = () => {};
+      const clicks: string[] = [];
 
       const Page = () => {
         const visible = state(true);
@@ -61,10 +61,10 @@ describe('For inside Show', () => {
           <Show when={visible}>
             <ul>
               <For each={items} by={(item) => item.id}>
-              {(item, index) => (
-                <li onClick={() => clicks.push(item.id)}>
-                  {`${item.label}:${index()}:${capturedRevision}`}
-                </li>
+                {(item, index) => (
+                  <li onClick={() => clicks.push(item.id)}>
+                    {`${item.label}:${index()}:${capturedRevision}`}
+                  </li>
                 )}
               </For>
             </ul>
@@ -79,10 +79,10 @@ describe('For inside Show', () => {
 
       reveal();
       flushScheduler();
-    const rows = Array.from(container.querySelectorAll('li'));
-    expect(rows.map((li) => li.textContent)).toEqual(expected);
-    for (const row of rows) row.click();
-    expect(clicks).toEqual(next.map((item) => item.id));
+      const rows = Array.from(container.querySelectorAll('li'));
+      expect(rows.map((li) => li.textContent)).toEqual(expected);
+      for (const row of rows) row.click();
+      expect(clicks).toEqual(next.map((item) => item.id));
       cleanup();
     }
   );
