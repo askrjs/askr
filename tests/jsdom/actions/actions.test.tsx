@@ -15,7 +15,7 @@ import {
 } from '../../../test-utils/render/test-renderer';
 import { renderToStringSync } from '../../../src/ssr';
 import { createPageRenderEnvelope } from '../../../src/common/page-render-envelope';
-import { state } from '../../../src/runtime';
+import { state } from '../../../src/index';
 
 const save = defineAction({
   id: 'save-item',
