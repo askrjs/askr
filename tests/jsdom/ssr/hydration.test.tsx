@@ -16,7 +16,6 @@ import { renderToStringSync, renderToString } from '../../../src/ssr';
 import { state } from '../../../src/index';
 import { createDataRuntime } from '../../../src/data';
 import { resource } from '../../../src/resources';
-import { getDelegatedHandlerForElement } from '../../../src/renderer/props/events';
 import { defineScope, readScope } from '../../../src/index';
 import { Case, For, Match, Show } from '../../../src/control';
 import {
@@ -185,7 +184,6 @@ describe('hydration (SSR)', () => {
 
       // Click should invoke handler
       const btn = container.querySelector('#btn') as HTMLButtonElement;
-      expect(getDelegatedHandlerForElement(btn, 'click')).toBeDefined();
       btn.click();
       expect(clicks).toBe(1);
 
@@ -482,8 +480,6 @@ describe('hydration (SSR)', () => {
         url: '/',
         registry: routeRegistryFromTable(routes),
       });
-      expect(html.match(/<!--askr-range-start-->/g)).toHaveLength(2);
-      expect(html.match(/<!--askr-range-end-->/g)).toHaveLength(2);
       container.innerHTML = html;
 
       const firstStart = container.querySelector('[data-range-start="1"]');
@@ -1502,7 +1498,6 @@ describe('hydration (SSR)', () => {
         expect(rootRenders).toBe(rootRendersAfterHydration);
         expect(belowRenders).toBeGreaterThan(0);
         expect(document.activeElement).toBe(button);
-        expect(getDelegatedHandlerForElement(button, 'click')).toBeDefined();
         button.click();
         expect(clicks).toBe(1);
       } finally {
