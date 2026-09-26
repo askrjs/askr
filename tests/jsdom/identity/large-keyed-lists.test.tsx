@@ -8,7 +8,7 @@ import {
 } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
 
-describe('bulk keyed positional fast-path', () => {
+describe('large keyed lists', () => {
   let container: HTMLElement;
   let cleanup: () => void;
   let items: State<number[]>;
@@ -24,8 +24,6 @@ describe('bulk keyed positional fast-path', () => {
   };
 
   beforeAll(() => {
-    process.env.ASKR_BULK_TEXT_THRESHOLD = '10';
-
     const ctx = createTestContainer();
     container = ctx.container;
     cleanup = ctx.cleanup;
@@ -56,7 +54,7 @@ describe('bulk keyed positional fast-path', () => {
     flushScheduler();
   });
 
-  it('should reuse elements by position when keys change en-masse', async () => {
+  it('should replace elements when their keys change en masse', async () => {
     await waitForNextEvaluation();
 
     const beforeEls = Array.from(container.querySelectorAll('li'));
@@ -65,52 +63,24 @@ describe('bulk keyed positional fast-path', () => {
     let clickCount = 0;
     beforeEls[0].addEventListener('click', () => clickCount++);
 
-    // Change keys en-masse (offset by 100) to ensure majority of keys are missing
-    // and trigger the positional bulk fast-path which reuses elements by position.
+    // Every new key names a new row lifetime.
     items.set(items().map((x: number) => x + 100));
     flushScheduler();
     await waitForNextEvaluation();
 
-    // Check that bulk fast-path stats were recorded
-    const ns =
-      (
-        globalThis as unknown as Record<string, unknown> & {
-          __ASKR__?: Record<string, unknown>;
-        }
-      ).__ASKR__ || {};
-
-    // Diagnostics may be recorded by either the positional fast-path or
-    // the partial move-by-key path depending on heuristics; assert stats
-    // only if they are present to avoid brittle test failures.
-    type FastpathStats = { n?: number; reused?: number; updatedKeys?: number };
-    if (ns['__LAST_FASTPATH_STATS']) {
-      expect((ns['__LAST_FASTPATH_STATS'] as FastpathStats).n as number).toBe(
-        50
-      );
-    }
-
     const afterEls = Array.from(container.querySelectorAll('li'));
 
-    // Listener preserved (critical invariant)
+    expect(afterEls[0]).not.toBe(beforeEls[0]);
+    expect(beforeEls[0].isConnected).toBe(false);
+    // A native listener on the retired row must not move to a new key.
     afterEls[0].dispatchEvent(new Event('click'));
-    expect(clickCount).toBe(1);
+    expect(clickCount).toBe(0);
 
     // Ensure data-key updated on elements
     expect(afterEls[0].getAttribute('data-key')).toBe(String(items()[0]));
-
-    // Some fast-path counter may be recorded in dev; but primary
-    // invariants we care about are listener preservation and data-key update.
-    // (Diagnostic counters are optional in this test environment.)
-    // Optionally assert counters if present
-    if (ns['__FASTPATH_COUNTERS']) {
-      expect(
-        Object.keys((ns['__FASTPATH_COUNTERS'] as Record<string, number>) || {})
-          .length
-      ).toBeGreaterThan(0);
-    }
   });
 
-  it('should update class during positional bulk reuse', async () => {
+  it('should update class when replacing many keyed rows', async () => {
     await waitForNextEvaluation();
 
     await resetState();
@@ -125,7 +95,7 @@ describe('bulk keyed positional fast-path', () => {
     expect(rows[1].className).toBe('danger');
   });
 
-  it('should update aria-selected during positional bulk reuse', async () => {
+  it('should update aria-selected when replacing many keyed rows', async () => {
     await waitForNextEvaluation();
 
     await resetState();
@@ -208,7 +178,7 @@ describe('bulk keyed positional fast-path', () => {
     expect(firstRow?.className).toBe('');
   });
 
-  it('should update mixed props during bulk reuse', async () => {
+  it('should update mixed props across many keyed rows', async () => {
     await waitForNextEvaluation();
 
     await resetState();
@@ -225,7 +195,7 @@ describe('bulk keyed positional fast-path', () => {
     expect(row?.textContent).toBe('Item 111*');
   });
 
-  it('should use the two-child positional update when DOM shape is exact', async () => {
+  it('should retain keyed rows and their two children when labels change', async () => {
     const ctx = createTestContainer();
     let rows: State<Array<{ id: number; title: string; detail: string }>>;
 
@@ -309,6 +279,5 @@ describe('bulk keyed positional fast-path', () => {
 
   afterAll(() => {
     cleanup();
-    delete process.env.ASKR_BULK_TEXT_THRESHOLD;
   });
 });
