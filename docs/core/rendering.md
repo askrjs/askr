@@ -513,6 +513,11 @@ current value. Element children throw during SSR, because they have no raw
 text form. `dangerouslySetInnerHTML` is still written as given and is not
 rewritten.
 
+On the client, a `dangerouslySetInnerHTML` value with a `__html` field owns
+the element's content instead of its JSX children. When that value is
+removed, JSX children mount again. An absent or malformed value leaves the
+children managed normally.
+
 ### Client hydration
 
 ```ts

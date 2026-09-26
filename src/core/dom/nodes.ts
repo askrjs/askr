@@ -26,6 +26,7 @@ import {
 } from '../view/children';
 import type { Pass } from './pass';
 import { removeUnrenderedAttributes } from './hydration';
+import { isDangerousInnerHTMLPayload } from './prop-values';
 import {
   applyInitialProps,
   applyTrailingProps,
@@ -141,7 +142,7 @@ function createHost(
   if (adopted) {
     ctx.pass.op(() => removeUnrenderedAttributes(adopted, props));
   }
-  if (props.dangerouslySetInnerHTML === undefined) {
+  if (!isDangerousInnerHTMLPayload(props.dangerouslySetInnerHTML)) {
     node.children = reconcileChildren(
       {
         ...ctx,
@@ -163,15 +164,24 @@ function createHost(
 
 function ownsChildren(props: Props): boolean {
   return (
-    !props.imperativeChildren && props.dangerouslySetInnerHTML === undefined
+    !props.imperativeChildren &&
+    !isDangerousInnerHTMLPayload(props.dangerouslySetInnerHTML)
   );
 }
 
 function patchHost(ctx: RenderContext, node: HostNode, props: Props): void {
   const previous = node.props;
   if (previous === props) return;
+  const wasManaged = ownsChildren(previous);
+  const isManaged = ownsChildren(props);
+  if (wasManaged && !isManaged) {
+    reconcileChildren(ctx, node, null, false);
+  }
   patchProps(ctx.pass, node, previous, props);
-  if (ownsChildren(props)) {
+  if (!wasManaged && isManaged && node.children.length === 0) {
+    ctx.pass.op(() => node.el.replaceChildren());
+  }
+  if (isManaged) {
     reconcileChildren(
       { ...ctx, ns: childNamespace(node.tag, namespaceOf(node.el)) },
       node,

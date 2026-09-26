@@ -29,7 +29,11 @@ import {
 import type { HostNode } from './tree';
 
 function isBinding(key: string, value: unknown): value is () => unknown {
-  return typeof value === 'function' && key !== 'ref';
+  return (
+    typeof value === 'function' &&
+    key !== 'ref' &&
+    key !== 'dangerouslySetInnerHTML'
+  );
 }
 
 /** A `<select>` value can only select options that already exist. */
