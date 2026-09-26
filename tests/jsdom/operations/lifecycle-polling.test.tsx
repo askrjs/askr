@@ -28,7 +28,6 @@ import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
-import type { ComponentInstance } from '../../../src/runtime';
 
 function setDocumentVisibility(value: DocumentVisibilityState): () => void {
   const ownDescriptor = Object.getOwnPropertyDescriptor(
@@ -439,12 +438,6 @@ describe('component-scoped lifecycle and polling checks', () => {
     flushScheduler();
     setLabel('third');
     flushScheduler();
-
-    const host = container.querySelector('button') as
-      | (HTMLButtonElement & { __ASKR_INSTANCE?: ComponentInstance })
-      | null;
-
-    expect(host?.__ASKR_INSTANCE?.mountOperations).toBeUndefined();
 
     vi.advanceTimersByTime(110);
 

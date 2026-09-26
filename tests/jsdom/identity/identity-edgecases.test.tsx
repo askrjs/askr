@@ -5,10 +5,6 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
-import {
-  disableEventDelegation,
-  enableEventDelegation,
-} from '../../../src/renderer/props/events';
 import { For } from '../../../src/control';
 
 describe('identity edge cases', () => {
@@ -315,8 +311,6 @@ describe('identity edge cases', () => {
   });
 
   it('should clean host refs and direct listeners when a nested component root host is replaced', () => {
-    disableEventDelegation();
-
     const { container, cleanup } = createTestContainer();
     let setKind: (next: 'button' | 'link') => void = () => {};
     let oldClicks = 0;
@@ -397,7 +391,6 @@ describe('identity edge cases', () => {
       expect(newClicks).toBe(1);
     } finally {
       cleanup();
-      enableEventDelegation();
     }
   });
 });

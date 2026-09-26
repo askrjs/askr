@@ -14,16 +14,11 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
-import {
-  disableEventDelegation,
-  enableEventDelegation,
-} from '../../../src/renderer/props/events';
 
 describe('listener lifecycle (DOM)', () => {
   let { container, cleanup } = createTestContainer();
   beforeEach(() => ({ container, cleanup } = createTestContainer()));
   afterEach(() => {
-    enableEventDelegation();
     cleanup();
   });
 
@@ -162,9 +157,7 @@ describe('listener lifecycle (DOM)', () => {
     expect(ref.current).toBeNull();
   });
 
-  it('should update direct listeners in place when delegation is disabled', async () => {
-    disableEventDelegation();
-
+  it('should update direct listeners in place across rerenders', async () => {
     let mode: ReturnType<typeof state<'a' | 'b'>> | null = null;
     const calls: string[] = [];
 
@@ -174,7 +167,7 @@ describe('listener lifecycle (DOM)', () => {
     const Component = () => {
       mode = state<'a' | 'b'>('a');
       return (
-        <button id={'btn'} onClick={() => calls.push(mode!())}>
+        <button id={'btn'} onPointerDown={() => calls.push(mode!())}>
           {mode!()}
         </button>
       );
@@ -184,58 +177,32 @@ describe('listener lifecycle (DOM)', () => {
     flushScheduler();
 
     const baselineAdds = addSpy.mock.calls.filter(
-      ([eventName]) => eventName === 'click'
+      ([eventName]) => eventName === 'pointerdown'
     ).length;
     const baselineRemoves = removeSpy.mock.calls.filter(
-      ([eventName]) => eventName === 'click'
+      ([eventName]) => eventName === 'pointerdown'
     ).length;
 
     mode!.set('b');
     flushScheduler();
 
     const afterAdds = addSpy.mock.calls.filter(
-      ([eventName]) => eventName === 'click'
+      ([eventName]) => eventName === 'pointerdown'
     ).length;
     const afterRemoves = removeSpy.mock.calls.filter(
-      ([eventName]) => eventName === 'click'
+      ([eventName]) => eventName === 'pointerdown'
     ).length;
 
     expect(afterAdds).toBe(baselineAdds);
     expect(afterRemoves).toBe(baselineRemoves);
 
-    (container.querySelector('#btn') as HTMLButtonElement).click();
+    container
+      .querySelector('#btn')!
+      .dispatchEvent(new Event('pointerdown', { bubbles: true }));
     flushScheduler();
     expect(calls).toEqual(['b']);
 
     addSpy.mockRestore();
     removeSpy.mockRestore();
-  });
-
-  it('should replace a direct listener with a delegated listener when delegation is re-enabled', async () => {
-    disableEventDelegation();
-
-    let mode: ReturnType<typeof state<'a' | 'b'>> | null = null;
-    const calls: string[] = [];
-
-    const Component = () => {
-      mode = state<'a' | 'b'>('a');
-      return (
-        <button id={'btn'} onClick={() => calls.push(mode!())}>
-          {mode!()}
-        </button>
-      );
-    };
-
-    createIsland({ root: container, component: Component });
-    flushScheduler();
-
-    enableEventDelegation();
-    mode!.set('b');
-    flushScheduler();
-
-    (container.querySelector('#btn') as HTMLButtonElement).click();
-    flushScheduler();
-
-    expect(calls).toEqual(['b']);
   });
 });

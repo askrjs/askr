@@ -9,10 +9,6 @@ import {
 import { state, type State } from '../../../src/index';
 import { ErrorBoundary } from '@askrjs/askr/components';
 import { scheduleEventHandler } from '../../../src/fx';
-import {
-  disableEventDelegation,
-  enableEventDelegation,
-} from '../../../src/renderer/props/events';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -41,21 +37,26 @@ describe.each(['development', 'production'])(
 
     afterEach(() => {
       cleanup();
-      enableEventDelegation();
       process.env.NODE_ENV = previousNodeEnv;
       vi.unstubAllGlobals();
       vi.restoreAllMocks();
     });
 
-    function mountThrowingHandler() {
+    function mountThrowingHandler(event: 'click' | 'pointerdown' = 'click') {
       const error = new Error('handler failed');
       const outerClicks = vi.fn();
       const App = () => (
-        <div onClick={outerClicks}>
+        <div
+          {...{
+            [event === 'click' ? 'onClick' : 'onPointerDown']: outerClicks,
+          }}
+        >
           <button
             id="btn"
-            onClick={() => {
-              throw error;
+            {...{
+              [event === 'click' ? 'onClick' : 'onPointerDown']: () => {
+                throw error;
+              },
             }}
           >
             boom
@@ -65,7 +66,9 @@ describe.each(['development', 'production'])(
 
       createIsland({ root: container, component: App });
       flushScheduler();
-      container.querySelector<HTMLButtonElement>('#btn')!.click();
+      container
+        .querySelector<HTMLButtonElement>('#btn')!
+        .dispatchEvent(new Event(event, { bubbles: true }));
       flushScheduler();
       return { error, outerClicks };
     }
@@ -79,8 +82,7 @@ describe.each(['development', 'production'])(
     });
 
     it('should report direct listener errors through reportError', () => {
-      disableEventDelegation();
-      const { error, outerClicks } = mountThrowingHandler();
+      const { error, outerClicks } = mountThrowingHandler('pointerdown');
 
       expect(reportError).toHaveBeenCalledTimes(1);
       expect(reportError).toHaveBeenCalledWith(error);

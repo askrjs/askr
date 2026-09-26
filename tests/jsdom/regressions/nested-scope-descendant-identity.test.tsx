@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { defineScope, readScope, state } from '../../../src';
 import { createIsland } from '../../../test-utils/render/create-island';
-import { findHostInstanceByType } from '../../../src/renderer/component/host-instances';
-import type { ComponentFunction } from '../../../src/runtime';
 import {
   createTestContainer,
   flushScheduler,
@@ -145,19 +143,13 @@ describe('nested scope descendant identity', () => {
     expect(container.querySelector('[data-first-provider]')?.textContent).toBe(
       'first-live'
     );
-    const secondVNode = SecondScope({ value: 'second-live', children: null });
-    expect(
-      findHostInstanceByType(
-        container.querySelector('[data-first-provider]')!,
-        (secondVNode as { type: ComponentFunction }).type,
-        secondVNode
-      )
-    ).toBeNull();
+    const firstOutput = container.querySelector('[data-first-provider]')!;
 
     showSecond(true);
     flushScheduler();
 
     expect(container.querySelector('[data-first-provider]')).toBeNull();
+    expect(firstOutput.isConnected).toBe(false);
     expect(container.querySelector('[data-second-provider]')?.textContent).toBe(
       'second-live'
     );
