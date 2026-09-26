@@ -656,3 +656,172 @@ describe('For row runs per flush', () => {
     );
   });
 });
+
+describe('For item kind changes under a stable key', () => {
+  function describeItem(item: unknown): string {
+    if (item === null) return 'null';
+    if (Array.isArray(item)) return `array:${item.join(',')}`;
+    if (typeof item === 'object') return `object:${(item as { v: string }).v}`;
+    return `${typeof item}:${String(item)}`;
+  }
+
+  const TARGETS: ReadonlyArray<{ name: string; value: unknown }> = [
+    { name: 'null', value: null },
+    { name: 'undefined', value: undefined },
+    { name: 'a number', value: 5 },
+    { name: 'a string', value: 'text' },
+    { name: 'an array', value: ['x', 'y'] },
+  ];
+
+  it.each(TARGETS)(
+    'should render the raw item when an object item becomes $name, and the new object when it changes back',
+    ({ value }) => {
+      const { container, cleanup } = createTestContainer();
+      let setItems: (items: unknown[]) => void = () => {};
+      const renderRow = (item: unknown) => <li>{describeItem(item)}</li>;
+
+      const App = () => {
+        const [items, set] = state<unknown[]>([{ v: 'keep' }, { v: 'o' }]);
+        setItems = set;
+        return (
+          <ul>
+            <For each={items} byIndex>
+              {renderRow}
+            </For>
+          </ul>
+        );
+      };
+
+      createIsland({ root: container, component: App });
+      const keep = { v: 'keep' };
+      setItems([keep, { v: 'o' }]);
+      flushScheduler();
+      expect(texts()).toEqual(['object:keep', 'object:o']);
+
+      setItems([keep, value]);
+      flushScheduler();
+      expect(texts()).toEqual(['object:keep', describeItem(value)]);
+
+      setItems([keep, { v: 'back' }]);
+      flushScheduler();
+      expect(texts()).toEqual(['object:keep', 'object:back']);
+      cleanup();
+
+      function texts() {
+        return Array.from(container.querySelectorAll('li')).map(
+          (li) => li.textContent
+        );
+      }
+    }
+  );
+});
+
+describe('For index readers nested in a row', () => {
+  type Entry = { id: string; label: string };
+
+  it('should run a nested index reader once when its row reruns with a new item and index', () => {
+    const { container, cleanup } = createTestContainer();
+    let setItems: (items: Entry[]) => void = () => {};
+    const childRuns: string[] = [];
+
+    const Position = ({ id, index }: { id: string; index: () => number }) => {
+      childRuns.push(id);
+      return <span>{index()}</span>;
+    };
+    const renderRow = (item: Entry, index: () => number) => (
+      <li>
+        {item.label}:<Position id={item.id} index={index} />
+      </li>
+    );
+
+    const App = () => {
+      const [items, set] = state<Entry[]>([
+        { id: 'c', label: 'C' },
+        { id: 'd', label: 'D' },
+      ]);
+      setItems = set;
+      return (
+        <ul>
+          <For each={items} by={(item) => item.id}>
+            {renderRow}
+          </For>
+        </ul>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    childRuns.length = 0;
+
+    setItems([{ id: 'd', label: 'D2' }]);
+    flushScheduler();
+    flushScheduler();
+
+    expect(container.textContent).toBe('D2:0');
+    expect(childRuns).toEqual(['d']);
+    cleanup();
+  });
+
+  it('should still update a nested index reader that does not rerun with its row', () => {
+    const { container, cleanup } = createTestContainer();
+    let setItems: (items: Entry[]) => void = () => {};
+    const innerRuns: string[] = [];
+    // One stable inner callback per row, so rerunning the row does not rerun
+    // the inner row that reads the outer index.
+    const innerByRow = new Map<string, (sub: string) => JSXElement>();
+
+    const renderRow = (item: Entry, index: () => number) => {
+      let renderInner = innerByRow.get(item.id);
+      if (!renderInner) {
+        renderInner = (sub: string) => {
+          innerRuns.push(item.id);
+          return (
+            <span>
+              {sub}
+              {index()}
+            </span>
+          ) as JSXElement;
+        };
+        innerByRow.set(item.id, renderInner);
+      }
+      // The inner For is the only child of <b>, so its own row reruns commit
+      // through the inner boundary.
+      return (
+        <li>
+          {item.label}:
+          <b>
+            <For each={['i']} by={(sub) => sub}>
+              {renderInner}
+            </For>
+          </b>
+        </li>
+      );
+    };
+
+    const App = () => {
+      const [items, set] = state<Entry[]>([
+        { id: 'c', label: 'C' },
+        { id: 'd', label: 'D' },
+      ]);
+      setItems = set;
+      return (
+        <ul>
+          <For each={items} by={(item) => item.id}>
+            {renderRow}
+          </For>
+        </ul>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    expect(container.textContent).toBe('C:i0D:i1');
+    innerRuns.length = 0;
+
+    setItems([{ id: 'd', label: 'D2' }]);
+    flushScheduler();
+    flushScheduler();
+
+    expect(container.textContent).toBe('D2:i0');
+    expect(innerRuns).toEqual(['d']);
+    cleanup();
+  });
+});

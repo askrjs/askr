@@ -135,6 +135,8 @@ export interface ForTransaction<T> {
   pendingAppendStart: number | null;
   hasResolvedItemDom: boolean;
   needsSourceReconcile: boolean;
+  /** `_contextFrameChanged` when the pass began; a rollback restores it. */
+  contextFrameChanged: boolean;
   itemSnapshots: Map<ForItemInstance<T>, ForItemTransactionSnapshot<T>> | null;
   unreadIndexSnapshots: Map<ForIndexSignal, number> | null;
   fallbackScopeSnapshot: ChildScopeTransactionSnapshot | null;
@@ -148,6 +150,7 @@ export interface ForTransaction<T> {
       notify: boolean;
       skipInstance: ComponentInstance | null;
       skipOwnedBy: ComponentInstance | null;
+      skipOwnedRenderedAfter: number | null;
     }
   > | null;
   shouldClearDomUpdateState: boolean;
@@ -358,6 +361,7 @@ export function beginForStateTransaction<T>(
     pendingAppendStart: forState.pendingAppendStart,
     hasResolvedItemDom: forState._hasResolvedItemDom,
     needsSourceReconcile: forState._needsSourceReconcile,
+    contextFrameChanged: forState._contextFrameChanged,
     itemSnapshots: null,
     unreadIndexSnapshots: null,
     fallbackScopeSnapshot: null,
@@ -498,7 +502,12 @@ function finalizeForSignalEffects<T>(transaction: ForTransaction<T>): void {
   for (const [source, effect] of transaction.signalEffects) {
     removeForParentReaders(effect.parentInstance, source);
     if (effect.notify) {
-      notifyForSignalReaders(source, effect.skipInstance, effect.skipOwnedBy);
+      notifyForSignalReaders(
+        source,
+        effect.skipInstance,
+        effect.skipOwnedBy,
+        effect.skipOwnedRenderedAfter
+      );
     }
   }
   transaction.signalEffects.clear();
@@ -687,8 +696,10 @@ export function rollbackForStateTransaction<T>(
   forState.pendingAppendStart = transaction.pendingAppendStart;
   forState._hasResolvedItemDom = transaction.hasResolvedItemDom;
   forState._needsSourceReconcile = transaction.needsSourceReconcile;
-  // Restored rows may hold output from an older row callback.
+  // Restored rows may hold output from an older row callback, or from the
+  // context frame the failed pass was applying.
   forState._renderFnChanged = true;
+  forState._contextFrameChanged ||= transaction.contextFrameChanged;
   forState._transaction = null;
 
   if (rollbackCleanupErrors.length > 0) {

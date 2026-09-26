@@ -29,6 +29,7 @@ import {
   type ReactiveForItemState,
 } from './for-signals';
 import { getRuntimeScopes } from '../access';
+import { peekLatestRenderToken } from '../component/scope';
 import { recordBenchCounter, recordBenchEvent } from '../diagnostics/for-bench';
 import type { ForItemTransactionSnapshot, ForState } from './for-state';
 import type { ReadableSource } from '../reactivity/readable';
@@ -190,7 +191,8 @@ function stageForSignalEffect<T>(
   source: ReadableSource<unknown>,
   notify: boolean,
   skipInstance: ComponentInstance | null = null,
-  skipOwnedBy: ComponentInstance | null = null
+  skipOwnedBy: ComponentInstance | null = null,
+  skipOwnedRenderedAfter: number | null = null
 ): boolean {
   const transaction = forState._transaction;
   if (!transaction) {
@@ -206,6 +208,18 @@ function stageForSignalEffect<T>(
     }
     if (existing.skipOwnedBy !== skipOwnedBy) {
       existing.skipOwnedBy = null;
+      existing.skipOwnedRenderedAfter = null;
+    } else if (
+      existing.skipOwnedRenderedAfter !== null &&
+      skipOwnedRenderedAfter !== null
+    ) {
+      // Only a render after the latest change has read the final value.
+      existing.skipOwnedRenderedAfter = Math.max(
+        existing.skipOwnedRenderedAfter,
+        skipOwnedRenderedAfter
+      );
+    } else {
+      existing.skipOwnedRenderedAfter ??= skipOwnedRenderedAfter;
     }
   } else {
     effects.set(source, {
@@ -213,6 +227,7 @@ function stageForSignalEffect<T>(
       notify,
       skipInstance,
       skipOwnedBy,
+      skipOwnedRenderedAfter,
     });
   }
   return true;
@@ -264,11 +279,20 @@ function applyForItemIndex<T>(
   if (forState._transaction) {
     const shouldNotify = indexSignal._hasBeenRead === true;
     indexSignal.set(nextIndex, false);
+    // Readers inside the row that render after this point (because the row
+    // reruns or is recommitted) already read the new index; notifying them
+    // again would render them twice. Owned readers that do not render again,
+    // such as a nested For row with a stable callback, are still notified.
+    const rowInstance = scopeReadsIndex
+      ? itemInstance.scope.componentInstance
+      : null;
     stageForSignalEffect(
       forState,
       indexSignal,
       shouldNotify,
-      scopeReadsIndex ? itemInstance.scope.componentInstance : null
+      rowInstance,
+      rowInstance,
+      rowInstance ? peekLatestRenderToken() : null
     );
     if (!scopeReadsIndex) {
       return INDEX_NOT_VISIBLE;
@@ -434,11 +458,12 @@ function rerenderItemInstance<T>(
 
 /**
  * The value a row renders with. Object items render through their proxy, which
- * always reads the current item. A plain item (a primitive or an array) is
- * passed by value, so only `item` holds its latest version.
+ * always reads the current item. A plain item (a primitive, null, or an array)
+ * is passed by value, so only `item` holds its latest version. That includes a
+ * row created with an object whose item later became plain.
  */
 function currentRowItem<T>(itemInstance: ForItemInstance<T>): T {
-  return itemInstance.reactiveItemState
+  return itemInstance.reactiveItemState && canProxyForItem(itemInstance.item)
     ? itemInstance.reactiveItem
     : itemInstance.item;
 }
@@ -536,7 +561,9 @@ export function updateItemInstance<T>(
   const scope = itemInstance.scope;
   let scopeReadsChangedSignal = false;
   const reactiveItemState = itemInstance.reactiveItemState;
-  if (!reactiveItemState) {
+  // A plain item cannot go through the proxy, even in a row created with an
+  // object. The row renders it as a value until it becomes an object again.
+  if (!reactiveItemState || !canProxyForItem(item)) {
     if (nextIndex !== undefined) {
       applyForItemIndex(forState, itemInstance, nextIndex);
     }
@@ -651,7 +678,10 @@ export function updateItemInstance<T>(
 
   // `refreshForRowRenderers` leaves a stale row with a changed item to this
   // call, so it reruns here once, after the proxy sees the new item.
-  const staleOutput = hasStaleRowOutput(forState, itemInstance);
+  // A row that rendered a plain item did not read the proxy, so no property
+  // signal tells it the object is back.
+  const staleOutput =
+    hasStaleRowOutput(forState, itemInstance) || !canProxyForItem(previousItem);
   if (
     staleOutput ||
     indexResult === INDEX_NEEDS_RERUN ||
