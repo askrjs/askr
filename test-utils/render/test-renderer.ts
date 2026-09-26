@@ -12,6 +12,7 @@ import { globalScheduler } from '../../src/runtime/scheduler';
 import { flushSync as flushCoreScheduler } from '../../src/core/reactive/scheduler';
 import { renderToStringSync } from '../../src/ssr';
 import type { SSRComponent } from '../../src/ssr';
+import { cleanupApp } from '../../src/boot';
 
 /**
  * TEST OBSERVATION LAYER
@@ -36,6 +37,7 @@ export function createTestContainer(): {
   return {
     container,
     cleanup: () => {
+      cleanupApp(container);
       // Cleanup any Askr instance associated with this container
       const cleanupFn = (
         container as unknown as Record<string | symbol, unknown>
