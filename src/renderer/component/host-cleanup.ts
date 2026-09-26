@@ -20,7 +20,6 @@ import {
   forEachDescendantNode,
   forEachElementReactivePropCleanup,
   removeElementRef,
-  replaceElementRefBookkeeping,
   type ReactivePropCleanupEntry,
 } from '../ownership/cleanup';
 import type { InstanceHostNode } from '../dom-host';
@@ -157,9 +156,7 @@ function cleanupElementRef(element: Element, cleanupErrors: unknown[]): void {
   try {
     removeElementRef(element);
   } catch (error) {
-    // removeElementRef invokes user code before deleting its bookkeeping.
-    // Clear the entry after a failed callback without invoking it a second time.
-    replaceElementRefBookkeeping(element, undefined);
+    // removeElementRef clears its bookkeeping even when the callback throws.
     cleanupErrors.push(error);
   }
 }
@@ -194,11 +191,6 @@ function clearHostMetadata(
   cleanupErrors: unknown[]
 ): void {
   clearHostOwners(node, (error) => cleanupErrors.push(error));
-  try {
-    delete node.__ASKR_WRAPPER_HOST;
-  } catch (error) {
-    cleanupErrors.push(error);
-  }
 }
 
 export function pruneComponentHostInstances(

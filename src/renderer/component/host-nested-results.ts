@@ -2,7 +2,6 @@ import { renderComponentInScope } from './render-scope';
 import { assertSyncComponentResult } from '../../common/promise';
 import type { Props } from '../../common/props';
 import {
-  markVNodeTreeWithContextFrame,
   captureInlineRenderSnapshot,
   cleanupComponent,
   createComponentInstance,
@@ -35,13 +34,12 @@ import {
   cleanupProvisionalComponentInstances,
   registerVNodeComponentInstanceRollback,
 } from './host-replacement';
-import type { InstanceHostElement, InstanceHostNode } from '../dom-host';
+import type { InstanceHostNode } from '../dom-host';
 import { _isDOMElement, type DOMElement, type VNode } from '../types';
 import { assertComponentChainDepth } from './chain-depth';
 
-// Each chain link is identified by its parent instance. Fresh mounts record
-// links at wrapper depth 0, and a retained walk can start at any link, so a
-// walk-relative depth would not match the recorded owner.
+// Fresh chain links record depth 0. A retained walk can start at any link,
+// so its walk-relative depth must not become part of link identity.
 const CHAIN_LINK_WRAPPER_DEPTH = 0;
 
 function getNestedComponentVNode(result: unknown): DOMElement | null {
@@ -122,7 +120,6 @@ export function resolveHostNestedComponentResult(
     node: DOMElement;
     previous: ComponentInstance | undefined;
   }> = [];
-
   const findChainInstance = createChainLinkFinder(host);
 
   try {
@@ -201,57 +198,4 @@ export function resolveHostNestedComponentResult(
     throw error;
   }
   return { result: currentResult, owner: activeParent };
-}
-
-export function resolveWrapperHostResult(
-  host: InstanceHostElement,
-  retainedInstance: ComponentInstance,
-  result: unknown,
-  snapshot: ContextFrame | null,
-  retainedInstances: Set<ComponentInstance>
-): { result: unknown; owner: ComponentInstance } {
-  let currentResult = result;
-  let activeSnapshot = snapshot;
-  let activeParent = retainedInstance;
-  let depth = 0;
-  const findChainInstance = createChainLinkFinder(host);
-  let nestedVNode = getNestedComponentVNode(currentResult);
-  while (nestedVNode) {
-    assertComponentChainDepth(depth, activeParent);
-    const nestedSnapshot = getVNodeContextFrame(nestedVNode) ?? activeSnapshot;
-    const nestedInstance = findChainInstance(
-      nestedVNode.type as ComponentFunction,
-      nestedVNode,
-      activeParent,
-      CHAIN_LINK_WRAPPER_DEPTH
-    );
-    if (!nestedInstance) break;
-
-    captureInlineRenderSnapshot(nestedInstance);
-    setComponentOwnershipIdentity(
-      nestedInstance,
-      nestedVNode,
-      activeParent,
-      CHAIN_LINK_WRAPPER_DEPTH
-    );
-    nestedInstance.props =
-      (((nestedVNode as DOMElement).props ?? {}) as Props) || {};
-
-    nestedInstance.isRoot = isRouteRootComponentVNode(nestedVNode);
-    nestedInstance.portalScope =
-      activeParent.portalScope ?? nestedInstance.portalScope;
-    inheritComponentCleanupStrict(nestedInstance);
-    if (nestedSnapshot) nestedInstance.ownerFrame = nestedSnapshot;
-
-    retainedInstances.add(nestedInstance);
-    activeParent = nestedInstance;
-    activeSnapshot = nestedSnapshot ?? null;
-    currentResult = renderComponentInScope(nestedInstance, activeSnapshot);
-    depth += 1;
-    nestedVNode = getNestedComponentVNode(currentResult);
-  }
-  return {
-    result: markVNodeTreeWithContextFrame(currentResult, activeSnapshot),
-    owner: activeParent,
-  };
 }

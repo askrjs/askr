@@ -76,9 +76,14 @@ function setForIndexValue(
 export function notifyForSignalReaders(
   source: ReadableSource<unknown>,
   skipInstance?: ComponentInstance | null,
-  skipOwnedBy?: ComponentInstance | null
+  skipOwnedBy?: ComponentInstance | null,
+  skipOwnedRenderedAfter?: number | null
 ): void {
-  notifyReadableSource(source, { skipInstance, skipOwnedBy });
+  notifyReadableSource(source, {
+    skipInstance,
+    skipOwnedBy,
+    skipOwnedRenderedAfter,
+  });
 }
 
 export function createForIndexSignal(initialIndex: number): ForIndexSignal {

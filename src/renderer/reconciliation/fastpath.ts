@@ -2,10 +2,7 @@ import { getRendererDOMHost } from '../dom-host';
 import { _reconcilerRecordedParents } from './keyed';
 import { logger } from '../../common/logger';
 import { isRuntimeEnvFlagEnabled } from '../env';
-import {
-  cleanupInstanceIfPresent,
-  removeAllListeners,
-} from '../ownership/cleanup';
+import { teardownNodeSubtree } from '../ownership/cleanup';
 import { retireComponentOwnersForIntrinsicReuse } from '../component/host-cleanup';
 import { recordBenchCounter, recordBenchEvent } from '../../runtime';
 import { setDevValue, incDevCounter } from '../../runtime';
@@ -133,8 +130,8 @@ export function applyRendererFastPath(
       n = next;
       continue;
     }
-    if (n instanceof Element) removeAllListeners(n);
-    cleanupInstanceIfPresent(n);
+    // One teardown per removed node, so its failures form a single report.
+    teardownNodeSubtree(n);
     n = next;
   }
 

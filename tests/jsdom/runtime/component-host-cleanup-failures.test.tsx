@@ -6,7 +6,6 @@ import {
   it,
   vi,
 } from 'vite-plus/test';
-import { logger } from '../../../src/common/logger';
 import { For } from '../../../src/control';
 import { definePortal } from '../../../src/runtime/portal/portal';
 import type { ComponentInstance } from '../../../src/runtime/component/instance';
@@ -252,10 +251,15 @@ describe('component host cleanup failure isolation', () => {
         }
         originalRemoveEventListener(eventName, listener, options);
       });
-    const errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
+    // Settlement failures are reported through reportError once the update
+    // has finished.
+    const reportError = vi.fn();
+    vi.stubGlobal('reportError', reportError);
 
     rows.set([{ id: 1, kind: 'new' }]);
     expect(() => flushScheduler()).not.toThrow();
+    expect(reportError).not.toHaveBeenCalled();
+    await Promise.resolve();
 
     removeListenerSpy.mockRestore();
 
@@ -284,8 +288,10 @@ describe('component host cleanup failure isolation', () => {
     oldRoot.dispatchEvent(new Event('askr-successful'));
     expect(successfulListener).not.toHaveBeenCalled();
 
-    expect(errorSpy).toHaveBeenCalledTimes(1);
-    const reportedMessages = collectErrorMessages(errorSpy.mock.calls[0]?.[1]);
+    expect(reportError).toHaveBeenCalledTimes(1);
+    const reportedMessages = collectErrorMessages(
+      reportError.mock.calls[0]?.[0]
+    );
     expect(reportedMessages).toEqual(
       expect.arrayContaining([
         'listener cleanup failed',
@@ -308,8 +314,10 @@ describe('component host cleanup failure isolation', () => {
     expect(ownerAborts).toBe(1);
     expect(resourceAborts).toBe(1);
     expect(nestedAborts).toBe(1);
+    await Promise.resolve();
+    expect(reportError).toHaveBeenCalledTimes(1);
 
-    errorSpy.mockRestore();
+    vi.unstubAllGlobals();
   });
 
   it('should dispose a nested null portal host during element host replacement', () => {

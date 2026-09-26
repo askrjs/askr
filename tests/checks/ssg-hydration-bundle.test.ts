@@ -173,8 +173,15 @@ describe('SSG hydration bundle', () => {
     // #543 reads a readable a prop function returns and re-applies a reactive
     // select value after its options (+144 bytes over 283,765 on develop,
     // 283,909 bytes total).
-    // #445 groups a long wrapper chain's host owners by parent so a retained
-    // update walks the chain in linear time (+312 bytes, 284,221 bytes total).
-    expect(initialBytes).toBeLessThanOrEqual(278 * 1024);
+    // 279 KiB: #473 shares in-flight route prefetches and walks the hydration
+    // validator iteratively (+997 bytes over 283,909 on develop, 284,906
+    // bytes total).
+    // 280 KiB: #558 gives text and multi-node component results anchored
+    // ranges instead of wrapper elements, retains sibling ranges on updates,
+    // and updates one text node in place with rollback (+371 bytes over
+    // 285,439 on develop, 285,810 bytes total).
+    // #445 retains same-type links in a deep wrapper chain and groups a long
+    // host owner list by parent (+305 bytes, 286,115 bytes total).
+    expect(initialBytes).toBeLessThanOrEqual(280 * 1024);
   });
 });

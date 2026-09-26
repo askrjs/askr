@@ -42,6 +42,12 @@ async function settleNavigation(): Promise<void> {
   }
 }
 
+function cleanupMessages(value: unknown): string[] {
+  if (value instanceof AggregateError)
+    return value.errors.flatMap((nested) => cleanupMessages(nested));
+  return value instanceof Error ? [value.message] : [];
+}
+
 describe('history integration (ROUTER)', () => {
   let { container, cleanup } = createTestContainer();
   let scrollToSpy: ReturnType<typeof vi.fn>;
@@ -584,9 +590,8 @@ describe('history integration (ROUTER)', () => {
     });
 
     it('should report popstate cleanup failures after committing the destination', async () => {
-      const consoleError = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
+      const reportError = vi.fn();
+      vi.stubGlobal('reportError', reportError);
 
       try {
         route('/home', () => {
@@ -617,16 +622,15 @@ describe('history integration (ROUTER)', () => {
 
         await settleNavigation();
 
-        expect(consoleError).toHaveBeenCalledWith(
-          '[Askr] route cleanup failed:',
-          expect.objectContaining({
-            message: expect.stringMatching(/Cleanup failed|cleanup failed/i),
-          })
-        );
+        await Promise.resolve();
+        expect(reportError).toHaveBeenCalledTimes(1);
+        expect(cleanupMessages(reportError.mock.calls[0]![0])).toEqual([
+          'cleanup failed',
+        ]);
         expect(window.location.pathname).toBe('/slow');
         expect(container.textContent).toContain('slow');
       } finally {
-        consoleError.mockRestore();
+        vi.unstubAllGlobals();
       }
     });
 

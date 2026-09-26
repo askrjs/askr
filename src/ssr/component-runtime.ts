@@ -77,6 +77,9 @@ export function executeComponentSync(
       null
     );
     temp.ssr = true;
+    // Cleanup failures stay on the render's error path: the server has no
+    // reportError, and disposeSSRTemporaryOwners collects and throws them.
+    temp.cleanupStrict = true;
     temp.ownerFrame = ownerFrame;
     temp.portalScope = temp;
     ctx.ssrCleanupFns.push(() => {

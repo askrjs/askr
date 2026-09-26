@@ -10,7 +10,6 @@ export type ElementWithContext = DOMElement & {
 interface InstanceHostMetadata {
   __ASKR_INSTANCE?: ComponentInstance;
   __ASKR_INSTANCES?: ComponentInstance[];
-  __ASKR_WRAPPER_HOST?: boolean;
 }
 
 export type InstanceHostNode = Node & InstanceHostMetadata;

@@ -7,6 +7,7 @@ import {
   vi,
 } from 'vite-plus/test';
 import { For } from '../../../src/control';
+import { defineScope, readScope } from '../../../src/runtime/context/context';
 import { state, type State } from '../../../src/runtime/reactivity/state';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
@@ -245,5 +246,60 @@ describe('For scope metadata rollback', () => {
     expect(container.querySelectorAll('[data-fallback]')).toHaveLength(1);
 
     replaceSpy.mockRestore();
+  });
+
+  it('should keep a context change pending when the commit that applied it fails', () => {
+    type Row = { id: string; label: string; broken?: boolean };
+    const ThemeScope = defineScope('t0');
+
+    let theme!: State<string>;
+    let rows!: State<Row[]>;
+
+    function BrokenRow(): never {
+      throw new Error('row failed');
+    }
+
+    function Reader({ label }: { label: string }) {
+      return <li>{`${label}:${readScope(ThemeScope)}`}</li>;
+    }
+
+    const renderRow = (row: Row) =>
+      row.broken ? <BrokenRow /> : <Reader label={row.label} />;
+
+    function App() {
+      theme = state('t0');
+      rows = state<Row[]>([
+        { id: 'a', label: 'A' },
+        { id: 'b', label: 'B' },
+        { id: 'c', label: 'C' },
+      ]);
+
+      return (
+        <ThemeScope value={theme()}>
+          <ul>
+            <For each={rows} by={(row) => row.id}>
+              {renderRow}
+            </For>
+          </ul>
+        </ThemeScope>
+      );
+    }
+
+    const texts = () =>
+      Array.from(container.querySelectorAll('li')).map((li) => li.textContent);
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    expect(texts()).toEqual(['A:t0', 'B:t0', 'C:t0']);
+    const [a, , c] = rows();
+
+    theme.set('t1');
+    rows.set([a!, { id: 'b', label: 'B', broken: true }, c!]);
+    expect(() => flushScheduler()).toThrow('row failed');
+
+    rows.set([a!, { id: 'b', label: 'B2' }, c!]);
+    flushScheduler();
+
+    expect(texts()).toEqual(['A:t1', 'B2:t1', 'C:t1']);
   });
 });

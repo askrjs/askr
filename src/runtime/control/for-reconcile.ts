@@ -88,9 +88,12 @@ export function reconcileForItems<T>(
 ): VNode[] {
   forState.currentItems = newArray;
   const keys = resolveForKeys(forState, newArray);
-  if (forState._renderFnChanged) {
+  // `_contextFrameChanged` stays set for the rest of the pass, so the paths
+  // below still treat retained rows as stale. The caller clears it.
+  const contextChanged = forState._contextFrameChanged;
+  if (forState._renderFnChanged || contextChanged) {
     forState._renderFnChanged = false;
-    refreshForRowRenderers(forState, newArray, keys);
+    refreshForRowRenderers(forState, newArray, keys, contextChanged);
   }
 
   if (BENCH_BUILD_ENABLED) {

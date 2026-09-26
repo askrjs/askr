@@ -486,7 +486,10 @@ describe('route ownership generations', () => {
     expect(collectMountedHostMismatches(container)).toEqual([]);
     for (const instance of collectHostInstances(container)) {
       if (instance.fn === AuthNavControl || instance.fn === ProfileMenu) {
-        expect(instance.target?.isConnected).toBe(true);
+        // A multi-node result is hosted by its range anchor, not an element.
+        expect((instance.target ?? instance._placeholder)?.isConnected).toBe(
+          true
+        );
       }
     }
 

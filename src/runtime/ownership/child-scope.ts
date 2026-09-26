@@ -348,6 +348,19 @@ export function restoreChildScopeTransactionSnapshot(
   mutableScope._renderedOwnerFrame = snapshot.renderedOwnerFrame;
 }
 
+/**
+ * Resolve the component whose settings a component rendered by a child scope
+ * inherits. Child-scope records execute control-flow content (For items,
+ * Show/Case branches) on behalf of the component that declared it.
+ */
+export function resolveChildScopeAuthor(
+  instance: ComponentInstance | null
+): ComponentInstance | null {
+  while (instance && childScopesByInstance.has(instance))
+    instance = instance.parentInstance ?? null;
+  return instance;
+}
+
 export function disposeChildScope(scope: ChildScope): void {
   scope.dispose();
 }

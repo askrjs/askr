@@ -6,7 +6,10 @@ import { drainOwnedCleanup } from '../runtime/ownership/record';
 import { getActiveRenderContext } from '../common/render-context';
 import { getCurrentAppRenderRuntime } from '../runtime';
 import type { ComponentInstance } from '../runtime';
-import { emitInvalidation } from './invalidation-listeners';
+import {
+  emitInvalidation,
+  hasInvalidationListeners,
+} from './invalidation-listeners';
 import type { MutationCell } from './mutation-cell';
 import type { QueryCell } from './query-cell';
 import type { DataRuntime, DataRuntimeOptions } from './types';
@@ -21,11 +24,27 @@ export type MutationSlot = {
   cell: MutationCell<unknown, unknown>;
 };
 
+/** A prefetch fetch in flight for one query key; see createQueryPrefetchContext. */
+export type InflightPrefetch = {
+  /** Signal of the prefetch context that started the fetch. */
+  readonly signal: AbortSignal;
+  readonly promise: Promise<{}>;
+  /** Callers (owner and joiners) that have not finished storing yet. */
+  waiters: number;
+  /** Set once an invalidation covers the key; the result is then discarded. */
+  invalidated?: boolean;
+};
+
 export type DataRuntimeState = {
   queryCache: Map<string, QueryCell<unknown>>;
   queryData: Map<string, unknown>;
   /** Unread browser-prefetched `queryData` entries, oldest first. */
   unreadPrefetches: Map<string, unknown>;
+  /**
+   * Prefetch fetches by query key, kept until their last caller has stored
+   * (or discarded) the result so an invalidation can still reach it.
+   */
+  prefetches: Map<string, InflightPrefetch>;
   querySlotsByGeneration: WeakMap<object, Map<number, QuerySlot>>;
   mutationSlotsByGeneration: WeakMap<object, Map<number, MutationSlot>>;
   queryCleanupRegistered: WeakSet<object>;
@@ -50,6 +69,7 @@ function createDataRuntimeState(
     queryCache: queryCache as Map<string, QueryCell<unknown>>,
     queryData,
     unreadPrefetches: new Map(),
+    prefetches: new Map(),
     querySlotsByGeneration: new WeakMap(),
     mutationSlotsByGeneration: new WeakMap(),
     queryCleanupRegistered: new WeakSet(),
@@ -291,7 +311,18 @@ export function invalidateQueriesForRuntime(
   prefix: string,
   markPendingWrite: boolean
 ): void {
-  emitInvalidation({ prefix, markPendingWrite });
+  if (hasInvalidationListeners()) {
+    emitInvalidation({ prefix, markPendingWrite });
+  }
+
+  // A prefetch that started before this invalidation must neither be joined
+  // nor store its result.
+  for (const [key, prefetch] of runtimeState.prefetches) {
+    if (matchesInvalidationPrefix(key, prefix)) {
+      prefetch.invalidated = true;
+      runtimeState.prefetches.delete(key);
+    }
+  }
 
   for (const key of runtimeState.queryData.keys()) {
     if (matchesInvalidationPrefix(key, prefix)) {

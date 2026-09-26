@@ -6,16 +6,18 @@ import { registerMountOperation } from '../../../src/runtime';
 import { createIsland } from '../../../test-utils/render/create-island';
 
 describe('createIsland cleanup non-strict mode', () => {
-  it('should swallow cleanup errors in non-strict mode', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  it('should report cleanup errors without throwing in non-strict mode', async () => {
+    const reportError = vi.fn();
+    vi.stubGlobal('reportError', reportError);
     const { container, cleanup } = createTestContainer();
+    const error = new Error('cleanup oops');
     let cleaned = false;
 
     const Component = () => {
       registerMountOperation(() => {
         return () => {
           cleaned = true;
-          throw new Error('cleanup oops');
+          throw error;
         };
       });
       return (<div></div>) as unknown as JSXElement;
@@ -23,17 +25,21 @@ describe('createIsland cleanup non-strict mode', () => {
 
     createIsland({ root: container, component: Component });
 
-    // Non-strict cleanup should not throw
     try {
+      // Non-strict cleanup should not throw
       expect(() => cleanupApp(container)).not.toThrow();
 
       // Ensure cleanup function ran (even though it threw)
       expect(cleaned).toBe(true);
-      expect(warn).toHaveBeenCalled();
-    } finally {
-      warn.mockRestore();
-    }
 
-    cleanup();
+      // The failure is reported once the cleanup task finishes.
+      expect(reportError).not.toHaveBeenCalled();
+      await Promise.resolve();
+      expect(reportError).toHaveBeenCalledTimes(1);
+      expect(reportError).toHaveBeenCalledWith(error);
+    } finally {
+      cleanup();
+      vi.unstubAllGlobals();
+    }
   });
 });

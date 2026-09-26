@@ -10,21 +10,14 @@ import {
   type ComponentInstance,
 } from '../../runtime';
 import { hasTransparentComponentResult } from '../../common/control';
-import { pruneComponentHostInstances } from './host-cleanup';
-import {
-  isTransparentComponentResult,
-  normalizeComponentChildren,
-} from '../children/child-shape';
+import { isTransparentComponentResult } from '../children/child-shape';
 import { syncComponentFragmentRange } from './fragment-range';
 import {
   materializeComponentResultNode,
   retainMaterializedReplacementOwnerChain,
   retainReplacementOwnerChain,
 } from './host-results';
-import {
-  resolveHostNestedComponentResult,
-  resolveWrapperHostResult,
-} from './host-nested-results';
+import { resolveHostNestedComponentResult } from './host-nested-results';
 import {
   beginComponentHostReplacement,
   createRetainedHostInstanceSet,
@@ -42,7 +35,7 @@ import {
 } from '../dom-host';
 import { getParentNamespace } from '../intrinsic/namespaces';
 import { getRetainedHostOwnerChain } from '../evaluation/reconcile';
-import { _isDOMElement, type VNode } from '../types';
+import { _isDOMElement } from '../types';
 import { getDefaultPortalHost } from '../../common/default-portal-runtime';
 
 export function replaceComponentRange(
@@ -61,47 +54,9 @@ function replaceComponentRangeInTransaction(
   result: unknown,
   host: Element | Comment
 ): Node | null {
-  if (
-    instance._rootComponentFn ||
-    (
-      instance.props as {
-        __askrAutoDefaultPortal?: boolean;
-      }
-    ).__askrAutoDefaultPortal === true
-  ) {
+  if (instance._rootComponentFn) {
     return null;
   }
-  if (
-    host instanceof Element &&
-    (host as InstanceHostElement).__ASKR_WRAPPER_HOST
-  ) {
-    const retainedInstances = createRetainedHostInstanceSet(
-      instance,
-      (host as InstanceHostNode).__ASKR_INSTANCES
-    );
-    const snapshot =
-      getVNodeContextFrame(result) ?? instance.ownerFrame ?? null;
-    const wrapperResult = resolveWrapperHostResult(
-      host,
-      instance,
-      result,
-      snapshot,
-      retainedInstances
-    );
-    const previousInstance = enterDomCommitScope(wrapperResult.owner);
-    try {
-      getRendererDOMHost().updateElementChildren(
-        host,
-        normalizeComponentChildren(wrapperResult.result) as VNode[]
-      );
-    } finally {
-      endComponentScope(previousInstance);
-    }
-    retainReplacementOwnerChain(host, instance, retainedInstances);
-    pruneComponentHostInstances(host, retainedInstances);
-    return host;
-  }
-
   const instanceHost = host as InstanceHostNode;
   const hostInstances = new Set(instanceHost.__ASKR_INSTANCES ?? []);
   if (instanceHost.__ASKR_INSTANCE) {
@@ -152,9 +107,9 @@ function replaceComponentRangeInTransaction(
     }
 
     if (
-      host instanceof Element &&
       _isDOMElement(result) &&
-      hasTransparentComponentResult(result.type)
+      typeof result.type === 'function' &&
+      (host instanceof Comment || hasTransparentComponentResult(result.type))
     ) {
       const syncedHost = getRendererDOMHost().syncComponentElement(
         host,
@@ -204,7 +159,7 @@ function replaceComponentRangeInTransaction(
     return placeholder;
   }
 
-  if (_isDOMElement(result) && hasTransparentComponentResult(result.type)) {
+  if (_isDOMElement(result) && typeof result.type === 'function') {
     const resolvedResult = resolveHostNestedComponentResult(
       placeholder,
       instance,

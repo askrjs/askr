@@ -89,6 +89,20 @@ redirects, then processes the result and declared query invalidations. When the
 outcome includes a redirect, it performs full-document navigation so cookies,
 authentication, loaders, and SSR state all refresh together.
 
+A failed client-driven submission rejects, and sets `state().error`, with one
+of two shapes. A 422 validation replay for the same action stays the
+structured `ActionValidationError` (`kind: 'invalid'`, `values`, `issues`,
+`fieldErrors`). Every other failed response becomes an `Error` whose message
+carries the HTTP status, such as `Action failed (500).`. The server's value is
+kept as the `Error`'s `cause`: the JSON body's `error` value when present,
+otherwise the body itself (for example an RFC 7807 problem response). A
+string error, or the `detail`, `message`, or `title` of that value, is
+appended (`Action failed (403): You cannot edit this project.`). When the body
+is not JSON (for example an HTML error page from a proxy), including on a 2xx
+status, the message still reports the status and the parse failure is kept as
+`cause`. A bodiless success (a 204 or 205, or an empty 2xx body) resolves
+with `undefined` and still invalidates the action's declared prefixes.
+
 Overlapping client-driven submissions use last-started-wins state semantics,
 including when the first submission's pending state rerenders the component.
 An older request still settles for its direct caller, but it cannot replace the

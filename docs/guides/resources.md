@@ -143,7 +143,10 @@ const html = renderToStringSync(Page, undefined, {
 });
 ```
 
-Resource keys are assigned in render order (`r:0`, `r:1`, ...).
+Resource keys are assigned in render order (`r:0`, `r:1`, ...). They live in
+their own namespace in the hydration payload: dehydrated data-runtime query
+entries are embedded separately, so a query key such as `r:0` never replaces a
+resource slot and resource slots never enter the client data runtime.
 
 When the client hydrates with the same data, the preloaded value seeds the
 resource: it is not pending and its loader does not run. Later re-renders keep
