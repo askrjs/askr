@@ -318,8 +318,17 @@ Collection identity and lifecycle are deterministic:
   freshness, and prefix invalidation. Two collection keys that resolve to the
   same query key share one query cell.
 - `concurrency` defaults to 4 and must be a positive integer. It bounds initial
-  collection loads and `retry()` calls. Direct `entry.query.refresh()` and
-  global `invalidate()` retain their existing immediate query semantics.
+  collection loads, `retry()` calls, and invalidation refetches for entries
+  attached to the collection. Repeated invalidations of a queued entry
+  coalesce. A queued entry with data retains that data and reports
+  `refreshing: true` and `stale: true`; with no data it reports `loading: true`.
+  `markPendingWrite` remains visible as `consistency: 'pending-write'` while
+  the entry waits for a slot.
+- When a query is shared with a plain reader, invalidation uses the collection
+  queue and both readers observe the same queued state. When two collections
+  share a query, the collection with the smaller concurrency limit schedules
+  its invalidation; each collection bounds the work it starts. Direct
+  `entry.query.refresh()` remains immediate and is outside collection limits.
 - During SSR and SSG rendering, the collection reads hydrated query data but
   does not start client fetches. Prefetch the definition's inputs into the
   request-owned runtime before rendering.

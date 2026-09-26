@@ -12,6 +12,7 @@ import {
 } from './invalidation-listeners';
 import type { MutationCell } from './mutation-cell';
 import type { QueryCell } from './query-cell';
+import { invalidateCollectionCell } from './collection-invalidation';
 import type { DataRuntime, DataRuntimeOptions } from './types';
 
 export type QuerySlot = {
@@ -342,6 +343,6 @@ export function invalidateQueriesForRuntime(
       query.markPendingWrite();
     }
 
-    query.invalidate();
+    if (!invalidateCollectionCell(query)) query.invalidate();
   }
 }

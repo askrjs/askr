@@ -383,9 +383,26 @@ export class QueryCell<T> {
     return this.pendingRefresh ?? Promise.resolve();
   }
 
-  invalidate(): void {
+  /** @internal Show an invalidation while a collection waits for a fetch slot. */
+  markQueuedInvalidation(): void {
+    if (this.destroyed) return;
+    this.generation += 1;
+    this.controller?.abort();
+    this.setState(
+      this.state.data === null
+        ? loadingQueryState<T>()
+        : refreshingQueryState(
+            this.state.data,
+            this.state.consistency === 'pending-write'
+              ? 'pending-write'
+              : 'refreshing'
+          )
+    );
+  }
+
+  invalidate(): Promise<void> {
     if (this.destroyed) {
-      return;
+      return Promise.resolve();
     }
 
     if (this.pendingRefresh) {
@@ -393,10 +410,11 @@ export class QueryCell<T> {
       // are equivalent requests and share the in-flight generation.
       this.controller?.abort();
       this.queueStart(undefined, 'invalidation', true);
-      return;
+      return this.pendingRefresh ?? Promise.resolve();
     }
 
     this.queueStart(undefined, 'invalidation');
+    return this.pendingRefresh ?? Promise.resolve();
   }
 
   markPendingWrite(): void {
