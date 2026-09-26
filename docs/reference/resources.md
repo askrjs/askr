@@ -248,6 +248,8 @@ commit are coalesced. Before replacement, Askr aborts the previous generation
 and then runs its synchronous cleanup. Unmounting does the same; remounting
 starts a fresh initial generation. Callback errors follow the owned lifecycle
 error-boundary path. Watchers are inert during SSR and SSG.
+If a callback repeatedly changes its own source in one flush, Askr stops the
+cycle and delivers a reactive-cycle error to the owning error boundary.
 
 `watch()` takes accessors because it subscribes to source identity.
 `resource(source, loader)` reads its source during each positional render and

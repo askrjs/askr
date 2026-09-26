@@ -5,8 +5,12 @@
  */
 
 import { isRouteActivityActive } from '../../common/route-activity';
-import { Computation, untrack } from '../reactive/graph';
-import { effectScheduler } from '../reactive/scheduler';
+import { Computation } from '../reactive/graph';
+import {
+  effectScheduler,
+  MAX_RUNS_PER_FLUSH,
+  queueTask,
+} from '../reactive/scheduler';
 import {
   currentComponent,
   hookSlot,
@@ -74,6 +78,8 @@ interface WatchSlot<TValue> {
   cleanup: (() => void) | null;
   observed: boolean;
   value: TValue | undefined;
+  deliveredValue: TValue | undefined;
+  version: number;
 }
 
 function sameValues(previous: unknown, next: unknown): boolean {
@@ -142,13 +148,31 @@ function startWatch<TValue>(
         reportLifecycleError(instance, error);
         return;
       }
-      if (slot.observed && sameValues(slot.value, value)) return;
-      const previous = slot.value;
+      if (slot.version > 0 && sameValues(slot.value, value)) return;
       slot.value = value;
-      // The callback's own reads are not dependencies of the watch.
-      untrack(() => observe(instance, slot, value, previous));
+      const version = ++slot.version;
+      // The computation must finish subscribing before the callback can
+      // write its source. Only the latest committed value is delivered.
+      queueTask(() => {
+        if (instance.disposed || version !== slot.version) return;
+        const previous = slot.deliveredValue;
+        slot.deliveredValue = value;
+        observe(instance, slot, value, previous);
+      });
     },
-    effectScheduler('post', instance.depth),
+    effectScheduler(
+      'post',
+      instance.depth,
+      () => {
+        reportLifecycleError(
+          instance,
+          new Error(
+            '[Askr] reactive cycle in watch(): the source changed in its own callback.'
+          )
+        );
+      },
+      MAX_RUNS_PER_FLUSH - 2
+    ),
     null
   );
   slot.effect = effect;
@@ -185,6 +209,8 @@ export function watch<TValue>(
     cleanup: null,
     observed: false,
     value: undefined,
+    deliveredValue: undefined,
+    version: 0,
   }));
   if (instance.server) return;
   onCommit(instance, () => {

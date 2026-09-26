@@ -27,6 +27,10 @@ export interface Job {
   readonly skip?: boolean;
   /** Called when the job is dropped without running (scheduler cleared). */
   cancel?(): void;
+  /** Handle a repeatedly queued job at the per-flush limit. */
+  onLimit?(): void;
+  /** A lower limit when this job can repeatedly trigger render work. */
+  maxRuns?: number;
 }
 
 export const MAX_RUNS_PER_FLUSH = 50;
@@ -59,13 +63,20 @@ const computationJobs = new WeakMap<Computation, Job>();
  * is queued in `lane` and brought up to date (re-running only if a source
  * actually changed) when the flush reaches it.
  */
-export function effectScheduler(lane: Lane, depth = 0) {
+export function effectScheduler(
+  lane: Lane,
+  depth = 0,
+  onLimit?: () => void,
+  maxRuns?: number
+) {
   return (computation: Computation): void => {
     let job = computationJobs.get(computation);
     if (!job) {
       job = {
         depth,
         run: () => computation.update(),
+        onLimit,
+        maxRuns,
         get skip() {
           return computation.disposed;
         },
@@ -135,12 +146,20 @@ export function flushSync(): void {
       if (job.skip) continue;
       const count = (runCounts.get(job) ?? 0) + 1;
       runCounts.set(job, count);
-      if (count > MAX_RUNS_PER_FLUSH) {
-        failures.push(
-          new Error(
-            `[Askr] exceeded MAX_FLUSH_DEPTH (${MAX_RUNS_PER_FLUSH}): a scheduled update kept re-queueing itself.`
-          )
-        );
+      if (count > (job.maxRuns ?? MAX_RUNS_PER_FLUSH)) {
+        if (job.onLimit) {
+          try {
+            job.onLimit();
+          } catch (error) {
+            failures.push(error);
+          }
+        } else {
+          failures.push(
+            new Error(
+              `[Askr] exceeded MAX_FLUSH_DEPTH (${MAX_RUNS_PER_FLUSH}): a scheduled update kept re-queueing itself.`
+            )
+          );
+        }
         continue;
       }
       try {
