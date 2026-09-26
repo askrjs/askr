@@ -147,6 +147,10 @@ list in one flush, the list reconcile absorbs the row's scheduled update.
 Removed rows do not run again, and retained rows render once with the latest
 item, index, and getter value.
 
+Re-showing a `Show` branch that contains a `For` renders the current row items,
+positions, and callback values, including when the list and branch change in
+the same flush.
+
 When a keyed row renders a transparent component range, the row continues to
 follow the component's current owned range after reactive resource, portal, or
 result updates. Parent reconciliation preserves that live range and its editor

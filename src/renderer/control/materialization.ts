@@ -85,7 +85,11 @@ export function createForBoundary(
 
     let range: DOMRange | null = null;
 
-    if (itemInstance && itemInstance.scope.range) {
+    if (
+      itemInstance &&
+      itemInstance.scope.range &&
+      !itemInstance.scope.needsDomUpdate
+    ) {
       const cachedRange = itemInstance.scope.range;
       const cachedDom = cachedRange.single ? cachedRange.start : null;
       if (!cachedDom || !checkVNodeShapeChanged(cachedDom, childVNode)) {
