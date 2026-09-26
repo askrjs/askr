@@ -150,12 +150,12 @@ describe.each(['development', 'production'])(
     });
 
     it('should report a throwing listener cleanup and keep draining the subtree', async () => {
-      disableEventDelegation();
       const error = new Error('listener cleanup failed');
       const sibling = vi.fn();
+      // A directly attached (non-delegated) listener is removed on teardown.
       const remove = mountToggle(() => (
         <section>
-          <button id="btn" onClick={() => {}} />
+          <button id="btn" onFocus={() => {}} />
           <b ref={sibling} />
         </section>
       ));
@@ -460,7 +460,6 @@ describe.each(['development', 'production'])(
     });
 
     it('should report listener failures from the keyed replace fast path', async () => {
-      disableEventDelegation();
       const error = new Error('listener cleanup failed');
       let items!: State<number[]>;
       const App = () => {
@@ -468,7 +467,7 @@ describe.each(['development', 'production'])(
         return (
           <ul>
             {items().map((id) => (
-              <li key={id} data-id={String(id)} onClick={() => {}}>
+              <li key={id} data-id={String(id)} onFocus={() => {}}>
                 {String(id)}
               </li>
             ))}
@@ -953,7 +952,7 @@ describe.each(['development', 'production'])(
         return (
           <ul>
             {items().map((id) => (
-              <li key={id} data-id={String(id)} onClick={() => {}}>
+              <li key={id} data-id={String(id)} onFocus={() => {}}>
                 {id === 1 ? <Item /> : String(id)}
               </li>
             ))}

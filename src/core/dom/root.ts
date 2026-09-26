@@ -15,7 +15,7 @@ import { Pass } from './pass';
 import { reconcileChildren } from './reconcile';
 import { ROOT, collectDom, type RootNode } from './tree';
 import { HydrationCursor, syncChildren } from './hydration';
-import { EVENT_ROOT_CONTAINER } from './events';
+import { EVENT_ROOT_CONTAINER, registerEventRoot } from './events';
 import './updates';
 
 export interface PreparedRender {
@@ -58,6 +58,7 @@ export function createRoot(
   };
   let mounted = false;
   let hydrate = options.hydrate === true;
+  let releaseEvents: (() => void) | null = null;
 
   function prepare(value: unknown): PreparedRender {
     const pass = new Pass();
@@ -99,6 +100,7 @@ export function createRoot(
         settled = true;
         mounted = true;
         hydrate = false;
+        releaseEvents ??= registerEventRoot(container);
         pass.commit();
       },
       discard() {
@@ -125,6 +127,8 @@ export function createRoot(
       node.children = [];
       mounted = false;
       owner.dispose(errors);
+      releaseEvents?.();
+      releaseEvents = null;
       return errors;
     },
   };

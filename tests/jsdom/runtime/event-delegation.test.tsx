@@ -23,21 +23,7 @@ import {
   fireEvent,
 } from '../../../test-utils/render/test-renderer';
 import { cleanupApp, createIsland } from '../../../src/boot';
-import {
-  isEventDelegationEnabled,
-  disableEventDelegation,
-  enableEventDelegation,
-  setGlobalDelegationContainer,
-  isDelegatedEvent,
-  getDelegatedHandlerForElement,
-} from '../../../src/renderer/props/events';
 import { state } from '../../../src/index';
-import {
-  enterDomCommitScope,
-  getCurrentComponentInstance,
-  endComponentScope,
-  type ComponentInstance,
-} from '../../../src/runtime';
 
 describe('event delegation', () => {
   let container: HTMLElement;
@@ -47,39 +33,10 @@ describe('event delegation', () => {
     const result = createTestContainer();
     container = result.container;
     cleanup = result.cleanup;
-    // Ensure delegation is enabled for tests
-    enableEventDelegation();
   });
 
   afterEach(() => {
     cleanup();
-    // Reset to default state
-    enableEventDelegation();
-  });
-
-  describe('delegation state management', () => {
-    it('should be enabled by default', () => {
-      expect(isEventDelegationEnabled()).toBe(true);
-    });
-
-    it('should allow disabling delegation', () => {
-      disableEventDelegation();
-      expect(isEventDelegationEnabled()).toBe(false);
-    });
-
-    it('should allow re-enabling delegation', () => {
-      disableEventDelegation();
-      enableEventDelegation();
-      expect(isEventDelegationEnabled()).toBe(true);
-    });
-
-    it('should identify delegated event types', () => {
-      expect(isDelegatedEvent('click')).toBe(true);
-      expect(isDelegatedEvent('input')).toBe(true);
-      expect(isDelegatedEvent('change')).toBe(false);
-      expect(isDelegatedEvent('submit')).toBe(false);
-      expect(isDelegatedEvent('customEvent')).toBe(false);
-    });
   });
 
   describe('delegated click events', () => {
@@ -167,7 +124,6 @@ describe('event delegation', () => {
         </button>
       );
 
-      setGlobalDelegationContainer(document.body);
       createIsland({ root: container, component: Component });
       flushScheduler();
 
@@ -223,9 +179,7 @@ describe('event delegation', () => {
       flushScheduler();
 
       const button = container.querySelector('#btn') as HTMLButtonElement;
-      const initialEntry = getDelegatedHandlerForElement(button, 'click');
-
-      expect(initialEntry).toBeDefined();
+      const addEventListener = vi.spyOn(container, 'addEventListener');
       button.click();
       flushScheduler();
       expect(calls).toEqual(['a']);
@@ -233,12 +187,12 @@ describe('event delegation', () => {
       mode!.set('b');
       flushScheduler();
 
-      const updatedEntry = getDelegatedHandlerForElement(button, 'click');
-      expect(updatedEntry).toBe(initialEntry);
-
       button.click();
       flushScheduler();
       expect(calls).toEqual(['a', 'b']);
+      // The rerender swapped the handler without re-registering a listener.
+      expect(addEventListener).not.toHaveBeenCalled();
+      addEventListener.mockRestore();
     });
 
     it('should handle multiple clicks', () => {
@@ -332,32 +286,6 @@ describe('event delegation', () => {
   });
 
   describe('delegation with state updates', () => {
-    it('should allow event state updates while DOM reconciliation owns the component scope', () => {
-      let instance: ComponentInstance | null = null;
-      const Component = () => {
-        instance = getCurrentComponentInstance();
-        const count = state(0);
-        return (
-          <button id="commit-event" onClick={() => count.set(count() + 1)}>
-            {count()}
-          </button>
-        );
-      };
-
-      createIsland({ root: container, component: Component });
-      flushScheduler();
-
-      const previousInstance = enterDomCommitScope(instance!);
-      try {
-        container.querySelector<HTMLButtonElement>('#commit-event')!.click();
-      } finally {
-        endComponentScope(previousInstance);
-      }
-      flushScheduler();
-
-      expect(container.querySelector('#commit-event')?.textContent).toBe('1');
-    });
-
     it('should trigger reactivity when delegated handler updates state', () => {
       let getCount: (() => number) | undefined;
       const Component = () => {
@@ -437,117 +365,40 @@ describe('event delegation', () => {
     });
   });
 
-  describe('delegation opt-out', () => {
-    it('should use direct listeners when delegation disabled', () => {
-      disableEventDelegation();
-
-      let clicks = 0;
-      const Component = () => (
-        <button id="btn" onClick={() => (clicks += 1)}>
-          Click me
-        </button>
-      );
-
-      createIsland({ root: container, component: Component });
-      flushScheduler();
-
-      const btn = container.querySelector('#btn') as HTMLButtonElement;
-      fireEvent.click(btn);
-      flushScheduler();
-
-      expect(clicks).toBe(1);
-    });
-
-    it('should work after toggling delegation', () => {
-      // Start with delegation enabled
-      let clicks = 0;
-      const Component = () => (
-        <button id="btn" onClick={() => (clicks += 1)}>
-          Click me
-        </button>
-      );
-
-      createIsland({ root: container, component: Component });
-      flushScheduler();
-
-      fireEvent.click(container.querySelector('#btn') as HTMLElement);
-      flushScheduler();
-      expect(clicks).toBe(1);
-
-      // Disable and verify it still works with a new component
-      disableEventDelegation();
-      cleanup();
-
-      const result2 = createTestContainer();
-      container = result2.container;
-      cleanup = result2.cleanup;
-
-      clicks = 0;
-      createIsland({ root: container, component: Component });
-      flushScheduler();
-
-      fireEvent.click(container.querySelector('#btn') as HTMLElement);
-      flushScheduler();
-      expect(clicks).toBe(1);
-    });
-  });
-
-  describe('custom delegation container', () => {
-    it('should allow setting custom delegation container', () => {
-      const customContainer = document.createElement('div');
-      customContainer.id = 'custom-container';
-      document.body.appendChild(customContainer);
-
-      // Create test container as child of custom container
-      const testContainer = document.createElement('div');
-      testContainer.id = 'test-root';
-      customContainer.appendChild(testContainer);
-
+  describe('root listeners', () => {
+    it('should listen once per event type at the app root', () => {
+      const addEventListener = vi.spyOn(container, 'addEventListener');
       try {
-        // Set container before mounting
-        setGlobalDelegationContainer(customContainer);
+        createIsland({
+          root: container,
+          component: () => (
+            <div>
+              <button onClick={() => {}}>{'a'}</button>
+              <button onClick={() => {}}>{'b'}</button>
+            </div>
+          ),
+        });
+        flushScheduler();
 
-        let clicks = 0;
-        const Component = () => (
-          <button id="btn" onClick={() => (clicks += 1)}>
-            Click me
-          </button>
+        const clicks = addEventListener.mock.calls.filter(
+          ([type]) => type === 'click'
         );
-
-        createIsland({ root: testContainer, component: Component });
-        flushScheduler();
-
-        fireEvent.click(testContainer.querySelector('#btn') as HTMLElement);
-        flushScheduler();
-
-        expect(clicks).toBe(1);
+        expect(clicks).toHaveLength(1);
       } finally {
-        cleanupApp(testContainer);
-        document.body.removeChild(customContainer);
-        // Reset to default
-        setGlobalDelegationContainer(document.body);
+        addEventListener.mockRestore();
       }
     });
 
-    it('should remove custom container listeners after the last handler is cleaned up', () => {
-      const customContainer = document.createElement('div');
-      const testContainer = document.createElement('div');
-      customContainer.appendChild(testContainer);
-      document.body.appendChild(customContainer);
-      const removeEventListener = vi.spyOn(
-        customContainer,
-        'removeEventListener'
-      );
-
+    it('should remove root listeners after the app is cleaned up', () => {
+      const removeEventListener = vi.spyOn(container, 'removeEventListener');
       try {
-        setGlobalDelegationContainer(customContainer);
         createIsland({
-          root: testContainer,
+          root: container,
           component: () => <button onClick={() => {}}>{'click'}</button>,
         });
         flushScheduler();
 
-        cleanupApp(testContainer);
+        cleanupApp(container);
 
         expect(removeEventListener).toHaveBeenCalledWith(
           'click',
@@ -555,53 +406,41 @@ describe('event delegation', () => {
         );
       } finally {
         removeEventListener.mockRestore();
-        setGlobalDelegationContainer(document.body);
-        customContainer.remove();
       }
     });
 
-    it('should not retain capture-phase listeners after the last handler is cleaned up', () => {
-      const customContainer = document.createElement('div');
-      document.body.appendChild(customContainer);
-      setGlobalDelegationContainer(customContainer);
-
-      try {
-        for (let index = 0; index < 3; index += 1) {
-          const root = document.createElement('div');
-          customContainer.appendChild(root);
-          createIsland({
-            root,
-            component: () => <div onScroll={() => {}}>{'old'}</div>,
-          });
-          flushScheduler();
-          cleanupApp(root);
-          root.remove();
-        }
-
-        let calls = 0;
-        const activeRoot = document.createElement('div');
-        customContainer.appendChild(activeRoot);
+    it('should not retain direct listeners after their handlers are cleaned up', () => {
+      for (let index = 0; index < 3; index += 1) {
+        const root = document.createElement('div');
+        container.appendChild(root);
         createIsland({
-          root: activeRoot,
-          component: () => (
-            <div id={'active-scroll-target'} onScroll={() => calls++}>
-              {'active'}
-            </div>
-          ),
+          root,
+          component: () => <div onScroll={() => {}}>{'old'}</div>,
         });
         flushScheduler();
-
-        activeRoot
-          .querySelector('#active-scroll-target')!
-          .dispatchEvent(new Event('scroll', { bubbles: true }));
-
-        expect(calls).toBe(1);
-        cleanupApp(activeRoot);
-        activeRoot.remove();
-      } finally {
-        setGlobalDelegationContainer(document.body);
-        customContainer.remove();
+        cleanupApp(root);
+        root.remove();
       }
+
+      let calls = 0;
+      const activeRoot = document.createElement('div');
+      container.appendChild(activeRoot);
+      createIsland({
+        root: activeRoot,
+        component: () => (
+          <div id={'active-scroll-target'} onScroll={() => calls++}>
+            {'active'}
+          </div>
+        ),
+      });
+      flushScheduler();
+
+      activeRoot
+        .querySelector('#active-scroll-target')!
+        .dispatchEvent(new Event('scroll', { bubbles: true }));
+
+      expect(calls).toBe(1);
+      cleanupApp(activeRoot);
     });
   });
 

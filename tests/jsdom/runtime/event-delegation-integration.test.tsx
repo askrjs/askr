@@ -3,11 +3,6 @@ import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { createIsland } from '@askrjs/askr/boot';
 import {
-  disableEventDelegation,
-  enableEventDelegation,
-  setGlobalDelegationContainer,
-} from '../../../src/renderer/props/events';
-import {
   createTestContainer,
   flushScheduler,
   fireEvent,
@@ -17,13 +12,9 @@ describe('event delegation integration (RUNTIME)', () => {
   let { container, cleanup } = createTestContainer();
   beforeEach(() => {
     ({ container, cleanup } = createTestContainer());
-    enableEventDelegation(); // Ensure delegation is enabled
-    setGlobalDelegationContainer(document.body); // Reset to document.body
   });
   afterEach(() => {
     cleanup();
-    enableEventDelegation();
-    setGlobalDelegationContainer(document.body);
   });
 
   describe('multiple islands with delegation', () => {
@@ -72,45 +63,6 @@ describe('event delegation integration (RUNTIME)', () => {
       } finally {
         container1.remove();
         container2.remove();
-      }
-    });
-
-    it('should handle delegation container changes across islands', () => {
-      let clicks = 0;
-
-      const Component = () => {
-        return (
-          <button id="btn" onClick={() => clicks++}>
-            Click
-          </button>
-        );
-      };
-
-      const customContainer = document.createElement('div');
-      customContainer.id = 'custom';
-      document.body.appendChild(customContainer);
-      const island = document.createElement('div');
-      customContainer.appendChild(island);
-
-      // Set custom container BEFORE creating the island
-      setGlobalDelegationContainer(customContainer);
-
-      try {
-        createIsland({ root: island, component: Component });
-        flushScheduler();
-
-        const btn = island.querySelector('#btn') as HTMLButtonElement;
-
-        // Reset to default before clicking to test whether delegation was set up on custom container
-        setGlobalDelegationContainer(document.body);
-
-        fireEvent.click(btn);
-        flushScheduler();
-
-        // Should still work since delegation was attached to custom container at creation time
-        expect(clicks).toBeGreaterThanOrEqual(1);
-      } finally {
-        customContainer.remove();
       }
     });
   });
@@ -428,36 +380,6 @@ describe('event delegation integration (RUNTIME)', () => {
   });
 
   describe('delegation edge cases', () => {
-    it('should handle delegation toggle mid-render', () => {
-      let clicks = 0;
-
-      // Disable delegation
-      disableEventDelegation();
-
-      const Component = () => {
-        return (
-          <button id="btn" onClick={() => clicks++}>
-            Click
-          </button>
-        );
-      };
-
-      createIsland({ root: container, component: Component });
-      flushScheduler();
-
-      const btn = container.querySelector('#btn') as HTMLButtonElement;
-      fireEvent.click(btn);
-      flushScheduler();
-      expect(clicks).toBe(1);
-
-      // Re-enable delegation (won't affect existing listeners)
-      enableEventDelegation();
-
-      fireEvent.click(btn);
-      flushScheduler();
-      expect(clicks).toBe(2);
-    });
-
     it('should handle events with falsy children', () => {
       let clicks = 0;
 
