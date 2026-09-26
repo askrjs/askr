@@ -16,9 +16,9 @@ import {
   createRenderContext,
   componentOutput,
   namespaceAt,
-  readDynamic,
   renderInstance,
   setDynamicUpdateScheduler,
+  updateDynamic,
 } from './nodes';
 import { Pass } from './pass';
 import { reconcileChildren, withOwner } from './reconcile';
@@ -121,8 +121,7 @@ function rerenderDynamic(node: DynamicNode): void {
       node.instance,
       namespaceAt(node.parent!)
     );
-    reconcileChildren(ctx, node, readDynamic(node), false);
-    pass.markRendered(node.instance);
+    updateDynamic(ctx, node);
   });
 }
 

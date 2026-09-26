@@ -8,7 +8,7 @@
 
 import type { ComponentFunction } from '../../common/component';
 import type { Props } from '../../common/props';
-import { ComponentInstance } from '../component/instance';
+import { ComponentInstance, HookOrderChangeError } from '../component/instance';
 import { noteErrorOrigin } from '../component/errors';
 import type { Owner } from '../reactive/owner';
 import { reportUncaughtErrorLater } from '../../common/report-error';
@@ -46,6 +46,8 @@ import {
   HOST,
   ROOT,
   collectDom,
+  containerOf,
+  nextDomAfter,
   type ComponentNode,
   type DynamicNode,
   type FragmentNode,
@@ -54,6 +56,7 @@ import {
   type PortalNode,
   type RNode,
 } from './tree';
+import { reportTeardown } from './teardown';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const MATHML_NS = 'http://www.w3.org/1998/Math/MathML';
@@ -396,13 +399,49 @@ function patchDynamic(
   ctx.pass.onDiscard(() => {
     node.fn = previous;
   });
-  reconcileChildren(
-    withOwner(ctx, node.instance),
-    node,
-    readDynamic(node, ctx.pass),
-    false
-  );
-  ctx.pass.markRendered(node.instance);
+  updateDynamic(ctx, node);
+}
+
+/** Reconcile a function child, remounting only when its own hooks change. */
+export function updateDynamic(ctx: RenderContext, node: DynamicNode): void {
+  const mark = ctx.pass.mark();
+  try {
+    reconcileChildren(
+      withOwner(ctx, node.instance),
+      node,
+      readDynamic(node, ctx.pass),
+      false
+    );
+    ctx.pass.markRendered(node.instance);
+  } catch (error) {
+    if (
+      !(error instanceof HookOrderChangeError) ||
+      error.instance !== node.instance
+    ) {
+      throw error;
+    }
+    for (const failure of ctx.pass.rewind(mark))
+      reportUncaughtErrorLater(failure);
+    const slot = ctx.pass.reserve();
+    const replacement = createDynamic(
+      withOwner(ctx, node.instance.parent),
+      node.parent!,
+      node.fn
+    );
+    ctx.pass.fill(slot, () => {
+      const parent = node.parent!;
+      const container = containerOf(parent);
+      const next = nextDomAfter(node);
+      const oldDom = collectDom(node);
+      const errors: unknown[] = [];
+      for (const dom of oldDom) dom.parentNode?.removeChild(dom);
+      release(node, errors);
+      parent.children[parent.children.indexOf(node)] = replacement;
+      for (const dom of collectDom(replacement))
+        container.insertBefore(dom, next);
+      reportTeardown(errors);
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------

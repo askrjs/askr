@@ -248,6 +248,15 @@ function verifyHookCount(instance: ComponentInstance): void {
   }
 }
 
+export class HookOrderChangeError extends Error {
+  constructor(
+    readonly instance: ComponentInstance,
+    message: string
+  ) {
+    super(message);
+  }
+}
+
 function hookOrderError(
   instance: ComponentInstance,
   index: number,
@@ -255,7 +264,8 @@ function hookOrderError(
   expected: HookKind | undefined
 ): Error {
   const name = instance.fn.name || 'anonymous component';
-  return new Error(
+  return new HookOrderChangeError(
+    instance,
     `[Askr] Hook order changed in ${name}: slot ${index} was ` +
       `${expected ? `${expected}()` : 'not claimed'} on the first render but ` +
       `${actual ? `${actual}()` : 'not claimed'} now. ` +
