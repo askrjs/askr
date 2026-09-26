@@ -15,8 +15,10 @@ describe('For component-range row hydration', () => {
     async (verifyMarkup) => {
       const { container, cleanup } = createTestContainer();
       const Row = (props: { value: string }) => props.value;
+      let reorder!: () => void;
       const Page = () => {
         const rows = state(['a', 'b']);
+        reorder = () => rows.set(['b', 'a']);
         return (
           <section>
             {'before'}
@@ -31,22 +33,20 @@ describe('For component-range row hydration', () => {
       try {
         container.innerHTML = renderToStringSync(Page);
         const section = container.querySelector('section')!;
-        const serverText = Array.from(section.childNodes).filter(
-          (node) => node.nodeType === Node.TEXT_NODE
-        );
+        const serverText = section.firstChild;
+        expect(serverText?.nodeType).toBe(Node.TEXT_NODE);
         await hydrateSPA({
           root: container,
           registry: routeRegistryFromTable([{ path: '/', handler: Page }]),
           hydrate: { verifyMarkup },
         });
         expect(container.querySelector('section')).toBe(section);
-        const clientText = Array.from(section.childNodes).filter(
-          (node) => node.nodeType === Node.TEXT_NODE
-        );
-        expect(clientText).toHaveLength(serverText.length);
-        clientText.forEach((node, index) =>
-          expect(node).toBe(serverText[index])
-        );
+        expect(section.firstChild).toBe(serverText);
+        expect(section.textContent).toBe('beforeabafter');
+
+        reorder();
+        flushScheduler();
+        expect(section.textContent).toBe('beforebaafter');
       } finally {
         cleanup();
       }
