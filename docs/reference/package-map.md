@@ -56,6 +56,13 @@ packages when those packages are installed.
 `@askrjs/askr/experimental` contains construction-only runtime and renderer
 extension wiring for maintainers; see [Experimental runtime extensions](experimental.md).
 
+`@askrjs/askr/foundations/interactions` and
+`@askrjs/askr/foundations/icon` remain published for sibling UI and icon
+packages. They are platform internal building blocks. Applications should
+use `@askrjs/ui` for interaction behavior and `@askrjs/lucide` or
+`@askrjs/logos` for icon components. The published imports remain available
+for those sibling packages while their contracts are maintained together.
+
 `@askrjs/testing` tests HTTP applications through request injection.
 `@askrjs/askr/testing` is a subpath of the core runtime for query-state test
 fixtures. They are separate packages and serve different tests.

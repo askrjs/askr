@@ -85,9 +85,9 @@ the root.
   helpers such as `createCollection` and `createLayer`, plus `isElement` and
   `cloneElement` for framework-compatible JSX composition
 - `@askrjs/askr/foundations/utilities` - prop composition and ID helpers
-- `@askrjs/askr/foundations/interactions` - interaction-policy helpers
+- `@askrjs/askr/foundations/interactions` - platform internal interaction-policy helpers for sibling UI packages
 - `@askrjs/askr/foundations/state` - controllable-state helpers
-- `@askrjs/askr/foundations/icon` - icon contract helpers
+- `@askrjs/askr/foundations/icon` - platform internal icon contracts for sibling icon packages
 - `@askrjs/askr/jsx-runtime` - JSX factory exports plus `JSXElement`, `JSXComponent`, and `JSXElementType`
 - `@askrjs/askr/jsx-dev-runtime` - JSX development runtime exports plus the same JSX public types
 

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- docs(scope): mark the published interaction and icon foundation subpaths as
+  platform internal contracts for sibling UI and icon packages. Their imports
+  and behavior remain available for those packages; application code should
+  use the composed UI and icon packages.
+
 - breaking(api): runtime construction and renderer-host extension exports moved
   from `@askrjs/askr` to `@askrjs/askr/experimental`. Change their import path;
   their behavior and signatures remain the same. The root retains application
