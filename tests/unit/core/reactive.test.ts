@@ -80,6 +80,26 @@ describe('reactive graph', () => {
     expect(seen).toEqual(['x', 'y2']);
   });
 
+  it('should keep outer dependencies across a nested computation run', () => {
+    const first = new Signal(1);
+    const second = new Signal(10);
+    const inner = new Signal(100);
+    const nested = computed(() => inner.read());
+    const seen: number[] = [];
+    effect(() => {
+      const value = first.read();
+      nested.run();
+      seen.push(value + second.read());
+    });
+    first.write(2);
+    flushSync();
+    second.write(20);
+    flushSync();
+    inner.write(200);
+    flushSync();
+    expect(seen).toEqual([11, 12, 22]);
+  });
+
   it('should not track reads inside untrack', () => {
     const a = new Signal(1);
     let runs = 0;

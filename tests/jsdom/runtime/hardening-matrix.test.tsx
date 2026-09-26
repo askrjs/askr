@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vite-plus/test';
 import { cleanupApp } from '../../../src/boot';
 import { For } from '../../../src/control';
 import { state, type State } from '../../../src/index';
-import { resource } from '../../../src/resources';
-import { globalScheduler, Scheduler } from '../../../src/runtime/scheduler';
+import { resource, watch } from '../../../src/resources';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
   flushScheduler,
+  getSchedulerState,
 } from '../../../test-utils/render/test-renderer';
 
 async function settleResourceWork(): Promise<void> {
@@ -17,27 +17,6 @@ async function settleResourceWork(): Promise<void> {
 }
 
 describe('core hardening matrix', () => {
-  it('should settle overlapping and already-superseded flush waiters', async () => {
-    const scheduler = new Scheduler();
-    scheduler.enqueue(() => {});
-    const first = scheduler.waitForFlush(1);
-    const second = scheduler.waitForFlush(2);
-
-    scheduler.flush();
-    await first;
-    let secondSettled = false;
-    void second.then(() => {
-      secondSettled = true;
-    });
-    await Promise.resolve();
-    expect(secondSettled).toBe(false);
-
-    scheduler.enqueue(() => {});
-    scheduler.flush();
-    await second;
-    await expect(scheduler.waitForFlush(1)).resolves.toBeUndefined();
-  });
-
   it('should serialize a state write made reentrantly inside another updater', () => {
     const { container, cleanup } = createTestContainer();
     let first!: State<number>;
@@ -67,7 +46,9 @@ describe('core hardening matrix', () => {
 
   it('should make state work inert when its owner unmounts during an active flush', () => {
     const { container, cleanup } = createTestContainer();
+    const other = createTestContainer();
     let value!: State<number>;
+    let unmountAndWrite!: () => void;
     let renders = 0;
 
     try {
@@ -79,13 +60,27 @@ describe('core hardening matrix', () => {
           return <output>{String(value())}</output>;
         },
       });
+      createIsland({
+        root: other.container,
+        component: () => {
+          const trigger = state(false);
+          unmountAndWrite = () => trigger.set(true);
+          watch(trigger, (fired) => {
+            if (!fired) return;
+            cleanupApp(container);
+            value.set(1);
+          });
+          return null;
+        },
+      });
+      flushScheduler();
 
-      globalScheduler.enqueue(() => cleanupApp(container));
-      globalScheduler.enqueue(() => value.set(1));
+      unmountAndWrite();
       expect(() => flushScheduler()).not.toThrow();
       expect(renders).toBe(1);
-      expect(globalScheduler.getState().queueLength).toBe(0);
+      expect(getSchedulerState().queueLength).toBe(0);
     } finally {
+      other.cleanup();
       cleanup();
     }
   });

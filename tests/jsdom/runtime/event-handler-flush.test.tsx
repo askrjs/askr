@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vite-plus/test';
 import { createIsland } from '../../../src/boot';
 import { state } from '../../../src/index';
 import { For } from '../../../src/control';
-import type { ComponentFunction } from '../../../src/runtime';
+import type { IslandConfig } from '../../../src/boot';
 
 // Lightweight mount helper (mirrors small portion of bench environment)
 function mountToDOM(fn: () => unknown) {
@@ -11,7 +11,7 @@ function mountToDOM(fn: () => unknown) {
   document.body.appendChild(root);
   createIsland({
     root: 'root-test',
-    component: fn as unknown as ComponentFunction,
+    component: fn as IslandConfig['component'],
   });
   return root;
 }
