@@ -180,6 +180,25 @@ export function flushSync(): void {
   }
 }
 
+/** Queue depth and flush status, for test and diagnostic observation. */
+export function getSchedulerState(): {
+  queueLength: number;
+  running: boolean;
+  flushVersion: number;
+  laneQueues: Record<Lane, number>;
+} {
+  return {
+    queueLength: queued.size,
+    running: flushing,
+    flushVersion,
+    laneQueues: {
+      render: lanes.render.length,
+      effect: lanes.effect.length,
+      post: lanes.post.length,
+    },
+  };
+}
+
 export function getFlushVersion(): number {
   return flushVersion;
 }

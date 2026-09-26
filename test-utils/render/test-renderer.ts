@@ -8,10 +8,9 @@
  * Every function here answers ONE question about observable runtime behavior.
  */
 
-import { globalScheduler } from '../../src/runtime/scheduler';
 import {
-  flushSync as flushCoreScheduler,
-  hasPendingWork as hasCorePendingWork,
+  flushSync,
+  getSchedulerState as getCoreSchedulerState,
   waitForFlush as waitForCoreFlush,
 } from '../../src/core/reactive/scheduler';
 import { renderToStringSync } from '../../src/ssr';
@@ -62,10 +61,8 @@ export function createTestContainer(): {
  * If a task throws, this will throw that error
  */
 export function flushScheduler(): void {
-  // Synchronously flush all pending tasks
   // This will throw if any task throws during execution
-  globalScheduler.flush();
-  flushCoreScheduler();
+  flushSync();
 }
 
 /**
@@ -73,45 +70,29 @@ export function flushScheduler(): void {
  * Use when you need to observe intermediate state
  */
 export async function waitForNextEvaluation(): Promise<void> {
-  // Backward-compatible alias to wait for the next scheduler flush
-  // This prevents the common race where tests subscribe after the flush already happened.
   return waitForFlush();
 }
 
+/** Resolve after the next scheduler flush, or immediately when idle. */
 export async function waitForFlush(timeout = 2000): Promise<void> {
-  // Use scheduler-based barrier to wait for the next flush.
-  // If there are no pending tasks and scheduler is quiescent, resolve immediately.
-  const state = globalScheduler.getState();
-  const coreFlush = hasCorePendingWork()
-    ? waitForCoreFlush()
-    : Promise.resolve();
-  if (state.queueLength === 0 && !state.running) return coreFlush;
-
-  // Otherwise wait for the next flushVersion (current + 1)
-  const target =
-    (state as unknown as { flushVersion: number }).flushVersion + 1;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    await Promise.all([
-      globalScheduler.waitForFlush(target, timeout),
-      coreFlush,
+    await Promise.race([
+      waitForCoreFlush(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () =>
+            reject(
+              new Error(
+                `[waitForFlush] timed out after ${timeout}ms: ${JSON.stringify(getCoreSchedulerState())}`
+              )
+            ),
+          timeout
+        );
+      }),
     ]);
-  } catch (err) {
-    // Propagate with extra diagnostics
-    const ns =
-      (
-        globalThis as unknown as Record<string, unknown> & {
-          __ASKR__?: Record<string, unknown>;
-        }
-      ).__ASKR__ || {};
-    console.error('[waitForFlush] timeout diagnostics', {
-      scheduler: globalScheduler.getState(),
-      fastlaneActive: !!(
-        ns as unknown as { __FASTLANE?: { isBulkCommitActive?: () => boolean } }
-      ).__FASTLANE?.isBulkCommitActive?.(),
-      lastFastpath: ns['__LAST_BULK_TEXT_FASTPATH_STATS'],
-      enqueueLogs: ns['__ENQUEUE_LOGS'],
-    });
-    throw err;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -119,7 +100,7 @@ export async function waitForFlush(timeout = 2000): Promise<void> {
  * Get current scheduler state for debugging
  */
 export function getSchedulerState() {
-  return globalScheduler.getState();
+  return getCoreSchedulerState();
 }
 
 /**
