@@ -277,7 +277,7 @@ export function renderInstance(
     const children = reconcileChildren(
       inner,
       node,
-      componentOutput(instance.render()),
+      componentOutput(instance.render((undo) => ctx.pass.onDiscard(undo))),
       fresh
     );
     ctx.pass.markRendered(instance);
@@ -295,7 +295,7 @@ export function renderInstance(
     const children = reconcileChildren(
       inner,
       node,
-      componentOutput(instance.render()),
+      componentOutput(instance.render((undo) => ctx.pass.onDiscard(undo))),
       fresh
     );
     ctx.pass.markRendered(instance);

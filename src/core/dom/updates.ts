@@ -45,6 +45,8 @@ function rerenderInstance(instance: ComponentInstance): void {
     // the same values does not run.
     const before = instance.renderCount;
     const computation = instance.computation;
+    const sources = new Set(computation._sources ?? []);
+    pass.onDiscard(() => computation.restoreSources(sources));
     try {
       computation.update();
       if (computation._hasError) throw computation._error;

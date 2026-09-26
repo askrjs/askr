@@ -115,7 +115,11 @@ export class ComponentInstance extends Owner {
   }
 
   /** Render now with the current props, tracking reads. Throws on failure. */
-  render(): unknown {
+  render(onDiscard?: (undo: () => void) => void): unknown {
+    if (onDiscard && this.mounted) {
+      const sources = new Set(this.computation._sources ?? []);
+      onDiscard(() => this.computation.restoreSources(sources));
+    }
     this.computation.run();
     if (this.computation._hasError) throw this.computation._error;
     return this.computation._value;

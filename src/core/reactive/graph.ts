@@ -214,6 +214,11 @@ export class Computation<T = unknown> extends Owner implements Source {
     this._mark(DIRTY);
   }
 
+  /** Restore subscriptions captured before a discarded component pass. */
+  restoreSources(sources: ReadonlySet<Source>): void {
+    this.setSources(new Set(sources), false);
+  }
+
   /** Force a re-run on the next update, as if a source changed. */
   invalidate(): void {
     this._mark(DIRTY);
