@@ -239,11 +239,25 @@ function patchComponent(
   props: Props
 ): void {
   const instance = node.instance;
-  if (!propsChanged(instance.props, props) && !instance.computation.stale) {
+  if (
+    !propsChanged(instance.props, props) &&
+    !instance.computation.stale &&
+    instance.seenAncestorContextRevision === ancestorContextRevision(instance)
+  ) {
     return;
   }
   instance.setProps(props);
   renderInstance(ctx, node, false);
+}
+
+function ancestorContextRevision(instance: ComponentInstance): number {
+  let revision = 0;
+  for (let owner = instance.parent; owner; owner = owner.parent) {
+    if (owner instanceof ComponentInstance) {
+      revision = Math.max(revision, owner.contextRevision);
+    }
+  }
+  return revision;
 }
 
 /**
@@ -262,6 +276,10 @@ export function renderInstance(
   try {
     const children = reconcileChildren(inner, node, instance.render(), fresh);
     ctx.pass.markRendered(instance);
+    const revision = ancestorContextRevision(instance);
+    ctx.pass.op(() => {
+      instance.seenAncestorContextRevision = revision;
+    });
     return children;
   } catch (error) {
     if (!instance.boundary) throw error;
@@ -271,6 +289,10 @@ export function renderInstance(
     if (!instance.boundary(error)) throw error;
     const children = reconcileChildren(inner, node, instance.render(), fresh);
     ctx.pass.markRendered(instance);
+    const revision = ancestorContextRevision(instance);
+    ctx.pass.op(() => {
+      instance.seenAncestorContextRevision = revision;
+    });
     return children;
   }
 }

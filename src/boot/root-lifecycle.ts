@@ -5,7 +5,7 @@
  * data, data runtime), its default portal, and its cleanup callbacks. The
  * rendered tree is `RootView`, which provides the application runtime and
  * renders the current route handler followed by the automatic default portal
- * host. A new route lifetime is a new `RootView` key.
+ * host. The root view keeps shared route shells in place across navigation.
  */
 
 import type { AppRenderRuntime } from '../common/app-render-runtime';
@@ -60,7 +60,7 @@ export class AppRoot implements AppRootHandle {
       $$typeof: ELEMENT_TYPE,
       type: RootView,
       props: { handler: this.handler, runtime: this.appRuntime },
-      key: this.generation,
+      key: this.routed ? 0 : this.generation,
     } as unknown as JSXElement;
   }
 }

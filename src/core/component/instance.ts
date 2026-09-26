@@ -28,6 +28,7 @@ export interface RenderHost {
 }
 
 let renderHost: RenderHost | null = null;
+let nextContextRevision = 0;
 
 export function setRenderHost(host: RenderHost): void {
   renderHost = host;
@@ -55,6 +56,8 @@ export class ComponentInstance extends Owner {
   serverContext: unknown = undefined;
   /** Error boundary handler, when this instance is a boundary. */
   boundary: ((error: unknown) => boolean) | null = null;
+  contextRevision = 0;
+  seenAncestorContextRevision = 0;
 
   constructor(parent: Owner | null, fn: ComponentFunction, props: Props) {
     super(parent);
@@ -121,8 +124,11 @@ export class ComponentInstance extends Owner {
     const had = context.has(key);
     const previous = context.get(key);
     if (had && Object.is(previous, value)) return;
+    const previousRevision = this.contextRevision;
+    this.contextRevision = ++nextContextRevision;
     context.set(key, value);
     recordUndo(() => {
+      this.contextRevision = previousRevision;
       if (had) context.set(key, previous);
       else context.delete(key);
     });

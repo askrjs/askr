@@ -76,7 +76,11 @@ export function createRouteHandler(
       // Layouts remain part of the route-root render scope. The renderer
       // reconciles their intrinsic root in place, which preserves the shell
       // element while keeping route remount state deterministic.
-      content = layout({ children: content });
+      const rendered = layout({ children: content });
+      content =
+        typeof Node !== 'undefined' && rendered instanceof Node
+          ? null
+          : rendered;
     }
 
     return content;
