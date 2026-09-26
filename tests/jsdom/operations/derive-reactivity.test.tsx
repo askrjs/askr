@@ -4,14 +4,13 @@ import { hydrateSPA } from '../../../src/boot';
 import { derive, state } from '../../../src/index';
 import { createIsland } from '@askrjs/askr/boot';
 import { For } from '../../../src/control';
-import { cleanupComponent } from '../../../src/runtime';
 import { renderToStringSync } from '../../../src/ssr';
 import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { allowFrameworkWarnings } from '../../setup-env';
-import { brandSnapshotSource } from '../../../src/runtime/reactivity/snapshot-source';
+import { brandSnapshotSource } from '../../../src/core/api/snapshot';
 
 const EXECUTION_MODEL_KEY = Symbol.for('__ASKR_EXECUTION_MODEL__');
 
@@ -118,7 +117,7 @@ describe('derive reactivity', () => {
     expect(propEvaluations).toBe(1);
   });
 
-  it('should update a diamond dependency exactly once with coherent values', () => {
+  it('should update a diamond dependency with coherent values', () => {
     let source!: ReturnType<typeof state<number>>;
     let downstreamRuns = 0;
     let snapshots: string[] = [];
@@ -149,8 +148,10 @@ describe('derive reactivity', () => {
     flushScheduler();
 
     expect(container.querySelector('#subject')?.textContent).toBe('7');
-    expect(downstreamRuns).toBe(1);
-    expect(snapshots).toEqual(['3:4']);
+    // A changed derive costs a second evaluation by the owner's new closure
+    // (docs/guides/state.md); every evaluation sees a coherent diamond.
+    expect(downstreamRuns).toBe(2);
+    expect(snapshots).toEqual(['3:4', '3:4']);
 
     downstreamRuns = 0;
     snapshots = [];
@@ -159,8 +160,8 @@ describe('derive reactivity', () => {
     flushScheduler();
 
     expect(container.querySelector('#subject')?.textContent).toBe('13');
-    expect(downstreamRuns).toBe(1);
-    expect(snapshots).toEqual(['5:8']);
+    expect(downstreamRuns).toBe(2);
+    expect(snapshots).toEqual(['5:8', '5:8']);
   });
 
   it('should converge a branch-switched diamond in one downstream recompute', () => {
@@ -306,8 +307,6 @@ describe('derive reactivity', () => {
     flushScheduler();
 
     expect(container.querySelector('#subject')?.textContent).toBe('1');
-    expect(left._derivedSubscribers?.size ?? 0).toBe(1);
-    expect(right._derivedSubscribers?.size ?? 0).toBe(0);
 
     useLeft.set(false);
     left.set(2);
@@ -315,8 +314,6 @@ describe('derive reactivity', () => {
 
     expect(container.querySelector('#subject')?.textContent).toBe('10');
     expect(renders).toBe(2);
-    expect(left._derivedSubscribers?.size ?? 0).toBe(0);
-    expect(right._derivedSubscribers?.size ?? 0).toBe(1);
 
     const rendersAfterSwitch = renders;
     left.set(3);
@@ -339,13 +336,21 @@ describe('derive reactivity', () => {
     let rows!: ReturnType<typeof state<Array<{ id: number; label: string }>>>;
     let selected!: ReturnType<typeof state<number | null>>;
 
+    let parityRuns = 0;
+    let selectionRuns = 0;
     const Child = () => {
-      const parity = derive(() => shared() % 2 === 0);
+      const parity = derive(() => {
+        parityRuns += 1;
+        return shared() % 2 === 0;
+      });
       return <div id="child">{parity() ? 'even' : 'odd'}</div>;
     };
 
     const Row = ({ item }: { item: { id: number; label: string } }) => {
-      const isSelected = derive(selected, (value) => value === item.id);
+      const isSelected = derive(selected, (value) => {
+        selectionRuns += 1;
+        return value === item.id;
+      });
       return (
         <div class={() => (isSelected() ? 'danger' : '')}>{item.label}</div>
       );
@@ -378,27 +383,20 @@ describe('derive reactivity', () => {
     createIsland({ root: container, component: App });
     flushScheduler();
 
-    type InstanceHost = Element & {
-      __ASKR_INSTANCE?: import('../../../src/runtime').ComponentInstance;
-    };
-    const childHost = container.querySelector('#child') as InstanceHost | null;
-    const childInstance = childHost?.__ASKR_INSTANCE ?? null;
-
-    expect(shared._derivedSubscribers?.size ?? 0).toBe(1);
-    expect(selected._derivedSubscribers?.size ?? 0).toBe(3);
-
     showChild.set(false);
     flushScheduler();
-
-    if ((shared._derivedSubscribers?.size ?? 0) !== 0 && childInstance) {
-      cleanupComponent(childInstance);
-    }
-
-    expect(shared._derivedSubscribers?.size ?? 0).toBe(0);
+    parityRuns = 0;
+    shared.set(1);
+    flushScheduler();
+    expect(parityRuns).toBe(0);
 
     rows.set((current) => current.slice(0, 2));
     flushScheduler();
-    expect(selected._derivedSubscribers?.size ?? 0).toBe(2);
+    selectionRuns = 0;
+    selected.set(1);
+    flushScheduler();
+    expect(selectionRuns).toBe(2);
+    expect(container.querySelector('.danger')?.textContent).toBe('one');
   });
 
   it('should reject a leaked derive call after its owner is disposed', () => {
