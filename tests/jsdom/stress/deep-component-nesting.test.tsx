@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from 'vite-plus/test';
+import { ErrorBoundary } from '../../../src/components';
+import { createIsland } from '../../../src/boot';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 import {
   runDeepNestingClientLifecycle,
@@ -42,4 +44,25 @@ describe('deep component nesting', () => {
     },
     stressTestTimeout
   );
+
+  it('should deliver a deep chain failure to its owning boundary', () => {
+    const fixture = createTestContainer();
+    fixtures.push(fixture);
+    const Failure = () => {
+      throw new Error('deep failure');
+    };
+    const Chain = ({ depth }: { depth: number }): unknown =>
+      depth === 0 ? <Failure /> : <Chain depth={depth - 1} />;
+
+    createIsland({
+      root: fixture.container,
+      component: () => (
+        <ErrorBoundary fallback={<p>recovered</p>}>
+          <Chain depth={1_000} />
+        </ErrorBoundary>
+      ),
+    });
+
+    expect(fixture.container.textContent).toBe('recovered');
+  });
 });

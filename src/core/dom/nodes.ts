@@ -20,6 +20,7 @@ import {
   FUNCTION,
   functionChildOutput,
   NATIVE,
+  normalizeChildren,
   PORTAL,
   TEXT,
   type ChildDescriptor,
@@ -302,12 +303,7 @@ export function renderInstance(
     if (instance.mounted) {
       ctx.pass.onDiscard(() => instance.computation.invalidate());
     }
-    const children = reconcileChildren(
-      inner,
-      node,
-      componentOutput(output),
-      fresh
-    );
+    const children = reconcileComponentOutput(inner, node, output, fresh);
     ctx.pass.markRendered(instance);
     const revision = ancestorContextRevision(instance);
     ctx.pass.op(() => {
@@ -336,6 +332,118 @@ export function renderInstance(
     });
     return children;
   }
+}
+
+/**
+ * A component that returns the same component type directly can form a very
+ * deep transparent chain. Walk the hook-free part of that chain explicitly;
+ * all other output still goes through the ordinary child reconciler.
+ */
+function reconcileComponentOutput(
+  ctx: RenderContext,
+  node: ComponentNode,
+  value: unknown,
+  fresh: boolean
+): RNode[] {
+  let output = componentOutput(value);
+  let current = node;
+  let inner = ctx;
+  let creating = fresh;
+  const rendered: ComponentNode[] = [];
+
+  for (;;) {
+    const next =
+      current.instance.hooks.length === 0 && !current.instance.boundary
+        ? selfChild(output, current.instance.fn)
+        : null;
+    if (!next) {
+      const children = reconcileChildren(inner, current, output, creating);
+      if (creating) current.children = children;
+      break;
+    }
+
+    let child: ComponentNode;
+    if (creating) {
+      const instance = new ComponentInstance(
+        current.instance,
+        next.fn,
+        next.props
+      );
+      ctx.pass.own(instance);
+      child = {
+        kind: COMPONENT,
+        parent: current,
+        key: next.key,
+        instance,
+        children: [],
+      };
+      instance.view = child;
+      current.children = [child];
+    } else {
+      const previous = current.children;
+      if (
+        previous.length !== 1 ||
+        previous[0].kind !== COMPONENT ||
+        previous[0].key !== next.key ||
+        previous[0].instance.fn !== next.fn
+      ) {
+        reconcileChildren(inner, current, output, false);
+        break;
+      }
+      child = previous[0];
+      const instance = child.instance;
+      if (
+        !propsChanged(instance.props, next.props) &&
+        !instance.computation.stale &&
+        !instance.computation._hasError &&
+        instance.seenAncestorContextRevision ===
+          ancestorContextRevision(instance)
+      ) {
+        break;
+      }
+      instance.setProps(next.props);
+    }
+
+    const instance = child.instance;
+    rendered.push(child);
+    inner = withOwner(inner, instance);
+    current = child;
+    output = componentOutput(
+      instance.render((undo) => ctx.pass.onDiscard(undo))
+    );
+    if (instance.mounted) {
+      ctx.pass.onDiscard(() => instance.computation.invalidate());
+    }
+    creating = fresh;
+  }
+
+  for (let i = rendered.length - 1; i >= 0; i--) {
+    const instance = rendered[i].instance;
+    ctx.pass.markRendered(instance);
+    const revision = ancestorContextRevision(instance);
+    ctx.pass.op(() => {
+      instance.seenAncestorContextRevision = revision;
+    });
+  }
+  return node.children;
+}
+
+function selfChild(
+  output: unknown,
+  fn: ComponentFunction
+): Extract<ChildDescriptor, { kind: typeof COMPONENT }> | null {
+  if (
+    !output ||
+    typeof output !== 'object' ||
+    Array.isArray(output) ||
+    (output as { type?: unknown }).type !== fn
+  ) {
+    return null;
+  }
+  const children = normalizeChildren(output);
+  return children.length === 1 && children[0].kind === COMPONENT
+    ? children[0]
+    : null;
 }
 
 /** A function returned by a component is a value, not a child slot. */
