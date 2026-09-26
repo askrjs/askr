@@ -784,7 +784,7 @@
         "declare function scheduleIdle(fn: () => void, options?: {\n    timeout?: number;\n}): CancelFn;"
       ],
       "scheduleRetry": [
-        "declare function scheduleRetry<T>(fn: () => Promise<T>, options?: RetryOptions$1): {\n    cancel(): void;\n};"
+        "declare function scheduleRetry<T>(fn: () => Promise<T>, options?: RetryOptions): {\n    cancel(): void;\n};"
       ],
       "scheduleTimeout": [
         "declare function scheduleTimeout(ms: number, fn: () => void): CancelFn;"
@@ -2375,9 +2375,6 @@
     "RetryOptions": [
       "interface RetryOptions {\n    maxAttempts?: number;\n    delayMs?: number;\n    backoff?: (attemptIndex: number) => number;\n}"
     ],
-    "RetryOptions$1": [
-      "interface RetryOptions$1 {\n    maxAttempts?: number;\n    delayMs?: number;\n    backoff?: (attemptIndex: number) => number;\n}"
-    ],
     "route": [
       "declare function route<const TPath extends string, TComponent extends AnyRouteComponent, const TSearchSchema extends ObjectSchema<RouteSearch> | undefined = undefined, TLoaderData = unknown, TDehydratedData = TLoaderData>(path: TPath, Component: CompatibleRouteComponent<TPath, TComponent>, options?: RouteOptionsForComponent<TPath, TComponent, TSearchSchema, TLoaderData, TDehydratedData>): RouteRef<RoutePathParams<TPath>, RouteRefSearch<TSearchSchema>>;",
       "declare function route<const TPath extends string, const TSearchSchema extends ObjectSchema<RouteSearch> | undefined = undefined, TLoaderData = unknown, TDehydratedData = TLoaderData>(path: TPath, Component: RouteComponent<RoutePathParams<TPath>>, options?: RouteOptions<RoutePathParams<TPath>, TSearchSchema, TLoaderData, TDehydratedData>): RouteRef<RoutePathParams<TPath>, RouteRefSearch<TSearchSchema>>;"
@@ -2553,7 +2550,7 @@
       "type SchedulerBulkCommitProbe = () => boolean;"
     ],
     "scheduleRetry": [
-      "declare function scheduleRetry<T>(fn: () => Promise<T>, options?: RetryOptions$1): {\n    cancel(): void;\n};"
+      "declare function scheduleRetry<T>(fn: () => Promise<T>, options?: RetryOptions): {\n    cancel(): void;\n};"
     ],
     "SchedulerLane": [
       "type SchedulerLane = \"derived\" | \"component\" | \"reactive\" | \"post\";"

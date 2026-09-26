@@ -10,7 +10,7 @@ import type { OwnershipRecord } from '../runtime/ownership/record';
 import { isPromiseLike } from '../common/promise';
 import { reportUncaughtError } from '../common/report-error';
 import { noopEventListener, noopEventListenerWithFlush } from './noop';
-import { createDebouncer, createThrottler } from './timing';
+import { createDebouncer, createThrottler, type RetryOptions } from './timing';
 
 export type CancelFn = () => void;
 
@@ -311,12 +311,6 @@ export function scheduleIdle(
 
   release = cancelWithLifecycleOwner(owner, cancel);
   return cancel;
-}
-
-export interface RetryOptions {
-  maxAttempts?: number;
-  delayMs?: number;
-  backoff?: (attemptIndex: number) => number;
 }
 
 /**

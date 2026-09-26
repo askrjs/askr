@@ -212,11 +212,6 @@ declare function scheduleIdle(
     timeout?: number;
   }
 ): CancelFn;
-interface RetryOptions$1 {
-  maxAttempts?: number;
-  delayMs?: number;
-  backoff?: (attemptIndex: number) => number;
-}
 /**
  * Run `fn`, retrying with backoff on failure. Called from a mounted
  * component's task, watch callback, or event handler, pending attempts are
@@ -224,7 +219,7 @@ interface RetryOptions$1 {
  */
 declare function scheduleRetry<T>(
   fn: () => Promise<T>,
-  options?: RetryOptions$1
+  options?: RetryOptions
 ): {
   cancel(): void;
 };
