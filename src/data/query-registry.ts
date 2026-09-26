@@ -9,9 +9,11 @@ import {
   getDefaultDataRuntime,
   findDataRuntimeState,
   writePrefetchedQueryData,
+  type InflightPrefetch,
 } from './data-runtime';
 import type { CoreTelemetry } from '../common/telemetry';
 import { withTelemetry } from '../common/telemetry';
+import { validateJsonTransportValue } from '../common/json-transport';
 
 /** Lookup table of server handlers keyed by their {@link QueryDefinition}, built by {@link defineServerQueries}. */
 export interface ServerQueryRegistry {
@@ -67,6 +69,38 @@ export function defineQuery<TInput, TResult extends {}>(
 const skippedPrefetchDiagnostics = new WeakMap<DataRuntime, Set<string>>();
 
 /**
+ * Throw when query data cannot cross the hydration JSON transport unchanged.
+ * SSR preloads check before anything streams; dehydration checks again.
+ */
+function assertQueryDataTransportSafe(key: string, value: unknown): void {
+  validateJsonTransportValue(
+    value,
+    `Query data for key ${JSON.stringify(key)}`,
+    'Return JSON-compatible query data.'
+  );
+}
+
+/**
+ * Settle with `promise`, or reject with the reason of the first of `signals`
+ * to abort.
+ */
+function raceAbort<T>(
+  promise: Promise<T>,
+  signals: readonly AbortSignal[]
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(signals.find((each) => each.aborted)!.reason);
+    for (const each of signals) {
+      if (each.aborted) abort();
+      each.addEventListener('abort', abort);
+    }
+    void promise.then(resolve, reject).finally(() => {
+      for (const each of signals) each.removeEventListener('abort', abort);
+    });
+  });
+}
+
+/**
  * Create a {@link QueryPrefetchContext} for prefetching query data ahead of
  * render, e.g. during SSR route resolution.
  */
@@ -84,6 +118,26 @@ export function createQueryPrefetchContext(
     options.runtime ??
     (options.mode === 'spa' ? getDefaultDataRuntime() : createDataRuntime());
   const signal = options.signal ?? new AbortController().signal;
+  const storePrefetchedValue = (key: string, value: {}): boolean => {
+    if (signal.aborted) return false;
+    // A reader that mounted while this fetch was in flight owns newer data;
+    // storing this result would revive it on the next mount.
+    if (runtime.queryCache.has(key)) return true;
+    const runtimeState =
+      options.mode !== 'ssr' && typeof window !== 'undefined'
+        ? findDataRuntimeState(runtime)
+        : undefined;
+    if (runtimeState) {
+      writePrefetchedQueryData(runtimeState, key, value);
+    } else {
+      // Fail before an SSR shell streams rather than at dehydration.
+      if (options.mode === 'ssr') assertQueryDataTransportSafe(key, value);
+      // Server/SSG payload building and hand-built runtimes keep every entry
+      // for dehydration.
+      runtime.queryData.set(key, value);
+    }
+    return true;
+  };
   return {
     runtime,
     request: options.request,
@@ -97,7 +151,6 @@ export function createQueryPrefetchContext(
         if (runtime.queryCache.has(key) || runtime.queryData.has(key)) {
           return true;
         }
-        let value: {};
         const handler =
           options.mode === 'ssr' ? options.registry?.get(query) : undefined;
         if (options.mode === 'ssr' && !handler) {
@@ -118,25 +171,59 @@ export function createQueryPrefetchContext(
           }
           return false;
         }
-        value = handler
-          ? await handler({ input, request: options.request, signal })
-          : await query.fetch(input, { signal });
-        if (signal.aborted) return false;
-        // A reader that mounted while this fetch was in flight owns newer
-        // data; storing this result would revive it on the next mount.
-        if (runtime.queryCache.has(key)) return true;
-        const runtimeState =
-          options.mode !== 'ssr' && typeof window !== 'undefined'
-            ? findDataRuntimeState(runtime)
-            : undefined;
-        if (runtimeState) {
-          writePrefetchedQueryData(runtimeState, key, value);
-        } else {
-          // Server/SSG payload building and hand-built runtimes keep every
-          // entry for dehydration.
-          runtime.queryData.set(key, value);
+        // Hand-built runtimes have no state and do not share fetches.
+        const inflight =
+          findDataRuntimeState(runtime)?.prefetches ??
+          new Map<string, InflightPrefetch>();
+        for (;;) {
+          let pending = inflight.get(key);
+          // Join a running fetch for this key unless its own caller already
+          // cancelled it while this caller is still live.
+          const joined =
+            pending !== undefined &&
+            !(pending.signal.aborted && !signal.aborted);
+          if (!joined) {
+            let promise: Promise<{}>;
+            try {
+              promise = Promise.resolve(
+                handler
+                  ? handler({ input, request: options.request, signal })
+                  : query.fetch(input, { signal })
+              );
+            } catch (error) {
+              promise = Promise.reject(error);
+            }
+            pending = { signal, promise, waiters: 0 };
+            inflight.set(key, pending);
+          }
+          const current = pending!;
+          current.waiters += 1;
+          try {
+            let value: {};
+            try {
+              // A joiner honours its own signal, and restarts when the
+              // starting caller aborts, even if the fetch never settles.
+              value = await (joined
+                ? raceAbort(current.promise, [signal, current.signal])
+                : current.promise);
+            } catch (error) {
+              // A fetch cancelled by its starting caller does not fail a
+              // still-live joiner; it starts a replacement.
+              if (current.signal.aborted && !signal.aborted) continue;
+              throw error;
+            }
+            // An invalidation since the fetch started makes its result
+            // stale, including one landing after another caller stored it.
+            return !current.invalidated && storePrefetchedValue(key, value);
+          } finally {
+            // The entry stays reachable by invalidation until its last
+            // caller finishes.
+            current.waiters -= 1;
+            if (current.waiters === 0 && inflight.get(key) === current) {
+              inflight.delete(key);
+            }
+          }
         }
-        return true;
       });
     },
   };
@@ -151,18 +238,18 @@ export async function prefetchQuery<TInput, TResult extends {}>(
   return context.prefetch(query, input);
 }
 
-/** Extract a runtime's cached query data into a JSON-serializable snapshot, dropping non-serializable values. */
+/**
+ * Extract a runtime's cached query data into a JSON-serializable snapshot.
+ * Throws a `TypeError` naming the key and path of any value that would not
+ * survive JSON transport unchanged (for example a `Date`, `Map`, or bigint).
+ */
 export function dehydrateDataRuntime(
   runtime: DataRuntime
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of runtime.queryData) {
-    try {
-      JSON.stringify(value);
-      result[key] = value;
-    } catch {
-      /* omit non-serializable values */
-    }
+    assertQueryDataTransportSafe(key, value);
+    result[key] = value;
   }
   return result;
 }

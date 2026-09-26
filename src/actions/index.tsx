@@ -114,6 +114,32 @@ function normalizeActionRedirect(value: string): string {
   return target.href;
 }
 
+/**
+ * The `Error` an action submission rejects with for a failed or unreadable
+ * response. The message always carries the HTTP status, plus a string
+ * error, or the `detail`, `message`, or `title` of an error object or RFC 7807
+ * problem body. The server value, or the body parse failure, is kept as
+ * `cause`.
+ */
+function actionFailure(status: number, cause?: unknown): Error {
+  let detail = typeof cause === 'string' ? cause : undefined;
+  if (cause && typeof cause === 'object' && !(cause instanceof Error)) {
+    const fields = cause as Record<string, unknown>;
+    detail = [fields.detail, fields.message, fields.title].find(
+      (field): field is string => typeof field === 'string'
+    );
+  }
+  const error = new Error(
+    detail
+      ? `Action failed (${status}): ${detail}`
+      : `Action failed (${status}).`
+  );
+  if (cause !== undefined) {
+    (error as Error & { cause?: unknown }).cause = cause;
+  }
+  return error;
+}
+
 /** Returns a command handle, rather than a hook. */
 export function action<
   TInput extends Record<string, unknown>,
@@ -145,7 +171,18 @@ export function action<
           },
           body: JSON.stringify(input),
         });
-        const envelope = (await response.json()) as {
+        let parsed: unknown;
+        try {
+          const body = await response.text();
+          // A bodiless success (204/205 or an empty 2xx) is a completed
+          // mutation with no result; it still runs declared invalidations.
+          parsed = response.ok && body === '' ? undefined : JSON.parse(body);
+        } catch (cause) {
+          // A proxy or crashed server can answer with HTML or plain text;
+          // keep the HTTP status visible rather than a JSON parse error.
+          throw actionFailure(response.status, cause);
+        }
+        const envelope = (parsed ?? {}) as {
           result?: TResult;
           error?: unknown;
           invalidates?: unknown;
@@ -157,10 +194,13 @@ export function action<
           fieldErrors?: unknown;
         };
         if (!response.ok) {
+          if (envelope.error != null) {
+            throw actionFailure(response.status, envelope.error);
+          }
+          // Otherwise report the body itself, such as a problem response.
           throw (
-            envelope.error ??
             validationError(envelope, descriptor.id) ??
-            new Error(`Action failed (${response.status}).`)
+            actionFailure(response.status, parsed ?? undefined)
           );
         }
         const redirect =

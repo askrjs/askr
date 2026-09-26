@@ -193,6 +193,40 @@ describe('actions', () => {
     expect(status?.error).toEqual(replay);
   });
 
+  it.each([
+    ['204', () => new Response(null, { status: 204 })],
+    ['205', () => new Response(null, { status: 205 })],
+    ['empty 200', () => new Response('', { status: 200 })],
+  ])(
+    'should succeed and invalidate declared prefixes given a %s response',
+    async (_label, respond) => {
+      getDefaultDataRuntime().queryData.set('items:one', { id: 'one' });
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => respond())
+      );
+      vi.stubGlobal('location', {
+        href: 'http://example.test/items',
+        assign: vi.fn(),
+      });
+      let command!: ReturnType<typeof action<{ name: string }>>;
+      const App = () => {
+        command = action(save);
+        return <div />;
+      };
+      const { container, cleanup } = createTestContainer();
+      try {
+        createIsland({ root: container, component: App });
+        flushScheduler();
+        await expect(command.submit({ name: 'Ada' })).resolves.toBeUndefined();
+        expect(getDefaultDataRuntime().queryData.has('items:one')).toBe(false);
+        expect(command.state()).toEqual({ pending: false, result: undefined });
+      } finally {
+        cleanup();
+      }
+    }
+  );
+
   it('should invalidate enhanced envelope prefixes without navigating', async () => {
     getDefaultDataRuntime().queryData.set('items:one', { id: 'one' });
     getDefaultDataRuntime().queryData.set('other:one', { id: 'one' });
@@ -369,6 +403,124 @@ describe('actions', () => {
     }
   });
 
+  it.each([
+    ['a string', 'Not allowed.', 'Action failed (403): Not allowed.'],
+    [
+      'an object with a message',
+      { code: 'forbidden', message: 'Not allowed.' },
+      'Action failed (403): Not allowed.',
+    ],
+    [
+      'an object without a message',
+      { code: 'forbidden' },
+      'Action failed (403).',
+    ],
+  ])(
+    'should throw an Error given %s envelope error',
+    async (_label, envelopeError, message) => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () =>
+          Response.json({ version: 1, error: envelopeError }, { status: 403 })
+        )
+      );
+      vi.stubGlobal('location', {
+        href: 'http://example.test/items',
+        assign: vi.fn(),
+      });
+      let command!: ReturnType<typeof action<{ name: string }>>;
+      const App = () => {
+        command = action(save);
+        return <div />;
+      };
+      const { container, cleanup } = createTestContainer();
+      try {
+        createIsland({ root: container, component: App });
+        flushScheduler();
+        const failure = await command.submit({ name: 'Ada' }).then(
+          () => undefined,
+          (error: unknown) => error
+        );
+        expect(failure).toBeInstanceOf(Error);
+        expect((failure as Error).message).toBe(message);
+        expect((failure as Error).cause).toEqual(envelopeError);
+        expect(command.state().error).toBe(failure);
+      } finally {
+        cleanup();
+      }
+    }
+  );
+
+  async function submitFailure(response: Response): Promise<unknown> {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => response)
+    );
+    vi.stubGlobal('location', {
+      href: 'http://example.test/items',
+      assign: vi.fn(),
+    });
+    let command!: ReturnType<typeof action<{ name: string }>>;
+    const App = () => {
+      command = action(save);
+      return <div />;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      const failure = await command.submit({ name: 'Ada' }).then(
+        () => undefined,
+        (error: unknown) => error
+      );
+      expect(command.state().error).toBe(failure);
+      return failure;
+    } finally {
+      cleanup();
+    }
+  }
+
+  it.each([502, 200])(
+    'should report the HTTP status given a non-JSON %s response',
+    async (status) => {
+      const failure = await submitFailure(
+        new Response('<h1>Not JSON</h1>', {
+          status,
+          headers: { 'content-type': 'text/html' },
+        })
+      );
+      expect(failure).toBeInstanceOf(Error);
+      expect((failure as Error).message).toBe(`Action failed (${status}).`);
+      expect((failure as Error).cause).toBeInstanceOf(SyntaxError);
+    }
+  );
+
+  it.each([
+    [
+      'detail',
+      { title: 'Forbidden', status: 403, detail: 'You cannot edit this.' },
+      'Action failed (403): You cannot edit this.',
+    ],
+    [
+      'title',
+      { title: 'Forbidden', status: 403 },
+      'Action failed (403): Forbidden',
+    ],
+  ])(
+    'should use the problem %s given a problem+json failure',
+    async (_label, problem, message) => {
+      const failure = await submitFailure(
+        new Response(JSON.stringify(problem), {
+          status: 403,
+          headers: { 'content-type': 'application/problem+json' },
+        })
+      );
+      expect(failure).toBeInstanceOf(Error);
+      expect((failure as Error).message).toBe(message);
+      expect((failure as Error).cause).toEqual(problem);
+    }
+  );
+
   it('should put enhanced 422 field errors into reactive error state', async () => {
     const failure = {
       version: 1,
@@ -499,7 +651,9 @@ describe('actions', () => {
         .dispatchEvent(
           new Event('submit', { bubbles: true, cancelable: true })
         );
-      await expect(submitted).rejects.toThrow('Action failed (500).');
+      await expect(submitted).rejects.toThrow(
+        'Action failed (500): Save failed'
+      );
       await waitForNextEvaluation();
       flushScheduler();
       expect(command.state().pending).toBe(false);

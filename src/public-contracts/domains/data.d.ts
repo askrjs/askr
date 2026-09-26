@@ -411,7 +411,11 @@ declare function prefetchQuery<TInput, TResult extends {}>(
   input: TInput
 ): Promise<boolean>;
 
-/** Extract a runtime's cached query data into a JSON-serializable snapshot, dropping non-serializable values. */
+/**
+ * Extract a runtime's cached query data into a JSON-serializable snapshot.
+ * Throws a `TypeError` naming the key and path of any value that would not
+ * survive JSON transport unchanged (for example a `Date`, `Map`, or bigint).
+ */
 declare function dehydrateDataRuntime(
   runtime: DataRuntime
 ): Record<string, unknown>;
