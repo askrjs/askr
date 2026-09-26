@@ -12,13 +12,12 @@ import { cleanupApp, createSPA, hydrateSPA } from '../../../src/boot';
 import { renderToStringSync } from '../../../src/ssr';
 import { ErrorBoundary } from '../../../src/components';
 import { For, Show } from '../../../src/control';
-import { defineScope, readScope } from '../../../src/runtime/context/context';
 import { resource, task, watch } from '../../../src/resources';
 import {
   Portal,
   _resetDefaultPortal,
 } from '../../../src/foundations/structures/portal';
-import { derive, state, type State } from '../../../src/index';
+import { defineScope, derive, readScope, state, type State } from '../../../src/index';
 import {
   createTestContainer,
   flushScheduler,
