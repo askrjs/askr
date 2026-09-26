@@ -530,7 +530,9 @@ export class QueryCell<T> {
           this.finishPendingRefresh(token);
         }
       ),
-      'render'
+      // After queued renders, so state they are about to show (such as
+      // pending-write) commits before the fetch moves the query on.
+      'effect'
     );
   }
 
