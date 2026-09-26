@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { state } from '../../../src/index';
-import { resource } from '../../../src/resources';
+import { resource, task } from '../../../src/resources';
 import { getCurrentComponentInstance } from '../../../src/runtime';
 import { For, Show } from '@askrjs/askr/control';
 import type { JSXElement } from '../../../src/jsx/types';
@@ -235,15 +235,12 @@ describe('For JSX primitive', () => {
     const localSetters = new Map<number, (next: number) => void>();
 
     const Nested = ({ id }: { id: number }) => {
-      const instance = getCurrentComponentInstance();
-      if (!instance) {
-        throw new Error('expected nested component instance');
-      }
-
       const local = state(0);
       localSetters.set(id, local.set);
-      (instance.owner.cleanups ??= []).push(() => {
-        cleanupCounts.set(id, (cleanupCounts.get(id) ?? 0) + 1);
+      task(() => {
+        return () => {
+          cleanupCounts.set(id, (cleanupCounts.get(id) ?? 0) + 1);
+        };
       });
 
       return (
@@ -383,24 +380,20 @@ describe('For JSX primitive', () => {
     const detailCleanups = new Map<number, number>();
 
     const Details = ({ id }: { id: number }) => {
-      const instance = getCurrentComponentInstance();
-      if (!instance) {
-        throw new Error('expected details component instance');
-      }
-      (instance.owner.cleanups ??= []).push(() => {
-        detailCleanups.set(id, (detailCleanups.get(id) ?? 0) + 1);
+      task(() => {
+        return () => {
+          detailCleanups.set(id, (detailCleanups.get(id) ?? 0) + 1);
+        };
       });
 
       return <span data-detail={String(id)}>{`detail:${String(id)}`}</span>;
     };
 
     const Row = ({ item }: { item: Item }) => {
-      const instance = getCurrentComponentInstance();
-      if (!instance) {
-        throw new Error('expected row component instance');
-      }
-      (instance.owner.cleanups ??= []).push(() => {
-        rowCleanups.set(item.id, (rowCleanups.get(item.id) ?? 0) + 1);
+      task(() => {
+        return () => {
+          rowCleanups.set(item.id, (rowCleanups.get(item.id) ?? 0) + 1);
+        };
       });
 
       return (
