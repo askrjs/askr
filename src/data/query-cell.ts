@@ -44,6 +44,7 @@ declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 const RECONCILE_MAX_ATTEMPTS = 3;
 const RECONCILE_RETRY_DELAY_MS = 25;
 const MAX_GC_TIME_MS = 2_147_483_647;
+const DEFAULT_OWNERLESS_GC_TIME_MS = 5 * 60_000;
 
 function validateGcTime(gcTime: number | undefined): void {
   if (
@@ -97,6 +98,7 @@ export class QueryCell<T> {
   private destroyed = false;
   private ownerCount = 0;
   private gcTimer: ReturnType<typeof setTimeout> | null = null;
+  private unownedTimer: ReturnType<typeof setTimeout> | null = null;
   // Attached readers by lifetime and hook slot, with each reader's latest
   // definition (null until the reader defines one).
   private readonly owners = new Map<
@@ -132,6 +134,10 @@ export class QueryCell<T> {
   }
 
   attach(generation: object, hookIndex: number): void {
+    if (this.unownedTimer !== null) {
+      clearTimeout(this.unownedTimer);
+      this.unownedTimer = null;
+    }
     if (this.gcTimer !== null) {
       clearTimeout(this.gcTimer);
       this.gcTimer = null;
@@ -305,6 +311,10 @@ export class QueryCell<T> {
       clearTimeout(this.gcTimer);
       this.gcTimer = null;
     }
+    if (this.unownedTimer !== null) {
+      clearTimeout(this.unownedTimer);
+      this.unownedTimer = null;
+    }
     if (__ASKR_DEVELOPMENT_BUILD__) {
       adjustOwnershipDiagnostic('queryCells', -1);
     }
@@ -313,8 +323,34 @@ export class QueryCell<T> {
     this.reconcileAttemptCount = 0;
     this.ownerCount = 0;
     this.owners.clear();
-    if (this.cache.get(this.key) === this) this.cache.delete(this.key);
+    this.evictFromCache();
     this.finishPendingRefresh();
+  }
+
+  private evictFromCache(): void {
+    if (this.cache.get(this.key) === this) this.cache.delete(this.key);
+  }
+
+  /** A component's inactive definition must not become an ownerless fetcher. */
+  retireInactiveReaderCacheEntry(): boolean {
+    if (this.gcTimer === null) return false;
+    this.destroy();
+    return true;
+  }
+
+  /** Ownerless handles stay usable after their cache lookup window expires. */
+  scheduleUnownedCacheEviction(gcTime: number): void {
+    if (isServerRender() || this.ownerCount > 0 || this.destroyed) return;
+    if (this.unownedTimer !== null) clearTimeout(this.unownedTimer);
+    this.unownedTimer = null;
+    if (gcTime === 0) {
+      this.evictFromCache();
+      return;
+    }
+    this.unownedTimer = setTimeout(() => {
+      this.unownedTimer = null;
+      if (this.ownerCount === 0) this.evictFromCache();
+    }, gcTime);
   }
 
   private getDefinitionConflicts(
@@ -738,11 +774,15 @@ function createLegacyQuery<T extends {}>(
   if (!instance) {
     if (override) return override;
     let cell = cache.get(options.key) as QueryCell<T> | undefined;
+    if (cell?.retireInactiveReaderCacheEntry()) cell = undefined;
     if (!cell) {
       cell = createCell(options, cache);
     } else {
       cell.warnOnConflictingDefinition(options);
     }
+    cell.scheduleUnownedCacheEviction(
+      options.gcTime ?? DEFAULT_OWNERLESS_GC_TIME_MS
+    );
     return cell as unknown as Query<T>;
   }
 

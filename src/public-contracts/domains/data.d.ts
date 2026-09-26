@@ -272,7 +272,7 @@ type QueryOptions<T> = {
   runtime?: DataRuntime;
   initialData?: T;
   skipInitialFetch?: boolean;
-  /** Milliseconds to retain settled data after the last component reader unmounts. Defaults to 0. */
+  /** Cache lifetime in milliseconds. Defaults to 0 after component unmount and five minutes for ownerless client queries. */
   gcTime?: number;
 };
 

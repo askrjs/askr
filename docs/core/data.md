@@ -240,6 +240,11 @@ cached value and supplies the next fetch definition; the timer restarts after
 its last unmount. An in-flight refresh is aborted when the last reader leaves.
 Invalidating an inactive retained key evicts it instead of fetching through an
 unmounted reader's callback.
+Outside a component, a query handle remains usable after its cache lookup
+entry expires. The default ownerless cache lifetime is five minutes, so
+runtime-scoped invalidation can still reach it. Set `gcTime: 0` to skip caching
+or another finite `gcTime` to change that interval. Server rendering
+keeps its request-local entry through dehydration.
 `createQueryCollection()` entries follow the same rules: each collection update redefines
 its entries, so `retry()` and invalidation fetch with the entry's current `input`.
 `stale` covers either a value that still exists but is known to be inconsistent, or an error

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- fix(data): ownerless client queries now evict their cache lookup entry after
+  `gcTime` (five minutes by default, or immediately with `gcTime: 0`) while
+  the returned handle remains usable.
+  SSR request caches retain entries through dehydration.
+
 - feat(data): `createQuery()` accepts `gcTime` to retain settled data for a
   bounded interval after the last component reader unmounts. The default
   remains immediate eviction.

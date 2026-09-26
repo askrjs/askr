@@ -1785,6 +1785,102 @@ describe('data layer', () => {
     }
   });
 
+  it('should keep an ownerless query handle usable with explicit gcTime zero', async () => {
+    const runtime = createDataRuntime();
+    const fetch = vi.fn(async () => 'Ada');
+    const query = createQuery({
+      runtime,
+      key: 'users:ownerless',
+      fetch,
+      skipInitialFetch: true,
+      gcTime: 0,
+    });
+
+    expect(runtime.queryCache.has('users:ownerless')).toBe(false);
+    const pending = query.refresh();
+    flushScheduler();
+    await pending;
+    expect(query.data).toBe('Ada');
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('should evict an ownerless query cache entry after its gcTime', () => {
+    const runtime = createDataRuntime();
+    vi.useFakeTimers();
+    try {
+      createQuery({
+        runtime,
+        key: 'users:ownerless-retained',
+        fetch: async () => 'Ada',
+        skipInitialFetch: true,
+        gcTime: 25,
+      });
+      expect(runtime.queryCache.has('users:ownerless-retained')).toBe(true);
+      vi.advanceTimersByTime(25);
+      expect(runtime.queryCache.has('users:ownerless-retained')).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('should bound the default ownerless query cache lifetime', () => {
+    const runtime = createDataRuntime();
+    vi.useFakeTimers();
+    try {
+      createQuery({
+        runtime,
+        key: 'users:ownerless-default',
+        fetch: async () => 'Ada',
+        skipInitialFetch: true,
+      });
+      vi.advanceTimersByTime(5 * 60_000 - 1);
+      expect(runtime.queryCache.has('users:ownerless-default')).toBe(true);
+      vi.advanceTimersByTime(1);
+      expect(runtime.queryCache.has('users:ownerless-default')).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('should replace an inactive reader definition before an ownerless query fetches', async () => {
+    const runtime = createDataRuntime();
+    const firstFetch = vi.fn(async () => 'first');
+    const nextFetch = vi.fn(async () => 'next');
+    const App = (): JSXElement => {
+      const query = createQuery({
+        runtime,
+        key: 'users:handoff-to-ownerless',
+        fetch: firstFetch,
+        gcTime: 50,
+      });
+      return <span>{query.data ?? 'loading'}</span>;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+      cleanup();
+      expect(runtime.queryCache.has('users:handoff-to-ownerless')).toBe(true);
+
+      const query = createQuery({
+        runtime,
+        key: 'users:handoff-to-ownerless',
+        fetch: nextFetch,
+        skipInitialFetch: true,
+        gcTime: 0,
+      });
+      const pending = query.refresh();
+      flushScheduler();
+      await pending;
+      expect(firstFetch).toHaveBeenCalledTimes(1);
+      expect(nextFetch).toHaveBeenCalledTimes(1);
+      expect(query.data).toBe('next');
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should keep the last value visible while prefix invalidation refreshes', async () => {
     let resolveFirst!: (value: string) => void;
     let resolveSecond!: (value: string) => void;
