@@ -15,7 +15,7 @@
 import type { AuthContext } from '@askrjs/auth';
 import { DEFERRED_BOUNDARY } from '../common/deferred-value';
 import type { JSXElement } from '../common/jsx';
-import { SSR_PORTAL_HOST } from '../common/portal';
+import { createSSRPortalAnchorToken, SSR_PORTAL_HOST } from '../common/portal';
 import { isPromiseLike } from '../common/promise';
 import type { Props } from '../common/props';
 import type { ComponentFunction } from '../common/component';
@@ -35,7 +35,7 @@ import {
   functionChildOutput,
   type ChildDescriptor,
 } from '../core/view/children';
-import { DefaultPortal } from '../core/api/portal';
+import { DefaultPortal, Portal } from '../core/api/portal';
 import { CspNonceScope, validateCspNonce } from '../csp-nonce';
 import { ELEMENT_TYPE, Fragment } from '../jsx';
 import { renderAttrsDirect, resolveReactiveAttributeProps } from './attrs';
@@ -220,6 +220,9 @@ function renderComponent(
   instance.server = true;
   instance.serverContext = render.ctx;
   const output = runComponent(instance);
+  if (fn === Portal) {
+    sink.write(createSSRPortalAnchorToken(render.ctx.ssrPortals.nextHostId++));
+  }
   if (!instance.boundary) {
     withOwner(instance, () => renderValue(componentOutput(output), sink));
     return;
@@ -499,7 +502,11 @@ function resolvePortals(html: string, ctx: RenderContext): string {
                 )
               )
             : '';
-        resolved = resolved.replace(host.token, () => content);
+        const hostContent =
+          host.defaultPortal && active && slot.hasValue
+            ? `<!--askr-range-start-->${content}<!--askr-range-end-->`
+            : content;
+        resolved = resolved.replace(host.token, () => hostContent);
       }
     }
     if (!found) return resolved;
