@@ -20,6 +20,9 @@ test('should publish a complete capability manifest', async () => {
   expect(manifest.version).toBe(1);
   expect(manifest.package).toBe('@askrjs/askr');
   expect(manifest.capabilities.length).toBeGreaterThan(0);
+  const packageJson = JSON.parse(
+    await readFile(path.join(root, 'package.json'), 'utf8')
+  ) as { exports: Record<string, unknown> };
   for (const capability of manifest.capabilities) {
     for (const field of [
       'intent',
@@ -34,6 +37,12 @@ test('should publish a complete capability manifest', async () => {
       expect(capability[field], field).toBeDefined();
     }
     expect(capability.package).toBe('@askrjs/askr');
+    expect(
+      capability.import === manifest.package ||
+        capability.import.startsWith(`${manifest.package}/`)
+    ).toBe(true);
+    const subpath = capability.import.slice('@askrjs/askr'.length);
+    expect(packageJson.exports).toHaveProperty(subpath ? `.${subpath}` : '.');
     expect(Array.isArray(capability.exports)).toBe(true);
     expect(Array.isArray(capability.constraints)).toBe(true);
     await expect(
