@@ -17,7 +17,13 @@ import {
   Portal,
   _resetDefaultPortal,
 } from '../../../src/foundations/structures/portal';
-import { defineScope, derive, readScope, state, type State } from '../../../src/index';
+import {
+  defineScope,
+  derive,
+  readScope,
+  state,
+  type State,
+} from '../../../src/index';
 import {
   createTestContainer,
   flushScheduler,
