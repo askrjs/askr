@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vite-plus/test';
-import { derive, state } from '../../../src/index';
-import { defineScope, readScope } from '../../../src/runtime/context/context';
+import { defineScope, derive, readScope, state } from '../../../src/index';
 import { For } from '@askrjs/askr/control';
 import type { JSXElement } from '../../../src/jsx/types';
 import {

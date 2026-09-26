@@ -16,7 +16,7 @@ import { state } from '../../../src/index';
 import { createDataRuntime } from '../../../src/data';
 import { resource } from '../../../src/resources';
 import { getDelegatedHandlerForElement } from '../../../src/renderer/props/events';
-import { defineScope, readScope } from '../../../src/runtime/context/context';
+import { defineScope, readScope } from '../../../src/index';
 import { Case, For, Match, Show } from '../../../src/control';
 import {
   DefaultPortal,

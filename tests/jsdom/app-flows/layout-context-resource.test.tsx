@@ -1,8 +1,8 @@
 import { resetRouteState, currentRouteRegistry } from '../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { cleanupApp, createSPA } from '../../../src/boot';
-import { defineScope, readScope } from '../../../src/runtime/context/context';
-import { resource } from '../../../src/runtime/operations';
+import { defineScope, readScope } from '../../../src/index';
+import { resource } from '../../../src/resources';
 import { navigate } from '../../../src/router/navigate';
 import { group, Outlet, page, route } from '../../../src/router/route';
 import {
