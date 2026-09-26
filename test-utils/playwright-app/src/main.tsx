@@ -29,6 +29,7 @@ import {
 import { renderToString } from '@askrjs/askr/ssr';
 import { selector } from '../../../src/runtime/reactivity/selector';
 import { globalScheduler } from '../../../src/runtime/scheduler';
+import { flush as flushCoreScheduler } from '@askrjs/askr/testing';
 import {
   getBenchMetrics,
   resetBenchMetrics,
@@ -60,6 +61,11 @@ import {
   shouldMountRoutedShellFromPath,
 } from './scenarios/routed-shell';
 import { mountAdjacentForBoundariesScenario as mountAdjacentForBoundariesFixture } from './scenarios/adjacent-for-boundaries';
+
+function flushSchedulers(): void {
+  globalScheduler.flush();
+  flushCoreScheduler();
+}
 
 type RowData = {
   id: number;
@@ -267,7 +273,7 @@ function mountStateFanoutScenario(): void {
   };
 
   createIsland({ root, component: App });
-  globalScheduler.flush();
+  flushSchedulers();
 }
 
 function mountLargeReactiveTreeScenario(): void {
@@ -288,7 +294,7 @@ function mountLargeReactiveTreeScenario(): void {
   };
 
   createIsland({ root, component: App });
-  globalScheduler.flush();
+  flushSchedulers();
 }
 
 function mountInputTypingScenario(): void {
@@ -322,7 +328,7 @@ function mountInputTypingScenario(): void {
   };
 
   createIsland({ root, component: App });
-  globalScheduler.flush();
+  flushSchedulers();
 }
 
 function HydrationBenchmarkPage() {
@@ -372,7 +378,7 @@ async function mountHydratedBenchmarkTableScenario(
   });
 
   await hydrateSPA({ root, registry });
-  globalScheduler.flush();
+  flushSchedulers();
 }
 
 function StaticQueryDeepLinkPage() {
@@ -405,11 +411,11 @@ async function mountStaticQueryDeepLinkScenario(): Promise<{
     registry,
     hydrate: { verifyMarkup: true },
   });
-  globalScheduler.flush();
+  flushSchedulers();
 
   const text = root.querySelector('p')?.textContent ?? '';
   updateRouteQuery({ q: 'owl', page: 3 });
-  globalScheduler.flush();
+  flushSchedulers();
 
   return {
     preserved: root.querySelector('p') === paragraph,
@@ -420,12 +426,12 @@ async function mountStaticQueryDeepLinkScenario(): Promise<{
 
 function setHydratedRows(rows: RowData[]): void {
   hydrationRowsState?.set(rows);
-  globalScheduler.flush();
+  flushSchedulers();
 }
 
 function setHydratedSelected(id: number | null): void {
   hydrationSelectedState?.set(id);
-  globalScheduler.flush();
+  flushSchedulers();
 }
 
 function setRows(rows: RowData[]): void {
@@ -644,7 +650,7 @@ function getBrowserBenchDefinition(
         },
         action: () => {
           fanoutState?.set(1);
-          globalScheduler.flush();
+          flushSchedulers();
         },
       };
     case 'browser-large-reactive-tree':
@@ -658,7 +664,7 @@ function getBrowserBenchDefinition(
         },
         action: () => {
           largeTreeTickState?.set(1);
-          globalScheduler.flush();
+          flushSchedulers();
         },
       };
     case 'browser-input-typing-1k':
@@ -692,7 +698,7 @@ function getBrowserBenchDefinition(
                   inputType: 'insertText',
                 })
               );
-              globalScheduler.flush();
+              flushSchedulers();
             });
           }
 
@@ -1068,7 +1074,7 @@ function mountErrorBoundaryScenario(): void {
   };
 
   createIsland({ root, component: App });
-  globalScheduler.flush();
+  flushSchedulers();
 }
 
 async function mountGuardedRouterScenario(): Promise<void> {
