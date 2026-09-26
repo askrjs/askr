@@ -9,10 +9,6 @@ import {
   disableEventDelegation,
   enableEventDelegation,
 } from '../../../src/renderer/props/events';
-import {
-  keyedElements,
-  populateKeyMapForElement,
-} from '../../../src/renderer/reconciliation/keyed';
 import { For } from '../../../src/control';
 
 describe('identity edge cases', () => {
@@ -42,16 +38,9 @@ describe('identity edge cases', () => {
     flushScheduler();
     const numberNode = container.querySelector('[data-label="number"]');
     const stringNode = container.querySelector('[data-label="string"]');
-    const keyedParent = container.firstElementChild!;
-    keyedElements.delete(keyedParent);
-    populateKeyMapForElement(keyedParent);
-    const keyedMap = keyedElements.get(keyedParent);
-
     expect(numberNode).not.toBeNull();
     expect(stringNode).not.toBeNull();
     expect(numberNode).not.toBe(stringNode);
-    expect(keyedMap?.get(1)).toBe(numberNode);
-    expect(keyedMap?.get('1')).toBe(stringNode);
 
     items!.set([
       { key: '1', label: 'string next' },
@@ -147,17 +136,14 @@ describe('identity edge cases', () => {
     cleanup();
   });
 
-  it('should deterministically reuse prior DOM nodes for duplicate keys (no ambiguous remounts)', async () => {
+  it('should reject duplicate sibling keys on mount and update', () => {
     const { container, cleanup } = createTestContainer();
 
-    let items: ReturnType<
-      typeof state<Array<{ key: string; label: string }>>
-    > | null = null;
+    let items: ReturnType<typeof state<Array<{ key: string; label: string }>>>;
 
     const Component = () => {
       items = state([
         { key: 'a', label: 'A1' },
-        { key: 'a', label: 'A2' },
         { key: 'b', label: 'B' },
       ]);
 
@@ -174,43 +160,26 @@ describe('identity edge cases', () => {
 
     createIsland({ root: container, component: Component });
     flushScheduler();
+    const before = Array.from(container.querySelectorAll('[data-key]'));
 
-    const aNodesBefore = Array.from(
-      container.querySelectorAll('[data-key="a"]')
-    );
-    expect(aNodesBefore.length).toBe(2);
-    const firstA_before = aNodesBefore[0];
-    const secondA_before = aNodesBefore[1];
-
-    // Swap the two occurrences in the list
     items!.set([
-      { key: 'a', label: 'A2' },
       { key: 'a', label: 'A1' },
+      { key: 'a', label: 'A2' },
       { key: 'b', label: 'B' },
     ]);
-    flushScheduler();
-
-    const aNodesAfter = Array.from(
-      container.querySelectorAll('[data-key="a"]')
+    expect(() => flushScheduler()).toThrow(/Duplicate key a/);
+    expect(Array.from(container.querySelectorAll('[data-key]'))).toEqual(
+      before
     );
-    expect(aNodesAfter.length).toBe(2);
-    const firstA_after = aNodesAfter[0];
-    const secondA_after = aNodesAfter[1];
 
-    // Behavior: the runtime deterministically reuses prior DOM nodes when keys
-    // collide. In the current implementation both prior DOM nodes are reused
-    // and simply moved into their new positions (no remounts for the duplicates).
-    const oldSet = new Set([firstA_before, secondA_before]);
-    const preservedCount = [firstA_after, secondA_after].filter((n) =>
-      oldSet.has(n)
-    ).length;
-    expect(preservedCount).toBe(2);
-
-    // We do not assert a particular label mapping when keys collide (labels may be
-    // reassigned during reconciliation); we assert deterministic reuse of the
-    // prior DOM nodes instead (both prior nodes should be present in the new
-    // children for this duplicate-key case).
-    expect(container.querySelectorAll('[data-key="a"]').length).toBe(2);
+    const DuplicateOnMount = () => (
+      <div>{[<span key="a">A1</span>, <span key="a">A2</span>]}</div>
+    );
+    const other = createTestContainer();
+    expect(() =>
+      createIsland({ root: other.container, component: DuplicateOnMount })
+    ).toThrow(/Duplicate key a/);
+    other.cleanup();
 
     cleanup();
   });

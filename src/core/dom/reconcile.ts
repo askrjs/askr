@@ -93,6 +93,16 @@ export function reconcileChildren(
 ): RNode[] {
   const next = normalizeChildren(value);
   if (fresh) {
+    const seen = new Set<Key>();
+    for (const child of next) {
+      if (child.key === undefined) continue;
+      if (seen.has(child.key)) {
+        throw new Error(
+          `[Askr] Duplicate key ${String(child.key)} among siblings.`
+        );
+      }
+      seen.add(child.key);
+    }
     const result = next.map((child) => ctx.nodes.create(ctx, parent, child));
     if (parent.kind === HOST) {
       if (ctx.hydrate?.container === parent.el) {
