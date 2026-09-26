@@ -678,34 +678,35 @@ describe('For JSX primitive', () => {
     cleanup();
   });
 
-  it('should materialize index keys when iterating JSX element values', () => {
+  it('should retain positional identity when iterating JSX element values by index', () => {
     const { container, cleanup } = createTestContainer();
 
     const children = [<span>A</span>, <span>B</span>];
+    let swap: () => void = () => {};
 
-    const App = () => (
-      <div>
-        <For each={() => children} byIndex={true}>
-          {(child) => child as never}
-        </For>
-      </div>
-    );
+    const App = () => {
+      const [items, setItems] = state(children);
+      swap = () => setItems([children[1], children[0]]);
+      return (
+        <div>
+          <For each={items} byIndex={true}>
+            {(child) => child as never}
+          </For>
+        </div>
+      );
+    };
 
     expect(() =>
       createIsland({ root: container, component: App })
     ).not.toThrow();
 
-    const keyedChildren = Array.from(container.querySelectorAll('span')).map(
-      (node) => ({
-        key: node.getAttribute('data-key'),
-        text: node.textContent,
-      })
-    );
-
-    expect(keyedChildren).toEqual([
-      { key: '0', text: 'A' },
-      { key: '1', text: 'B' },
-    ]);
+    const before = Array.from(container.querySelectorAll('span'));
+    expect(before.map((node) => node.textContent)).toEqual(['A', 'B']);
+    swap();
+    flushScheduler();
+    const after = Array.from(container.querySelectorAll('span'));
+    expect(after).toEqual(before);
+    expect(after.map((node) => node.textContent)).toEqual(['B', 'A']);
 
     cleanup();
   });
