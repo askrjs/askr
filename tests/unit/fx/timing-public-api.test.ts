@@ -7,7 +7,6 @@ import {
   vi,
 } from 'vite-plus/test';
 import {
-  defer,
   debounce,
   idle,
   once,
@@ -169,18 +168,6 @@ describe('fx public timing helpers', () => {
 
     expect(receiver.initialize()).toBe('bound');
     expect(receiver.initialize()).toBe('bound');
-  });
-
-  it('should defer work onto the microtask queue', async () => {
-    const handler = vi.fn();
-
-    defer(handler);
-
-    expect(handler).not.toHaveBeenCalled();
-
-    await Promise.resolve();
-
-    expect(handler).toHaveBeenCalledTimes(1);
   });
 
   it('should coalesce raf() calls onto a single animation frame with the latest arguments', () => {

@@ -2,7 +2,6 @@ import { expectAssignable, expectError, expectType } from 'tsd';
 import {
   debounce,
   debounceEvent,
-  defer,
   idle,
   once,
   raf,
@@ -64,8 +63,6 @@ throttled.cancel();
 const onceOnly = once((value: string) => value.length);
 expectType<(value: string) => number>(onceOnly);
 expectType<number>(onceOnly('value'));
-
-expectType<void>(defer(() => {}));
 
 const rafCallback = raf((value: string) => {
   void value;

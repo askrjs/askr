@@ -15,11 +15,14 @@ and the existing debounce/throttle `cancel()` methods are unchanged.
 - `debounce`
 - `throttle`
 - `once`
-- `defer`
 - `raf`
 - `idle`
 - `timeout`
 - `retry`
+
+For one microtask, use the platform's `queueMicrotask(fn)`. The Askr
+`defer(promise)` helper belongs to `@askrjs/askr/router` and marks deferred
+route data.
 
 ## Event-oriented helpers
 

@@ -289,7 +289,6 @@
     "ThrottleOptions",
     "debounce",
     "debounceEvent",
-    "defer",
     "idle",
     "once",
     "raf",

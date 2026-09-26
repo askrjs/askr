@@ -2,7 +2,7 @@ import { scheduleEventHandler } from '../core.js';
 /**
  * Timing and event-scheduling helpers.
  *
- * The timing helpers (`debounce`, `throttle`, `once`, `defer`, `raf`, `idle`,
+ * The timing helpers (`debounce`, `throttle`, `once`, `raf`, `idle`,
  * `timeout`, `retry`) are plain functions with no runtime dependency. The
  * event and `schedule*` helpers use the Askr scheduler and lifecycle ownership.
  * `debounceEvent`, `throttleEvent`, and `rafEvent` reject invocation during
@@ -95,20 +95,6 @@ declare function throttle<T extends AnyFn>(
  * ```
  */
 declare function once<T extends AnyFn>(fn: T): T;
-/**
- * Defer — schedule on microtask queue
- *
- * Useful for: run-after-current-stack logic
- * More reliable than setTimeout(..., 0)
- *
- * @param fn Function to defer
- *
- * @example
- * ```ts
- * defer(() => update()); // runs after current stack, before next macrotask
- * ```
- */
-declare function defer(fn: () => void): void;
 /**
  * RAF — coalesce multiple updates into single frame
  *
@@ -248,7 +234,6 @@ export {
   type ThrottleOptions,
   debounce,
   debounceEvent,
-  defer,
   idle,
   once,
   raf,

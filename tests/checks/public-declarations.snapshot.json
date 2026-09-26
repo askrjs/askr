@@ -761,7 +761,6 @@
       "DebounceOptions": [
         "interface DebounceOptions {\n    leading?: boolean;\n    trailing?: boolean;\n}"
       ],
-      "defer": ["declare function defer(fn: () => void): void;"],
       "idle": [
         "declare function idle(fn: () => void, options?: {\n    timeout?: number;\n}): void;"
       ],
@@ -820,7 +819,7 @@
         "declare function currentRoute<TParams extends RouteParams = RouteParams, TState = unknown>(): RouteSnapshot<TParams, TState>;"
       ],
       "defer": [
-        "declare function defer$2<T>(promise: PromiseLike<T>): Deferred<T>;"
+        "declare function defer<T>(promise: PromiseLike<T>): Deferred<T>;"
       ],
       "Deferred": [
         "interface Deferred<T> {\n    readonly state: DeferredState;\n    readonly value: T | undefined;\n    readonly error: unknown;\n    readonly promise: Promise<T>;\n    readonly [DEFERRED_VALUE]: true;\n}"
@@ -1498,9 +1497,8 @@
     "DefaultPreventable": [
       "interface DefaultPreventable {\n    defaultPrevented?: boolean;\n    preventDefault?: () => void;\n}"
     ],
-    "defer": ["declare function defer(fn: () => void): void;"],
-    "defer$2": [
-      "declare function defer$2<T>(promise: PromiseLike<T>): Deferred<T>;"
+    "defer": [
+      "declare function defer<T>(promise: PromiseLike<T>): Deferred<T>;"
     ],
     "Deferred": [
       "interface Deferred<T> {\n    readonly state: DeferredState;\n    readonly value: T | undefined;\n    readonly error: unknown;\n    readonly promise: Promise<T>;\n    readonly [DEFERRED_VALUE]: true;\n}"

@@ -283,23 +283,6 @@ export function once<T extends AnyFn>(fn: T): T {
 }
 
 /**
- * Defer — schedule on microtask queue
- *
- * Useful for: run-after-current-stack logic
- * More reliable than setTimeout(..., 0)
- *
- * @param fn Function to defer
- *
- * @example
- * ```ts
- * defer(() => update()); // runs after current stack, before next macrotask
- * ```
- */
-export function defer(fn: () => void): void {
-  Promise.resolve().then(fn);
-}
-
-/**
  * RAF — coalesce multiple updates into single frame
  *
  * Useful for: animation, layout work, render updates
