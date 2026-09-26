@@ -174,6 +174,8 @@ DOM back and routes the error to the nearest `ErrorBoundary` (or throws it from
 the flush) instead of rebuilding the parent with `replaceChildren()`.
 Bulk positional reuse publishes a fresh keyed map after updating rows; readers
 holding the previous map retain their snapshot throughout the update.
+Initial keyed map population likewise publishes only after a complete DOM scan;
+a failed scan propagates its error instead of leaving a misleading empty map.
 
 ```mermaid
 flowchart LR
