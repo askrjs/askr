@@ -186,7 +186,12 @@ function createDerived(
   (computation as { _derived?: boolean })._derived = true;
   return {
     computation,
-    read: markReadable((() => computation.read()) as Derived<unknown>),
+    read: markReadable((() => {
+      if (computation._running) {
+        throw new Error(`${label} cannot read itself recursively`);
+      }
+      return computation.read();
+    }) as Derived<unknown>),
     setCompute(fn) {
       if (fn === current) return;
       current = fn;
@@ -292,6 +297,9 @@ function createSelector<T>(
   watcher.run();
 
   const predicate = ((candidate: T) => {
+    if (watcher._running) {
+      throw new Error('selector() cannot read itself recursively');
+    }
     const entry = candidateSource(candidate, true)!;
     trackSource(entry);
     if (equals !== Object.is) trackSource(allObjects);
