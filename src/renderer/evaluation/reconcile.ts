@@ -175,7 +175,10 @@ function reconcileKeyed(
   children: VNode[],
   oldKeyMap: Map<string | number, Element> | undefined
 ): void {
-  if (getRuntimeEnvValue('ASKR_FORCE_BULK_POSREUSE') === '1') {
+  if (
+    DEVELOPMENT_BUILD_ENABLED &&
+    getRuntimeEnvValue('ASKR_FORCE_BULK_POSREUSE') === '1'
+  ) {
     const result = tryForcedBulkKeyedPath(parent, children);
     if (result) return;
   }

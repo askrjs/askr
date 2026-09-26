@@ -51,6 +51,7 @@ describe('production artifact purity', () => {
     expect(source).not.toContain('__LAST_FASTPATH_COMMIT_COUNT');
     expect(source).not.toContain('__ENQUEUE_LOGS');
     expect(source).not.toContain('ASKR_FASTPATH_DEBUG');
+    expect(source).not.toContain('ASKR_FORCE_BULK_POSREUSE');
     expect(source).not.toContain('recordBenchCounter');
     expect(source).not.toContain('recordBenchTiming');
     expect(source).not.toContain('withBenchMetricScope');

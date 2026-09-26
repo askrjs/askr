@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- fix(renderer): strip the forced positional bulk reuse diagnostic switch from
+  production bundles; it remains available in development tests.
+
 - feat(fx): `scheduleRetry()` now returns a `result` promise with the final
   success value, terminal error, or cancellation status. Terminal errors still
   reach the host reporter.

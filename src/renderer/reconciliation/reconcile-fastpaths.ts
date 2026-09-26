@@ -14,6 +14,8 @@ import {
   recordFastPathStats,
 } from '../utils';
 
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
+
 type VnodeObj = VNode & { type?: unknown; props?: Record<string, unknown> };
 
 /**
@@ -59,7 +61,11 @@ function tryForcedPositionalBulkUpdate(
   newChildren: VNode[],
   keyedVnodes: KeyedVnode[]
 ): Map<string | number, Element> | null {
-  if (getRuntimeEnvValue('ASKR_FORCE_BULK_POSREUSE') !== '1') return null;
+  if (
+    !__ASKR_DEVELOPMENT_BUILD__ ||
+    getRuntimeEnvValue('ASKR_FORCE_BULK_POSREUSE') !== '1'
+  )
+    return null;
   if (keyedVnodes.length === 0 || keyedVnodes.length !== newChildren.length) {
     return null;
   }
