@@ -3,6 +3,10 @@ import { __CONTROL_BOUNDARY__ } from '../../common/vnode';
 import { isSSRPortalHydrationAnchor } from '../../common/portal';
 import { clearControlBoundaryCommitOwner } from '../control/boundaries';
 import {
+  clearMixedParentCommitOwners,
+  registerMixedParentCommitOwners,
+} from '../control/boundaries';
+import {
   commitForBoundaryChildren,
   evaluateControlBoundaryState,
   getControlBoundaryRanges,
@@ -59,6 +63,7 @@ export function updateElementChildren(
 ): void {
   const directControlBoundary = getDirectControlBoundaryVNode(children);
   if (directControlBoundary) {
+    clearMixedParentCommitOwners(el);
     const controlState = getControlBoundaryState(directControlBoundary);
     if (!controlState) {
       throw new Error(
@@ -75,6 +80,7 @@ export function updateElementChildren(
   clearControlBoundaryCommitOwner(el);
 
   if (children === null || children === undefined) {
+    clearMixedParentCommitOwners(el);
     keyedElements.delete(el);
     for (let n = el.firstChild; n;) {
       const next = n.nextSibling;
@@ -101,6 +107,7 @@ export function updateElementChildren(
   }
 
   if (!Array.isArray(children) && isScalarChild(children)) {
+    clearMixedParentCommitOwners(el);
     if (el.childNodes.length === 1 && el.firstChild?.nodeType === 3) {
       const s = String(children);
       const t = el.firstChild as Text;
@@ -126,6 +133,7 @@ export function updateElementChildren(
         rendererReactiveChildDOMHost
       )
     ) {
+      clearMixedParentCommitOwners(el);
       keyedElements.delete(el);
       return;
     }
@@ -137,6 +145,7 @@ export function updateElementChildren(
     }
 
     if (hasKeyedVNodeChildren(normalizedChildren)) {
+      clearMixedParentCommitOwners(el);
       const oldKeyMap = getOrBuildLogicalChildKeyMap(el);
       const newKeyMap = reconcileKeyedChildren(
         el,
@@ -147,19 +156,23 @@ export function updateElementChildren(
       return;
     }
     if (isBulkTextFastPathEligible(el, normalizedChildren)) {
+      clearMixedParentCommitOwners(el);
       performBulkTextReplace(el, normalizedChildren);
       keyedElements.delete(el);
       return;
     }
     updateUnkeyedChildren(el, normalizedChildren, forceUpdate);
+    clearMixedParentCommitOwners(el);
     return;
   }
 
   if (_isDOMElement(children)) {
+    clearMixedParentCommitOwners(el);
     updateUnkeyedChildren(el, [children], forceUpdate);
     return;
   }
 
+  clearMixedParentCommitOwners(el);
   for (let n = el.firstChild; n;) {
     const next = n.nextSibling;
     retireNodeSubtree(n);
@@ -313,6 +326,17 @@ export function updateMixedControlChildren(
   forceUpdate: boolean
 ): void {
   clearControlBoundaryCommitOwner(parent);
+  const forStates = [] as NonNullable<
+    ReturnType<typeof getControlBoundaryState>
+  >[];
+  for (const child of children) {
+    if (!isControlBoundaryVNode(child)) continue;
+    const state = getControlBoundaryState(child);
+    if (state?.kind === 'for') forStates.push(state);
+  }
+  registerMixedParentCommitOwners(parent, children, forStates, (latest) =>
+    updateMixedControlChildren(parent, latest, false)
+  );
   const parentNamespace = getParentNamespace(parent);
   const domHost = getRendererDOMHost();
   let cursor: Node | null = parent.firstChild;

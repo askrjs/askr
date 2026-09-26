@@ -7,6 +7,7 @@ import {
   getCurrentComponentInstance,
   isBenchMetricScopeActive,
   recordBenchCounter,
+  type ControlBoundaryState,
 } from '../runtime';
 import { __CONTROL_BOUNDARY__, __ERROR_BOUNDARY__ } from '../common/vnode';
 import {
@@ -24,6 +25,7 @@ import {
   getControlBoundaryState,
   getDirectControlBoundaryVNode,
   registerControlBoundaryCommitOwner,
+  registerMixedParentCommitOwners,
 } from './control/boundaries';
 
 declare const __ASKR_BENCH_BUILD__: boolean;
@@ -35,7 +37,9 @@ import {
   performBulkTextReplace,
 } from './children/children';
 import {
+  isFragmentVNode,
   maybeWarnMissingKeys,
+  normalizeComponentChildren,
   tryGetStaticCreateFastPathShape,
 } from './children/child-shape';
 import {
@@ -322,6 +326,8 @@ function createIntrinsicElement(
 
     applyPropsToElement(el, props, type, isHydrationSkipped);
 
+    let mixedForStates: ControlBoundaryState[] | undefined;
+    let nestedMixedChildren = false;
     if (!usesDangerousHTML && children !== null && children !== undefined) {
       const controlBoundaryVNode = getDirectControlBoundaryVNode(children);
       if (controlBoundaryVNode) {
@@ -344,15 +350,49 @@ function createIntrinsicElement(
           for (const child of children) {
             const dom = createDOMNode(child, elementNamespace);
             if (dom) el.appendChild(dom);
+            if (_isDOMElement(child)) {
+              if (child.type === __CONTROL_BOUNDARY__) {
+                const state = getControlBoundaryState(child);
+                if (state?.kind === 'for') (mixedForStates ??= []).push(state);
+              } else if (isFragmentType(child.type)) {
+                nestedMixedChildren = true;
+              }
+            } else if (Array.isArray(child)) {
+              nestedMixedChildren = true;
+            }
           }
         } else if (children.length === 1) {
           const dom = createDOMNode(children[0], elementNamespace);
           if (dom) el.appendChild(dom);
+          nestedMixedChildren =
+            Array.isArray(children[0]) || isFragmentVNode(children[0]);
         }
       } else {
         const dom = createDOMNode(children, elementNamespace);
         if (dom) el.appendChild(dom);
+        nestedMixedChildren = isFragmentVNode(children);
       }
+    }
+    let mixedChildren: VNode[] | undefined;
+    if (nestedMixedChildren) {
+      mixedChildren = normalizeComponentChildren(children) as VNode[];
+      mixedForStates = undefined;
+      for (const child of mixedChildren) {
+        if (!_isDOMElement(child) || child.type !== __CONTROL_BOUNDARY__)
+          continue;
+        const state = getControlBoundaryState(child);
+        if (state?.kind === 'for') (mixedForStates ??= []).push(state);
+      }
+    } else if (mixedForStates) {
+      mixedChildren = children as VNode[];
+    }
+    if (mixedForStates?.length && mixedChildren && mixedChildren.length > 1) {
+      registerMixedParentCommitOwners(
+        el,
+        mixedChildren,
+        mixedForStates,
+        (latest) => updateElementChildren(el, latest, false)
+      );
     }
     applySelectValueAfterOptions(el, props, type);
     return el;

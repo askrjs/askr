@@ -182,6 +182,8 @@ describe('SSG hydration bundle', () => {
     // 285,439 on develop, 285,810 bytes total).
     // #445 retains same-type links in a deep wrapper chain and groups a long
     // host owner list by parent (+305 bytes, 286,115 bytes total).
-    expect(initialBytes).toBeLessThanOrEqual(280 * 1024);
+    // 282 KiB: #600 commits mixed-parent For rows locally and invalidates
+    // callbacks after removal (+1,883 bytes, 287,998 bytes total).
+    expect(initialBytes).toBeLessThanOrEqual(282 * 1024);
   });
 });

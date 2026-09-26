@@ -135,6 +135,12 @@ and control boundaries are updated in place instead of being duplicated,
 reordered, or remounted. This applies equally to accessor-backed collections
 and parents that contain portal writers.
 
+Rows of a nested `For` also commit their own reactive updates when the list
+shares an element with text or other children, such as
+`<li>Label: <For each={items}>...</For></li>`. The surrounding children keep
+their DOM identity while rows update, reorder, or leave. A failed parent
+update retains the previous row commit boundary.
+
 When a keyed row renders a transparent component range, the row continues to
 follow the component's current owned range after reactive resource, portal, or
 result updates. Parent reconciliation preserves that live range and its editor
