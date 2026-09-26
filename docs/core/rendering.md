@@ -46,6 +46,9 @@ several as one `AggregateError`:
   components, retiring the previous route, and mount or commit operations that
   throw) produce one report per update.
 
+A disposed component aborts its signal with a context-free `AbortError` reason
+shared across component lifetimes.
+
 An `ErrorBoundary` does not catch teardown errors: they are not render errors,
 and the nearest boundary is often part of the content being removed. Hosts
 without `reportError()`, including Node and jsdom, rethrow the error from a

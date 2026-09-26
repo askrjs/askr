@@ -159,9 +159,14 @@ export class ComponentInstance extends Owner {
   }
 
   protected override onDispose(): void {
-    this.abortController?.abort();
+    this.abortController?.abort(COMPONENT_ABORT_REASON);
   }
 }
+
+const COMPONENT_ABORT_REASON = new DOMException(
+  'This operation was aborted',
+  'AbortError'
+);
 
 function depthOf(owner: Owner | null): number {
   for (let o = owner; o; o = o.parent) {
