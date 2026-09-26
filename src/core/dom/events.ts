@@ -294,7 +294,7 @@ function undelegate(el: Element, eventName: string): void {
     return;
   }
   delegatedUsage.delete(eventName);
-  for (const container of [...containerListeners.keys()]) {
+  for (const container of containerListeners.keys()) {
     unlisten(container, eventName);
   }
 }
