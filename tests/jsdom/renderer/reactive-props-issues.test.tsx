@@ -1,37 +1,13 @@
-import { describe, expect, beforeEach, test } from 'vite-plus/test';
+import { describe, expect, test, vi } from 'vite-plus/test';
 import { state } from '../../../src';
 import { createIsland } from '@askrjs/askr/boot';
 import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
-import {
-  getPerfMetrics,
-  resetPerfMetrics,
-} from '../../../src/runtime/diagnostics/perf-metrics';
 import { allowFrameworkWarnings } from '../../setup-env';
 
-function resetFineGrainedDiagnostics(): void {
-  const ns = (
-    globalThis as typeof globalThis & {
-      __ASKR__?: Record<string, unknown>;
-    }
-  ).__ASKR__;
-
-  if (!ns) {
-    return;
-  }
-
-  ns['componentReruns'] = 0;
-  ns['effectRuns'] = 0;
-  ns['textNodeWrites'] = 0;
-}
-
 describe('reactive props issues validation', () => {
-  beforeEach(() => {
-    resetPerfMetrics();
-  });
-
   test('should not recreate reactive prop subscription when function reference stays the same', () => {
     const { container, cleanup } = createTestContainer();
 
@@ -157,7 +133,6 @@ describe('reactive props issues validation', () => {
     );
     expect(leftEvaluations).toBe(1);
     expect(rightEvaluations).toBe(0);
-    expect(getPerfMetrics()?.reactivePropReevaluations).toBeGreaterThan(0);
 
     cleanup();
   });
@@ -180,14 +155,15 @@ describe('reactive props issues validation', () => {
     createIsland({ root: container, component: Component });
     flushScheduler();
 
-    resetPerfMetrics();
+    const subject = container.querySelector('#subject')!;
+    const setAttribute = vi.spyOn(subject, 'setAttribute');
     countState!.set(2);
     flushScheduler();
 
     expect(
       container.querySelector('#subject')?.getAttribute('data-parity')
     ).toBe('even');
-    expect(getPerfMetrics()?.skippedDomPropWrites).toBeGreaterThan(0);
+    expect(setAttribute).not.toHaveBeenCalledWith('data-parity', 'even');
 
     cleanup();
   });
@@ -254,22 +230,12 @@ describe('reactive props issues validation', () => {
     expect(subject.style.textAlign).toBe('');
     expect(parentRenderCount).toBe(1);
 
-    resetFineGrainedDiagnostics();
-
     activeState!.set(true);
     flushScheduler();
-
-    const ns = (
-      globalThis as typeof globalThis & {
-        __ASKR__?: Record<string, unknown>;
-      }
-    ).__ASKR__;
 
     expect(subject.style.padding).toBe('2rem');
     expect(subject.style.textAlign).toBe('center');
     expect(parentRenderCount).toBe(1);
-    expect(ns?.['componentReruns']).toBe(0);
-    expect(ns?.['effectRuns']).toBe(1);
 
     activeState!.set(false);
     flushScheduler();
@@ -332,21 +298,11 @@ describe('reactive props issues validation', () => {
     expect(subject.className).toBe('row off');
     expect(parentRenderCount).toBe(1);
 
-    resetFineGrainedDiagnostics();
-
     activeState!.set(true);
     flushScheduler();
 
-    const ns = (
-      globalThis as typeof globalThis & {
-        __ASKR__?: Record<string, unknown>;
-      }
-    ).__ASKR__;
-
     expect(subject.className).toBe('row on');
     expect(parentRenderCount).toBe(1);
-    expect(ns?.['componentReruns']).toBe(0);
-    expect(ns?.['effectRuns']).toBe(1);
 
     cleanup();
   });

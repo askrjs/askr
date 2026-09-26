@@ -221,7 +221,8 @@ function bind(
       }
     },
     effectScheduler('effect', (node.owner?.depth ?? 0) + 1),
-    null
+    null,
+    'previous'
   );
   pass.own(binding);
   const install = () => {
