@@ -367,8 +367,14 @@ function createDynamic(
 }
 
 /** Run a function child's read now, tracking what it reads. */
-export function readDynamic(node: DynamicNode): unknown {
-  return componentOutput(node.instance.render());
+export function readDynamic(node: DynamicNode, pass?: Pass): unknown {
+  const output = node.instance.render(
+    pass ? (undo) => pass.onDiscard(undo) : undefined
+  );
+  if (pass && node.instance.mounted) {
+    pass.onDiscard(() => node.computation.invalidate());
+  }
+  return componentOutput(output);
 }
 
 function patchDynamic(
@@ -384,7 +390,7 @@ function patchDynamic(
   reconcileChildren(
     withOwner(ctx, node.instance),
     node,
-    readDynamic(node),
+    readDynamic(node, ctx.pass),
     false
   );
   ctx.pass.markRendered(node.instance);
