@@ -10,7 +10,7 @@ import type { JSXElement } from '../../../src/jsx/types';
 import { routeRegistryFromTable } from '../../router-test-utils';
 import { cleanupApp, createSPA, hydrateSPA } from '../../../src/boot';
 import { renderToStringSync } from '../../../src/ssr';
-import { ErrorBoundary } from '../../../src/components/error-boundary';
+import { ErrorBoundary } from '../../../src/components';
 import { For, Show } from '../../../src/control';
 import { defineScope, readScope } from '../../../src/runtime/context/context';
 import { resource, task, watch } from '../../../src/resources';

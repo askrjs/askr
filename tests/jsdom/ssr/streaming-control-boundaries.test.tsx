@@ -12,7 +12,7 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { routeRegistryFromTable } from '../../router-test-utils';
 import { renderToString, renderToStream } from '../../../src/ssr';
-import { For } from '../../../src/control/for';
+import { For } from '../../../src/control';
 import { Show } from '../../../src/control/show';
 
 function streamChunks(handler: () => unknown): string[] {

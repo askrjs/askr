@@ -3,7 +3,7 @@ import { parseFragment } from 'parse5';
 import { state } from '../../../src';
 import { hydrateSPA } from '../../../src/boot';
 import { For, Show } from '../../../src/control';
-import { ErrorBoundary } from '../../../src/components/error-boundary';
+import { ErrorBoundary } from '../../../src/components';
 import {
   Portal,
   _resetDefaultPortal,

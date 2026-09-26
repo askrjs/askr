@@ -10,8 +10,8 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { routeRegistryFromTable } from '../../router-test-utils';
 import { renderToString, renderToStream } from '../../../src/ssr';
-import { ErrorBoundary } from '../../../src/components/error-boundary';
-import { For } from '../../../src/control/for';
+import { ErrorBoundary } from '../../../src/components';
+import { For } from '../../../src/control';
 import { Show } from '../../../src/control/show';
 
 function Fail(): never {
