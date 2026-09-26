@@ -108,6 +108,46 @@ describe('reconciliation commit errors', () => {
     expect(onError.mock.calls[0][0]).toBe(error);
     expect(container.querySelector('[data-askr-error-boundary]')).toBeTruthy();
   });
+
+  it.each(['data-key', 'data-askr-key-kind'])(
+    'should surface a failed %s write in forced bulk reuse',
+    (attribute) => {
+      const previousFlag = process.env.ASKR_FORCE_BULK_POSREUSE;
+      process.env.ASKR_FORCE_BULK_POSREUSE = '1';
+      let keys!: State<string[]>;
+      const App = () => {
+        keys = state(['a', 'b']);
+        return (
+          <ul>
+            {keys().map((key) => (
+              <li key={key}>{key}</li>
+            ))}
+          </ul>
+        );
+      };
+
+      try {
+        createIsland({ root: container, component: App });
+        flushScheduler();
+        const stable = container.innerHTML;
+        const first = container.querySelector('li')!;
+        const write = Element.prototype.setAttribute;
+        const failure = new Error('key write failed');
+        vi.spyOn(first, 'setAttribute').mockImplementation((name, value) => {
+          if (name === attribute) throw failure;
+          write.call(first, name, value);
+        });
+
+        keys.set(['c', 'd']);
+        expect(() => flushScheduler()).toThrow(failure);
+        expect(container.innerHTML).toBe(stable);
+      } finally {
+        if (previousFlag === undefined)
+          delete process.env.ASKR_FORCE_BULK_POSREUSE;
+        else process.env.ASKR_FORCE_BULK_POSREUSE = previousFlag;
+      }
+    }
+  );
 });
 
 // Reactive child functions commit outside a component update, so they need

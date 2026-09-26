@@ -7,6 +7,7 @@ import {
   vi,
 } from 'vite-plus/test';
 import { ErrorBoundary } from '@askrjs/askr/components';
+import { state } from '../../../src';
 import {
   DefaultPortal,
   Portal,
@@ -256,9 +257,14 @@ describe('SSR portal rendering', () => {
 
   it('should match keyed portal host attributes across SSR and hydration', async () => {
     const Overlay = definePortal();
+    let clicks = 0;
     const Writer = () =>
       Overlay.render({
-        children: <button data-portal-action={'true'}>{'act'}</button>,
+        children: (
+          <button data-portal-action={'true'} onClick={() => (clicks += 1)}>
+            {'act'}
+          </button>
+        ),
       });
     const Page = () => (
       <main>
@@ -284,10 +290,67 @@ describe('SSR portal rendering', () => {
       flushScheduler();
 
       const clientButton = container.querySelector('[data-portal-action]');
+      expect(clientButton).toBe(serverButton);
       expect(clientButton?.getAttribute('data-key')).toBe(serverKey);
       expect(clientButton?.getAttribute('data-askr-key-kind')).toBe(serverKind);
+      (clientButton as HTMLButtonElement).click();
+      expect(clicks).toBe(1);
     } finally {
       cleanup();
     }
   });
+
+  it.each([
+    [true, true],
+    [true, false],
+    [false, true],
+    [false, false],
+  ])(
+    'should retain named portal content when keyed=%s and writerFirst=%s',
+    async (keyed, writerFirst) => {
+      const Overlay = definePortal();
+      let setLabel!: (value: string) => void;
+      let clicks = 0;
+      const Writer = (props: { label: string }) =>
+        Overlay.render({
+          children: (
+            <button data-named-action onClick={() => (clicks += 1)}>
+              {props.label}
+            </button>
+          ),
+        });
+      const Page = () => {
+        const label = state('first');
+        setLabel = label.set;
+        const host = <Overlay key={keyed ? 'overlay' : undefined} />;
+        const writer = <Writer label={label()} />;
+        return <main>{writerFirst ? [writer, host] : [host, writer]}</main>;
+      };
+      const { container, cleanup } = createTestContainer();
+
+      try {
+        container.innerHTML = renderToStringSync(Page);
+        const serverButton = container.querySelector('[data-named-action]');
+        await hydrateSPA({
+          root: container,
+          registry: routeRegistryFromTable([{ path: '/', handler: Page }]),
+          hydrate: { verifyMarkup: true },
+        });
+        expect(container.querySelector('[data-named-action]')).toBe(
+          serverButton
+        );
+        (serverButton as HTMLButtonElement).click();
+        expect(clicks).toBe(1);
+
+        setLabel('second');
+        flushScheduler();
+        expect(container.querySelector('[data-named-action]')).toBe(
+          serverButton
+        );
+        expect(serverButton?.textContent).toBe('second');
+      } finally {
+        cleanup();
+      }
+    }
+  );
 });

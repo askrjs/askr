@@ -498,7 +498,9 @@ export function updateMixedControlChildren(
         parentNamespace,
         forceUpdate,
         undefined,
-        undefined,
+        isHydrationAdoptionScopeActive() && cursor instanceof Text
+          ? cursor.nextSibling
+          : undefined,
         true
       );
       if (synced) {

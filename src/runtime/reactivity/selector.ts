@@ -60,7 +60,7 @@ type SelectorEquals<T> = {
   bivarianceHack(a: T, b: T): boolean;
 }['bivarianceHack'];
 
-interface SelectorLane<T> {
+interface SelectorEqualityGroup<T> {
   _record: SelectorSourceRecord<T>;
   _equals: SelectorEquals<T>;
   _bindingCount: number;
@@ -79,7 +79,7 @@ interface SelectorSourceRecord<T> extends DerivedSubscriber {
   _evaluating: boolean;
   _sources: Set<ReadableSource<unknown>>;
   _pendingDependencySources?: Set<ReadableSource<unknown>>;
-  _lanes: Map<SelectorEquals<T>, SelectorLane<T>>;
+  _equalityGroups: Map<SelectorEquals<T>, SelectorEqualityGroup<T>>;
   /**
    * The component whose hook last bound this record. Only a render closure can
    * read stale props, and a closure belongs to one owner; a record shared by
@@ -95,7 +95,7 @@ interface SelectorHook<T> extends Selector<T> {
   _source: () => T;
   _equals: SelectorEquals<T>;
   _record: SelectorSourceRecord<T> | null;
-  _lane: SelectorLane<T> | null;
+  _equalityGroup: SelectorEqualityGroup<T> | null;
   _active: boolean;
   _disposedValue: T;
   _hasDisposedValue: boolean;
@@ -176,7 +176,7 @@ function isDefaultSelectorEquals<T>(equals: SelectorEquals<T>): boolean {
 }
 
 function createCandidateSource<T>(
-  lane: SelectorLane<T>,
+  group: SelectorEqualityGroup<T>,
   candidate: T
 ): SelectorCandidateSource<T> {
   // Candidate sources are identity/subscription records; unlike public
@@ -184,45 +184,45 @@ function createCandidateSource<T>(
   // selector candidate (large keyed tables commonly create thousands).
   return {
     _candidate: candidate,
-    _record: lane._record,
+    _record: group._record,
   } as unknown as SelectorCandidateSource<T>;
 }
 
 function getCandidateSource<T>(
-  lane: SelectorLane<T>,
+  group: SelectorEqualityGroup<T>,
   candidate: T
 ): SelectorCandidateSource<T> {
   if (isObjectCandidate(candidate)) {
-    const cached = lane._objectCandidates.get(candidate);
+    const cached = group._objectCandidates.get(candidate);
     if (cached) {
       return cached;
     }
 
-    const created = createCandidateSource(lane, candidate);
-    lane._objectCandidates.set(candidate, created);
-    lane._objectCandidateSources.add(created);
+    const created = createCandidateSource(group, candidate);
+    group._objectCandidates.set(candidate, created);
+    group._objectCandidateSources.add(created);
     return created;
   }
 
   const key = candidate as PrimitiveKey;
-  const cached = lane._primitiveCandidates.get(key);
+  const cached = group._primitiveCandidates.get(key);
   if (cached) {
     return cached;
   }
 
-  const created = createCandidateSource(lane, candidate);
-  lane._primitiveCandidates.set(key, created);
+  const created = createCandidateSource(group, candidate);
+  group._primitiveCandidates.set(key, created);
   return created;
 }
 
 function peekCandidateSource<T>(
-  lane: SelectorLane<T>,
+  group: SelectorEqualityGroup<T>,
   candidate: T
 ): SelectorCandidateSource<T> | undefined {
   if (isObjectCandidate(candidate)) {
-    return lane._objectCandidates.get(candidate);
+    return group._objectCandidates.get(candidate);
   }
-  return lane._primitiveCandidates.get(candidate as PrimitiveKey);
+  return group._primitiveCandidates.get(candidate as PrimitiveKey);
 }
 
 function getSelectorSourceRecord<T>(source: () => T): SelectorSourceRecord<T> {
@@ -249,7 +249,7 @@ function createSelectorSourceRecord<T>(
     _pending: false,
     _evaluating: false,
     _sources: new Set(),
-    _lanes: new Map(),
+    _equalityGroups: new Map(),
     _markDirty: () => {
       markSelectorRecordDirty(record as SelectorSourceRecord<unknown>);
     },
@@ -260,7 +260,7 @@ function createSelectorSourceRecord<T>(
       record._evaluating = false;
       record._pendingDependencySources = undefined;
       clearDerivedDependencySubscriptions(record, record._sources);
-      record._lanes.clear();
+      record._equalityGroups.clear();
       selectorRecords.delete(source as ReadableSource<unknown>);
     },
   };
@@ -268,25 +268,25 @@ function createSelectorSourceRecord<T>(
   return record;
 }
 
-function getSelectorLane<T>(
+function getSelectorEqualityGroup<T>(
   record: SelectorSourceRecord<T>,
   equals: SelectorEquals<T>
-): SelectorLane<T> {
-  const cached = record._lanes.get(equals);
+): SelectorEqualityGroup<T> {
+  const cached = record._equalityGroups.get(equals);
   if (cached) {
     return cached;
   }
 
-  const lane = createSelectorLane(record, equals);
-  record._lanes.set(equals, lane);
-  return lane;
+  const group = createSelectorEqualityGroup(record, equals);
+  record._equalityGroups.set(equals, group);
+  return group;
 }
 
-function createSelectorLane<T>(
+function createSelectorEqualityGroup<T>(
   record: SelectorSourceRecord<T>,
   equals: SelectorEquals<T>
-): SelectorLane<T> {
-  const lane: SelectorLane<T> = {
+): SelectorEqualityGroup<T> {
+  const group: SelectorEqualityGroup<T> = {
     _record: record,
     _equals: equals,
     _bindingCount: 0,
@@ -294,7 +294,7 @@ function createSelectorLane<T>(
     _objectCandidates: new WeakMap(),
     _objectCandidateSources: new Set(),
     _cleanup: () => {
-      for (const sourceRef of lane._primitiveCandidates.values()) {
+      for (const sourceRef of group._primitiveCandidates.values()) {
         const readerCount = sourceRef._readers?.size ?? 0;
         sourceRef._readers?.clear();
         if (__ASKR_DEVELOPMENT_BUILD__ && readerCount > 0) {
@@ -302,7 +302,7 @@ function createSelectorLane<T>(
         }
         sourceRef._derivedSubscribers?.clear();
       }
-      for (const sourceRef of lane._objectCandidateSources) {
+      for (const sourceRef of group._objectCandidateSources) {
         const readerCount = sourceRef._readers?.size ?? 0;
         sourceRef._readers?.clear();
         if (__ASKR_DEVELOPMENT_BUILD__ && readerCount > 0) {
@@ -310,13 +310,13 @@ function createSelectorLane<T>(
         }
         sourceRef._derivedSubscribers?.clear();
       }
-      lane._primitiveCandidates.clear();
-      lane._objectCandidates = new WeakMap();
-      lane._objectCandidateSources.clear();
+      group._primitiveCandidates.clear();
+      group._objectCandidates = new WeakMap();
+      group._objectCandidateSources.clear();
     },
   };
 
-  return lane;
+  return group;
 }
 
 function notifySelectorSource(source: SelectorCandidateSource<unknown>): void {
@@ -330,29 +330,29 @@ function notifySelectorSource(source: SelectorCandidateSource<unknown>): void {
   });
 }
 
-function notifyAllSelectorSources<T>(lane: SelectorLane<T>): void {
-  for (const source of lane._primitiveCandidates.values()) {
+function notifyAllSelectorSources<T>(group: SelectorEqualityGroup<T>): void {
+  for (const source of group._primitiveCandidates.values()) {
     notifySelectorSource(source);
   }
-  for (const source of lane._objectCandidateSources) {
+  for (const source of group._objectCandidateSources) {
     notifySelectorSource(source);
   }
 }
 
-function notifySelectorLaneValueChange<T>(
-  lane: SelectorLane<T>,
+function notifySelectorEqualityGroupValueChange<T>(
+  group: SelectorEqualityGroup<T>,
   prevValue: T,
   nextValue: T
 ): void {
-  if (!lane._bindingCount) {
+  if (!group._bindingCount) {
     return;
   }
 
-  if (!isDefaultSelectorEquals(lane._equals)) {
-    if (lane._equals(prevValue, nextValue)) {
+  if (!isDefaultSelectorEquals(group._equals)) {
+    if (group._equals(prevValue, nextValue)) {
       return;
     }
-    notifyAllSelectorSources(lane);
+    notifyAllSelectorSources(group);
     return;
   }
 
@@ -362,11 +362,11 @@ function notifySelectorLaneValueChange<T>(
     // source for every distinct value the source ever passed through, even
     // those no component reads. Peek instead so the candidate cache stays
     // bounded to values that components actually compare against.
-    const prevSource = peekCandidateSource(lane, prevValue);
+    const prevSource = peekCandidateSource(group, prevValue);
     if (prevSource) {
       notifySelectorSource(prevSource);
     }
-    const nextSource = peekCandidateSource(lane, nextValue);
+    const nextSource = peekCandidateSource(group, nextValue);
     if (nextSource) {
       notifySelectorSource(nextSource);
     }
@@ -414,8 +414,8 @@ function recomputeSelectorSourceRecord<T>(
   record._value = nextValue;
 
   if (valueChanged && notifyDownstream && hadValue) {
-    for (const lane of Array.from(record._lanes.values())) {
-      notifySelectorLaneValueChange(lane, prevValue, nextValue);
+    for (const group of Array.from(record._equalityGroups.values())) {
+      notifySelectorEqualityGroupValueChange(group, prevValue, nextValue);
     }
   }
 
@@ -428,39 +428,39 @@ function attachSelectorHookBinding<T>(
   equals: SelectorEquals<T>
 ): void {
   const record = getSelectorSourceRecord(source);
-  const lane = getSelectorLane(record, equals);
+  const group = getSelectorEqualityGroup(record, equals);
 
   hook._source = source;
   hook._equals = equals;
   hook._record = record;
-  hook._lane = lane;
-  lane._bindingCount += 1;
+  hook._equalityGroup = group;
+  group._bindingCount += 1;
   record._owner = hook._owner;
 }
 
 function detachSelectorHookBinding<T>(hook: SelectorHook<T>): void {
   const record = hook._record;
-  const lane = hook._lane;
+  const group = hook._equalityGroup;
 
   hook._record = null;
-  hook._lane = null;
+  hook._equalityGroup = null;
 
-  if (!record || !lane) {
+  if (!record || !group) {
     return;
   }
 
-  if (lane._bindingCount > 0) {
-    lane._bindingCount -= 1;
+  if (group._bindingCount > 0) {
+    group._bindingCount -= 1;
   }
 
-  if (lane._bindingCount > 0) {
+  if (group._bindingCount > 0) {
     return;
   }
 
-  lane._cleanup();
-  record._lanes.delete(lane._equals);
+  group._cleanup();
+  record._equalityGroups.delete(group._equals);
 
-  if (record._lanes.size === 0) {
+  if (record._equalityGroups.size === 0) {
     record._cleanup();
   }
 }
@@ -469,19 +469,19 @@ function ensureSelectorHookBinding<T>(
   hook: SelectorHook<T>
 ): SelectorSourceRecord<T> {
   const record = hook._record;
-  const lane = hook._lane;
+  const group = hook._equalityGroup;
 
   if (
     record &&
-    lane &&
-    lane._bindingCount > 0 &&
-    record._lanes.get(hook._equals) === lane &&
+    group &&
+    group._bindingCount > 0 &&
+    record._equalityGroups.get(hook._equals) === group &&
     record._source === hook._source
   ) {
     return record;
   }
 
-  if (hook._record || hook._lane) {
+  if (hook._record || hook._equalityGroup) {
     detachSelectorHookBinding(hook);
   }
 
@@ -513,12 +513,12 @@ function createSelectorHook<T>(
 
     const record =
       selectorHook._record ?? ensureSelectorHookBinding(selectorHook);
-    const lane = selectorHook._lane;
-    if (!lane) {
+    const group = selectorHook._equalityGroup;
+    if (!group) {
       throw new Error('selector() binding could not be established.');
     }
 
-    const sourceRef = getCandidateSource(lane, candidate);
+    const sourceRef = getCandidateSource(group, candidate);
     recordReadableRead(sourceRef);
 
     if (record._evaluating) {
@@ -537,7 +537,7 @@ function createSelectorHook<T>(
         ? recomputeSelectorSourceRecord(record, record._pending)
         : record._value;
 
-    return lane._equals(current, candidate);
+    return group._equals(current, candidate);
   } as SelectorHook<T>;
 
   hook._owner = instance;
@@ -545,7 +545,7 @@ function createSelectorHook<T>(
   hook._source = source;
   hook._equals = equals;
   hook._record = null;
-  hook._lane = null;
+  hook._equalityGroup = null;
   hook._active = true;
   hook._disposedValue = undefined as T;
   hook._hasDisposedValue = false;
@@ -587,7 +587,11 @@ function getOrCreateSelectorHook<T>(
   const existing = store.get(hookIndex) as SelectorHook<T> | undefined;
   if (existing) {
     if (existing._source !== source || existing._equals !== equals) {
-      if (existing._equals === equals && existing._record && existing._lane) {
+      if (
+        existing._equals === equals &&
+        existing._record &&
+        existing._equalityGroup
+      ) {
         const record = existing._record;
         selectorRecords.delete(record._source);
         record._source = source;

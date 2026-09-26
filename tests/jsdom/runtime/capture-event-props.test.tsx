@@ -38,6 +38,21 @@ describe('capture event props', () => {
     });
   });
 
+  it('should normalize typed multiword event props and capture suffixes', () => {
+    expect(parseEventProp('onAnimationEnd')).toEqual({
+      eventName: 'animationend',
+      capture: false,
+    });
+    expect(parseEventProp('onDragStartCapture')).toEqual({
+      eventName: 'dragstart',
+      capture: true,
+    });
+    expect(parseEventProp('onGotPointerCaptureCapture')).toEqual({
+      eventName: 'gotpointercapture',
+      capture: true,
+    });
+  });
+
   it('should allow cancellation given wheel and touch handlers when they call preventDefault', () => {
     expect(getPassiveOptions('wheel')).toEqual({ passive: false });
     expect(getPassiveOptions('touchstart')).toEqual({ passive: false });

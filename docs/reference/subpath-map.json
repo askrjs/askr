@@ -20,8 +20,8 @@
       "stability": "stable"
     },
     "./foundations/interactions": {
-      "purpose": "interaction policies",
-      "stability": "stable"
+      "purpose": "interaction building blocks for sibling UI packages",
+      "stability": "internal"
     },
     "./foundations/state": {
       "purpose": "state foundations",
@@ -32,8 +32,8 @@
       "stability": "stable"
     },
     "./foundations/icon": {
-      "purpose": "icon contracts",
-      "stability": "stable"
+      "purpose": "icon contracts for sibling icon packages",
+      "stability": "internal"
     },
     "./resources": {
       "purpose": "async lifecycle helpers",
@@ -42,6 +42,10 @@
     "./data": {
       "purpose": "query and mutation helpers",
       "stability": "stable"
+    },
+    "./experimental": {
+      "purpose": "construction-only runtime and renderer extensions",
+      "stability": "experimental"
     },
     "./testing": { "purpose": "consumer test helpers", "stability": "stable" },
     "./fx": { "purpose": "timing and effects", "stability": "stable" },

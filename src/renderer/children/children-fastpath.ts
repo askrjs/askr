@@ -89,9 +89,9 @@ export function performBulkPositionalKeyedTextUpdate(
           });
         }
 
+        setDataKey(child, key, () => (updatedKeys += 1));
         updateTextContent(child, children, vnode as DOMElement);
         retireComponentOwnersForIntrinsicReuse(child);
-        setDataKey(child, key, () => (updatedKeys += 1));
         reused += 1;
         continue;
       }
@@ -222,20 +222,41 @@ function setDataKey(
   key: string | number,
   onSet: () => void
 ): void {
+  const next = String(key);
+  const keyKind = typeof key;
+  const previousKey = el.getAttribute('data-key');
+  const previousKind = el.getAttribute('data-askr-key-kind');
+  if (previousKey === next && previousKind === keyKind) return;
   try {
-    const next = String(key);
-    const keyKind = typeof key;
-    if (
-      el.getAttribute('data-key') === next &&
-      el.getAttribute('data-askr-key-kind') === keyKind
-    )
-      return;
     el.setAttribute('data-key', next);
     el.setAttribute('data-askr-key-kind', keyKind);
-    onSet();
-  } catch {
-    // Ignore errors setting data-key
+  } catch (error) {
+    const restoreErrors: unknown[] = [];
+    try {
+      if (el.getAttribute('data-key') !== previousKey) {
+        if (previousKey === null) el.removeAttribute('data-key');
+        else el.setAttribute('data-key', previousKey);
+      }
+    } catch (restoreError) {
+      restoreErrors.push(restoreError);
+    }
+    try {
+      if (el.getAttribute('data-askr-key-kind') !== previousKind) {
+        if (previousKind === null) el.removeAttribute('data-askr-key-kind');
+        else el.setAttribute('data-askr-key-kind', previousKind);
+      }
+    } catch (restoreError) {
+      restoreErrors.push(restoreError);
+    }
+    if (restoreErrors.length > 0) {
+      throw new AggregateError(
+        [error, ...restoreErrors],
+        'Failed to restore bulk reuse key attributes'
+      );
+    }
+    throw error;
   }
+  onSet();
 }
 
 function replaceNodeAtPosition(
@@ -259,20 +280,11 @@ function updateKeyedElementsMap(
   parent: Element,
   keyedVnodes: Array<{ key: string | number; vnode: VNode }>
 ): void {
-  try {
-    const existing = keyedElements.get(parent);
-    const newKeyMap = existing
-      ? (existing.clear(), existing)
-      : new Map<string | number, Element>();
-
-    for (let index = 0; index < keyedVnodes.length; index += 1) {
-      const key = keyedVnodes[index].key;
-      const child = parent.children[index] as Element | undefined;
-      if (child) newKeyMap.set(key, child);
-    }
-
-    keyedElements.set(parent, newKeyMap);
-  } catch {
-    // Ignore errors updating key map
+  const nextKeyMap = new Map<string | number, Element>();
+  for (let index = 0; index < keyedVnodes.length; index += 1) {
+    const key = keyedVnodes[index].key;
+    const child = parent.children[index] as Element | undefined;
+    if (child) nextKeyMap.set(key, child);
   }
+  keyedElements.set(parent, nextKeyMap);
 }

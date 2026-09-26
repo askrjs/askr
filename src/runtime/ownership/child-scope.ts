@@ -1,6 +1,10 @@
 import { registerScopedOwnership, releaseOwnedChild } from './record';
 import { adoptComponentParent } from '../component/capabilities';
-import { getRuntimeScopes } from '../access';
+import {
+  enqueueRuntimeLane,
+  enqueueRuntimeTask,
+  getRuntimeScopes,
+} from '../access';
 import { onScheduledTaskRelease } from '../scheduled-work';
 import type { ChildScopeHostSnapshot } from '../renderer-capabilities';
 import type { VNode } from '../../common/vnode';
@@ -82,6 +86,7 @@ interface MutableChildScope extends ChildScope {
   _startStateIndex: number;
   _renderFn?: (() => VNode) | undefined;
   _onDirty?: (() => void) | undefined;
+  _deferUntilSource?: { isPending(): boolean } | null;
   _parentOwnership?: OwnershipRecord | null;
   _renderedOwnerFrame: ContextFrame | null;
 }
@@ -107,6 +112,13 @@ function ensureChildScopeFlushTask(scope: MutableChildScope): void {
   }
 
   const task = () => {
+    if (!instance.hasPendingUpdate) return;
+    if (scope._deferUntilSource?.isPending()) {
+      // Let the source effect enqueue its boundary commit, then run a row
+      // only if that commit did not already refresh or remove it.
+      enqueueRuntimeLane('post', () => enqueueRuntimeTask(task));
+      return;
+    }
     instance.hasPendingUpdate = false;
     if (instance.notifyUpdate === null || instance.owner.disposed) {
       return;
@@ -159,6 +171,7 @@ class ChildScopeImpl implements MutableChildScope {
   _startStateIndex: number;
   _renderFn: (() => VNode) | undefined = undefined;
   _onDirty: (() => void) | undefined;
+  _deferUntilSource: { isPending(): boolean } | null;
   _parentOwnership: OwnershipRecord | null;
   _ownership?: ChildScopeOwnership;
   _renderedOwnerFrame: ContextFrame | null = null;
@@ -167,11 +180,13 @@ class ChildScopeImpl implements MutableChildScope {
     parent: ComponentInstance | null,
     key: string | number,
     onDirty?: () => void,
-    ownership?: ChildScopeOwnership
+    ownership?: ChildScopeOwnership,
+    deferUntilSource?: { isPending(): boolean } | null
   ) {
     this.key = key;
     this._parentOwnership = parent?.owner ?? null;
     this._onDirty = onDirty;
+    this._deferUntilSource = deferUntilSource ?? null;
     this._ownership = ownership;
     this._startStateIndex = getCurrentStateIndex();
     this.componentInstance = createComponentInstance(
@@ -226,6 +241,7 @@ class ChildScopeImpl implements MutableChildScope {
       this.componentInstance.hasPendingUpdate = false;
       this._parentOwnership = null;
       this._onDirty = undefined;
+      this._deferUntilSource = null;
       this._ownership = undefined;
       this._renderedOwnerFrame = null;
     }
@@ -285,6 +301,13 @@ function renderScope(scope: MutableChildScope): VNode | undefined {
     scope.vnode = nextVNode;
     scope._renderedOwnerFrame = componentInstance.ownerFrame;
     scope.markDirty();
+    if (componentInstance.hasPendingUpdate) {
+      registerCommitRollback(() => {
+        if (!componentInstance.owner.disposed)
+          componentInstance.hasPendingUpdate = true;
+      });
+    }
+    componentInstance.hasPendingUpdate = false;
     if ((componentInstance._pendingReadSources?.size ?? 0) > 0) {
       ensureChildScopeFlushTask(scope);
     }
@@ -369,7 +392,8 @@ export function createChildScope(
   parent: ComponentInstance | null,
   key: string | number,
   onDirty?: () => void,
-  ownership?: ChildScopeOwnership
+  ownership?: ChildScopeOwnership,
+  deferUntilSource?: { isPending(): boolean } | null
 ): ChildScope {
-  return new ChildScopeImpl(parent, key, onDirty, ownership);
+  return new ChildScopeImpl(parent, key, onDirty, ownership, deferUntilSource);
 }

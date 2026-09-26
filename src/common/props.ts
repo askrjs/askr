@@ -46,23 +46,73 @@ type IntrinsicFormValue =
   | readonly string[]
   | null
   | undefined;
-type IntrinsicRefTarget = Element | null;
-type IntrinsicRef =
-  | BivariantHandler<IntrinsicRefTarget>
-  | { current: IntrinsicRefTarget }
+export type IntrinsicRef<T extends Element = Element> =
+  | BivariantHandler<T | null>
+  | { current: T | null }
   | null
   | undefined;
 
+export type IntrinsicElementForTag<Tag extends string> =
+  Tag extends keyof HTMLElementTagNameMap
+    ? HTMLElementTagNameMap[Tag]
+    : Tag extends keyof SVGElementTagNameMap
+      ? SVGElementTagNameMap[Tag]
+      : Element;
+
 interface IntrinsicEventProps {
   onAbort?: BivariantHandler<Event> | null;
+  onAnimationCancel?: BivariantHandler<AnimationEvent> | null;
+  onAnimationEnd?: BivariantHandler<AnimationEvent> | null;
+  onAnimationIteration?: BivariantHandler<AnimationEvent> | null;
+  onAnimationStart?: BivariantHandler<AnimationEvent> | null;
+  onAuxClick?: BivariantHandler<PointerEvent> | null;
+  onBeforeInput?: BivariantHandler<InputEvent> | null;
+  onBeforeMatch?: BivariantHandler<Event> | null;
+  onBeforeToggle?: BivariantHandler<ToggleEvent> | null;
   onBlur?: BivariantHandler<FocusEvent> | null;
+  onCancel?: BivariantHandler<Event> | null;
+  onCanPlay?: BivariantHandler<Event> | null;
+  onCanPlayThrough?: BivariantHandler<Event> | null;
   onChange?: BivariantHandler<Event> | null;
   onClick?: BivariantHandler<MouseEvent> | null;
+  onClose?: BivariantHandler<Event> | null;
+  onCommand?: BivariantHandler<Event> | null;
+  onCompositionEnd?: BivariantHandler<CompositionEvent> | null;
+  onCompositionStart?: BivariantHandler<CompositionEvent> | null;
+  onCompositionUpdate?: BivariantHandler<CompositionEvent> | null;
+  onContextLost?: BivariantHandler<Event> | null;
+  onContextMenu?: BivariantHandler<PointerEvent> | null;
+  onContextRestored?: BivariantHandler<Event> | null;
+  onCopy?: BivariantHandler<ClipboardEvent> | null;
+  onCueChange?: BivariantHandler<Event> | null;
+  onCut?: BivariantHandler<ClipboardEvent> | null;
   onDblClick?: BivariantHandler<MouseEvent> | null;
+  onDrag?: BivariantHandler<DragEvent> | null;
+  onDragEnd?: BivariantHandler<DragEvent> | null;
+  onDragEnter?: BivariantHandler<DragEvent> | null;
+  onDragLeave?: BivariantHandler<DragEvent> | null;
+  onDragOver?: BivariantHandler<DragEvent> | null;
+  onDragStart?: BivariantHandler<DragEvent> | null;
+  onDrop?: BivariantHandler<DragEvent> | null;
+  onDurationChange?: BivariantHandler<Event> | null;
+  onEmptied?: BivariantHandler<Event> | null;
+  onEnded?: BivariantHandler<Event> | null;
+  onError?: BivariantHandler<ErrorEvent> | null;
   onFocus?: BivariantHandler<FocusEvent> | null;
+  onFocusIn?: BivariantHandler<FocusEvent> | null;
+  onFocusOut?: BivariantHandler<FocusEvent> | null;
+  onFormData?: BivariantHandler<FormDataEvent> | null;
+  onGotPointerCapture?: BivariantHandler<PointerEvent> | null;
   onInput?: BivariantHandler<InputEvent> | null;
+  onInvalid?: BivariantHandler<Event> | null;
   onKeyDown?: BivariantHandler<KeyboardEvent> | null;
+  onKeyPress?: BivariantHandler<KeyboardEvent> | null;
   onKeyUp?: BivariantHandler<KeyboardEvent> | null;
+  onLoad?: BivariantHandler<Event> | null;
+  onLoadedData?: BivariantHandler<Event> | null;
+  onLoadedMetadata?: BivariantHandler<Event> | null;
+  onLoadStart?: BivariantHandler<Event> | null;
+  onLostPointerCapture?: BivariantHandler<PointerEvent> | null;
   onMouseDown?: BivariantHandler<MouseEvent> | null;
   onMouseEnter?: BivariantHandler<MouseEvent> | null;
   onMouseLeave?: BivariantHandler<MouseEvent> | null;
@@ -70,18 +120,58 @@ interface IntrinsicEventProps {
   onMouseOut?: BivariantHandler<MouseEvent> | null;
   onMouseOver?: BivariantHandler<MouseEvent> | null;
   onMouseUp?: BivariantHandler<MouseEvent> | null;
+  onPaste?: BivariantHandler<ClipboardEvent> | null;
+  onPause?: BivariantHandler<Event> | null;
+  onPlay?: BivariantHandler<Event> | null;
+  onPlaying?: BivariantHandler<Event> | null;
+  onPointerCancel?: BivariantHandler<PointerEvent> | null;
   onPointerDown?: BivariantHandler<PointerEvent> | null;
-  onPointerDownCapture?: BivariantHandler<PointerEvent> | null;
   onPointerEnter?: BivariantHandler<PointerEvent> | null;
   onPointerLeave?: BivariantHandler<PointerEvent> | null;
   onPointerMove?: BivariantHandler<PointerEvent> | null;
+  onPointerOut?: BivariantHandler<PointerEvent> | null;
+  onPointerOver?: BivariantHandler<PointerEvent> | null;
+  onPointerRawUpdate?: BivariantHandler<Event> | null;
   onPointerUp?: BivariantHandler<PointerEvent> | null;
+  onProgress?: BivariantHandler<ProgressEvent<EventTarget>> | null;
+  onRateChange?: BivariantHandler<Event> | null;
+  onReset?: BivariantHandler<Event> | null;
+  onResize?: BivariantHandler<UIEvent> | null;
   onScroll?: BivariantHandler<Event> | null;
+  onScrollEnd?: BivariantHandler<Event> | null;
+  onSecurityPolicyViolation?: BivariantHandler<SecurityPolicyViolationEvent> | null;
+  onSeeked?: BivariantHandler<Event> | null;
+  onSeeking?: BivariantHandler<Event> | null;
+  onSelect?: BivariantHandler<Event> | null;
+  onSelectionChange?: BivariantHandler<Event> | null;
+  onSelectStart?: BivariantHandler<Event> | null;
+  onSlotChange?: BivariantHandler<Event> | null;
+  onStalled?: BivariantHandler<Event> | null;
   onSubmit?: BivariantHandler<SubmitEvent> | null;
+  onSuspend?: BivariantHandler<Event> | null;
+  onTimeUpdate?: BivariantHandler<Event> | null;
+  onToggle?: BivariantHandler<ToggleEvent> | null;
+  onTouchCancel?: BivariantHandler<TouchEvent> | null;
   onTouchEnd?: BivariantHandler<TouchEvent> | null;
+  onTouchMove?: BivariantHandler<TouchEvent> | null;
   onTouchStart?: BivariantHandler<TouchEvent> | null;
+  onTransitionCancel?: BivariantHandler<TransitionEvent> | null;
+  onTransitionEnd?: BivariantHandler<TransitionEvent> | null;
+  onTransitionRun?: BivariantHandler<TransitionEvent> | null;
+  onTransitionStart?: BivariantHandler<TransitionEvent> | null;
+  onVolumeChange?: BivariantHandler<Event> | null;
+  onWaiting?: BivariantHandler<Event> | null;
+  onWebkitAnimationEnd?: BivariantHandler<Event> | null;
+  onWebkitAnimationIteration?: BivariantHandler<Event> | null;
+  onWebkitAnimationStart?: BivariantHandler<Event> | null;
+  onWebkitTransitionEnd?: BivariantHandler<Event> | null;
   onWheel?: BivariantHandler<WheelEvent> | null;
 }
+type CapturedIntrinsicEventProps = {
+  [
+    Name in keyof IntrinsicEventProps as `${Name & string}Capture`
+  ]?: IntrinsicEventProps[Name];
+};
 
 /**
  * Props understood specially by intrinsic JSX elements.
@@ -89,7 +179,8 @@ interface IntrinsicEventProps {
  * This stays separate from Props so component-level prop bags can remain
  * intentionally generic while JSX element usage gets stronger contracts.
  */
-export interface IntrinsicProps extends IntrinsicEventProps {
+export interface IntrinsicProps
+  extends IntrinsicEventProps, CapturedIntrinsicEventProps {
   key?: string | number | symbol;
   children?: unknown;
   /**
@@ -399,7 +490,7 @@ export interface TextareaIntrinsicProps extends IntrinsicProps {
   value?: ReactiveProp<IntrinsicTextValue>;
 }
 
-export interface KnownIntrinsicElementProps {
+interface KnownIntrinsicElementPropsBase {
   a: AnchorIntrinsicProps;
   article: LayoutIntrinsicProps;
   aside: LayoutIntrinsicProps;
@@ -452,6 +543,17 @@ export interface KnownIntrinsicElementProps {
   tr: LayoutIntrinsicProps;
   ul: LayoutIntrinsicProps;
 }
+
+type WithElementRef<Props, Target extends Element> = {
+  [Key in keyof Props]: Key extends 'ref' ? IntrinsicRef<Target> : Props[Key];
+};
+
+export type KnownIntrinsicElementProps = {
+  [Tag in keyof KnownIntrinsicElementPropsBase]: WithElementRef<
+    KnownIntrinsicElementPropsBase[Tag],
+    IntrinsicElementForTag<Tag>
+  >;
+};
 
 export interface ComponentNode {
   type: 'component' | 'element' | 'text';

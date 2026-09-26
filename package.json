@@ -84,6 +84,10 @@
       "types": "./dist/data/index.d.ts",
       "import": "./dist/data/index.js"
     },
+    "./experimental": {
+      "types": "./dist/experimental/index.d.ts",
+      "import": "./dist/experimental/index.js"
+    },
     "./testing": {
       "types": "./dist/testing/index.d.ts",
       "import": "./dist/testing/index.js"

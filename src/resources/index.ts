@@ -4,35 +4,36 @@
  * This tier exists to make async lifecycle intent explicit in import paths.
  */
 
-export { resource } from '../runtime';
+export { resource } from '../core/api/resource';
 export { onRouteChange } from '../router/activity';
 export type {
   RouteChangeCleanup,
   RouteChangeOptions,
 } from '../router/activity';
+export { documentVisible, windowFocused } from './browser-activity';
 export {
-  documentVisible,
+  capture,
   on,
   routeActive,
-  timer,
   task,
-  stream,
-  capture,
-  windowFocused,
+  timer,
   watch,
-} from '../runtime';
-export type { ResourceResult } from '../runtime';
+} from '../core/api/lifecycle';
+export { stream } from '../core/api/stream';
+export type { ResourceResult } from '../core/api/resource';
 export type {
   ActivityPredicate,
   ListenerTarget,
-  StreamOptions,
-  StreamResult,
-  StreamStatus,
   TimerOptions,
   WatchCallback,
   WatchContext,
   WatchSource,
   WatchValues,
-} from '../runtime';
+} from '../core/api/lifecycle';
+export type {
+  StreamOptions,
+  StreamResult,
+  StreamStatus,
+} from '../core/api/stream';
 
-export { getSignal } from '../runtime';
+export { getSignal } from '../core/api/state';

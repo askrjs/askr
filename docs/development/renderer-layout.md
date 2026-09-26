@@ -28,6 +28,10 @@ Evaluation orchestration remains distinct from keyed reconciliation. Generic
 DOM rollback snapshots stay beside the owner and range indexes they restore.
 Component replacement and For commit orchestration retain their existing
 transaction and lifetime responsibilities.
+The `ASKR_FORCE_BULK_POSREUSE` diagnostic path runs only in development builds;
+the published production bundle removes that switch and its forced path.
+Its key attribute writes fail before changing row content and restore a partial
+key write before propagating the error.
 
 Published renderer extension contracts are declared in
 `src/public-contracts/` and bound by `host-adapter.ts` and

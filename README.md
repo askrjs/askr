@@ -55,10 +55,10 @@ The tuple form above and the direct callable form below are equivalent; see
 `selector()`, `defineScope()`, `readScope()`, `getSignal()`, and the JSX
 runtime exports.
 
-Public APIs are mostly functions and closures. A few classes are exported where
-an instance or `instanceof` check is the natural shape: `AskrRuntime` from the
-root, and error classes such as `RouteDataLoadError` and `SSRDataMissingError`
-from their subpaths. Lexical ownership uses `defineScope()` and `readScope()`;
+Public APIs are mostly functions and closures. Error classes such as
+`RouteDataLoadError` and `SSRDataMissingError` live on their subpaths. Runtime
+construction and renderer-host extensions live on the experimental subpath.
+Lexical ownership uses `defineScope()` and `readScope()`;
 there are no compatibility aliases for the clean-break vocabulary.
 
 App startup, routing, async resources, data helpers, and error boundaries live

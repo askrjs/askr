@@ -1,7 +1,44 @@
-import { describe, expect, it } from 'vite-plus/test';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { Scheduler } from '../../../src/runtime/scheduler';
 
 describe('scheduler execution transitions', () => {
+  it('should expose running and queue length without redundant counters', () => {
+    const scheduler = new Scheduler();
+    const executing: boolean[] = [];
+    scheduler.enqueue(() => executing.push(scheduler.isExecuting()));
+    scheduler.flush();
+    expect(executing).toEqual([true]);
+    expect(scheduler.isExecuting()).toBe(false);
+    expect(scheduler.getState()).not.toHaveProperty('executionDepth');
+    expect(scheduler.getState()).not.toHaveProperty('taskCount');
+  });
+
+  it('should reject work and report a failed bulk-commit probe', async () => {
+    const scheduler = new Scheduler();
+    const failure = new Error('probe failed');
+    const reporter = vi.fn();
+    const task = vi.fn();
+    vi.stubGlobal('reportError', reporter);
+    scheduler.setBulkCommitProbe(() => {
+      throw failure;
+    });
+    try {
+      try {
+        scheduler.enqueue(task);
+      } catch {
+        // Development builds reject work admitted during an active commit.
+      }
+      expect(scheduler.getState().queueLength).toBe(0);
+      await Promise.resolve();
+      expect(reporter).toHaveBeenCalledWith(failure);
+      expect(task).not.toHaveBeenCalled();
+    } finally {
+      scheduler.setBulkCommitProbe(() => false);
+      scheduler.clearPendingSyncTasks();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('should resume queued work after a synchronous progress callback throws', async () => {
     const scheduler = new Scheduler();
     const events: string[] = [];
@@ -23,7 +60,6 @@ describe('scheduler execution transitions', () => {
       await flushed;
       expect(scheduler.getState()).toMatchObject({
         queueLength: 0,
-        taskCount: 0,
         allowSyncProgress: false,
       });
     } finally {
@@ -32,21 +68,14 @@ describe('scheduler execution transitions', () => {
     }
   });
 
-  it('should recheck handler scope when a previously queued kick runs', async () => {
+  it('should expose only lexical handler scopes', () => {
     const scheduler = new Scheduler();
-    const events: string[] = [];
-    scheduler.enqueue(() => events.push('task'));
-    scheduler.setInHandler(true);
-    try {
-      await Promise.resolve();
-      expect(events).toEqual([]);
-      expect(scheduler.getFlushVersion()).toBe(0);
-    } finally {
-      scheduler.setInHandler(false);
-      await Promise.resolve();
-    }
-    expect(events).toEqual(['task']);
-    expect(scheduler.getFlushVersion()).toBe(1);
+    expect('setInHandler' in scheduler).toBe(false);
+    expect(scheduler.isInHandler()).toBe(false);
+    scheduler.runInHandlerScope(() => {
+      expect(scheduler.isInHandler()).toBe(true);
+    });
+    expect(scheduler.isInHandler()).toBe(false);
   });
 
   it('should let the outermost empty progress scope complete its epoch', () => {
@@ -86,22 +115,22 @@ describe('scheduler execution transitions', () => {
     expect(scheduler.getFlushVersion()).toBe(1);
     await Promise.resolve();
     expect(scheduler.getFlushVersion()).toBe(1);
-    expect(scheduler.getState().taskCount).toBe(0);
+    expect(scheduler.getState().queueLength).toBe(0);
   });
 
-  it('should retain a lexical handler scope when the compatibility flag is cleared', async () => {
+  it('should retain an outer lexical handler scope after the inner scope ends', async () => {
     const scheduler = new Scheduler();
     const events: string[] = [];
     const scopes: boolean[] = [];
     scheduler.runInHandlerScope(() => {
-      scheduler.setInHandler(false);
       scopes.push(scheduler.isInHandler());
       scheduler.runInHandlerScope(() => {
         scheduler.enqueue(() => events.push('task'));
       }, 'sync');
+      scopes.push(scheduler.isInHandler());
       events.push('outer done');
     });
-    expect(scopes).toEqual([true]);
+    expect(scopes).toEqual([true, true]);
     expect(events).toEqual(['outer done']);
     await Promise.resolve();
     expect(events).toEqual(['outer done', 'task']);

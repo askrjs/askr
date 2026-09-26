@@ -1,8 +1,7 @@
 import type { RouteAuthOptions, RouteRegistry } from '../common/router';
 import { isProductionEnvironment } from '../common/env';
 import { resolveNavigationUrl } from '../common/url';
-import type { ComponentInstance } from '../runtime';
-import { trackComponentRouteGeneration } from '../runtime/component/capabilities';
+import type { AppRootHandle } from '../common/app-root';
 import { lockRouteRegistration, syncCurrentRouteSnapshot } from './route';
 import { computeRouteActivityMatches } from './route-matching';
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
@@ -13,7 +12,7 @@ export type AppNavigationSource = {
 };
 
 export type AppRegistration = AppNavigationSource & {
-  instance: ComponentInstance;
+  instance: AppRootHandle;
   pathname: string;
   href: string;
 };
@@ -22,7 +21,7 @@ type NavigationRegistryHost = {
   cancelRouteRequests(): void;
 };
 
-let currentInstance: ComponentInstance | null = null;
+let currentInstance: AppRootHandle | null = null;
 let currentPathname = '/';
 let currentHref = '/';
 let navigationRegistryHost: NavigationRegistryHost | null = null;
@@ -156,7 +155,7 @@ export function syncRegisteredRouteSnapshot(): void {
 }
 
 export function registerAppInstance(
-  instance: ComponentInstance,
+  instance: AppRootHandle,
   path: string,
   source: AppNavigationSource
 ): void {
@@ -175,10 +174,6 @@ export function registerAppInstance(
     registeredApps.push(registration);
   }
 
-  if (__ASKR_DEVELOPMENT_BUILD__) {
-    trackComponentRouteGeneration(instance);
-  }
-
   currentInstance = instance;
   currentPathname = path;
   currentHref = getWindowHref();
@@ -188,7 +183,7 @@ export function registerAppInstance(
   }
 }
 
-export function unregisterAppInstance(instance: ComponentInstance): void {
+export function unregisterAppInstance(instance: AppRootHandle): void {
   const existingIndex = registeredApps.findIndex(
     (app) => app.instance === instance
   );

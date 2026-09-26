@@ -9,6 +9,7 @@ import {
   type ComponentInstance,
 } from '../component/instance';
 import { adjustOwnershipDiagnostic } from '../diagnostics/ownership-diagnostics';
+import { isSetupComponent } from '../component/setup-prototype';
 
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
@@ -392,10 +393,54 @@ function getStreamSlot<T>(
   return slot;
 }
 
+/** Connect a stream from an input read during a positional component render. */
+export function stream<TSource, T>(
+  source: () => TSource,
+  connect: (
+    value: TSource,
+    context: { signal: AbortSignal }
+  ) => AsyncIterable<T> | PromiseLike<AsyncIterable<T>>,
+  options?: Omit<StreamOptions<T>, 'deps'>
+): StreamResult<T>;
+
 /** Subscribe to a streaming data source for the current component's lifetime, with auto reconnect/cleanup. */
 export function stream<T>(
   source: StreamSource<T>,
-  options: StreamOptions<T> = {}
+  options?: StreamOptions<T>
+): StreamResult<T>;
+
+export function stream<T, TSource = unknown>(
+  sourceOrGetter: StreamSource<T> | (() => TSource),
+  connectOrOptions?:
+    | StreamOptions<T>
+    | ((
+        value: TSource,
+        context: { signal: AbortSignal }
+      ) => AsyncIterable<T> | PromiseLike<AsyncIterable<T>>),
+  drivenOptions?: Omit<StreamOptions<T>, 'deps'>
+): StreamResult<T> {
+  if (typeof connectOrOptions === 'function') {
+    const instance = getCurrentComponentInstance();
+    if (instance && isSetupComponent(instance.fn)) {
+      throw new Error(
+        '[Askr] source-driven stream() currently requires a positional component render.'
+      );
+    }
+    const value = (sourceOrGetter as () => TSource)();
+    return createStream<T>((context) => connectOrOptions(value, context), {
+      ...drivenOptions,
+      deps: [value],
+    });
+  }
+  return createStream(
+    sourceOrGetter as StreamSource<T>,
+    connectOrOptions ?? {}
+  );
+}
+
+function createStream<T>(
+  source: StreamSource<T>,
+  options: StreamOptions<T>
 ): StreamResult<T> {
   const instance = getCurrentComponentInstance();
   if (!instance) {

@@ -3,7 +3,7 @@ import {
   createDOMRendererHost,
   createRuntime,
   type DOMRendererHost,
-} from '@askrjs/askr';
+} from '@askrjs/askr/experimental';
 import { debounce, throttle, raf } from '@askrjs/askr/fx';
 
 test('should expose a working opaque adapter from the installed root', () => {

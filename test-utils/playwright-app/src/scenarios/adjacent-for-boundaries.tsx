@@ -1,6 +1,7 @@
 /** @jsxImportSource @askrjs/askr */
 
 import { state } from '@askrjs/askr';
+import type { JSX } from '@askrjs/askr/jsx-runtime';
 import { createIsland } from '@askrjs/askr/boot';
 import { For } from '@askrjs/askr/control';
 import { Slot } from '@askrjs/askr/foundations';

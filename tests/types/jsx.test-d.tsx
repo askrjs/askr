@@ -10,6 +10,8 @@ import {
 
 const buttonRef = createRef<HTMLButtonElement>();
 expectType<Ref<HTMLButtonElement>>(buttonRef);
+const inputRef = createRef<HTMLInputElement>();
+const videoRef = createRef<HTMLVideoElement>();
 import {
   Fragment,
   jsx,
@@ -30,32 +32,12 @@ expectAssignable<symbol>(RootFragment);
 expectAssignable<symbol>(Fragment);
 expectAssignable<JSXElement>({} as RuntimeJSX.Element);
 expectAssignable<JSXElement>({} as DevRuntimeJSX.Element);
-expectType<Props>({} as RuntimeJSX.ElementAttributesProperty['props']);
 expectType<unknown>({} as RuntimeJSX.ElementChildrenAttribute['children']);
-type RuntimeIntrinsicKeysMissingFromGlobal = Exclude<
-  keyof RuntimeJSX.KnownIntrinsicElements,
-  keyof JSX.IntrinsicElements
->;
-type GlobalIntrinsicKeysMissingFromRuntime = Exclude<
-  keyof JSX.IntrinsicElements,
-  keyof RuntimeJSX.KnownIntrinsicElements
->;
-expectType<never>({} as RuntimeIntrinsicKeysMissingFromGlobal);
-expectType<never>({} as GlobalIntrinsicKeysMissingFromRuntime);
 expectType<RuntimeJSX.IntrinsicElements['output']>(
-  {} as JSX.IntrinsicElements['output']
+  {} as DevRuntimeJSX.IntrinsicElements['output']
 );
 expectType<RuntimeJSX.IntrinsicElements['rect']>(
-  {} as JSX.IntrinsicElements['rect']
-);
-expectType<RuntimeJSX.IntrinsicElements['small']>(
-  {} as JSX.IntrinsicElements['small']
-);
-expectType<RuntimeJSX.IntrinsicElements['tfoot']>(
-  {} as JSX.IntrinsicElements['tfoot']
-);
-expectType<RuntimeJSX.IntrinsicElements['title']>(
-  {} as JSX.IntrinsicElements['title']
+  {} as DevRuntimeJSX.IntrinsicElements['rect']
 );
 
 const rootProps: Props = {
@@ -100,12 +82,28 @@ const callButton = jsx('button', {
     expectType<PointerEvent>(event);
   },
   ref: (element) => {
-    expectType<Element | null>(element);
+    expectType<HTMLButtonElement | null>(element);
   },
   value: 'save',
   children: 'go',
 });
 expectType<JSXElement>(callButton);
+jsx('div', {
+  onFocusIn: (event) => expectType<FocusEvent>(event),
+  onAnimationEnd: (event) => expectType<AnimationEvent>(event),
+  onTransitionEnd: (event) => expectType<TransitionEvent>(event),
+  onDragStart: (event) => expectType<DragEvent>(event),
+  onCopy: (event) => expectType<ClipboardEvent>(event),
+  onGotPointerCapture: (event) => expectType<PointerEvent>(event),
+  onAnimationEndCapture: (event) => expectType<AnimationEvent>(event),
+});
+expectError(jsx('button', { ref: inputRef }));
+expectError(<button ref={inputRef} />);
+expectAssignable<JSXElement>(<input ref={inputRef} />);
+expectAssignable<JSXElement>(<video ref={videoRef} />);
+expectError(<video ref={inputRef} />);
+expectError(jsx('video', { ref: inputRef }));
+jsx('video', { ref: videoRef });
 
 const callInput = jsx('input', {
   autocomplete: 'off',

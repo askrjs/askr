@@ -94,7 +94,9 @@ interface QueryTestRegistry {
   clear(): void;
 }
 /** Create a keyed query fixture registry for a test render runtime. */
-declare function createQueryTestRegistry(): QueryTestRegistry;
+declare function createQueryTestRegistry(
+  runtime?: DataRuntime
+): QueryTestRegistry;
 /** Keyed mutation fixture registry returned by {@link createMutationTestRegistry}. */
 interface MutationTestRegistry {
   readonly runtime: DataRuntime;
@@ -103,7 +105,9 @@ interface MutationTestRegistry {
   clear(): void;
 }
 /** Create a keyed mutation fixture registry for a test render runtime. */
-declare function createMutationTestRegistry(): MutationTestRegistry;
+declare function createMutationTestRegistry(
+  runtime?: DataRuntime
+): MutationTestRegistry;
 /** Initial state for {@link mutationState}; exactly one of `pending`/`error`/`result` may be set. */
 type MutationFixtureInitial<TResult> = {
   pending?: boolean;

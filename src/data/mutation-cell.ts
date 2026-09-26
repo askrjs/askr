@@ -1,5 +1,8 @@
-import { claimHookIndex, getCurrentComponentInstance } from '../runtime';
-import { recordReadableRead } from '../runtime';
+import {
+  claimHookIndex,
+  currentComponent as getCurrentComponentInstance,
+  readSource as recordReadableRead,
+} from '../core/api/hooks';
 import {
   ensureMutationCleanup,
   getMutationSlotStore,
@@ -20,9 +23,12 @@ export class MutationCell<TInput, TResult> {
   private readonly source = createReadableSource();
   private readonly runtimeState: DataRuntimeState;
   private action: MutationOptions<TInput, TResult>['action'];
+  private optimistic?: MutationOptions<TInput, TResult>['optimistic'];
   private affects?: MutationOptions<TInput, TResult>['affects'];
   private afterSuccess?: MutationOptions<TInput, TResult>['afterSuccess'];
   private controller: AbortController | null = null;
+  private readonly activeControllers = new Set<AbortController>();
+  private readonly rollbacks = new Map<AbortController, () => void>();
   private generation = 0;
 
   private state: MutationRecord<TResult> = {
@@ -37,12 +43,14 @@ export class MutationCell<TInput, TResult> {
   ) {
     this.runtimeState = runtimeState;
     this.action = options.action;
+    this.optimistic = options.optimistic;
     this.affects = options.affects;
     this.afterSuccess = options.afterSuccess;
   }
 
   setOptions(options: MutationOptions<TInput, TResult>): void {
     this.action = options.action;
+    this.optimistic = options.optimistic;
     this.affects = options.affects;
     this.afterSuccess = options.afterSuccess;
   }
@@ -79,21 +87,34 @@ export class MutationCell<TInput, TResult> {
     // A render may replace these callbacks while this execution is pending.
     // The operation must retain the definition it started with.
     const action = this.action;
+    const optimistic = this.optimistic;
     const affects = this.affects;
     const afterSuccess = this.afterSuccess;
     this.generation += 1;
     const generation = this.generation;
 
-    this.controller?.abort();
     const controller = new AbortController();
     this.controller = controller;
+    this.activeControllers.add(controller);
 
     this.setState({ status: 'pending', error: null, result: null });
 
     let result: TResult;
     try {
+      const rollback = optimistic?.(input, { signal: controller.signal });
+      if (rollback) this.rollbacks.set(controller, rollback);
       result = await action(input, { signal: controller.signal });
-    } catch (error) {
+      this.rollbacks.delete(controller);
+    } catch (cause) {
+      let error = cause;
+      try {
+        this.rollbackOptimistic(controller);
+      } catch (rollbackError) {
+        error = new AggregateError(
+          [cause, rollbackError],
+          'Mutation failed and its optimistic rollback failed'
+        );
+      }
       if (
         !isCurrentAsyncOperation(
           this.generation,
@@ -115,6 +136,9 @@ export class MutationCell<TInput, TResult> {
         error: normalizeAsyncDataError(error, 'Unknown mutation error'),
       });
       throw error;
+    } finally {
+      this.activeControllers.delete(controller);
+      this.rollbacks.delete(controller);
     }
 
     const isCurrent = isCurrentAsyncOperation(
@@ -129,8 +153,8 @@ export class MutationCell<TInput, TResult> {
       this.setState({ status: 'success', error: null, result });
     }
 
-    // A superseded operation may still commit remotely when its action ignores
-    // AbortSignal. Its successful effects must still invalidate cached data.
+    // Every successful write may have committed remotely, including an older
+    // execution whose result no longer owns the visible mutation state.
     if (afterSuccess === 'invalidate') {
       const prefixes = affects?.(input, result) ?? [];
       for (const prefix of new Set(prefixes)) {
@@ -142,21 +166,46 @@ export class MutationCell<TInput, TResult> {
   }
 
   abort(): void {
-    if (this.state.status !== 'pending') {
+    if (this.activeControllers.size === 0) {
       return;
     }
 
     this.generation += 1;
-    this.controller?.abort();
     this.controller = null;
-    this.setState({ status: 'idle', error: null, result: null });
+    if (this.state.status === 'pending') {
+      this.setState({ status: 'idle', error: null, result: null });
+    }
+    this.cancelActive();
   }
 
   reset(): void {
     this.generation += 1;
-    this.controller?.abort();
     this.controller = null;
     this.setState({ status: 'idle', error: null, result: null });
+    this.cancelActive();
+  }
+
+  private rollbackOptimistic(controller: AbortController): void {
+    const rollback = this.rollbacks.get(controller);
+    this.rollbacks.delete(controller);
+    rollback?.();
+  }
+
+  private cancelActive(): void {
+    const controllers = [...this.activeControllers];
+    this.activeControllers.clear();
+    const errors: unknown[] = [];
+    for (const controller of controllers) {
+      try {
+        this.rollbackOptimistic(controller);
+      } catch (error) {
+        errors.push(error);
+      }
+      controller.abort();
+    }
+    if (errors.length > 0) {
+      throw new AggregateError(errors, 'Optimistic mutation rollback failed');
+    }
   }
 }
 

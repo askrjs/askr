@@ -30,10 +30,9 @@ contract, and `scheduler.ts` owns the drain phase, queues, and flush epochs.
 primitives; `execution-model.ts` enforces the selected execution model.
 
 Scheduler kicks check execution permissions both when scheduled and when their
-microtask runs. A kick queued before a handler starts waits until that handler
-is released. The compatibility `setInHandler` flag is independent of lexical
-`runInHandlerScope` nesting; clearing the flag cannot release an active scope.
-Explicit synchronous handler flushing still occurs when the outer handler exits.
+microtask runs. Handler permissions use lexical `runInHandlerScope` nesting;
+an inner scope cannot release its outer scope. Explicit synchronous handler
+flushing occurs when the outer handler exits.
 
 `runWithSyncProgress` restores its enclosing permissions on success or failure.
 If its callback throws with queued work, that work receives a deferred kick once

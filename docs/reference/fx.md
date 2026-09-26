@@ -8,18 +8,23 @@ Timing and utility helpers are framework-independent.
 Arguments and receiver types are preserved; scheduled callback results are
 discarded, including leading execution. Move result handling into the callback
 instead of assigning or awaiting the wrapper result. Scheduling, coalescing,
-and the existing debounce/throttle `cancel()` methods are unchanged.
+and the existing debounce/throttle `cancel()` methods are unchanged. `raf()`
+also exposes `cancel()` to drop its pending frame; a later call can schedule
+another frame.
 
 ## Core timing utilities
 
 - `debounce`
 - `throttle`
 - `once`
-- `defer`
 - `raf`
 - `idle`
 - `timeout`
 - `retry`
+
+For one microtask, use the platform's `queueMicrotask(fn)`. The Askr
+`defer(promise)` helper belongs to `@askrjs/askr/router` and marks deferred
+route data.
 
 ## Event-oriented helpers
 
@@ -55,6 +60,11 @@ turn (such as a polling loop that reschedules itself) is also cancelled on
 unmount. A callback whose component unmounted before it ran is skipped.
 `scheduleRetry` stops without retrying when `fn` throws synchronously or does
 not return a promise.
+`retry()` and `scheduleRetry()` accept the same `RetryOptions` shape.
+The returned handle has `cancel()` and a `result` promise. `result` resolves
+to `{ status: 'success', value }`, `{ status: 'error', error }`, or
+`{ status: 'cancelled' }`, so callers can inspect the terminal outcome without
+an unhandled rejection. Terminal errors still reach the host error reporter.
 
 Errors thrown by `scheduleTimeout` and `scheduleIdle` callbacks, by handlers
 run later by `debounceEvent`, `throttleEvent`, and `rafEvent`, a synchronous

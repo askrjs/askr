@@ -544,6 +544,16 @@ export function clearDefaultPortalForInstance(
   applyDefaultPortalWrite(state, undefined, null);
 }
 
+/** Hosts without a committed writer are candidates for hydration cleanup. */
+function getUnwrittenDefaultPortalHosts(): ComponentInstance[] {
+  const hosts: ComponentInstance[] = [];
+  for (const state of _defaultPortalStates.values()) {
+    if (state.owner || getPendingDefaultPortalWrite(state)) continue;
+    hosts.push(...state.contentHosts);
+  }
+  return hosts;
+}
+
 /**
  * The implicit portal channel that {@link Portal} writes to and that any
  * host rendered without an explicit portal falls back to.
@@ -622,6 +632,7 @@ export function Portal(props: PortalProps): JSXElement | null {
 
 registerDefaultPortalRuntime({
   host: DefaultPortal,
+  getUnwrittenHosts: getUnwrittenDefaultPortalHosts,
   clearForInstance(instance) {
     clearDefaultPortalForInstance(instance as ComponentInstance);
   },

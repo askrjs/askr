@@ -1,18 +1,30 @@
-import { getOwnershipSignal, ownCleanup } from '../runtime/ownership/record';
-import { enqueueRuntimeTask } from '../runtime';
+import { queueTask as enqueueRuntimeTask } from '../core/reactive/scheduler';
 import {
-  captureLifecycleOwner,
-  getCurrentComponentInstance,
-  getCurrentLifecycleOwner,
-  withLifecycleOwner,
-} from '../runtime';
-import type { OwnershipRecord } from '../runtime/ownership/record';
+  currentComponent as getCurrentComponentInstance,
+  currentOwner as getCurrentLifecycleOwner,
+  withOwner as withLifecycleOwner,
+} from '../core/api/hooks';
+import type { Owner as OwnershipRecord } from '../core/reactive/owner';
+
+/** The owner an event arrives under, else the owner that created the handler. */
+function captureLifecycleOwner(): () => OwnershipRecord | null {
+  const captured = getCurrentLifecycleOwner();
+  return () => getCurrentLifecycleOwner() ?? captured;
+}
+
+function ownCleanup(owner: OwnershipRecord, cleanup: () => void): void {
+  owner.onCleanup(cleanup);
+}
 import { isPromiseLike } from '../common/promise';
 import { reportUncaughtError } from '../common/report-error';
 import { noopEventListener, noopEventListenerWithFlush } from './noop';
-import { createDebouncer, createThrottler } from './timing';
+import { createDebouncer, createThrottler, type RetryOptions } from './timing';
 
 export type CancelFn = () => void;
+export type RetryOutcome<T> =
+  | { status: 'success'; value: T }
+  | { status: 'error'; error: unknown }
+  | { status: 'cancelled' };
 
 // Platform-specific timer handle types
 type TimeoutHandle = ReturnType<typeof setTimeout> | null;
@@ -64,13 +76,17 @@ function cancelWithLifecycleOwner(
   cancel: () => void
 ): () => void {
   if (!owner) return noopRelease;
-  const signal = getOwnershipSignal(owner);
-  if (signal.aborted) {
+  if (owner.disposed) {
     cancel();
     return noopRelease;
   }
-  signal.addEventListener('abort', cancel, { once: true });
-  return () => signal.removeEventListener('abort', cancel);
+  let active = true;
+  owner.onCleanup(() => {
+    if (active) cancel();
+  });
+  return () => {
+    active = false;
+  };
 }
 
 /** Run a wrapped handler later as the lifetime that received its event. */
@@ -104,7 +120,7 @@ export function debounceEvent(
 ): EventListener & { cancel(): void; flush(): void } {
   const inst = getCurrentComponentInstance();
   // On SSR, event handlers are inert
-  if (inst && inst.ssr) {
+  if (inst && inst.server) {
     return noopEventListenerWithFlush;
   }
 
@@ -121,7 +137,7 @@ export function debounceEvent(
   debounced.flush = debouncer.flush;
 
   // Auto-cleanup when the creating component (or committed work) unmounts
-  const owner = inst?.owner ?? getCurrentLifecycleOwner();
+  const owner = inst ?? getCurrentLifecycleOwner();
   if (owner) ownCleanup(owner, debounced.cancel);
 
   return debounced;
@@ -134,7 +150,7 @@ export function throttleEvent(
   options?: { leading?: boolean; trailing?: boolean }
 ): EventListener & { cancel(): void } {
   const inst = getCurrentComponentInstance();
-  if (inst && inst.ssr) {
+  if (inst && inst.server) {
     return noopEventListener;
   }
 
@@ -148,7 +164,7 @@ export function throttleEvent(
 
   throttled.cancel = throttler.cancel;
 
-  const owner = inst?.owner ?? getCurrentLifecycleOwner();
+  const owner = inst ?? getCurrentLifecycleOwner();
   if (owner) ownCleanup(owner, throttled.cancel);
 
   return throttled;
@@ -159,7 +175,7 @@ export function rafEvent(
   handler: EventListener
 ): EventListener & { cancel(): void } {
   const inst = getCurrentComponentInstance();
-  if (inst && inst.ssr) {
+  if (inst && inst.server) {
     return noopEventListener;
   }
 
@@ -211,7 +227,7 @@ export function rafEvent(
     lastOwner = null;
   };
 
-  const owner = inst?.owner ?? getCurrentLifecycleOwner();
+  const owner = inst ?? getCurrentLifecycleOwner();
   if (owner) ownCleanup(owner, fn.cancel);
 
   return fn;
@@ -313,12 +329,6 @@ export function scheduleIdle(
   return cancel;
 }
 
-export interface RetryOptions {
-  maxAttempts?: number;
-  delayMs?: number;
-  backoff?: (attemptIndex: number) => number;
-}
-
 /**
  * Run `fn`, retrying with backoff on failure. Called from a mounted
  * component's task, watch callback, or event handler, pending attempts are
@@ -327,7 +337,7 @@ export interface RetryOptions {
 export function scheduleRetry<T>(
   fn: () => Promise<T>,
   options?: RetryOptions
-): { cancel(): void } {
+): { cancel(): void; result: Promise<RetryOutcome<T>> } {
   throwIfDuringRender();
 
   const {
@@ -340,10 +350,16 @@ export function scheduleRetry<T>(
   let cancelled = false;
   let retryId: TimeoutHandle = null;
   let release = noopRelease;
+  let resolveResult!: (outcome: RetryOutcome<T>) => void;
+  const result = new Promise<RetryOutcome<T>>((resolve) => {
+    resolveResult = resolve;
+  });
 
-  const settle = () => {
+  const settle = (outcome: RetryOutcome<T>) => {
+    if (cancelled) return;
     cancelled = true;
     release();
+    resolveResult(outcome);
   };
 
   const attempt = (index: number) => {
@@ -356,29 +372,43 @@ export function scheduleRetry<T>(
       try {
         p = withLifecycleOwner(owner, fn);
       } catch (e) {
-        settle();
+        settle({ status: 'error', error: e });
         reportUncaughtError(e);
         return;
       }
       if (!isPromiseLike(p)) {
-        settle();
+        settle({
+          status: 'error',
+          error: new TypeError('scheduleRetry callback must return a promise'),
+        });
         return;
       }
       // The last attempt's rejection, like a throwing backoff(), has no
       // other observer, so it is reported rather than dropped.
       Promise.resolve(p)
-        .then(settle, (error: unknown) => {
-          if (cancelled) return;
-          if (index + 1 < maxAttempts) {
-            retryId = setTimeout(() => {
-              attempt(index + 1);
-            }, backoff(index));
-          } else {
-            settle();
-            reportUncaughtError(error);
+        .then(
+          (value) => settle({ status: 'success', value }),
+          (error: unknown) => {
+            if (cancelled) return;
+            if (index + 1 < maxAttempts) {
+              try {
+                retryId = setTimeout(() => {
+                  attempt(index + 1);
+                }, backoff(index));
+              } catch (backoffError) {
+                settle({ status: 'error', error: backoffError });
+                reportUncaughtError(backoffError);
+              }
+            } else {
+              settle({ status: 'error', error });
+              reportUncaughtError(error);
+            }
           }
-        })
-        .catch(reportUncaughtError);
+        )
+        .catch((error: unknown) => {
+          settle({ status: 'error', error });
+          reportUncaughtError(error);
+        });
     });
   };
 
@@ -387,7 +417,7 @@ export function scheduleRetry<T>(
       clearTimeout(retryId);
       retryId = null;
     }
-    settle();
+    settle({ status: 'cancelled' });
   };
 
   release = cancelWithLifecycleOwner(owner, cancel);
@@ -395,5 +425,5 @@ export function scheduleRetry<T>(
   // Start first attempt
   attempt(0);
 
-  return { cancel };
+  return { cancel, result };
 }

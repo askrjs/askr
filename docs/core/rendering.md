@@ -87,10 +87,9 @@ That catch-up render uses the child's last committed props with its current
 state. If it throws, its error is reported alongside the original one (an
 `AggregateError`, see [Update loop guard](./runtime.md#update-loop-guard)).
 
-Known limitation: after `hydrateSPA`, a structural function child with keyed
-items in a component's fragment or array result does not update when its
-state changes, whether or not a render failed. Unkeyed items, and structural
-function children inside an element, update as described above.
+After `hydrateSPA`, structural function children in a component's fragment or
+array result keep updating for both keyed and unkeyed items, including after a
+failed render rolls back.
 
 Read the state in the render instead of a binding when a value must change
 together with the rest of the component's output.
@@ -128,6 +127,8 @@ During hydration, a keyed `For` adopts only its own server-rendered rows even
 when a static or component child precedes it in the same parent. The unrelated
 sibling and every adopted row keep their DOM identity through later reorder
 and removal commits.
+Rows returned by components as text or fragments also retain their server nodes
+when text sits before or after the list, with markup verification enabled.
 
 In a mixed parent, an empty or newly emptied `For` also preserves the first
 following sibling as its reconciliation cursor. Later static nodes, components,
@@ -140,6 +141,15 @@ shares an element with text or other children, such as
 `<li>Label: <For each={items}>...</For></li>`. The surrounding children keep
 their DOM identity while rows update, reorder, or leave. A failed parent
 update retains the previous row commit boundary.
+
+When a row callback reads a getter directly and that getter changes with the
+list in one flush, the list reconcile absorbs the row's scheduled update.
+Removed rows do not run again, and retained rows render once with the latest
+item, index, and getter value.
+
+Re-showing a `Show` branch that contains a `For` renders the current row items,
+positions, and callback values, including when the list and branch change in
+the same flush.
 
 When a keyed row renders a transparent component range, the row continues to
 follow the component's current owned range after reactive resource, portal, or
@@ -523,6 +533,10 @@ transparent component ranges, and SSR portal hosts are eligible for adoption
 only inside that scope. Keyed trees, reactive props, and any mismatch use the
 normal reconciliation path.
 
+A page root that returns several sibling nodes, including leading text, adopts
+each matching server node in place. The automatic default portal host does not
+consume one of those siblings when it has no server-rendered content.
+
 Ordinary client reconciliation never infers ownership from matching-looking
 DOM. Unmatched nodes and ranges are removed from a captured next sibling,
 their component subtrees are torn down exactly once, and newly rendered
@@ -566,7 +580,9 @@ the final value, matching the client runtime.
 Portal values are scoped to one server render root. A portal created with
 `definePortal()` can be reused by application code without carrying content
 between routes or requests. Hydration adopts the server-rendered portal
-content and attaches its normal bindings.
+content and attaches its normal bindings. Named portal hosts retain matching
+server nodes with or without a key, whether the writer renders before or after
+the host.
 
 On the client, removing a portal writer clears its host content and disposes
 the content components, including their tasks, watches, and resources. Removing
@@ -578,6 +594,9 @@ and around default-portal host content. Hydration adopts the host range in
 place, including when an explicit host precedes its writer or has no content.
 The anchors keep adjacent application nodes in position without a visible
 wrapper element. Unused or explicitly suppressed automatic hosts are omitted.
+After a fully hydrated render, server portal content is removed if the client
+has no writer; `verifyMarkup` reports that difference. Content remains visible
+while its writer is in a deferred hydration boundary and is claimed on reveal.
 
 ## Static Site Generation (SSG)
 

@@ -12,18 +12,12 @@ export type QueryStaleReason = 'aborted' | 'error' | 'inconsistent';
 export interface DataRuntime {
   readonly queryCache: Map<string, unknown>;
   readonly queryData: Map<string, unknown>;
-  /** Test-only query overrides keyed by the canonical query key. */
-  readonly queryTestOverrides: Map<string, unknown>;
-  /** Test-only mutation overrides keyed by the canonical mutation key. */
-  readonly mutationTestOverrides: Map<string, unknown>;
 }
 
 /** Options for {@link createDataRuntime}. */
 export interface DataRuntimeOptions {
   queryCache?: Map<string, unknown>;
   queryData?: Map<string, unknown>;
-  queryTestOverrides?: Map<string, unknown>;
-  mutationTestOverrides?: Map<string, unknown>;
 }
 
 /** Reusable query definition for {@link defineQuery}: key, fetcher, and freshness checks. */
@@ -270,6 +264,8 @@ export type QueryOptions<T> = {
   runtime?: DataRuntime;
   initialData?: T;
   skipInitialFetch?: boolean;
+  /** Cache lifetime in milliseconds. Defaults to 0 after component unmount and five minutes for ownerless client queries. */
+  gcTime?: number;
 };
 
 /** Options for {@link createMutation}. */
@@ -277,6 +273,11 @@ export type MutationOptions<TInput, TResult> = {
   /** Stable identity used by runtime-scoped mutation test overrides. */
   key?: string;
   action: (input: TInput, ctx: { signal: AbortSignal }) => Promise<TResult>;
+  /** Apply a synchronous optimistic change. Return a rollback for failure or abort. */
+  optimistic?: (
+    input: TInput,
+    ctx: { signal: AbortSignal }
+  ) => void | (() => void);
   /**
    * Query prefixes to invalidate after success, matched by `:`-delimited
    * segment the same way as {@link invalidate}.

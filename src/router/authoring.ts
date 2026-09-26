@@ -12,8 +12,8 @@ import type {
 } from '../common/router';
 import type { AuthDecision, AuthRequirement } from '@askrjs/auth';
 import type { ObjectSchema } from '@askrjs/schema';
-import { getCurrentComponentInstance } from '../runtime';
-import { getExecutionModel } from '../runtime';
+import { currentComponent as getCurrentComponentInstance } from '../core/api/hooks';
+import { getExecutionModel } from '../common/execution-model';
 import {
   computeRank,
   normalizeRouteSegmentName,
@@ -614,7 +614,7 @@ export function route(
   }
 
   const currentInst = getCurrentComponentInstance();
-  if (currentInst && currentInst.ssr) {
+  if (currentInst && currentInst.server) {
     throw new Error(
       'route() cannot be called during SSR rendering. Register routes at module load time instead.'
     );

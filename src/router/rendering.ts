@@ -8,7 +8,7 @@ import type {
 } from '../common/router';
 import { ROUTE_ROOT_COMPONENT } from '../common/router-internal';
 import type { RenderableChild } from '../common/vnode';
-import { defineScope, readScope } from '../runtime';
+import { defineScope, readScope } from '../core/api/scope';
 import type { InternalRouteRecord } from './internal-types';
 import { _associateLazyHandler } from './lazy';
 

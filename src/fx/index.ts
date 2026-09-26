@@ -1,7 +1,7 @@
 /**
  * Timing and event-scheduling helpers.
  *
- * The timing helpers (`debounce`, `throttle`, `once`, `defer`, `raf`, `idle`,
+ * The timing helpers (`debounce`, `throttle`, `once`, `raf`, `idle`,
  * `timeout`, `retry`) are plain functions with no runtime dependency. The
  * event and `schedule*` helpers use the Askr scheduler and lifecycle ownership.
  * `debounceEvent`, `throttleEvent`, and `rafEvent` reject invocation during
@@ -13,7 +13,6 @@ export {
   debounce,
   throttle,
   once,
-  defer,
   raf,
   idle,
   timeout,
@@ -30,6 +29,7 @@ export {
   scheduleTimeout,
   scheduleIdle,
   scheduleRetry,
+  type RetryOutcome,
 } from './fx';
 
 export { scheduleEventHandler } from '../runtime';

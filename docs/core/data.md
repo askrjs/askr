@@ -28,6 +28,9 @@ function Counter() {
 `[getter, setter]` tuple as above, or retain the cell and use `count()` with
 `count.set(1)`; both forms are equivalent. If the state value itself is a
 function, replace it with updater form such as `setHandler(() => nextHandler)`.
+The callable and setter are the public state interface; subscription bookkeeping
+is managed by the runtime.
+The `watch()` source type likewise exposes only its callable read signature.
 
 ## Derived state
 
@@ -72,11 +75,11 @@ import { resource } from '@askrjs/askr/resources';
 
 function UserCard({ id }: { id: string }) {
   const user = resource(
-    async ({ signal }) => {
-      const res = await fetch(`/api/users/${id}`, { signal });
+    () => id,
+    async (currentId, { signal }) => {
+      const res = await fetch(`/api/users/${currentId}`, { signal });
       return res.json();
-    },
-    [id]   // re-run when id changes
+    }
   );
 
   if (user.error) return <div>Failed to load user</div>;
@@ -97,13 +100,14 @@ function UserCard({ id }: { id: string }) {
 ### Cancellation
 
 The `signal` parameter is an `AbortSignal`. Pass it to `fetch()` and any other cancellable
-APIs. When the component re-renders with new deps or unmounts, in-flight work is cancelled
-automatically.
+APIs. When the source changes or the component unmounts, in-flight work is
+cancelled automatically.
 
-A deps change takes effect when the render that saw it commits. If that render
-is rolled back (for example because a sibling throws), the committed deps are
-unchanged, so the next committed render with the new deps still starts the
-fetch, and a render back on the committed deps keeps the committed value.
+The source-driven form reads its source in a positional component render and
+starts the new loader after a successful commit. The
+`resource(loader, deps)` form remains available; its dependency
+change takes effect only when the render commits. If that render rolls back,
+the committed deps and resource value remain in force.
 
 ## Minimal data layer
 
@@ -229,6 +233,18 @@ work settles, when a remaining reader defines the key differently. A reader that
 the owner in the same update (such as a keyed `For` row swap) is not a conflict. When the
 owning reader unmounts, a remaining reader's latest definition takes over immediately, so
 invalidations and refreshes never run an unmounted reader's callbacks.
+By default, the last reader's unmount evicts the query immediately. Set
+`gcTime` to a finite, non-negative number of milliseconds to retain a settled
+value in that data runtime's cache. A new reader before the deadline sees the
+cached value and supplies the next fetch definition; the timer restarts after
+its last unmount. An in-flight refresh is aborted when the last reader leaves.
+Invalidating an inactive retained key evicts it instead of fetching through an
+unmounted reader's callback.
+Outside a component, a query handle remains usable after its cache lookup
+entry expires. The default ownerless cache lifetime is five minutes, so
+runtime-scoped invalidation can still reach it. Set `gcTime: 0` to skip caching
+or another finite `gcTime` to change that interval. Server rendering
+keeps its request-local entry through dehydration.
 `createQueryCollection()` entries follow the same rules: each collection update redefines
 its entries, so `retry()` and invalidation fetch with the entry's current `input`.
 `stale` covers either a value that still exists but is known to be inconsistent, or an error
@@ -318,8 +334,17 @@ Collection identity and lifecycle are deterministic:
   freshness, and prefix invalidation. Two collection keys that resolve to the
   same query key share one query cell.
 - `concurrency` defaults to 4 and must be a positive integer. It bounds initial
-  collection loads and `retry()` calls. Direct `entry.query.refresh()` and
-  global `invalidate()` retain their existing immediate query semantics.
+  collection loads, `retry()` calls, and invalidation refetches for entries
+  attached to the collection. Repeated invalidations of a queued entry
+  coalesce. A queued entry with data retains that data and reports
+  `refreshing: true` and `stale: true`; with no data it reports `loading: true`.
+  `markPendingWrite` remains visible as `consistency: 'pending-write'` while
+  the entry waits for a slot.
+- When a query is shared with a plain reader, invalidation uses the collection
+  queue and both readers observe the same queued state. When two collections
+  share a query, the collection with the smaller concurrency limit schedules
+  its invalidation; each collection bounds the work it starts. Direct
+  `entry.query.refresh()` remains immediate and is outside collection limits.
 - During SSR and SSG rendering, the collection reads hydrated query data but
   does not start client fetches. Prefetch the definition's inputs into the
   request-owned runtime before rendering.
@@ -422,6 +447,13 @@ const admin = queryScope('admin');
 admin.invalidate(['buckets', 'main']);
 ```
 
+For invalidation that may run after `await`, bind the scope to the app's data
+runtime when creating it: `queryScope('admin', { runtime: dataRuntime })`.
+The returned `invalidate()` uses that runtime even when no app render context is
+active. A runtime passed to an individual `scope.invalidate()` call overrides
+the bound runtime. Plain `invalidate()` still needs an explicit `{ runtime }`
+after an asynchronous boundary when the app uses a custom data runtime.
+
 The raw `invalidate(prefix)` API matches whole `:`-delimited key segments. A
 key matches when it equals the prefix or continues it at a `:` boundary, so
 `invalidate('user:1')` matches `user:1` and `user:1:permissions` but not
@@ -513,6 +545,34 @@ if (saveUser.status === 'error') {
 }
 ```
 
+For immediate feedback, `optimistic(input, { signal })` runs before `action`
+and may return a synchronous rollback function. Askr calls that rollback once
+if the write fails or is explicitly aborted; a successful write keeps the
+optimistic change and then applies `afterSuccess` invalidation. For example,
+inside a component with a `state()` value:
+
+```ts
+import { state } from '@askrjs/askr';
+import { createMutation } from '@askrjs/askr/data';
+
+const displayedName = state('Ada');
+const saveName = createMutation({
+  action: (name: string, { signal }) => userService.saveName(name, { signal }),
+  optimistic: (name) => {
+    const previous = displayedName();
+    displayedName.set(name);
+    return () => displayedName.set(previous);
+  },
+});
+```
+
+When writes overlap, each execution owns its rollback. If several writes
+change the same local value, guard the rollback with an application version
+or use separate state per write so an older failure cannot replace a newer
+successful value. Cancellation is best effort for the remote write: if an
+action ignores its aborted signal and later succeeds, its affected queries
+are still invalidated.
+
 Give mutations used in component tests a stable `key`. A runtime-scoped test
 registry can then replace the normal mutation cell without mocking the feature
 module:
@@ -536,8 +596,8 @@ mutations.clear();
 
 Fixtures expose `setPending()`, `succeed(result)`, `fail(error)`, `abort()`,
 and `reset()` for deterministic state changes. Registry `delete()` and
-`clear()` reset removed mutations, and each registry owns an isolated data
-runtime. Pass that runtime as `dataRuntime` to `renderRoute()`, or to plain
+`clear()` reset removed mutations. Each registry creates an isolated data
+runtime by default. Pass that runtime as `dataRuntime` to `renderRoute()`, or to plain
 `render()`/`mount()` calls when the component does not need a router:
 
 ```tsx
@@ -549,14 +609,22 @@ const rendered = render(AccountSummary, {
 });
 ```
 
+Pass an existing runtime to `createQueryTestRegistry(runtime)` or
+`createMutationTestRegistry(runtime)` when one test needs both fixture kinds.
+Test override maps live inside that runtime and are managed through the
+registries; the public `DataRuntime` object exposes only `queryCache` and
+`queryData`.
+
 Each render owns its injected runtime for initial rendering, reactive work,
 delegated events, and cleanup. Omitting `dataRuntime` preserves the default
 runtime behavior.
 
-Mutations own their own `AbortController`, abort the previous request when a new execution
-starts, and can mark affected queries as `pending-write` before refreshing them.
-`status` narrows `pending`, `result`, and `error`. `abort()` only cancels an in-flight
-execution, while `reset()` clears settled mutation state back to idle. Nullish thrown values
+Each mutation execution owns an `AbortController`. Starting another write keeps
+earlier writes running; the latest execution controls the visible mutation state,
+and every successful write invalidates its affected queries. `abort()` cancels
+all pending executions, including older ones after the latest has settled.
+`reset()` cancels pending executions and clears mutation state back to idle.
+`status` narrows `pending`, `result`, and `error`. Nullish thrown values
 are normalized before they reach `error`, so `status === 'error'` always carries a non-null
 error value.
 

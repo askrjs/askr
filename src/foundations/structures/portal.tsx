@@ -1,9 +1,7 @@
 export {
-  _resetDefaultPortal,
-  clearDefaultPortalForInstance,
   DefaultPortal,
   definePortal,
-  disposeDefaultPortalScope,
   Portal,
-} from '../../runtime/portal/portal';
-export type { PortalProps } from '../../runtime/portal/portal';
+  resetDefaultPortal as _resetDefaultPortal,
+} from '../../core/api/portal';
+export type { PortalProps } from '../../core/api/portal';

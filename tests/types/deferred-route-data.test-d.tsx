@@ -1,4 +1,5 @@
 import { expectAssignable, expectType } from 'tsd';
+import type { JSX } from '@askrjs/askr/jsx-runtime';
 import {
   defer,
   isDeferred,

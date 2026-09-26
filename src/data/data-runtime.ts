@@ -1,17 +1,15 @@
-import {
-  getComponentLifetimeIdentity,
-  ownComponentCleanup,
-} from '../runtime/component/capabilities';
-import { drainOwnedCleanup } from '../runtime/ownership/record';
 import { getActiveRenderContext } from '../common/render-context';
-import { getCurrentAppRenderRuntime } from '../runtime';
-import type { ComponentInstance } from '../runtime';
+import {
+  currentAppRuntime as getCurrentAppRenderRuntime,
+  type ComponentInstance,
+} from '../core/api/hooks';
 import {
   emitInvalidation,
   hasInvalidationListeners,
 } from './invalidation-listeners';
 import type { MutationCell } from './mutation-cell';
 import type { QueryCell } from './query-cell';
+import { invalidateCollectionCell } from './collection-invalidation';
 import type { DataRuntime, DataRuntimeOptions } from './types';
 
 export type QuerySlot = {
@@ -61,9 +59,7 @@ const dataRuntimeByQueryCache = new WeakMap<
 
 function createDataRuntimeState(
   queryCache: Map<string, unknown>,
-  queryData: Map<string, unknown>,
-  queryTestOverrides: Map<string, unknown>,
-  mutationTestOverrides: Map<string, unknown>
+  queryData: Map<string, unknown>
 ): DataRuntimeState {
   return {
     queryCache: queryCache as Map<string, QueryCell<unknown>>,
@@ -74,8 +70,8 @@ function createDataRuntimeState(
     mutationSlotsByGeneration: new WeakMap(),
     queryCleanupRegistered: new WeakSet(),
     mutationCleanupRegistered: new WeakSet(),
-    queryTestOverrides,
-    mutationTestOverrides,
+    queryTestOverrides: new Map(),
+    mutationTestOverrides: new Map(),
   };
 }
 
@@ -86,19 +82,10 @@ export function createDataRuntime(
   const runtime: DataRuntime = Object.freeze({
     queryCache: options.queryCache ?? new Map<string, unknown>(),
     queryData: options.queryData ?? new Map<string, unknown>(),
-    queryTestOverrides:
-      options.queryTestOverrides ?? new Map<string, unknown>(),
-    mutationTestOverrides:
-      options.mutationTestOverrides ?? new Map<string, unknown>(),
   });
   dataRuntimeStates.set(
     runtime,
-    createDataRuntimeState(
-      runtime.queryCache,
-      runtime.queryData,
-      runtime.queryTestOverrides,
-      runtime.mutationTestOverrides
-    )
+    createDataRuntimeState(runtime.queryCache, runtime.queryData)
   );
   dataRuntimeByQueryCache.set(runtime.queryCache, runtime);
   return runtime;
@@ -218,11 +205,27 @@ export function writePrefetchedQueryData(
   }
 }
 
+/** Run `fn` for every entry even when some throw; rethrow the failures. */
+function drain<T>(entries: Iterable<T>, fn: (entry: T) => void): void {
+  const errors: unknown[] = [];
+  for (const entry of Array.from(entries)) {
+    try {
+      fn(entry);
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+  if (errors.length === 1) throw errors[0];
+  if (errors.length > 1) {
+    throw new AggregateError(errors, 'Data cleanup failed');
+  }
+}
+
 export function getQuerySlotStore(
   runtimeState: DataRuntimeState,
   instance: ComponentInstance
 ): Map<number, QuerySlot> {
-  const generation = getComponentLifetimeIdentity(instance);
+  const generation: object = instance;
   let store = runtimeState.querySlotsByGeneration.get(generation);
   if (!store) {
     store = new Map();
@@ -235,7 +238,7 @@ export function getMutationSlotStore(
   runtimeState: DataRuntimeState,
   instance: ComponentInstance
 ): Map<number, MutationSlot> {
-  const generation = getComponentLifetimeIdentity(instance);
+  const generation: object = instance;
   let store = runtimeState.mutationSlotsByGeneration.get(generation);
   if (!store) {
     store = new Map();
@@ -248,16 +251,16 @@ export function ensureQueryCleanup(
   runtimeState: DataRuntimeState,
   instance: ComponentInstance
 ): void {
-  const generation = getComponentLifetimeIdentity(instance);
+  const generation: object = instance;
   if (runtimeState.queryCleanupRegistered.has(generation)) {
     return;
   }
 
   runtimeState.queryCleanupRegistered.add(generation);
   const slots = getQuerySlotStore(runtimeState, instance);
-  ownComponentCleanup(instance, () => {
+  instance.onCleanup(() => {
     try {
-      drainOwnedCleanup(slots, ([hookIndex, slot]) =>
+      drain(slots, ([hookIndex, slot]) =>
         slot.cell.detach(generation, hookIndex)
       );
     } finally {
@@ -272,16 +275,16 @@ export function ensureMutationCleanup(
   runtimeState: DataRuntimeState,
   instance: ComponentInstance
 ): void {
-  const generation = getComponentLifetimeIdentity(instance);
+  const generation: object = instance;
   if (runtimeState.mutationCleanupRegistered.has(generation)) {
     return;
   }
 
   runtimeState.mutationCleanupRegistered.add(generation);
   const slots = getMutationSlotStore(runtimeState, instance);
-  ownComponentCleanup(instance, () => {
+  instance.onCleanup(() => {
     try {
-      drainOwnedCleanup(slots.values(), (slot) => slot.cell.abort());
+      drain(slots.values(), (slot) => slot.cell.abort());
     } finally {
       slots.clear();
       runtimeState.mutationSlotsByGeneration.delete(generation);
@@ -342,6 +345,6 @@ export function invalidateQueriesForRuntime(
       query.markPendingWrite();
     }
 
-    query.invalidate();
+    if (!invalidateCollectionCell(query)) query.invalidate();
   }
 }

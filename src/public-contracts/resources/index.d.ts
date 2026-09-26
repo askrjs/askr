@@ -28,10 +28,18 @@ interface ResourceResult<T> {
   error: Error | null;
   refresh(): void;
 }
+/** Create a source-driven resource whose loader receives the latest source value. */
+declare function resource<TSource, T>(
+  source: () => TSource,
+  load: (value: TSource, opts: { signal: AbortSignal }) => PromiseLike<T> | T
+): ResourceResult<T>;
 /** Creates a render-scoped async resource with cancellation and refresh; SSR has special data rules. */
 declare function resource<T, const TDeps extends readonly unknown[]>(
   fn: (opts: { signal: AbortSignal }) => PromiseLike<T> | T,
   deps: TDeps
+): ResourceResult<T>;
+declare function resource<T>(
+  fn: (opts: { signal: AbortSignal }) => PromiseLike<T> | T
 ): ResourceResult<T>;
 /** Connection status of a {@link stream}. */
 type StreamStatus =
@@ -58,6 +66,15 @@ interface StreamOptions<T> {
 type StreamSource<T> = (context: {
   signal: AbortSignal;
 }) => AsyncIterable<T> | PromiseLike<AsyncIterable<T>>;
+/** Connect a stream from an input read during a positional component render. */
+declare function stream<TSource, T>(
+  source: () => TSource,
+  connect: (
+    value: TSource,
+    context: { signal: AbortSignal }
+  ) => AsyncIterable<T> | PromiseLike<AsyncIterable<T>>,
+  options?: Omit<StreamOptions<T>, 'deps'>
+): StreamResult<T>;
 /** Subscribe to a streaming data source for the current component's lifetime, with auto reconnect/cleanup. */
 declare function stream<T>(
   source: StreamSource<T>,

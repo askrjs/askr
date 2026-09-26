@@ -7,12 +7,7 @@ import type {
 } from '../common/router';
 import { logger } from '../common/logger';
 import { reportUncaughtErrorLater } from '../common/report-error';
-import {
-  beginCommitTransaction,
-  discardTransaction,
-  commitTransaction,
-  flushRuntimeScheduler,
-} from '../runtime';
+import { flushSync } from '../core/reactive/scheduler';
 import {
   applyHistoryScroll,
   applyNavigationScroll,
@@ -45,7 +40,6 @@ import {
   type PreparedRootUpdate,
 } from '../common/root-update';
 import type { ComponentFunction } from '../common/component';
-import { registerCommitParticipant } from '../runtime/transactions/access';
 import { loadDocument, reloadDocument } from './document-navigation';
 import {
   commitHistoryIndex,
@@ -207,7 +201,7 @@ function resolveAppRouteRequest(
     registry: app.registry,
     auth: app.auth,
     signal,
-    dataRuntime: app.instance._appRenderRuntime?.dataRuntime,
+    dataRuntime: app.instance.appRuntime?.dataRuntime,
   });
 }
 
@@ -468,8 +462,11 @@ export function applyPopStateNavigationTargets(
   );
 }
 
-/** Every root joins one transaction. History remains after lifecycle work,
- * so a navigation started by that work can supersede this destination. */
+/**
+ * Render every destination root, then commit all of them or none. Lifecycle
+ * work of the committed destination runs before history is updated, so a
+ * navigation it starts supersedes this one.
+ */
 function commitNavigationRoots(
   requestId: number,
   pathname: string,
@@ -487,85 +484,65 @@ function commitNavigationRoots(
     return {
       target,
       replaceLifetime,
-      previousPathname: target.app.pathname,
-      previousHref: target.app.href,
       prepared: prepareNavigationRoot(target, href, replaceLifetime),
     };
   });
-  const transaction = beginCommitTransaction();
-  let completionFailure: { error: unknown } | undefined;
-  registerCommitParticipant({
-    rollback() {
-      const errors: unknown[] = [];
-      for (let index = roots.length - 1; index >= 0; index--)
-        errors.push(...roots[index]!.prepared.rollback());
-      for (const root of roots) {
-        root.target.app.pathname = root.previousPathname;
-        root.target.app.href = root.previousHref;
-      }
-      setCurrentRouteLocation(previousPathname, previousHref);
-      try {
-        restoreHistory?.();
-      } catch (error) {
-        errors.push(error);
-      }
-      reportRouteCleanupErrors(errors);
-    },
-    settle() {
-      // The destination is committed: outgoing cleanup failures are reported
-      // like other post-commit cleanup failures, once navigation finishes.
-      const errors: unknown[] = [];
-      for (const root of roots) errors.push(...root.prepared.retire());
-      if (errors.length)
-        reportUncaughtErrorLater(
-          errors.length === 1
-            ? errors[0]
-            : new AggregateError(errors, 'Route cleanup failed')
-        );
-    },
-    complete() {
-      // A superseded request must not publish: returning from inside the try
-      // below would still run the finally and release staged root state.
-      if (isStaleRouteRequest(requestId)) return;
-      try {
-        updateHistory();
-        setCurrentRouteLocation(pathname, href);
-        syncRegisteredRouteSnapshot();
-        reconcileNavigationMetadata(targets);
-        updateScroll();
-      } catch (error) {
-        // Rethrown to the navigation caller after the commit; not also handed
-        // to the coordinator, which would report it a second time.
-        completionFailure = { error };
-      } finally {
-        // Publishes once on both the success and failure paths.
-        for (const root of roots) root.prepared.publish();
-      }
-    },
-  });
+
+  const rollback = () => {
+    const errors: unknown[] = [];
+    for (let index = roots.length - 1; index >= 0; index--) {
+      errors.push(...roots[index]!.prepared.rollback());
+    }
+    setCurrentRouteLocation(previousPathname, previousHref);
+    try {
+      restoreHistory?.();
+    } catch (error) {
+      errors.push(error);
+    }
+    reportRouteCleanupErrors(errors);
+  };
+
   try {
-    // Preserve replacement-before-refresh scheduling across all roots.
+    // Replacement lifetimes render before refreshed ones.
     for (const replaceLifetime of [true, false]) {
       for (const root of roots) {
-        if (isStaleRouteRequest(requestId)) return;
         if (root.replaceLifetime === replaceLifetime) root.prepared.apply();
       }
-      if (isStaleRouteRequest(requestId)) return;
-      flushRuntimeScheduler();
-      if (isStaleRouteRequest(requestId)) return;
     }
-    registerCommitParticipant({
-      publish() {
-        for (const root of roots)
-          syncAppRegistrationLocation(root.target.app, pathname, href);
-      },
-    });
-    commitTransaction(transaction);
-    if (completionFailure) throw completionFailure.error;
+  } catch (error) {
+    rollback();
+    logger.error('[Askr] navigation failed:', error);
+    throw error;
+  }
+  if (isStaleRouteRequest(requestId)) {
+    rollback();
+    return;
+  }
+
+  for (const root of roots) {
+    root.prepared.publish();
+    syncAppRegistrationLocation(root.target.app, pathname, href);
+  }
+  const retired: unknown[] = [];
+  for (const root of roots) retired.push(...root.prepared.retire());
+  if (retired.length) {
+    reportUncaughtErrorLater(
+      retired.length === 1
+        ? retired[0]
+        : new AggregateError(retired, 'Route cleanup failed')
+    );
+  }
+
+  flushSync();
+  if (isStaleRouteRequest(requestId)) return;
+  try {
+    updateHistory();
+    setCurrentRouteLocation(pathname, href);
+    syncRegisteredRouteSnapshot();
+    reconcileNavigationMetadata(targets);
+    updateScroll();
   } catch (error) {
     logger.error('[Askr] navigation failed:', error);
     throw error;
-  } finally {
-    discardTransaction(transaction);
   }
 }

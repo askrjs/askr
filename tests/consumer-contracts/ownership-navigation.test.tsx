@@ -1,5 +1,8 @@
 import { expect, test } from 'vitest';
-import { getDefaultRuntime, type RuntimeRendererHost } from '@askrjs/askr';
+import {
+  getDefaultRuntime,
+  type RuntimeRendererHost,
+} from '@askrjs/askr/experimental';
 import { cleanupApp, createSPA } from '@askrjs/askr/boot';
 import { createRouteRegistry, navigate, route } from '@askrjs/askr/router';
 type Owner = NonNullable<Parameters<RuntimeRendererHost['evaluate']>[3]>;

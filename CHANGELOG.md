@@ -2,6 +2,79 @@
 
 ## Unreleased
 
+- fix(renderer): forced bulk reuse now propagates key attribute write failures
+  and restores a partially written key before changing that row's content.
+
+- fix(renderer): strip the forced positional bulk reuse diagnostic switch from
+  production bundles; it remains available in development tests.
+
+- feat(fx): `scheduleRetry()` now returns a `result` promise with the final
+  success value, terminal error, or cancellation status. Terminal errors still
+  reach the host reporter.
+
+- breaking(runtime): remove the scheduler's mutable `setInHandler` flag.
+  Use `runInHandlerScope()` to hold handler permissions for a lexical scope.
+
+- feat(data): mutations support a synchronous `optimistic` callback that
+  returns a rollback for failure or abort. Overlapping executions no longer
+  abort earlier writes by default; explicit abort cancels all pending writes.
+
+- fix(data): ownerless client queries now evict their cache lookup entry after
+  `gcTime` (five minutes by default, or immediately with `gcTime: 0`) while
+  the returned handle remains usable.
+  SSR request caches retain entries through dehydration.
+
+- feat(data): `createQuery()` accepts `gcTime` to retain settled data for a
+  bounded interval after the last component reader unmounts. The default
+  remains immediate eviction.
+
+- breaking(runtime): scheduler diagnostic state no longer includes
+  `taskCount`; use `queueLength` for pending work.
+
+- breaking(runtime): scheduler diagnostic state no longer includes the
+  redundant `executionDepth` field; use `running` or `isExecuting()`.
+
+- fix(runtime): report failed bulk-commit probes and reject work while commit
+  state is unknown instead of silently admitting it.
+
+- fix(fx): `raf()` wrappers now expose `cancel()` and remain usable after a
+  callback throws.
+
+- breaking(fx): remove `defer(fn)` from `@askrjs/askr/fx`; use the platform's
+  `queueMicrotask(fn)` for callback scheduling. `defer(promise)` remains in
+  `@askrjs/askr/router` for deferred route data.
+
+- breaking(data): `DataRuntime` no longer exposes test override maps or accepts
+  them in `createDataRuntime()` options. Use the query and mutation test
+  registries to install fixtures. Both registries now accept an existing
+  runtime when a test needs to share one cache and fixture scope.
+
+- fix(types): intrinsic event props now cover the DOM global handler map,
+  including animation, composition, drag, media, pointer-capture, and
+  transition events. Their `Capture` variants receive the same event type.
+
+- fix(types): intrinsic JSX and `jsx()` refs now use each tag's element type.
+  An `<input>` ref can no longer be passed to `<button>`, and callback refs
+  receive the correct element type. This includes standard tags outside the
+  explicitly tailored intrinsic-prop set.
+
+- breaking(types): Askr's JSX namespace now belongs only to the
+  `jsxImportSource` runtime modules. Import `type JSX` from
+  `@askrjs/askr/jsx-runtime` instead of using global `JSX`. Misspelled standard
+  tags now fail typechecking; hyphenated custom elements remain supported.
+  The unused class-component `ElementAttributesProperty` hook was removed.
+
+- docs(scope): mark the published interaction and icon foundation subpaths as
+  platform internal contracts for sibling UI and icon packages. Their imports
+  and behavior remain available for those packages; application code should
+  use the composed UI and icon packages.
+
+- breaking(api): runtime construction and renderer-host extension exports moved
+  from `@askrjs/askr` to `@askrjs/askr/experimental`. Change their import path;
+  their behavior and signatures remain the same. The root retains application
+  primitives. The experimental subpath is for runtime and renderer maintainers;
+  `createRuntime()` does not isolate mounted trees.
+
 - fix(renderer): a chain of three or more components of the same type, each
   returning the next directly, now keeps the state of every link when an
   outer link re-renders. The update walk previously failed to find the deeper

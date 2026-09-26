@@ -3,10 +3,10 @@ import {
   getCurrentRenderData,
   registerDeferredBoundary,
 } from '../common/render-context';
-import { getCurrentAppRenderRuntime } from '../runtime';
+import { currentAppRuntime as getCurrentAppRenderRuntime } from '../core/api/hooks';
 import type { RenderableChild } from '../common/vnode';
 import type { JSXElement } from '../common/jsx';
-import { resource } from '../runtime';
+import { resource } from '../core/api/resource';
 import { guardHydratedRouteData } from './route-hydration';
 import {
   defer,

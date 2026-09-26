@@ -1,7 +1,7 @@
 import type { RenderableChild } from '../common/vnode';
 import type { JSXElement } from '../common/jsx';
 import type { ObjectSchema } from '@askrjs/schema';
-import { state } from '../runtime';
+import { state } from '../core/api/state';
 import { getCurrentRenderData } from '../common/render-context';
 import {
   invalidateQueriesForRuntime,

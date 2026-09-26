@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
-import { createRef, getDefaultRuntime, state } from '@askrjs/askr';
+import { createRef, state } from '@askrjs/askr';
+import { getDefaultRuntime } from '@askrjs/askr/experimental';
 import { cleanupApp, createSPA, hydrateSPA } from '@askrjs/askr/boot';
 import { resource } from '@askrjs/askr/resources';
 import {

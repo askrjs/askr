@@ -184,6 +184,10 @@ describe('SSG hydration bundle', () => {
     // host owner list by parent (+305 bytes, 286,115 bytes total).
     // 282 KiB: #600 commits mixed-parent For rows locally and invalidates
     // callbacks after removal (+1,883 bytes, 287,998 bytes total).
-    expect(initialBytes).toBeLessThanOrEqual(282 * 1024);
+    // 283 KiB: #578 retires stale default portal SSR content after hydration
+    // and preserves content for deferred writers (+1,360 bytes over 287,998).
+    // 284 KiB: #575's internal setup prototype tracks current props for
+    // setup-owned reactive reads (289,993 bytes, 201 above the prior cap).
+    expect(initialBytes).toBeLessThanOrEqual(284 * 1024);
   });
 });

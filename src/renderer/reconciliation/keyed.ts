@@ -33,37 +33,33 @@ export function getKeyMapForElement(el: Element) {
  * for `data-key` attributes. Proactive initialization for runtime layers.
  */
 export function populateKeyMapForElement(parent: Element): void {
-  try {
-    if (keyedElements.has(parent)) return;
+  if (keyedElements.has(parent)) return;
 
-    let domMap = new Map<string | number, Element>();
-    const logicalHosts = getLogicalChildHosts(parent);
-    for (const host of logicalHosts) {
-      if (!(host instanceof Element)) continue;
-      const key = getMaterializedKey(host);
-      if (key !== undefined) {
-        domMap.set(key, host);
-      }
+  let domMap = new Map<string | number, Element>();
+  const logicalHosts = getLogicalChildHosts(parent);
+  for (const host of logicalHosts) {
+    if (!(host instanceof Element)) continue;
+    const key = getMaterializedKey(host);
+    if (key !== undefined) {
+      domMap.set(key, host);
     }
-
-    // Fallback: map by textContent when keys are not materialized as attrs
-    if (domMap.size === 0) {
-      domMap = new Map();
-      for (const ch of logicalHosts) {
-        if (!(ch instanceof Element)) continue;
-        const text = (ch.textContent || '').trim();
-        if (text) {
-          domMap.set(text, ch);
-          const n = Number(text);
-          if (!Number.isNaN(n)) domMap.set(n, ch);
-        }
-      }
-    }
-
-    if (domMap.size > 0) keyedElements.set(parent, domMap);
-  } catch {
-    // ignore
   }
+
+  // Fallback: map by textContent when keys are not materialized as attrs
+  if (domMap.size === 0) {
+    domMap = new Map();
+    for (const ch of logicalHosts) {
+      if (!(ch instanceof Element)) continue;
+      const text = (ch.textContent || '').trim();
+      if (text) {
+        domMap.set(text, ch);
+        const n = Number(text);
+        if (!Number.isNaN(n)) domMap.set(n, ch);
+      }
+    }
+  }
+
+  if (domMap.size > 0) keyedElements.set(parent, domMap);
 }
 
 // Track which parents had the reconciler record fast-path stats during the

@@ -24,12 +24,10 @@ declare class Scheduler {
   private running;
   private inHandler;
   private depth;
-  private executionDepth;
   private flushVersion;
   private kickScheduled;
   private allowSyncProgress;
   private waiters;
-  private taskCount;
   setBulkCommitProbe(probe: SchedulerBulkCommitProbe): void;
   private isBulkCommitActive;
   private hasPendingTasks;
@@ -45,8 +43,6 @@ declare class Scheduler {
     queueLength: number;
     running: boolean;
     depth: number;
-    executionDepth: number;
-    taskCount: number;
     flushVersion: number;
     laneQueues: {
       derived: number;
@@ -60,7 +56,6 @@ declare class Scheduler {
   getFlushVersion(): number;
   flushIfQueued(): void;
   runInHandlerScope<T>(fn: () => T, flushMode?: 'defer' | 'sync'): T;
-  setInHandler(v: boolean): void;
   isInHandler(): boolean;
   isExecuting(): boolean;
   clearPendingSyncTasks(): number;

@@ -136,6 +136,7 @@ expectType<boolean>(dispatch(rendered.root, new Event('click')));
 expectType<boolean>(click(rendered.root));
 const queryRegistry = createQueryTestRegistry();
 expectType<QueryTestRegistry>(queryRegistry);
+expectType<QueryTestRegistry>(createQueryTestRegistry(queryRegistry.runtime));
 expectType<void>(queryRegistry.set('users:all', friendlyFresh));
 expectType<void>(queryRegistry.delete('users:all'));
 expectType<void>(queryRegistry.clear());
@@ -155,6 +156,9 @@ expectAssignable<Mutation<{ id: string }, boolean>>(
 );
 const mutationRegistry = createMutationTestRegistry();
 expectType<MutationTestRegistry>(mutationRegistry);
+expectType<MutationTestRegistry>(
+  createMutationTestRegistry(queryRegistry.runtime)
+);
 expectType<void>(
   mutationRegistry.set('user/save', mutationState({ result: true }))
 );

@@ -10,12 +10,15 @@ The resources subpath owns `resource()`, `watch()`, `on()`, `timer()`, `task()`,
 `stream()`, `capture()`, `getSignal()`, `routeActive()`, `documentVisible()`, and
 `windowFocused()`.
 
-### `resource(loader, deps)`
+### `resource(source, loader)`
 
-Runs async work with lifecycle awareness and dependency tracking.
+Runs async work owned by a positional component render. The source reads
+current inputs during render; when its value changes and that render commits,
+the previous request is aborted and the loader receives the new value.
 
-- `loader`: function receiving `{ signal }` and returning either a value or a promise-like value
-- `deps`: dependency list that controls re-execution
+- `source`: a getter returning the loader input, such as a state value
+- `loader`: function receiving the source value and `{ signal }`, returning a
+  value or a promise-like value
 
 Returns an object with:
 
@@ -27,15 +30,26 @@ Returns an object with:
 Example (inside a component render):
 
 ```ts
-const user = resource(async ({ signal }) => {
-  const res = await fetch('/api/user', { signal });
-  return res.json();
-}, []);
+const user = resource(
+  () => userId(),
+  async (id, { signal }) => {
+    const res = await fetch(`/api/users/${id}`, { signal });
+    return res.json();
+  }
+);
 
 if (user.error) return 'failed';
 if (user.pending || !user.value) return 'loading';
 return user.value.name;
 ```
+
+`resource(loader, deps)` remains supported for positional components; its
+explicit dependency array is compared with `Object.is`. `resource(loader)`
+keeps the same one-shot lifecycle behavior. The source-driven form currently
+requires a positional component; the internal lifetime-setup prototype uses
+an owned `watch()` to refresh from current props. Resource results remain
+component-owned and are not shared query-cache entries; use `createQuery()`
+for keyed, shared data.
 
 ### `getSignal()`
 
@@ -67,13 +81,20 @@ declare function connectToCountStream(input: {
 
 function LiveCount({ cursor }: { cursor: string }) {
   const count = stream(
-    ({ signal }) => connectToCountStream({ cursor, signal }),
-    { deps: [cursor], initialValue: 0 }
+    () => cursor,
+    (currentCursor, { signal }) =>
+      connectToCountStream({ cursor: currentCursor, signal }),
+    { initialValue: 0 }
   );
 
   return <output data-status={count.status}>{count.value ?? 'connecting'}</output>;
 }
 ```
+
+The source-driven form reads its input during a positional render and
+reconnects only after a changed value commits. `stream(connect, { deps })`
+remains available for existing components. The source-driven form is not yet
+supported by the internal lifetime-setup prototype.
 
 The result object has stable identity and exposes:
 
@@ -85,8 +106,9 @@ The result object has stable identity and exposes:
 - `restart()`: aborts the current generation and starts a new one
 - `close()`: aborts the current generation and remains closed until `restart()`
 
-Dependency entries use shallow `Object.is` comparison. Changing `deps` restarts
-an active stream; changing only the source function does not. The adapter owns
+Inputs and legacy dependency entries use shallow `Object.is` comparison.
+Changing the input or `deps` restarts an active stream; changing only the
+connect function does not. The adapter owns
 cursor resume, deduplication, gap recovery, retry, and backoff policy. On
 completion the status becomes `closed`; non-abort failures become `error` while
 retaining the latest value. Component cleanup aborts the generation, calls the
@@ -228,10 +250,12 @@ starts a fresh initial generation. Callback errors follow the owned lifecycle
 error-boundary path. Watchers are inert during SSR and SSG.
 
 `watch()` takes accessors because it subscribes to source identity.
-`resource(loader, deps)` retains its existing value-array contract because its
-dependencies are restart snapshots rather than subscriptions. Create a
-`derive()` first when the watched value is computed. Use `task()` for mount-only
-setup and `resource()` for result-producing asynchronous reads.
+`resource(source, loader)` reads its source during each positional render and
+restarts after a committed value change. `resource(loader, deps)` retains its
+value-array restart contract. Create a `derive()` first when the watched value
+is computed.
+Use `task()` for mount-only setup and `resource()` for result-producing async
+reads.
 
 ### `onRouteChange(callback, options?)`
 

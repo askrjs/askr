@@ -1,10 +1,11 @@
 import { expectAssignable, expectType } from 'tsd';
 import * as rootSurface from '@askrjs/askr';
+import * as experimentalSurface from '@askrjs/askr/experimental';
+import type { RenderDiagnosticsOptions } from '@askrjs/askr';
 import type {
   AskrRuntimeOptions,
-  RenderDiagnosticsOptions,
   RuntimeKeyedReorderDecision,
-} from '@askrjs/askr';
+} from '@askrjs/askr/experimental';
 import * as dataSurface from '@askrjs/askr/data';
 import * as resourcesSurface from '@askrjs/askr/resources';
 import * as routerSurface from '@askrjs/askr/router';
@@ -29,8 +30,16 @@ declare const registry: RouteRegistry;
 expectType<string>(
   renderResolvedToStringSync({ url: '/', registry, handler: () => 'ok' })
 );
-expectType<rootSurface.AskrRuntime>(rootSurface.createRuntime());
-expectType<rootSurface.AskrRuntime>(rootSurface.getDefaultRuntime());
+expectType<experimentalSurface.AskrRuntime>(
+  experimentalSurface.createRuntime()
+);
+expectType<experimentalSurface.AskrRuntime>(
+  experimentalSurface.getDefaultRuntime()
+);
+// @ts-expect-error runtime construction is quarantined to the experimental subpath
+expectType<never>(rootSurface.createRuntime);
+// @ts-expect-error renderer host construction is quarantined to the experimental subpath
+expectType<never>(rootSurface.createDOMRendererHost);
 expectAssignable<AskrRuntimeOptions>({});
 expectAssignable<RuntimeKeyedReorderDecision>({
   useFastPath: false,

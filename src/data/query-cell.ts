@@ -5,20 +5,15 @@ import {
   staleQueryState,
   errorQueryState,
 } from './query-state';
-import { getComponentLifetimeIdentity } from '../runtime/component/capabilities';
 import { logger } from '../common/logger';
 import { getActiveRenderContext } from '../common/render-context';
 import {
-  adjustOwnershipDiagnostic,
-  requestRuntimeWork,
-  ScheduledWork,
-} from '../runtime';
-import {
   claimHookIndex,
-  getCurrentAppRenderRuntime,
-  getCurrentComponentInstance,
-} from '../runtime';
-import { recordReadableRead } from '../runtime';
+  currentAppRuntime as getCurrentAppRenderRuntime,
+  currentComponent as getCurrentComponentInstance,
+  readSource as recordReadableRead,
+} from '../core/api/hooks';
+import { schedule, type Job } from '../core/reactive/scheduler';
 import {
   ensureQueryCleanup,
   getQuerySlotStore,
@@ -43,6 +38,19 @@ declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
 const RECONCILE_MAX_ATTEMPTS = 3;
 const RECONCILE_RETRY_DELAY_MS = 25;
+const MAX_GC_TIME_MS = 2_147_483_647;
+const DEFAULT_OWNERLESS_GC_TIME_MS = 5 * 60_000;
+
+function validateGcTime(gcTime: number | undefined): void {
+  if (
+    gcTime !== undefined &&
+    (!Number.isFinite(gcTime) || gcTime < 0 || gcTime > MAX_GC_TIME_MS)
+  ) {
+    throw new RangeError(
+      'Query gcTime must be a finite, non-negative timer delay.'
+    );
+  }
+}
 
 type QueryCellOptions<T> = QueryOptions<T> & {
   readonly definitionIdentity?: object;
@@ -50,16 +58,14 @@ type QueryCellOptions<T> = QueryOptions<T> & {
   readonly takeInitialData?: () => T | undefined;
 };
 
-class QueryStartWork extends ScheduledWork {
+/** Starts a query fetch in the flush; settles its promise if dropped. */
+class QueryStartWork implements Job {
   constructor(
-    run: () => void,
+    readonly run: () => void,
     private readonly settle: () => void
-  ) {
-    super(run);
-  }
+  ) {}
 
-  protected override cancel(): void {
-    super.cancel();
+  cancel(): void {
     this.settle();
   }
 }
@@ -84,6 +90,8 @@ export class QueryCell<T> {
   private reconcileSequence = 0;
   private destroyed = false;
   private ownerCount = 0;
+  private gcTimer: ReturnType<typeof setTimeout> | null = null;
+  private unownedTimer: ReturnType<typeof setTimeout> | null = null;
   // Attached readers by lifetime and hook slot, with each reader's latest
   // definition (null until the reader defines one).
   private readonly owners = new Map<
@@ -97,7 +105,7 @@ export class QueryCell<T> {
   private definitionOwnerHook = -1;
   // Reader conflicts are checked after the current render work settles, so a
   // reader replacing the owner (e.g. a keyed row swap) is not a conflict.
-  private conflictCheck: ScheduledWork | null = null;
+  private conflictCheck: Job | null = null;
 
   private state: QueryState<T> = loadingQueryState<T>();
 
@@ -106,18 +114,24 @@ export class QueryCell<T> {
     key: string,
     cache: Map<string, QueryCell<unknown>>
   ) {
+    validateGcTime(options.gcTime);
     this.options = options;
     this.key = key;
     this.cache = cache;
-    if (__ASKR_DEVELOPMENT_BUILD__) {
-      adjustOwnershipDiagnostic('queryCells', 1);
-    }
     if (options.initialData !== undefined) {
       this.state = freshQueryState(options.initialData);
     }
   }
 
   attach(generation: object, hookIndex: number): void {
+    if (this.unownedTimer !== null) {
+      clearTimeout(this.unownedTimer);
+      this.unownedTimer = null;
+    }
+    if (this.gcTimer !== null) {
+      clearTimeout(this.gcTimer);
+      this.gcTimer = null;
+    }
     let hooks = this.owners.get(generation);
     if (!hooks) {
       hooks = new Map();
@@ -130,9 +144,6 @@ export class QueryCell<T> {
 
     hooks.set(hookIndex, null);
     this.ownerCount += 1;
-    if (__ASKR_DEVELOPMENT_BUILD__) {
-      adjustOwnershipDiagnostic('queryOwners', 1);
-    }
   }
 
   detach(generation: object, hookIndex: number): void {
@@ -142,15 +153,23 @@ export class QueryCell<T> {
     }
 
     this.ownerCount -= 1;
-    if (__ASKR_DEVELOPMENT_BUILD__) {
-      adjustOwnershipDiagnostic('queryOwners', -1);
-    }
     if (hooks.size === 0) {
       this.owners.delete(generation);
     }
 
     if (this.ownerCount <= 0) {
-      this.destroy();
+      const gcTime = this.options.gcTime ?? 0;
+      if (gcTime === 0 || this.state.data === null || isServerRender()) {
+        this.destroy();
+      } else {
+        this.generation += 1;
+        this.controller?.abort();
+        this.controller = null;
+        this.finishPendingRefresh();
+        this.definitionOwner = null;
+        this.definitionOwnerHook = -1;
+        this.gcTimer = setTimeout(() => this.destroy(), gcTime);
+      }
       return;
     }
 
@@ -188,6 +207,7 @@ export class QueryCell<T> {
     generation: object,
     hookIndex: number
   ): void {
+    validateGcTime(options.gcTime);
     const hooks = this.owners.get(generation);
     if (this.destroyed || !hooks?.has(hookIndex)) {
       return;
@@ -221,10 +241,8 @@ export class QueryCell<T> {
       this.warnOnConflictingDefinition(options);
       return;
     }
-    this.conflictCheck ??= new ScheduledWork(() =>
-      this.warnOnConflictingReaders()
-    );
-    requestRuntimeWork('component', this.conflictCheck);
+    this.conflictCheck ??= { run: () => this.warnOnConflictingReaders() };
+    schedule(this.conflictCheck, 'render');
   }
 
   private warnOnConflictingReaders(): void {
@@ -271,16 +289,47 @@ export class QueryCell<T> {
     }
 
     this.destroyed = true;
-    if (__ASKR_DEVELOPMENT_BUILD__) {
-      adjustOwnershipDiagnostic('queryCells', -1);
+    if (this.gcTimer !== null) {
+      clearTimeout(this.gcTimer);
+      this.gcTimer = null;
+    }
+    if (this.unownedTimer !== null) {
+      clearTimeout(this.unownedTimer);
+      this.unownedTimer = null;
     }
     this.controller?.abort();
     this.controller = null;
     this.reconcileAttemptCount = 0;
     this.ownerCount = 0;
     this.owners.clear();
-    this.cache.delete(this.key);
+    this.evictFromCache();
     this.finishPendingRefresh();
+  }
+
+  private evictFromCache(): void {
+    if (this.cache.get(this.key) === this) this.cache.delete(this.key);
+  }
+
+  /** A component's inactive definition must not become an ownerless fetcher. */
+  retireInactiveReaderCacheEntry(): boolean {
+    if (this.gcTimer === null) return false;
+    this.destroy();
+    return true;
+  }
+
+  /** Ownerless handles stay usable after their cache lookup window expires. */
+  scheduleUnownedCacheEviction(gcTime: number): void {
+    if (isServerRender() || this.ownerCount > 0 || this.destroyed) return;
+    if (this.unownedTimer !== null) clearTimeout(this.unownedTimer);
+    this.unownedTimer = null;
+    if (gcTime === 0) {
+      this.evictFromCache();
+      return;
+    }
+    this.unownedTimer = setTimeout(() => {
+      this.unownedTimer = null;
+      if (this.ownerCount === 0) this.evictFromCache();
+    }, gcTime);
   }
 
   private getDefinitionConflicts(
@@ -368,6 +417,10 @@ export class QueryCell<T> {
     if (this.destroyed) {
       return Promise.resolve();
     }
+    if (this.gcTimer !== null) {
+      this.destroy();
+      return Promise.resolve();
+    }
 
     if (this.pendingRefresh) {
       if (this.pendingRefreshKind === 'invalidation') {
@@ -383,9 +436,30 @@ export class QueryCell<T> {
     return this.pendingRefresh ?? Promise.resolve();
   }
 
-  invalidate(): void {
+  /** @internal Show an invalidation while a collection waits for a fetch slot. */
+  markQueuedInvalidation(): void {
+    if (this.destroyed) return;
+    this.generation += 1;
+    this.controller?.abort();
+    this.setState(
+      this.state.data === null
+        ? loadingQueryState<T>()
+        : refreshingQueryState(
+            this.state.data,
+            this.state.consistency === 'pending-write'
+              ? 'pending-write'
+              : 'refreshing'
+          )
+    );
+  }
+
+  invalidate(): Promise<void> {
     if (this.destroyed) {
-      return;
+      return Promise.resolve();
+    }
+    if (this.gcTimer !== null) {
+      this.destroy();
+      return Promise.resolve();
     }
 
     if (this.pendingRefresh) {
@@ -393,10 +467,11 @@ export class QueryCell<T> {
       // are equivalent requests and share the in-flight generation.
       this.controller?.abort();
       this.queueStart(undefined, 'invalidation', true);
-      return;
+      return this.pendingRefresh ?? Promise.resolve();
     }
 
     this.queueStart(undefined, 'invalidation');
+    return this.pendingRefresh ?? Promise.resolve();
   }
 
   markPendingWrite(): void {
@@ -433,8 +508,7 @@ export class QueryCell<T> {
         this.pendingRefreshResolve = resolve;
       });
     }
-    requestRuntimeWork(
-      'component',
+    schedule(
       new QueryStartWork(
         () => {
           if (token !== this.pendingRefreshToken) {
@@ -455,7 +529,8 @@ export class QueryCell<T> {
           this.generation += 1;
           this.finishPendingRefresh(token);
         }
-      )
+      ),
+      'render'
     );
   }
 
@@ -668,6 +743,7 @@ function createCell<T>(
 function createLegacyQuery<T extends {}>(
   options: QueryCellOptions<T>
 ): Query<T> {
+  validateGcTime(options.gcTime);
   const instance = getCurrentComponentInstance();
   const runtimeState = resolveDataRuntimeState(options.runtime);
   const cache = runtimeState.queryCache;
@@ -677,18 +753,22 @@ function createLegacyQuery<T extends {}>(
   if (!instance) {
     if (override) return override;
     let cell = cache.get(options.key) as QueryCell<T> | undefined;
+    if (cell?.retireInactiveReaderCacheEntry()) cell = undefined;
     if (!cell) {
       cell = createCell(options, cache);
     } else {
       cell.warnOnConflictingDefinition(options);
     }
+    cell.scheduleUnownedCacheEviction(
+      options.gcTime ?? DEFAULT_OWNERLESS_GC_TIME_MS
+    );
     return cell as unknown as Query<T>;
   }
 
   const hookIndex = claimHookIndex(instance, 'createQuery');
   ensureQueryCleanup(runtimeState, instance);
 
-  const generation = getComponentLifetimeIdentity(instance);
+  const generation: object = instance;
   const slotStore = getQuerySlotStore(runtimeState, instance);
   const existingSlot = slotStore.get(hookIndex);
   if (existingSlot && existingSlot.key === options.key) {
@@ -712,6 +792,7 @@ function createLegacyQuery<T extends {}>(
   });
   cell.attach(generation, hookIndex);
   cell.define(options, generation, hookIndex);
+  cell.ensureStarted();
   return cell as unknown as Query<T>;
 }
 

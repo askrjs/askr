@@ -518,6 +518,93 @@ describe('SSR reactive values', () => {
     expect(normalizeHtml(container.innerHTML)).toBe('a<b>1</b>');
   });
 
+  it('should update keyed structural children in a hydrated component fragment', async () => {
+    let count!: State<number>;
+    const Inner = () => (
+      <>
+        {() =>
+          Array.from({ length: count() }, (_, index) => (
+            <li key={index}>{index}</li>
+          ))
+        }
+        <i>{'tail'}</i>
+      </>
+    );
+    const Page = () => {
+      count = state(1);
+      return <Inner />;
+    };
+
+    container.innerHTML = renderToStringSync(Page);
+    await hydrate(Page);
+
+    count.set(3);
+    flushScheduler();
+    expect(
+      Array.from(container.querySelectorAll('li'), (li) => li.textContent)
+    ).toEqual(['0', '1', '2']);
+  });
+
+  it('should update unkeyed structural children in a hydrated component fragment', async () => {
+    let count!: State<number>;
+    const Inner = () => (
+      <>
+        {() => Array.from({ length: count() }, (_, index) => <li>{index}</li>)}
+        <i>{'tail'}</i>
+      </>
+    );
+    const Page = () => {
+      count = state(1);
+      return <Inner />;
+    };
+
+    container.innerHTML = renderToStringSync(Page);
+    await hydrate(Page);
+    count.set(3);
+    flushScheduler();
+    expect(
+      Array.from(container.querySelectorAll('li'), (li) => li.textContent)
+    ).toEqual(['0', '1', '2']);
+  });
+
+  it('should keep a hydrated keyed structural child current after rollback', async () => {
+    let count!: State<number>;
+    let ok!: State<boolean>;
+    const Guard = (props: { value: number; ok: boolean }) => {
+      if (props.value === 2 && !props.ok) throw new Error('boom');
+      return <span>{props.value}</span>;
+    };
+    const Inner = () => (
+      <>
+        {() =>
+          Array.from({ length: count() }, (_, index) => (
+            <li key={index}>{index}</li>
+          ))
+        }
+        <Guard value={count()} ok={ok()} />
+      </>
+    );
+    const Page = () => {
+      count = state(1);
+      ok = state(false);
+      return <Inner />;
+    };
+
+    container.innerHTML = renderToStringSync(Page);
+    await hydrate(Page);
+    expect(() => {
+      count.set(2);
+      flushScheduler();
+    }).toThrow('boom');
+    expect(container.querySelectorAll('li')).toHaveLength(2);
+    expect(container.querySelector('span')?.textContent).toBe('1');
+
+    ok.set(true);
+    flushScheduler();
+    expect(container.querySelectorAll('li')).toHaveLength(2);
+    expect(container.querySelector('span')?.textContent).toBe('2');
+  });
+
   it('should evaluate each function child and prop once on the server', () => {
     let childReads = 0;
     let propReads = 0;

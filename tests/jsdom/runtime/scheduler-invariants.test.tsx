@@ -293,7 +293,6 @@ describe('scheduler invariants', () => {
     expect(scheduler.getState()).toMatchObject({
       queueLength: 0,
       running: false,
-      taskCount: 0,
     });
   });
 
@@ -459,7 +458,6 @@ describe('scheduler invariants', () => {
     expect(scheduler.getState()).toMatchObject({
       queueLength: 0,
       running: false,
-      taskCount: 0,
       laneQueues: {
         component: 0,
       },
@@ -523,8 +521,6 @@ describe('scheduler invariants', () => {
     expect(getSchedulerState()).toMatchObject({
       queueLength: 0,
       running: false,
-      executionDepth: 0,
-      taskCount: 0,
     });
 
     cleanup();

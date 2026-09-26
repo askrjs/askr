@@ -11,7 +11,7 @@ import {
   type DOMReactiveSource,
   type DOMRendererRange,
   type RuntimeRendererHost,
-} from '@askrjs/askr';
+} from '@askrjs/askr/experimental';
 import type {
   DOMRendererHost,
   DOMRendererEvaluation,
@@ -19,7 +19,7 @@ import type {
   DOMRendererScopes,
   DOMRendererKeys,
   DOMRendererReactivity,
-} from '@askrjs/askr';
+} from '@askrjs/askr/experimental';
 declare const roles: DOMRendererHost;
 expectType<DOMRendererEvaluation>(roles.evaluation);
 expectType<DOMRendererCleanup>(roles.cleanup);

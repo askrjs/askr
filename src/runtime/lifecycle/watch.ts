@@ -160,7 +160,7 @@ export function watch<TValue>(
 
 /** Observe an ordered tuple of readable sources after commit and whenever an entry changes. */
 export function watch<const TSources extends readonly WatchSource<unknown>[]>(
-  sources: TSources,
+  sources: TSources extends WatchSource<unknown> ? never : TSources,
   callback: WatchCallback<WatchValues<TSources>>
 ): void;
 

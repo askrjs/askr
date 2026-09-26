@@ -176,6 +176,211 @@ describe('query collections', () => {
     }
   });
 
+  it('should bound invalidation refetches and mark queued entries refreshing', async () => {
+    const runtime = createDataRuntime();
+    const started: string[] = [];
+    const finish = new Map<string, () => void>();
+    let active = 0;
+    let maxActive = 0;
+    const attempts = new Map<string, number>();
+    const query = defineQuery({
+      key: (id: string) => `bounded:${id}`,
+      fetch: (id: string, { signal }: { signal: AbortSignal }) => {
+        const attempt = (attempts.get(id) ?? 0) + 1;
+        attempts.set(id, attempt);
+        if (attempt === 1) return Promise.resolve({ id, attempt });
+        started.push(id);
+        active += 1;
+        maxActive = Math.max(maxActive, active);
+        return new Promise<{ id: string; attempt: number }>(
+          (resolve, reject) => {
+            signal.addEventListener(
+              'abort',
+              () => {
+                active -= 1;
+                reject(new DOMException('Aborted', 'AbortError'));
+              },
+              { once: true }
+            );
+            finish.set(id, () => {
+              active -= 1;
+              resolve({ id, attempt });
+            });
+          }
+        );
+      },
+    });
+    let collection!: QueryCollection<string, { id: string; attempt: number }>;
+    const App = (): JSXElement => {
+      collection = createQueryCollection({
+        runtime,
+        query,
+        inputs: () => ['a', 'b', 'c', 'd'],
+        key: (id) => id,
+        concurrency: 2,
+      });
+      return <div>{collection.entries.length}</div>;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settleCollection(collection);
+      await settle();
+      invalidate('bounded:', { runtime, markPendingWrite: true });
+      invalidate('bounded:c', { runtime });
+      flushScheduler();
+
+      expect(started).toEqual(['a', 'b']);
+      expect(collection.get('c')?.query.refreshing).toBe(true);
+      expect(collection.get('c')?.query.stale).toBe(true);
+      expect(collection.get('c')?.query.consistency).toBe('pending-write');
+      expect(collection.loading).toBe(true);
+
+      invalidate('bounded:a', { runtime });
+      flushScheduler();
+      expect(started).toEqual(['a', 'b', 'a']);
+
+      finish.get('a')?.();
+      await settle();
+      expect(started).toEqual(['a', 'b', 'a', 'c']);
+      finish.get('b')?.();
+      await settle();
+      expect(started).toEqual(['a', 'b', 'a', 'c', 'd']);
+      finish.get('c')?.();
+      finish.get('d')?.();
+      await settleCollection(collection);
+
+      expect(maxActive).toBe(2);
+      expect(collection.settled).toBe(true);
+      expect(attempts.get('a')).toBe(3);
+      expect(attempts.get('c')).toBe(2);
+      expect(collection.get('d')?.query.data).toEqual({ id: 'd', attempt: 2 });
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should use the smaller collection cap for queries shared by two collections and a plain reader', async () => {
+    const runtime = createDataRuntime();
+    const started: string[] = [];
+    const finish = new Map<string, () => void>();
+    const attempts = new Map<string, number>();
+    const query = defineQuery({
+      key: (id: string) => `shared-bounded:${id}`,
+      fetch: (id: string) => {
+        const attempt = (attempts.get(id) ?? 0) + 1;
+        attempts.set(id, attempt);
+        if (attempt === 1) return Promise.resolve({ id, attempt });
+        started.push(id);
+        return new Promise<{ id: string; attempt: number }>((resolve) => {
+          finish.set(id, () => resolve({ id, attempt }));
+        });
+      },
+    });
+    let plain!: Query<{ id: string; attempt: number }>;
+    let strict!: QueryCollection<string, { id: string; attempt: number }>;
+    const App = (): JSXElement => {
+      plain = createQuery(query, 'a', { runtime });
+      createQueryCollection({
+        runtime,
+        query,
+        inputs: () => ['a', 'b', 'c'],
+        key: (id) => id,
+        concurrency: 2,
+      });
+      strict = createQueryCollection({
+        runtime,
+        query,
+        inputs: () => ['a', 'b', 'c'],
+        key: (id) => id,
+        concurrency: 1,
+      });
+      return <div>{strict.entries.length}</div>;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settleCollection(strict);
+      await settle();
+      invalidate('shared-bounded:', { runtime });
+      flushScheduler();
+
+      expect(started).toEqual(['a']);
+      expect(plain.refreshing).toBe(true);
+      expect(strict.get('c')?.query.refreshing).toBe(true);
+
+      finish.get('a')?.();
+      await settle();
+      expect(started).toEqual(['a', 'b']);
+      finish.get('b')?.();
+      await settle();
+      expect(started).toEqual(['a', 'b', 'c']);
+      finish.get('c')?.();
+      await settleCollection(strict);
+      expect(strict.settled).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should hand a queued invalidation to a remaining plain reader when its collection entry leaves', async () => {
+    const runtime = createDataRuntime();
+    const started: string[] = [];
+    const attempts = new Map<string, number>();
+    const query = defineQuery({
+      key: (id: string) => `leaving:${id}`,
+      fetch: (id: string, { signal }: { signal: AbortSignal }) => {
+        const attempt = (attempts.get(id) ?? 0) + 1;
+        attempts.set(id, attempt);
+        if (attempt === 1) return Promise.resolve({ id });
+        started.push(id);
+        return new Promise<{ id: string }>((_resolve, reject) => {
+          signal.addEventListener(
+            'abort',
+            () => reject(new DOMException('Aborted', 'AbortError')),
+            { once: true }
+          );
+        });
+      },
+    });
+    let setInputs!: (ids: readonly string[]) => void;
+    let plain!: Query<{ id: string }>;
+    let collection!: QueryCollection<string, { id: string }>;
+    const App = (): JSXElement => {
+      const inputs = state<readonly string[]>(['a', 'b']);
+      setInputs = inputs.set;
+      collection = createQueryCollection({
+        runtime,
+        query,
+        inputs,
+        key: (id) => id,
+        concurrency: 1,
+      });
+      plain = createQuery(query, 'b', { runtime });
+      return <div>{collection.entries.length}</div>;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settleCollection(collection);
+      await settle();
+      invalidate('leaving:', { runtime });
+      flushScheduler();
+      expect(started).toEqual(['a']);
+      expect(plain.refreshing).toBe(true);
+
+      setInputs(['a']);
+      flushScheduler();
+      expect(started).toEqual(['a', 'b']);
+      expect(collection.get('b')).toBeUndefined();
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should preserve keyed entries across reorder, duplicates, invalidation, growth, and shrinkage', async () => {
     const runtime = createDataRuntime();
     const fetchCounts = new Map<string, number>();

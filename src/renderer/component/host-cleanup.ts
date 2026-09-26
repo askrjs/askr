@@ -221,14 +221,20 @@ function pruneComponentHostInstancesInTransaction(
 
   let departedInstances: ComponentInstance[] = [];
   const publish = (): void => {
-    // Keep the desired iterable live until commit. Nested resolution adds only
-    // wrappers that completed successfully; old host metadata remains a
-    // lookup ledger and never contributes owners to the next generation.
-    const nextInstances = orderHostInstances(retainedInstances);
-    const retained = new Set(nextInstances);
+    // Keep the desired iterable live until commit. Hydration may move an
+    // owner from this host to a range before publication. Publishing that
+    // owner back onto the old host would dispose it when the host retires.
+    const retained = new Set(retainedInstances);
+    const nextInstances = orderHostInstances(retained).filter(
+      (instance) => instance.target === host || instance._placeholder === host
+    );
     writeHostInstances(host, nextInstances);
     departedInstances = Array.from(previousInstances).filter(
-      (instance) => !retained.has(instance)
+      (instance) =>
+        !retained.has(instance) &&
+        ((!instance.target && !instance._placeholder) ||
+          instance.target === host ||
+          instance._placeholder === host)
     );
   };
   const settle = (): void =>

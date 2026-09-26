@@ -11,7 +11,7 @@ const root = path.resolve(import.meta.dirname, '../..');
 const contracts = path.join(root, 'src/public-contracts');
 
 it('should preserve public symbol names and documentation for consumer tooling', () => {
-  const entry = path.join(root, 'dist/index.d.ts');
+  const entry = path.join(root, 'dist/experimental/index.d.ts');
   const program = ts.createProgram([entry], {
     module: ts.ModuleKind.NodeNext,
     moduleResolution: ts.ModuleResolutionKind.NodeNext,

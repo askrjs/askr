@@ -4,7 +4,7 @@ import {
   createRuntime,
   getDefaultRuntime,
   type RuntimeRendererHost,
-} from '@askrjs/askr';
+} from '@askrjs/askr/experimental';
 
 const host: RuntimeRendererHost = {
   evaluate(node, target, context, owner) {
@@ -79,6 +79,8 @@ expectType<string>(runtime.scheduler.runWithSyncProgress(() => String(42)));
 expectType<number>(runtime.scheduler.runInHandlerScope(() => 42, 'sync'));
 expectType<Promise<void>>(runtime.scheduler.waitForFlush());
 expectType<number>(runtime.scheduler.getState().laneQueues.reactive);
+expectError(runtime.scheduler.getState().executionDepth);
+expectError(runtime.scheduler.getState().taskCount);
 expectError(createRuntime({ renderer: {} }));
 expectError(runtime.scheduler.enqueueInLane('unknown', () => {}));
 expectError(

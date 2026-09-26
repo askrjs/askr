@@ -1,15 +1,20 @@
-import {
-  getComponentLifetimeIdentity,
-  ownComponentCleanup,
-} from '../runtime/component/capabilities';
 import { getActiveRenderContext } from '../common/render-context';
-import { claimHookIndex, getCurrentComponentInstance } from '../runtime';
+import {
+  claimHookIndex,
+  currentComponent as getCurrentComponentInstance,
+} from '../core/api/hooks';
 import {
   readQueryData,
   resolveDataRuntimeState,
   type DataRuntimeState,
 } from './data-runtime';
 import { QueryCell } from './query-cell';
+import {
+  invalidateCollectionCell,
+  registerCollectionCell,
+  unregisterCollectionCell,
+  type CollectionInvalidator,
+} from './collection-invalidation';
 import type {
   Query,
   QueryCollection,
@@ -37,6 +42,7 @@ type CollectionTask<TResult extends {}> = {
   readonly promise: Promise<void>;
   readonly resolve: () => void;
   state: 'queued' | 'active' | 'cancelled' | 'done';
+  kind: 'refresh' | 'invalidation';
 };
 
 type QueryCollectionSlot = {
@@ -93,9 +99,12 @@ class QueryCollectionCell<
   TInput,
   TResult extends {},
   TKey extends QueryCollectionKey,
-> implements QueryCollection<TInput, TResult, TKey> {
+>
+  implements QueryCollection<TInput, TResult, TKey>, CollectionInvalidator
+{
   private records = new Map<TKey, CollectionRecord<TInput, TResult, TKey>>();
   private ordered: readonly CollectionRecord<TInput, TResult, TKey>[] = [];
+  private registeredCells = new Set<QueryCell<TResult>>();
   private readonly tasks = new Map<
     QueryCell<TResult>,
     CollectionTask<TResult>
@@ -106,6 +115,21 @@ class QueryCollectionCell<
   private disposed = false;
 
   constructor(private readonly runtimeState: DataRuntimeState) {}
+
+  get invalidationConcurrency(): number {
+    return this.concurrency;
+  }
+
+  invalidateCell(cell: object): void {
+    const ownedCell = cell as QueryCell<TResult>;
+    const task = this.tasks.get(ownedCell);
+    if (task?.state === 'active') {
+      void ownedCell.invalidate();
+      return;
+    }
+    ownedCell.markQueuedInvalidation();
+    void this.schedule(ownedCell, 'invalidation');
+  }
 
   get entries(): readonly QueryCollectionEntry<TInput, TResult, TKey>[] {
     return this.ordered;
@@ -233,8 +257,16 @@ class QueryCollectionCell<
       }
     }
 
+    const nextCells = new Set(nextOrdered.map((record) => record.cell));
     this.records = nextRecords;
     this.ordered = Object.freeze(nextOrdered);
+    for (const cell of this.registeredCells) {
+      if (!nextCells.has(cell)) unregisterCollectionCell(cell, this);
+    }
+    for (const cell of nextCells) {
+      if (!this.registeredCells.has(cell)) registerCollectionCell(cell, this);
+    }
+    this.registeredCells = nextCells;
     for (const cell of detachedCells) this.cancelIfUnused(cell);
     for (const cell of startCandidates) this.schedule(cell);
     this.pump();
@@ -244,6 +276,10 @@ class QueryCollectionCell<
     if (this.disposed) return;
     this.disposed = true;
 
+    for (const cell of this.registeredCells) {
+      unregisterCollectionCell(cell, this);
+    }
+    this.registeredCells.clear();
     const cells = new Set<QueryCell<TResult>>();
     for (const record of this.records.values()) {
       cells.add(record.cell);
@@ -271,16 +307,27 @@ class QueryCollectionCell<
     if (!task || task.state === 'cancelled' || task.state === 'done') return;
 
     if (task.state === 'active') this.activeCount -= 1;
+    const rescheduleInvalidation =
+      task.state === 'queued' && task.kind === 'invalidation';
     task.state = 'cancelled';
     this.tasks.delete(cell);
     task.resolve();
+    if (rescheduleInvalidation && !invalidateCollectionCell(cell)) {
+      void cell.invalidate();
+    }
     this.pump();
   }
 
-  private schedule(cell: QueryCell<TResult>): Promise<void> {
+  private schedule(
+    cell: QueryCell<TResult>,
+    kind: CollectionTask<TResult>['kind'] = 'refresh'
+  ): Promise<void> {
     if (this.disposed) return Promise.resolve();
     const existing = this.tasks.get(cell);
-    if (existing) return existing.promise;
+    if (existing) {
+      if (kind === 'invalidation') existing.kind = kind;
+      return existing.promise;
+    }
 
     let resolve!: () => void;
     const promise = new Promise<void>((done) => {
@@ -291,6 +338,7 @@ class QueryCollectionCell<
       promise,
       resolve,
       state: 'queued',
+      kind,
     };
     this.tasks.set(cell, task);
     this.queue.push(task);
@@ -309,7 +357,11 @@ class QueryCollectionCell<
 
       task.state = 'active';
       this.activeCount += 1;
-      void task.cell.refresh().finally(() => this.finish(task));
+      const work =
+        task.kind === 'invalidation'
+          ? task.cell.invalidate()
+          : task.cell.refresh();
+      void work.finally(() => this.finish(task));
     }
   }
 
@@ -350,7 +402,7 @@ export function createQueryCollection<
     );
   }
 
-  const generation = getComponentLifetimeIdentity(instance);
+  const generation: object = instance;
   const runtimeState = resolveDataRuntimeState(options.runtime);
   const store = getCollectionStore(generation);
   let slot = store.get(hookIndex);
@@ -372,7 +424,7 @@ export function createQueryCollection<
       >,
     };
     store.set(hookIndex, slot);
-    ownComponentCleanup(instance, () => {
+    instance.onCleanup(() => {
       const current = store.get(hookIndex);
       try {
         current?.collection.dispose();
