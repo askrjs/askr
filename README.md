@@ -3,11 +3,31 @@
 [![CI](https://github.com/askrjs/askr/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/askrjs/askr/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/%40askrjs%2Faskr.svg)](https://www.npmjs.com/package/@askrjs/askr)
 
-Askr is a lane-scheduled UI runtime for TypeScript applications. Its
-single-threaded scheduler serializes queued framework work; it is not a
-message-passing actor system. Askr provides explicit reactivity, routed
-application startup, server-side rendering, and static-site generation
-entrypoints.
+A TypeScript UI runtime with getter-based state, fine-grained bindings,
+transactional commits with rollback, and one route graph for SPA, SSR, and SSG.
+
+## How Askr works
+
+- **Getter-based state with automatic tracking.** `state()` gives you a getter
+  and a setter. Calling the getter while a component renders subscribes that
+  component; you do not list dependencies for state or `derive()`.
+- **Component re-render plus fine-grained bindings.** A state change re-runs
+  the components that read it. A function child or prop, such as
+  `{() => count()}`, is a binding: it updates its own DOM node without
+  re-running the component around it.
+- **Transactional commits with rollback.** Each render is prepared and applied
+  as one transaction. If a component throws or the DOM commit fails, Askr
+  restores the last committed DOM, and the listeners, refs, resources, and
+  subscriptions created by the failed render never become live. The error goes
+  to the nearest `ErrorBoundary`, or is rethrown when no boundary catches it.
+  Bindings keep showing current state across a rollback.
+- **One route graph.** The registry from `createRouteRegistry()` drives browser
+  navigation (`createSPA`), hydration (`hydrateSPA`), server rendering
+  (`renderRouteRequest`), and static generation (`createStaticGen`).
+
+Writes made in one event handler are batched into one scheduled render, and
+queued work runs in a fixed order. See [Update ordering](docs/concepts/determinism.md)
+for exactly what Askr guarantees and what it does not.
 
 ## Quick Start
 
@@ -35,24 +55,35 @@ The tuple form above and the direct callable form below are equivalent; see
 `selector()`, `defineScope()`, `readScope()`, `getSignal()`, and the JSX
 runtime exports.
 
-Public APIs prefer functions and closures over classes. Lexical ownership uses
-`defineScope()` and `readScope()`; there are no compatibility aliases for the
-clean-break vocabulary.
+Public APIs are mostly functions and closures. A few classes are exported where
+an instance or `instanceof` check is the natural shape: `AskrRuntime` from the
+root, and error classes such as `RouteDataLoadError` and `SSRDataMissingError`
+from their subpaths. Lexical ownership uses `defineScope()` and `readScope()`;
+there are no compatibility aliases for the clean-break vocabulary.
 
 App startup, routing, async resources, data helpers, and error boundaries live
 on their own subpaths.
 
-### Explicit reactivity
+### Getter-based state
 
 State is read through getter functions and updated through setter functions.
+Reads are explicit calls, but dependency tracking is automatic: a component
+re-renders when state it read during its last committed render changes.
+
+`state()`, `derive()`, `selector()`, `resource()`, and the other render-scoped
+primitives are hooks in the React sense. Each call is matched to its slot by
+call position, so call them unconditionally and in the same order on every
+render; the runtime throws when the order changes (see
+[Runtime Enforcement](docs/concepts/runtime-enforcement.md)). `resource()`
+takes a dependency array that decides when its loader re-runs.
 
 #### State usage forms
 
 `state()` returns one callable state cell that is also iterable. Destructuring
-it gives the cell as the getter and its `.set()` method as the setter. Like
-every render-scoped hook, call `state()` inside a component function:
+it gives the cell as the getter and its `.set()` method as the setter. Call
+`state()` inside a component function:
 
-```ts
+```tsx
 const [count, setCount] = state(0);
 console.log(count());
 setCount(1);
@@ -148,7 +179,7 @@ function App() {
 - [Resources Guide](docs/guides/resources.md)
 - [SSG Guide](docs/guides/ssg.md)
 - [Runtime Enforcement](docs/concepts/runtime-enforcement.md)
-- [Determinism](docs/concepts/determinism.md)
+- [Update Ordering](docs/concepts/determinism.md)
 - [API Reference](docs/reference/api.md)
 
 ## Release Notes

@@ -1,6 +1,8 @@
-# What is Askr"
+# What is Askr
 
-Askr is an application development platform for building structured frontends.
+Askr is a TypeScript UI runtime with getter-based state, tracked component
+renders and DOM bindings, transactional commits, and a shared route graph for
+browser and server rendering. Its platform packages add optional capabilities.
 
 It gives you a runtime, a headless UI system, optional theming, icon wrappers, and
 tooling - all designed to work together and share conventions.

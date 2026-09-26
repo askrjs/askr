@@ -168,7 +168,7 @@ function createStateCell<T>(
     if (hasCurrentRenderScope() && !isDerivedComputationActive()) {
       throw new Error(
         `[Askr] state.set() cannot be called during component render. ` +
-          `State mutations during render break the actor model and cause infinite loops. ` +
+          `A write during render would schedule another render of the same component and could loop forever. ` +
           `Move state updates to event handlers or use conditional rendering instead.`
       );
     }

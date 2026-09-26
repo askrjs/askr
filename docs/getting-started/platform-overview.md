@@ -28,8 +28,8 @@ localization, telemetry, and UI packages remain explicit application choices.
   through `Resolve` and can stream after the document shell.
 - `defineAction()` creates a browser-safe descriptor. A matched route must
   authorize it, while the server composition root registers its handler once.
-- `defineScope()` and `readScope()` provide lexical ownership without a global
-  singleton or React-shaped hook vocabulary.
+- `defineScope()` and `readScope()` provide lexical context without a global
+  singleton. Render-scoped state and data primitives use call-order slots.
 - Functions, closures, and structural interfaces are preferred over classes.
 
 ## Server and document ownership
