@@ -10,6 +10,7 @@
 
 import { ELEMENT_TYPE, Fragment, type JSXElement } from '../../common/jsx';
 import type { Props } from '../../common/props';
+import { recordUndo } from '../component/journal';
 import { Signal } from '../reactive/graph';
 import { currentComponent, hookSlot, onCommit } from './hooks';
 
@@ -185,7 +186,6 @@ export function For<T, K extends string | number = string | number>(
   }
 
   const output: JSXElement[] = [];
-  const positions: Array<[RowRecord, number]> = [];
   const live = new Set<unknown>();
   for (let index = 0; index < items.length; index++) {
     const item = items[index];
@@ -203,7 +203,11 @@ export function For<T, K extends string | number = string | number>(
       row = { index: signal, readIndex: () => signal.read() };
       rows.set(key, row);
     } else {
-      positions.push([row, index]);
+      const indexSource = row.index;
+      const previous = indexSource.peek();
+      if (indexSource.write(index)) {
+        recordUndo(() => indexSource.write(previous));
+      }
     }
     live.add(key);
     output.push(
@@ -218,7 +222,6 @@ export function For<T, K extends string | number = string | number>(
   if (instance) {
     onCommit(instance, () => {
       for (const key of rows.keys()) if (!live.has(key)) rows.delete(key);
-      for (const [row, index] of positions) row.index.write(index);
     });
   }
   return output;

@@ -19,6 +19,56 @@ function activeRows(container: HTMLElement): Array<string | null> {
 }
 
 describe('For row closures', () => {
+  it('should restore row indices when a later sibling discards the render', () => {
+    const { container, cleanup } = createTestContainer();
+    let reorder: () => void = () => {};
+    let recover: () => void = () => {};
+    const indices = new Map<string, () => number>();
+
+    const Fail = ({ fail }: { fail: boolean }) => {
+      if (fail) throw new Error('discard list render');
+      return null;
+    };
+    const App = () => {
+      const [items, setItems] = state<Item[]>(ITEMS.slice(0, 2));
+      const [fail, setFail] = state(false);
+      reorder = () => {
+        setItems([ITEMS[1], ITEMS[0]]);
+        setFail(true);
+      };
+      recover = () => setFail(false);
+      return (
+        <ul>
+          <For each={items} by={(item) => item.id}>
+            {(item, index) => {
+              indices.set(item.id, index);
+              return <li>{`${item.id}:${index()}`}</li>;
+            }}
+          </For>
+          <Fail fail={fail()} />
+        </ul>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    const before = Array.from(container.querySelectorAll('li'));
+    reorder();
+    expect(() => flushScheduler()).toThrow('discard list render');
+    expect(Array.from(container.querySelectorAll('li'))).toEqual(before);
+    expect(indices.get('a')?.()).toBe(0);
+    expect(indices.get('b')?.()).toBe(1);
+
+    recover();
+    flushScheduler();
+    expect(Array.from(container.querySelectorAll('li'))).toEqual([
+      before[1],
+      before[0],
+    ]);
+    expect(indices.get('a')?.()).toBe(1);
+    expect(indices.get('b')?.()).toBe(0);
+    cleanup();
+  });
+
   it('should absorb self-subscribed row work into a same-flush list reconcile', () => {
     const { container, cleanup } = createTestContainer();
     let update: () => void = () => {};
