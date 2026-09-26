@@ -152,6 +152,7 @@ describe('owner tree', () => {
 
   it('should dispose a deeply nested lifetime without overflowing the stack', () => {
     const root = new Owner(null);
+    root.context = new Map([['theme', 'dark']]);
     let leaf = root;
     for (let i = 0; i < 20_000; i++) leaf = new Owner(leaf);
     let cleaned = false;
@@ -159,6 +160,7 @@ describe('owner tree', () => {
       cleaned = true;
     });
 
+    expect(leaf.lookup('theme')).toBe('dark');
     expect(root.dispose()).toEqual([]);
     expect(cleaned).toBe(true);
     expect(leaf.disposed).toBe(true);

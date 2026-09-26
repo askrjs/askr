@@ -198,12 +198,18 @@ export function endOf(parent: Parent): Node | null {
 
 /** The first DOM node after `node`'s own DOM within its container. */
 export function nextDomAfter(node: RNode): Node | null {
-  const parent = node.parent;
-  if (!parent) return null;
-  const siblings = parent.children;
-  for (let i = siblings.indexOf(node) + 1; i < siblings.length; i++) {
-    const dom = firstDom(siblings[i]);
-    if (dom) return dom;
+  let current: RNode = node;
+  for (let parent = current.parent; parent; parent = current.parent) {
+    const siblings = parent.children;
+    for (let i = siblings.indexOf(current) + 1; i < siblings.length; i++) {
+      const dom = firstDom(siblings[i]);
+      if (dom) return dom;
+    }
+    if (parent.kind === ROOT) {
+      return parent.tail?.parentNode === parent.el ? parent.tail : null;
+    }
+    if (isContainer(parent)) return null;
+    current = parent;
   }
-  return endOf(parent);
+  return null;
 }
