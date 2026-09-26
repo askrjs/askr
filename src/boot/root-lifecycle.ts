@@ -177,6 +177,8 @@ export function mountOrUpdate(
   ensureBrowserRuntime();
   const nonce = validateCspNonce(options?.cspNonce);
   let app = appRoots.get(rootElement);
+  const replacingIsland =
+    app !== undefined && app.component !== component && !app.routed;
   if (!app) {
     app = new AppRoot(rootElement, component, options?.hydrate === true);
     appRoots.set(rootElement, app);
@@ -194,6 +196,28 @@ export function mountOrUpdate(
   }
   app.root.render(app.view());
   flushSync();
+  if (replacingIsland) {
+    const callbacks = Array.from(app.callbacks);
+    app.callbacks.clear();
+    const errors: unknown[] = [];
+    for (const callback of callbacks) {
+      try {
+        callback();
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    if (errors.length > 0) {
+      if (app.cleanupStrict) {
+        throw new AggregateError(errors, 'cleanup failed for app root');
+      }
+      reportUncaughtErrorLater(
+        errors.length === 1
+          ? errors[0]
+          : new AggregateError(errors, 'cleanup failed for app root')
+      );
+    }
+  }
   return app;
 }
 

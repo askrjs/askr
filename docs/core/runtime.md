@@ -25,6 +25,9 @@ createIsland({ root: 'counter-root', component: Counter });
 
 `createIsland()` mounts the component once and manages its lifecycle until the container
 is removed from the DOM.
+Calling it again with a different component at the same root ends the old
+island lifetime, runs its cleanup, and mounts the new component. If cleanup
+mounts another island at that root, that replacement takes precedence.
 
 ## SPA mode
 
