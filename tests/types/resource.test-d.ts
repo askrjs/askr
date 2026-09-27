@@ -12,8 +12,6 @@ import {
   type ActivityPredicate,
   type ListenerTarget,
   type ResourceResult,
-  type RouteChangeCleanup,
-  type RouteChangeOptions,
   type StreamResult,
   type StreamOptions,
   type StreamStatus,
@@ -21,7 +19,10 @@ import {
 } from '@askrjs/askr/resources';
 import { getSignal } from '@askrjs/askr';
 import { onRouteChange } from '@askrjs/askr/router';
-import type { RouteChangeCleanup as RouterRouteChangeCleanup } from '@askrjs/askr/router';
+import type {
+  RouteChangeCleanup,
+  RouteChangeOptions,
+} from '@askrjs/askr/router';
 
 declare const eventSource: EventTarget;
 declare const transformer: () => void;
@@ -80,7 +81,7 @@ expectType<void>(task(() => {}));
 expectType<void>(task(async () => {}));
 expectType<void>(onRouteChange(() => {}));
 const routeCleanup: RouteChangeCleanup = () => {};
-expectAssignable<RouterRouteChangeCleanup>(routeCleanup);
+expectAssignable<RouteChangeCleanup>(routeCleanup);
 expectType<void>(
   onRouteChange(
     (current, previous) => {

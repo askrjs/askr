@@ -1,7 +1,7 @@
 import { bench, describe, expect } from 'vite-plus/test';
 import { requireRole } from '@askrjs/auth';
 import { createRouteRegistry, route } from '../../src/router';
-import { resolveRequest } from '../../src/ssr/route-render';
+import { resolveRouteRequest } from '../../src/router';
 import {
   tier2BenchOptions,
   createSelectionToggle,
@@ -41,7 +41,7 @@ describe('tier2 subsystem router guard execution', () => {
   let guardToggle: BenchToggle<GuardMode> | null = null;
 
   const resolveGuardedRoute = () =>
-    resolveRequest({ url: '/admin/123', registry });
+    resolveRouteRequest('/admin/123', { registry, mode: 'ssr' });
 
   bench(
     'evaluate a role-guarded route request',

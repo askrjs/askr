@@ -11,7 +11,6 @@ import {
   DocumentRenderArgs,
   Route,
   RouteRecord,
-  RouteRequestResult,
   ServerQueryRegistry,
   CoreTelemetry,
   AccessDenyDecision,

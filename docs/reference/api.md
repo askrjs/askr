@@ -56,11 +56,9 @@ Public types:
   `zIndex`, `lineHeight`, `flexGrow`, `fontWeight`, and similar), the value is `0`, or the name
   is a custom property (`--gap`).
 
-The root also retains query creation and collection, definition and serving,
-prefetch, and hydration exports for compatibility. `@askrjs/askr/data` is the
-canonical entrypoint for new data code and owns the complete surface, including
-mutation, invalidation, and data-runtime control APIs that are not exported from
-the root.
+Control flow (`For`, `Show`, `Case`, `Match`) lives only in
+`@askrjs/askr/control`, and the data surface lives only in `@askrjs/askr/data`.
+Each public name has one import path.
 
 ## Feature subpaths
 
@@ -75,7 +73,7 @@ the root.
 
 - `@askrjs/askr/data` - `createDataRuntime`, `getDefaultDataRuntime`, `createQuery`, `createQueryCollection`, `createMutation`, `invalidate`, and `invalidateOnInterval`
 - `@askrjs/askr/testing` - component harness helpers such as `render`, `mount`, `renderRoute`, `dispatch`, `flush`, and `cleanup`, plus query and router fixtures
-- `@askrjs/askr/resources` - async resource helpers such as `resource`, `watch`, `stream`, `on`, `timer`, `task`, `capture`, `getSignal`, `routeActive`, `documentVisible`, and `windowFocused`
+- `@askrjs/askr/resources` - async resource helpers such as `resource`, `watch`, `stream`, `on`, `timer`, `task`, `capture`, `routeActive`, `documentVisible`, and `windowFocused`
 - `@askrjs/askr/router` - typed `RouteRef` declarations and destinations, metadata, critical `routeData`, and deferred `Resolve` boundaries
 - `@askrjs/askr/fx` - timing and scheduling helpers
 - `@askrjs/askr/ssr` - synchronous rendering plus `renderRouteRequest()` for explicitly deferred Web streams

@@ -36,8 +36,9 @@ route data.
 - `scheduleEventHandler` (errors thrown by the wrapped handler are reported
   with `reportError()`)
 
-`debounceEvent` and `throttleEvent` use the same leading/trailing edge rules as
-`throttle`: with both edges enabled, a single event runs the handler once, and
+`debounceEvent` waits until events have been quiet for `ms`; `throttleEvent`
+runs at most once per `ms`. Both share the same leading/trailing edge rules:
+with both edges enabled, a single event runs the handler once, and
 the trailing call only runs when another event arrived after the leading call.
 `debounceEvent().flush()` runs only a pending trailing call. When created
 during a component render, or from a mounted component's `task()`, `watch()`

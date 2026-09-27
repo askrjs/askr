@@ -1,5 +1,5 @@
 import { bench, describe, expect } from 'vite-plus/test';
-import { renderResolvedToStringSync } from '../../src/ssr/render-resolved';
+import { renderResolvedForHydrationSync } from '../../src/ssr/render-resolved';
 import {
   buildConcurrentSsrRequests,
   tier2BenchOptions,
@@ -11,7 +11,7 @@ await (async () => {
   const htmlOutputs = await Promise.all(
     requests.map((request) =>
       Promise.resolve().then(() =>
-        renderResolvedToStringSync({
+        renderResolvedForHydrationSync({
           url: request.url,
           registry: request.registry,
           handler: request.routes[0].handler,
@@ -34,7 +34,7 @@ describe('tier2 ssr concurrent isolation', () => {
       await Promise.all(
         requests.map((request) =>
           Promise.resolve().then(() =>
-            renderResolvedToStringSync({
+            renderResolvedForHydrationSync({
               url: request.url,
               registry: request.registry,
               handler: request.routes[0].handler,

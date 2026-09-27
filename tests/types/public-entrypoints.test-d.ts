@@ -1,7 +1,6 @@
 import { expectAssignable, expectType } from 'tsd';
 import * as rootSurface from '@askrjs/askr';
 import type { RenderDiagnosticsOptions } from '@askrjs/askr';
-import * as dataSurface from '@askrjs/askr/data';
 import * as resourcesSurface from '@askrjs/askr/resources';
 import * as routerSurface from '@askrjs/askr/router';
 import * as foundationsSurface from '@askrjs/askr/foundations';
@@ -38,7 +37,6 @@ expectType<never>(rootSurface.resource);
 expectType<never>(rootSurface.ErrorBoundary);
 // @ts-expect-error data helpers are published from @askrjs/askr/data only
 expectType<never>(rootSurface.createQuery);
-expectType<typeof dataSurface.createQuery>(dataSurface.createQuery);
 // @ts-expect-error root package does not expose data helpers
 expectType<never>(rootSurface.queryScope);
 // @ts-expect-error root package does not expose foundations helpers

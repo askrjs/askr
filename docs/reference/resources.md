@@ -7,8 +7,8 @@ Query and mutation helpers live in `@askrjs/askr/data`.
 ## Resource helpers
 
 The resources subpath owns `resource()`, `watch()`, `on()`, `timer()`, `task()`,
-`stream()`, `capture()`, `getSignal()`, `routeActive()`, `documentVisible()`, and
-`windowFocused()`.
+`stream()`, `capture()`, `routeActive()`, `documentVisible()`, and
+`windowFocused()`. `getSignal()` is imported from `@askrjs/askr`.
 
 ### `resource(source, loader)`
 
@@ -53,7 +53,7 @@ for keyed, shared data.
 
 ### `getSignal()`
 
-Returns the current `AbortSignal` for cancellable async operations.
+Import from `@askrjs/askr`. Returns the current `AbortSignal` for cancellable async operations.
 
 This is most useful during component render or when you need access to the
 current component's signal outside a `resource()` loader. For resource loaders,

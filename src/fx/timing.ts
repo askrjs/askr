@@ -3,7 +3,7 @@
  * No framework coupling. No lifecycle awareness.
  */
 
-/** Options for {@link debounce}. */
+/** Leading/trailing edge options for {@link createDebouncer}. */
 export interface DebounceOptions {
   leading?: boolean;
   trailing?: boolean;

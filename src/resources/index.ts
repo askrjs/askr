@@ -5,10 +5,6 @@
  */
 
 export { resource } from '../core/api/resource';
-export type {
-  RouteChangeCleanup,
-  RouteChangeOptions,
-} from '../router/activity';
 export { documentVisible, windowFocused } from './browser-activity';
 export {
   capture,

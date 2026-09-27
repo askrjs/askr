@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- **breaking** refactor(api): each public name has one import path (#487).
+- **breaking** refactor(api): control, data, `getSignal` and `onRouteChange`
+  each have one import path (#487).
   Migration:
   - `For`, `Show`, `Case`, `Match` and their prop types: import from
     `@askrjs/askr/control` instead of `@askrjs/askr`.
@@ -12,14 +13,17 @@
     instead of `@askrjs/askr`.
   - `getSignal`: import from `@askrjs/askr` instead of
     `@askrjs/askr/resources`.
-  - `onRouteChange`: import from `@askrjs/askr/router` instead of
-    `@askrjs/askr/resources`.
+  - `onRouteChange`, `RouteChangeCleanup`, `RouteChangeOptions`: import from
+    `@askrjs/askr/router` instead of `@askrjs/askr/resources`.
 
 - **breaking** refactor(api): unused low-level exports are removed (#490).
   `resolveRequest` and `renderResolvedToStringSync` are no longer exported from
-  `@askrjs/askr/ssr`; use `renderToString`, `renderRouteRequest` or
-  `renderRouteRequestToString`. `debounce` and `DebounceOptions` are no longer
-  exported from `@askrjs/askr/fx`; use `debounceEvent` for event handlers.
+  `@askrjs/askr/ssr`. To resolve auth, redirects and status without rendering,
+  call `resolveRouteRequest(url, { registry, mode: 'ssr', auth, authContext,
+request, signal })` from `@askrjs/askr/router`; to render, use
+  `renderToString`, `renderRouteRequest` or `renderRouteRequestToString`. `debounce` and `DebounceOptions` are no longer
+  exported from `@askrjs/askr/fx`; use `debounceEvent` for event handlers, or keep a local
+  debounce helper for code outside components.
 
 - fix(types): intrinsic JSX typings accept MathML elements (`<math>`, `<mi>`,
   `<mglyph>`, ...), `dangerouslySetInnerHTML` on every element, and the

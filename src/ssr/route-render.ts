@@ -85,30 +85,6 @@ export interface RouteRenderHost {
   renderAppToSink(input: RouteAppRenderInput): void;
 }
 
-/** Resolve a URL against a route registry for SSR, applying auth/policies before render. */
-export async function resolveRequest(opts: {
-  url: string;
-  registry: RouteRegistry;
-  auth?: RouteAuthOptions;
-  authContext?: AuthContext;
-  request?: Request;
-  signal?: AbortSignal;
-}): Promise<RouteRequestResult> {
-  if (!opts?.registry) {
-    throw new TypeError('resolveRequest requires opts.registry.');
-  }
-
-  const { url, auth, authContext, request, signal } = opts;
-  return await RouteModule.resolveRouteRequest(url, {
-    registry: opts.registry,
-    mode: 'ssr',
-    auth,
-    authContext,
-    request,
-    signal,
-  });
-}
-
 function resolveSSRRouteSource(source: SSRRouteSource): SSRRoute[] {
   if (source.registry.routes.length === 0) {
     throw new Error('SSR requires a non-empty route registry.');

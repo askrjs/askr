@@ -19,7 +19,11 @@ import {
   type SSRStyleRegistrationValidation,
   type VNode,
 } from '@askrjs/askr/ssr';
-import type { RouteRegistry } from '@askrjs/askr/router';
+import {
+  resolveRouteRequest,
+  type RouteRegistry,
+  type RouteRequestResult,
+} from '@askrjs/askr/router';
 
 declare const registry: RouteRegistry;
 
@@ -117,3 +121,8 @@ expectType<SSRDataMissingError>(new SSRDataMissingError('consumer'));
 void ({} as typeof import('@askrjs/askr/ssr')).resolveRequest;
 // @ts-expect-error resolved rendering is internal; use renderToString
 void ({} as typeof import('@askrjs/askr/ssr')).renderResolvedToStringSync;
+
+// Request resolution without rendering goes through the router.
+expectAssignable<RouteRequestResult | Promise<RouteRequestResult>>(
+  resolveRouteRequest('/users/42', { registry, mode: 'ssr' })
+);

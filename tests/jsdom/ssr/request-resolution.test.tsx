@@ -17,8 +17,7 @@ import {
   SSRAccessDecisionError,
   SSRDataMissingError,
 } from '../../../src/ssr';
-import { resolveRequest } from '../../../src/ssr/route-render';
-import { renderResolvedToStringSync } from '../../../src/ssr/render-resolved';
+import { renderResolvedForHydrationSync } from '../../../src/ssr/render-resolved';
 import { getCurrentRenderData } from '../../../src/ssr/render-keys';
 
 function captureError(fn: () => unknown): unknown {
@@ -28,6 +27,16 @@ function captureError(fn: () => unknown): unknown {
     return error;
   }
   throw new Error('expected the call to throw');
+}
+
+type SSRRequestOptions = Omit<
+  Parameters<typeof resolveRouteRequest>[1],
+  'mode'
+> & { url: string };
+
+// Server-side request resolution through the public router API.
+async function resolveRequest({ url, ...options }: SSRRequestOptions) {
+  return await resolveRouteRequest(url, { ...options, mode: 'ssr' });
 }
 
 describe('SSR request resolution', () => {
@@ -416,7 +425,7 @@ describe('SSR request resolution', () => {
       );
     }
 
-    const html = renderResolvedToStringSync({
+    const html = renderResolvedForHydrationSync({
       url: '/posts/intro',
       registry,
       handler: result.handler,
@@ -482,14 +491,14 @@ describe('SSR request resolution', () => {
     expect(receivedCatchAll).toBe('/a/b');
   });
 
-  describe('renderResolvedToStringSync', () => {
+  describe('renderResolvedForHydrationSync', () => {
     it('should render a param-less route when params are omitted', () => {
       const Page = () => <main>{'public'}</main>;
       const registry = createRouteRegistry(() => {
         route('/public', Page);
       });
 
-      const html = renderResolvedToStringSync({
+      const html = renderResolvedForHydrationSync({
         url: '/public',
         registry,
         handler: Page,
@@ -505,7 +514,7 @@ describe('SSR request resolution', () => {
         route('/posts/{slug}', Post);
       });
 
-      const html = renderResolvedToStringSync({
+      const html = renderResolvedForHydrationSync({
         url: '/posts/intro',
         registry,
         handler: Post,
@@ -522,7 +531,7 @@ describe('SSR request resolution', () => {
       });
 
       expect(() =>
-        renderResolvedToStringSync({
+        renderResolvedForHydrationSync({
           url: '/posts/intro',
           registry,
           handler: Post,

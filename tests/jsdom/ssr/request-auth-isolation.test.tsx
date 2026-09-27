@@ -7,7 +7,7 @@ import {
   route,
 } from '../../../src/router/route';
 import { renderRouteRequestToString, renderToString } from '../../../src/ssr';
-import { renderResolvedToStringSync } from '../../../src/ssr/render-resolved';
+import { renderResolvedForHydrationSync } from '../../../src/ssr/render-resolved';
 import { resetRouteState } from '../../router-test-utils';
 
 function userAuth(id: string): AuthContext {
@@ -56,7 +56,7 @@ describe('request-local auth isolation during SSR', () => {
     const registry = createAccountRegistry(userAuth);
     await resolveRouteRequest('/account/alice', { registry, mode: 'ssr' });
 
-    const html = renderResolvedToStringSync({
+    const html = renderResolvedForHydrationSync({
       url: '/public',
       registry,
       handler: Identity,
