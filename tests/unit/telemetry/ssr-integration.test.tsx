@@ -29,7 +29,7 @@ function recordingTelemetry(events: Event[]): CoreTelemetry {
         if (
           result !== null &&
           (typeof result === 'object' || typeof result === 'function') &&
-          typeof (result as PromiseLike<unknown>).then === 'function'
+          typeof (result as unknown as PromiseLike<unknown>).then === 'function'
         ) {
           return Promise.resolve(result).then(
             (value) => {

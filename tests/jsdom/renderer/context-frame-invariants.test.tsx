@@ -234,7 +234,7 @@ describe('renderer context frame invariants', () => {
   it('should preserve stable For rows when provider context is unchanged', () => {
     const ThemeScope = defineScope('light');
     const items = ['stable'];
-    let bumpUnrelatedState = () => undefined;
+    let bumpUnrelatedState: () => void = () => undefined;
     let rowRenderCount = 0;
 
     const Reader = () => {
@@ -331,7 +331,7 @@ describe('renderer context frame invariants', () => {
   it('should refresh an empty For fallback exactly once with new context', () => {
     const ThemeScope = defineScope('light');
     const items: readonly string[] = [];
-    let setTheme = (_value: string) => undefined;
+    let setTheme: (value: string) => void = () => undefined;
     let fallbackRenderCount = 0;
     const renderedThemes: string[] = [];
     const Fallback = () => {
@@ -416,7 +416,7 @@ describe('renderer context frame invariants', () => {
 
   it('should refresh Case and Portal consumers when provider context changes', () => {
     const ThemeScope = defineScope('light');
-    let setTheme = (_value: string) => undefined;
+    let setTheme: (value: string) => void = () => undefined;
     let caseRenderCount = 0;
     let portalRenderCount = 0;
 

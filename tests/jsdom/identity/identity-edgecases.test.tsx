@@ -15,7 +15,7 @@ describe('identity edge cases', () => {
     >;
 
     const Component = () => {
-      items = state([
+      items = state<Array<{ key: string | number; label: string }>>([
         { key: 1, label: 'number' },
         { key: '1', label: 'string' },
       ]);
@@ -71,7 +71,7 @@ describe('identity edge cases', () => {
     ];
 
     const Component = () => {
-      items = state(initial);
+      items = state<Array<{ key: string | number; label: string }>>(initial);
       return (
         <div>
           {items().map((item) => (
@@ -138,7 +138,7 @@ describe('identity edge cases', () => {
     let items: ReturnType<typeof state<Array<{ key: string; label: string }>>>;
 
     const Component = () => {
-      items = state([
+      items = state<Array<{ key: string; label: string }>>([
         { key: 'a', label: 'A1' },
         { key: 'b', label: 'B' },
       ]);
@@ -189,7 +189,7 @@ describe('identity edge cases', () => {
     > | null = null;
 
     const Component = () => {
-      mode = state([
+      mode = state<Array<{ type: 'k' | 'u'; key?: string; label: string }>>([
         { type: 'k', key: 'a', label: 'KA' },
         { type: 'u', label: 'U' },
         { type: 'k', key: 'b', label: 'KB' },
@@ -197,7 +197,7 @@ describe('identity edge cases', () => {
 
       return (
         <div>
-          {mode().map((it) => {
+          {mode!().map((it) => {
             if (it.type === 'k') {
               return (
                 <span key={it.key} data-key={it.key} data-label={it.label}>

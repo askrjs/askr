@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 import type { JSXElement } from '../../../src/jsx/types';
+import { createIsland } from '../../../test-utils/render/create-island';
 
 // Ensure async components are rejected by the runtime
 describe('async component execution (DEPRECATED)', () => {

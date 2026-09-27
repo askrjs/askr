@@ -52,12 +52,17 @@ export type IntrinsicRef<T extends Element = Element> =
   | null
   | undefined;
 
+/** MathML elements that lib.dom's MathMLElementTagNameMap does not list. */
+export type MathMLExtraTag = 'mglyph' | 'menclose' | 'mlabeledtr' | 'none';
+
 export type IntrinsicElementForTag<Tag extends string> =
   Tag extends keyof HTMLElementTagNameMap
     ? HTMLElementTagNameMap[Tag]
     : Tag extends keyof SVGElementTagNameMap
       ? SVGElementTagNameMap[Tag]
-      : Element;
+      : Tag extends keyof MathMLElementTagNameMap | MathMLExtraTag
+        ? MathMLElement
+        : Element;
 
 interface IntrinsicEventProps {
   onAbort?: BivariantHandler<Event> | null;
@@ -188,6 +193,8 @@ export interface IntrinsicProps
    * Askr will continue updating the host element's props, events, and ref.
    */
   imperativeChildren?: boolean;
+  /** Raw HTML for the element's content, written as given (not escaped). */
+  dangerouslySetInnerHTML?: { __html: string | null | undefined } | null;
   class?: ReactiveProp<IntrinsicClassValue>;
   className?: ReactiveProp<IntrinsicClassValue>;
   style?: ReactiveProp<IntrinsicStyleValue>;
@@ -317,6 +324,11 @@ export interface AnchorIntrinsicProps extends IntrinsicProps {
 
 export interface ButtonIntrinsicProps extends IntrinsicProps {
   disabled?: ReactiveProp<IntrinsicBooleanValue>;
+  formAction?: ReactiveProp<IntrinsicTextValue>;
+  formEncType?: ReactiveProp<IntrinsicTextValue>;
+  formMethod?: ReactiveProp<IntrinsicTextValue>;
+  formNoValidate?: ReactiveProp<IntrinsicBooleanValue>;
+  formTarget?: ReactiveProp<IntrinsicTextValue>;
   name?: ReactiveProp<IntrinsicTextValue>;
   type?: ReactiveProp<IntrinsicTextValue>;
   value?: ReactiveProp<IntrinsicFormValue>;
@@ -338,6 +350,11 @@ export interface ImageIntrinsicProps extends IntrinsicProps {
 }
 
 export interface InputIntrinsicProps extends IntrinsicProps {
+  formAction?: ReactiveProp<IntrinsicTextValue>;
+  formEncType?: ReactiveProp<IntrinsicTextValue>;
+  formMethod?: ReactiveProp<IntrinsicTextValue>;
+  formNoValidate?: ReactiveProp<IntrinsicBooleanValue>;
+  formTarget?: ReactiveProp<IntrinsicTextValue>;
   autoComplete?: ReactiveProp<IntrinsicTextValue>;
   autocomplete?: ReactiveProp<IntrinsicTextValue>;
   checked?: ReactiveProp<IntrinsicBooleanValue>;

@@ -61,7 +61,9 @@ function Page({ path }: { path: string }) {
 async function waitForRenderFailure(message: string): Promise<void> {
   await expect
     .poll(() =>
-      errors.mock.calls.some((call) => String(call[1]).includes(message))
+      errors.mock.calls.some((call: unknown[]) =>
+        String(call[1]).includes(message)
+      )
     )
     .toBe(true);
 }

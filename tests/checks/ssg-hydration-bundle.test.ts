@@ -50,7 +50,9 @@ describe('SSG hydration bundle', () => {
       root: fixtureRoot,
       logLevel: 'silent',
       define: createNodeEnvDefine('production'),
-      esbuild: askrEsbuild,
+      // vite-plus types the legacy `esbuild` option narrowly; the build still
+      // honors these JSX settings.
+      esbuild: askrEsbuild as never,
       resolve: { alias: createPackageAliases() },
       build: {
         outDir,

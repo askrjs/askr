@@ -11,8 +11,8 @@ import { For } from '../../../src/control';
 test('should toggle selected row class', { timeout: 20000 }, () => {
   const { container, cleanup } = createTestContainer();
 
-  let dataState: ReturnType<typeof state<{ id: number; label: string }[]>>;
-  let selectedState: ReturnType<typeof state<number | null>>;
+  let dataState!: ReturnType<typeof state<{ id: number; label: string }[]>>;
+  let selectedState!: ReturnType<typeof state<number | null>>;
 
   const Component = () => {
     dataState = state<{ id: number; label: string }[]>([]);

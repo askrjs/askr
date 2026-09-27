@@ -489,7 +489,7 @@ describe('event delegation', () => {
 
       createIsland({ root: container, component: Component });
       flushScheduler();
-      const button = container.querySelector('#current-target')!;
+      const button = container.querySelector<HTMLElement>('#current-target')!;
       fireEvent.click(button);
 
       expect(currentTarget).toBe(button);

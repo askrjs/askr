@@ -2,6 +2,7 @@ export { composeHandlers } from './compose-handlers';
 export type { ComposeHandlersOptions } from './compose-handlers';
 
 export { mergeProps } from './merge-props';
+export type { MergedProps } from './merge-props';
 
 export { ariaDisabled, ariaExpanded, ariaSelected } from './aria';
 

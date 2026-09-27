@@ -9,7 +9,14 @@ import {
   _resetDefaultPortal,
   definePortal,
 } from '../../../src/foundations/structures/portal';
-import { jsx } from '../../../src/jsx/jsx-runtime';
+import { jsx as typedJsx, type JSXElement } from '../../../src/jsx/jsx-runtime';
+
+// These tests render deliberately unusual or dynamic tags and prop maps, so
+// they call the runtime factory without the per-tag JSX typings.
+const jsx = typedJsx as unknown as (
+  type: unknown,
+  props: Record<string, unknown> | null
+) => JSXElement;
 import { renderToString, renderToStringSync } from '../../../src/ssr';
 import {
   createTestContainer,
@@ -396,11 +403,7 @@ describe('SSR <script>/<style> in foreign content (SVG, MathML)', () => {
   it('should keep mglyph and non-HTML annotation-xml children in MathML', () => {
     const html = renderToStringSync(() => (
       <math>
-        <mi>
-          <mglyph>
-            <style>{payload}</style>
-          </mglyph>
-        </mi>
+        <mi>{jsx('mglyph', { children: <style>{payload}</style> })}</mi>
         <annotation-xml encoding="application/mathml+xml">
           <style>{payload}</style>
         </annotation-xml>

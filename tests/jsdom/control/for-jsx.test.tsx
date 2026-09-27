@@ -757,7 +757,7 @@ describe('For JSX primitive', () => {
     const { container, cleanup } = createTestContainer();
 
     type Item = { id: number; label: string };
-    let resolveItems: ((items: Item[]) => void) | null = null;
+    let resolveItems = null as ((items: Item[]) => void) | null;
 
     const App = () => {
       const items = resource<Item[]>(

@@ -62,7 +62,7 @@ describe('public entrypoint resolution', () => {
     expect(typeof router.navigate).toBe('function');
     expect(typeof router.Link).toBe('function');
     expect(typeof router.Outlet).toBe('function');
-    expect(router.requireAuth).toBeUndefined();
+    expect((router as Record<string, unknown>).requireAuth).toBeUndefined();
 
     expect(typeof ssr.renderToString).toBe('function');
     expect(typeof ssr.renderRouteRequestToString).toBe('function');

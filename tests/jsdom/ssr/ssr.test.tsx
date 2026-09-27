@@ -19,6 +19,8 @@ import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
+import type { RouteParams } from '../../../src/common/router';
+import type { DocumentRenderArgs } from '../../../src/ssr';
 
 // Consolidated SSR tests
 
@@ -290,7 +292,7 @@ describe('SSR document boundary', () => {
     const routes = [
       {
         path: '/users/{id}',
-        handler: ({ id }: { id: string }) => <main>User {id}</main>,
+        handler: ({ id }: RouteParams) => <main>User {id}</main>,
       },
     ];
 
@@ -307,19 +309,13 @@ describe('SSR document boundary', () => {
       {
         path: '/users/{id}',
         namespace: 'app',
-        handler: ({ id }: { id: string }) => <main>User {id}</main>,
+        handler: ({ id }: RouteParams) => <main>User {id}</main>,
       },
     ];
     const data = { greeting: 'hi' };
     let seenContext: Record<string, unknown> | null = null;
-    const document = ({
-      appHtml,
-      context,
-    }: {
-      appHtml: string;
-      context: Record<string, unknown>;
-    }) => {
-      seenContext = context;
+    const document = ({ appHtml, context }: DocumentRenderArgs) => {
+      seenContext = context as unknown as Record<string, unknown>;
       return `<!doctype html><html><body>${appHtml}</body></html>`;
     };
 

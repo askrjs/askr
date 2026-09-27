@@ -170,7 +170,7 @@
         "type ErrorBoundaryFallbackRender = (error: unknown, reset: () => void) => ErrorBoundaryFallbackValue;"
       ],
       "ErrorBoundaryProps": [
-        "interface ErrorBoundaryProps extends Props {\n    children?: ErrorBoundaryContent;\n    fallback?: ErrorBoundaryFallbackValue | ErrorBoundaryFallbackRender;\n    onError?: (error: unknown) => void;\n    resetKey?: unknown;\n}"
+        "interface ErrorBoundaryProps extends Props {\n    children?: ErrorBoundaryChild;\n    fallback?: ErrorBoundaryFallbackValue | ErrorBoundaryFallbackRender;\n    onError?: (error: unknown) => void;\n    resetKey?: unknown;\n}"
       ]
     },
     "./control": {
@@ -262,8 +262,11 @@
       "KeyboardLikeEvent": [
         "interface KeyboardLikeEvent extends DefaultPreventable, PropagationStoppable {\n    key: string;\n    currentTarget?: unknown;\n    target?: unknown;\n}"
       ],
+      "MergedProps": [
+        "type MergedProps<TBase extends object, TInjected extends object> = HasIndexSignature<TBase> extends true ? TInjected & TBase : HasIndexSignature<TInjected> extends true ? TInjected & TBase : Omit<TInjected, keyof TBase> & {\n    [K in keyof TBase as K extends RequiredKeys<TInjected> ? K : never]-?: MergedValue<TBase[K], TInjected[K & keyof TInjected]>;\n} & {\n    [K in keyof TBase as K extends RequiredKeys<TInjected> ? never : K]: MergedValue<TBase[K], K extends keyof TInjected ? TInjected[K] : undefined>;\n};"
+      ],
       "mergeProps": [
-        "declare function mergeProps<TBase extends object, TInjected extends object>(base: TBase, injected: TInjected): TInjected & TBase;"
+        "declare function mergeProps<TBase extends object, TInjected extends object>(base: TBase, injected: TInjected): MergedProps<TBase, TInjected>;"
       ],
       "PointerLikeEvent": [
         "interface PointerLikeEvent extends DefaultPreventable, PropagationStoppable {\n    target?: unknown;\n}"
@@ -462,7 +465,7 @@
       ],
       "resource": [
         "declare function resource<TSource, T>(source: () => TSource, load: (value: TSource, opts: {\n    signal: AbortSignal;\n}) => PromiseLike<T> | T): ResourceResult<T>;",
-        "declare function resource<T, const TDeps extends readonly unknown[]>(fn: (opts: {\n    signal: AbortSignal;\n}) => PromiseLike<T> | T, deps: TDeps): ResourceResult<T>;",
+        "declare function resource<T, const TDeps extends readonly unknown[] = readonly unknown[]>(fn: (opts: {\n    signal: AbortSignal;\n}) => PromiseLike<T> | T, deps: TDeps): ResourceResult<T>;",
         "declare function resource<T>(fn: (opts: {\n    signal: AbortSignal;\n}) => PromiseLike<T> | T): ResourceResult<T>;"
       ],
       "ResourceResult": [
@@ -1146,7 +1149,7 @@
         "declare function jsx(type: symbol, props: Props | null, key?: string | number): JSXElement;"
       ],
       "JSX": [
-        "declare namespace JSX {\n    type ElementType = string | symbol | ((props: never) => unknown);\n    interface Element extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements extends KnownIntrinsicElements, OtherIntrinsicElements {\n        [elem: `${string}-${string}`]: IntrinsicFallbackProps;\n    }\n    type OtherIntrinsicElements = {\n        [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap, keyof KnownIntrinsicElementProps>]: OtherIntrinsicProps<Tag>;\n    };\n    interface ElementChildrenAttribute {\n        children: unknown;\n    }\n    interface IntrinsicAttributes {\n        key?: string | number;\n    }\n}"
+        "declare namespace JSX {\n    type ElementType = string | symbol | ((props: never) => unknown);\n    interface Element extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements extends KnownIntrinsicElements, OtherIntrinsicElements {\n        [elem: `${string}-${string}`]: IntrinsicFallbackProps;\n    }\n    type OtherIntrinsicElements = {\n        [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap | Exclude<keyof MathMLElementTagNameMap, `${string}-${string}`> | MathMLExtraTag, keyof KnownIntrinsicElementProps>]: OtherIntrinsicProps<Tag>;\n    };\n    interface ElementChildrenAttribute {\n        children: unknown;\n    }\n    interface IntrinsicAttributes {\n        key?: string | number;\n    }\n}"
       ],
       "JSXComponent": [
         "type JSXComponent<TProps extends object = Props> = {\n    bivarianceHack(props: TProps): unknown;\n}[\"bivarianceHack\"];"
@@ -1173,7 +1176,7 @@
     "./jsx-dev-runtime": {
       "Fragment": ["Fragment: unique symbol"],
       "JSX": [
-        "declare namespace JSX$2 {\n    type ElementType$2 = string | symbol | ((props: never) => unknown);\n    interface Element$2 extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements$2 extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements$2 extends KnownIntrinsicElements$2, OtherIntrinsicElements$2 {\n        [elem: `${string}-${string}`]: IntrinsicFallbackProps;\n    }\n    type OtherIntrinsicElements$2 = {\n        [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap, keyof KnownIntrinsicElementProps>]: OtherIntrinsicProps$2<Tag>;\n    };\n    interface ElementChildrenAttribute$2 {\n        children: unknown;\n    }\n    interface IntrinsicAttributes$2 {\n        key?: string | number;\n    }\n}"
+        "declare namespace JSX$2 {\n    type ElementType$2 = string | symbol | ((props: never) => unknown);\n    interface Element$2 extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements$2 extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements$2 extends KnownIntrinsicElements$2, OtherIntrinsicElements$2 {\n        [elem: `${string}-${string}`]: IntrinsicFallbackProps;\n    }\n    type OtherIntrinsicElements$2 = {\n        [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap | Exclude<keyof MathMLElementTagNameMap, `${string}-${string}`> | MathMLExtraTag, keyof KnownIntrinsicElementProps>]: OtherIntrinsicProps$2<Tag>;\n    };\n    interface ElementChildrenAttribute$2 {\n        children: unknown;\n    }\n    interface IntrinsicAttributes$2 {\n        key?: string | number;\n    }\n}"
       ],
       "JSXComponent": [
         "type JSXComponent<TProps extends object = Props> = {\n    bivarianceHack(props: TProps): unknown;\n}[\"bivarianceHack\"];"
@@ -1253,7 +1256,7 @@
     ],
     "BoundaryChild": ["type BoundaryChild = RenderableChild;"],
     "ButtonIntrinsicProps": [
-      "interface ButtonIntrinsicProps extends IntrinsicProps {\n    disabled?: ReactiveProp<IntrinsicBooleanValue>;\n    name?: ReactiveProp<IntrinsicTextValue>;\n    type?: ReactiveProp<IntrinsicTextValue>;\n    value?: ReactiveProp<IntrinsicFormValue>;\n}"
+      "interface ButtonIntrinsicProps extends IntrinsicProps {\n    disabled?: ReactiveProp<IntrinsicBooleanValue>;\n    formAction?: ReactiveProp<IntrinsicTextValue>;\n    formEncType?: ReactiveProp<IntrinsicTextValue>;\n    formMethod?: ReactiveProp<IntrinsicTextValue>;\n    formNoValidate?: ReactiveProp<IntrinsicBooleanValue>;\n    formTarget?: ReactiveProp<IntrinsicTextValue>;\n    name?: ReactiveProp<IntrinsicTextValue>;\n    type?: ReactiveProp<IntrinsicTextValue>;\n    value?: ReactiveProp<IntrinsicFormValue>;\n}"
     ],
     "CancelFn": ["type CancelFn = () => void;"],
     "capture": ["declare function capture<T>(fn: () => T): () => T;"],
@@ -1497,6 +1500,9 @@
     "ErrorBoundary": [
       "declare function ErrorBoundary(props: ErrorBoundaryProps): JSXElement;"
     ],
+    "ErrorBoundaryChild": [
+      "type ErrorBoundaryChild = VNode | JSXElement | (() => unknown) | readonly ErrorBoundaryChild[];"
+    ],
     "ErrorBoundaryContent": [
       "type ErrorBoundaryContent = VNode | readonly VNode[];"
     ],
@@ -1507,7 +1513,7 @@
       "type ErrorBoundaryFallbackValue = ErrorBoundaryContent | Node;"
     ],
     "ErrorBoundaryProps": [
-      "interface ErrorBoundaryProps extends Props {\n    children?: ErrorBoundaryContent;\n    fallback?: ErrorBoundaryFallbackValue | ErrorBoundaryFallbackRender;\n    onError?: (error: unknown) => void;\n    resetKey?: unknown;\n}"
+      "interface ErrorBoundaryProps extends Props {\n    children?: ErrorBoundaryChild;\n    fallback?: ErrorBoundaryFallbackValue | ErrorBoundaryFallbackRender;\n    onError?: (error: unknown) => void;\n    resetKey?: unknown;\n}"
     ],
     "escapeHtml": ["declare function escapeHtml(value: unknown): string;"],
     "ExtractRoutePathParamNames": [
@@ -1588,6 +1594,9 @@
       "interface GroupHelperOptions extends CommonAccessOptions {\n    layout?: (props: {\n        children?: RenderableChild;\n    }) => RenderableChild;\n    meta?: RouteMetaSource;\n}"
     ],
     "hasApp": ["declare function hasApp(root: Element | string): boolean;"],
+    "HasIndexSignature": [
+      "type HasIndexSignature<T> = string extends keyof T ? true : number extends keyof T ? true : false;"
+    ],
     "HistoryScrollBehavior": [
       "type HistoryScrollBehavior = \"restore\" | \"top\" | \"preserve\";"
     ],
@@ -1638,7 +1647,7 @@
       "type IndexedForProps<T> = ForBaseProps<T> & Extract<ForKeying<T, string | number>, {\n    byIndex: true;\n}>;"
     ],
     "InputIntrinsicProps": [
-      "interface InputIntrinsicProps extends IntrinsicProps {\n    autoComplete?: ReactiveProp<IntrinsicTextValue>;\n    autocomplete?: ReactiveProp<IntrinsicTextValue>;\n    checked?: ReactiveProp<IntrinsicBooleanValue>;\n    disabled?: ReactiveProp<IntrinsicBooleanValue>;\n    indeterminate?: ReactiveProp<IntrinsicBooleanValue>;\n    maxLength?: ReactiveProp<IntrinsicNumberValue>;\n    maxlength?: ReactiveProp<IntrinsicNumberValue>;\n    minLength?: ReactiveProp<IntrinsicNumberValue>;\n    minlength?: ReactiveProp<IntrinsicNumberValue>;\n    name?: ReactiveProp<IntrinsicTextValue>;\n    placeholder?: ReactiveProp<IntrinsicTextValue>;\n    readOnly?: ReactiveProp<IntrinsicBooleanValue>;\n    readonly?: ReactiveProp<IntrinsicBooleanValue>;\n    required?: ReactiveProp<IntrinsicBooleanValue>;\n    type?: ReactiveProp<IntrinsicTextValue>;\n    value?: ReactiveProp<IntrinsicFormValue>;\n}"
+      "interface InputIntrinsicProps extends IntrinsicProps {\n    formAction?: ReactiveProp<IntrinsicTextValue>;\n    formEncType?: ReactiveProp<IntrinsicTextValue>;\n    formMethod?: ReactiveProp<IntrinsicTextValue>;\n    formNoValidate?: ReactiveProp<IntrinsicBooleanValue>;\n    formTarget?: ReactiveProp<IntrinsicTextValue>;\n    autoComplete?: ReactiveProp<IntrinsicTextValue>;\n    autocomplete?: ReactiveProp<IntrinsicTextValue>;\n    checked?: ReactiveProp<IntrinsicBooleanValue>;\n    disabled?: ReactiveProp<IntrinsicBooleanValue>;\n    indeterminate?: ReactiveProp<IntrinsicBooleanValue>;\n    maxLength?: ReactiveProp<IntrinsicNumberValue>;\n    maxlength?: ReactiveProp<IntrinsicNumberValue>;\n    minLength?: ReactiveProp<IntrinsicNumberValue>;\n    minlength?: ReactiveProp<IntrinsicNumberValue>;\n    name?: ReactiveProp<IntrinsicTextValue>;\n    placeholder?: ReactiveProp<IntrinsicTextValue>;\n    readOnly?: ReactiveProp<IntrinsicBooleanValue>;\n    readonly?: ReactiveProp<IntrinsicBooleanValue>;\n    required?: ReactiveProp<IntrinsicBooleanValue>;\n    type?: ReactiveProp<IntrinsicTextValue>;\n    value?: ReactiveProp<IntrinsicFormValue>;\n}"
     ],
     "InteractionPolicyInput": [
       "interface InteractionPolicyInput {\n    isNative: boolean;\n    disabled: boolean;\n    onPress?: (e: Event) => void;\n    ref?: Ref$2<unknown>;\n}"
@@ -1662,7 +1671,7 @@
       "type IntrinsicDataValue = string | number | boolean | null | undefined;"
     ],
     "IntrinsicElementForTag": [
-      "type IntrinsicElementForTag<Tag extends string> = Tag extends keyof HTMLElementTagNameMap ? HTMLElementTagNameMap[Tag] : Tag extends keyof SVGElementTagNameMap ? SVGElementTagNameMap[Tag] : Element;"
+      "type IntrinsicElementForTag<Tag extends string> = Tag extends keyof HTMLElementTagNameMap ? HTMLElementTagNameMap[Tag] : Tag extends keyof SVGElementTagNameMap ? SVGElementTagNameMap[Tag] : Tag extends keyof MathMLElementTagNameMap | MathMLExtraTag ? MathMLElement : Element;"
     ],
     "IntrinsicElements": [
       "interface IntrinsicElements extends KnownIntrinsicElements, OtherIntrinsicElements {\n    [elem: `${string}-${string}`]: IntrinsicFallbackProps;\n}"
@@ -1686,7 +1695,7 @@
       "type IntrinsicNumberValue = number | null | undefined;"
     ],
     "IntrinsicProps": [
-      "interface IntrinsicProps extends IntrinsicEventProps, CapturedIntrinsicEventProps {\n    key?: string | number | symbol;\n    children?: unknown;\n    imperativeChildren?: boolean;\n    class?: ReactiveProp<IntrinsicClassValue>;\n    className?: ReactiveProp<IntrinsicClassValue>;\n    style?: ReactiveProp<IntrinsicStyleValue>;\n    ref?: IntrinsicRef;\n    id?: ReactiveProp<IntrinsicTextLikeValue>;\n    title?: ReactiveProp<IntrinsicTextValue>;\n    role?: ReactiveProp<IntrinsicTextValue>;\n    tabIndex?: ReactiveProp<IntrinsicNumberValue>;\n    hidden?: ReactiveProp<IntrinsicBooleanValue>;\n    dir?: ReactiveProp<IntrinsicTextValue>;\n    lang?: ReactiveProp<IntrinsicTextValue>;\n    contentEditable?: ReactiveProp<IntrinsicEnumeratedValue>;\n    draggable?: ReactiveProp<IntrinsicEnumeratedValue>;\n    enterKeyHint?: ReactiveProp<IntrinsicTextValue>;\n    inputMode?: ReactiveProp<IntrinsicTextValue>;\n    spellCheck?: ReactiveProp<IntrinsicEnumeratedValue>;\n    writingSuggestions?: ReactiveProp<IntrinsicEnumeratedValue>;\n    [attr: `aria-${string}`]: ReactiveProp<IntrinsicAriaValue>;\n    [attr: `data-${string}`]: ReactiveProp<IntrinsicDataValue>;\n    [prop: `prop:${string}`]: unknown;\n    [attr: `attr:${string}`]: ReactiveProp<IntrinsicDataValue>;\n}"
+      "interface IntrinsicProps extends IntrinsicEventProps, CapturedIntrinsicEventProps {\n    key?: string | number | symbol;\n    children?: unknown;\n    imperativeChildren?: boolean;\n    dangerouslySetInnerHTML?: {\n        __html: string | null | undefined;\n    } | null;\n    class?: ReactiveProp<IntrinsicClassValue>;\n    className?: ReactiveProp<IntrinsicClassValue>;\n    style?: ReactiveProp<IntrinsicStyleValue>;\n    ref?: IntrinsicRef;\n    id?: ReactiveProp<IntrinsicTextLikeValue>;\n    title?: ReactiveProp<IntrinsicTextValue>;\n    role?: ReactiveProp<IntrinsicTextValue>;\n    tabIndex?: ReactiveProp<IntrinsicNumberValue>;\n    hidden?: ReactiveProp<IntrinsicBooleanValue>;\n    dir?: ReactiveProp<IntrinsicTextValue>;\n    lang?: ReactiveProp<IntrinsicTextValue>;\n    contentEditable?: ReactiveProp<IntrinsicEnumeratedValue>;\n    draggable?: ReactiveProp<IntrinsicEnumeratedValue>;\n    enterKeyHint?: ReactiveProp<IntrinsicTextValue>;\n    inputMode?: ReactiveProp<IntrinsicTextValue>;\n    spellCheck?: ReactiveProp<IntrinsicEnumeratedValue>;\n    writingSuggestions?: ReactiveProp<IntrinsicEnumeratedValue>;\n    [attr: `aria-${string}`]: ReactiveProp<IntrinsicAriaValue>;\n    [attr: `data-${string}`]: ReactiveProp<IntrinsicDataValue>;\n    [prop: `prop:${string}`]: unknown;\n    [attr: `attr:${string}`]: ReactiveProp<IntrinsicDataValue>;\n}"
     ],
     "IntrinsicRef": [
       "type IntrinsicRef<T extends Element = Element> = BivariantHandler<T | null> | {\n    current: T | null;\n} | null | undefined;"
@@ -1724,6 +1733,7 @@
     "InvalidationRecorder": [
       "interface InvalidationRecorder {\n    readonly calls: readonly InvalidationRecord[];\n    readonly prefixes: readonly string[];\n    clear(): void;\n    stop(): void;\n}"
     ],
+    "IsAny": ["type IsAny<T> = 0 extends 1 & T ? true : false;"],
     "isControlled": [
       "declare function isControlled<T>(value: T | undefined): value is T;"
     ],
@@ -1752,10 +1762,10 @@
       "declare function jsx<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[NoInfer<TTag>] | null, key?: string | number): JSXElement;"
     ],
     "JSX": [
-      "declare namespace JSX {\n    type ElementType = string | symbol | ((props: never) => unknown);\n    interface Element extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements extends KnownIntrinsicElements, OtherIntrinsicElements {\n        [elem: `${string}-${string}`]: IntrinsicFallbackProps;\n    }\n    type OtherIntrinsicElements = {\n        [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap, keyof KnownIntrinsicElementProps>]: OtherIntrinsicProps<Tag>;\n    };\n    interface ElementChildrenAttribute {\n        children: unknown;\n    }\n    interface IntrinsicAttributes {\n        key?: string | number;\n    }\n}"
+      "declare namespace JSX {\n    type ElementType = string | symbol | ((props: never) => unknown);\n    interface Element extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements extends KnownIntrinsicElements, OtherIntrinsicElements {\n        [elem: `${string}-${string}`]: IntrinsicFallbackProps;\n    }\n    type OtherIntrinsicElements = {\n        [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap | Exclude<keyof MathMLElementTagNameMap, `${string}-${string}`> | MathMLExtraTag, keyof KnownIntrinsicElementProps>]: OtherIntrinsicProps<Tag>;\n    };\n    interface ElementChildrenAttribute {\n        children: unknown;\n    }\n    interface IntrinsicAttributes {\n        key?: string | number;\n    }\n}"
     ],
     "JSX$2": [
-      "declare namespace JSX$2 {\n    type ElementType$2 = string | symbol | ((props: never) => unknown);\n    interface Element$2 extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements$2 extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements$2 extends KnownIntrinsicElements$2, OtherIntrinsicElements$2 {\n        [elem: `${string}-${string}`]: IntrinsicFallbackProps;\n    }\n    type OtherIntrinsicElements$2 = {\n        [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap, keyof KnownIntrinsicElementProps>]: OtherIntrinsicProps$2<Tag>;\n    };\n    interface ElementChildrenAttribute$2 {\n        children: unknown;\n    }\n    interface IntrinsicAttributes$2 {\n        key?: string | number;\n    }\n}"
+      "declare namespace JSX$2 {\n    type ElementType$2 = string | symbol | ((props: never) => unknown);\n    interface Element$2 extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements$2 extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements$2 extends KnownIntrinsicElements$2, OtherIntrinsicElements$2 {\n        [elem: `${string}-${string}`]: IntrinsicFallbackProps;\n    }\n    type OtherIntrinsicElements$2 = {\n        [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap | Exclude<keyof MathMLElementTagNameMap, `${string}-${string}`> | MathMLExtraTag, keyof KnownIntrinsicElementProps>]: OtherIntrinsicProps$2<Tag>;\n    };\n    interface ElementChildrenAttribute$2 {\n        children: unknown;\n    }\n    interface IntrinsicAttributes$2 {\n        key?: string | number;\n    }\n}"
     ],
     "JSXComponent": [
       "type JSXComponent<TProps extends object = Props> = {\n    bivarianceHack(props: TProps): unknown;\n}[\"bivarianceHack\"];"
@@ -1868,11 +1878,20 @@
     "MatchRouteOptions": [
       "interface MatchRouteOptions {\n    registry: RouteRegistry;\n}"
     ],
+    "MathMLExtraTag": [
+      "type MathMLExtraTag = \"mglyph\" | \"menclose\" | \"mlabeledtr\" | \"none\";"
+    ],
+    "MergedProps": [
+      "type MergedProps<TBase extends object, TInjected extends object> = HasIndexSignature<TBase> extends true ? TInjected & TBase : HasIndexSignature<TInjected> extends true ? TInjected & TBase : Omit<TInjected, keyof TBase> & {\n    [K in keyof TBase as K extends RequiredKeys<TInjected> ? K : never]-?: MergedValue<TBase[K], TInjected[K & keyof TInjected]>;\n} & {\n    [K in keyof TBase as K extends RequiredKeys<TInjected> ? never : K]: MergedValue<TBase[K], K extends keyof TInjected ? TInjected[K] : undefined>;\n};"
+    ],
+    "MergedValue": [
+      "type MergedValue<TBase, TInjected> = IsAny<TBase> extends true ? TBase : [\n    TBase\n] extends [\n    undefined\n] ? TInjected : undefined extends TBase ? Exclude<TBase, undefined> | TInjected : TBase;"
+    ],
     "mergeInteractionProps": [
       "declare function mergeInteractionProps(childProps: Record<string, unknown>, policyProps: Record<string, unknown>, userProps?: Record<string, unknown>): Record<string, unknown>;"
     ],
     "mergeProps": [
-      "declare function mergeProps<TBase extends object, TInjected extends object>(base: TBase, injected: TInjected): TInjected & TBase;"
+      "declare function mergeProps<TBase extends object, TInjected extends object>(base: TBase, injected: TInjected): MergedProps<TBase, TInjected>;"
     ],
     "mockQuery": [
       "mockQuery: typeof createFreshQuery & {\n    loading<T extends {} = {}>(options?: MockQueryOptions): Query<T>;\n    error<T extends {} = {}>(error: {}, previousData?: T, options?: MockQueryOptions): Query<T>;\n    refreshing<T extends {}>(data: T, options?: MockQueryOptions): Query<T>;\n    stale<T extends {}>(data: T, reason?: StaleValueReason, options?: MockQueryOptions): Query<T>;\n    pendingWrite<T extends {}>(data: T, options?: MockQueryOptions): Query<T>;\n}"
@@ -1947,10 +1966,10 @@
       "type Orientation = \"horizontal\" | \"vertical\" | \"both\";"
     ],
     "OtherIntrinsicElements": [
-      "type OtherIntrinsicElements = {\n    [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap, keyof KnownIntrinsicElementProps>]: OtherIntrinsicProps<Tag>;\n};"
+      "type OtherIntrinsicElements = {\n    [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap | Exclude<keyof MathMLElementTagNameMap, `${string}-${string}`> | MathMLExtraTag, keyof KnownIntrinsicElementProps>]: OtherIntrinsicProps<Tag>;\n};"
     ],
     "OtherIntrinsicElements$2": [
-      "type OtherIntrinsicElements$2 = {\n    [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap, keyof KnownIntrinsicElementProps>]: OtherIntrinsicProps$2<Tag>;\n};"
+      "type OtherIntrinsicElements$2 = {\n    [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap | Exclude<keyof MathMLElementTagNameMap, `${string}-${string}`> | MathMLExtraTag, keyof KnownIntrinsicElementProps>]: OtherIntrinsicProps$2<Tag>;\n};"
     ],
     "OtherIntrinsicProps": [
       "type OtherIntrinsicProps<Tag extends string> = Omit<IntrinsicFallbackProps, \"ref\"> & {\n    ref?: IntrinsicRef<IntrinsicElementForTag<Tag>>;\n};"
@@ -1959,10 +1978,10 @@
       "type OtherIntrinsicProps$2<Tag extends string> = Omit<IntrinsicFallbackProps, \"ref\"> & {\n    ref?: IntrinsicRef<IntrinsicElementForTag<Tag>>;\n};"
     ],
     "OtherIntrinsicTag": [
-      "type OtherIntrinsicTag = Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap, keyof KnownIntrinsicElementProps> | `${string}-${string}`;"
+      "type OtherIntrinsicTag = Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap | Exclude<keyof MathMLElementTagNameMap, `${string}-${string}`> | MathMLExtraTag, keyof KnownIntrinsicElementProps> | `${string}-${string}`;"
     ],
     "OtherIntrinsicTag$2": [
-      "type OtherIntrinsicTag$2 = Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap, keyof KnownIntrinsicElementProps> | `${string}-${string}`;"
+      "type OtherIntrinsicTag$2 = Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap | Exclude<keyof MathMLElementTagNameMap, `${string}-${string}`> | MathMLExtraTag, keyof KnownIntrinsicElementProps> | `${string}-${string}`;"
     ],
     "Outlet": ["declare function Outlet(): JSXElement;"],
     "OutputIntrinsicProps": [
@@ -2163,6 +2182,9 @@
     "renderToStringSync": [
       "declare function renderToStringSync(component: (props?: Record<string, unknown>) => VNode$2 | JSXElement | string | number | boolean | null | undefined, props?: Record<string, unknown>, options?: {\n    seed?: number;\n    data?: SSRData;\n    envelope?: PageRenderEnvelope;\n    cspNonce?: string;\n    authContext?: AuthContext;\n    onContext?: (ctx: RenderContext) => void;\n}): string;"
     ],
+    "RequiredKeys": [
+      "type RequiredKeys<T> = {\n    [K in keyof T]-?: {} extends Pick<T, K> ? never : K;\n}[keyof T];"
+    ],
     "Resolve": [
       "declare function Resolve<T>(props: ResolveProps<T>): JSXElement;"
     ],
@@ -2191,7 +2213,7 @@
       "declare function resolveRouteRequest(target: string, options: RouteRequestOptions): RouteRequestResult | Promise<RouteRequestResult>;"
     ],
     "resource": [
-      "declare function resource<T, const TDeps extends readonly unknown[]>(fn: (opts: {\n    signal: AbortSignal;\n}) => PromiseLike<T> | T, deps: TDeps): ResourceResult<T>;",
+      "declare function resource<T, const TDeps extends readonly unknown[] = readonly unknown[]>(fn: (opts: {\n    signal: AbortSignal;\n}) => PromiseLike<T> | T, deps: TDeps): ResourceResult<T>;",
       "declare function resource<T>(fn: (opts: {\n    signal: AbortSignal;\n}) => PromiseLike<T> | T): ResourceResult<T>;",
       "declare function resource<TSource, T>(source: () => TSource, load: (value: TSource, opts: {\n    signal: AbortSignal;\n}) => PromiseLike<T> | T): ResourceResult<T>;"
     ],

@@ -35,7 +35,7 @@ describe('route metadata', () => {
           { meta: { description: 'Guides' } },
           () => {
             route('', () => null, {
-              meta: ({ params }) => ({
+              meta: ({ params }: { params: Record<string, string> }) => ({
                 title: `Guide ${params.id}`,
                 canonical: `/guides/${params.id}`,
               }),
@@ -76,7 +76,7 @@ describe('route metadata', () => {
             { meta: { title: 'Users', html: { dir: 'ltr' } } },
             () => {
               route('', () => null, {
-                meta: ({ params }) => ({
+                meta: ({ params }: { params: Record<string, string> }) => ({
                   title: `User ${params.id}`,
                   openGraph: { title: `User ${params.id}` },
                 }),

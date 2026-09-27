@@ -2,6 +2,12 @@ import { VNode } from '../core.js';
 import { JSXElement, Props } from '../elements.js';
 type ErrorBoundaryContent = VNode | readonly VNode[];
 type ErrorBoundaryFallbackValue = ErrorBoundaryContent | Node;
+/** A child of an {@link ErrorBoundary}; a raw DOM `Node` is not a child. */
+type ErrorBoundaryChild =
+  | VNode
+  | JSXElement
+  | (() => unknown)
+  | readonly ErrorBoundaryChild[];
 /** Renders a fallback for the caught error; call `reset` to retry the children. */
 type ErrorBoundaryFallbackRender = (
   error: unknown,
@@ -9,7 +15,8 @@ type ErrorBoundaryFallbackRender = (
 ) => ErrorBoundaryFallbackValue;
 /** Props for {@link ErrorBoundary}. */
 interface ErrorBoundaryProps extends Props {
-  children?: ErrorBoundaryContent;
+  /** Boundary content: nodes, elements, function children, or a list of them. */
+  children?: ErrorBoundaryChild;
   /** Static fallback content, or a render function receiving the error and a reset callback. */
   fallback?: ErrorBoundaryFallbackValue | ErrorBoundaryFallbackRender;
   /** Called with the caught error when the boundary trips. */

@@ -3,13 +3,13 @@ import { ResourceCell } from '../../../src/core/api/resource-cell';
 
 describe('resource promise-like invariants', () => {
   it('should await thenable resource loaders like native promises', async () => {
-    const thenable: PromiseLike<string> = {
+    const thenable = {
       // eslint-disable-next-line unicorn/no-thenable -- Intentional PromiseLike regression fixture.
-      then(resolve) {
+      then(resolve: (value: string) => void) {
         queueMicrotask(() => resolve('ready'));
         return Promise.resolve('ready');
       },
-    };
+    } as PromiseLike<string>;
     const cell = new ResourceCell<string>(
       () => thenable as unknown as Promise<string>,
       [],

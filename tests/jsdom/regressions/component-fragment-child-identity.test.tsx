@@ -5,6 +5,7 @@ import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
+import type { ComponentFunction } from '../../../src/common/component';
 
 type Cell = ReturnType<typeof state<string>>;
 
@@ -102,7 +103,7 @@ describe('component returning a fragment keeps its child components', () => {
    * parent passes down. The children must keep their state ('y', not a fresh
    * 'x') and their DOM nodes, and still receive the new label.
    */
-  function expectChildrenRetained(App: () => unknown, count: number): void {
+  function expectChildrenRetained(App: ComponentFunction, count: number): void {
     createIsland({ root: container, component: App });
     flushScheduler();
 

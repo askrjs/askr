@@ -19,6 +19,7 @@ import {
   page,
   route,
 } from '../../../src/router/route';
+import type { RenderableChild } from '../../../src/common/vnode';
 
 describe('layout scoping (ROUTER)', () => {
   let container: HTMLElement;
@@ -36,7 +37,7 @@ describe('layout scoping (ROUTER)', () => {
   });
 
   it('should wrap child routes in the declared layout', async () => {
-    const AppLayout = ({ children }: { children?: unknown }) => (
+    const AppLayout = ({ children }: { children?: RenderableChild }) => (
       <div class="shell">{children as never}</div>
     );
     const HomePage = () => <span class="home">Home</span>;
@@ -55,7 +56,7 @@ describe('layout scoping (ROUTER)', () => {
   });
 
   it('should not apply layout to routes declared outside the scope', async () => {
-    const AppLayout = ({ children }: { children?: unknown }) => (
+    const AppLayout = ({ children }: { children?: RenderableChild }) => (
       <div class="shell">{children as never}</div>
     );
     const Bare = () => <div class="bare">bare</div>;
@@ -75,10 +76,10 @@ describe('layout scoping (ROUTER)', () => {
   });
 
   it('should apply nested layout chains correctly', async () => {
-    const Outer = ({ children }: { children?: unknown }) => (
+    const Outer = ({ children }: { children?: RenderableChild }) => (
       <div class="outer">{children as never}</div>
     );
-    const Inner = ({ children }: { children?: unknown }) => (
+    const Inner = ({ children }: { children?: RenderableChild }) => (
       <div class="inner">{children as never}</div>
     );
     const Page = () => <span class="page">page</span>;
@@ -106,7 +107,8 @@ describe('layout scoping (ROUTER)', () => {
   });
 
   it('should record layout chain metadata in the manifest', () => {
-    const AppLayout = ({ children }: { children?: unknown }) => children;
+    const AppLayout = ({ children }: { children?: RenderableChild }) =>
+      children;
     const Page = () => null;
 
     group({ layout: AppLayout }, () => {
@@ -144,7 +146,7 @@ describe('layout scoping (ROUTER)', () => {
   });
 
   it('should preserve shared layout DOM across navigations', async () => {
-    const AppLayout = ({ children }: { children?: unknown }) => (
+    const AppLayout = ({ children }: { children?: RenderableChild }) => (
       <div class="layout">{children as never}</div>
     );
     const PageA = () => <div class="inner">A</div>;
@@ -173,7 +175,7 @@ describe('layout scoping (ROUTER)', () => {
   });
 
   it('should preserve page input focus during state updates inside a layout-wrapped route', async () => {
-    const AppLayout = ({ children }: { children?: unknown }) => (
+    const AppLayout = ({ children }: { children?: RenderableChild }) => (
       <div class="layout">{children as never}</div>
     );
 

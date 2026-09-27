@@ -13,6 +13,7 @@ import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
   flushScheduler,
+  refAs,
 } from '../../../test-utils/render/test-renderer';
 
 type Row = {
@@ -218,20 +219,24 @@ describe('component host transactions', () => {
           ? (value: Element | null) => {
               values.push(value);
             }
-          : Object.defineProperty({}, 'current', {
-              configurable: true,
-              get: () => objectValue,
-              set: (value: Element | null) => {
-                objectValue = value;
-                values.push(value);
-              },
-            });
+          : Object.defineProperty(
+              {} as { current: Element | null },
+              'current',
+              {
+                configurable: true,
+                get: () => objectValue,
+                set: (value: Element | null) => {
+                  objectValue = value;
+                  values.push(value);
+                },
+              }
+            );
 
       function Child({ article }: { article: boolean }) {
         return article ? (
-          <article ref={sharedRef}>{'new'}</article>
+          <article ref={refAs(sharedRef)}>{'new'}</article>
         ) : (
-          <button ref={sharedRef}>{'old'}</button>
+          <button ref={refAs(sharedRef)}>{'old'}</button>
         );
       }
 

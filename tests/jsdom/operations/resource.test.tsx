@@ -45,7 +45,7 @@ describe('resource() (unified async primitive) — gaps', () => {
     let setId!: (value: string) => void;
     let setFailure!: (value: boolean) => void;
     const requests: string[] = [];
-    const Failure = ({ active }: { active: boolean }): JSXElement => {
+    const Failure = ({ active }: { active: boolean }): JSXElement | null => {
       if (active) throw new Error('render failed');
       return null;
     };

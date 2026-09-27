@@ -11,7 +11,7 @@ import { For } from '../../../src/control';
 test('should replace all 1,000 rows with new data', { timeout: 20000 }, () => {
   const { container, cleanup } = createTestContainer();
 
-  let dataState: ReturnType<typeof state<{ id: number; label: string }[]>>;
+  let dataState!: ReturnType<typeof state<{ id: number; label: string }[]>>;
 
   const Component = () => {
     dataState = state<{ id: number; label: string }[]>([]);

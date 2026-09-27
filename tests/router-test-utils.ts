@@ -29,7 +29,7 @@ export function currentRouteRegistry(
             handler: record.handler,
             namespace: record.options.namespace,
           })),
-  });
+  }) as unknown as RouteRegistry;
 }
 
 export function routeRegistryFromTable(

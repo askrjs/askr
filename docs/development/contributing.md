@@ -38,6 +38,9 @@ npm install
 The repository uses TypeScript 7 for command-line typechecking and installed-package
 validation. Checks that inspect source and declarations use the TypeScript 6
 compiler API through the explicit `@typescript/typescript6` dependency.
+`npm run typecheck` checks `src`, `test-utils`, `benches`, and `tests`
+(`tests/types` holds tsd type tests with intentional errors and runs through
+`npm run test:types` instead).
 
 ```bash
 npm run build

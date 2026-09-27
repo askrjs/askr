@@ -21,7 +21,7 @@ function createNeverThenable(): PromiseLike<unknown> {
     then() {
       return createNeverThenable();
     },
-  };
+  } as unknown as PromiseLike<unknown>;
 }
 
 describe('component promise-like invariants', () => {
@@ -31,7 +31,7 @@ describe('component promise-like invariants', () => {
     expect(() =>
       createIsland({
         root: container,
-        component: () => createNeverThenable(),
+        component: () => createNeverThenable() as never,
       })
     ).toThrow(/Async components are not supported/i);
 

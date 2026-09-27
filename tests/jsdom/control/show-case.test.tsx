@@ -124,7 +124,7 @@ describe('Show primitive', () => {
 
   it('should switch from fallback to truthy content when a resource-backed condition resolves', async () => {
     const { container, cleanup } = createTestContainer();
-    let resolveUser: ((value: { name: string }) => void) | null = null;
+    let resolveUser = null as ((value: { name: string }) => void) | null;
 
     const App = () => {
       const user = resource<{ name: string }>(

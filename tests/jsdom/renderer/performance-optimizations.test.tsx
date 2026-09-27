@@ -189,7 +189,15 @@ describe('performance optimizations (RENDERER)', () => {
       let capturedElement: Element | null = null;
 
       const Component = () => {
-        return <div ref={(el: Element) => (capturedElement = el)}>Content</div>;
+        return (
+          <div
+            ref={(el: Element | null) =>
+              (capturedElement = el ?? capturedElement)
+            }
+          >
+            Content
+          </div>
+        );
       };
 
       createIsland({ root: container, component: Component });

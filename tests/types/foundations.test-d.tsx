@@ -20,6 +20,7 @@ import {
   composeRefs,
   formatId,
   mergeProps,
+  type MergedProps,
   setRef,
   type ComposeHandlersOptions,
   type DefaultPreventable,
@@ -206,9 +207,9 @@ expectType<(event: MouseEvent) => void>(
     composeHandlersOptions
   )
 );
-expectType<{ role: string } & { id: string }>(
-  mergeProps({ id: 'a' }, { role: 'button' })
-);
+const mergedDisjoint = mergeProps({ id: 'a' }, { role: 'button' });
+expectType<string>(mergedDisjoint.id);
+expectType<string>(mergedDisjoint.role);
 expectType<(value: HTMLElement | null) => void>(
   composeRefs<HTMLElement>(callbackRef, objectRef)
 );
@@ -306,3 +307,35 @@ expectType<string>(resolveIconStrokeWidthVariable(2, 'md'));
 expectType<string>(serializeIconStyle(iconStyleObject));
 expectType<string | undefined>(joinIconStyle('color:red', undefined));
 expectError(normalizeIconSizeValue(false));
+
+// Base values win; an `undefined` base value keeps the injected one.
+const mergedOverride = mergeProps(
+  { 'aria-expanded': undefined, role: undefined, id: 'user-id' },
+  { 'aria-expanded': 'false', role: 'menuitem', id: 'generated-id' }
+);
+expectType<string>(mergedOverride['aria-expanded']);
+expectType<string>(mergedOverride.role);
+expectType<string>(mergedOverride.id);
+// A base value that may be undefined falls back to the injected type.
+declare const maybeLabel: string | undefined;
+expectType<string | number>(
+  mergeProps({ label: maybeLabel }, { label: 1 as number }).label
+);
+
+// An untyped base value (JSON.parse returns `any`) keeps its value type.
+declare const untypedValue: ReturnType<typeof JSON.parse>;
+expectType<ReturnType<typeof JSON.parse>>(
+  mergeProps({ x: untypedValue }, {}).x
+);
+// An optional base key is required when the injected side always has it.
+declare const partial: { id?: string };
+expectType<string>(mergeProps(partial, { id: 'generated' }).id);
+// Index-signature props keep the injected handler types.
+declare const rest: Record<string, unknown>;
+const forwarded = mergeProps(rest, {
+  onClick: (_event: MouseEvent) => undefined,
+  role: 'button' as const,
+});
+expectType<'button'>(forwarded.role);
+expectAssignable<(event: MouseEvent) => undefined>(forwarded.onClick);
+expectType<MergedProps<{ id: string }, { role: string }>>(mergedDisjoint);

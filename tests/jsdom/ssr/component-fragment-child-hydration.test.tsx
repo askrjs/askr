@@ -7,6 +7,7 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { routeRegistryFromTable } from '../../router-test-utils';
+import type { ComponentFunction } from '../../../src/common/component';
 
 type Cell = ReturnType<typeof state<string>>;
 
@@ -90,7 +91,7 @@ describe('component returning a fragment keeps its child components after boot',
 
   async function boot(
     mode: 'hydrate' | 'spa',
-    Page: () => unknown
+    Page: ComponentFunction
   ): Promise<{ container: HTMLElement; serverHosts: Element[] }> {
     const { container, cleanup } = createTestContainer();
     cleanups.push(cleanup);

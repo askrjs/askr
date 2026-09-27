@@ -297,7 +297,7 @@ describe('event delegation matches native dispatch in a real browser', () => {
   ) {
     const root = mountRoot();
     const calls: string[] = [];
-    createIsland({ root, component: () => body(calls) });
+    createIsland({ root, component: () => body(calls) as never });
     flushScheduler();
     const host = root.querySelector<HTMLElement>('#host')!;
     const moved = root.querySelector<HTMLElement>('#moved')!;

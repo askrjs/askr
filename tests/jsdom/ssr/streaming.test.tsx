@@ -5,6 +5,8 @@ import {
   DefaultPortal,
   Portal,
 } from '../../../src/foundations/structures/portal';
+import type { RouteParams } from '../../../src/common/router';
+import type { DocumentRenderArgs } from '../../../src/ssr';
 
 describe('SSR streaming: parity and chunk boundaries', () => {
   it('should preserve escaped attributes and text given adversarial SSR values when rendering HTML and streaming output', () => {
@@ -143,7 +145,7 @@ describe('SSR streaming: parity and chunk boundaries', () => {
       {
         path: '/users/{id}',
         namespace: 'users',
-        handler: ({ id }: { id: string }) => <main>User {id}</main>,
+        handler: ({ id }: RouteParams) => <main>User {id}</main>,
       },
     ];
     let seenContext: Record<string, unknown> | null = null;
@@ -156,14 +158,8 @@ describe('SSR streaming: parity and chunk boundaries', () => {
     renderToStream({
       url: '/users/42?view=full#summary',
       registry: routeRegistryFromTable(routes),
-      document: ({
-        appHtml,
-        context,
-      }: {
-        appHtml: string;
-        context: Record<string, unknown>;
-      }) => {
-        seenContext = context;
+      document: ({ appHtml, context }: DocumentRenderArgs) => {
+        seenContext = context as unknown as Record<string, unknown>;
         return `<!doctype html><html><body>${appHtml}</body></html>`;
       },
       onChunk: (c) => chunks.push(c),

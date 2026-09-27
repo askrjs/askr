@@ -233,7 +233,10 @@ async function expectUserResourceStates(
   context: ScenarioContext,
   name: string
 ): Promise<void> {
-  const User = component(module, name);
+  // The snippet's User takes the documented `{ id }` props.
+  const User = component(module, name) as unknown as (props: {
+    id: string;
+  }) => never;
 
   stubUserFetch(Promise.resolve({ name: 'Ada' }));
   const loaded = context.mount(() => User({ id: '1' }));

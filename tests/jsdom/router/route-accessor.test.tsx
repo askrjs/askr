@@ -252,11 +252,13 @@ describe('route accessor (public)', () => {
     await flushScheduler();
 
     expect(resolved?.kind).toBe('render');
+    if (resolved?.kind !== 'render')
+      throw new Error('expected a render result');
     expect(container.textContent).toContain('Components');
     expect(container.textContent).toContain('missing:/unknown/deeper');
     expect(snapDuringRender).not.toBeNull();
     expect(snapDuringRender!.path).toBe('/docs/components/unknown/deeper');
-    expect(snapDuringRender!.params).toEqual(resolved!.params);
+    expect(snapDuringRender!.params).toEqual(resolved.params);
     expect(snapDuringRender!.matches.map((match) => match.path)).toEqual([
       '/docs/components/*',
     ]);
@@ -307,6 +309,8 @@ describe('route accessor (public)', () => {
     await flushScheduler();
 
     expect(resolved?.kind).toBe('render');
+    if (resolved?.kind !== 'render')
+      throw new Error('expected a render result');
     expect(container.textContent).toContain('tabs:/docs/components/tabs');
     expect(container.textContent).not.toContain('page-missing');
     expect(container.textContent).not.toContain('root-missing');
@@ -314,7 +318,7 @@ describe('route accessor (public)', () => {
     expect(snapDuringRender!.matches.map((match) => match.path)).toEqual([
       '/docs/components/tabs',
     ]);
-    expect(snapDuringRender!.params).toEqual(resolved!.params);
+    expect(snapDuringRender!.params).toEqual(resolved.params);
   });
 
   it('should expose the index leaf as the active match on the page pathname', async () => {
@@ -393,10 +397,12 @@ describe('route accessor (public)', () => {
     await flushScheduler();
 
     expect(resolved?.kind).toBe('render');
+    if (resolved?.kind !== 'render')
+      throw new Error('expected a render result');
     expect(container.textContent).toContain('root-missing:/outside/deeper');
     expect(snapDuringRender).not.toBeNull();
     expect(snapDuringRender!.path).toBe('/outside/deeper');
-    expect(snapDuringRender!.params).toEqual(resolved!.params);
+    expect(snapDuringRender!.params).toEqual(resolved.params);
     expect(snapDuringRender!.matches.map((match) => match.path)).toEqual([
       '/*',
     ]);

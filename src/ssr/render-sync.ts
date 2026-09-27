@@ -591,7 +591,9 @@ function writeContent(
     .dangerouslySetInnerHTML;
   if (dangerous !== undefined && dangerous !== null) {
     if (typeof dangerous === 'object' && '__html' in dangerous) {
-      sink.write(String((dangerous as { __html: unknown }).__html));
+      const html = (dangerous as { __html: unknown }).__html;
+      // Like the client, a null or undefined payload renders no content.
+      if (html !== null && html !== undefined) sink.write(String(html));
     } else {
       renderValue(props.children, sink);
     }

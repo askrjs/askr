@@ -418,7 +418,6 @@ describe('SSR request resolution', () => {
 
     const html = renderResolvedToStringSync({
       url: '/posts/intro',
-      routes: registry.routes,
       registry,
       handler: result.handler,
       params: result.params,

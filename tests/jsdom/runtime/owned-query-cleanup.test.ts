@@ -14,12 +14,12 @@ describe('owned query cleanup', () => {
     const instance = new ComponentInstance(null, () => null, {});
     const generation = instance;
     const sharedGeneration = {};
-    const first = new QueryCell(
+    const first = new QueryCell<unknown>(
       { key: 'first', fetch: async () => 1, initialData: 1 },
       'first',
       runtime.queryCache
     );
-    const second = new QueryCell(
+    const second = new QueryCell<unknown>(
       { key: 'second', fetch: async () => 2, initialData: 2 },
       'second',
       runtime.queryCache

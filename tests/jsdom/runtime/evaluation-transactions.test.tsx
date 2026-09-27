@@ -26,6 +26,7 @@ import {
   createTestContainer,
   expectDOM,
   flushScheduler,
+  refAs,
 } from '../../../test-utils/render/test-renderer';
 
 describe('evaluation transactions (SPEC 2.1)', () => {
@@ -250,11 +251,11 @@ describe('evaluation transactions (SPEC 2.1)', () => {
           throw new Error('same-key later row failed');
         }
         if (row.root === 'article') {
-          return <article ref={sharedRef}>{row.label}</article>;
+          return <article ref={refAs(sharedRef)}>{row.label}</article>;
         }
         return (
           <button
-            ref={row.id === 1 ? sharedRef : undefined}
+            ref={row.id === 1 ? refAs(sharedRef) : undefined}
             onClick={() => clicks++}
           >
             {row.label}
@@ -354,7 +355,7 @@ describe('evaluation transactions (SPEC 2.1)', () => {
         return (
           <div>
             <For each={rows} by={(row) => row.id}>
-              {(row) => <button ref={sharedRef}>{row.label}</button>}
+              {(row) => <button ref={refAs(sharedRef)}>{row.label}</button>}
             </For>
           </div>
         );
@@ -382,11 +383,11 @@ describe('evaluation transactions (SPEC 2.1)', () => {
 
       const renderObjectRow = (row: Row) =>
         row.root === 'button' ? (
-          <button data-object-root={'button'} ref={objectRef}>
+          <button data-object-root={'button'} ref={refAs(objectRef)}>
             {'button'}
           </button>
         ) : (
-          <a data-object-root={'anchor'} ref={objectRef}>
+          <a data-object-root={'anchor'} ref={refAs(objectRef)}>
             {'anchor'}
           </a>
         );

@@ -195,7 +195,10 @@ describe('dangerouslySetInnerHTML on the client renderer', () => {
     function App() {
       payload = state<unknown>(undefined);
       return (
-        <section data-host={'true'} dangerouslySetInnerHTML={payload()}>
+        <section
+          data-host={'true'}
+          dangerouslySetInnerHTML={payload() as { __html: string }}
+        >
           <ManagedChild />
         </section>
       );
@@ -313,4 +316,17 @@ describe('dangerouslySetInnerHTML on the client renderer', () => {
     expect(cleanups).toBe(4);
     expect(refValues.filter((value) => value === null)).toHaveLength(4);
   });
+
+  it.each([null, undefined])(
+    'should render empty content for __html %s on the server and the client',
+    (html) => {
+      function App() {
+        return <p dangerouslySetInnerHTML={{ __html: html }} />;
+      }
+      expect(renderToStringSync(App)).toBe('<p></p>');
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      expect(container.querySelector('p')?.innerHTML).toBe('');
+    }
+  );
 });

@@ -25,6 +25,13 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 
+// These tests register a handler that returns an async function, which the
+// router does not support as content, to check navigation still cancels work.
+const routeUnsupportedHandler = route as (
+  path: string,
+  handler: () => unknown
+) => void;
+
 describe('cancellation on navigate (ROUTER)', () => {
   let { container, cleanup } = createTestContainer();
 
@@ -46,7 +53,7 @@ describe('cancellation on navigate (ROUTER)', () => {
     let _fetchAborted = false;
     let renderCount = 0;
 
-    route('/page1', () => {
+    routeUnsupportedHandler('/page1', () => {
       return async () => {
         renderCount++;
         const signal = getSignal();
@@ -99,7 +106,7 @@ describe('cancellation on navigate (ROUTER)', () => {
   });
 
   it('should cancel deferred route data given route replacement when the previous route is no longer active', async () => {
-    let loaderSignal: AbortSignal | null = null;
+    let loaderSignal = null as AbortSignal | null;
 
     route('/deferred', () => <div>deferred</div>, {
       loader: ({ signal }) => {
@@ -124,7 +131,7 @@ describe('cancellation on navigate (ROUTER)', () => {
   });
 
   it('should abort route-owned resource signal when route unmounts via navigate', async () => {
-    let routeSignal: AbortSignal | null = null;
+    let routeSignal = null as AbortSignal | null;
 
     route('/async', () => {
       const result = resource<string>(({ signal }) => {
@@ -222,7 +229,7 @@ describe('cancellation on navigate (ROUTER)', () => {
   it('should not allow stale async renders to overwrite navigation', async () => {
     let renderContent = '';
 
-    route('/slow', () => {
+    routeUnsupportedHandler('/slow', () => {
       return async () => {
         // Simulate slow async operation
         await new Promise((resolve) => {

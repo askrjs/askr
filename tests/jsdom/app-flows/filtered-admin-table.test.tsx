@@ -47,11 +47,11 @@ describe('filtered admin table app flow', () => {
         onRemove(): void;
         order: Order;
       },
-      context: { signal: AbortSignal }
+      context?: { signal: AbortSignal }
     ) {
       const draft = state(order.note);
       latestDraftSetters.set(order.id, draft.set);
-      latestSignals.set(order.id, context.signal);
+      latestSignals.set(order.id, context!.signal);
 
       return (
         <li data-order-id={order.id}>

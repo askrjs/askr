@@ -14,7 +14,7 @@ test(
   () => {
     const { container, cleanup } = createTestContainer();
 
-    let dataState: ReturnType<typeof state<{ id: number; label: string }[]>>;
+    let dataState!: ReturnType<typeof state<{ id: number; label: string }[]>>;
 
     const Component = () => {
       dataState = state<{ id: number; label: string }[]>([]);

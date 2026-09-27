@@ -7,6 +7,7 @@ import type {
   IntrinsicElementForTag,
   IntrinsicRef,
   KnownIntrinsicElementProps,
+  MathMLExtraTag,
   Props,
 } from '../common/props';
 import {
@@ -35,7 +36,10 @@ export namespace JSX {
   type OtherIntrinsicElements = {
     [
       Tag in Exclude<
-        keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap,
+        | keyof HTMLElementTagNameMap
+        | keyof SVGElementTagNameMap
+        | Exclude<keyof MathMLElementTagNameMap, `${string}-${string}`>
+        | MathMLExtraTag,
         keyof KnownIntrinsicElementProps
       >
     ]: OtherIntrinsicProps<Tag>;
@@ -58,7 +62,10 @@ type OtherIntrinsicProps<Tag extends string> = Omit<
 
 type OtherIntrinsicTag =
   | Exclude<
-      keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap,
+      | keyof HTMLElementTagNameMap
+      | keyof SVGElementTagNameMap
+      | Exclude<keyof MathMLElementTagNameMap, `${string}-${string}`>
+      | MathMLExtraTag,
       keyof KnownIntrinsicElementProps
     >
   | `${string}-${string}`;

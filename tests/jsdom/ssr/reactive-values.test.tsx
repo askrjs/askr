@@ -30,6 +30,11 @@ import {
   stripComments,
 } from '../../../test-utils/render/test-renderer';
 
+// A function prop may return a readable, which the renderer unwraps (#543).
+// Prop types only accept a value or a function returning one, so these tests
+// opt out of that check explicitly.
+const readableProp = (read: () => unknown) => read as never;
+
 type Page = () => JSXElement;
 
 async function renderOnClient(Component: Page): Promise<string> {
@@ -147,7 +152,10 @@ describe('SSR reactive values', () => {
         const useA = state(true);
         const a = state('A');
         return (
-          <p title={() => (useA() ? a : 'none')} data-cell={() => a}>
+          <p
+            title={readableProp(() => (useA() ? a : 'none'))}
+            data-cell={() => a}
+          >
             {'z'}
           </p>
         );
@@ -164,10 +172,10 @@ describe('SSR reactive values', () => {
           <form>
             <input value={() => name()} />
             <input type="checkbox" checked={() => on()} />
-            <textarea value={() => name}></textarea>
+            <textarea value={readableProp(() => name)}></textarea>
             <select value={() => role()}>
               <option value="a">{'A'}</option>
-              <option value="b" selected={() => on}>
+              <option value="b" selected={readableProp(() => on)}>
                 {'B'}
               </option>
             </select>
@@ -395,10 +403,10 @@ describe('SSR reactive values', () => {
       on = state(true);
       role = state('b');
       return (
-        <form title={() => name}>
+        <form title={readableProp(() => name)}>
           <input value={() => name()} />
           <input type="checkbox" checked={() => on()} />
-          <textarea value={() => name}></textarea>
+          <textarea value={readableProp(() => name)}></textarea>
           <select value={() => role()}>
             <option value="a">{'A'}</option>
             <option value="b">{'B'}</option>
@@ -859,7 +867,7 @@ describe('SSR reactive values', () => {
         <Theme value={'dark'}>
           <div>
             <ErrorBoundary fallback={() => <em>{'fallback'}</em>}>
-              {child}
+              {child as () => JSXElement}
             </ErrorBoundary>
           </div>
         </Theme>

@@ -136,3 +136,11 @@ expectError(timer(1000));
 expectError(timer(1000, () => {}, { when: [123] }));
 expectError(stream('source'));
 expectError(stream(() => Promise.resolve('not iterable')));
+
+// An explicit result type with a deps array selects the deps overload.
+expectType<ResourceResult<string>>(
+  resource<string>(({ signal }) => {
+    expectType<AbortSignal>(signal);
+    return Promise.resolve('value');
+  }, [])
+);
