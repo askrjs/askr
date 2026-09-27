@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { Case, For, Match, Show, state } from '../../../src';
+import { state } from '../../../src';
+import { Case, For, Match, Show } from '../../../src/control';
 import { createIsland } from '../../../src/boot';
 import {
   createTestContainer,

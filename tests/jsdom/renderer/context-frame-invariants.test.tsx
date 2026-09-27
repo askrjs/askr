@@ -1,13 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
-import {
-  Case,
-  For,
-  Match,
-  Show,
-  defineScope,
-  readScope,
-  state,
-} from '../../../src/index';
+import { defineScope, readScope, state } from '../../../src/index';
+import { Case, For, Match, Show } from '../../../src/control';
 import { Portal, Slot } from '@askrjs/askr/foundations';
 import {
   _resetDefaultPortal,

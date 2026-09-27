@@ -10,7 +10,7 @@ import {
   Portal,
   _resetDefaultPortal,
 } from '../../../src/foundations/structures/portal';
-import { getSignal } from '../../../src/resources';
+import { getSignal } from '../../../src';
 import { state, type State } from '../../../src/index';
 import type { JSXElement } from '../../../src/jsx/types';
 import { createIsland } from '../../../test-utils/render/create-island';

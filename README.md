@@ -140,12 +140,8 @@ return <div>{data.value.name}</div>;
 }
 ```
 
-`@askrjs/askr/data` is the canonical entrypoint for all query, mutation,
-invalidation, and data-runtime helpers. The root package retains query creation
-and collection, definition and serving, prefetch, and hydration exports for
-compatibility with existing applications. Mutation, invalidation, and
-data-runtime control remain subpath-only. New code should import the whole data surface from
-`@askrjs/askr/data` rather than split related imports across entrypoints.
+`@askrjs/askr/data` is the only entrypoint for query, mutation, invalidation,
+and data-runtime helpers; the root package does not re-export them.
 
 ### Developer error boundaries
 

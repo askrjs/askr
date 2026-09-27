@@ -1,12 +1,9 @@
 import { expectAssignable, expectType } from 'tsd';
 import * as rootSurface from '@askrjs/askr';
 import type { RenderDiagnosticsOptions } from '@askrjs/askr';
-import * as dataSurface from '@askrjs/askr/data';
 import * as resourcesSurface from '@askrjs/askr/resources';
 import * as routerSurface from '@askrjs/askr/router';
 import * as foundationsSurface from '@askrjs/askr/foundations';
-import { renderResolvedToStringSync } from '@askrjs/askr/ssr';
-import type { RouteRegistry } from '@askrjs/askr/router';
 
 // @ts-expect-error root package does not expose JSXElement
 expectType<never>(null as unknown as import('@askrjs/askr').JSXElement);
@@ -20,10 +17,6 @@ expectType<void>(
 );
 expectType<() => void>(
   rootSurface.configureRenderDiagnostics({ slowRenderWarnings: false })
-);
-declare const registry: RouteRegistry;
-expectType<string>(
-  renderResolvedToStringSync({ url: '/', registry, handler: () => 'ok' })
 );
 // @ts-expect-error runtime construction is no longer published
 expectType<never>(rootSurface.createRuntime);
@@ -42,7 +35,8 @@ expectType<never>(rootSurface.route);
 expectType<never>(rootSurface.resource);
 // @ts-expect-error root package does not expose component helpers
 expectType<never>(rootSurface.ErrorBoundary);
-expectType<typeof dataSurface.createQuery>(rootSurface.createQuery);
+// @ts-expect-error data helpers are published from @askrjs/askr/data only
+expectType<never>(rootSurface.createQuery);
 // @ts-expect-error root package does not expose data helpers
 expectType<never>(rootSurface.queryScope);
 // @ts-expect-error root package does not expose foundations helpers

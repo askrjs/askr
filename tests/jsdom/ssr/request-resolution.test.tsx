@@ -14,11 +14,10 @@ import {
   renderRouteRequestToString,
   renderToStream,
   renderToString,
-  resolveRequest,
   SSRAccessDecisionError,
   SSRDataMissingError,
 } from '../../../src/ssr';
-import { renderResolvedToStringSync } from '../../../src/ssr/render-resolved';
+import { renderResolvedForHydrationSync } from '../../../src/ssr/render-resolved';
 import { getCurrentRenderData } from '../../../src/ssr/render-keys';
 
 function captureError(fn: () => unknown): unknown {
@@ -28,6 +27,16 @@ function captureError(fn: () => unknown): unknown {
     return error;
   }
   throw new Error('expected the call to throw');
+}
+
+type SSRRequestOptions = Omit<
+  Parameters<typeof resolveRouteRequest>[1],
+  'mode'
+> & { url: string };
+
+// Server-side request resolution through the public router API.
+async function resolveRequest({ url, ...options }: SSRRequestOptions) {
+  return await resolveRouteRequest(url, { ...options, mode: 'ssr' });
 }
 
 describe('SSR request resolution', () => {
@@ -323,15 +332,15 @@ describe('SSR request resolution', () => {
     }
   });
 
-  it('should reject plain route tables without a registry', async () => {
+  it('should throw synchronously for plain route tables without a registry', () => {
     const handler = () => <div>{'home'}</div>;
 
-    await expect(
-      resolveRequest({
-        url: '/',
+    expect(() =>
+      resolveRouteRequest('/', {
         routes: [{ path: '/', handler }],
+        mode: 'ssr',
       } as never)
-    ).rejects.toThrow();
+    ).toThrow(/requires options\.registry/);
   });
 
   it('should resolve requests from an explicit route registry', async () => {
@@ -416,12 +425,15 @@ describe('SSR request resolution', () => {
       );
     }
 
-    const html = renderResolvedToStringSync({
-      url: '/posts/intro',
-      registry,
-      handler: result.handler,
-      params: result.params,
-    });
+    const html = renderResolvedForHydrationSync(
+      {
+        url: '/posts/intro',
+        registry,
+        handler: result.handler,
+        params: result.params,
+      },
+      undefined
+    );
 
     expect(loader).toHaveBeenCalledTimes(1);
     expect(loader).toHaveBeenCalledWith(
@@ -482,18 +494,21 @@ describe('SSR request resolution', () => {
     expect(receivedCatchAll).toBe('/a/b');
   });
 
-  describe('renderResolvedToStringSync', () => {
+  describe('renderResolvedForHydrationSync', () => {
     it('should render a param-less route when params are omitted', () => {
       const Page = () => <main>{'public'}</main>;
       const registry = createRouteRegistry(() => {
         route('/public', Page);
       });
 
-      const html = renderResolvedToStringSync({
-        url: '/public',
-        registry,
-        handler: Page,
-      });
+      const html = renderResolvedForHydrationSync(
+        {
+          url: '/public',
+          registry,
+          handler: Page,
+        },
+        undefined
+      );
 
       expect(html).toContain('<main>public</main>');
     });
@@ -505,12 +520,15 @@ describe('SSR request resolution', () => {
         route('/posts/{slug}', Post);
       });
 
-      const html = renderResolvedToStringSync({
-        url: '/posts/intro',
-        registry,
-        handler: Post,
-        params: { slug: 'intro' },
-      });
+      const html = renderResolvedForHydrationSync(
+        {
+          url: '/posts/intro',
+          registry,
+          handler: Post,
+          params: { slug: 'intro' },
+        },
+        undefined
+      );
 
       expect(html).toContain('<main>intro</main>');
     });
@@ -522,12 +540,15 @@ describe('SSR request resolution', () => {
       });
 
       expect(() =>
-        renderResolvedToStringSync({
-          url: '/posts/intro',
-          registry,
-          handler: Post,
-          params: { slug: 'other' },
-        })
+        renderResolvedForHydrationSync(
+          {
+            url: '/posts/intro',
+            registry,
+            handler: Post,
+            params: { slug: 'other' },
+          },
+          undefined
+        )
       ).toThrow(/no route found for url: \/posts\/intro/);
     });
   });

@@ -403,6 +403,79 @@ Registers a pathful miss route.
 Inside a component, call `currentRoute()` to read the current route snapshot,
 including entry-local `state` and `hasState`.
 
+## `onRouteChange(callback, options?)`
+
+Runs after a persistent component commits a pathname, query, or hash change. The
+initial route is skipped by default; pass `{ immediate: true }` to include it.
+The callback receives the current and previous route snapshots. A returned
+cleanup runs before the next callback and when the component unmounts. Failed or
+superseded navigations do not publish a callback. Browser history back/forward
+navigations are committed route changes and invoke the callback as well. During
+SSR and SSG there is no client navigation commit, so `onRouteChange` does not
+run; use the render-time route APIs for initial data.
+
+```ts
+import { onRouteChange } from '@askrjs/askr/router';
+declare function announce(message: string): void;
+declare function cancelAnnouncement(path: string | undefined): void;
+
+function Shell() {
+  onRouteChange((current, previous) => {
+    announce(`Opened ${current.path}`);
+    return () => cancelAnnouncement(previous?.path);
+  });
+  return <main />;
+}
+```
+
+## `resolveRouteRequest(url, options)`
+
+Resolves a URL against a registry and applies route policies, auth, preloads
+and loaders without rendering. A server that renders the page should call
+`renderRouteRequest()` or `renderRouteRequestToString()` from
+`@askrjs/askr/ssr` instead: they resolve once and return the same redirect,
+deny, and no-match decisions. Use `resolveRouteRequest()` only when you need
+the decision and will not render the route, since loader and preload work is
+not reused by a later render.
+
+```ts
+import { resolveRouteRequest, type RouteRegistry } from '@askrjs/askr/router';
+declare const registry: RouteRegistry;
+
+// Returns a response for redirects, denials, and misses; null when the route
+// may be served.
+export async function decide(request: Request): Promise<Response | null> {
+  const result = await resolveRouteRequest(request.url, {
+    registry,
+    mode: 'ssr',
+    request,
+    signal: request.signal,
+  });
+  if (result === null) return new Response('Not found', { status: 404 });
+  if (result.kind === 'redirect') {
+    return Response.redirect(
+      new URL(result.to, request.url),
+      result.status ?? 302
+    );
+  }
+  if (result.kind === 'deny') {
+    return new Response(null, { status: result.status });
+  }
+  return null;
+}
+```
+
+Options: `registry` (required), `mode`, `auth`, `authContext`, `request`,
+`signal`, and `telemetry`. On a server, pass `mode: 'ssr'`; the default is
+`'spa'` whenever a global `window` exists. Pass `signal` explicitly: it is not
+taken from `request.signal`.
+
+The result is `null` when no route matches or the URL is outside the registry
+base path, a redirect or deny decision, or the matched route with its params.
+Depending on which steps run, the result is a plain value or a Promise, and
+errors may throw synchronously, so always `await` the call inside an `async`
+function.
+
 ## `navigate(target)`
 
 Triggers client-side navigation. `target` is a logical path string or a typed

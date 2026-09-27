@@ -7,8 +7,8 @@ Query and mutation helpers live in `@askrjs/askr/data`.
 ## Resource helpers
 
 The resources subpath owns `resource()`, `watch()`, `on()`, `timer()`, `task()`,
-`stream()`, `capture()`, `getSignal()`, `routeActive()`, `documentVisible()`, and
-`windowFocused()`.
+`stream()`, `capture()`, `routeActive()`, `documentVisible()`, and
+`windowFocused()`. `getSignal()` is imported from `@askrjs/askr`.
 
 ### `resource(source, loader)`
 
@@ -53,7 +53,7 @@ for keyed, shared data.
 
 ### `getSignal()`
 
-Returns the current `AbortSignal` for cancellable async operations.
+Import from `@askrjs/askr`. Returns the current `AbortSignal` for cancellable async operations.
 
 This is most useful during component render or when you need access to the
 current component's signal outside a `resource()` loader. For resource loaders,
@@ -258,31 +258,6 @@ value-array restart contract. Create a `derive()` first when the watched value
 is computed.
 Use `task()` for mount-only setup and `resource()` for result-producing async
 reads.
-
-### `onRouteChange(callback, options?)`
-
-Runs after a persistent component commits a pathname, query, or hash change. The
-initial route is skipped by default; pass `{ immediate: true }` to include it.
-The callback receives the current and previous route snapshots. A returned
-cleanup runs before the next callback and when the component unmounts. Failed or
-superseded navigations do not publish a callback. Browser history back/forward
-navigations are committed route changes and invoke the callback as well. During
-SSR and SSG there is no client navigation commit, so `onRouteChange` does not
-run; use the render-time route APIs for initial data.
-
-```ts
-import { onRouteChange } from '@askrjs/askr/resources';
-declare function announce(message: string): void;
-declare function cancelAnnouncement(path: string | undefined): void;
-
-function Shell() {
-  onRouteChange((current, previous) => {
-    announce(`Opened ${current.path}`);
-    return () => cancelAnnouncement(previous?.path);
-  });
-  return <main />;
-}
-```
 
 ### Other helpers
 

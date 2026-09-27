@@ -7,14 +7,8 @@ import {
   vi,
 } from 'vite-plus/test';
 import { cleanupApp, createIsland } from '@askrjs/askr/boot';
-import {
-  capture,
-  on,
-  onRouteChange,
-  stream,
-  task,
-  timer,
-} from '@askrjs/askr/resources';
+import { capture, on, stream, task, timer } from '@askrjs/askr/resources';
+import { onRouteChange } from '@askrjs/askr/router';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 
 beforeEach(() => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { For, Show, state } from '../../../src';
+import { state } from '../../../src';
+import { For, Show } from '../../../src/control';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,

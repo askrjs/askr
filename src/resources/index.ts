@@ -5,11 +5,6 @@
  */
 
 export { resource } from '../core/api/resource';
-export { onRouteChange } from '../router/activity';
-export type {
-  RouteChangeCleanup,
-  RouteChangeOptions,
-} from '../router/activity';
 export { documentVisible, windowFocused } from './browser-activity';
 export {
   capture,
@@ -35,5 +30,3 @@ export type {
   StreamResult,
   StreamStatus,
 } from '../core/api/stream';
-
-export { getSignal } from '../core/api/state';

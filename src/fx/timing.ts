@@ -3,7 +3,7 @@
  * No framework coupling. No lifecycle awareness.
  */
 
-/** Options for {@link debounce}. */
+/** Leading/trailing edge options for {@link createDebouncer}. */
 export interface DebounceOptions {
   leading?: boolean;
   trailing?: boolean;
@@ -32,7 +32,7 @@ type CallableFn = (this: unknown, ...args: unknown[]) => unknown;
 type Invoke = (thisArg: unknown, args: unknown[]) => void;
 
 /**
- * @internal Edge logic shared by {@link debounce} and fx `debounceEvent`.
+ * @internal Edge logic for fx `debounceEvent`.
  * A trailing call only runs when a call arrived after the leading call.
  */
 export function createDebouncer(
@@ -179,42 +179,6 @@ const applyTo =
   (thisArg, args) => {
     callable.apply(thisArg, args);
   };
-
-/**
- * Debounce — delay execution, coalesce rapid calls
- *
- * Useful for: text input, resize, autosave
- *
- * @param fn Function to debounce
- * @param ms Delay in milliseconds
- * @param options trailing (default true), leading
- * @returns Debounced function with cancel() method
- *
- * @example
- * ```ts
- * const save = debounce((text) => api.save(text), 500);
- * input.addEventListener('input', (e) => save(e.target.value));
- * save.cancel(); // stop any pending execution
- * ```
- */
-export function debounce<T extends AnyFn>(
-  fn: T,
-  ms: number,
-  options?: DebounceOptions
-): Scheduled<T> & { cancel(): void } {
-  const debouncer = createDebouncer(
-    applyTo(fn as unknown as CallableFn),
-    ms,
-    options
-  );
-
-  const debounced = function (this: unknown, ...args: unknown[]) {
-    debouncer.call(this, args);
-  };
-  debounced.cancel = debouncer.cancel;
-
-  return debounced as unknown as Scheduled<T> & { cancel(): void };
-}
 
 /**
  * Throttle — rate-limit execution, keep first/last

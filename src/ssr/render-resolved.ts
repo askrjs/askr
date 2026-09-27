@@ -35,8 +35,8 @@ function sameRouteParams(
   return true;
 }
 
-/** Synchronously render an already-resolved route handler to an HTML string. */
-export function renderResolvedToStringSync(opts: {
+/** Request, registry, and resolved handler for a synchronous route render. */
+export interface ResolvedRouteRender {
   url: string;
   registry: RouteRegistry;
   handler: RouteHandler;
@@ -48,13 +48,12 @@ export function renderResolvedToStringSync(opts: {
     envelope?: PageRenderEnvelope;
     cspNonce?: string;
   };
-}): string {
-  return renderResolvedRouteToStringSync(opts);
 }
 
-function renderResolvedRouteToStringSync(
-  opts: Parameters<typeof renderResolvedToStringSync>[0],
-  authContext?: AuthContext
+/** @internal Render a resolved route handler, with the request-local auth context used by hydration verification. */
+export function renderResolvedForHydrationSync(
+  opts: ResolvedRouteRender,
+  authContext: AuthContext | undefined
 ): string {
   const { url, registry, handler, params, options } = opts;
   const routes = registry.routes;
@@ -80,7 +79,7 @@ function renderResolvedRouteToStringSync(
 
   if (matchedIndex < 0) {
     throw new Error(
-      `renderResolvedToStringSync: no route found for url: ${url}`
+      `renderResolvedForHydrationSync: no route found for url: ${url}`
     );
   }
 
@@ -111,12 +110,4 @@ function renderResolvedRouteToStringSync(
   });
   sink.end();
   return sink.toString();
-}
-
-/** @internal Render the resolved hydration route with its request-local auth context. */
-export function renderResolvedForHydrationSync(
-  opts: Parameters<typeof renderResolvedToStringSync>[0],
-  authContext: AuthContext
-): string {
-  return renderResolvedRouteToStringSync(opts, authContext);
 }

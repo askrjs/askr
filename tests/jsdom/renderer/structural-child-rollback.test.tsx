@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
-import { For, Show, state, type State } from '../../../src/index';
+import { state, type State } from '../../../src/index';
+import { For, Show } from '../../../src/control';
 import {
   createTestContainer,
   flushScheduler,

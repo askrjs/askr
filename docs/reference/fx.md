@@ -4,17 +4,16 @@ Import from `@askrjs/askr/fx`.
 
 Timing and utility helpers are framework-independent.
 
-`debounce`, `throttle`, and `raf` return wrappers whose calls return `void`.
+`throttle` and `raf` return wrappers whose calls return `void`.
 Arguments and receiver types are preserved; scheduled callback results are
 discarded, including leading execution. Move result handling into the callback
 instead of assigning or awaiting the wrapper result. Scheduling, coalescing,
-and the existing debounce/throttle `cancel()` methods are unchanged. `raf()`
+and the existing throttle `cancel()` method is unchanged. `raf()`
 also exposes `cancel()` to drop its pending frame; a later call can schedule
 another frame.
 
 ## Core timing utilities
 
-- `debounce`
 - `throttle`
 - `once`
 - `raf`
@@ -37,8 +36,9 @@ route data.
 - `scheduleEventHandler` (errors thrown by the wrapped handler are reported
   with `reportError()`)
 
-`debounceEvent` and `throttleEvent` use the same edge rules as `debounce` and
-`throttle`: with both edges enabled, a single event runs the handler once, and
+`debounceEvent` waits until events have been quiet for `ms`; `throttleEvent`
+runs at most once per `ms`. Both share the same leading/trailing edge rules:
+with both edges enabled, a single event runs the handler once, and
 the trailing call only runs when another event arrived after the leading call.
 `debounceEvent().flush()` runs only a pending trailing call. When created
 during a component render, or from a mounted component's `task()`, `watch()`

@@ -1,4 +1,5 @@
 import { expectAssignable, expectError, expectType } from 'tsd';
+import { derive, state } from '@askrjs/askr';
 import {
   Case,
   For,
@@ -9,9 +10,7 @@ import {
   type ForProps,
   type MatchProps,
   type ShowProps,
-  derive,
-  state,
-} from '@askrjs/askr';
+} from '@askrjs/askr/control';
 import type { JSXElement } from '@askrjs/askr/foundations';
 
 const keyedForProps: ForProps<number> = {

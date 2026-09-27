@@ -11,16 +11,10 @@ import {
   documentVisible,
   task,
   watch,
-  getSignal,
   WatchContext,
   windowFocused,
   timer,
 } from '../core.js';
-import {
-  onRouteChange,
-  RouteChangeOptions,
-  RouteChangeCleanup,
-} from '../route-activity.js';
 /** Reactive result of a {@link resource}: current value, loading state, and controls. */
 interface ResourceResult<T> {
   value: T | null;
@@ -87,8 +81,6 @@ export {
   type ActivityPredicate,
   type ListenerTarget,
   type ResourceResult,
-  type RouteChangeCleanup,
-  type RouteChangeOptions,
   type StreamOptions,
   type StreamResult,
   type StreamStatus,
@@ -99,9 +91,7 @@ export {
   type WatchValues,
   capture,
   documentVisible,
-  getSignal,
   on,
-  onRouteChange,
   resource,
   routeActive,
   stream,

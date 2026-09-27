@@ -1,6 +1,7 @@
 // tests/state/hook_order_enforcement.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
-import { derive, For, state } from '../../../src/index';
+import { derive, state } from '../../../src/index';
+import { For } from '../../../src/control';
 import { createIsland } from '@askrjs/askr/boot';
 import {
   createTestContainer,

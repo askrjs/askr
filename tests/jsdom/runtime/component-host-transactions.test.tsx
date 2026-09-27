@@ -7,7 +7,8 @@ import {
   vi,
 } from 'vite-plus/test';
 import { For } from '../../../src/control';
-import { getSignal, resource, task } from '../../../src/resources';
+import { resource, task } from '../../../src/resources';
+import { getSignal } from '../../../src';
 import { state, type State } from '../../../src/index';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {

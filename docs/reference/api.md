@@ -56,11 +56,9 @@ Public types:
   `zIndex`, `lineHeight`, `flexGrow`, `fontWeight`, and similar), the value is `0`, or the name
   is a custom property (`--gap`).
 
-The root also retains query creation and collection, definition and serving,
-prefetch, and hydration exports for compatibility. `@askrjs/askr/data` is the
-canonical entrypoint for new data code and owns the complete surface, including
-mutation, invalidation, and data-runtime control APIs that are not exported from
-the root.
+Control flow (`For`, `Show`, `Case`, `Match`) lives only in
+`@askrjs/askr/control`, and the data surface lives only in `@askrjs/askr/data`.
+Neither is re-exported from the root.
 
 ## Feature subpaths
 
@@ -75,7 +73,7 @@ the root.
 
 - `@askrjs/askr/data` - `createDataRuntime`, `getDefaultDataRuntime`, `createQuery`, `createQueryCollection`, `createMutation`, `invalidate`, and `invalidateOnInterval`
 - `@askrjs/askr/testing` - component harness helpers such as `render`, `mount`, `renderRoute`, `dispatch`, `flush`, and `cleanup`, plus query and router fixtures
-- `@askrjs/askr/resources` - async resource helpers such as `resource`, `watch`, `stream`, `on`, `timer`, `task`, `capture`, `getSignal`, `routeActive`, `documentVisible`, and `windowFocused`
+- `@askrjs/askr/resources` - async resource helpers such as `resource`, `watch`, `stream`, `on`, `timer`, `task`, `capture`, `routeActive`, `documentVisible`, and `windowFocused`
 - `@askrjs/askr/router` - typed `RouteRef` declarations and destinations, metadata, critical `routeData`, and deferred `Resolve` boundaries
 - `@askrjs/askr/fx` - timing and scheduling helpers
 - `@askrjs/askr/ssr` - synchronous rendering plus `renderRouteRequest()` for explicitly deferred Web streams
@@ -154,4 +152,4 @@ await createSPA({ root: document.body, registry });
 - `createQueryCollection()` owns a dynamic keyed set of one query definition, bounds collection-started loads and retries, and exposes aggregate results and per-key errors without introducing another cache.
 - `createDataRuntime()` creates isolated query and mutation state for tests, embedded apps, and multi-root shells; pass it through data operation options with `runtime`.
 - `resource()` is available from `@askrjs/askr/resources`.
-- `renderToString()`, `renderToStream()`, `resolveRequest()`, and `createStaticGen()` accept route registries captured with `createRouteRegistry()`.
+- `renderToString()`, `renderToStream()`, `renderRouteRequestToString()`, and `createStaticGen()` accept route registries captured with `createRouteRegistry()`.

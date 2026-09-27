@@ -8,7 +8,7 @@ import {
 } from 'vite-plus/test';
 import { cleanupApp, createSPA } from '../../../src/boot';
 import { task } from '../../../src/resources';
-import { getSignal } from '../../../src/resources';
+import { getSignal } from '../../../src';
 import { navigate } from '../../../src/router/navigate';
 import { routeRegistryFromTable } from '../../router-test-utils';
 import {

@@ -1,59 +1,24 @@
 {
   "exports": {
     ".": {
-      "Case": ["Case: (props: CaseProps) => JSXElement"],
-      "CaseProps": [
-        "type CaseProps = {\n    fallback?: BoundaryChild;\n    children?: unknown;\n};"
-      ],
       "configureRenderDiagnostics": [
         "declare function configureRenderDiagnostics(options: RenderDiagnosticsOptions): () => void;"
-      ],
-      "createQuery": [
-        "declare function createQuery<T extends {}>(options: QueryOptions<T>): Query<T>;",
-        "declare function createQuery<TInput, TResult extends {}>(definition: QueryDefinition<TInput, TResult>, input: TInput, options?: Omit<QueryOptions<TResult>, \"key\" | \"fetch\">): Query<TResult>;"
-      ],
-      "createQueryCollection": [
-        "declare function createQueryCollection<TInput, TResult extends {}, TKey extends QueryCollectionKey = string>(options: QueryCollectionOptions<TInput, TResult, TKey>): QueryCollection<TInput, TResult, TKey>;"
       ],
       "createRef": [
         "declare function createRef<T extends Element = Element>(): Ref<T>;"
       ],
       "cspNonce": ["declare function cspNonce(): string | undefined;"],
       "CspNonceScope": ["CspNonceScope: Scope<string | undefined>"],
-      "DataRuntime": [
-        "interface DataRuntime {\n    readonly queryCache: Map<string, unknown>;\n    readonly queryData: Map<string, unknown>;\n}"
-      ],
-      "defineQuery": [
-        "declare function defineQuery<TInput, TResult extends {}>(definition: QueryDefinition<TInput, TResult>): QueryDefinition<TInput, TResult>;"
-      ],
       "defineScope": [
         "declare function defineScope<T>(defaultValue: T): Scope<T>;"
-      ],
-      "defineServerQueries": [
-        "declare function defineServerQueries(...entries: readonly ServerQueryEntry<any, any>[]): ServerQueryRegistry;"
-      ],
-      "dehydrateDataRuntime": [
-        "declare function dehydrateDataRuntime(runtime: DataRuntime): Record<string, unknown>;"
       ],
       "derive": [
         "declare function derive<TOut>(fn: () => TOut): Derived<TOut>;",
         "declare function derive<TIn, TOut>(source: SnapshotSource<TIn> | TIn | (() => TIn), map: (value: TIn) => TOut): Derived<TOut | null>;"
       ],
       "Derived": ["interface Derived<T> {\n    (): T;\n}"],
-      "For": [
-        "For: {\n    <T, K extends string | number = string | number>(props: ForGetterProps<T, K>): JSXElement;\n    <T, K extends string | number = string | number>(props: ForProps<T, K>): JSXElement;\n}"
-      ],
-      "ForGetterProps": [
-        "type ForGetterProps<T, K extends string | number = string | number> = Omit<ForBaseProps<T>, \"each\"> & {\n    each: ForEachGetter<T>;\n} & ForKeying<T, K>;"
-      ],
-      "ForProps": [
-        "type ForProps<T, K extends string | number = string | number> = KeyedForProps<T, K> | IndexedForProps<T>;"
-      ],
       "Fragment": ["Fragment: unique symbol"],
       "getSignal": ["declare function getSignal(): AbortSignal;"],
-      "hydrateDataRuntime": [
-        "declare function hydrateDataRuntime(runtime: DataRuntime, data: unknown): void;"
-      ],
       "jsx": [
         "declare function jsx<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[NoInfer<TTag>] | null, key?: string | number): JSXElement;",
         "declare function jsx<TTag extends OtherIntrinsicTag>(type: TTag, props: OtherIntrinsicProps<TTag> | null, key?: string | number): JSXElement;",
@@ -66,33 +31,8 @@
         "declare function jsxs<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number): JSXElement;",
         "declare function jsxs(type: symbol, props: Props | null, key?: string | number): JSXElement;"
       ],
-      "Match": ["declare function Match(_props: MatchProps): null;"],
-      "MatchProps": [
-        "type MatchProps = {\n    key?: string | number | null;\n    when: unknown;\n    children: MatchChild;\n};"
-      ],
-      "prefetchQuery": [
-        "declare function prefetchQuery<TInput, TResult extends {}>(context: QueryPrefetchContext, query: QueryDefinition<TInput, TResult>, input: TInput): Promise<boolean>;"
-      ],
       "Props": [
         "interface Props {\n    key?: string | number | symbol;\n    children?: unknown;\n    [attr: string]: unknown;\n}"
-      ],
-      "QueryCollection": [
-        "interface QueryCollection<TInput, TResult extends {}, TKey extends QueryCollectionKey = string> {\n    readonly entries: readonly QueryCollectionEntry<TInput, TResult, TKey>[];\n    readonly loading: boolean;\n    readonly settled: boolean;\n    readonly results: ReadonlyMap<TKey, TResult>;\n    readonly errors: ReadonlyMap<TKey, {}>;\n    get(key: TKey): QueryCollectionEntry<TInput, TResult, TKey> | undefined;\n    retry(key: TKey): Promise<void>;\n}"
-      ],
-      "QueryCollectionEntry": [
-        "interface QueryCollectionEntry<TInput, TResult extends {}, TKey extends QueryCollectionKey = string> {\n    readonly key: TKey;\n    readonly input: TInput;\n    readonly query: Query<TResult>;\n}"
-      ],
-      "QueryCollectionKey": [
-        "type QueryCollectionKey = string | number | symbol;"
-      ],
-      "QueryCollectionOptions": [
-        "interface QueryCollectionOptions<TInput, TResult extends {}, TKey extends QueryCollectionKey = string> {\n    readonly query: QueryDefinition<TInput, TResult>;\n    readonly inputs: () => readonly TInput[];\n    readonly key: (input: TInput) => TKey;\n    readonly concurrency?: number;\n    readonly runtime?: DataRuntime;\n}"
-      ],
-      "QueryDefinition": [
-        "interface QueryDefinition<TInput, TResult extends {}> {\n    readonly key: (input: TInput) => string;\n    readonly fetch: (input: TInput, context: {\n        signal: AbortSignal;\n    }) => Promise<TResult>;\n    readonly isConsistent?: (data: TResult) => boolean;\n    readonly reconcile?: (data: TResult, context: {\n        key: string;\n    }) => Promise<boolean> | boolean;\n}"
-      ],
-      "QueryPrefetchContext": [
-        "interface QueryPrefetchContext {\n    readonly runtime: DataRuntime;\n    readonly request?: Request;\n    readonly signal: AbortSignal;\n    readonly mode: \"ssr\" | \"spa\";\n    prefetch<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>, input: TInput): Promise<boolean>;\n}"
       ],
       "readScope": ["declare function readScope<T>(context: Scope<T>): T;"],
       "Ref": [
@@ -111,16 +51,6 @@
         "declare function selector<T>(source: () => T, equals?: SelectorEquals<T>): Selector<T>;"
       ],
       "Selector": ["interface Selector<T> {\n    (candidate: T): boolean;\n}"],
-      "serveQuery": [
-        "declare function serveQuery<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>, handler: ServerQueryHandler<TInput, TResult>): ServerQueryEntry<TInput, TResult>;"
-      ],
-      "ServerQueryHandler": [
-        "type ServerQueryHandler<TInput, TResult extends {}> = (context: {\n    input: TInput;\n    request?: Request;\n    signal: AbortSignal;\n}) => Promise<TResult> | TResult;"
-      ],
-      "Show": ["Show: <T>(props: ShowProps<T>) => JSXElement"],
-      "ShowProps": [
-        "type ShowProps<T> = {\n    when: ShowSource<T>;\n    fallback?: BoundaryChild;\n    children: BoundaryChild | ((value: Truthy<T>) => BoundaryChild);\n};"
-      ],
       "state": ["declare function state<T>(initialValue: T): StateTuple<T>;"],
       "State": [
         "interface State<T> {\n    (): T;\n    set(...args: StateSetterArgs<T>): void;\n    [Symbol.iterator](): IterableIterator<StateTuple<T>[number]>;\n}"
@@ -453,15 +383,11 @@
       "documentVisible": [
         "declare function documentVisible(): ActivityPredicate;"
       ],
-      "getSignal": ["declare function getSignal(): AbortSignal;"],
       "ListenerTarget": [
         "type ListenerTarget = EventTarget | (() => EventTarget | null | undefined);"
       ],
       "on": [
         "declare function on(target: ListenerTarget, event: string, handler: EventListener, options?: ListenerOptions): void;"
-      ],
-      "onRouteChange": [
-        "declare function onRouteChange(fn: (current: RouteSnapshot, previous: RouteSnapshot | null) => RouteChangeCleanup, options?: RouteChangeOptions): void;"
       ],
       "resource": [
         "declare function resource<TSource, T>(source: () => TSource, load: (value: TSource, opts: {\n    signal: AbortSignal;\n}) => PromiseLike<T> | T): ResourceResult<T>;",
@@ -473,10 +399,6 @@
       ],
       "routeActive": [
         "declare function routeActive(pathOrPaths: string | readonly string[]): ActivityPredicate;"
-      ],
-      "RouteChangeCleanup": ["type RouteChangeCleanup = void | (() => void);"],
-      "RouteChangeOptions": [
-        "interface RouteChangeOptions {\n    immediate?: boolean;\n}"
       ],
       "stream": [
         "declare function stream<TSource, T>(source: () => TSource, connect: (value: TSource, context: {\n    signal: AbortSignal;\n}) => AsyncIterable<T> | PromiseLike<AsyncIterable<T>>, options?: Omit<StreamOptions<T>, \"deps\">): StreamResult<T>;",
@@ -706,14 +628,8 @@
       ]
     },
     "./fx": {
-      "debounce": [
-        "declare function debounce<T extends AnyFn>(fn: T, ms: number, options?: DebounceOptions): Scheduled<T> & {\n    cancel(): void;\n};"
-      ],
       "debounceEvent": [
         "declare function debounceEvent(ms: number, handler: EventListener, options?: {\n    leading?: boolean;\n    trailing?: boolean;\n}): EventListener & {\n    cancel(): void;\n    flush(): void;\n};"
-      ],
-      "DebounceOptions": [
-        "interface DebounceOptions {\n    leading?: boolean;\n    trailing?: boolean;\n}"
       ],
       "idle": [
         "declare function idle(fn: () => void, options?: {\n    timeout?: number;\n}): void;"
@@ -1036,9 +952,6 @@
       "getRenderContext": [
         "declare function getRenderContext(): RenderContext | null;"
       ],
-      "renderResolvedToStringSync": [
-        "declare function renderResolvedToStringSync(opts: {\n    url: string;\n    registry: RouteRegistry;\n    handler: RouteHandler;\n    params?: Record<string, string>;\n    options?: {\n        seed?: number;\n        data?: SSRData;\n        dataRuntime?: DataRuntime;\n        envelope?: PageRenderEnvelope;\n        cspNonce?: string;\n    };\n}): string;"
-      ],
       "renderRouteRequest": [
         "declare function renderRouteRequest(options: RenderRouteRequestOptions): Promise<RenderRouteRequestResult>;"
       ],
@@ -1060,9 +973,6 @@
       ],
       "renderToStringSync": [
         "declare function renderToStringSync(component: (props?: Record<string, unknown>) => VNode$2 | JSXElement | string | number | boolean | null | undefined, props?: Record<string, unknown>, options?: {\n    seed?: number;\n    data?: SSRData;\n    envelope?: PageRenderEnvelope;\n    cspNonce?: string;\n    authContext?: AuthContext;\n    onContext?: (ctx: RenderContext) => void;\n}): string;"
-      ],
-      "resolveRequest": [
-        "declare function resolveRequest(opts: {\n    url: string;\n    registry: RouteRegistry;\n    auth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    request?: Request;\n    signal?: AbortSignal;\n}): Promise<RouteRequestResult>;"
       ],
       "SSRAccessDecisionError": [
         "declare class SSRAccessDecisionError extends Error {\n    readonly code = \"SSR_ACCESS_DECISION\";\n    readonly decision: AccessRedirectDecision | AccessDenyDecision;\n    constructor(decision: AccessRedirectDecision | AccessDenyDecision);\n}"
@@ -1394,14 +1304,8 @@
     "DataRuntimeOptions": [
       "interface DataRuntimeOptions {\n    queryCache?: Map<string, unknown>;\n    queryData?: Map<string, unknown>;\n}"
     ],
-    "debounce": [
-      "declare function debounce<T extends AnyFn>(fn: T, ms: number, options?: DebounceOptions): Scheduled<T> & {\n    cancel(): void;\n};"
-    ],
     "debounceEvent": [
       "declare function debounceEvent(ms: number, handler: EventListener, options?: {\n    leading?: boolean;\n    trailing?: boolean;\n}): EventListener & {\n    cancel(): void;\n    flush(): void;\n};"
-    ],
-    "DebounceOptions": [
-      "interface DebounceOptions {\n    leading?: boolean;\n    trailing?: boolean;\n}"
     ],
     "DefaultPortal": ["DefaultPortal: Portal<RenderableChild>"],
     "DefaultPreventable": [
@@ -2151,9 +2055,6 @@
     "RenderOptions": [
       "interface RenderOptions {\n    container?: HTMLElement;\n    cleanupStrict?: boolean;\n    dataRuntime?: DataRuntime;\n}"
     ],
-    "renderResolvedToStringSync": [
-      "declare function renderResolvedToStringSync(opts: {\n    url: string;\n    registry: RouteRegistry;\n    handler: RouteHandler;\n    params?: Record<string, string>;\n    options?: {\n        seed?: number;\n        data?: SSRData;\n        dataRuntime?: DataRuntime;\n        envelope?: PageRenderEnvelope;\n        cspNonce?: string;\n    };\n}): string;"
-    ],
     "RenderResult": [
       "interface RenderResult {\n    readonly container: HTMLElement;\n    readonly root: HTMLElement;\n    flush(): void;\n    dispatch(target: EventTarget, event: Event | string, init?: DispatchEventInit): boolean;\n    unmount(): void;\n    cleanup(): void;\n}"
     ],
@@ -2202,9 +2103,6 @@
     ],
     "ResolveProps": [
       "interface ResolveProps<T> {\n    value: Deferred<T>;\n    pending?: RenderableChild;\n    rejected?: RenderableChild | ((error: unknown) => RenderableChild);\n    children: (value: T) => RenderableChild;\n}"
-    ],
-    "resolveRequest": [
-      "declare function resolveRequest(opts: {\n    url: string;\n    registry: RouteRegistry;\n    auth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    request?: Request;\n    signal?: AbortSignal;\n}): Promise<RouteRequestResult>;"
     ],
     "resolveRouteMeta": [
       "declare function resolveRouteMeta(record: RouteRecord, context: RouteContext): Promise<Readonly<RouteMeta>>;"

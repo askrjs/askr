@@ -2,18 +2,13 @@ import { scheduleEventHandler } from '../core.js';
 /**
  * Timing and event-scheduling helpers.
  *
- * The timing helpers (`debounce`, `throttle`, `once`, `raf`, `idle`,
+ * The timing helpers (`throttle`, `once`, `raf`, `idle`,
  * `timeout`, `retry`) are plain functions with no runtime dependency. The
  * event and `schedule*` helpers use the Askr scheduler and lifecycle ownership.
  * `debounceEvent`, `throttleEvent`, and `rafEvent` reject invocation during
  * render and cancel pending work on owner cleanup. `scheduleEventHandler`
  * runs its handler in the captured owner's scope.
  */
-/** Options for {@link debounce}. */
-interface DebounceOptions {
-  leading?: boolean;
-  trailing?: boolean;
-}
 /** Options for {@link throttle}. */
 interface ThrottleOptions {
   leading?: boolean;
@@ -30,30 +25,6 @@ type Scheduled<T extends AnyFn> = (
   this: ThisParameterType<T>,
   ...args: Parameters<T>
 ) => void;
-/**
- * Debounce — delay execution, coalesce rapid calls
- *
- * Useful for: text input, resize, autosave
- *
- * @param fn Function to debounce
- * @param ms Delay in milliseconds
- * @param options trailing (default true), leading
- * @returns Debounced function with cancel() method
- *
- * @example
- * ```ts
- * const save = debounce((text) => api.save(text), 500);
- * input.addEventListener('input', (e) => save(e.target.value));
- * save.cancel(); // stop any pending execution
- * ```
- */
-declare function debounce<T extends AnyFn>(
-  fn: T,
-  ms: number,
-  options?: DebounceOptions
-): Scheduled<T> & {
-  cancel(): void;
-};
 /**
  * Throttle — rate-limit execution, keep first/last
  *
@@ -229,11 +200,9 @@ declare function scheduleRetry<T>(
   result: Promise<RetryOutcome<T>>;
 };
 export {
-  type DebounceOptions,
   type RetryOptions,
   type RetryOutcome,
   type ThrottleOptions,
-  debounce,
   debounceEvent,
   idle,
   once,
