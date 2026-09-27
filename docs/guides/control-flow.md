@@ -146,7 +146,9 @@ function Rows() {
 }
 ```
 
-Each control reads its sources in its own render: toggling `when` or changing
-`each` re-renders the control, not the parent. Two controls in the same
+A control reads getter sources in its own render: with `when={open}` or
+`each={items}` (the getter, not its value), a change re-renders only the
+control. A value such as `when={open()}` is read by the parent, so the parent
+re-renders. Two controls in the same
 position with different sources share one instance, as any component does; give
 them different `key`s when their state must not carry over.

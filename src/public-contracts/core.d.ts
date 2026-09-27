@@ -124,6 +124,7 @@ export {
   Match,
   MatchProps,
   ForProps,
+  ForGetterProps,
   Case,
 } from './domains/control.js';
 export {

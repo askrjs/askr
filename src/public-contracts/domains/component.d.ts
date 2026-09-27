@@ -1,10 +1,13 @@
-import { JSXElementType, JSXElement, Props } from '../elements.js';
 import '../jsx-globals.js';
-import { State, state } from './state.js';
-import { ComponentFunction } from './context.js';
-import { DataRuntime } from './data.js';
-import { RouteAuthOptions, RouteRegistry } from './routing.js';
 
+/**
+ * Get the abort signal for the current component.
+ *
+ * The signal is guaranteed to be aborted when:
+ * - Component unmounts
+ * - Navigation occurs (different route)
+ * - Parent is destroyed
+ */
 declare function getSignal(): AbortSignal;
 
 export { getSignal };

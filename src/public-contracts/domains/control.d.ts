@@ -1,10 +1,21 @@
-import { JSXElementType, JSXElement, Props } from '../elements.js';
+import { JSXElement, Props } from '../elements.js';
 import '../jsx-globals.js';
 import { state, selector } from './state.js';
 import { VNode, RenderableChild } from './context.js';
 import { on } from './lifecycle.js';
 
-type ForEachSource<T> = readonly T[] | (() => readonly T[]);
+/** A list, or a getter returning one (`null`/`undefined` render nothing). */
+type ForEachSource<T> = ForEachGetter<T> | ForEachList<T>;
+
+type ForEachGetter<T> = () => readonly T[] | null | undefined;
+
+/** A list that is not also callable: a `state()` getter is both. */
+type ForEachList<T> = readonly T[] & { readonly call?: never };
+
+/** How rows are identified: by a key function, or by position. */
+type ForKeying<T, K extends string | number> =
+  | { by: (item: T, index: number) => K; byIndex?: never }
+  | { by?: never; byIndex: true };
 
 type BoundaryChild = RenderableChild;
 
@@ -19,15 +30,11 @@ type ForBaseProps<T> = {
   children: (item: T, index: () => number) => VNode;
 };
 
-type KeyedForProps<T, K extends string | number> = ForBaseProps<T> & {
-  by: (item: T, index: number) => K;
-  byIndex?: never;
-};
+type KeyedForProps<T, K extends string | number> = ForBaseProps<T> &
+  Extract<ForKeying<T, K>, { byIndex?: never }>;
 
-type IndexedForProps<T> = ForBaseProps<T> & {
-  by?: never;
-  byIndex: true;
-};
+type IndexedForProps<T> = ForBaseProps<T> &
+  Extract<ForKeying<T, string | number>, { byIndex: true }>;
 
 /** Props for {@link For}. */
 type ForProps<T, K extends string | number = string | number> =
@@ -41,10 +48,7 @@ type ForProps<T, K extends string | number = string | number> =
 type ForGetterProps<T, K extends string | number = string | number> = Omit<
   ForBaseProps<T>,
   'each'
-> & { each: () => readonly T[] } & (
-    | { by: (item: T, index: number) => K; byIndex?: never }
-    | { by?: never; byIndex: true }
-  );
+> & { each: ForEachGetter<T> } & ForKeying<T, K>;
 
 /** Render a keyed or indexed list, reconciling items by key instead of position. */
 declare const For: {
@@ -92,6 +96,7 @@ declare function Match(_props: MatchProps): null;
 declare const Case: (props: CaseProps) => JSXElement;
 export {
   ForEachSource,
+  ForGetterProps,
   BoundaryChild,
   ForBaseProps,
   KeyedForProps,

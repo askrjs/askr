@@ -48,7 +48,7 @@ export namespace JSX {
 
   /** Attributes every element accepts, including function components. */
   export interface IntrinsicAttributes {
-    key?: string | number | null;
+    key?: string | number;
   }
 }
 

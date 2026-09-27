@@ -20,7 +20,13 @@ export type {
 
 // Control flow
 export { Case, For, Match, Show } from './control';
-export type { CaseProps, ForProps, MatchProps, ShowProps } from './control';
+export type {
+  CaseProps,
+  ForGetterProps,
+  ForProps,
+  MatchProps,
+  ShowProps,
+} from './control';
 
 // Lexical scopes
 export { defineScope, readScope } from './core/api/scope';

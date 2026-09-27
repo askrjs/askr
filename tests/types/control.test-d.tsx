@@ -5,9 +5,11 @@ import {
   Match,
   Show,
   type CaseProps,
+  type ForGetterProps,
   type ForProps,
   type MatchProps,
   type ShowProps,
+  derive,
   state,
 } from '@askrjs/askr';
 import type { JSXElement } from '@askrjs/askr/foundations';
@@ -306,3 +308,66 @@ function StateWhen() {
   );
 }
 void StateWhen;
+
+// A nullable state getter or derive() result is a getter source too; the
+// runtime renders nothing for null and undefined.
+function NullableStateEach() {
+  const rows = state<EachRow[] | null>(null);
+  return (
+    <For each={rows} by={(row) => row.id}>
+      {(row) => {
+        expectType<EachRow>(row);
+        return <p>{row.label}</p>;
+      }}
+    </For>
+  );
+}
+function IndexedStateEach() {
+  const rows = state<EachRow[] | undefined>(undefined);
+  return (
+    <For each={rows} byIndex>
+      {(row, index) => {
+        expectType<EachRow>(row);
+        return <p>{index()}</p>;
+      }}
+    </For>
+  );
+}
+void [NullableStateEach, IndexedStateEach];
+// A getter that does not return a list is rejected, not read as an array.
+function NonListEach() {
+  const count = state(0);
+  return expectError(
+    <For each={count} byIndex>
+      {() => <p />}
+    </For>
+  );
+}
+void NonListEach;
+
+// derive(source, map) results can be null before the source resolves.
+function DerivedEach() {
+  const source = state<EachRow[] | null>(null);
+  const rows = derive(source, (list) => list);
+  return (
+    <For each={rows} by={(row) => row.id}>
+      {(row) => {
+        expectType<EachRow>(row);
+        return <p>{row.label}</p>;
+      }}
+    </For>
+  );
+}
+void DerivedEach;
+
+// ForGetterProps types wrapper props whose list comes from a getter.
+expectAssignable<ForGetterProps<EachRow, number>>({
+  each: () => [] as EachRow[],
+  by: (row: EachRow) => row.id,
+  children: (row: EachRow) => <p>{row.label}</p>,
+});
+expectError<ForGetterProps<EachRow>>({
+  each: [] as EachRow[],
+  byIndex: true,
+  children: () => null,
+});

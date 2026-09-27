@@ -124,8 +124,9 @@ function Rows() {
 }
 ```
 
-A control reads its own sources (`when`, `each`) in its own render, so a change
-to them re-renders the control, not the component that uses it. Give a control
+A control reads getter sources (`when={open}`, `each={items}`) in its own
+render, so a change to them re-renders only the control. A value read in the
+parent, such as `when={open()}`, re-renders the parent as usual. Give a control
 a `key` to remount it, and its branch-local state, when that key changes.
 
 ### Why This Matters

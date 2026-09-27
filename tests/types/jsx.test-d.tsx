@@ -523,7 +523,8 @@ function KeyedRow(props: { id: number }) {
 }
 expectType<RuntimeJSX.Element>(<KeyedRow key={1} id={1} />);
 expectType<RuntimeJSX.Element>(<KeyedRow key="one" id={1} />);
-expectType<RuntimeJSX.Element>(<KeyedRow key={null} id={1} />);
+expectError(<KeyedRow key={null} id={1} />);
+expectError(<div key={null} />);
 expectError(<KeyedRow key={{}} id={1} />);
 expectError(<KeyedRow key={1} />);
 expectAssignable<RuntimeJSX.IntrinsicAttributes>({ key: 1 });

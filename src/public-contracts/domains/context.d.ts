@@ -37,6 +37,7 @@ interface Scope<T> {
   readonly defaultValue: T;
 }
 
+/** Create a new lexical {@link Scope} with `defaultValue`, readable via {@link readScope}. */
 declare function defineScope<T>(defaultValue: T): Scope<T>;
 
 /** Read the current value of a {@link Scope} during component render or an async resource. */

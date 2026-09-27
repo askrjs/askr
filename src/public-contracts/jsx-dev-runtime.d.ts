@@ -33,7 +33,7 @@ declare namespace JSX {
 
   /** Attributes every element accepts, including function components. */
   interface IntrinsicAttributes {
-    key?: string | number | null;
+    key?: string | number;
   }
 }
 type OtherIntrinsicProps<Tag extends string> = Omit<
