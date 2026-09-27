@@ -412,9 +412,10 @@ import error instead. Its `route` is the requested URL,
 
 - `isDeferred(value)` checks whether a value came from `defer()`.
 - `resolveDeferredValues(input, signal?)` waits for every `defer()` value
-  nested in `input`'s arrays and plain objects (not `Map` or `Set` contents)
-  and resolves to the same `input` object. It rejects as soon as any deferred
-  value rejects, or when `signal` aborts while it is waiting. The `defer()` wrappers stay
+  reachable through arrays and object property values (not `Map` or `Set`
+  contents) and resolves to the same `input` object. It rejects as soon as any
+  deferred value rejects, or with an `AbortError` once `signal` is aborted and
+  a `defer()` value is reached. The `defer()` wrappers stay
   in place, now settled, so render them with `Resolve` rather than serializing
   `input` directly.
 
