@@ -212,6 +212,31 @@ export function applyInitialProps(
 }
 
 /** Write props that must follow the element's children. */
+function recordSelectUndo(pass: Pass, node: HostNode): void {
+  const select = node.el as HTMLSelectElement;
+  const beforeValue = select.getAttribute('value');
+  const beforeIndex = select.selectedIndex;
+  const beforeOptions = Array.from(select.options, (option) => ({
+    option,
+    selected: option.selected,
+    attribute: option.hasAttribute('selected'),
+  }));
+  pass.onReversibleCommit(() => {
+    if (beforeValue === null) select.removeAttribute('value');
+    else select.setAttribute('value', beforeValue);
+    for (const { option, attribute } of beforeOptions) {
+      if (attribute) option.setAttribute('selected', '');
+      else option.removeAttribute('selected');
+    }
+    if (select.multiple) {
+      for (const { option, selected } of beforeOptions)
+        option.selected = selected;
+    } else {
+      select.selectedIndex = beforeIndex;
+    }
+  });
+}
+
 export function applyTrailingProps(
   pass: Pass,
   node: HostNode,
@@ -220,32 +245,7 @@ export function applyTrailingProps(
   adopted = false
 ): void {
   if (node.tag !== 'select' || !('value' in props)) return;
-  const recordUndo = () => {
-    const select = node.el as HTMLSelectElement;
-    const beforeValue = select.getAttribute('value');
-    const beforeIndex = select.selectedIndex;
-    const beforeOptions = Array.from(select.options, (option) => ({
-      option,
-      selected: option.selected,
-      attribute: option.hasAttribute('selected'),
-    }));
-    pass.onReversibleCommit(() => {
-      if (beforeValue === null) select.removeAttribute('value');
-      else select.setAttribute('value', beforeValue);
-      for (const { option, attribute } of beforeOptions) {
-        if (attribute) option.setAttribute('selected', '');
-        else option.removeAttribute('selected');
-      }
-      if (select.multiple) {
-        for (const { option, selected } of beforeOptions)
-          option.selected = selected;
-      } else {
-        select.selectedIndex = beforeIndex;
-      }
-    });
-  };
-  if (initial && adopted) pass.op(recordUndo);
-  else if (!initial) recordUndo();
+  if (initial && adopted) pass.op(() => recordSelectUndo(pass, node));
   if (typeof props.value === 'function') {
     if (initial)
       bind(
@@ -278,6 +278,9 @@ export function patchProps(
   const { el, tag } = node;
   for (const key in previous) {
     if (key in next || isSkippedProp(key)) continue;
+    if (followsChildren(tag, key)) {
+      pass.op(() => recordSelectUndo(pass, node));
+    }
     const old = previous[key];
     if (parseEventProp(key)) {
       pass.op(() => setHandler(node, key, undefined));
@@ -304,6 +307,9 @@ export function patchProps(
 
   for (const key in next) {
     if (isSkippedProp(key)) continue;
+    if (followsChildren(tag, key)) {
+      pass.op(() => recordSelectUndo(pass, node));
+    }
     const value = next[key];
     const old = previous[key];
     if (parseEventProp(key)) {

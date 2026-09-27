@@ -214,22 +214,13 @@ describe('SSR select value parity', () => {
     function App() {
       const [value, set] = state('a');
       setValue = set;
-      const trailingProps: Record<string, unknown> = { children: 'tail' };
-      if (value() === 'b') {
-        Object.defineProperty(trailingProps, 'title', {
-          enumerable: true,
-          get() {
-            throw new Error('later prop failed');
-          },
-        });
-      }
       return (
         <div>
           <select value={value()}>
             <option value="a">A</option>
             <option value="b">B</option>
           </select>
-          {{ type: 'span', props: trailingProps }}
+          <span title={value()}>tail</span>
         </div>
       );
     }
@@ -241,6 +232,14 @@ describe('SSR select value parity', () => {
       flushScheduler();
       const select = container.querySelector('select') as HTMLSelectElement;
       const before = select.outerHTML;
+      const span = container.querySelector('span')!;
+      const setAttribute = span.setAttribute.bind(span);
+      span.setAttribute = (name, value) => {
+        if (name === 'title' && value === 'b') {
+          throw new Error('later prop failed');
+        }
+        setAttribute(name, value);
+      };
       expect(() => {
         setValue('b');
         flushScheduler();
