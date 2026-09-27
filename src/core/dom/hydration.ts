@@ -131,7 +131,14 @@ export class HydrationCursor {
       textNode.data.length > text.length &&
       textNode.data.startsWith(text)
     ) {
-      textNode.splitText(text.length);
+      // The adopted node is live DOM. Keep the unclaimed suffix detached so
+      // a discarded render never changes the server tree; syncChildren places
+      // it only when the hydration pass commits.
+      const remainder = document.createTextNode(
+        textNode.data.slice(text.length)
+      );
+      this.next.set(container, remainder);
+      return textNode;
     }
     this.advance(container, textNode);
     return textNode;
