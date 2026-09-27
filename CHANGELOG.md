@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- fix(router): `<Resolve>` renders deferred route data after client
+  navigation. It claimed its resource hook only while the value was pending,
+  so the render after the promise settled failed the hook-order check and the
+  pending placeholder stayed on screen.
+
 - fix(boot): `hydrate: { verifyMarkup: true }` no longer reports a mismatch
   when a ref callback updates state after the hydration commit (for example,
   adopting a persisted theme). Client markup passes if it matches the server

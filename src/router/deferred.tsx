@@ -112,13 +112,21 @@ function rejectedChild<T>(
 
 /** Render a {@link Deferred} value's fulfilled state, a pending placeholder, or a rejected fallback. */
 export function Resolve<T>(props: ResolveProps<T>): JSXElement {
+  const renderContext = getActiveRenderContext();
+  // On the client the resource hook is claimed on every render, so the render
+  // after the deferred value settles keeps the same hook order.
+  const result = renderContext
+    ? null
+    : resource(
+        () => (props.value.state === 'pending' ? props.value.promise : null),
+        [props.value]
+      );
   if (props.value.state === 'fulfilled') {
     return props.children(props.value.value as T) as unknown as JSXElement;
   }
   if (props.value.state === 'rejected') {
     return rejectedChild(props, props.value.error) as unknown as JSXElement;
   }
-  const renderContext = getActiveRenderContext();
   if (renderContext) {
     const id = registerDeferredBoundary(renderContext, {
       promise: props.value.promise,
@@ -131,7 +139,7 @@ export function Resolve<T>(props: ResolveProps<T>): JSXElement {
     } as unknown as JSXElement;
   }
 
-  const result = resource(() => props.value.promise, [props.value]);
+  if (!result) return (props.pending ?? null) as unknown as JSXElement;
   if (result.error)
     return rejectedChild(props, result.error) as unknown as JSXElement;
   if (result.pending || result.value === null)
