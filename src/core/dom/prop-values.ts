@@ -110,16 +110,28 @@ export function applyFormControlProp(
     const stringValue = String(value);
     if (tagNamesEqualIgnoreCase(tagName, 'select')) {
       const select = el as HTMLSelectElement;
-      if (select.multiple && Array.isArray(value)) {
-        const selectedValues = new Set(value.map(String));
-        for (const option of Array.from(select.options)) {
-          const selected = selectedValues.has(option.value);
-          if (option.selected !== selected) {
-            option.selected = selected;
-          }
+      const selectedValues = new Set(
+        select.multiple && Array.isArray(value)
+          ? value.map(String)
+          : [stringValue]
+      );
+      let firstMatch = -1;
+      for (let index = 0; index < select.options.length; index++) {
+        const option = select.options[index];
+        const selected =
+          selectedValues.has(option.value) &&
+          (select.multiple || firstMatch < 0);
+        if (selected && firstMatch < 0) firstMatch = index;
+        if (option.hasAttribute('selected') !== selected) {
+          if (selected) option.setAttribute('selected', '');
+          else option.removeAttribute('selected');
         }
-      } else if (select.value !== stringValue) {
-        select.value = stringValue;
+        if (select.multiple && option.selected !== selected) {
+          option.selected = selected;
+        }
+      }
+      if (!select.multiple && select.selectedIndex !== firstMatch) {
+        select.selectedIndex = firstMatch;
       }
     } else if (
       tagNamesEqualIgnoreCase(tagName, 'input') ||

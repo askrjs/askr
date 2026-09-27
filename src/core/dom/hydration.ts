@@ -180,6 +180,14 @@ export function syncChildren(
 /** Attribute names `props` renders on `el`. */
 function renderedAttributes(el: Element, props: Props): Set<string> {
   const names = new Set<string>();
+  if (el.localName === 'option') {
+    const parent = el.parentElement;
+    const select =
+      parent?.localName === 'optgroup' ? parent.parentElement : parent;
+    if (select?.localName === 'select' && select.hasAttribute('value')) {
+      names.add('selected');
+    }
+  }
   for (const key in props) {
     if (isSkippedProp(key) || parseEventProp(key)) continue;
     const value = props[key];

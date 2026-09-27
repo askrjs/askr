@@ -234,6 +234,12 @@ come from the same render. Options rendered by a `For` or a function child
 are not tracked: the value is not re-applied when only they change, so keep a
 value's option rendered before selecting it.
 
+During SSR, a controlled `<select value>` marks matching `<option>` elements
+with `selected`, including options inside `<optgroup>`. A single select marks
+the first match; `multiple` with an array marks every match. If nothing matches,
+no option is marked. Client rendering keeps those option attributes and live
+selection in sync so hydration can adopt the server nodes.
+
 ```tsx
 function RolePicker() {
   const role = state('admin');

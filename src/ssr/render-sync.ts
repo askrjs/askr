@@ -129,6 +129,13 @@ interface ServerRender {
   owner: Owner;
   namespace: SSRNamespace;
   portalNamespaces: Map<string, SSRNamespace>;
+  selectSelections: SelectSelection[];
+}
+
+interface SelectSelection {
+  values: Set<string>;
+  multiple: boolean;
+  matched: boolean;
 }
 
 let current: ServerRender | null = null;
@@ -396,15 +403,61 @@ function renderElement(tag: string, props: Props, sink: SinkTarget): void {
   const namespace = getElementNamespace(parentNamespace, lower);
   // `annotation-xml` reads its `encoding` to choose its children's context,
   // so a reactive value is read once for both.
-  const elementProps =
-    lower === 'annotation-xml'
+  let elementProps =
+    lower === 'annotation-xml' ||
+    (namespace === 'html' &&
+      (lower === 'select' ||
+        (lower === 'option' && parentNamespace === 'select')))
       ? (resolveReactiveAttributeProps(props) ?? props)
       : props;
+  const selection = render.selectSelections[render.selectSelections.length - 1];
+  if (lower === 'option' && parentNamespace === 'select' && selection) {
+    const value =
+      elementProps.value === undefined
+        ? optionTextValue(elementProps.children)
+        : String(elementProps.value);
+    const selected =
+      selection.values.has(value) && (selection.multiple || !selection.matched);
+    if (selected) selection.matched = true;
+    elementProps = { ...elementProps, selected };
+  }
+  let nextSelection: SelectSelection | null = null;
+  if (
+    lower === 'select' &&
+    namespace === 'html' &&
+    elementProps.value != null
+  ) {
+    const multiple = Boolean(elementProps.multiple);
+    const value = elementProps.value;
+    nextSelection = {
+      values: new Set(
+        multiple && Array.isArray(value) ? value.map(String) : [String(value)]
+      ),
+      multiple,
+      matched: false,
+    };
+    render.selectSelections.push(nextSelection);
+  }
   const rawText = getRawTextElementInContext(parentNamespace, namespace, lower);
-  withNamespace(
-    getChildNamespace(parentNamespace, namespace, lower, elementProps),
-    () => writeElement(tag, elementProps, rawText, sink)
-  );
+  try {
+    withNamespace(
+      getChildNamespace(parentNamespace, namespace, lower, elementProps),
+      () => writeElement(tag, elementProps, rawText, sink)
+    );
+  } finally {
+    if (nextSelection) render.selectSelections.pop();
+  }
+}
+
+function optionTextValue(value: unknown): string {
+  if (value == null || typeof value === 'boolean') return '';
+  if (typeof value === 'string' || typeof value === 'number')
+    return String(value);
+  if (Array.isArray(value)) return value.map(optionTextValue).join('');
+  if (typeof value === 'object' && 'props' in value) {
+    return optionTextValue((value as { props?: Props }).props?.children);
+  }
+  return '';
 }
 
 function writeElement(
@@ -564,6 +617,7 @@ function withServerRender<T>(ctx: RenderContext, fn: () => T): T {
     owner,
     namespace: 'html',
     portalNamespaces: new Map(),
+    selectSelections: [],
   };
   let result: T;
   try {

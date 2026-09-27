@@ -220,6 +220,32 @@ export function applyTrailingProps(
   adopted = false
 ): void {
   if (node.tag !== 'select' || !('value' in props)) return;
+  const recordUndo = () => {
+    const select = node.el as HTMLSelectElement;
+    const beforeValue = select.getAttribute('value');
+    const beforeIndex = select.selectedIndex;
+    const beforeOptions = Array.from(select.options, (option) => ({
+      option,
+      selected: option.selected,
+      attribute: option.hasAttribute('selected'),
+    }));
+    pass.onReversibleCommit(() => {
+      if (beforeValue === null) select.removeAttribute('value');
+      else select.setAttribute('value', beforeValue);
+      for (const { option, attribute } of beforeOptions) {
+        if (attribute) option.setAttribute('selected', '');
+        else option.removeAttribute('selected');
+      }
+      if (select.multiple) {
+        for (const { option, selected } of beforeOptions)
+          option.selected = selected;
+      } else {
+        select.selectedIndex = beforeIndex;
+      }
+    });
+  };
+  if (initial && adopted) pass.op(recordUndo);
+  else if (!initial) recordUndo();
   if (typeof props.value === 'function') {
     if (initial)
       bind(
