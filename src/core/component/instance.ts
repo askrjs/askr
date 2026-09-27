@@ -37,6 +37,13 @@ export interface RenderHost {
 
 let renderHost: RenderHost | null = null;
 let nextContextRevision = 0;
+/** Bumped whenever any instance's `contextRevision` changes or is undone. */
+let contextEpoch = 0;
+
+/** Current context epoch; cached inherited revisions are valid within one. */
+export function getContextEpoch(): number {
+  return contextEpoch;
+}
 
 export function setRenderHost(host: RenderHost): void {
   renderHost = host;
@@ -70,6 +77,9 @@ export class ComponentInstance extends Owner {
   boundary: ((error: unknown) => boolean) | null = null;
   contextRevision = 0;
   seenAncestorContextRevision = 0;
+  /** Highest `contextRevision` among component ancestors, cached per epoch. */
+  inheritedContextRevision = 0;
+  inheritedContextEpoch = -1;
 
   get displayName(): string {
     return this.name ?? this.fn.name;
@@ -153,9 +163,11 @@ export class ComponentInstance extends Owner {
     if (had && Object.is(previous, value)) return;
     const previousRevision = this.contextRevision;
     this.contextRevision = ++nextContextRevision;
+    contextEpoch++;
     context.set(key, value);
     recordUndo(() => {
       this.contextRevision = previousRevision;
+      contextEpoch++;
       if (had) context.set(key, previous);
       else context.delete(key);
     });

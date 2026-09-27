@@ -35,7 +35,105 @@ export interface Job {
 
 export const MAX_RUNS_PER_FLUSH = 50;
 
-const lanes: Record<Lane, Job[]> = { render: [], effect: [], post: [] };
+/** FIFO queue with an advancing head, so taking the next job is O(1). */
+class JobQueue {
+  private items: Job[] = [];
+  private head = 0;
+
+  get length(): number {
+    return this.items.length - this.head;
+  }
+
+  push(job: Job): void {
+    this.items.push(job);
+  }
+
+  shift(): Job | undefined {
+    if (this.head >= this.items.length) return undefined;
+    const job = this.items[this.head];
+    this.items[this.head++] = undefined as unknown as Job;
+    if (this.head === this.items.length) {
+      this.items.length = 0;
+      this.head = 0;
+    } else if (this.head > 1024 && this.head * 2 > this.items.length) {
+      this.items = this.items.slice(this.head);
+      this.head = 0;
+    }
+    return job;
+  }
+
+  clear(): void {
+    this.items.length = 0;
+    this.head = 0;
+  }
+}
+
+/**
+ * Render lane: a binary min-heap ordered by depth, then by queue order, so the
+ * shallowest job runs first and equal depths run in the order they queued.
+ */
+class RenderQueue {
+  private heap: Array<{ job: Job; depth: number; seq: number }> = [];
+  private seq = 0;
+
+  get length(): number {
+    return this.heap.length;
+  }
+
+  push(job: Job): void {
+    const heap = this.heap;
+    const entry = { job, depth: job.depth ?? 0, seq: this.seq++ };
+    let index = heap.push(entry) - 1;
+    while (index > 0) {
+      const parent = (index - 1) >> 1;
+      if (!before(entry, heap[parent])) break;
+      heap[index] = heap[parent];
+      index = parent;
+    }
+    heap[index] = entry;
+  }
+
+  shift(): Job | undefined {
+    const heap = this.heap;
+    if (heap.length === 0) return undefined;
+    const top = heap[0];
+    const last = heap.pop()!;
+    if (heap.length > 0) {
+      let index = 0;
+      for (;;) {
+        const left = index * 2 + 1;
+        if (left >= heap.length) break;
+        const right = left + 1;
+        const child =
+          right < heap.length && before(heap[right], heap[left]) ? right : left;
+        if (!before(heap[child], last)) break;
+        heap[index] = heap[child];
+        index = child;
+      }
+      heap[index] = last;
+    }
+    if (heap.length === 0) this.seq = 0;
+    return top.job;
+  }
+
+  clear(): void {
+    this.heap.length = 0;
+    this.seq = 0;
+  }
+}
+
+function before(
+  a: { depth: number; seq: number },
+  b: { depth: number; seq: number }
+): boolean {
+  return a.depth < b.depth || (a.depth === b.depth && a.seq < b.seq);
+}
+
+const lanes = {
+  render: new RenderQueue(),
+  effect: new JobQueue(),
+  post: new JobQueue(),
+};
 const queued = new Set<Job>();
 let flushing = false;
 let batchDepth = 0;
@@ -122,17 +220,9 @@ export function batch<T>(fn: () => T): T {
 }
 
 function takeNext(): Job | null {
-  const render = lanes.render;
-  if (render.length) {
-    let best = 0;
-    for (let i = 1; i < render.length; i++) {
-      if ((render[i].depth ?? 0) < (render[best].depth ?? 0)) best = i;
-    }
-    return render.splice(best, 1)[0];
-  }
-  if (lanes.effect.length) return lanes.effect.shift()!;
-  if (lanes.post.length) return lanes.post.shift()!;
-  return null;
+  return (
+    lanes.render.shift() ?? lanes.effect.shift() ?? lanes.post.shift() ?? null
+  );
 }
 
 /** Drain every queued job now. Nested calls during a flush are no-ops. */
@@ -214,7 +304,7 @@ export function waitForFlush(): Promise<void> {
 /** Drop all queued work (test isolation). */
 export function clearScheduler(): void {
   const dropped = [...queued];
-  for (const lane of Object.values(lanes)) lane.length = 0;
+  for (const lane of Object.values(lanes)) lane.clear();
   queued.clear();
   for (const job of dropped) job.cancel?.();
 }

@@ -11,7 +11,15 @@ export type Cleanup = () => void;
 
 export class Owner {
   parent: Owner | null;
-  owned: Owner[] | null = null;
+  /**
+   * Owned children in creation order. A detached child leaves a `null` hole
+   * so detaching is O(1); holes are compacted once they dominate the list.
+   */
+  owned: Array<Owner | null> | null = null;
+  /** Holes in `owned`. */
+  ownedHoles = 0;
+  /** This owner's index in `parent.owned`. */
+  ownedIndex = -1;
   cleanups: Cleanup[] | null = null;
   /** Lexical scope values keyed by scope identity; inherited through `parent`. */
   context: Map<unknown, unknown> | null = null;
@@ -20,7 +28,9 @@ export class Owner {
   constructor(parent: Owner | null) {
     this.parent = parent;
     if (parent) {
-      (parent.owned ??= []).push(this);
+      const owned = (parent.owned ??= []);
+      this.ownedIndex = owned.length;
+      owned.push(this);
     }
   }
 
@@ -42,12 +52,26 @@ export class Owner {
 
   /** Detach from the parent without disposing (the caller disposes). */
   detach(): void {
-    const siblings = this.parent?.owned;
-    if (siblings) {
-      const index = siblings.lastIndexOf(this);
-      if (index >= 0) siblings.splice(index, 1);
+    const parent = this.parent;
+    const siblings = parent?.owned;
+    if (parent && siblings && siblings[this.ownedIndex] === this) {
+      if (this.ownedIndex === siblings.length - 1) {
+        siblings.pop();
+        // Trailing holes are dropped with the last child.
+        while (siblings.length && siblings[siblings.length - 1] === null) {
+          siblings.pop();
+          parent.ownedHoles--;
+        }
+      } else {
+        siblings[this.ownedIndex] = null;
+        parent.ownedHoles++;
+        if (parent.ownedHoles > 16 && parent.ownedHoles * 2 > siblings.length) {
+          compactOwned(parent, siblings);
+        }
+      }
     }
     this.parent = null;
+    this.ownedIndex = -1;
   }
 
   /**
@@ -71,12 +95,31 @@ export class Owner {
   protected onDispose(): void {}
 }
 
-function disposeChildren(owner: Owner, errors: unknown[]): void {
+function compactOwned(parent: Owner, siblings: Array<Owner | null>): void {
+  let next = 0;
+  for (const child of siblings) {
+    if (!child) continue;
+    child.ownedIndex = next;
+    siblings[next++] = child;
+  }
+  siblings.length = next;
+  parent.ownedHoles = 0;
+}
+
+/** Take `owner`'s children, leaving it with none. */
+function takeOwned(owner: Owner): Array<Owner | null> | null {
   const owned = owner.owned;
-  if (!owned) return;
   owner.owned = null;
+  owner.ownedHoles = 0;
+  return owned;
+}
+
+function disposeChildren(owner: Owner, errors: unknown[]): void {
+  const owned = takeOwned(owner);
+  if (!owned) return;
   for (let i = owned.length - 1; i >= 0; i--) {
     const child = owned[i];
+    if (!child) continue;
     child.parent = null;
     disposeTree(child, errors);
   }
@@ -115,11 +158,10 @@ function disposeTree(owner: Owner, errors: unknown[]): void {
     if (current.disposed) continue;
     current.disposed = true;
     pending.push({ owner: current, finish: true });
-    const children = current.owned;
-    current.owned = null;
+    const children = takeOwned(current);
     if (!children) continue;
     for (const child of children) {
-      pending.push({ owner: child, finish: false, detach: true });
+      if (child) pending.push({ owner: child, finish: false, detach: true });
     }
   }
 }

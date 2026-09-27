@@ -267,7 +267,7 @@ function renderComponent(
       restorePortals();
       // End the lifetimes the failed subtree started.
       for (const child of [...(instance.owned ?? [])]) {
-        if (child !== instance.computation) child.dispose();
+        if (child && child !== instance.computation) child.dispose();
       }
       if (!instance.boundary(error)) throw error;
       const fallback = runComponent(instance);
@@ -653,7 +653,7 @@ function flattenText(value: unknown, element: RawTextElement): string[] {
             out.length = start;
             restorePortals();
             for (const owner of Array.from(instance.owned ?? [])) {
-              if (owner !== instance.computation) owner.dispose();
+              if (owner && owner !== instance.computation) owner.dispose();
             }
             if (!instance.boundary(error)) throw error;
             const fallback = runComponent(instance);
