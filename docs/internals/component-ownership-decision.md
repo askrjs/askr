@@ -1,25 +1,24 @@
 # Component execution and state ownership (#575)
 
-Status: **choose lifetime setup as the direction; keep public migration gated**.
-This record describes the existing contract and the internal proof on
-`design/575-state-ownership`. `defineSetupComponent` is internal, is not in a
-package export, and is not a supported application API.
+Status: **GO for continued internal evaluation; NO-GO for a public setup API or
+sibling migration.** The current core proof supports lifetime setup as a viable
+direction. Its helper remains internal and is not included in a package export.
 
 ## Existing contract
 
 An ordinary component function runs at mount and again when its props or a
 readable value read by its render changes. Each run resets a hook cursor.
 `state()`, `derive()`, `selector()`, `watch()`, `stream()`, `task()`, and other
-lifecycle calls claim a slot by call order. `resource()` claims a `state()`
+lifecycle calls claim typed slots by call order. `resource()` claims a `state()`
 slot for its holder. A later component run must claim the same count and kinds
-of slots. A changed sequence throws for a component body; a function child
-can instead remount with fresh state. These are user-visible rules, and the
-existing state and hook-order tests remain the compatibility contract.
+of slots. A changed sequence throws for a component body; a function child can
+instead remount with fresh state. These user-visible rules remain the public
+compatibility contract, covered by the existing hook-order and state tests.
 
-The component instance owns the cells, lifecycle slots, subscriptions, and an
-`OwnershipRecord`. Its signal and cleanup callbacks end with that lifetime.
+The current `ComponentInstance` owns those cells and computations in the core
+`Owner` tree. Its abort signal and cleanup callbacks end with that lifetime.
 Keyed children and `For` rows retain their own lifetimes while their keys
-remain; removal or a changed key disposes the old lifetime. `watch()` runs
+remain; removal or a changed key disposes the old lifetime. `watch()` starts
 after commit and stops its previous generation before observing a new one.
 `resource()` starts client work after commit, publishes into a stable snapshot,
 and aborts its work on refresh or disposal. SSR requires synchronous resource
@@ -27,99 +26,137 @@ data or supplied preload data. A failed render discards commit operations and
 the transaction restores provisional renderer and ownership changes; state
 writes made before the failed render are not automatically undone.
 
-Since #485 (delivered in #607), `For`, `Show`, and `Case` are lazy components
-with their own lifetimes and hook slots, so a plain `if`, ternary, or changing
-loop around them no longer affects the parent's hook sequence.
+Since #485 (delivered in #607), `For`, `Show`, and `Case` are lazy boundary
+components with their own lifetimes and hook slots. In a legacy component, an
+ordinary branch or loop is safe when it does not change the component's hook
+sequence. In a setup component, those same constructs may control ordinary JSX
+and nested component nodes; lifecycle declarations stay in setup.
 
-| Example                               | Current component                                                                       | Lifetime setup direction                                                                               |
-| ------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `if`, early return, ternary in render | Safe only if they do not change the hook sequence; controls and child components do not | Safe for ordinary JSX and nested component nodes in the render callback; lifecycle calls stay in setup |
-| Changing loop in render               | Safe for ordinary keyed JSX and controls; calling hooks in the loop changes slots       | Safe for ordinary keyed JSX and controls                                                               |
-| Nested component                      | Child has its own positional sequence and lifetime                                      | Child may use either model and owns its own lifetime                                                   |
-| Keyed remount                         | New key creates a new component and fresh cells                                         | New key creates a new setup and fresh cells                                                            |
+| Example                     | Positional rerun component                                                                                     | Lifetime setup direction                                                                              |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `if`, early return, ternary | Safe when the branch does not change hook calls; conditional lifecycle declarations violate the hook contract. | Safe in the render callback; setup declarations run once.                                             |
+| Changing loop               | Ordinary keyed JSX is safe; lifecycle calls in the loop change the slot sequence.                              | Ordinary keyed JSX and nested component nodes are safe; lifecycle declarations stay outside the loop. |
+| Nested component            | Each child owns a separate positional sequence and lifetime.                                                   | A child may use either model and owns its own lifetime.                                               |
+| Keyed remount               | A new key creates a component with fresh cells.                                                                | A new key creates a component with fresh setup state.                                                 |
 
-## Decision and bounded proof
+## Decision and current-core proof
 
-Choose a **setup once, render many** component shape for the non-positional
-user model. Setup creates state, derived values, watchers, and async resources
-once per component lifetime. It returns a render callback that receives current
-props and may use ordinary JavaScript branches and loops without changing an
-owner's lifecycle declarations. The proof stores that callback by component
-instance and rejects lifecycle calls inside it. The implementation remains
-internal until the gates below pass.
+Use **setup once, render many** as the non-positional model to evaluate. Setup
+creates state and lifecycle values once per component lifetime and returns a
+render callback that receives current props. The callback may branch, return
+early, and loop without changing lifecycle declarations. Existing positional
+components remain supported without behavior changes.
 
-The prototype test covers state updates across an early return and changing
-loop length, fresh render props, keyed remount, a failed update retaining its
-committed DOM and setup state, SSR output, hydration adoption, resource
-publication, and resource abort on cleanup. A setup callback can read later
-props through its third `currentProps` accessor: derived values and watches
-track it, rollback restores its prior value, and hydration retains the server
-node after a prop update. A setup-owned resource can use the accessor and an
-owned watch to refresh on prop changes and abort an older request. This is an
-internal proof, not the final source-driven async API for #492. Existing
-positional callers stay on their current path. The prototype still cannot use
-eager `For`/`Show`/`Case` inside its render callback yet:
-those primitives still claim parent slots. A branch that creates a lifecycle
-value in setup responds only to **initial** props; later changes need a keyed
-child or a separately owned branch.
+The bounded prototype is in `src/core/component/setup.ts` and is connected to
+the existing `ComponentInstance` execution path. It is not re-exported. The
+current props accessor is backed by a lazily allocated signal, so ordinary
+positional components allocate no props signal. Setup metadata is resolved once
+per instance. Lifecycle calls from a setup render callback fail with a focused
+error.
 
-We reject retaining positional reruns as the sole model: they preserve existing
-behavior but leave the stated ordinary-control-flow goal unmet. We reject
-caching one JSX tree from setup: async `resource()` publication can leave a
-plain snapshot rendered as `pending`. We also defer named-hook/keyed-slot APIs:
-they add identity and collision rules to every declaration while the
-lifetime-owned setup boundary provides a smaller first experiment.
+`tests/jsdom/component/setup-component-prototype.test.tsx` covers:
+
+- One setup call across reactive state updates and changed props.
+- Conditional output removing a nested child and running its cleanup.
+- A setup-owned resource reading live props, refreshing on change, and aborting
+  the prior request.
+- A failed render retaining committed DOM and state, followed by recovery on the
+  same component lifetime.
+- Rejection of lifecycle declarations from the render callback.
+- SSR output adopted by hydration without replacing the server node.
+
+Existing positional hook-order tests remain in place. #485 supplies lazy
+`For`/`Show`/`Case` boundaries, and #492 supplies source-driven async APIs for
+the existing model. The prototype uses an owned `watch()` to refresh its
+resource from live props; this is proof of feasibility, not a final public
+setup/resource contract. The prototype has not yet qualified async resource
+preload keys under conditional setup declarations, nested setup components, or
+all selective-hydration paths.
+
+We reject positional reruns as the only component model because ordinary
+conditional lifecycle declarations still need a hook-order rule. We reject
+caching one JSX tree during setup because an async `resource()` publication can
+leave a plain snapshot rendered as `pending`. We defer named-hook/keyed-slot
+APIs because they add identity and collision rules to each declaration instead
+of establishing ownership at one component boundary.
 
 ## Performance evidence and budget
 
-The unchanged `develop` baseline at `bd95fed` measured 100 coalesced writes
-at 0.487 ms, `Show`/`Case` toggles at 0.021/0.024 ms, 1,000 nested component
-mount and cleanup at 9.06 ms, stable 1,000-row updates at 0.423 ms, and a
-keyed distant swap at 0.979 ms. The 1,000-row hydration sample was 211.6 ms
-with 19.7% relative margin of error; another run on the same code was 63.7 ms.
-These single samples are context, not acceptance measurements.
+The acceptance budget for this bounded prototype is no more than 5% aggregate
+regression against positional components for like-for-like workloads. Five
+same-runner production-mode tier 2 captures compared 100 stateful keyed rows.
+Mount plus disposal measures allocation and teardown together; list updates
+change every row's props and reverse the key order. Mean milliseconds and
+setup-vs-positional deltas were:
 
-The paired tier 2 fixture mounts and cleans 100 stateful keyed rows, updates
-their parent, and reorders their keys. After adding `currentProps`, the last
-three production-mode same-runner captures on September 26 measured
-legacy/setup means (ms): mount and cleanup 1.871/1.817, 1.870/1.861,
-1.859/1.831; parent update 1.793/1.789, 1.848/1.835, 1.789/1.793; reorder
-1.864/1.874, 1.891/1.933, 1.844/1.876. All variants stayed within the 5%
-stable guardrail in those three pairs, with relative margins of error below
-5.5%. One earlier mount/cleanup capture measured 1.930/2.197 ms (+13.8%),
-so repeat qualification when measuring allocations and teardown separately.
-The fixture measures end-to-end time only. Qualify SSR, hydration, and touched
-tier 1 list guardrails independently before a public rollout.
+| Capture | Positional mount/dispose | Setup mount/dispose | Delta | Positional list update | Setup list update |  Delta |
+| ------- | -----------------------: | ------------------: | ----: | ---------------------: | ----------------: | -----: |
+| 1       |                   0.8249 |              0.8199 | -0.6% |                 0.3872 |            0.3880 |  +0.2% |
+| 2       |                   0.8125 |              0.8176 | +0.6% |                 0.3832 |            0.3813 |  -0.5% |
+| 3       |                   0.8359 |              0.8359 |  0.0% |                 0.3979 |            0.4480 | +12.6% |
+| 4       |                   0.8183 |              0.8207 | +0.3% |                 0.3825 |            0.3836 |  +0.3% |
+| 5       |                   0.8240 |              0.8412 | +2.1% |                 0.3920 |            0.3850 |  -1.8% |
+| Mean    |                   0.8231 |              0.8271 | +0.5% |                 0.3886 |            0.3972 |  +2.2% |
 
-The paired setup-prototype fixture was retired with the old renderer extension.
-`tier2-subsystem-stateful-keyed-rows.tsx` measures mount, parent update, and
-reorder behavior in the current core. The historical paired measurements above
-do not qualify the current implementation.
+All measured relative margins of error were below 2.7%. Capture 3's setup
+list-update sample had a 10.97 ms maximum; its p75 was 0.3803 ms versus 0.3698
+ms positional (+2.8%). The other four list-update pairs were within 1%. This is
+recorded as a high-tail outlier, not hidden or treated as a separate failure.
+The aggregate comparison passes the 5% budget. The benchmark measures elapsed
+time, not heap allocations independently; direct allocation profiling remains
+required before any public rollout.
+
+The full current-core tier 1 and tier 2 benchmark suites also passed on this
+checkout. Representative tier 1 means were 0.5095 ms for stable updates to
+1,000 keyed rows, 0.3881 ms for a distant keyed swap, 3.8778 ms to reverse
+1,000 rows, and 40.1592 ms to append then clear 1,000 rows. Representative tier
+2 means were 0.5001 ms for stable 1,000-row updates, 0.5953 ms to mount and
+clean up 100 stateful rows (7.35% RME), 0.0283 ms for a 100-row parent update,
+and 0.0462 ms for a 100-row reorder. Tier 1's 500-job scheduler flush had
+10.04% RME; several tier 2 stress cases were also noisy. The prototype's
+paired fixture is the direct comparison; these full-suite numbers are current
+core baselines, not a direct comparison to the retired runtime.
+
+The 5% budget is a gate for further prototype work, not blanket evidence that
+every application will meet it. Re-run the paired workload and relevant tier 1
+list benchmarks after changes to setup ownership. Re-qualify separately for
+SSR, hydration, and direct allocation before a public API decision.
 
 ## Consumers and migration
 
-| Repository      | Affected surface                                                                                                 | Path                                                                                                                                                                |
-| --------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `askr`          | Positional state, derive, selector, watch, resource, lifecycle calls; eager JSX controls; SSR keys and hydration | Keep current API and tests; introduce a separate opt-in public setup API only after gates pass. #485 supplies lazy controls, #492 settles async ownership and keys. |
-| `askr-ui`       | Stateful component and composite internals, virtual list/table, resource-using avatar and toast                  | No mass conversion. Pilot one small leaf component, then a component with async work and one list; compare behavior and perf.                                       |
-| `askr-cli`      | Templates use positional state/resource; analyzer advises stable hook order and unconditional controls           | Keep existing guidance for legacy components. Add model-specific rules and a new template only when the setup API is public.                                        |
-| `askr-server`   | Server and MCP `resource` methods are separate from the UI primitive                                             | No direct component migration; verify SSR/preload compatibility before changing runtime keys.                                                                       |
-| `askr-examples` | SPA, SSR, SSG, and API SSR examples exercise state, derive, resource, and controls                               | Keep current examples runnable; add a small setup example after API publication and smoke all four rendering modes.                                                 |
+This inventory was refreshed from the sibling checkouts on September 27, 2026.
+The `askr-ui` checkout has existing unrelated local edits; it was inspected
+read-only and none of those changes are part of this decision.
 
-This is an additive path within the current `0.3.x` line while the existing
-API stays supported. No deprecation is scheduled. Deprecation can be proposed
-only after a public setup API, lazy control boundaries, async ownership,
-SSR/hydration and sibling smoke tests, and qualified performance all pass.
-If any gate fails, retain the positional API and the internal prototype as
-research; no sibling migration or release is required. If published later,
-legacy components remain the escape hatch until an explicit major-version
-decision with a tested migration guide.
+| Repository      | Current consumers                                                                                                                                    | Compatibility and migration path                                                                                                                                |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `askr`          | Public positional `state`, `derive`, `selector`, `watch`, `resource`, lifecycle APIs, controls, SSR, and hydration.                                  | Keep the API and its tests. Setup stays internal until its public gate is met.                                                                                  |
+| `askr-ui`       | Stateful select, radio, menu, overlay, dialog, tooltip, avatar, toast, virtual-list, and virtual-table components; avatar/toast use async resources. | No mass conversion. If setup becomes public, pilot one simple leaf, one async component, and one virtualized list with package behavior and performance checks. |
+| `askr-cli`      | Analyzer lifecycle-contract rules and templates advise stable hook order and top-level state/resource declarations.                                  | Keep current guidance for legacy components. Add setup-specific rules or templates only with a public contract.                                                 |
+| `askr-server`   | Server and MCP `.resource()` registrations are backend APIs; no UI component lifecycle primitives were found in its source.                          | No direct component migration. Preserve backend resource APIs and validate SSR data compatibility before changing runtime key semantics.                        |
+| `askr-examples` | SPA, SSG, SSR-only, and API-SSR pages use positional state/derive; the MCP example uses backend resource registration.                               | Keep examples runnable. If setup becomes public, add one small example and smoke all four UI rendering modes before migration.                                  |
 
-## Implementation gate
+This is additive while the positional API remains supported. No deprecation is
+scheduled. Existing positional components remain the escape hatch unless a
+future major-version decision proposes otherwise. No sibling migration or
+release is part of this proof.
 
-Proceed with #485's lazy control boundary design and #492's source-driven
-async ownership design against both component models. Do not start a broad
-runtime or sibling rewrite. Public setup API work requires: live-prop and
-context semantics, conditional child cleanup, async refresh and rollback,
-SSR/hydration identity, no eager parent hook claims, qualified performance,
-and green existing compatibility tests. Reassess this decision at that gate.
+## Go/no-go gate
+
+**Go:** continue internal design review and focused prototype work on the
+current core. The compatibility path is intact, the representative behavioral
+proof passes, and the aggregate tier 2 comparison is inside budget.
+
+**No-go:** do not publish the setup component API, change CLI guidance, or
+migrate sibling packages yet. Before that decision, specify and test context
+provisioning, conditional setup-owned child cleanup, nested setup components,
+async refresh and rollback, SSR preload/resource keys under branch changes,
+selective hydration identity, direct allocation cost, and representative
+askr-ui/example consumer acceptance. Retain positional APIs throughout; no
+deprecation date or compatibility break is implied.
+
+#485's lazy boundaries and #492's source-driven async design are prerequisites
+already delivered in the current core. Their contracts remain complementary:
+lazy boundaries isolate child lifetimes, while setup determines where a
+component declares its own lifecycle values. This issue's proof does not claim
+that positional hook-order rules have been removed from legacy components.

@@ -19,6 +19,12 @@ import { schedule, type Job } from '../reactive/scheduler';
 import { withRendering } from './render-state';
 import { isTimingRenders, reportRenderTime } from './diagnostics';
 import { recordUndo } from './journal';
+import {
+  setupDefinitionFor,
+  type SetupDefinition,
+  type SetupRender,
+} from './setup';
+import { Signal } from '../reactive/graph';
 
 export type HookKind = string;
 
@@ -52,6 +58,8 @@ export function setRenderHost(host: RenderHost): void {
 export class ComponentInstance extends Owner {
   fn: ComponentFunction;
   props: Props;
+  propsSource: Signal<Props> | null = null;
+  readonly setupDefinition: SetupDefinition | undefined;
   readonly depth: number;
   hooks: unknown[] = [];
   hookKinds: HookKind[] = [];
@@ -67,6 +75,8 @@ export class ComponentInstance extends Owner {
   /** Renderer bookkeeping that must settle before the next render job. */
   commitSyncQueue: Array<() => void> | null = null;
   private abortController: AbortController | null = null;
+  private setupRender: SetupRender | null = null;
+  private setupPhase: 'setup' | 'render' | null = null;
   /** Renderer-owned view of this instance's committed output. */
   view: unknown = null;
   /** Rendering on the server: lifecycle work that needs a commit is skipped. */
@@ -94,6 +104,7 @@ export class ComponentInstance extends Owner {
     super(parent);
     this.fn = fn;
     this.props = props;
+    this.setupDefinition = setupDefinitionFor(fn);
     this.depth = depthOf(parent) + 1;
     this.computation = new Computation<unknown>(
       this,
@@ -124,7 +135,27 @@ export class ComponentInstance extends Owner {
         : { signal: this.signal };
       const started = !this.server && isTimingRenders() ? Date.now() : 0;
       const output = withRendering(() =>
-        runWithOwner(this, () => this.fn(this.props, context))
+        runWithOwner(this, () => {
+          const setup = this.setupDefinition;
+          if (!setup) return this.fn(this.props, context);
+          if (!this.setupRender) {
+            this.setupPhase = 'setup';
+            try {
+              this.setupRender = setup(this.props, context, () =>
+                (this.propsSource ??= new Signal(this.props)).read()
+              );
+            } finally {
+              this.setupPhase = null;
+            }
+            verifyHookCount(this);
+          }
+          this.setupPhase = 'render';
+          try {
+            return this.setupRender(this.props, context);
+          } finally {
+            this.setupPhase = null;
+          }
+        })
       );
       if (started) {
         reportRenderTime(
@@ -133,7 +164,7 @@ export class ComponentInstance extends Owner {
           Date.now() - started
         );
       }
-      verifyHookCount(this);
+      if (!this.setupDefinition) verifyHookCount(this);
       this.renderCount++;
       return output;
     } finally {
@@ -178,8 +209,10 @@ export class ComponentInstance extends Owner {
     const previous = this.props;
     if (previous === props) return;
     this.props = props;
+    this.propsSource?.write(props);
     recordUndo(() => {
       this.props = previous;
+      this.propsSource?.write(previous);
     });
   }
 
@@ -189,6 +222,10 @@ export class ComponentInstance extends Owner {
 
   onCommitSync(fn: () => void): void {
     (this.commitSyncQueue ??= []).push(fn);
+  }
+
+  isSetupRenderPhase(): boolean {
+    return this.setupPhase === 'render';
   }
 
   protected override onDispose(): void {
@@ -255,6 +292,12 @@ export function requireInstance(api: string): ComponentInstance {
  * value in `instance.hooks[index]`.
  */
 export function claimHook(instance: ComponentInstance, kind: HookKind): number {
+  if (instance.isSetupRenderPhase()) {
+    throw new Error(
+      `[Askr] ${kind}() cannot be called during setup component render. ` +
+        'Declare lifecycle values in the setup callback.'
+    );
+  }
   const index = instance.hookIndex++;
   const expected = instance.hookKinds[index];
   if (expected === undefined) {
