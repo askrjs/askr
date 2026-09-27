@@ -8,6 +8,7 @@
  * commits in one step.
  */
 
+import { clarifyRenderOverflow } from '../../common/render-depth';
 import { reportUncaughtErrorLater } from '../../common/report-error';
 import { Owner, getOwner, runWithOwner } from '../reactive/owner';
 import { createRenderContext, domNodes, namespaceAt } from './nodes';
@@ -107,7 +108,7 @@ export function createRoot(
       });
     } catch (error) {
       for (const failure of pass.discard()) reportUncaughtErrorLater(failure);
-      throw error;
+      throw clarifyRenderOverflow(error);
     }
     let settled = false;
     return {

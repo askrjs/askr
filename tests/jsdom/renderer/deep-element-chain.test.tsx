@@ -1,0 +1,109 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
+import { state } from '../../../src/index';
+import { renderToStringSync } from '../../../src/ssr';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
+import { createIsland } from '../../../test-utils/render/create-island';
+
+// Askr renders nested elements and components recursively (#624).
+const SUPPORTED_DEPTH = 200;
+const OVERFLOWING_DEPTH = 5000;
+
+function Chain(props: { remaining: number; label: string }) {
+  return props.remaining === 0 ? (
+    <span data-leaf={'true'}>{props.label}</span>
+  ) : (
+    <div>
+      <Chain remaining={props.remaining - 1} label={props.label} />
+    </div>
+  );
+}
+
+describe('deep element-wrapped component chains', () => {
+  let container: HTMLElement;
+  let cleanup: () => void;
+
+  beforeEach(() => {
+    ({ container, cleanup } = createTestContainer());
+  });
+
+  afterEach(() => cleanup());
+
+  it('should mount and patch a chain within the supported depth', () => {
+    let label!: ReturnType<typeof state<string>>;
+    createIsland({
+      root: container,
+      component: () => {
+        label = state('a');
+        return <Chain remaining={SUPPORTED_DEPTH} label={label()} />;
+      },
+    });
+    flushScheduler();
+    expect(container.querySelector('[data-leaf]')?.textContent).toBe('a');
+
+    label.set('b');
+    flushScheduler();
+    expect(container.querySelector('[data-leaf]')?.textContent).toBe('b');
+  });
+
+  it('should explain a stack overflow from a chain that is too deep', () => {
+    let error: unknown;
+    try {
+      createIsland({
+        root: container,
+        component: () => <Chain remaining={OVERFLOWING_DEPTH} label={'a'} />,
+      });
+      flushScheduler();
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).name).toBe('RenderDepthError');
+    expect((error as Error).message).toMatch(/component tree is too deep/);
+    expect((error as { cause?: unknown }).cause).toBeInstanceOf(RangeError);
+  });
+
+  it('should explain a stack overflow when an update deepens the chain', () => {
+    let depth!: ReturnType<typeof state<number>>;
+    createIsland({
+      root: container,
+      component: () => {
+        depth = state(10);
+        return <Chain remaining={depth()} label={'a'} />;
+      },
+    });
+    flushScheduler();
+
+    depth.set(OVERFLOWING_DEPTH);
+    let error: unknown;
+    try {
+      flushScheduler();
+    } catch (caught) {
+      error = caught;
+    }
+    expect((error as Error).name).toBe('RenderDepthError');
+    // The committed tree is unchanged.
+    expect(container.querySelectorAll('div')).toHaveLength(10);
+  });
+
+  it('should render within the supported depth and explain an overflow during SSR', () => {
+    expect(
+      renderToStringSync(() => (
+        <Chain remaining={SUPPORTED_DEPTH} label={'ssr'} />
+      ))
+    ).toContain('<span data-leaf="true">ssr</span>');
+    // Caught directly: wrapping the call in expect().toThrow() adds proxy
+    // frames that change where the stack runs out.
+    let error: unknown;
+    try {
+      renderToStringSync(() => (
+        <Chain remaining={OVERFLOWING_DEPTH} label={'ssr'} />
+      ));
+    } catch (caught) {
+      error = caught;
+    }
+    expect((error as Error).name).toBe('RenderDepthError');
+  });
+});

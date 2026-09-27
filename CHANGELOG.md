@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- fix(core): a component tree too deep for the call stack fails with a
+  `RenderDepthError` that explains the limit, on mount, update, and SSR,
+  instead of a bare `RangeError`. The rendering guide documents the supported
+  depth (#624).
+
 - perf(core): remove quadratic owner, scheduler, and context paths (#612).
   Detaching an owner is O(1) (holes in the parent's child list, compacted when
   they dominate), the render lane is a depth-ordered heap and the effect and

@@ -7,6 +7,7 @@
  * which reports it after the flush.
  */
 
+import { clarifyRenderOverflow } from '../../common/render-depth';
 import { reportUncaughtErrorLater } from '../../common/report-error';
 import { routeError } from '../component/errors';
 import { type ComponentInstance, setRenderHost } from '../component/instance';
@@ -33,7 +34,7 @@ function runPass(owner: Owner | null, render: (pass: Pass) => void): void {
     render(pass);
   } catch (error) {
     for (const failure of pass.discard()) reportUncaughtErrorLater(failure);
-    routeError(owner, error);
+    routeError(owner, clarifyRenderOverflow(error));
     return;
   }
   try {

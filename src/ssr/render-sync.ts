@@ -12,6 +12,7 @@
  * the render root completes.
  */
 
+import { clarifyRenderOverflow } from '../common/render-depth';
 import type { AuthContext } from '@askrjs/auth';
 import { DEFERRED_BOUNDARY } from '../common/deferred-value';
 import type { JSXElement } from '../common/jsx';
@@ -751,7 +752,7 @@ function withServerRender<T>(ctx: RenderContext, fn: () => T): T {
   } catch (error) {
     current = previous;
     owner.dispose();
-    throw error;
+    throw clarifyRenderOverflow(error);
   }
   current = previous;
   const errors = owner.dispose();

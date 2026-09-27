@@ -162,6 +162,17 @@ result updates. Parent reconciliation preserves that live range and its editor
 or widget identity instead of restoring a stale pre-update range. Cleanup
 ownership remains balanced when the row is later replaced or removed.
 
+### Tree depth
+
+The client renderer and SSR render nested elements and components
+recursively, so tree depth is bounded by the JavaScript call stack. A few
+hundred levels of element-wrapped components render on the default Node.js and
+browser stacks; a chain of components that return the next component directly
+(no element between them) is walked iteratively and can be much deeper. When a
+tree is too deep, the render fails with a `RenderDepthError` whose `cause` is
+the engine's stack overflow, and the committed DOM is left unchanged. Render
+long sequences as lists, for example with `For`, instead of nesting them.
+
 ### Imperative widget hosts
 
 Use `imperativeChildren` when a third-party widget owns all descendants of an
