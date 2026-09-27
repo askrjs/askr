@@ -2,11 +2,6 @@
 
 ## Unreleased
 
-- docs(foundations): document stacking dialogs and toasts through one writer
-  that owns the layer list and writes it through its own `definePortal()`
-  channel, since a portal shows the most recent writer's content (#495). The default portal is part of the core client bundle, because every
-  application root provides and hosts it; the SSG hydration bundle check now
-  asserts this and the SSG guide no longer says otherwise (#611).
 - perf(core): remove quadratic owner, scheduler, and context paths (#612).
   Detaching an owner is O(1) (holes in the parent's child list, compacted when
   they dominate), the render lane is a depth-ordered heap and the effect and
@@ -15,6 +10,13 @@
   sibling owners 50.7 ms to 0.43 ms, 5,000 render jobs 13.4 ms to 0.87 ms,
   20,000 effect jobs 20.2 ms to 2.06 ms, patching a 2,000-deep chain 13.0 ms
   to 0.72 ms (mean).
+
+- docs(foundations): document stacking dialogs and toasts through one writer
+  that owns the layer list and writes it through its own `definePortal()`
+  channel, since a portal shows the most recent writer's content (#495). The
+  default portal is part of the core client bundle, because every application
+  root provides and hosts it; the SSG hydration bundle check now asserts this
+  and the SSG guide no longer says otherwise (#611).
 
 - **breaking** refactor(api): control, data, `getSignal` and `onRouteChange`
   each have one import path (#487).
