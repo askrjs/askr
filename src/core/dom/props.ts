@@ -188,7 +188,16 @@ export function applyInitialProps(
     const batch = scalars;
     scalars = null;
     if (adopted) {
-      pass.op(() => applyStaticScalarPropsToElement(node.el, batch, node.tag));
+      for (const key in batch) {
+        const value = batch[key];
+        if (isSimpleAttribute(node.tag, key, value)) {
+          writeSimpleAttribute(pass, node, key, value, undefined);
+        } else {
+          pass.op(() =>
+            applyStaticScalarPropsToElement(node.el, { [key]: value }, node.tag)
+          );
+        }
+      }
     } else {
       applyStaticScalarPropsToElement(node.el, batch, node.tag);
     }
