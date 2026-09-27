@@ -172,14 +172,15 @@ component that returns the same component type directly, with no hooks and no
 element in between, is walked iteratively and does not count against that
 limit.
 
-When the stack overflows during a render, the render fails with a
+When Askr recognizes a stack overflow during a render, it throws a
 `RenderDepthError` (exported from `@askrjs/askr`) whose `cause` is the engine's
 error. It usually means the tree is too deep, but a component or computation
-that recurses without end produces the same error. It reaches the nearest
-`ErrorBoundary` like any render error (a boundary nested so deep that no stack
-is left to build the error receives the engine's error instead); without one,
-the render throws and the committed DOM is left unchanged. Render long
-sequences as lists, for example with `For`, instead of nesting them.
+that recurses without end produces the same error. If stack exhaustion raises
+an unrecognized engine error, or leaves too little stack to build the wrapper,
+that engine error can surface directly. `RenderDepthError` reaches the nearest
+`ErrorBoundary` like any render error; without one, the render throws and the
+committed DOM is left unchanged. Render long sequences as lists, for example
+with `For`, instead of nesting them.
 
 ### Imperative widget hosts
 
