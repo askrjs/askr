@@ -8,6 +8,7 @@
  * host. The root view keeps shared route shells in place across navigation.
  */
 
+import { clarifyRenderOverflow } from '../common/render-depth';
 import type { AppRenderRuntime } from '../common/app-render-runtime';
 import type { AppRootHandle } from '../common/app-root';
 import type { ComponentFunction } from '../common/component';
@@ -263,7 +264,7 @@ export function activateHydrationBoundary(
     hydrateDormantHost(pass, host);
   } catch (error) {
     for (const failure of pass.discard()) reportUncaughtErrorLater(failure);
-    throw error;
+    throw clarifyRenderOverflow(error);
   }
   pass.commit();
   flushSync();

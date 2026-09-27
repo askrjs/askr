@@ -4,6 +4,7 @@
  * instance render its fallback on its next render.
  */
 
+import { clarifyRenderOverflow } from '../../common/render-depth';
 import type { Owner } from '../reactive/owner';
 import { ComponentInstance } from './instance';
 
@@ -17,7 +18,11 @@ export function noteErrorOrigin(owner: Owner | null, error: unknown): void {
     error === null
   )
     return;
-  if (!errorOrigins.has(error)) errorOrigins.set(error, owner);
+  try {
+    if (!errorOrigins.has(error)) errorOrigins.set(error, owner);
+  } catch {
+    // Out of stack near an overflow; a shallower frame records an origin.
+  }
 }
 
 /**
@@ -47,4 +52,32 @@ export function routeError(owner: Owner | null, error: unknown): void {
       : undefined;
   if (origin && deliverToBoundary(origin, error)) return;
   if (!deliverToBoundary(owner, error)) throw error;
+}
+
+/**
+ * `caught`, or a `RenderDepthError` when it is a stack overflow. The new error
+ * inherits the origin recorded on `caught` so routing still starts where the
+ * overflow first escaped. This runs near an exhausted stack, so carrying the
+ * origin is best-effort: the cheap lookup runs first, and if recording fails
+ * the converted error is still returned without an origin.
+ */
+export function clarifyRenderError(caught: unknown): unknown {
+  let origin: Owner | undefined;
+  try {
+    origin =
+      caught !== null && typeof caught === 'object'
+        ? errorOrigins.get(caught)
+        : undefined;
+  } catch {
+    origin = undefined;
+  }
+  const error = clarifyRenderOverflow(caught);
+  if (error !== caught && origin) {
+    try {
+      errorOrigins.set(error as object, origin);
+    } catch {
+      // Out of stack; the converted error keeps no origin.
+    }
+  }
+  return error;
 }

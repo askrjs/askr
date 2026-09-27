@@ -1,12 +1,18 @@
 import { expectAssignable, expectType } from 'tsd';
 import * as rootSurface from '@askrjs/askr';
-import type { RenderDiagnosticsOptions } from '@askrjs/askr';
+import { RenderDepthError, type RenderDiagnosticsOptions } from '@askrjs/askr';
 import * as resourcesSurface from '@askrjs/askr/resources';
 import * as routerSurface from '@askrjs/askr/router';
 import * as foundationsSurface from '@askrjs/askr/foundations';
 
 // @ts-expect-error root package does not expose JSXElement
 expectType<never>(null as unknown as import('@askrjs/askr').JSXElement);
+
+declare const renderFailure: unknown;
+if (renderFailure instanceof RenderDepthError) {
+  expectType<unknown>(renderFailure.cause);
+  expectAssignable<Error>(renderFailure);
+}
 
 expectAssignable<RenderDiagnosticsOptions>({
   slowRenderWarnings: false,

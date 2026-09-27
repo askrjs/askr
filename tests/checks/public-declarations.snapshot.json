@@ -44,6 +44,9 @@
       "registerSSRStyle": [
         "declare function registerSSRStyle(id: string, cssText: string): void;"
       ],
+      "RenderDepthError": [
+        "declare class RenderDepthError extends Error {\n    readonly cause: unknown;\n    constructor(cause: unknown);\n}"
+      ],
       "RenderDiagnosticsOptions": [
         "interface RenderDiagnosticsOptions {\n    slowRenderWarnings?: boolean;\n    slowRenderThresholdMs?: number;\n}"
       ],
@@ -2054,6 +2057,9 @@
     ],
     "RenderContext": [
       "interface RenderContext {\n    url: string;\n    seed: number;\n    data?: SSRData;\n    params?: Record<string, string>;\n    routes?: readonly Route[];\n    routeAuth?: RouteAuthOptions;\n    basePath?: string;\n    authContext?: AuthContext;\n    signal?: AbortSignal;\n    dataRuntime?: unknown;\n    queryCache?: Map<string, unknown>;\n    resourceDataProvided: boolean;\n    mode?: \"ssr\" | \"spa\";\n    queryPrefetch?: QueryPrefetchContext;\n    ssrCleanupFns: Array<() => void>;\n    keyCounter: number;\n    renderData: PageRenderEnvelope | null;\n    hydrationData: PageRenderEnvelope | null;\n    deferredBoundaries: DeferredBoundaryRegistration[];\n    ssrStyles: Map<string, SSRStyleRegistration>;\n    ssrPortals: SSRPortalState;\n    cspNonce?: string;\n}"
+    ],
+    "RenderDepthError": [
+      "declare class RenderDepthError extends Error {\n    readonly cause: unknown;\n    constructor(cause: unknown);\n}"
     ],
     "RenderDiagnosticsOptions": [
       "interface RenderDiagnosticsOptions {\n    slowRenderWarnings?: boolean;\n    slowRenderThresholdMs?: number;\n}"

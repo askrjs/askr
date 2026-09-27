@@ -12,6 +12,7 @@
  * the render root completes.
  */
 
+import { clarifyRenderOverflow } from '../common/render-depth';
 import type { AuthContext } from '@askrjs/auth';
 import { DEFERRED_BOUNDARY } from '../common/deferred-value';
 import type { JSXElement } from '../common/jsx';
@@ -263,7 +264,8 @@ function renderComponent(
     const restorePortals = capturePortalWrites(render.ctx);
     try {
       withOwner(instance, () => renderValue(componentOutput(output), buffer));
-    } catch (error) {
+    } catch (caught) {
+      const error = clarifyRenderOverflow(caught);
       restorePortals();
       disposeFailedSubtree(instance);
       if (!instance.boundary(error)) throw error;
@@ -658,7 +660,8 @@ function flattenText(value: unknown, element: RawTextElement): string[] {
           const restorePortals = capturePortalWrites(render.ctx);
           try {
             withOwner(instance, () => visit(componentOutput(output)));
-          } catch (error) {
+          } catch (caught) {
+            const error = clarifyRenderOverflow(caught);
             out.length = start;
             restorePortals();
             disposeFailedSubtree(instance);
@@ -751,7 +754,7 @@ function withServerRender<T>(ctx: RenderContext, fn: () => T): T {
   } catch (error) {
     current = previous;
     owner.dispose();
-    throw error;
+    throw clarifyRenderOverflow(error);
   }
   current = previous;
   const errors = owner.dispose();

@@ -54,9 +54,10 @@ down.
 Beyond these depths, the ceiling is engine-specific. In Node and Chromium,
 element-interleaved nesting overflows at roughly 200 to 400 levels depending
 on the path, with hydration and updates the lowest. Firefox allows somewhat
-more, and WebKit several times more. An overflow can surface as a `RangeError`
-or as an unrelated engine error raised while the stack is exhausted. Flatten
-generated markup that nests deeper, or split it into multiple render roots.
+more, and WebKit several times more. Askr wraps a recognized stack-overflow
+error in `RenderDepthError` when enough stack remains; otherwise, an unrelated
+engine error can surface. Flatten generated markup that nests deeper, or split
+it into multiple render roots.
 
 The renderer retains a separate 100,000-wrapper safety limit for component
 output that never terminates. Reaching that limit throws an Askr error with the

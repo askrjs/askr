@@ -162,6 +162,29 @@ result updates. Parent reconciliation preserves that live range and its editor
 or widget identity instead of restoring a stale pre-update range. Cleanup
 ownership remains balanced when the row is later replaced or removed.
 
+### Tree depth
+
+The client renderer and SSR render nested elements and components
+recursively, so tree depth is bounded by the JavaScript call stack. Askr
+supports at least 200 levels of nested elements and components on the default
+Node.js stack; the exact ceiling depends on the engine and its stack size. A
+component that returns the same component type directly, with no hooks and no
+element in between, is walked iteratively and does not count against that
+limit.
+
+When Askr recognizes a stack overflow during a render, it throws a
+`RenderDepthError` (exported from `@askrjs/askr`) whose `cause` is the engine's
+error. It usually means the tree is too deep, but a component or computation
+that recurses without end produces the same error. If stack exhaustion raises
+an unrecognized engine error, or leaves too little stack to build the wrapper,
+that engine error can surface directly. `RenderDepthError` reaches the nearest
+`ErrorBoundary` like any render error; without one, the render throws and the
+committed DOM is left unchanged. Render long sequences as lists, for example
+with `For`, instead of nesting them.
+
+During deferred selective hydration, an unhandled depth error is reported as
+an uncaught error. The boundary stays dormant so a later reveal can retry it.
+
 ### Imperative widget hosts
 
 Use `imperativeChildren` when a third-party widget owns all descendants of an
