@@ -4,9 +4,6 @@ The Askr platform is developed as a set of sibling package repositories under
 the `askrjs` GitHub organization. This `askr` repository owns the core runtime
 and the platform-level documentation.
 
-For dependency configuration patterns across local package checkouts, see
-[Peer Dependencies in npm Workspaces](./peer-dependencies-monorepo.md).
-
 ## Local Checkout Layout
 
 ```text
@@ -70,5 +67,5 @@ automation.
 ## See Also
 
 - [Core source layout](./core-layout.md)
-- [Contributing](./contributing.md)
+- [Contributing](../../CONTRIBUTING.md)
 - [Release](./release.md)

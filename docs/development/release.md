@@ -108,4 +108,4 @@ before retrying publish.
 
 - [Coordinated release](./coordinated-release.md)
 - [Repo structure](./repo-structure.md)
-- [Contributing](./contributing.md)
+- [Contributing](../../CONTRIBUTING.md)

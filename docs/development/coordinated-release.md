@@ -81,5 +81,4 @@ have meaningful CI, so merging it early merges an unverified change.
 ## See also
 
 - [Release](./release.md)
-- [Peer dependencies across the monorepo](./peer-dependencies-monorepo.md)
 - [Platform versioning](./platform-versioning.md)

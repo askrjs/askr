@@ -498,6 +498,20 @@ function DashboardPage() {
 }
 ```
 
+### Server queries and hydration
+
+`serveQuery(query, handler)` pairs a `defineQuery()` definition with the server
+handler that resolves it, and `defineServerQueries(...entries)` collects those
+pairs into the registry that SSR and SSG prefetching use.
+`createQueryPrefetchContext(options?)` builds the context that
+`prefetchQuery()` fills ahead of render.
+
+`dehydrateDataRuntime(runtime)` snapshots a runtime's query cache for
+transport, and `hydrateDataRuntime(runtime, data)` loads that snapshot into a
+client runtime. `hydrateSPA()` does this for you; call them directly only when
+you move query data yourself. See the [platform recipes](../guides/platform-recipes.md)
+for a complete server-query setup.
+
 ### Query test fixtures
 
 Use `@askrjs/askr/testing` for query-shaped test fixtures in page and component tests:

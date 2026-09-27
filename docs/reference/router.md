@@ -214,6 +214,10 @@ navigation reruns the loader and exposes the complete result.
 
 ### Code-split route content
 
+`lazy(() => import('./page'))` wraps a dynamic import as a route component. The
+import starts when the route first matches, and the returned component's
+`preload()` fetches it earlier, for example on hover.
+
 Use `lazyRouteData()` when a content-heavy route should keep only navigation
 and SEO metadata in the route manifest. Its dynamic import starts only after
 that route matches; the imported module is cached and the same loader runs
@@ -382,6 +386,59 @@ rejects async ones instead of sharing a context between requests (see
 server render without request auth, such as `renderToString(Component)`, sees
 an anonymous identity; server-side route resolution never updates the
 browser-wide identity.
+
+## Access decisions
+
+Route policies return access decisions. A policy is `(context) => AccessDecision | PromiseLike<AccessDecision>` passed
+in a route's `policies` array.
+
+- `allow()` lets the request continue.
+- `redirect(to, init?)` sends the visitor elsewhere. A string is a logical path
+  that gains the registry `basePath`; a `to()` destination is used as-is.
+  `init` sets `status` and `replace`.
+- `deny(status)` stops the request with a 401, 403, or 404 status.
+  `unauthorized()`, `forbidden()`, and `notFound()` are shorthands for
+  `deny(401)`, `deny(403)`, and `deny(404)`.
+
+## `RouteDataLoadError`
+
+A loader created with `lazyRouteData()` rejects with a `RouteDataLoadError`
+when its import or `select` step fails. Its `preload()` rejects with the raw
+import error instead. Its `route` is the requested URL,
+`phase` is where the loader ran (`'client'`, `'server'`, or `'ssg'`), and
+`cause` is the original error. Abort errors pass through unwrapped.
+
+## Deferred value helpers
+
+- `isDeferred(value)` checks whether a value came from `defer()`.
+- `resolveDeferredValues(input, signal?)` waits for every `defer()` value
+  reachable through arrays and object property values (not `Map` or `Set`
+  contents) and resolves to the same `input` object. It rejects as soon as any
+  deferred value rejects, or with an `AbortError` once `signal` is aborted and
+  a `defer()` value is reached. The `defer()` wrappers stay
+  in place, now settled, so render them with `Resolve` rather than serializing
+  `input` directly.
+
+## Route metadata helpers
+
+Most applications let the router manage the document head. Custom shells can
+use the same helpers:
+
+- `resolveRouteMeta(record, context)` runs a route's metadata chain and resolves
+  to the merged `RouteMeta`; `await` it before serializing.
+- `serializeRouteMeta(meta)` renders `<title>`, `<meta>`, `<link>`, and JSON-LD
+  markup for a server-rendered `<head>`.
+- `reconcileRouteMeta(meta, target?)` replaces only Askr-owned head nodes after
+  a client navigation.
+
+## Route testing helpers
+
+`@askrjs/askr/testing` matches routes without mounting an app:
+
+- `matchRoute(path, { registry })` returns the matched route and params, or
+  `null`.
+- `getRouteWarnings({ registry })` reports named-splat routes whose segments
+  collide with sibling static routes.
 
 ## `fallback(Component)`
 

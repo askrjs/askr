@@ -22,7 +22,10 @@ export type IslandsConfig = {
   cspNonce?: string;
 };
 
-type BootRouteSource = { registry: RouteRegistry };
+type BootRouteSource = {
+  /** Pass a route registry built via `createRouteRegistry()`; hydration uses the one the server rendered with. */
+  registry: RouteRegistry;
+};
 
 /** Configuration for {@link createSPA}. */
 export type SPAConfig = BootRouteSource & {
@@ -30,7 +33,7 @@ export type SPAConfig = BootRouteSource & {
   cspNonce?: string;
   /** Optional data runtime, primarily for routed test fixtures. */
   dataRuntime?: import('../data/types').DataRuntime;
-  /** Pass a route registry built via `createRouteRegistry(() => { ... })`. */
+  /** Auth resolution and redirect options; defaults to the registry's `auth`. */
   auth?: RouteAuthOptions;
   scrollRestoration?: boolean | ScrollRestorationOptions;
   cleanupStrict?: boolean;
@@ -42,7 +45,7 @@ export type HydrateSPAConfig = BootRouteSource & {
   root: Element | string;
   cspNonce?: string;
   dataRuntime?: import('../data/types').DataRuntime;
-  /** Pass the same explicit route registry used for the server render. */
+  /** Auth resolution and redirect options; defaults to the registry's `auth`. */
   auth?: RouteAuthOptions;
   scrollRestoration?: boolean | ScrollRestorationOptions;
   cleanupStrict?: boolean;

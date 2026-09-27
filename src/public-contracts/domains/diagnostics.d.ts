@@ -1,6 +1,7 @@
 import { JSXElementType, JSXElement, Props } from '../elements.js';
 import '../jsx-globals.js';
 
+/** Options for {@link configureRenderDiagnostics}. */
 interface RenderDiagnosticsOptions {
   /** Emit one warning per component instance when a render exceeds the threshold. */
   slowRenderWarnings?: boolean;

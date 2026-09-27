@@ -22,9 +22,9 @@ or review older commits.
 
 ```text
 docs/
-  index.md
   README.md
   getting-started/
+  core/
   guides/
   concepts/
   reference/
@@ -35,7 +35,6 @@ docs/
   migration/
   development/
   benchmarks/
-  roadmap/
 ```
 
 Package-owned docs for `askr-ui`, `askr-themes`, `askr-cli`, `askr-vite`,
@@ -45,7 +44,7 @@ content.
 
 ## Contributor Checklist
 
-- Keep [docs/index.md](../index.md) and [docs/README.md](../README.md) current
+- Keep [docs/README.md](../README.md) current
   when adding or removing pages.
 - Prefer relative links inside this repository.
 - Use GitHub links for package-owned docs in sibling repositories.

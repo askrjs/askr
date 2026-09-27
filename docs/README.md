@@ -58,36 +58,89 @@ Askr focuses on frontend application structure and developer workflow. It is not
 
 ## Documentation map
 
-| Section                                                                   | What you will find                                    |
-| ------------------------------------------------------------------------- | ----------------------------------------------------- |
-| [Getting started](./getting-started/)                                     | Installation, quickstart, platform overview           |
-| [Core](./core/)                                                           | Runtime, routing, rendering, data primitives          |
-| [UI](https://github.com/askrjs/askr-ui/tree/main/docs/README.md)          | askr-ui docs owned by the package repo                |
-| [Styling](https://github.com/askrjs/askr-themes/tree/main/docs/README.md) | askr-themes docs owned by the package repo            |
-| [CLI](https://github.com/askrjs/askr-cli/tree/main/docs/README.md)        | askr-cli docs owned by the package repo               |
-| [Guides](./guides/)                                                       | Real-app walkthroughs by use case                     |
-| [Platform recipes](./guides/platform-recipes.md)                          | Verified routing, data, lifecycle, and error patterns |
-| [Reference](./reference/)                                                 | Package map, project structure, conventions, glossary |
-| [Development](./development/)                                             | Platform charter, monorepo layout, release process    |
+Package documentation owned by sibling repositories:
+[askr-ui](https://github.com/askrjs/askr-ui/tree/main/docs/README.md),
+[askr-themes](https://github.com/askrjs/askr-themes/tree/main/docs/README.md),
+and [askr-cli](https://github.com/askrjs/askr-cli/tree/main/docs/README.md).
+Guides live in [guides](./guides/), and benchmark workflow in
+[benchmarks](./benchmarks/README.md).
 
-Benchmark workflow and current optimization goals live under
-[Benchmarks](./benchmarks/), including the
-[benchmark index](./benchmarks/README.md), the
-[stability workflow](./benchmarks/stability.md), and
-[performance targets](./benchmarks/performance-targets.md).
+### Getting Started
 
-For contributors who need the runtime shape rather than API-first docs, see
-[Internals: Core rewrite](./internals/core-rewrite.md) and the
-[core source layout](./development/core-layout.md).
-Published contracts are described in the
-[public compatibility boundary](./development/compatibility-boundary.md).
-Root transactions and request isolation are covered in
-[integration boundaries](./development/integration-boundaries.md).
-The detailed drill-downs live in
-[Runtime reactivity](./internals/runtime-reactivity.md),
-[Renderer pipeline](./internals/renderer-pipeline.md), and
-[SSR and SSG pipeline](./internals/ssr-ssg-pipeline.md), with the route split
-covered in [Router internals](./internals/router-manifest.md).
+| Page                                                        | Description                        |
+| ----------------------------------------------------------- | ---------------------------------- |
+| [What is Askr](./getting-started/what-is-askr.md)           | Platform overview and scope        |
+| [Installation](./getting-started/installation.md)           | Prerequisites and install steps    |
+| [Quick Start](./getting-started/quick-start.md)             | First running app                  |
+| [Platform Overview](./getting-started/platform-overview.md) | Package roles and responsibilities |
+| [Philosophy](./getting-started/philosophy.md)               | Design principles                  |
+
+### Core
+
+| Page                             | Description                                                     |
+| -------------------------------- | --------------------------------------------------------------- |
+| [Runtime](./core/runtime.md)     | `createIsland`, `createSPA`, lifecycle                          |
+| [Routing](./core/routing.md)     | `createRouteRegistry`, `group`, `route`, `currentRoute`, `Link` |
+| [Rendering](./core/rendering.md) | SSR and SSG output                                              |
+| [Data](./core/data.md)           | `state`, `derive`, `resource`, `query`, `mutation`              |
+
+### Package Boundaries
+
+| Page                                                   | Description                                |
+| ------------------------------------------------------ | ------------------------------------------ |
+| [Package map](./reference/package-map.md)              | Public packages and their responsibilities |
+| [Project structure](./reference/project-structure.md)  | Application layout                         |
+| [Conventions](./reference/conventions.md)              | Naming and composition rules               |
+| [Glossary](./reference/glossary.md)                    | Platform terminology                       |
+| [API reference](./reference/api.md)                    | Entry points and examples                  |
+| [Router reference](./reference/router.md)              | Router API details                         |
+| [Resources reference](./reference/resources.md)        | Resource API details                       |
+| [FX reference](./reference/fx.md)                      | Timing utilities                           |
+| [Foundations reference](./reference/foundations.md)    | Low-level UI building blocks               |
+| [Behavioral contracts](./reference/spec-guarantees.md) | Runtime behaviors backed by tests          |
+
+### Concepts
+
+| Page                                                     | Description                        |
+| -------------------------------------------------------- | ---------------------------------- |
+| [Determinism](./concepts/determinism.md)                 | Event ordering and update behavior |
+| [Runtime enforcement](./concepts/runtime-enforcement.md) | Hook-order and structural checks   |
+
+### Recipes
+
+| Page                                                      | Description                                      |
+| --------------------------------------------------------- | ------------------------------------------------ |
+| [Verified platform recipes](./guides/platform-recipes.md) | Routing, browser lifecycle, data, errors, search |
+
+### Development
+
+| Page                                                              | Description                                                       |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------- |
+| [Platform charter](./development/platform-charter.md)             | Package roles and operating model                                 |
+| [Repo structure](./development/repo-structure.md)                 | Repository layout                                                 |
+| [Contributing](../CONTRIBUTING.md)                                | Setup, build, test, lint                                          |
+| [Release](./development/release.md)                               | Versioning and publish process                                    |
+| [Quality contracts](./development/quality-contracts.md)           | Runtime invariants and test gates                                 |
+| [Compatibility boundary](./development/compatibility-boundary.md) | Published contracts and consumer validation                       |
+| [Core source layout](./development/core-layout.md)                | Core layers and DOM renderer modules                              |
+| [Integration boundaries](./development/integration-boundaries.md) | Root transactions, data attachments, and server request isolation |
+| [Platform versioning](./development/platform-versioning.md)       | Release coordination policy                                       |
+| [Docs style guide](./contributing/docs-style-guide.md)            | Writing conventions                                               |
+| [Testing guide](./contributing/testing.md)                        | Test patterns                                                     |
+
+### Additional Reading
+
+- [Internals: Core rewrite](./internals/core-rewrite.md)
+- [Internals: Runtime reactivity](./internals/runtime-reactivity.md)
+- [Internals: Renderer pipeline](./internals/renderer-pipeline.md)
+- [Internals: SSR and SSG pipeline](./internals/ssr-ssg-pipeline.md)
+- [Internals: Control-flow primitive design](./internals/for-primitive-design.md)
+- [Internals: Foundations pit of success](./internals/foundations-pit-of-success.md)
+- [Internals: Router manifest](./internals/router-manifest.md)
+- [Benchmarks: Stability](./benchmarks/stability.md)
+- [Benchmarks: Performance targets](./benchmarks/performance-targets.md)
+- [Migration: From React](./migration/from-react.md)
+- [Troubleshooting: Common issues](./troubleshooting/common-issues.md)
 
 ## The most important rule
 

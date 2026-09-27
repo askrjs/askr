@@ -268,7 +268,7 @@ declare function lazyRouteData<TModule, TData = TModule>(
 declare function Outlet(): JSXElement;
 /** Which environment a route's data loader ran (or failed) in. */
 type RouteDataLoadPhase = 'client' | 'server' | 'ssg';
-/** Thrown when a route's `loader` rejects; wraps the original `cause`. */
+/** Rejection of a `lazyRouteData()` loader whose import or `select` failed; wraps the original `cause`. */
 declare class RouteDataLoadError extends Error {
   readonly route: string;
   readonly phase: RouteDataLoadPhase;
