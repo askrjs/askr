@@ -216,8 +216,11 @@ flowchart LR
 
 - `src/ssr/index.ts` is the stable SSR facade. `src/ssr/index-internal.ts`
   keeps public SSR orchestration and the route render host.
-  `src/ssr/render-sync.ts` owns synchronous HTML serialization and
-  component-form `renderToString()`. `src/ssr/hydration-data.ts` owns
+  `src/ssr/render-sync.ts` owns synchronous HTML serialization,
+  component-form `renderToString()`, SSR purity guards, error-boundary
+  fallback rendering, and default portal wrapping; it runs each component's
+  render through the core component instance and serializes the output with
+  its own writer. `src/ssr/hydration-data.ts` owns
   hydration render-data serialization. `src/ssr/verify-hydration.ts` is called
   by `hydrateSPA()` to compare adopted DOM with a normalized synchronous route
   render when verification is enabled. That verification render uses the
@@ -225,17 +228,16 @@ flowchart LR
   preload, lazy-loader, redirect, or route-loader resolution.
   Comparison excludes framework-owned hydration payload and request-local SSR
   style carrier elements, which are not part of the adopted app subtree.
-  `src/ssr/render-sync.ts` runs components on the same core execution path as
-  the browser and writes their output to a sink.
 - `src/ssr/route-render.ts` owns object-form `renderToString()`,
   `renderToStream()`, route source normalization, document render argument
   construction, and string/stream sink orchestration.
-- `src/ssr/route-policy-resolution.ts` owns route match and policy resolution
-  for the synchronous `renderToString()` and `renderToStream()` paths.
-  `src/ssr/route-request-render.ts` owns `renderRouteRequest()` and
-  `renderRouteRequestToString()`, which call the router's
-  `resolveRouteRequest()` directly and return redirect, deny, and no-match
-  results.
+- Both SSR paths resolve policy and auth through the router's
+  `resolveRouteRequest()`. `src/ssr/route-policy-resolution.ts` serves the
+  synchronous `renderToString()` and `renderToStream()` paths: it pre-matches
+  the route, calls `resolveRouteRequest()` with `load: false`, and rejects
+  route loaders. `src/ssr/route-request-render.ts` owns `renderRouteRequest()`
+  and `renderRouteRequestToString()`, which resolve with loaders and return
+  redirect, deny, and no-match results.
 - `src/ssg/create-static-gen.ts` is the top-level SSG orchestrator for
   generation config, render batching, file writes, metadata, and manifest
   assembly. `static-routes.ts` owns route-source normalization, `entries()`

@@ -472,9 +472,9 @@ taken from `request.signal`.
 
 The result is `null` when no route matches or the URL is outside the registry
 base path, a redirect or deny decision, or the matched route with its params.
-A route that declares a `preload` always returns a Promise, as does any
-asynchronous lazy route, loader, policy, or auth step, and errors may throw synchronously, so always `await` the
-call inside an `async` function.
+Depending on which steps run, the result is a plain value or a Promise, and
+errors may throw synchronously, so always `await` the call inside an `async`
+function.
 
 ## `navigate(target)`
 
