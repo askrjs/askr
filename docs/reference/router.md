@@ -430,15 +430,19 @@ function Shell() {
 
 ## `resolveRouteRequest(url, options)`
 
-Resolves a URL against a registry and applies route policies, auth, and
-loaders without rendering. Servers use it to decide a redirect or status before
-choosing a response.
+Resolves a URL against a registry and applies route policies, auth, preloads
+and loaders without rendering. A server that renders the page should call
+`renderRouteRequest()` or `renderRouteRequestToString()` from
+`@askrjs/askr/ssr` instead: they resolve once and return the same redirect,
+deny, and no-match decisions. Use `resolveRouteRequest()` only when you need
+the decision and will not render the route, since loader and preload work is
+not reused by a later render.
 
 ```ts
 import { resolveRouteRequest, type RouteRegistry } from '@askrjs/askr/router';
 declare const registry: RouteRegistry;
 
-export async function decide(request: Request): Promise<Response | null> {
+export async function decide(request: Request): Promise<Response> {
   const result = await resolveRouteRequest(request.url, {
     registry,
     mode: 'ssr',
@@ -452,21 +456,23 @@ export async function decide(request: Request): Promise<Response | null> {
       result.status ?? 302
     );
   }
-  return null; // render the matched route
+  if (result.kind === 'deny') {
+    return new Response(null, { status: result.status });
+  }
+  return new Response(null, { status: 204 });
 }
 ```
 
 Options: `registry` (required), `mode`, `auth`, `authContext`, `request`,
-`signal`, and `telemetry`. On a server, always pass `mode: 'ssr'`: the default
-is `'spa'` whenever a global `window` exists, and SPA mode records the resolved
-identity as the process-wide client auth.
+`signal`, and `telemetry`. On a server, pass `mode: 'ssr'`; the default is
+`'spa'` whenever a global `window` exists. Pass `signal` explicitly: it is not
+taken from `request.signal`.
 
 The result is `null` when no route matches or the URL is outside the registry
 base path, a redirect or deny decision, or the matched route with its params.
-It is returned synchronously when every step is synchronous and as a Promise
-when a lazy route, loader, or auth resolver is async. Errors from policies,
-auth, or loaders may throw synchronously, so `await` the call inside an
-`async` function.
+Any asynchronous step (lazy routes, preloads, loaders, policies, auth) makes
+the result a Promise, and errors may throw synchronously, so always `await` the
+call inside an `async` function.
 
 ## `navigate(target)`
 

@@ -231,8 +231,10 @@ flowchart LR
   synchronous component execution, strict-purity guards, temporary owner
   cleanup, and default portal wrapping.
 - `src/ssr/route-render.ts` owns object-form `renderToString()`,
-  `renderToStream()`, route source normalization, route match resolution, document render argument construction, and string/stream
-  sink orchestration.
+  `renderToStream()`, route source normalization, document render argument
+  construction, and string/stream sink orchestration.
+- `src/ssr/route-policy-resolution.ts` owns route match and policy resolution
+  for SSR through the router's `resolveRouteRequest()`.
 - `src/ssg/create-static-gen.ts` is the top-level SSG orchestrator for
   generation config, render batching, file writes, metadata, and manifest
   assembly. `static-routes.ts` owns route-source normalization, `entries()`

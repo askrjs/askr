@@ -123,6 +123,9 @@ void ({} as typeof import('@askrjs/askr/ssr')).resolveRequest;
 void ({} as typeof import('@askrjs/askr/ssr')).renderResolvedToStringSync;
 
 // Request resolution without rendering goes through the router.
+expectType<RouteRequestResult | Promise<RouteRequestResult>>(
+  resolveRouteRequest('/users/42', { registry, mode: 'ssr' })
+);
 export async function redirectTarget(): Promise<string | undefined> {
   const result: RouteRequestResult = await resolveRouteRequest('/users/42', {
     registry,
