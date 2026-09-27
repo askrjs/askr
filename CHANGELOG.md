@@ -10,6 +10,15 @@
   sibling owners 50.7 ms to 0.43 ms, 5,000 render jobs 13.4 ms to 0.87 ms,
   20,000 effect jobs 20.2 ms to 2.06 ms, patching a 2,000-deep chain 13.0 ms
   to 0.72 ms (mean).
+- fix(jsx): export `createElement` from `@askrjs/askr`. The automatic JSX
+  transform in TypeScript and esbuild compiles a `key` written after a spread
+  (`<Row {...props} key={id} />`) to `createElement` from the import source,
+  which previously failed to resolve (#617).
+
+- fix(foundations): `controllableState()` results destructure like `state()`
+  (`const [value, setValue] = controllableState(...)`). `ControllableState` is
+  now based on `StateTuple`, so the destructured getter and setter are typed
+  (#621).
 
 - docs(foundations): document stacking dialogs and toasts through one writer
   that owns the layer list and writes it through its own `definePortal()`

@@ -22,7 +22,7 @@
  *    This is intentional — strict equality, no deep comparison.
  */
 
-import { state, type State } from '../../core/api/state';
+import { state, type StateTuple } from '../../core/api/state';
 
 /** Whether `value` represents controlled mode (not `undefined`). */
 export function isControlled<T>(value: T | undefined): value is T {
@@ -66,8 +66,8 @@ export function makeControllable<T>(options: {
   return { set, isControlled };
 }
 
-/** A {@link State} accessor that also reports whether it is controlled. */
-export type ControllableState<T> = State<T> & { isControlled: boolean };
+/** A {@link StateTuple} accessor that also reports whether it is controlled. */
+export type ControllableState<T> = StateTuple<T> & { isControlled: boolean };
 
 /**
  * controllableState
@@ -111,5 +111,12 @@ export function controllableState<T>(options: {
   };
 
   (read as ControllableState<T>).isControlled = isControlled;
+  // Destructures like `state()`: `const [value, setValue] = ...`.
+  (read as unknown as { [Symbol.iterator]: () => Iterator<unknown> })[
+    Symbol.iterator
+  ] = function* () {
+    yield read;
+    yield read.set;
+  };
   return read as ControllableState<T>;
 }

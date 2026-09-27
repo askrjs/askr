@@ -25,6 +25,8 @@ Common runtime exports:
   and returns a function that restores the previous settings; see
   [runtime enforcement](../concepts/runtime-enforcement.md)
 - JSX runtime exports: `jsx()`, `jsxs()`, and `Fragment`
+- `createElement(type, props, ...children)`: the classic factory the automatic
+  JSX transform imports when a `key` follows a spread (`<Row {...props} key={id} />`)
 
 Public types:
 

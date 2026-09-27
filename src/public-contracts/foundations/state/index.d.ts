@@ -1,4 +1,4 @@
-import { State } from '../../core.js';
+import { StateTuple } from '../../core.js';
 /** Whether `value` represents controlled mode (not `undefined`). */
 declare function isControlled<T>(value: T | undefined): value is T;
 /** Resolve the effective value and controlled-ness for a controllable prop. */
@@ -22,8 +22,8 @@ declare function makeControllable<T>(options: {
   set: (next: T) => void;
   isControlled: boolean;
 };
-/** A {@link State} accessor that also reports whether it is controlled. */
-type ControllableState<T> = State<T> & {
+/** A {@link StateTuple} accessor that also reports whether it is controlled. */
+type ControllableState<T> = StateTuple<T> & {
   isControlled: boolean;
 };
 /**

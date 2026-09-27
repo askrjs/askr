@@ -12,6 +12,7 @@
     "StateSetter",
     "StateTuple",
     "configureRenderDiagnostics",
+    "createElement",
     "createRef",
     "cspNonce",
     "defineScope",
