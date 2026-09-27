@@ -396,13 +396,21 @@ in a route's `policies` array.
   `unauthorized()`, `forbidden()`, and `notFound()` are shorthands for
   `deny(401)`, `deny(403)`, and `deny(404)`.
 
+## `RouteDataLoadError`
+
+A loader created with `lazyRouteData()` rejects with a `RouteDataLoadError`
+when its import or `select` step fails. Its `route` is the requested URL,
+`phase` is where the loader ran (`'client'`, `'server'`, or `'ssg'`), and
+`cause` is the original error. Abort errors pass through unwrapped.
+
 ## Deferred value helpers
 
 - `isDeferred(value)` checks whether a value came from `defer()`.
-- `resolveDeferredValues(input, signal?)` waits until every `defer()` value
-  nested in `input` has settled and resolves to the same `input` object. The
-  `defer()` wrappers stay in place, now settled, so render them with `Resolve`
-  rather than serializing `input` directly.
+- `resolveDeferredValues(input, signal?)` waits for every `defer()` value
+  nested in `input` and resolves to the same `input` object. It rejects as soon
+  as any deferred value rejects or `signal` aborts. The `defer()` wrappers stay
+  in place, now settled, so render them with `Resolve` rather than serializing
+  `input` directly.
 
 ## Route metadata helpers
 

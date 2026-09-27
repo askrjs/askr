@@ -24,6 +24,7 @@ or review older commits.
 docs/
   README.md
   getting-started/
+  core/
   guides/
   concepts/
   reference/
@@ -34,7 +35,6 @@ docs/
   migration/
   development/
   benchmarks/
-  roadmap/
 ```
 
 Package-owned docs for `askr-ui`, `askr-themes`, `askr-cli`, `askr-vite`,

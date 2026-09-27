@@ -1,6 +1,6 @@
 import { dispatch as dispatchEvent } from './render';
 
-/** Dispatch the browser click sequence expected by Askr's delegated events. */
+/** Dispatch a bubbling `click` event, as Askr's delegated click handlers expect. */
 export function click(element: Element): boolean {
   if (!element || typeof element.dispatchEvent !== 'function') {
     throw new TypeError('@askrjs/askr/testing click requires an Element.');
@@ -8,7 +8,7 @@ export function click(element: Element): boolean {
   return dispatchEvent(element, 'click');
 }
 
-/** Set a text control's value and emit an input event for each character. */
+/** Append `text` to a text control's value one character at a time, emitting an input event for each. */
 export function type(
   element: HTMLInputElement | HTMLTextAreaElement,
   text: string
