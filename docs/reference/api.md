@@ -24,7 +24,7 @@ Common runtime exports:
 - `configureRenderDiagnostics(options)` configures development render warnings
   and returns a function that restores the previous settings; see
   [runtime enforcement](../concepts/runtime-enforcement.md)
-- JSX runtime exports: `jsx`, `jsxs`, and `Fragment`
+- JSX runtime exports: `jsx()`, `jsxs()`, and `Fragment`
 
 Public types:
 
@@ -72,7 +72,7 @@ Neither is re-exported from the root.
 
 ## Feature subpaths
 
-- `@askrjs/askr/boot` - app startup and lifecycle helpers such as `createIsland`, `createIslands`, `createSPA`, `hydrateSPA`, `cleanupApp`, and `hasApp`
+- `@askrjs/askr/boot` - app startup and lifecycle helpers such as `createIsland()`, `createIslands()`, `createSPA()`, `hydrateSPA()`, `cleanupApp()`, and `hasApp()`
 - `@askrjs/askr/components` - `ErrorBoundary`
 - `@askrjs/askr/actions` - browser-safe `defineAction`, reactive `action`, and native-first `ActionForm`
 - `@askrjs/askr/control` - JSX control-flow helpers
@@ -81,14 +81,14 @@ Neither is re-exported from the root.
     latest row callback when the parent rerenders, and a reactive read inside
     the callback subscribes the row that made it.
 
-- `@askrjs/askr/data` - `createDataRuntime`, `getDefaultDataRuntime`, `createQuery`, `createQueryCollection`, `createMutation`, `invalidate`, and `invalidateOnInterval`
+- `@askrjs/askr/data` - `createDataRuntime()`, `getDefaultDataRuntime()`, `createQuery()`, `createQueryCollection()`, `createMutation()`, `invalidate()`, and `invalidateOnInterval()`
 - `@askrjs/askr/testing` - component harness helpers such as `render`, `mount`, `renderRoute`, `dispatch`, `flush`, and `cleanup`, plus query and router fixtures
 - `@askrjs/askr/resources` - async resource helpers such as `resource`, `watch`, `stream`, `on`, `timer`, `task`, `capture`, `routeActive`, `documentVisible`, and `windowFocused`
 - `@askrjs/askr/router` - typed `RouteRef` declarations and destinations, metadata, critical `routeData`, and deferred `Resolve` boundaries
 - `@askrjs/askr/fx` - timing and scheduling helpers
 - `@askrjs/askr/ssr` - synchronous rendering plus `renderRouteRequest()` for explicitly deferred Web streams
 - `@askrjs/askr/ssg` - static-site generation helpers
-- `@askrjs/askr/foundations` - structural primitives such as `layout`, `Slot`, `Presence`, plus runtime-backed portal helpers like `definePortal`, `DefaultPortal`, and `Portal`
+- `@askrjs/askr/foundations` - structural primitives such as `layout()`, `Slot`, `Presence`, plus runtime-backed portal helpers like `definePortal`, `DefaultPortal`, and `Portal`
 - `@askrjs/askr/foundations/structures` - structural registries and layering
   helpers such as `createCollection` and `createLayer`, plus `isElement` and
   `cloneElement` for framework-compatible JSX composition
@@ -100,7 +100,7 @@ Neither is re-exported from the root.
 The foundations subpaths are described in the [foundations reference](./foundations.md).
 
 - `@askrjs/askr/jsx-runtime` - JSX factory exports plus `JSXElement`, `JSXComponent`, and `JSXElementType`
-- `@askrjs/askr/jsx-dev-runtime` - `jsxDEV` for development JSX transforms (both JSX entrypoints export it), plus the same JSX public types
+- `@askrjs/askr/jsx-dev-runtime` - `jsxDEV()` for development JSX transforms (both JSX entrypoints export it), plus the same JSX public types
 
 Both JSX runtime entrypoints export the `JSX` namespace used by TypeScript's
 automatic JSX transform. Askr does not declare a global `JSX` namespace; import

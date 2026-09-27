@@ -67,5 +67,5 @@ automation.
 ## See Also
 
 - [Core source layout](./core-layout.md)
-- [Contributing](./contributing.md)
+- [Contributing](../../CONTRIBUTING.md)
 - [Release](./release.md)

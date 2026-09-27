@@ -41,7 +41,8 @@ recomputes when the state it read changes, and `watch()` takes the state
 accessor itself (`watch(count, ...)`, not `watch(count(), ...)`).
 
 Hooks such as `state()` must run in the same order on every render, as in
-React. Askr throws when a hook runs conditionally or in a loop; see
+React. Askr throws when the sequence of hook calls changes between renders,
+for example when a condition or a loop count changes; see
 [runtime enforcement](../concepts/runtime-enforcement.md).
 
 ## Effects and cleanup

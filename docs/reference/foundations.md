@@ -9,8 +9,9 @@ them directly; reach for `@askrjs/askr/foundations` (`layout`, `Slot`,
 
 Prop composition and accessibility helpers. All of them are pure.
 
-- `mergeProps(base, injected)` merges props; base values win unless
-  `undefined`, and handlers and refs compose.
+- `mergeProps(base, injected)` merges props: base values win unless
+  `undefined`, and `on*` event handlers compose. Refs do not compose; use
+  `composeRefs()` for that.
 - `composeHandlers(first, second, options?)` returns one handler that runs
   `first` then `second`. It skips `second` when `first` called
   `preventDefault()`, unless `options.checkDefaultPrevented` is `false`.
@@ -65,9 +66,10 @@ isDisabled? })` implements arrow-key roving `tabindex`. It returns
 
 Controlled/uncontrolled value helpers.
 
-- `controllableState({ value, defaultValue, onChange? })` works like `state()`
-  but defers to `value` when the parent controls it. The result also exposes
-  `isControlled`.
+- `controllableState({ value, defaultValue, onChange? })` returns a getter with
+  `.set()` and `isControlled`. It defers to `value` when the parent controls
+  it. Unlike `state()`, the result is not a tuple: call it and its `.set()`
+  instead of destructuring.
 - `isControlled(value)` is `true` when `value` is not `undefined`.
 - `resolveControllable(value, defaultValue)` returns the effective
   `{ value, isControlled }`.
@@ -81,9 +83,10 @@ Controlled/uncontrolled value helpers.
   components register into.
 - `createLayer()` returns a `LayerManager` that tracks stacked overlays, so only
   the top layer handles Escape and outside-pointer dismissal.
-- `isElement(value)` checks for a JSX element, and `cloneElement(element,
-props)` copies one with `props` shallow-merged over its own.
-- `layout` and `definePortal` are also exported here; see the
+- `isElement(value)` checks for a JSX element, and
+  `cloneElement(element, props)` copies one with `props` shallow-merged over
+  its own.
+- `layout()` and `definePortal()` are also exported here; see the
   [API overview](./api.md).
 
 ## `@askrjs/askr/foundations/icon`

@@ -22,7 +22,6 @@ or review older commits.
 
 ```text
 docs/
-  index.md
   README.md
   getting-started/
   guides/

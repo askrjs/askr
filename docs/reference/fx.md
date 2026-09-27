@@ -14,12 +14,12 @@ another frame.
 
 ## Core timing utilities
 
-- `throttle`
-- `once`
-- `raf`
-- `idle`
-- `timeout`
-- `retry`
+- `throttle()`
+- `once()`
+- `raf()`
+- `idle()`
+- `timeout()`
+- `retry()`
 
 For one microtask, use the platform's `queueMicrotask(fn)`. The Askr
 `defer(promise)` helper belongs to `@askrjs/askr/router` and marks deferred
@@ -27,13 +27,13 @@ route data.
 
 ## Event-oriented helpers
 
-- `debounceEvent`
-- `throttleEvent`
-- `rafEvent`
-- `scheduleTimeout`
-- `scheduleIdle`
-- `scheduleRetry`
-- `scheduleEventHandler` (errors thrown by the wrapped handler are reported
+- `debounceEvent()`
+- `throttleEvent()`
+- `rafEvent()`
+- `scheduleTimeout()`
+- `scheduleIdle()`
+- `scheduleRetry()`
+- `scheduleEventHandler()` (errors thrown by the wrapped handler are reported
   with `reportError()`)
 
 `debounceEvent` waits until events have been quiet for `ms`; `throttleEvent`

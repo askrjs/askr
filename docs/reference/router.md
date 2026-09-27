@@ -399,17 +399,18 @@ in a route's `policies` array.
 ## Deferred value helpers
 
 - `isDeferred(value)` checks whether a value came from `defer()`.
-- `resolveDeferredValues(input, signal?)` awaits every `defer()` value nested in
-  `input` and returns the fully resolved structure. Use it when a consumer
-  outside `Resolve`, such as a JSON endpoint, needs the settled data.
+- `resolveDeferredValues(input, signal?)` waits until every `defer()` value
+  nested in `input` has settled and resolves to the same `input` object. The
+  `defer()` wrappers stay in place, now settled, so render them with `Resolve`
+  rather than serializing `input` directly.
 
 ## Route metadata helpers
 
 Most applications let the router manage the document head. Custom shells can
 use the same helpers:
 
-- `resolveRouteMeta(record, context)` runs a route's metadata chain and returns
-  the merged `RouteMeta`.
+- `resolveRouteMeta(record, context)` runs a route's metadata chain and resolves
+  to the merged `RouteMeta`; `await` it before serializing.
 - `serializeRouteMeta(meta)` renders `<title>`, `<meta>`, `<link>`, and JSON-LD
   markup for a server-rendered `<head>`.
 - `reconcileRouteMeta(meta, target?)` replaces only Askr-owned head nodes after
