@@ -332,15 +332,15 @@ describe('SSR request resolution', () => {
     }
   });
 
-  it('should reject plain route tables without a registry', async () => {
+  it('should throw synchronously for plain route tables without a registry', () => {
     const handler = () => <div>{'home'}</div>;
 
-    await expect(
-      resolveRequest({
-        url: '/',
+    expect(() =>
+      resolveRouteRequest('/', {
         routes: [{ path: '/', handler }],
+        mode: 'ssr',
       } as never)
-    ).rejects.toThrow();
+    ).toThrow(/requires options\.registry/);
   });
 
   it('should resolve requests from an explicit route registry', async () => {
@@ -425,12 +425,15 @@ describe('SSR request resolution', () => {
       );
     }
 
-    const html = renderResolvedForHydrationSync({
-      url: '/posts/intro',
-      registry,
-      handler: result.handler,
-      params: result.params,
-    });
+    const html = renderResolvedForHydrationSync(
+      {
+        url: '/posts/intro',
+        registry,
+        handler: result.handler,
+        params: result.params,
+      },
+      undefined
+    );
 
     expect(loader).toHaveBeenCalledTimes(1);
     expect(loader).toHaveBeenCalledWith(
@@ -498,11 +501,14 @@ describe('SSR request resolution', () => {
         route('/public', Page);
       });
 
-      const html = renderResolvedForHydrationSync({
-        url: '/public',
-        registry,
-        handler: Page,
-      });
+      const html = renderResolvedForHydrationSync(
+        {
+          url: '/public',
+          registry,
+          handler: Page,
+        },
+        undefined
+      );
 
       expect(html).toContain('<main>public</main>');
     });
@@ -514,12 +520,15 @@ describe('SSR request resolution', () => {
         route('/posts/{slug}', Post);
       });
 
-      const html = renderResolvedForHydrationSync({
-        url: '/posts/intro',
-        registry,
-        handler: Post,
-        params: { slug: 'intro' },
-      });
+      const html = renderResolvedForHydrationSync(
+        {
+          url: '/posts/intro',
+          registry,
+          handler: Post,
+          params: { slug: 'intro' },
+        },
+        undefined
+      );
 
       expect(html).toContain('<main>intro</main>');
     });
@@ -531,12 +540,15 @@ describe('SSR request resolution', () => {
       });
 
       expect(() =>
-        renderResolvedForHydrationSync({
-          url: '/posts/intro',
-          registry,
-          handler: Post,
-          params: { slug: 'other' },
-        })
+        renderResolvedForHydrationSync(
+          {
+            url: '/posts/intro',
+            registry,
+            handler: Post,
+            params: { slug: 'other' },
+          },
+          undefined
+        )
       ).toThrow(/no route found for url: \/posts\/intro/);
     });
   });

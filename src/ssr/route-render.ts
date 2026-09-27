@@ -10,9 +10,7 @@ import type {
   RouteAuthOptions,
   RouteHandler,
   RouteRegistry,
-  RouteRequestResult,
 } from '../common/router';
-import * as RouteModule from '../router/route';
 import type { AuthContext } from '@askrjs/auth';
 import {
   createRenderContext,

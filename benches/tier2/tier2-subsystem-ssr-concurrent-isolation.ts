@@ -11,13 +11,16 @@ await (async () => {
   const htmlOutputs = await Promise.all(
     requests.map((request) =>
       Promise.resolve().then(() =>
-        renderResolvedForHydrationSync({
-          url: request.url,
-          registry: request.registry,
-          handler: request.routes[0].handler,
-          params: { id: request.url.split('/')[2].split('?')[0] },
-          options: request.options,
-        })
+        renderResolvedForHydrationSync(
+          {
+            url: request.url,
+            registry: request.registry,
+            handler: request.routes[0].handler,
+            params: { id: request.url.split('/')[2].split('?')[0] },
+            options: request.options,
+          },
+          undefined
+        )
       )
     )
   );
@@ -34,13 +37,16 @@ describe('tier2 ssr concurrent isolation', () => {
       await Promise.all(
         requests.map((request) =>
           Promise.resolve().then(() =>
-            renderResolvedForHydrationSync({
-              url: request.url,
-              registry: request.registry,
-              handler: request.routes[0].handler,
-              params: { id: request.url.split('/')[2].split('?')[0] },
-              options: request.options,
-            })
+            renderResolvedForHydrationSync(
+              {
+                url: request.url,
+                registry: request.registry,
+                handler: request.routes[0].handler,
+                params: { id: request.url.split('/')[2].split('?')[0] },
+                options: request.options,
+              },
+              undefined
+            )
           )
         )
       );

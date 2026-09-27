@@ -56,12 +56,15 @@ describe('request-local auth isolation during SSR', () => {
     const registry = createAccountRegistry(userAuth);
     await resolveRouteRequest('/account/alice', { registry, mode: 'ssr' });
 
-    const html = renderResolvedForHydrationSync({
-      url: '/public',
-      registry,
-      handler: Identity,
-      params: {},
-    });
+    const html = renderResolvedForHydrationSync(
+      {
+        url: '/public',
+        registry,
+        handler: Identity,
+        params: {},
+      },
+      undefined
+    );
 
     expect(html).toBe('<div>anonymous</div>');
   });

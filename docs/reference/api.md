@@ -58,7 +58,7 @@ Public types:
 
 Control flow (`For`, `Show`, `Case`, `Match`) lives only in
 `@askrjs/askr/control`, and the data surface lives only in `@askrjs/askr/data`.
-Each public name has one import path.
+Neither is re-exported from the root.
 
 ## Feature subpaths
 

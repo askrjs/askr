@@ -53,7 +53,7 @@ export interface ResolvedRouteRender {
 /** @internal Render a resolved route handler, with the request-local auth context used by hydration verification. */
 export function renderResolvedForHydrationSync(
   opts: ResolvedRouteRender,
-  authContext?: AuthContext
+  authContext: AuthContext | undefined
 ): string {
   const { url, registry, handler, params, options } = opts;
   const routes = registry.routes;
