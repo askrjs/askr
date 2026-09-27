@@ -7,6 +7,45 @@
 export const SSR_PORTAL_HOST = Symbol.for('askr.ssr-portal-host');
 export const SSR_PORTAL_ANCHOR = Symbol.for('askr.ssr-portal-anchor');
 
+export interface PortalWriterOwner {
+  readonly parent: PortalWriterOwner | null;
+  readonly ownedIndex: number;
+}
+
+/** Compare writer positions in their owner trees, independent of activation order. */
+export function comparePortalWriterOrder(
+  left: PortalWriterOwner | null,
+  right: PortalWriterOwner | null,
+  leftSourceOrder?: number,
+  rightSourceOrder?: number
+): number {
+  if (leftSourceOrder !== undefined && rightSourceOrder !== undefined) {
+    return leftSourceOrder - rightSourceOrder;
+  }
+  const leftPath = portalWriterOrder(left);
+  const rightPath = portalWriterOrder(right);
+  const length = Math.min(leftPath.length, rightPath.length);
+  for (let index = 0; index < length; index++) {
+    if (leftPath[index] !== rightPath[index]) {
+      return leftPath[index] - rightPath[index];
+    }
+  }
+  return leftPath.length - rightPath.length;
+}
+
+function portalWriterOrder(owner: PortalWriterOwner | null): number[] {
+  if (!owner) return [-1];
+  const path: number[] = [];
+  for (
+    let current: PortalWriterOwner | null = owner;
+    current;
+    current = current.parent
+  ) {
+    path.push(current.ownedIndex);
+  }
+  return path.reverse();
+}
+
 const namedPortalHosts = new WeakSet<Function>();
 
 export function markNamedPortalHost(host: Function): void {

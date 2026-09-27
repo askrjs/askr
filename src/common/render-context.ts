@@ -26,12 +26,21 @@ export interface SSRPortalSlot {
   value: RenderableChild | undefined;
   /** Owner at the writer position, used when the host renders later. */
   owner?: unknown;
+  /** Independent writer entries, ordered by first evaluation in this root. */
+  writers: Map<unknown, SSRPortalWrite>;
   hosts: SSRPortalHostRegistration[];
+}
+
+export interface SSRPortalWrite {
+  readonly owner: unknown;
+  readonly value: RenderableChild | undefined;
+  readonly order: number;
 }
 
 export interface SSRPortalState {
   slots: Map<object, SSRPortalSlot>;
   nextHostId: number;
+  nextWriteOrder: number;
 }
 
 export interface ActiveRenderContext {

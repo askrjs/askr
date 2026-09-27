@@ -81,12 +81,17 @@ interface SSRPortalHostRegistration {
 interface SSRPortalSlot {
   hasValue: boolean;
   value: RenderableChild | undefined;
+  writers: Map<
+    unknown,
+    { owner: unknown; value: RenderableChild | undefined; order: number }
+  >;
   hosts: SSRPortalHostRegistration[];
 }
 
 interface SSRPortalState {
   slots: Map<object, SSRPortalSlot>;
   nextHostId: number;
+  nextWriteOrder: number;
 }
 
 /** Register request-local CSS produced during SSR without importing the SSR renderer in clients. */

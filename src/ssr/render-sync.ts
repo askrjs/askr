@@ -16,7 +16,11 @@ import { clarifyRenderOverflow } from '../common/render-depth';
 import type { AuthContext } from '@askrjs/auth';
 import { DEFERRED_BOUNDARY } from '../common/deferred-value';
 import type { JSXElement } from '../common/jsx';
-import { createSSRPortalAnchorToken, SSR_PORTAL_HOST } from '../common/portal';
+import {
+  comparePortalWriterOrder,
+  createSSRPortalAnchorToken,
+  SSR_PORTAL_HOST,
+} from '../common/portal';
 import { isPromiseLike } from '../common/promise';
 import type { Props } from '../common/props';
 import type { ComponentFunction } from '../common/component';
@@ -311,21 +315,26 @@ function selfComponentChild(
 function capturePortalWrites(ctx: RenderContext): () => void {
   const saved = new Map<
     object,
-    { hasValue: boolean; value: unknown; owner: unknown }
+    Map<unknown, import('../common/render-context').SSRPortalWrite>
   >();
   for (const [key, slot] of ctx.ssrPortals.slots) {
-    saved.set(key, {
-      hasValue: slot.hasValue,
-      value: slot.value,
-      owner: slot.owner,
-    });
+    saved.set(key, new Map(slot.writers));
   }
   return () => {
     for (const [key, slot] of ctx.ssrPortals.slots) {
-      const previous = saved.get(key);
-      slot.hasValue = previous?.hasValue ?? false;
-      slot.value = previous?.value as typeof slot.value;
-      slot.owner = previous?.owner;
+      slot.writers = new Map(saved.get(key) ?? []);
+      const ordered = [...slot.writers.values()].sort((left, right) =>
+        comparePortalWriterOrder(
+          left.owner as Owner | null,
+          right.owner as Owner | null,
+          left.order,
+          right.order
+        )
+      );
+      const latest = ordered[ordered.length - 1];
+      slot.hasValue = latest !== undefined;
+      slot.value = latest?.value;
+      slot.owner = latest?.owner;
     }
   };
 }
@@ -709,15 +718,26 @@ function resolvePortals(html: string, ctx: RenderContext): string {
         found = true;
         rendered.add(host.token);
         const active = host.automatic ? explicit.length === 0 : true;
-        const content =
-          active && slot.hasValue
-            ? withOwner((slot.owner as Owner | null) ?? state().owner, () =>
-                renderToString(
-                  slot.value,
-                  state().portalNamespaces.get(host.token) ?? 'html'
+        const content = active
+          ? [...slot.writers.values()]
+              .sort((left, right) =>
+                comparePortalWriterOrder(
+                  left.owner as Owner | null,
+                  right.owner as Owner | null,
+                  left.order,
+                  right.order
                 )
               )
-            : '';
+              .map((write) =>
+                withOwner((write.owner as Owner | null) ?? state().owner, () =>
+                  renderToString(
+                    write.value,
+                    state().portalNamespaces.get(host.token) ?? 'html'
+                  )
+                )
+              )
+              .join('')
+          : '';
         // An unused automatic host renders nothing; a used one whose content
         // is empty keeps its token as the hydration anchor.
         const hostContent =

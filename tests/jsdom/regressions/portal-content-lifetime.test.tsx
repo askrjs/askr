@@ -192,6 +192,111 @@ describe('portal content lifetime', () => {
     expect(firstStops).toBe(1);
   });
 
+  it('should keep independent named writers mounted together and retire only the removed writer', () => {
+    const Channel = definePortal();
+    let firstShown!: State<boolean>;
+    let secondShown!: State<boolean>;
+
+    function App() {
+      firstShown = state(true);
+      secondShown = state(true);
+      return (
+        <main>
+          <Channel />
+          {firstShown() ? <FirstWriter /> : null}
+          {secondShown() ? <SecondWriter /> : null}
+        </main>
+      );
+    }
+
+    function FirstWriter() {
+      return Channel.render({ children: <i>{'first'}</i> });
+    }
+
+    function SecondWriter() {
+      return Channel.render({ children: <b>{'second'}</b> });
+    }
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    expect(container.querySelector('i')?.textContent).toBe('first');
+    expect(container.querySelector('b')?.textContent).toBe('second');
+
+    firstShown.set(false);
+    flushScheduler();
+    expect(container.querySelector('i')).toBeNull();
+    expect(container.querySelector('b')?.textContent).toBe('second');
+  });
+
+  it('should update one named writer without replacing another writer DOM', () => {
+    const Channel = definePortal();
+    let setFirst!: (value: string) => void;
+    let secondRenders = 0;
+
+    function App() {
+      const first = state('first');
+      setFirst = first.set;
+      return (
+        <main>
+          <Channel />
+          <FirstWriter label={first()} />
+          <SecondWriter />
+        </main>
+      );
+    }
+
+    function FirstWriter(props: { label: string }) {
+      return Channel.render({ children: <i>{props.label}</i> });
+    }
+
+    function SecondWriter() {
+      return Channel.render({ children: <SecondContent /> });
+    }
+
+    function SecondContent() {
+      secondRenders++;
+      return <b>{'second'}</b>;
+    }
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const second = container.querySelector('b');
+    setFirst('updated');
+    flushScheduler();
+
+    expect(container.querySelector('i')?.textContent).toBe('updated');
+    expect(container.querySelector('b')).toBe(second);
+    expect(secondRenders).toBe(1);
+  });
+
+  it('should mount a writer when its initially empty content becomes visible', () => {
+    const Channel = definePortal();
+    let shown!: State<boolean>;
+
+    function Writer() {
+      shown = state(false);
+      return Channel.render({
+        children: shown() ? <i>{'visible'}</i> : null,
+      });
+    }
+
+    createIsland({
+      root: container,
+      component: () => (
+        <>
+          <Channel />
+          <Writer />
+        </>
+      ),
+    });
+    flushScheduler();
+    expect(container.querySelector('i')).toBeNull();
+
+    shown.set(true);
+    flushScheduler();
+    expect(container.querySelector('i')?.textContent).toBe('visible');
+  });
+
   it('should stop a portaled watch and abort its resource when the writer leaves', () => {
     let shown!: State<boolean>;
     let count!: State<number>;

@@ -1,11 +1,9 @@
 /**
  * Portals: content written in one place and rendered at a host elsewhere.
  *
- * A channel holds the latest writer and its content. A writer records its
- * content when its render commits; the host renders that content at the
- * host's position, owned by the writer, so the content lives and dies with
- * the writer and reads the writer's scopes. When a writer's lifetime ends it
- * clears the channel only if it is still the current writer.
+ * A channel holds ordered writer records. Each writer's content commits to
+ * its own record and renders at the host's position, owned by that writer, so
+ * the content lives and dies with the writer and reads the writer's scopes.
  *
  * Each application root provides a default channel; `<Portal>` writes to it
  * and `<DefaultPortal>` (or the automatic host a root appends) renders it.
@@ -18,7 +16,9 @@ import { Owner, getOwner } from '../reactive/owner';
 import { Signal } from '../reactive/graph';
 import { OWNED_TYPE } from '../view/children';
 import { currentComponent } from './hooks';
+import { deliverToBoundary } from '../component/errors';
 import {
+  ErrorBoundary,
   holdUntilBoundaryRecovers,
   nearestErrorBoundary,
 } from './error-boundary';
@@ -27,46 +27,73 @@ import {
   createSSRPortalHost,
   writeSSRPortal,
 } from '../../common/ssr-portals';
+import { comparePortalWriterOrder } from '../../common/portal';
 
 interface Write {
   readonly owner: Owner | null;
   readonly id: number;
-  readonly children: unknown;
+  readonly children: Signal<unknown>;
 }
 
 export interface PortalChannel {
-  readonly write: Signal<Write | null>;
+  /** Ordered, independently owned writers targeting this channel. */
+  readonly writes: Signal<readonly Write[]>;
   /**
    * Explicit hosts currently mounted, or discarded by an ErrorBoundary
    * fallback that has not recovered; the automatic host yields to them.
    */
   readonly explicitHosts: Signal<number>;
-  /** Render order of the write the channel shows. */
-  renderOrder: number;
 }
 
 let nextWriteId = 0;
 
-export function createPortalChannel(): PortalChannel {
+function createWrite(owner: Owner | null, children: unknown): Write {
   return {
-    write: new Signal<Write | null>(null),
-    explicitHosts: new Signal(0),
-    renderOrder: 0,
+    owner,
+    id: ++nextWriteId,
+    children: new Signal(children),
   };
 }
 
-function renderWrite(write: Write | null): JSXElement | null {
-  if (!write || isEmpty(write.children)) return null;
+export function createPortalChannel(): PortalChannel {
   return {
-    $$typeof: ELEMENT_TYPE,
-    type: OWNED_TYPE,
-    props: { owner: write.owner, children: write.children },
-    key: `portal:${write.id}`,
-  } as unknown as JSXElement;
+    writes: new Signal<readonly Write[]>([]),
+    explicitHosts: new Signal(0),
+  };
 }
 
-function isEmpty(value: unknown): boolean {
-  return value === null || value === undefined || value === false;
+function renderWrite(writes: readonly Write[]): JSXElement[] {
+  return [...writes].sort(compareWrites).map(
+    (write) =>
+      ({
+        $$typeof: ELEMENT_TYPE,
+        type: OWNED_TYPE,
+        props: {
+          owner: write.owner,
+          children: {
+            $$typeof: ELEMENT_TYPE,
+            type: PortalLayer,
+            props: { write },
+          },
+        },
+        key: `portal:${write.id}`,
+      }) as unknown as JSXElement
+  );
+}
+
+function PortalLayer(props: { write: Write }): JSXElement {
+  const children = props.write.children.read();
+  return {
+    $$typeof: ELEMENT_TYPE,
+    type: ErrorBoundary,
+    props: {
+      children,
+      fallback: (error: unknown) => {
+        if (deliverToBoundary(props.write.owner, error)) return null;
+        throw error;
+      },
+    },
+  } as unknown as JSXElement;
 }
 
 /** Record `children` as `channel`'s content once the current render commits. */
@@ -74,67 +101,118 @@ function writeChannel(channel: PortalChannel, children: unknown): void {
   if (writeSSRPortal(ssrKey(channel), children as never, getOwner())) return;
   const instance = currentComponent();
   if (!instance) {
-    channel.write.write({ owner: getOwner(), id: ++nextWriteId, children });
+    let write = imperativeWriters.get(channel);
+    if (!write) {
+      write = createWrite(null, children);
+      imperativeWriters.set(channel, write);
+      addWrite(channel, write);
+    } else {
+      write.children.write(children);
+    }
     return;
   }
   if (instance.server) return;
-  let registered = writers.get(instance);
-  if (!registered) {
-    registered = new Set();
-    writers.set(instance, registered);
+  let owned = writers.get(instance);
+  if (!owned) writers.set(instance, (owned = new Map()));
+  let write = owned.get(channel);
+  const created = !write;
+  const previousChildren = write?.children.peek();
+  if (!write) {
+    write = createWrite(instance, children);
+    owned.set(channel, write);
   }
-  if (!registered.has(channel)) {
-    registered.add(channel);
-    instance.onCleanup(() => {
-      if (channel.write.peek()?.owner === instance) channel.write.write(null);
-    });
-  }
-  // Writes commit children-first; render order decides which one shows.
-  const order = ++nextRenderOrder;
+  const record = write;
+  const apply = () => {
+    addWrite(channel, record);
+    record.children.write(children);
+  };
   if (getRenderHost()?.isHydrating()) {
-    // A hydrating host later in this render claims the server content now.
-    const previous = channel.write.peek();
-    const previousOrder = channel.renderOrder;
-    channel.renderOrder = order;
-    channel.write.write({
-      owner: instance,
-      id: previous?.owner === instance ? previous.id : ++nextWriteId,
-      children,
-    });
+    apply();
     recordUndo(() => {
-      channel.write.write(previous);
-      channel.renderOrder = previousOrder;
+      if (created) {
+        removeWrite(channel, record);
+        owned!.delete(channel);
+      } else {
+        record.children.write(previousChildren);
+      }
+    });
+  }
+  if (created) {
+    instance.onCleanup(() => {
+      owned!.delete(channel);
+      removeWrite(channel, record);
     });
   }
   instance.onCommitSync(() => {
-    let written = lastWrites.get(instance);
-    if (!written) {
-      written = new Map();
-      lastWrites.set(instance, written);
-    }
-    const repeated =
-      written.has(channel) && Object.is(written.get(channel), children);
-    written.set(channel, children);
-    const current = channel.write.peek();
-    if (current?.owner === instance && Object.is(current.children, children)) {
-      return;
-    }
-    // Re-writing an unchanged value does not take the channel back from a
-    // writer that rendered after this one.
-    if (repeated || order < channel.renderOrder) return;
-    channel.renderOrder = order;
-    channel.write.write({
-      owner: instance,
-      id: current?.owner === instance ? current.id : ++nextWriteId,
-      children,
-    });
+    apply();
   });
 }
 
-const writers = new WeakMap<Owner, Set<PortalChannel>>();
-/** Each writer's last committed value, per channel. */
-const lastWrites = new WeakMap<Owner, Map<PortalChannel, unknown>>();
-let nextRenderOrder = 0;
+const writers = new WeakMap<Owner, Map<PortalChannel, Write>>();
+const imperativeWriters = new WeakMap<PortalChannel, Write>();
+function addWrite(channel: PortalChannel, write: Write): void {
+  if (channel.writes.peek().some((item) => item === write)) return;
+  channel.writes.write([...channel.writes.peek(), write].sort(compareWrites));
+}
+
+function compareWrites(left: Write, right: Write): number {
+  const leftPosition = sourcePosition(left.owner);
+  const rightPosition = sourcePosition(right.owner);
+  if (leftPosition && rightPosition) {
+    if (leftPosition.container === rightPosition.container) {
+      const length = Math.min(
+        leftPosition.path.length,
+        rightPosition.path.length
+      );
+      for (let index = 0; index < length; index++) {
+        if (leftPosition.path[index] !== rightPosition.path[index]) {
+          return leftPosition.path[index] - rightPosition.path[index];
+        }
+      }
+      if (leftPosition.path.length !== rightPosition.path.length) {
+        return leftPosition.path.length - rightPosition.path.length;
+      }
+    } else {
+      const relation = leftPosition.container.compareDocumentPosition(
+        rightPosition.container
+      );
+      if (relation & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+      if (relation & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+    }
+  }
+  return comparePortalWriterOrder(left.owner, right.owner);
+}
+
+function sourcePosition(
+  owner: Owner | null
+): { container: Element; path: number[] } | null {
+  if (!owner || typeof Node === 'undefined') return null;
+  let node = (owner as Owner & { view?: RenderTreeNode }).view;
+  const path: number[] = [];
+  while (node?.parent) {
+    const parent = node.parent;
+    if ('children' in parent && Array.isArray(parent.children)) {
+      path.unshift(parent.children.indexOf(node));
+    }
+    if ('el' in parent && parent.el instanceof Element) {
+      return { container: parent.el, path };
+    }
+    node = parent;
+  }
+  return null;
+}
+
+interface RenderTreeNode {
+  readonly parent?: RenderTreeNode | null;
+  readonly children?: readonly RenderTreeNode[];
+  readonly el?: Element;
+}
+
+function removeWrite(channel: PortalChannel, write: Write): void {
+  const writes = channel.writes.peek();
+  if (!writes.includes(write)) return;
+  channel.writes.write(writes.filter((item) => item !== write));
+}
 
 // ---------------------------------------------------------------------------
 // Named portals
@@ -147,12 +225,11 @@ export interface Portal<T = unknown> {
 
 export function definePortal<T = unknown>(): Portal<T> {
   const channel = createPortalChannel();
-  function PortalHost(): JSXElement | null {
+  function PortalHost(): JSXElement | JSXElement[] | null {
     const ssr = createSSRPortalHost(channel, false);
     if (ssr) return ssr;
-    const write = channel.write.read();
-    if (!write) deferWhileHydrating();
-    return renderWrite(write);
+    deferWhileHydrating();
+    return renderWrite(channel.writes.read());
   }
   PortalHost.render = (props: { children?: T }): null => {
     writeChannel(channel, props.children);
@@ -238,7 +315,7 @@ export function Portal(props: PortalProps): null {
 /** Render the default portal's content here. */
 export function DefaultPortal(props?: {
   __askrAutoDefaultPortal?: boolean;
-}): JSXElement | null {
+}): JSXElement | JSXElement[] | null {
   const automatic = props?.__askrAutoDefaultPortal === true;
   if (currentComponent()?.server) {
     return createSSRPortalHost(DEFAULT_SSR_PORTAL_KEY, automatic, true);
@@ -247,9 +324,8 @@ export function DefaultPortal(props?: {
   if (automatic) {
     // The automatic host renders only while no explicit host is mounted.
     if (channel.explicitHosts.read() > 0) return null;
-    const write = channel.write.read();
-    if (!write) deferWhileHydrating();
-    return renderWrite(write);
+    deferWhileHydrating();
+    return renderWrite(channel.writes.read());
   }
   const instance = currentComponent();
   if (instance && !instance.server && !explicitHosts.has(instance)) {
@@ -277,9 +353,8 @@ export function DefaultPortal(props?: {
       }
     });
   }
-  const write = channel.write.read();
-  if (!write) deferWhileHydrating();
-  return renderWrite(write);
+  deferWhileHydrating();
+  return renderWrite(channel.writes.read());
 }
 
 const explicitHosts = new WeakSet<Owner>();
@@ -287,7 +362,7 @@ const explicitHosts = new WeakSet<Owner>();
 /** A host rendered before its content: claim the server content later. */
 function deferWhileHydrating(): void {
   const instance = currentComponent();
-  if (instance) getRenderHost()?.deferHydration(instance);
+  if (instance?.mounted === false) getRenderHost()?.deferHydration(instance);
 }
 
 /** `DefaultPortal.render()` writes to the default portal, like `<Portal>`. */

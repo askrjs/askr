@@ -42,6 +42,28 @@ describe('DefaultPortal inventory', () => {
     expect(container.textContent).toBe('AppEarly');
   });
 
+  it('should update one persistent imperative writer entry in place', () => {
+    DefaultPortal.render({ children: <button>{'First'}</button> });
+    createIsland({
+      root: container,
+      component: () => (
+        <>
+          <div>{'App'}</div>
+          <DefaultPortal />
+        </>
+      ),
+    });
+    flushScheduler();
+    const button = container.querySelector('button');
+    expect(button?.textContent).toBe('First');
+
+    DefaultPortal.render({ children: <button>{'Second'}</button> });
+    flushScheduler();
+
+    expect(container.querySelector('button')).toBe(button);
+    expect(button?.textContent).toBe('Second');
+  });
+
   it('should render written content without requiring an explicit rerender', () => {
     const App = () => {
       const tick = state(0);

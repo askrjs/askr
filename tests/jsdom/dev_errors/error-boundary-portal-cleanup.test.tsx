@@ -396,15 +396,16 @@ describe('ErrorBoundary portal cleanup', () => {
     mountDefaultPortalWriter('render', { outerWriter: true });
     await settle();
     expect(portalContent('inner')).not.toBeNull();
-    expect(portalContent('outer')).toBeNull();
+    expect(portalContent('outer')).not.toBeNull();
 
     fail.set(true);
     await settle();
 
-    // Handing the slot to another writer is the multi-writer design (#495);
-    // releasing it matches an ordinary writer unmount.
+    // The failed writer releases only its own layer; the outer writer remains.
     expect(container.querySelector('#fallback')).not.toBeNull();
-    expect(container.querySelectorAll('[data-portal-content]').length).toBe(0);
+    expect(portalContent('inner')).toBeNull();
+    expect(portalContent('outer')).not.toBeNull();
+    expect(container.querySelectorAll('[data-portal-content]').length).toBe(1);
     expect(cleanups.sort()).toEqual(['inner', 'writer']);
   });
 
