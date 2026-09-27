@@ -1236,9 +1236,6 @@
     "applyInteractionPolicy": [
       "declare function applyInteractionPolicy({ isNative, disabled, onPress, ref }: InteractionPolicyInput): {\n    disabled: true | undefined;\n    onClick: (e: Event) => void;\n    ref: Ref$2<unknown>;\n} | {\n    tabIndex: number;\n    ref: Ref$2<unknown>;\n    \"aria-disabled\"?: \"true\";\n    onClick: (e: DefaultPreventable & PropagationStoppable) => void;\n    disabled?: true;\n    role?: \"button\";\n    onKeyDown?: (e: KeyboardLikeEvent) => void;\n    onKeyUp?: (e: KeyboardLikeEvent) => void;\n};"
     ],
-    "AppRenderRuntime": [
-      "interface AppRenderRuntime {\n    framework: Readonly<Record<string, unknown>>;\n    route: unknown;\n    hasRoute: boolean;\n    dataRuntime?: DataRuntime;\n    routeRegistry?: RouteRegistry;\n    routeAuth?: RouteAuthOptions;\n}"
-    ],
     "ariaDisabled": [
       "declare function ariaDisabled(disabled?: boolean): {\n    \"aria-disabled\"?: \"true\";\n};"
     ],
@@ -1255,12 +1252,6 @@
       "type BootRouteSource = {\n    registry: RouteRegistry;\n};"
     ],
     "BoundaryChild": ["type BoundaryChild = RenderableChild;"],
-    "BranchControlStateBase": [
-      "interface BranchControlStateBase {\n    _contextFrame: ContextFrame | null;\n    activeKey: string | number | null;\n    activeScope: ChildScope | null;\n    activeVNodes: VNode[];\n    lastRemovedNodes: Node[];\n    lastRemovedRanges: DOMRange[];\n    parentInstance: ComponentInstance | null;\n    _enqueueBoundaryCommit?: (() => void) | null;\n    _hasPendingBoundaryCommit?: boolean;\n    _transaction?: ControlTransaction | null;\n}"
-    ],
-    "BranchStateSnapshot": [
-      "type BranchStateSnapshot = {\n    activeKey: string | number | null;\n    activeScope: ChildScope | null;\n    activeVNodes: VNode[];\n    lastRemovedNodes: Node[];\n    lastRemovedRanges: DOMRange[];\n    scopeSnapshots: Map<ChildScope, ChildScopeTransactionSnapshot>;\n    fallbackScope?: ChildScope | null;\n    truthyScope?: ChildScope | null;\n};"
-    ],
     "ButtonIntrinsicProps": [
       "interface ButtonIntrinsicProps extends IntrinsicProps {\n    disabled?: ReactiveProp<IntrinsicBooleanValue>;\n    name?: ReactiveProp<IntrinsicTextValue>;\n    type?: ReactiveProp<IntrinsicTextValue>;\n    value?: ReactiveProp<IntrinsicFormValue>;\n}"
     ],
@@ -1272,18 +1263,6 @@
     "Case": ["Case: (props: CaseProps) => JSXElement"],
     "CaseProps": [
       "type CaseProps = {\n    fallback?: BoundaryChild;\n    children?: unknown;\n};"
-    ],
-    "CaseState": [
-      "interface CaseState extends BranchControlStateBase {\n    kind: \"case\";\n    fallback: (() => VNode) | null;\n    invalidChildError: Error | null;\n    matches: MatchBranch[];\n}"
-    ],
-    "ChildScope": [
-      "interface ChildScope {\n    key: string | number;\n    componentInstance: ComponentInstance;\n    previousVnode: VNode | undefined;\n    vnode: VNode | undefined;\n    dom?: Node;\n    range?: DOMRange;\n    needsDomUpdate: boolean;\n    hydrationPending: boolean;\n    blueprintOwner?: object;\n    render(renderFn: () => VNode): VNode;\n    markDirty(): void;\n    dispose(): void;\n}"
-    ],
-    "ChildScopeOwnership": [
-      "interface ChildScopeOwnership {\n    add(scope: ChildScope): void;\n    delete(scope: ChildScope): void;\n    bulkDispose(run: () => void): void;\n}"
-    ],
-    "ChildScopeTransactionSnapshot": [
-      "interface ChildScopeTransactionSnapshot {\n    previousVnode: VNode | undefined;\n    vnode: VNode | undefined;\n    dom: Node | undefined;\n    range: DOMRange | undefined;\n    domTextData: string | undefined;\n    needsDomUpdate: boolean;\n    hydrationPending: boolean;\n    renderFn: (() => VNode) | undefined;\n    renderedOwnerFrame: ContextFrame | null;\n}"
     ],
     "cleanup": [
       "declare function cleanup(target: RenderResult | HTMLElement): void;"
@@ -1319,9 +1298,6 @@
     "ComponentFunction": [
       "type ComponentFunction = (props: Props, context?: ComponentContext) => JSXElement | VNode;"
     ],
-    "ComponentInstance": [
-      "interface ComponentInstance {\n    id: string;\n    fn: ComponentFunction;\n    props: Props;\n    target: Element | null;\n    parentInstance: ComponentInstance | null;\n    portalScope: object | null;\n    mounted: boolean;\n    abortController: AbortController | null;\n    ssr?: boolean;\n    cleanupStrict?: boolean;\n    _ownershipGeneration: object;\n    stateValues?: State<unknown>[];\n    evaluationGeneration: number;\n    notifyUpdate: (() => void) | null;\n    _pendingFlushTask?: () => void;\n    _pendingRunTask?: () => void;\n    _enqueueRun?: () => void;\n    stateIndexCheck: number;\n    expectedHookKinds?: HookKind[];\n    firstRenderComplete: boolean;\n    mountOperations?: Array<() => void | (() => void) | PromiseLike<void | (() => void)>>;\n    commitOperations?: Array<() => void | (() => void) | PromiseLike<void | (() => void)>>;\n    cleanupFns?: Array<() => void>;\n    lifecycleSlots?: unknown[];\n    lifecycleGeneration: number;\n    hasPendingUpdate: boolean;\n    ownerFrame: ContextFrame | null;\n    isRoot?: boolean;\n    _rootComponentFn?: ComponentFunction;\n    _appRenderRuntime?: AppRenderRuntime;\n    _cspNonce?: string;\n    _vnodeOwner?: object;\n    _vnodeParent?: ComponentInstance | null;\n    _vnodeParentGeneration?: object;\n    _vnodeKey?: string | number;\n    _vnodePosition?: number;\n    _wrapperDepth?: number;\n    _currentRenderToken?: number;\n    lastRenderToken?: number;\n    _pendingReadSources?: Set<ReadableSource<unknown>>;\n    _pendingReadSourceVersions?: Map<ReadableSource<unknown>, number>;\n    _lastReadSources?: Set<ReadableSource<unknown>>;\n    devWarningsEmitted?: Set<string>;\n    _placeholder?: Comment;\n    _ownedChildScopes?: Set<OwnedChildScope>;\n    errorBoundaryState?: {\n        error: unknown | null;\n        resetKey: unknown;\n        notified: boolean;\n    };\n    _portalErrorParent?: ComponentInstance | null;\n    _portalErrorParentGeneration?: object;\n}"
-    ],
     "composeHandlers": [
       "declare function composeHandlers<A extends readonly unknown[]>(first?: (...args: A) => void, second?: (...args: A) => void, options?: ComposeHandlersOptions): (...args: A) => void;"
     ],
@@ -1334,24 +1310,15 @@
     "configureRenderDiagnostics": [
       "declare function configureRenderDiagnostics(options: RenderDiagnosticsOptions): () => void;"
     ],
-    "ContextFrame": [
-      "interface ContextFrame {\n    parent: ContextFrame | null;\n    values: Map<ContextKey, unknown> | null;\n}"
-    ],
     "ContextKey": ["type ContextKey = symbol;"],
     "ContextScopeChildren": [
       "type ContextScopeChildren = Renderable | (() => Renderable);"
-    ],
-    "ControlBoundaryState": [
-      "type ControlBoundaryState = ForState<unknown> | ShowState | CaseState;"
     ],
     "controllableState": [
       "declare function controllableState<T>(options: {\n    value: T | undefined;\n    defaultValue: T;\n    onChange?: (next: T) => void;\n}): ControllableState<T>;"
     ],
     "ControllableState": [
       "type ControllableState<T> = State<T> & {\n    isControlled: boolean;\n};"
-    ],
-    "ControlTransaction": [
-      "interface ControlTransaction {\n    state: ShowState | CaseState;\n    snapshot: BranchStateSnapshot;\n    removedScopes: ChildScope[];\n    shouldClearDomUpdateState: boolean;\n    registered: boolean;\n}"
     ],
     "CoreTelemetry": [
       "interface CoreTelemetry {\n    routeMatch?: TelemetrySpan;\n    loader?: TelemetrySpan;\n    queryPrefetch?: TelemetrySpan;\n    ssrRender?: TelemetrySpan;\n}"
@@ -1476,9 +1443,6 @@
       "declare function derive<TOut>(fn: () => TOut): Derived<TOut>;"
     ],
     "Derived": ["interface Derived<T> {\n    (): T;\n}"],
-    "DerivedSubscriber": [
-      "interface DerivedSubscriber {\n    _markDirty(): void;\n    _pendingDependencySources?: Set<ReadableSource<unknown>>;\n}"
-    ],
     "DiscoveredResources": [
       "interface DiscoveredResources {\n    [key: string]: {\n        count: number;\n        dependencies: string[];\n    };\n}"
     ],
@@ -1510,10 +1474,7 @@
       "declare function documentVisible(): ActivityPredicate;"
     ],
     "DOMElement": [
-      "interface DOMElement {\n    type: JSXElementType;\n    props?: Props;\n    children?: VNode[];\n    key?: string | number | null;\n    [Symbol.iterator]?: never;\n    _controlState?: ControlBoundaryState;\n}"
-    ],
-    "DOMRange": [
-      "interface DOMRange {\n    start: Node;\n    end: Node;\n    single: boolean;\n}"
+      "interface DOMElement {\n    type: JSXElementType;\n    props?: Props;\n    children?: VNode[];\n    key?: string | number | null;\n    [Symbol.iterator]?: never;\n}"
     ],
     "EAGER_CONTROL_PRIMITIVE": ["EAGER_CONTROL_PRIMITIVE: unique symbol"],
     "EagerControlPrimitive": [
@@ -1560,9 +1521,6 @@
       "type ExtractRouteSegmentParam<Segment extends string> = Segment extends `{${infer Param}}` ? TrimRoutePathWhitespace<Param> extends `*${infer SplatParam}` ? TrimRoutePathWhitespace<SplatParam> extends \"\" ? never : TrimRoutePathWhitespace<SplatParam> extends \"*\" ? never : TrimRoutePathWhitespace<SplatParam> : TrimRoutePathWhitespace<Param> extends \"\" ? never : TrimRoutePathWhitespace<Param> : Segment extends \"*\" ? \"*\" : never;"
     ],
     "fallback": ["declare function fallback(Component: RouteComponent): void;"],
-    "FineGrainedEffectHandle": [
-      "interface FineGrainedEffectHandle<T> {\n    cleanup(): void;\n    updateCompute(nextCompute: () => T): void;\n    flush(): void;\n}"
-    ],
     "flush": ["declare function flush(): void;"],
     "focusable": [
       "declare function focusable({ disabled, tabIndex }: FocusableOptions): FocusableResult;"
@@ -1586,29 +1544,8 @@
     "ForbiddenLayoutOnlyProps": [
       "type ForbiddenLayoutOnlyProps = {\n    action?: never;\n    alt?: never;\n    abbr?: never;\n    autoComplete?: never;\n    autocomplete?: never;\n    checked?: never;\n    colSpan?: never;\n    cols?: never;\n    disabled?: never;\n    form?: never;\n    headers?: never;\n    height?: never;\n    href?: never;\n    htmlFor?: never;\n    label?: never;\n    method?: never;\n    maxLength?: never;\n    maxlength?: never;\n    minLength?: never;\n    minlength?: never;\n    multiple?: never;\n    name?: never;\n    noValidate?: never;\n    placeholder?: never;\n    readOnly?: never;\n    readonly?: never;\n    rel?: never;\n    required?: never;\n    rowSpan?: never;\n    rows?: never;\n    scope?: never;\n    selected?: never;\n    src?: never;\n    target?: never;\n    type?: never;\n    value?: never;\n    width?: never;\n};"
     ],
-    "ForCommitStrategy": [
-      "type ForCommitStrategy = \"APPEND\" | \"INSERT_ONE\" | \"REMOVE_ONE\" | \"TRUNCATE\" | \"NO_REORDER\" | \"SWAP\" | \"FULL_KEYED\";"
-    ],
     "ForEachSource": [
       "type ForEachSource<T> = readonly T[] | (() => readonly T[]);"
-    ],
-    "ForIndexSignal": [
-      "type ForIndexSignal = ReadableSource<number> & (() => number) & {\n    peek(): number;\n    set(newValue: number | ((prev: number) => number), notifyReaders?: boolean): void;\n};"
-    ],
-    "ForItemInstance": [
-      "interface ForItemInstance<T> {\n    key: string | number;\n    item: T;\n    reactiveItem: T;\n    reactiveItemState: ReactiveForItemState<T> | null;\n    indexSignal: ForIndexSignal;\n    scope: ChildScope;\n    renderedWith: ForRenderItem<T> | null;\n}"
-    ],
-    "ForItemPropertySignal": [
-      "type ForItemPropertySignal = ReadableSource<unknown> & (() => unknown) & {\n    peek(): unknown;\n    set(newValue: unknown, notifyReaders?: boolean): void;\n};"
-    ],
-    "ForItemSignal": [
-      "type ForItemSignal<T> = ReadableSource<T> & (() => T) & {\n    peek(): T;\n    set(newValue: T, notifyReaders?: boolean): void;\n};"
-    ],
-    "ForItemTransactionSnapshot": [
-      "interface ForItemTransactionSnapshot<T> {\n    item: T;\n    itemSignalExists: boolean;\n    itemSignalValue: T | undefined;\n    itemSignalHasBeenRead: boolean;\n    indexValue: number;\n    indexHasBeenRead: boolean;\n    propertySignalStore: Map<PropertyKey, ForItemPropertySignal> | null;\n    propertySignals: Map<PropertyKey, {\n        signal: ForItemPropertySignal;\n        value: unknown;\n        hasBeenRead: boolean;\n    }> | null;\n    renderedWith: ForRenderItem<T> | null;\n    scope: ChildScopeTransactionSnapshot;\n}"
-    ],
-    "ForKeySelector": [
-      "type ForKeySelector<T> = (item: T, index: number) => string | number;"
     ],
     "formatId": [
       "declare function formatId(options: FormatIdOptions): string;"
@@ -1621,15 +1558,6 @@
     ],
     "ForProps": [
       "type ForProps<T, K extends string | number = string | number> = KeyedForProps<T, K> | IndexedForProps<T>;"
-    ],
-    "ForRenderItem": [
-      "type ForRenderItem<T> = (item: T, index: () => number) => VNode;"
-    ],
-    "ForState": [
-      "interface ForState<T> {\n    kind: \"for\";\n    _contextFrame: ContextFrame | null;\n    _contextFrameChanged: boolean;\n    currentItems: readonly T[];\n    _committedItems: readonly T[];\n    eachSource: ForEachSource<T>;\n    fallback: VNode | null;\n    fallbackScope: ChildScope | null;\n    items: Map<string | number, ForItemInstance<T>>;\n    orderedKeys: Array<string | number>;\n    orderedItems: ForItemInstance<T>[];\n    orderedVNodes: VNode[];\n    byFn: ForKeySelector<T>;\n    renderFn: ForRenderItem<T>;\n    _renderFnChanged: boolean;\n    parentInstance: ComponentInstance | null;\n    lastCommitStrategy: ForCommitStrategy;\n    lastRemovedNodes: Node[];\n    lastRemovedRanges: DOMRange[];\n    pendingDirtyIndices: number[] | null;\n    pendingSwapIndices: [\n        number,\n        number\n    ] | null;\n    pendingMoveOnly: boolean;\n    pendingInsertedIndex: number | null;\n    pendingRemovedKey: string | number | null;\n    pendingAppendStart: number | null;\n    _hasResolvedItemDom: boolean;\n    _needsSourceReconcile: boolean;\n    _sourceEffect: FineGrainedEffectHandle<readonly T[]> | null;\n    _suspendSourceCommit: boolean;\n    _enqueueBoundaryCommit?: (() => void) | null;\n    _hasPendingBoundaryCommit?: boolean;\n    _transaction?: ForTransaction<T> | null;\n    _scopeOwnership: ChildScopeOwnership;\n}"
-    ],
-    "ForTransaction": [
-      "interface ForTransaction<T> {\n    collectionSnapshotMode: \"copy\" | \"reset-empty\" | \"preserve-clear\" | \"reuse\";\n    currentItems: readonly T[];\n    items: Map<string | number, ForItemInstance<T>>;\n    orderedKeys: Array<string | number>;\n    orderedItems: ForItemInstance<T>[];\n    orderedVNodes: VNode[];\n    fallbackScope: ChildScope | null;\n    lastCommitStrategy: ForCommitStrategy;\n    lastRemovedNodes: Node[];\n    lastRemovedRanges: DOMRange[];\n    pendingDirtyIndices: number[] | null;\n    pendingSwapIndices: [\n        number,\n        number\n    ] | null;\n    pendingMoveOnly: boolean;\n    pendingInsertedIndex: number | null;\n    pendingRemovedKey: string | number | null;\n    pendingAppendStart: number | null;\n    hasResolvedItemDom: boolean;\n    needsSourceReconcile: boolean;\n    contextFrameChanged: boolean;\n    itemSnapshots: Map<ForItemInstance<T>, ForItemTransactionSnapshot<T>> | null;\n    unreadIndexSnapshots: Map<ForIndexSignal, number> | null;\n    fallbackScopeSnapshot: ChildScopeTransactionSnapshot | null;\n    removedScopes: ChildScope[] | null;\n    removedScopeNodes: Node[] | null;\n    removeAllItems: boolean;\n    signalEffects: Map<ReadableSource<unknown>, {\n        parentInstance: ComponentInstance | null;\n        notify: boolean;\n        skipInstance: ComponentInstance | null;\n        skipOwnedBy: ComponentInstance | null;\n        skipOwnedRenderedAfter: number | null;\n    }> | null;\n    shouldClearDomUpdateState: boolean;\n}"
     ],
     "Fragment": ["Fragment: unique symbol"],
     "getDefaultDataRuntime": [
@@ -1654,9 +1582,6 @@
     "hasApp": ["declare function hasApp(root: Element | string): boolean;"],
     "HistoryScrollBehavior": [
       "type HistoryScrollBehavior = \"restore\" | \"top\" | \"preserve\";"
-    ],
-    "HookKind": [
-      "type HookKind = \"state\" | \"derive\" | \"selector\" | \"For\" | \"on\" | \"watch\" | \"task\" | \"stream\" | \"timer\" | \"createQuery\" | \"createQueryCollection\" | \"createMutation\" | \"onRouteChange\";"
     ],
     "hoverable": [
       "declare function hoverable({ disabled, onEnter, onLeave }: HoverableOptions): HoverableResult;"
@@ -1923,9 +1848,6 @@
       "declare function makeControllable<T>(options: {\n    value: T | undefined;\n    defaultValue: T;\n    onChange?: (next: T) => void;\n    setInternal?: (next: T) => void;\n}): {\n    set: (next: T) => void;\n    isControlled: boolean;\n};"
     ],
     "Match": ["declare function Match(_props: MatchProps): null;"],
-    "MatchBranch": [
-      "interface MatchBranch {\n    key: string | number;\n    render: () => VNode;\n    when: unknown;\n}"
-    ],
     "MatchChild": ["type MatchChild = BoundaryChild | (() => BoundaryChild);"],
     "MatchProps": [
       "type MatchProps = {\n    key?: string | number | null;\n    when: unknown;\n    children: MatchChild;\n};"
@@ -2035,9 +1957,6 @@
     "Outlet": ["declare function Outlet(): JSXElement;"],
     "OutputIntrinsicProps": [
       "type OutputIntrinsicProps = StructuredContentIntrinsicProps<{\n    form?: ReactiveProp<IntrinsicTextValue>;\n    htmlFor?: ReactiveProp<IntrinsicTextValue>;\n    name?: ReactiveProp<IntrinsicTextValue>;\n}>;"
-    ],
-    "OwnedChildScope": [
-      "type OwnedChildScope = {\n    key: string | number;\n    dispose(): void;\n};"
     ],
     "page": [
       "declare function page<const TPath extends string, TComponent extends AnyRouteComponent>(path: TPath, Component: CompatibleRouteComponent<TPath, TComponent>, fn: RouteDefinition): void;",
@@ -2170,13 +2089,7 @@
     "rafEvent": [
       "declare function rafEvent(handler: EventListener): EventListener & {\n    cancel(): void;\n};"
     ],
-    "ReactiveForItemState": [
-      "interface ReactiveForItemState<T> {\n    currentItem: T;\n    itemSignal: ForItemSignal<T> | null;\n    propertySignals: Map<PropertyKey, ForItemPropertySignal> | null;\n    coalescedProperties: PropertyKey | PropertyKey[] | null;\n    coalescedProperty2: PropertyKey | null;\n    wholeItemRead: boolean;\n    proxy: T;\n}"
-    ],
     "ReactiveProp": ["type ReactiveProp<T> = T | (() => T);"],
-    "ReadableSource": [
-      "interface ReadableSource<T = unknown> {\n    (): T;\n    _hasBeenRead?: boolean;\n    _hasEverBeenRead?: boolean;\n    _unusedStateDiagnosticEligible?: boolean;\n    _readers?: Map<ComponentInstance, {\n        token: number;\n        generation: object;\n    }>;\n    _derivedSubscribers?: Set<DerivedSubscriber>;\n    _version?: number;\n}"
-    ],
     "readScope": ["declare function readScope<T>(context: Scope<T>): T;"],
     "reconcileRouteMeta": [
       "declare function reconcileRouteMeta(meta: Readonly<RouteMeta>, target?: Document): void;"
@@ -2494,9 +2407,6 @@
       "type ShowProps<T> = {\n    when: ShowSource<T>;\n    fallback?: BoundaryChild;\n    children: BoundaryChild | ((value: Truthy<T>) => BoundaryChild);\n};"
     ],
     "ShowSource": ["type ShowSource<T> = T | (() => T);"],
-    "ShowState": [
-      "interface ShowState extends BranchControlStateBase {\n    kind: \"show\";\n    fallbackScope: ChildScope | null;\n    renderFallback: (() => VNode) | null;\n    renderTruthy: ((value: unknown) => VNode) | (() => VNode);\n    selectedValue: unknown;\n    truthyScope: ChildScope | null;\n}"
-    ],
     "Slot": ["declare function Slot(props: SlotProps): JSXElement | null;"],
     "SlotProps": [
       "type SlotProps = {\n    asChild: true;\n    children: JSXElement;\n    [key: string]: unknown;\n} | {\n    asChild?: false;\n    children?: RenderableChild;\n};"

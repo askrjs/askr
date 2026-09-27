@@ -6,6 +6,11 @@
   renderer-host construction APIs. Use the public boot, component, and state
   APIs to mount and extend applications.
 
+- breaking(types): drop the internal `_controlState` field from the published
+  `VNode`/`DOMElement` declaration. It exposed the retired runtime's control,
+  child-scope, and component-instance shapes, which the rebuilt core does not
+  have. No export is removed.
+
 - fix(runtime): retain standalone reactive component updates in packed builds
   by installing the DOM render host when a root is created.
 
