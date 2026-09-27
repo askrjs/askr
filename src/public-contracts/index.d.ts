@@ -22,8 +22,8 @@ import {
 import { Props, Fragment } from './elements.js';
 import { createElement, jsxs, jsx } from './jsx.js';
 /**
- * Thrown when a component tree is too deep to render: the JavaScript call
- * stack overflowed. `cause` is the engine's original error.
+ * Thrown when the JavaScript call stack overflows during a render, usually
+ * because the component tree is too deep. `cause` is the engine's error.
  */
 declare class RenderDepthError extends Error {
   readonly cause: unknown;

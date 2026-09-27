@@ -34,7 +34,7 @@ function runPass(owner: Owner | null, render: (pass: Pass) => void): void {
     render(pass);
   } catch (error) {
     for (const failure of pass.discard()) reportUncaughtErrorLater(failure);
-    routeError(owner, clarifyRenderOverflow(error));
+    routeError(owner, error);
     return;
   }
   try {

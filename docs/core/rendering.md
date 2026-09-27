@@ -165,15 +165,21 @@ ownership remains balanced when the row is later replaced or removed.
 ### Tree depth
 
 The client renderer and SSR render nested elements and components
-recursively, so tree depth is bounded by the JavaScript call stack. A few
-hundred levels of nested elements and components render on the default
-Node.js and browser stacks. When a tree is too deep, the render fails with a
+recursively, so tree depth is bounded by the JavaScript call stack. Askr
+supports at least 200 levels of nested elements and components on the default
+Node.js stack; the exact ceiling depends on the engine and its stack size. A
+component that returns the same component type directly, with no hooks and no
+element in between, is walked iteratively and does not count against that
+limit.
+
+When the stack overflows during a render, the render fails with a
 `RenderDepthError` (exported from `@askrjs/askr`) whose `cause` is the engine's
-stack overflow. It reaches the nearest `ErrorBoundary` like any render error
-(a boundary nested so deep that no stack is left to build the error receives
-the engine's error instead); without one, the render throws and the committed
-DOM is left unchanged. Render
-long sequences as lists, for example with `For`, instead of nesting them.
+error. It usually means the tree is too deep, but a component or computation
+that recurses without end produces the same error. It reaches the nearest
+`ErrorBoundary` like any render error (a boundary nested so deep that no stack
+is left to build the error receives the engine's error instead); without one,
+the render throws and the committed DOM is left unchanged. Render long
+sequences as lists, for example with `For`, instead of nesting them.
 
 ### Imperative widget hosts
 

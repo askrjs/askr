@@ -11,13 +11,19 @@ export class RenderDepthError extends Error {
 
   constructor(cause: unknown) {
     super(
-      '[Askr] The component tree is too deep to render: the JavaScript call ' +
-        'stack overflowed. Askr renders nested elements and components ' +
-        'recursively; keep nesting to a few hundred levels and render long ' +
-        'sequences as lists (for example with <For>) instead of recursion.'
+      '[Askr] The JavaScript call stack overflowed while rendering. Either ' +
+        'the component tree is too deep (Askr renders nested elements and ' +
+        'components recursively; render long sequences as lists, for example ' +
+        'with <For>, instead of nesting them) or a component or computation ' +
+        'recurses without end. `cause` holds the original error.'
     );
     this.name = 'RenderDepthError';
-    (this as { cause?: unknown }).cause = cause;
+    // Non-enumerable, like a native `Error` cause.
+    Object.defineProperty(this, 'cause', {
+      value: cause,
+      writable: true,
+      configurable: true,
+    });
   }
 }
 

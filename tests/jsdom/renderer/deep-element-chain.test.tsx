@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
-import { RenderDepthError, state } from '../../../src/index';
+import { RenderDepthError, jsx, state } from '../../../src/index';
+import type { JSXElement } from '../../../src/jsx/types';
 import { ErrorBoundary } from '../../../src/components';
 import { renderToStringSync } from '../../../src/ssr';
 import {
@@ -12,14 +13,21 @@ import { createIsland } from '../../../test-utils/render/create-island';
 const SUPPORTED_DEPTH = 200;
 const OVERFLOWING_DEPTH = 5000;
 
-function Chain(props: { remaining: number; label: string }) {
-  return props.remaining === 0 ? (
-    <span data-leaf={'true'}>{props.label}</span>
-  ) : (
-    <div>
-      <Chain remaining={props.remaining - 1} label={props.label} />
-    </div>
-  );
+// Build the chain through a local reference to the JSX factory: calling it
+// through the test runner's import getter can turn a stack overflow inside
+// the getter into an unrelated TypeError, which makes the overflow tests
+// depend on exactly where the stack runs out.
+const h = jsx;
+
+function Chain(props: { remaining: number; label: string }): JSXElement {
+  return props.remaining === 0
+    ? h('span', { 'data-leaf': 'true', children: props.label })
+    : h('div', {
+        children: h(Chain, {
+          remaining: props.remaining - 1,
+          label: props.label,
+        }),
+      });
 }
 
 describe('deep element-wrapped component chains', () => {
@@ -63,7 +71,9 @@ describe('deep element-wrapped component chains', () => {
     }
     expect(error).toBeInstanceOf(Error);
     expect((error as Error).name).toBe('RenderDepthError');
-    expect((error as Error).message).toMatch(/component tree is too deep/);
+    expect((error as Error).message).toMatch(
+      /call stack overflowed while rendering/
+    );
     expect((error as { cause?: unknown }).cause).toBeInstanceOf(RangeError);
     expect(error).toBeInstanceOf(RenderDepthError);
     expect(container.querySelector('[data-placeholder]')).not.toBeNull();

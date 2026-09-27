@@ -4,6 +4,7 @@
  * instance render its fallback on its next render.
  */
 
+import { clarifyRenderOverflow } from '../../common/render-depth';
 import type { Owner } from '../reactive/owner';
 import { ComponentInstance } from './instance';
 
@@ -40,11 +41,13 @@ export function deliverToBoundary(
 }
 
 /** Deliver `error` to a boundary, or throw it to the caller. */
-export function routeError(owner: Owner | null, error: unknown): void {
+export function routeError(owner: Owner | null, raw: unknown): void {
+  // Look up the origin on the error as thrown, then deliver the clarified one.
   const origin =
-    error !== null && (typeof error === 'object' || typeof error === 'function')
-      ? errorOrigins.get(error)
+    raw !== null && (typeof raw === 'object' || typeof raw === 'function')
+      ? errorOrigins.get(raw)
       : undefined;
+  const error = clarifyRenderOverflow(raw);
   if (origin && deliverToBoundary(origin, error)) return;
   if (!deliverToBoundary(owner, error)) throw error;
 }
