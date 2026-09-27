@@ -351,7 +351,8 @@ const scenarios: Record<string, Scenario> = {
       expect(titles()).toEqual(['Settings', 'Confirm']);
       const confirm = host.querySelector('[data-layer="confirm"]');
 
-      // A default-portal writer in the same root does not replace the stack.
+      // The stack keeps its own channel: a default-portal writer opened later
+      // in the same root would replace it if the snippet used <Portal>.
       tipOpen.set(true);
       result.flush();
       expect(result.root.querySelector('[data-tip]')).not.toBeNull();

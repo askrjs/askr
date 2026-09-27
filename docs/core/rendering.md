@@ -575,9 +575,9 @@ unrevealed records. Permanent `skipSelectors` remain skipped.
 ### Stacking layers
 
 A portal shows one writer's content at a time. When several writers target the
-same portal, the most recent write wins. A writer that re-renders with the
-same `children` reference (for example the same string) does not take the
-portal back, but new JSX children are a new value and do. A writer that unmounts clears
+same portal, the writer that rendered last wins. A writer takes the portal
+back only when it renders after the current writer with different `children`;
+re-rendering with the same reference (for example the same string) does not. A writer that unmounts clears
 the portal only if it is still the current writer. To show several layers at
 once, such as stacked dialogs or toasts, let one component own the list of open
 layers and write it through a portal of its own, so other `Portal` writers
@@ -637,8 +637,9 @@ export function useLayerStack(): LayerStackApi {
 
 Layers render at `<LayerHost />` in the order they were opened. `LayerHost`
 is one channel for the whole module, so render one `LayerStack` and one
-`<LayerHost />` per application; for several roots, create the portal inside a
-factory per root. Opening an id
+`<LayerHost />` per module instance. Applications that mount several roots
+should create `LayerHost`, `LayerStack`, and the scope inside a factory called
+once per root. Opening an id
 that is already open does nothing, and closing one layer keeps the others' DOM
 nodes because `For` tracks each layer by its key.
 
