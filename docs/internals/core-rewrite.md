@@ -1,9 +1,10 @@
 # Core rewrite: the runtime Askr set out to be
 
-Status: **in progress on `fix/broken-design`**. This record replaces the
-incremental hardening plan for the runtime and renderer. The public API,
-its documented behavior, and every sibling package stay unchanged; the
-implementation behind them is rebuilt.
+Status: **core migration shipped; architecture audit and remediation in
+progress**. The old runtime and renderer have been replaced by `src/core`.
+This page records the shipped architecture and its current qualification
+boundaries; it is no longer a migration checklist. The public API and its
+documented behavior remain the compatibility contract.
 
 ## Why
 
@@ -128,59 +129,55 @@ the new owner and reactive APIs, not redesigned.
 
 ## The contract
 
-Tests are the definition of "unchanged":
+Tests define the public compatibility contract:
 
 - `tests/checks` public API and declaration snapshots, `tests/types`, and
   `tests/consumer-contracts`.
-- jsdom and browser tests that import only public entry points (332 of 488
-  test files at the start of the rewrite).
-- The askr-ui, askr-themes, and askr-examples suites run against a packed
-  build of this branch.
+- Unit, jsdom, and browser behavior suites, including hydration, routing,
+  controls, error boundaries, portals, and SSR integration.
+- `npm run test:installed`, which validates public declarations and packed
+  consumer fixtures from a clean installation.
 
-Tests that import runtime or renderer internals pin the old implementation.
-Each one is either rewritten against public behavior or deleted with the
-module it tests. A deleted test whose behavior is public must have a public
-replacement first.
+Tests should prefer public behavior. A test that imports `src/core` internals
+may be appropriate for an internal invariant, but it should not preserve a
+retired implementation detail in place of a public contract test.
 
-## Order of work
+## Current status and qualification
 
-1. Reactive graph and owner tree, with unit tests.
-2. Component execution, DOM render/commit, keyed reconciliation, refs,
-   events, context, error boundaries, and lazy controls.
-3. Hydration and SSR on the same execution path.
-4. Lifecycle hooks, portals, data, router, and boot integration.
-5. Switch the public entry points, delete the old core and its pinned tests,
-   and qualify performance against the tier 1 and tier 2 benchmarks.
+The core migration is complete: public entry points use `src/core`, the old
+`src/runtime` and `src/renderer` implementation has been retired, and
+`tests/checks/core-architecture.test.ts` enforces the internal layer
+boundaries. The full CI workflow runs formatting, lint and typecheck, build,
+unit/check/jsdom/browser suites, public type tests, and packed-consumer
+validation. Run performance benchmarks when a change affects a measured hot
+path; a green functional suite does not establish a performance result.
 
-The rewrite is complete only when the contract suite is green.
+Recent commit-rollback qualification covers provisional hydration text claims,
+ordinary adopted attributes, reflected class/style writes, attribute-backed
+binding transitions, and static or bound input value, checkbox checked, and
+option selected state. Structural child placement also has rollback coverage
+for ordinary reconciliation failures.
 
-Portal channel writes settle when their writer's render commits. This queues
+Portal channel writes settle when the writer's render commits. This queues
 the host update before the scheduler revisits portal descendants whose inputs
 changed in the same flush, so removed rows are disposed before they can read
 stale props.
 
-## Remaining work
+## Open audit boundaries
 
-The branch is a migration checkpoint, not a qualified release. Complete these
-slices before release:
+The following live-DOM paths still need focused failure injection and review
+before the comprehensive architecture audit is complete:
 
-| Slice                | Work                                                                                                                                                                                                                                  | Acceptance                                                                                                           |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Route lifetimes      | Give route leaves fresh ownership while retaining shared layout DOM; settle route tasks, resources, portals, and navigation rollback.                                                                                                 | Router and routed app-flow suites pass without old runtime imports.                                                  |
-| DOM commits          | Finish provisional owner disposal, failed-commit recovery, keyed moves, refs, and event bindings in `src/core/dom`.                                                                                                                   | Public DOM, identity, control, and error-boundary suites pass.                                                       |
-| Hydration            | Qualify boundary-local activation, interaction replay, and portal adoption across SSR and browser hydration suites.                                                                                                                   | SSR hydration and browser hydration suites pass with markup verification enabled.                                    |
-| SSR parity           | Match client handling of function children, raw-text elements, props, portals, and route data.                                                                                                                                        | SSR and SSG suites pass against the same public render contracts.                                                    |
-| Retire old internals | Done. The old `src/runtime` and `src/renderer` modules, the experimental entry, and the legacy bench/perf counters (`ASKR_BENCH_INSTRUMENTATION`) are deleted. Benchmarks and the browser fixture app use `src/core` and public APIs. | No production import or surviving test depends on the old core; architecture, declaration, and consumer checks pass. |
-| Qualification        | Run formatting, lint, build, types, the complete unit/jsdom/browser/check suite, and relevant tier 1/2 benchmarks. Pack the branch for sibling-package contract suites.                                                               | Every required gate passes at the same head.                                                                         |
+- `syncChildren()` reorders, inserts, and removes adopted nodes during
+  hydration. Confirm that partial failure restores the original sibling list.
+- Hydration removes server attributes that rendered props do not claim, and
+  corrects mismatched text nodes. Confirm that a later commit abort restores
+  those mutations too.
+- Property-only props, custom-element properties, `dangerouslySetInnerHTML`,
+  and controlled select value writes need targeted rollback qualification.
 
-During migration, use focused suites for each slice and a full suite after a
-substantial change. A local checkpoint may still have unrelated failing suites;
-the final package cannot.
-
-Structural child-placement failures now restore sibling containers in one
-pass before reporting the error. Standard element attribute writes also restore their
-previous values. Input and textarea values, checkbox state, and option selection
-restore both the attribute and live property. Select value and other property
-write failures still need qualification.
-The experimental renderer-host contract was removed as a breaking change.
-Public rendering suites now qualify the new core directly.
+Use a focused regression for each confirmed defect, then run the full required
+gates on the exact PR head. Keep open questions separate from verified
+behavior, and update this list as the audit establishes or closes each
+boundary. The experimental renderer-host contract was removed as a breaking
+change; public rendering suites qualify the new core directly.
