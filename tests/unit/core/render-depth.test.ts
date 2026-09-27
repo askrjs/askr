@@ -4,6 +4,7 @@ import {
   clarifyRenderOverflow,
 } from '../../../src/common/render-depth';
 import {
+  clarifyRenderError,
   noteErrorOrigin,
   routeError,
 } from '../../../src/core/component/errors';
@@ -50,7 +51,7 @@ describe('routeError with a converted overflow', () => {
     const overflow = new RangeError('Maximum call stack size exceeded');
     noteErrorOrigin(origin, overflow);
     // Converted after the origin was recorded on the engine error.
-    const converted = clarifyRenderOverflow(overflow);
+    const converted = clarifyRenderError(overflow);
     expect(converted).toBeInstanceOf(RenderDepthError);
     // A shallower component that converted the error records its own
     // position, as renderInstance does; the deeper origin must still win.

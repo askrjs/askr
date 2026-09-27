@@ -4,7 +4,7 @@
  * instance render its fallback on its next render.
  */
 
-import { RenderDepthError } from '../../common/render-depth';
+import { clarifyRenderOverflow } from '../../common/render-depth';
 import type { Owner } from '../reactive/owner';
 import { ComponentInstance } from './instance';
 
@@ -42,30 +42,29 @@ export function deliverToBoundary(
 
 /** Deliver `error` to a boundary, or throw it to the caller. */
 export function routeError(owner: Owner | null, error: unknown): void {
-  const origin = originOf(error);
+  const origin =
+    error !== null && (typeof error === 'object' || typeof error === 'function')
+      ? errorOrigins.get(error)
+      : undefined;
   if (origin && deliverToBoundary(origin, error)) return;
   if (!deliverToBoundary(owner, error)) throw error;
 }
 
 /**
- * The origin recorded for `error`. For a `RenderDepthError`, the origin
- * recorded on the engine error it wraps wins: that was noted where the
- * overflow first escaped, before a shallower frame converted it.
+ * `caught`, or a `RenderDepthError` when it is a stack overflow. The new error
+ * inherits the origin recorded on `caught`, so routing still starts where the
+ * overflow first escaped. Runs near an exhausted stack: if copying the origin
+ * fails, the conversion is kept without it.
  */
-function originOf(error: unknown): Owner | undefined {
-  if (
-    error === null ||
-    (typeof error !== 'object' && typeof error !== 'function')
-  ) {
-    return undefined;
+export function clarifyRenderError(caught: unknown): unknown {
+  const error = clarifyRenderOverflow(caught);
+  if (error !== caught) {
+    try {
+      const origin = errorOrigins.get(caught as object);
+      if (origin) errorOrigins.set(error as object, origin);
+    } catch {
+      // Out of stack; the error keeps no origin.
+    }
   }
-  if (error instanceof RenderDepthError) {
-    const cause = error.cause;
-    const deeper =
-      cause !== null && typeof cause === 'object'
-        ? errorOrigins.get(cause)
-        : undefined;
-    if (deeper) return deeper;
-  }
-  return errorOrigins.get(error);
+  return error;
 }
