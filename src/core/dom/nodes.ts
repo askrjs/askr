@@ -32,6 +32,8 @@ import { isDangerousInnerHTMLPayload } from './prop-values';
 import {
   applyInitialProps,
   applyTrailingProps,
+  enclosingSelect,
+  resyncSelect,
   attachRef,
   patchProps,
   releaseProps,
@@ -248,7 +250,9 @@ function patchHost(ctx: RenderContext, node: HostNode, props: Props): void {
     reconcileChildren(ctx, node, null, false);
   }
   patchProps(ctx.pass, node, previous, props);
-  if (node.tag === 'option') syncEnclosingSelect(ctx.pass, node.parent);
+  if (node.tag === 'option' && !Object.is(previous.value, props.value)) {
+    syncEnclosingSelect(ctx.pass, node.parent);
+  }
   if (!wasManaged && isManaged && node.children.length === 0) {
     ctx.pass.op(() => node.el.replaceChildren());
   }
@@ -273,8 +277,12 @@ function patchHost(ctx: RenderContext, node: HostNode, props: Props): void {
     node.props = props;
     node.imperative = Boolean(props.imperativeChildren);
   });
-  if (node.tag === 'select')
-    ctx.pass.op(() => applyTrailingProps(ctx.pass, node, props));
+  if (node.tag === 'select') {
+    ctx.pass.op(() => {
+      applyTrailingProps(ctx.pass, node, props);
+      markSelectSynced(ctx.pass, node);
+    });
+  }
   if (props.ref !== previous.ref) {
     attachRef(ctx.pass, { ...node, props }, previous.ref);
   }
@@ -753,38 +761,30 @@ function release(node: RNode, errors: unknown[]): void {
 
 /**
  * A select's controlled value depends on its options. When a pass changes
- * the options without patching the select (a child component or `For` adds,
- * removes, or edits them), re-apply the select's value once after the pass
- * commits, with the options in place.
+ * them without patching the select (a child component, `For`, or function
+ * child adds, removes, or edits options), re-apply the select's value after
+ * the pass commits, once per select. Each change registers its own sync so
+ * an error boundary that rewinds part of the pass drops only its own.
  */
-const selectsToSync = new WeakMap<Pass, Set<HostNode>>();
-
-function enclosingSelect(parent: Parent | null): HostNode | null {
-  for (let p: Parent | null = parent; p; p = p.parent) {
-    if (p.kind !== HOST) {
-      if (p.kind === ROOT) return null;
-      continue;
-    }
-    if (p.tag === 'select') return p;
-    if (p.tag !== 'optgroup' && p.tag !== 'option') return null;
-  }
-  return null;
-}
+const syncedSelects = new WeakMap<Pass, Set<HostNode>>();
 
 function syncEnclosingSelect(pass: Pass, parent: Parent | null): void {
   const select = enclosingSelect(parent);
   if (!select || select.dormant) return;
-  let pending = selectsToSync.get(pass);
-  if (!pending) {
-    const selects = new Set<HostNode>();
-    pending = selects;
-    selectsToSync.set(pass, selects);
-    pass.after(() => {
-      selectsToSync.delete(pass);
-      for (const node of selects) applyTrailingProps(pass, node, node.props);
-    });
-  }
-  pending.add(select);
+  pass.after(() => {
+    let synced = syncedSelects.get(pass);
+    if (!synced) syncedSelects.set(pass, (synced = new Set()));
+    if (synced.has(select)) return;
+    synced.add(select);
+    resyncSelect(select);
+  });
+}
+
+/** The select's own patch applied its value after its options. */
+function markSelectSynced(pass: Pass, select: HostNode): void {
+  let synced = syncedSelects.get(pass);
+  if (!synced) syncedSelects.set(pass, (synced = new Set()));
+  synced.add(select);
 }
 
 export const domNodes: NodeKinds = {
@@ -853,6 +853,8 @@ export const domNodes: NodeKinds = {
             node.node.data = text;
             node.text = text;
           });
+          // A value-less option's value is its text.
+          syncEnclosingSelect(ctx.pass, node.parent);
         }
         return;
       }

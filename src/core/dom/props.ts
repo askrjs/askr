@@ -32,7 +32,7 @@ import {
   applyScalarPropValue,
   applyStaticScalarPropsToElement,
 } from './prop-values';
-import type { HostNode } from './tree';
+import { HOST, ROOT, type HostNode, type Parent } from './tree';
 
 function isBinding(key: string, value: unknown): value is () => unknown {
   return (
@@ -281,6 +281,33 @@ export function applyTrailingProps(
   }
 }
 
+/** The select whose options include content under `parent`, if any. */
+export function enclosingSelect(parent: Parent | null): HostNode | null {
+  for (let p: Parent | null = parent; p; p = p.parent) {
+    if (p.kind !== HOST) {
+      if (p.kind === ROOT) return null;
+      continue;
+    }
+    if (p.tag === 'select') return p;
+    if (p.tag !== 'optgroup' && p.tag !== 'option') return null;
+  }
+  return null;
+}
+
+/**
+ * Re-apply a committed select's controlled value against its current
+ * options. Its options changed without the select itself being patched.
+ */
+export function resyncSelect(select: HostNode): void {
+  if (select.dormant || !('value' in select.props)) return;
+  const value = select.props.value;
+  if (typeof value === 'function') {
+    select.bindings?.get('value')?.run();
+    return;
+  }
+  applyScalarPropValue(select.el, 'value', value, select.tag, undefined);
+}
+
 /** Record the writes that turn `previous` into `next` on a committed element. */
 export function patchProps(
   pass: Pass,
@@ -402,7 +429,13 @@ function bind(
       try {
         const value = key.startsWith('prop:') ? read() : readValue(read);
         applyScalarPropValue(el, key, value, tag, last);
+        const changed = !Object.is(last, value);
         last = value;
+        // A bound option value changes the select's matching option.
+        if (changed && tag === 'option' && key === 'value') {
+          const select = enclosingSelect(node.parent);
+          if (select) resyncSelect(select);
+        }
         appliedByBinding.set(binding, value);
       } catch (error) {
         if (!deliverToBoundary(node.owner, error)) throw error;

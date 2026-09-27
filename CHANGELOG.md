@@ -3,12 +3,14 @@
 ## Unreleased
 
 - fix(dom): a controlled `<select value>` keeps its value when a child
-  component, `For`, or function child adds, removes, or edits its options
-  without the select itself re-rendering (#608).
+  component, `For`, or function child adds, removes, or edits its options, or
+  an option's text or bound `value` changes, without the select itself
+  re-rendering (#608).
 
-- fix(ssr): a value-less `<option>` is selected by its rendered text with
-  whitespace stripped and collapsed, as the browser's `option.value` reads it,
-  including text from component children (#609).
+- fix(ssr): a value-less `<option>` (no `value`, or `null`/`false`) is
+  selected by its rendered text with whitespace stripped and collapsed, as the
+  browser's `option.value` reads it, including text from component children
+  and raw HTML entities, and excluding script text (#609).
 
 - fix(state): `selector()` releases candidate entries once nothing reads
   them, so querying many distinct values no longer grows it for the

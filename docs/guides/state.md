@@ -99,6 +99,10 @@ function TableRow({ row }: { row: { id: number } }) {
 ```
 
 For keyed lists, create the selector once in the owner component and pass it down.
+A selector keeps one entry per key that something is currently reading. When the
+last reader of a key goes away (a paged-out or removed row), the selector drops that
+entry after the current update settles, so querying many distinct keys over time
+does not grow it.
 
 ```tsx
 import { selector, state } from '@askrjs/askr';

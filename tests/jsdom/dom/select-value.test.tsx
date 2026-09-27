@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { state, type State } from '../../../src';
 import { For } from '../../../src/control';
+import { ErrorBoundary } from '@askrjs/askr/components';
+import { vi } from 'vite-plus/test';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -130,6 +132,111 @@ describe('select value ownership', () => {
         flushScheduler();
         expect(select().value).toBe('c');
         chosen.set('b');
+        flushScheduler();
+        expect(select().value).toBe('b');
+      } finally {
+        cleanup();
+      }
+    });
+
+    it('should keep the value after a boundary rewinds part of the pass', () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      let options!: State<string[]>;
+      let fail = true;
+      function Failing(): never | null {
+        if (fail) throw new Error('group failed');
+        return null;
+      }
+      function Options() {
+        options = state<string[]>(['a']);
+        return (
+          <>
+            <ErrorBoundary fallback={null}>
+              <optgroup label="first">
+                {options().length > 1 ? <option value="z">z</option> : null}
+              </optgroup>
+              {options().length > 1 ? <Failing /> : null}
+            </ErrorBoundary>
+            {options().map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </>
+        );
+      }
+      const { select, cleanup } = mount(() => (
+        <select value="c">
+          <Options />
+        </select>
+      ));
+      try {
+        options.set(['a', 'b', 'c']);
+        flushScheduler();
+        fail = false;
+        expect(select().value).toBe('c');
+      } finally {
+        vi.restoreAllMocks();
+        cleanup();
+      }
+    });
+
+    it.each([
+      [
+        'a function child',
+        (label: () => string) => <option>{() => label()}</option>,
+      ],
+      [
+        'a child component',
+        (label: () => string) => {
+          const Label = () => <>{label()}</>;
+          return (
+            <option>
+              <Label />
+            </option>
+          );
+        },
+      ],
+    ])(
+      'should follow a value-less option whose text changes through %s',
+      (_name, renderOption) => {
+        let label!: State<string>;
+        function App() {
+          label = state('X');
+          return (
+            <select value="B">
+              <option>A</option>
+              {renderOption(() => label())}
+            </select>
+          );
+        }
+        const { select, cleanup } = mount(() => <App />);
+        try {
+          expect(select().selectedIndex).toBe(-1);
+          label.set('B');
+          flushScheduler();
+          expect(select().value).toBe('B');
+        } finally {
+          cleanup();
+        }
+      }
+    );
+
+    it('should follow an option whose value is bound to a function', () => {
+      let optionValue!: State<string>;
+      function App() {
+        optionValue = state('x');
+        return (
+          <select value="b">
+            <option value="a">A</option>
+            <option value={() => optionValue()}>B</option>
+          </select>
+        );
+      }
+      const { select, cleanup } = mount(() => <App />);
+      try {
+        expect(select().selectedIndex).toBe(-1);
+        optionValue.set('b');
         flushScheduler();
         expect(select().value).toBe('b');
       } finally {

@@ -3,7 +3,7 @@
  *
  * `normalizeChildren()` flattens a component's return value into child
  * descriptors: text, an element, a component, a fragment, a function child
- * (fine-grained dynamic content), or a portal. The DOM renderer and the SSR
+ * (fine-grained dynamic content), or a native DOM node. The DOM renderer and the SSR
  * renderer both consume descriptors, so they cannot disagree about what a
  * value renders.
  */

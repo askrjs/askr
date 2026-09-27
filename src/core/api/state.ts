@@ -17,7 +17,11 @@ import {
   trackSource,
   type Source,
 } from '../reactive/graph';
-import { effectScheduler, getFlushVersion } from '../reactive/scheduler';
+import {
+  effectScheduler,
+  getFlushVersion,
+  queueTask,
+} from '../reactive/scheduler';
 import { isRendering } from '../component/render-state';
 import { markReadable } from '../reactive/readable';
 import { isSnapshotSource } from './snapshot';
@@ -296,6 +300,38 @@ function createSelector<T>(
   const primitives = new Map<unknown, CandidateSource>();
   const objects = new WeakMap<object, CandidateSource>();
 
+  // A candidate entry is released once no computation reads it, but only
+  // after the current work settles: a reader can take over the same entry
+  // later in the run, and a discarded render restores the subscriptions it
+  // replaced. Entries a failed render created without subscribing are swept
+  // the same way.
+  const sweepCandidates = new Set<CandidateSource>();
+  let sweepQueued = false;
+  const sweep = () => {
+    sweepQueued = false;
+    for (const entry of sweepCandidates) {
+      if (entry._observers?.size) continue;
+      const candidate = entry.candidate;
+      if (
+        (typeof candidate === 'object' && candidate !== null) ||
+        typeof candidate === 'function'
+      ) {
+        if (objects.get(candidate as object) === entry) {
+          objects.delete(candidate as object);
+        }
+      } else if (primitives.get(candidate) === entry) {
+        primitives.delete(candidate);
+      }
+    }
+    sweepCandidates.clear();
+  };
+  const queueSweep = (entry: CandidateSource) => {
+    sweepCandidates.add(entry);
+    if (sweepQueued) return;
+    sweepQueued = true;
+    queueTask(sweep);
+  };
+
   const candidateSource = (candidate: unknown, create: boolean) => {
     const isObject =
       (typeof candidate === 'object' && candidate !== null) ||
@@ -305,16 +341,8 @@ function createSelector<T>(
       : primitives.get(candidate);
     if (!entry && create) {
       const created: CandidateSource = { _observers: null, candidate };
-      // Released once nothing reads it, so the map tracks live readers only.
-      created._unobserved = () => {
-        if (isObject) {
-          if (objects.get(candidate as object) === created) {
-            objects.delete(candidate as object);
-          }
-        } else if (primitives.get(candidate) === created) {
-          primitives.delete(candidate);
-        }
-      };
+      created._unobserved = () => queueSweep(created);
+      queueSweep(created);
       entry = created;
       if (isObject) objects.set(candidate as object, entry);
       else primitives.set(candidate, entry);

@@ -423,16 +423,20 @@ function renderElement(tag: string, props: Props, sink: SinkTarget): void {
   let renderedChildren: BufferedSink | null = null;
   if (lower === 'option' && parentNamespace === 'select' && selection) {
     let value: string;
-    if (elementProps.value === undefined) {
+    const own = elementProps.value;
+    // An omitted value attribute (`null`, `undefined`, `false`) falls back to
+    // the option's text, as it does in the browser.
+    if (own === undefined || own === null || own === false) {
       const buffer = new BufferedSink();
+      const props = elementProps;
       withNamespace(
-        getChildNamespace(parentNamespace, namespace, lower, elementProps),
-        () => renderValue(elementProps.children, buffer)
+        getChildNamespace(parentNamespace, namespace, lower, props),
+        () => writeContent(props, null, buffer)
       );
       renderedChildren = buffer;
       value = optionTextValue(buffer.html());
     } else {
-      value = String(elementProps.value);
+      value = String(own);
     }
     const selected =
       selection.values.has(value) && (selection.multiple || !selection.matched);
@@ -475,11 +479,32 @@ function renderElement(tag: string, props: Props, sink: SinkTarget): void {
   }
 }
 
-const TEXT_ENTITIES: Record<string, string> = {
-  '&amp;': '&',
-  '&lt;': '<',
-  '&gt;': '>',
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: '\u00a0',
 };
+
+/** Decode the entity starting at `start` (`&...;`), or null if unknown. */
+function decodeEntity(
+  html: string,
+  start: number
+): { text: string; end: number } | null {
+  const end = html.indexOf(';', start + 1);
+  if (end < 0 || end - start > 12) return null;
+  const name = html.slice(start + 1, end);
+  if (name.startsWith('#')) {
+    const hex = name[1] === 'x' || name[1] === 'X';
+    const code = Number.parseInt(name.slice(hex ? 2 : 1), hex ? 16 : 10);
+    if (!Number.isFinite(code) || code < 0 || code > 0x10ffff) return null;
+    return { text: String.fromCodePoint(code), end };
+  }
+  const text = NAMED_ENTITIES[name];
+  return text === undefined ? null : { text, end };
+}
 
 function isAsciiWhitespace(code: number): boolean {
   return (
@@ -504,29 +529,41 @@ function optionTextValue(html: string): string {
   while (i < html.length) {
     const ch = html[i];
     if (ch === '<') {
-      const end = html.startsWith('<!--', i)
-        ? html.indexOf('-->', i + 4)
-        : html.indexOf('>', i + 1);
-      i = end < 0 ? html.length : end + (html[end] === '-' ? 3 : 1);
+      if (html.startsWith('<!--', i)) {
+        const end = html.indexOf('-->', i + 4);
+        i = end < 0 ? html.length : end + 3;
+        continue;
+      }
+      const end = html.indexOf('>', i + 1);
+      if (end < 0) break;
+      // Script text is not part of an option's text.
+      if (html.slice(i + 1, i + 7).toLowerCase() === 'script') {
+        const close = html.toLowerCase().indexOf('</script', end);
+        const closeEnd = close < 0 ? -1 : html.indexOf('>', close);
+        i = closeEnd < 0 ? html.length : closeEnd + 1;
+        continue;
+      }
+      i = end + 1;
       continue;
     }
     let decoded = ch;
     if (ch === '&') {
-      const end = html.indexOf(';', i);
-      const entity = end < 0 ? '' : html.slice(i, end + 1);
-      if (entity in TEXT_ENTITIES) {
-        decoded = TEXT_ENTITIES[entity];
-        i = end;
+      const entity = decodeEntity(html, i);
+      if (entity) {
+        decoded = entity.text;
+        i = entity.end;
       }
     }
     i++;
-    if (isAsciiWhitespace(decoded.charCodeAt(0))) {
-      pendingSpace = text.length > 0;
-      continue;
+    for (const part of decoded) {
+      if (isAsciiWhitespace(part.charCodeAt(0))) {
+        pendingSpace = text.length > 0;
+        continue;
+      }
+      if (pendingSpace) text += ' ';
+      pendingSpace = false;
+      text += part;
     }
-    if (pendingSpace) text += ' ';
-    pendingSpace = false;
-    text += decoded;
   }
   return text;
 }
@@ -537,11 +574,21 @@ function writeElement(
   rawText: RawTextElement | null,
   sink: SinkTarget
 ): void {
-  const dangerous = (props as { dangerouslySetInnerHTML?: unknown })
-    .dangerouslySetInnerHTML;
   sink.write('<' + tag);
   renderAttrsDirect(props, sink, rawText === null ? tag : undefined);
   sink.write('>');
+  writeContent(props, rawText, sink);
+  sink.write('</' + tag + '>');
+}
+
+/** An element's content: raw HTML, raw text, or rendered children. */
+function writeContent(
+  props: Props,
+  rawText: RawTextElement | null,
+  sink: SinkTarget
+): void {
+  const dangerous = (props as { dangerouslySetInnerHTML?: unknown })
+    .dangerouslySetInnerHTML;
   if (dangerous !== undefined && dangerous !== null) {
     if (typeof dangerous === 'object' && '__html' in dangerous) {
       sink.write(String((dangerous as { __html: unknown }).__html));
@@ -553,7 +600,6 @@ function writeElement(
   } else if (!props.imperativeChildren) {
     renderValue(props.children, sink);
   }
-  sink.write('</' + tag + '>');
 }
 
 /**

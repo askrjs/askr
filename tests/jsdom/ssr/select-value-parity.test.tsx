@@ -158,6 +158,78 @@ describe('SSR select value parity', () => {
     }
   );
 
+  it('should keep dangerouslySetInnerHTML content on a value-less option and select it', () => {
+    const html = renderToStringSync(() => (
+      <select value="A">
+        <option>Z</option>
+        <option dangerouslySetInnerHTML={{ __html: 'A' }} />
+      </select>
+    ));
+    const [, option] = options(html);
+    expect(option.textContent).toBe('A');
+    expect(option.hasAttribute('selected')).toBe(true);
+  });
+
+  it('should leave imperative option children to the client', () => {
+    const html = renderToStringSync(() => (
+      <select value="X">
+        <option imperativeChildren={true}>X</option>
+      </select>
+    ));
+    expect(options(html)[0].textContent).toBe('');
+  });
+
+  it.each([null, undefined, false])(
+    'should use option text when the option value is %s',
+    (value) => {
+      const html = renderToStringSync(() => (
+        <select value="B">
+          <option>A</option>
+          <option value={value as never}>B</option>
+        </select>
+      ));
+      expect(
+        options(html).map((option) => option.hasAttribute('selected'))
+      ).toEqual([false, true]);
+    }
+  );
+
+  it.each([
+    ['a named entity', 'A&nbsp;B', 'A\u00a0B'],
+    ['a decimal entity', '&#65;', 'A'],
+    ['a hex entity', '&#x41;', 'A'],
+    ['a quote entity', '&quot;A&quot;', '"A"'],
+  ])(
+    'should decode %s in raw option HTML like the browser',
+    (_name, raw, value) => {
+      const html = renderToStringSync(() => (
+        <select value={value}>
+          <option>other</option>
+          <option>
+            <span dangerouslySetInnerHTML={{ __html: raw }} />
+          </option>
+        </select>
+      ));
+      const [, option] = options(html);
+      expect(option.value).toBe(value);
+      expect(option.hasAttribute('selected')).toBe(true);
+    }
+  );
+
+  it('should leave script text out of an option value', () => {
+    const html = renderToStringSync(() => (
+      <select value="B">
+        <option>A</option>
+        <option>
+          B<script>{'ignored'}</script>
+        </option>
+      </select>
+    ));
+    expect(
+      options(html).map((option) => option.hasAttribute('selected'))
+    ).toEqual([false, true]);
+  });
+
   it('should read reactive select and option attributes once for SSR', () => {
     let selectReads = 0;
     let optionReads = 0;
