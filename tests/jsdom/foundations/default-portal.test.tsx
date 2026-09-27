@@ -124,7 +124,7 @@ describe('DefaultPortal', () => {
     expect(container.textContent?.match(/Updated/g)).toHaveLength(1);
   });
 
-  it('should discard portal writes from a failed render', () => {
+  it('should discard portal writes from a failed render without dropping other writers', () => {
     let mode!: ReturnType<typeof state<'idle' | 'fail' | 'recover'>>;
     createIsland({
       root: container,
@@ -158,7 +158,7 @@ describe('DefaultPortal', () => {
     mode.set('recover');
     flushScheduler();
 
-    expect(container.textContent).not.toContain('Stable');
+    expect(container.textContent?.match(/Stable/g)).toHaveLength(1);
     expect(container.textContent).not.toContain('pending');
     expect(container.textContent?.match(/Recovered/g)).toHaveLength(1);
   });

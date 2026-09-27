@@ -63,6 +63,24 @@ describe('SSR portal rendering', () => {
     );
   });
 
+  it('should render all default portal writers in source order', () => {
+    const html = renderToStringSync(() => (
+      <main>
+        <DefaultPortal />
+        <Portal>
+          <i>{'first'}</i>
+        </Portal>
+        <Portal>
+          <b>{'second'}</b>
+        </Portal>
+      </main>
+    ));
+
+    expect(html).toBe(
+      '<main><!--askr-range-start--><i>first</i><b>second</b><!--askr-range-end--><!--askr-portal-anchor:1--><!--askr-portal-anchor:2--></main>'
+    );
+  });
+
   it('should render default portal content at the automatic host', () => {
     const html = renderToStringSync(() => (
       <main>
@@ -204,6 +222,46 @@ describe('SSR portal rendering', () => {
     expect(writerBeforeHost).toBe('<main><strong>late-host</strong></main>');
   });
 
+  it('should render every defined-portal writer in source order', () => {
+    const Overlay = definePortal();
+    const FirstWriter = () => Overlay.render({ children: <i>{'first'}</i> });
+    const SecondWriter = () => Overlay.render({ children: <b>{'second'}</b> });
+
+    const html = renderToStringSync(() => (
+      <main>
+        <Overlay />
+        <FirstWriter />
+        <SecondWriter />
+      </main>
+    ));
+
+    expect(html).toBe('<main><i>first</i><b>second</b></main>');
+  });
+
+  it('should collect nested writers while resolving portal content', () => {
+    const Outer = definePortal();
+    const Inner = definePortal();
+    const InnerWriter = () => Inner.render({ children: <em>{'nested'}</em> });
+    const OuterWriter = () =>
+      Outer.render({
+        children: (
+          <section>
+            <InnerWriter />
+            <Inner />
+          </section>
+        ),
+      });
+
+    const html = renderToStringSync(() => (
+      <main>
+        <Outer />
+        <OuterWriter />
+      </main>
+    ));
+
+    expect(html).toBe('<main><section><em>nested</em></section></main>');
+  });
+
   it('should isolate defined portal state between server render roots', () => {
     const OverlayPortal = definePortal();
     const Writer = () =>
@@ -251,6 +309,50 @@ describe('SSR portal rendering', () => {
       expect(button).not.toBeNull();
       button.click();
       expect(clicks).toBe(1);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should hydrate every writer when the host appears between writers', async () => {
+    const Overlay = definePortal();
+    let setSecond!: (value: string) => void;
+    const FirstWriter = () =>
+      Overlay.render({ children: <i data-layer="first">{'first'}</i> });
+    const SecondWriter = () => {
+      const label = state('second');
+      setSecond = label.set;
+      return Overlay.render({
+        children: <b data-layer="second">{label()}</b>,
+      });
+    };
+    const Page = () => (
+      <main>
+        <FirstWriter />
+        <Overlay />
+        <SecondWriter />
+      </main>
+    );
+    const { container, cleanup } = createTestContainer();
+    const registry = routeRegistryFromTable([{ path: '/', handler: Page }]);
+
+    try {
+      container.innerHTML = renderToStringSync(Page);
+      const first = container.querySelector('[data-layer="first"]');
+      const second = container.querySelector('[data-layer="second"]');
+      await hydrateSPA({
+        root: container,
+        registry,
+        hydrate: { verifyMarkup: true },
+      });
+      flushScheduler();
+
+      expect(container.querySelector('[data-layer="first"]')).toBe(first);
+      expect(container.querySelector('[data-layer="second"]')).toBe(second);
+      setSecond('updated');
+      flushScheduler();
+      expect(container.querySelector('[data-layer="first"]')).toBe(first);
+      expect(second?.textContent).toBe('updated');
     } finally {
       cleanup();
     }

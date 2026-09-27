@@ -2399,10 +2399,10 @@
       "interface SSRPortalHostRegistration {\n    token: string;\n    automatic: boolean;\n}"
     ],
     "SSRPortalSlot": [
-      "interface SSRPortalSlot {\n    hasValue: boolean;\n    value: RenderableChild | undefined;\n    hosts: SSRPortalHostRegistration[];\n}"
+      "interface SSRPortalSlot {\n    hasValue: boolean;\n    value: RenderableChild | undefined;\n    writers: Map<unknown, {\n        owner: unknown;\n        value: RenderableChild | undefined;\n        order: number;\n    }>;\n    hosts: SSRPortalHostRegistration[];\n}"
     ],
     "SSRPortalState": [
-      "interface SSRPortalState {\n    slots: Map<object, SSRPortalSlot>;\n    nextHostId: number;\n}"
+      "interface SSRPortalState {\n    slots: Map<object, SSRPortalSlot>;\n    nextHostId: number;\n    nextWriteOrder: number;\n}"
     ],
     "SSRRoute": [
       "type SSRRoute = {\n    path: string;\n    handler: RouteHandler;\n    namespace?: string;\n};"

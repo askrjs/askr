@@ -597,14 +597,12 @@ unrevealed records. Permanent `skipSelectors` remain skipped.
 
 ### Stacking layers
 
-A portal shows one writer's content at a time. When several writers target the
-same portal, the writer that rendered last wins. A writer takes the portal
-back only when it renders after the current writer with different `children`;
-re-rendering with the same reference (for example the same string) does not. A writer that unmounts clears
-the portal only if it is still the current writer. To show several layers at
-once, such as stacked dialogs or toasts, let one component own the list of open
-layers and write it through a portal of its own, so other `Portal` writers
-cannot replace it:
+A portal renders each mounted writer as an independent layer in source order.
+Updating or removing one writer leaves the other
+writers' content and DOM in place. Each writer's content remains owned by that
+writer, so its tasks, watches, and resources end when it unmounts. To manage a
+collection of layers from one component, a single writer can still own the
+list and render it with keyed children:
 
 ```tsx run=layer-stack
 import { defineScope, readScope, state } from '@askrjs/askr';
@@ -688,8 +686,8 @@ const Page = () => (
 
 An explicit `DefaultPortal` is preferred over the automatic host appended by
 the SSR and SSG runtimes. Without an explicit host, the automatic host renders
-the content after the application root. Multiple writes to the same portal use
-the final value, matching the client runtime.
+the content after the application root. Multiple writers to the same portal
+render as ordered layers on both the server and client.
 
 Portal values are scoped to one server render root. A portal created with
 `definePortal()` can be reused by application code without carrying content
@@ -700,8 +698,8 @@ the host.
 
 On the client, removing a portal writer clears its host content and disposes
 the content components, including their tasks, watches, and resources. Removing
-the host disposes those components as well. A named portal writer that leaves
-after another writer has taken the same channel does not clear the replacement.
+the host disposes those components as well. A writer that leaves does not
+clear the other writers' layers.
 An error while rendering portal content reaches the writer's nearest
 `ErrorBoundary`, or a boundary around the host when the writer has none.
 While an explicit `DefaultPortal` host is mounted, the automatic host renders

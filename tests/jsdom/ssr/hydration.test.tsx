@@ -1972,5 +1972,81 @@ describe('hydration (SSR)', () => {
         _resetDefaultPortal();
       }
     });
+
+    it('should preserve deferred writer segments when writers activate out of order', async () => {
+      const { container, cleanup } = createTestContainer();
+      const originalRect = Element.prototype.getBoundingClientRect;
+      _resetDefaultPortal();
+
+      const Component = () => (
+        <main>
+          <div class="portal-boundary-first">
+            <Portal>
+              <button id="portal-first">first</button>
+            </Portal>
+          </div>
+          <div class="portal-boundary-second">
+            <Portal>
+              <button id="portal-second">second</button>
+            </Portal>
+          </div>
+          <DefaultPortal />
+        </main>
+      );
+      const registry = routeRegistryFromTable([
+        { path: '/', handler: Component },
+      ]);
+      Element.prototype.getBoundingClientRect = function () {
+        return (this as Element).className === 'portal-boundary-first'
+          ? ({ top: 1000 } as DOMRect)
+          : ({ top: 0 } as DOMRect);
+      };
+
+      try {
+        container.innerHTML = renderToString({ url: '/', registry });
+        const first = container.querySelector('#portal-first');
+        const second = container.querySelector('#portal-second');
+        expect(first?.id).toBe('portal-first');
+        expect(second?.id).toBe('portal-second');
+        await hydrateSPA({
+          root: container,
+          registry,
+          hydrate: { deferBelowFold: true, foldThreshold: 100 },
+        });
+        flushScheduler();
+
+        expect(
+          container
+            .querySelector('.portal-boundary-first')
+            ?.hasAttribute('data-skip-hydrate')
+        ).toBe(true);
+        expect(
+          container
+            .querySelector('.portal-boundary-second')
+            ?.hasAttribute('data-skip-hydrate')
+        ).toBe(false);
+        expect(container.querySelector('#portal-first')).toBe(first);
+        expect(container.querySelector('#portal-second')).toBe(second);
+
+        Element.prototype.getBoundingClientRect = function () {
+          return { top: 0 } as DOMRect;
+        };
+        window.dispatchEvent(new Event('scroll'));
+        flushScheduler();
+
+        expect(container.querySelector('#portal-first')).toBe(first);
+        expect(container.querySelector('#portal-second')).toBe(second);
+        expect(
+          Array.from(
+            container.querySelectorAll('#portal-first, #portal-second'),
+            (node) => node.id
+          )
+        ).toEqual(['portal-first', 'portal-second']);
+      } finally {
+        Element.prototype.getBoundingClientRect = originalRect;
+        cleanup();
+        _resetDefaultPortal();
+      }
+    });
   });
 });
