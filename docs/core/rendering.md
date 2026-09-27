@@ -572,6 +572,57 @@ listeners, reactive bindings, and ownership are published at commit. A failed
 activation restores the marker and remains retryable, while root cleanup drops
 unrevealed records. Permanent `skipSelectors` remain skipped.
 
+### Stacking layers
+
+A portal shows one writer's content at a time: when several writers target the
+same portal, the one that rendered last wins, and a writer that unmounts clears
+the portal only if it is still the current writer. To show several layers at
+once, such as stacked dialogs or toasts, let one component own the list of open
+layers and write it through a single `Portal`:
+
+```tsx
+import { defineScope, readScope, state } from '@askrjs/askr';
+import { For } from '@askrjs/askr/control';
+import { Portal } from '@askrjs/askr/foundations';
+
+interface Layer {
+  id: string;
+  title: string;
+}
+
+const LayerStackScope = defineScope<{
+  open(layer: Layer): void;
+  close(id: string): void;
+} | null>(null);
+
+export function LayerStack(props: { children?: unknown }) {
+  const layers = state<Layer[]>([]);
+  const stack = {
+    open: (layer: Layer) => layers.set([...layers(), layer]),
+    close: (id: string) =>
+      layers.set(layers().filter((layer) => layer.id !== id)),
+  };
+  return (
+    <LayerStackScope value={stack}>
+      {props.children}
+      <Portal>
+        <For each={layers} by={(layer) => layer.id}>
+          {(layer) => <div role="dialog">{layer.title}</div>}
+        </For>
+      </Portal>
+    </LayerStackScope>
+  );
+}
+
+export function useLayerStack() {
+  return readScope(LayerStackScope)!;
+}
+```
+
+Layers render in the order they were opened, and closing one keeps the others'
+DOM nodes because `For` tracks each layer by its key. For independent kinds of
+layers, give each its own portal with `definePortal()` and its own host.
+
 ### Portals on the server
 
 `Portal`, `DefaultPortal`, and portals created by `definePortal()` render in
