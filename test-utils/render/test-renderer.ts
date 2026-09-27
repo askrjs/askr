@@ -366,3 +366,17 @@ export function captureComponentSnapshot(container: Element): {
     childCount: container.children.length,
   };
 }
+
+/** `html` without comment nodes (range anchors, hydration markers). */
+export function stripComments(html: string): string {
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  const walker = document.createTreeWalker(
+    template.content,
+    NodeFilter.SHOW_COMMENT
+  );
+  const comments: Node[] = [];
+  while (walker.nextNode()) comments.push(walker.currentNode);
+  for (const comment of comments) comment.parentNode?.removeChild(comment);
+  return template.innerHTML;
+}

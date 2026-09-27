@@ -72,7 +72,14 @@ function normalizeHydrationHtml(html: string): string {
     if (cssText) element.setAttribute('style', cssText);
     else element.removeAttribute('style');
   }
-  return template.innerHTML.replace(/<!--[\s\S]*?-->/g, '');
+  const comments = document.createTreeWalker(
+    template.content,
+    NodeFilter.SHOW_COMMENT
+  );
+  const found: Node[] = [];
+  while (comments.nextNode()) found.push(comments.currentNode);
+  for (const comment of found) comment.parentNode?.removeChild(comment);
+  return template.innerHTML;
 }
 
 /**

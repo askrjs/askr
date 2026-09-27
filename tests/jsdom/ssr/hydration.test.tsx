@@ -25,8 +25,9 @@ import {
 } from '../../../src/foundations/structures/portal';
 import {
   createTestContainer,
-  flushScheduler,
   fireEvent,
+  flushScheduler,
+  stripComments,
 } from '../../../test-utils/render/test-renderer';
 
 describe('hydration (SSR)', () => {
@@ -178,7 +179,7 @@ describe('hydration (SSR)', () => {
 
       // DOM structure unchanged (ignoring comment placeholders from portal)
       // The portal adds an invisible comment placeholder for future content
-      const strippedHtml = container.innerHTML.replace(/<!--.*?-->/g, '');
+      const strippedHtml = stripComments(container.innerHTML);
       expect(strippedHtml).toBe(html);
 
       // Click should invoke handler
@@ -281,7 +282,7 @@ describe('hydration (SSR)', () => {
         })
       ).resolves.not.toThrow();
 
-      const strippedHtml = container.innerHTML.replace(/<!--.*?-->/g, '');
+      const strippedHtml = stripComments(container.innerHTML);
       expect(strippedHtml).toBe(html);
       expect(container.querySelectorAll('#list li')).toHaveLength(2);
       expect(container.textContent).toContain('alpha');
@@ -571,7 +572,7 @@ describe('hydration (SSR)', () => {
       flushScheduler();
       flushScheduler();
 
-      expect(container.innerHTML.replace(/<!--.*?-->/g, '')).toBe(html);
+      expect(stripComments(container.innerHTML)).toBe(html);
       expect(container.querySelector('tr[data-row="1"]')).toBe(firstRowBefore);
       expect(container.querySelector('tr[data-row="2"]')).toBe(secondRowBefore);
     });
@@ -638,7 +639,7 @@ describe('hydration (SSR)', () => {
       flushScheduler();
       flushScheduler();
 
-      expect(container.innerHTML.replace(/<!--.*?-->/g, '')).toBe(html);
+      expect(stripComments(container.innerHTML)).toBe(html);
       expect(container.querySelector('tr[data-row="1"]')).toBe(firstRowBefore);
       expect(container.querySelector('tr[data-row="2"]')).toBe(secondRowBefore);
 

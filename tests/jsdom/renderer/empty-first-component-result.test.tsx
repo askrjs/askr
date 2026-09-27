@@ -10,6 +10,7 @@ import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
   flushScheduler,
+  stripComments,
 } from '../../../test-utils/render/test-renderer';
 
 /**
@@ -23,7 +24,7 @@ import {
 type Toggle = ReturnType<typeof state<boolean>>;
 
 function markup(html: string): string {
-  return html.replace(/<!--[\s\S]*?-->/g, '');
+  return stripComments(html);
 }
 
 function elementTags(root: Element): string[] {

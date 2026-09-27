@@ -27,6 +27,7 @@ import {
 import {
   createTestContainer,
   flushScheduler,
+  stripComments,
 } from '../../../test-utils/render/test-renderer';
 
 type Page = () => JSXElement;
@@ -47,9 +48,7 @@ async function renderOnClient(Component: Page): Promise<string> {
 }
 
 function normalizeHtml(html: string): string {
-  const template = document.createElement('template');
-  template.innerHTML = html.replace(/<!--[\s\S]*?-->/g, '');
-  return template.innerHTML;
+  return stripComments(html);
 }
 
 function renderOnServer(Component: Page): string {

@@ -188,7 +188,11 @@ function normalizeAbsoluteRoutePath(path: string): string {
 
 function joinRoutePaths(prefix: string, path: string): string {
   const normalizedPrefix = normalizeAbsoluteRoutePath(prefix || '/');
-  const normalizedPath = path.replace(/^\/+|\/+$/g, '');
+  let start = 0;
+  let end = path.length;
+  while (start < end && path[start] === '/') start++;
+  while (end > start && path[end - 1] === '/') end--;
+  const normalizedPath = path.slice(start, end);
 
   if (!normalizedPath) {
     return normalizedPrefix;
