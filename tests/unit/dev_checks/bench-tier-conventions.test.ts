@@ -82,17 +82,4 @@ describe('Bench tier conventions', () => {
     expect(scripts['bench:tier1']).toContain('vitest.bench.tier1.config.ts');
     expect(scripts['bench:tier2']).toContain('vitest.bench.tier2.config.ts');
   });
-
-  it('should keep normal captures production-pure and diagnostics opt-in', () => {
-    const sharedConfig = fs.readFileSync(
-      path.join(process.cwd(), 'vitest.bench.shared.ts'),
-      'utf8'
-    );
-
-    expect(sharedConfig).toContain('ASKR_BENCH_INSTRUMENTATION');
-    expect(sharedConfig).toContain("=== '1'");
-    expect(packageJson.scripts['bench:tier1']).not.toContain(
-      'ASKR_BENCH_INSTRUMENTATION'
-    );
-  });
 });

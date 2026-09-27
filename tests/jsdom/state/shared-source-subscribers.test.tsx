@@ -10,7 +10,7 @@ import { createIsland } from '../../../test-utils/render/create-island';
 
 // Coverage for ONE reactive source read by MULTIPLE distinct component
 // subscribers — the fan-out, reader-drop, and double-read-dedupe paths in
-// src/runtime/reactivity/readable.ts (notifyReadableReaders / subscription publication).
+// the reactive graph (src/core/reactive/graph.ts).
 //
 // Pattern: a parent owns the source and passes its getter down to sibling child
 // components. The parent itself does NOT read the source, so only the children

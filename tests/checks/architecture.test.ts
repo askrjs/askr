@@ -14,10 +14,9 @@ const extensions = ['.ts', '.tsx', '.mts', '.cts'] as const;
 const areas = new Set([
   'boot',
   'common',
+  'core',
   'data',
-  'renderer',
   'router',
-  'runtime',
   'ssg',
   'ssr',
 ]);
@@ -158,24 +157,8 @@ function relative(file: string): string {
 function area(file: string): string {
   return relative(file).split('/')[1] ?? '';
 }
-function isPublicBoundary(file: string): boolean {
-  return new Set([
-    'src/runtime/public-runtime.ts',
-    'src/runtime/public-ownership.ts',
-    'src/renderer/host-adapter.ts',
-    'src/renderer/public-dom-host.ts',
-  ]).has(relative(file));
-}
 function format(edge: Edge): string {
   return `${relative(edge.from)} -> ${relative(edge.to)}`;
-}
-
-function violatesVNodeContextBoundary(edge: Edge): boolean {
-  return (
-    relative(edge.from) === 'src/runtime/context/vnode.ts' &&
-    (relative(edge.to).startsWith('src/renderer/') ||
-      relative(edge.to) === 'src/runtime/access.ts')
-  );
 }
 
 function violatesPublicationBoundary(edge: Edge): boolean {
@@ -190,12 +173,7 @@ function violatesPublicationBoundary(edge: Edge): boolean {
 
 function findCycles(): string[] {
   const graph = new Map<string, Set<string>>();
-  for (const edge of edges.filter(
-    (edge) =>
-      !edge.typeOnly &&
-      !isPublicBoundary(edge.from) &&
-      !isPublicBoundary(edge.to)
-  )) {
+  for (const edge of edges.filter((edge) => !edge.typeOnly)) {
     const from = area(edge.from);
     const to = area(edge.to);
     if (!areas.has(from) || !areas.has(to) || from === to) continue;
@@ -264,34 +242,8 @@ function findModuleCycles(): string[][] {
 }
 
 describe('architecture boundaries', () => {
-  it('should keep vnode context propagation independent of DOM renderer capabilities', () => {
-    expect(edges.filter(violatesVNodeContextBoundary).map(format)).toEqual([]);
-  });
-
   it('should keep SSG publication infrastructure independent of route rendering', () => {
     expect(edges.filter(violatesPublicationBoundary).map(format)).toEqual([]);
-  });
-
-  it('should reject renderer and runtime access edges resolved from nested vnode context', () => {
-    const file = path.join(srcDir, 'runtime', 'context', 'vnode.ts');
-    const source = ts.createSourceFile(
-      file,
-      `
-      import '../../renderer/ownership/cleanup';
-      import type * as RendererTypes from '../../renderer/ownership/cleanup';
-      void import('../access');
-      import '../ownership/record';
-    `,
-      ts.ScriptTarget.Latest,
-      true
-    );
-    const found = collectEdges(file, source);
-    expect(found).toHaveLength(4);
-    expect(found.filter(violatesVNodeContextBoundary).map(format)).toEqual([
-      'src/runtime/context/vnode.ts -> src/renderer/ownership/cleanup.ts',
-      'src/runtime/context/vnode.ts -> src/renderer/ownership/cleanup.ts',
-      'src/runtime/context/vnode.ts -> src/runtime/access.ts',
-    ]);
   });
 
   it('should reject publication rendering edges while allowing type-only dependencies', () => {
@@ -319,44 +271,10 @@ describe('architecture boundaries', () => {
     ]);
   });
 
-  it('should use narrow renderer access in runtime and renderer helpers', () => {
-    const violations: string[] = [];
-    for (const { relative, source } of sources) {
-      if (
-        (!relative.startsWith('src/runtime/') &&
-          !relative.startsWith('src/renderer/')) ||
-        relative === 'src/runtime/access.ts'
-      )
-        continue;
-      for (const statement of source.statements) {
-        if (!ts.isImportDeclaration(statement)) continue;
-        const bindings = statement.importClause?.namedBindings;
-        if (
-          bindings &&
-          ts.isNamedImports(bindings) &&
-          bindings.elements.some(
-            (element) =>
-              (element.propertyName ?? element.name).text ===
-              'getRuntimeRenderer'
-          )
-        )
-          violations.push(relative);
-      }
-    }
-    expect(violations).toEqual([]);
-  });
-  it('should keep runtime and renderer implementation value dependencies acyclic', () => {
+  it('should keep core implementation value dependencies acyclic', () => {
     expect(
-      findModuleCycles().filter(
-        (group) =>
-          !group.some((file) =>
-            isPublicBoundary(path.resolve(rootDir, file))
-          ) &&
-          group.some(
-            (file) =>
-              file.startsWith('src/runtime/') ||
-              file.startsWith('src/renderer/')
-          )
+      findModuleCycles().filter((group) =>
+        group.some((file) => file.startsWith('src/core/'))
       )
     ).toEqual([]);
   });
@@ -410,14 +328,14 @@ describe('architecture boundaries', () => {
   });
 
   it('should retain empty-import side effects and exclude named type-only re-exports', () => {
-    const file = path.join(srcDir, 'runtime', 'context', 'context.ts');
+    const file = path.join(srcDir, 'core', 'reactive', 'graph.ts');
     const source = ts.createSourceFile(
       file,
       `
-      import {} from '../ownership/record';
-      import { type OwnershipRecord } from '../ownership/record';
-      export { type OwnershipRecord } from '../ownership/record';
-      export { OwnershipRecord, type OwnedChildScope } from '../ownership/record';
+      import {} from './owner';
+      import { type Owner } from './owner';
+      export { type Owner } from './owner';
+      export { Owner, type OwnerNode } from './owner';
     `,
       ts.ScriptTarget.Latest,
       true
@@ -435,25 +353,18 @@ describe('architecture boundaries', () => {
     ]);
   });
 
-  it('should keep the runtime independent from concrete platform implementations', () => {
+  it('should keep the core independent from concrete platform implementations', () => {
     const forbidden = edges
-      .filter(
-        (edge) =>
-          !edge.typeOnly &&
-          area(edge.from) === 'runtime' &&
-          !isPublicBoundary(edge.from)
-      )
-      .filter(
-        (edge) =>
-          ['renderer', 'boot', 'ssr', 'ssg'].includes(area(edge.to)) ||
-          relative(edge.to) === 'src/router/navigate.ts'
+      .filter((edge) => !edge.typeOnly && area(edge.from) === 'core')
+      .filter((edge) =>
+        ['boot', 'router', 'ssr', 'ssg'].includes(area(edge.to))
       )
       .map(format)
       .sort();
     expect(forbidden).toEqual([]);
   });
 
-  it('should keep browser globals and node inspection out of runtime execution', () => {
+  it('should keep browser globals and node inspection out of the reactive graph', () => {
     const globals = new Set([
       'window',
       'document',
@@ -476,8 +387,8 @@ describe('architecture boundaries', () => {
       'isConnected',
     ]);
     const violations: string[] = [];
-    for (const { relative, source } of sources.filter(
-      ({ file }) => area(file) === 'runtime'
+    for (const { relative, source } of sources.filter(({ relative }) =>
+      relative.startsWith('src/core/reactive/')
     )) {
       const visit = (node: ts.Node): void => {
         if (ts.isTypeNode(node)) return;
@@ -488,34 +399,6 @@ describe('architecture boundaries', () => {
         ) {
           violations.push(
             `${relative}:${source.getLineAndCharacterOfPosition(node.getStart()).line + 1} ${node.getText(source)}`
-          );
-        }
-        ts.forEachChild(node, visit);
-      };
-      visit(source);
-    }
-    expect(violations).toEqual([]);
-  });
-
-  it('should update host owner metadata through its renderer index writer', () => {
-    const fields = new Set(['__ASKR_INSTANCE', '__ASKR_INSTANCES']);
-    const violations: string[] = [];
-    for (const { relative, source } of sources) {
-      if (relative === 'src/renderer/ownership/nodes.ts') continue;
-      const visit = (node: ts.Node): void => {
-        const target = ts.isDeleteExpression(node)
-          ? node.expression
-          : ts.isBinaryExpression(node) &&
-              node.operatorToken.kind === ts.SyntaxKind.EqualsToken
-            ? node.left
-            : undefined;
-        if (
-          target &&
-          ts.isPropertyAccessExpression(target) &&
-          fields.has(target.name.text)
-        ) {
-          violations.push(
-            `${relative}:${source.getLineAndCharacterOfPosition(node.getStart()).line + 1}`
           );
         }
         ts.forEachChild(node, visit);
@@ -551,124 +434,13 @@ describe('architecture boundaries', () => {
     expect(found).toEqual(expected);
   });
 
-  it('should declare governed renderer operations on a single owner', () => {
-    // Each name here is an operation that must have exactly one implementation.
-    // A second declaration is how a lossy parallel path gets reintroduced.
-    const governed = new Set(['applyPropsToElement']);
-    const owners = new Map<string, string[]>();
-    for (const { file, relative, source } of sources) {
-      if (area(file) !== 'renderer') continue;
-      const visit = (node: ts.Node): void => {
-        const name =
-          ts.isFunctionDeclaration(node) && node.name
-            ? node.name.text
-            : ts.isVariableDeclaration(node) &&
-                ts.isIdentifier(node.name) &&
-                node.initializer &&
-                (ts.isArrowFunction(node.initializer) ||
-                  ts.isFunctionExpression(node.initializer))
-              ? node.name.text
-              : undefined;
-        if (name && governed.has(name))
-          owners.set(name, [...(owners.get(name) ?? []), relative]);
-        ts.forEachChild(node, visit);
-      };
-      visit(source);
-    }
-    expect(Object.fromEntries(owners)).toEqual({
-      applyPropsToElement: ['src/renderer/props/bindings.ts'],
-    });
-  });
-
-  it('should create renderer DOM nodes through the configured host seam', () => {
-    // Node construction belongs to the DOM host. Files in `pending` still build
-    // nodes directly; that list must shrink, never grow. A file that stops
-    // bypassing the seam has to be removed from it, or this fails.
-    const factories = new Set([
-      'createElement',
-      'createElementNS',
-      'createTextNode',
-      'createComment',
-      'createDocumentFragment',
-    ]);
-    const permitted = new Set([
-      // Owns the native host implementation.
-      'src/renderer/dom-internal.ts',
-      // Failure-path UI: the fallback has to render when the renderer pipeline
-      // is the thing that failed, so it deliberately avoids the seam.
-      'src/renderer/component/error-boundary.ts',
-    ]);
-    const pending = new Set([
-      'src/renderer/children/children.ts',
-      'src/renderer/children/reactive-children.ts',
-      'src/renderer/component/host-fresh-chain.ts',
-      'src/renderer/component/host-results.ts',
-      'src/renderer/control/materialization.ts',
-      'src/renderer/evaluation/range.ts',
-    ]);
-    const bypassing = new Set<string>();
-    for (const { file, relative, source } of sources) {
-      if (area(file) !== 'renderer') continue;
-      const visit = (node: ts.Node): void => {
-        if (ts.isTypeNode(node)) return;
-        if (
-          ts.isPropertyAccessExpression(node) &&
-          ts.isIdentifier(node.expression) &&
-          node.expression.text === 'document' &&
-          factories.has(node.name.text)
-        )
-          bypassing.add(relative);
-        ts.forEachChild(node, visit);
-      };
-      visit(source);
-    }
-    expect({
-      unexpected: [...bypassing].filter(
-        (file) => !permitted.has(file) && !pending.has(file)
-      ),
-      staleEntries: [...pending].filter((file) => !bypassing.has(file)),
-    }).toEqual({ unexpected: [], staleEntries: [] });
-  });
-
-  it('should declare shared renderer host shapes once', () => {
-    // Consumers narrow the one host contract instead of restating its method
-    // shapes. A second declaration is how the copies drifted: the boundary
-    // host's local ElementWithContext silently dropped the symbol index
-    // signature that the renderer's carries.
-    const governed = new Set([
-      'ElementWithContext',
-      'SyncComponentElement',
-      'UpdateElementFromVnode',
-      'NativeDOMHost',
-    ]);
-    const declared = new Map<string, string[]>();
-    for (const { file, relative, source } of sources) {
-      if (area(file) !== 'renderer') continue;
-      const visit = (node: ts.Node): void => {
-        const name =
-          (ts.isTypeAliasDeclaration(node) ||
-            ts.isInterfaceDeclaration(node)) &&
-          node.name
-            ? node.name.text
-            : undefined;
-        if (name && governed.has(name))
-          declared.set(name, [...(declared.get(name) ?? []), relative]);
-        ts.forEachChild(node, visit);
-      };
-      visit(source);
-    }
-    expect(
-      [...declared.entries()].filter(([, sites]) => sites.length > 1)
-    ).toEqual([]);
-  });
-
-  it('should keep renderer modules free of import-time configuration', () => {
+  it('should keep core modules free of import-time configuration', () => {
     // Wiring a host is composition. Doing it at module scope means importing a
-    // renderer module for a type mutates global renderer state, and the order
-    // of unrelated imports decides whether a host is installed.
+    // core module for a type mutates global state, and the order of unrelated
+    // imports decides whether a host is installed.
     const violations: string[] = [];
     for (const { file, relative, source } of sources) {
-      if (area(file) !== 'renderer') continue;
+      if (area(file) !== 'core') continue;
       for (const statement of source.statements) {
         if (
           ts.isExpressionStatement(statement) &&
@@ -685,13 +457,14 @@ describe('architecture boundaries', () => {
     expect(violations).toEqual([]);
   });
 
-  it('should not declare one renderer operation name in two modules', () => {
+  it('should not declare one core operation name in two modules', () => {
     // Two functions sharing a name across modules read as one operation. That
-    // hid a real difference: both key-map builders wrote the same
-    // `keyedElements` cache while traversing the DOM by different rules.
+    // hid a real difference in the retired renderer: both key-map builders
+    // wrote the same `keyedElements` cache while traversing the DOM by
+    // different rules.
     const declared = new Map<string, string[]>();
     for (const { file, relative, source } of sources) {
-      if (area(file) !== 'renderer') continue;
+      if (area(file) !== 'core') continue;
       for (const statement of source.statements) {
         const name = ts.isFunctionDeclaration(statement)
           ? statement.name?.text
@@ -701,122 +474,26 @@ describe('architecture boundaries', () => {
         if (!sites.includes(relative)) declared.set(name, [...sites, relative]);
       }
     }
-    const shared = [...declared.entries()]
-      .filter(([, sites]) => sites.length > 1)
-      .map(([name, sites]) => `${name}: ${sites.join(', ')}`)
-      .sort();
-    // Names still shared across renderer modules. This list must shrink.
-    // Each entry is one operation name with two module-local definitions, so a
-    // reader cannot tell which one a call site means. The key-map builders used
-    // to be a tenth entry, and they differed: one walked logical child hosts and
-    // stepped over range interiors, the other walked raw element children, and
-    // both wrote the same `keyedElements` cache.
-    expect(shared).toEqual([
-      'isControlBoundaryVNode: src/renderer/children/element-children.ts, src/renderer/reconciliation/reconcile-resolution.ts',
-      'updateElementChildren: src/renderer/children/element-children.ts, src/renderer/evaluation/reconcile.ts',
+    // Names still shared across core modules. This list must shrink.
+    expect(
+      [...declared.entries()]
+        .filter(([, sites]) => sites.length > 1)
+        .map(([name, sites]) => `${name}: ${sites.join(', ')}`)
+        .sort()
+    ).toEqual([
+      'element: src/core/api/control.ts, src/core/api/error-boundary.ts',
+      'stopGeneration: src/core/api/lifecycle.ts, src/core/api/stream.ts',
+      'withOwner: src/core/api/hooks.ts, src/core/dom/reconcile.ts',
     ]);
   });
 
-  it('should export bench instrumentation from its diagnostics owner', () => {
-    // control/for-state.ts re-exported seven bench symbols it does not own, so
-    // the barrel and every consumer reached them through the For state machine.
-    // Only the owning module, and the runtime barrel, may export them onward.
-    const owner = 'src/runtime/diagnostics/for-bench.ts';
-    const permitted = new Set([owner, 'src/runtime/index.ts']);
-    const launderers = edges
-      .filter(
-        (edge) =>
-          relative(edge.to) === owner &&
-          edge.kind === 'export' &&
-          !permitted.has(relative(edge.from))
-      )
-      .map(format)
-      .sort();
-    expect(launderers).toEqual([]);
-  });
-
-  it('should reach the scheduler through runtime state, not the singleton', () => {
-    // globalScheduler is the default value of defaultRuntimeState.scheduler,
-    // not a second way to obtain one. Closing over it hardcodes the default and
-    // ignores a runtime constructed with its own scheduler. scheduler.ts may
-    // declare it; only runtime-state.ts may name it.
-    const violations: string[] = [];
-    for (const { file, relative, source } of sources) {
-      if (area(file) !== 'runtime') continue;
-      if (relative === 'src/runtime/runtime-state.ts') continue;
-      const visit = (node: ts.Node): void => {
-        const isDeclarationName =
-          node.parent &&
-          ts.isVariableDeclaration(node.parent) &&
-          node.parent.name === node;
-        if (
-          ts.isIdentifier(node) &&
-          node.text === 'globalScheduler' &&
-          !isDeclarationName
-        )
-          violations.push(
-            `${relative}:${
-              source.getLineAndCharacterOfPosition(node.getStart()).line + 1
-            }`
-          );
-        ts.forEachChild(node, visit);
-      };
-      visit(source);
-    }
-    expect(violations).toEqual([]);
-  });
-
-  it('should mutate ambient component scope only through its primitive', () => {
-    // The three ambient scope fields must be assigned only by the snapshot
-    // primitive. Any other assignment is a scope variant that saves a subset
-    // and leaves the rest pointing at the previous component.
-    const ambient = new Set([
-      'currentInstance',
-      'currentPortalScope',
-      'stateIndex',
-    ]);
-    const owners = new Set([
-      'beginComponentScope',
-      'captureScope',
-      'restoreScope',
-      'getNextStateIndex',
-    ]);
-    const scopeFile = sources.find(
-      ({ relative }) => relative === 'src/runtime/component/scope.ts'
-    )!;
-    const violations: string[] = [];
-    const enclosing = (node: ts.Node): string => {
-      for (let at: ts.Node | undefined = node; at; at = at.parent)
-        if (ts.isFunctionDeclaration(at) && at.name) return at.name.text;
-      return '<module>';
-    };
-    const visit = (node: ts.Node): void => {
-      if (
-        ts.isBinaryExpression(node) &&
-        node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
-        ts.isIdentifier(node.left) &&
-        ambient.has(node.left.text) &&
-        !owners.has(enclosing(node))
-      )
-        violations.push(
-          `${enclosing(node)}:${node.left.text} @ ${scopeFile.relative}:${
-            scopeFile.source.getLineAndCharacterOfPosition(node.getStart())
-              .line + 1
-          }`
-        );
-      ts.forEachChild(node, visit);
-    };
-    visit(scopeFile.source);
-    expect(violations).toEqual([]);
-  });
-
-  it('should not duplicate runtime accessors under a second name', () => {
+  it('should not duplicate core accessors under a second name', () => {
     // Two exported functions with the same body and the same declared return
     // type are one operation wearing two names; callers then split arbitrarily
     // between them, as getCurrentInstance and getCurrentComponentInstance did.
     const bodies = new Map<string, string[]>();
     for (const { file, relative, source } of sources) {
-      if (area(file) !== 'runtime') continue;
+      if (area(file) !== 'core') continue;
       for (const statement of source.statements) {
         if (
           !ts.isFunctionDeclaration(statement) ||
@@ -844,131 +521,16 @@ describe('architecture boundaries', () => {
     );
   });
 
-  it('should keep subsystem imports on explicit runtime capability entrypoints', () => {
-    const entrypoints = new Set([
-      'src/runtime/index.ts',
-      'src/runtime/public-runtime.ts',
-      'src/runtime/public-ownership.ts',
-      'src/runtime/ownership/record.ts',
-      'src/runtime/component/generation.ts',
-      'src/runtime/component/capabilities.ts',
-      'src/runtime/component/scope.ts',
-      'src/runtime/component/cleanup.ts',
-      'src/runtime/ownership/child-scope.ts',
-      'src/runtime/transactions/access.ts',
-    ]);
-    const optionalCapabilityEdges = new Set([
-      // The foundations entry is the explicit opt-in boundary that registers
-      // portal support without retaining it in every runtime consumer.
-      'src/foundations/structures/portal.tsx -> src/runtime/portal/portal.ts',
-    ]);
-    const forbidden = edges
-      .filter(
-        (edge) =>
-          !edge.typeOnly &&
-          !['runtime', 'compatibility'].includes(area(edge.from)) &&
-          !isPublicBoundary(edge.from)
-      )
-      .filter(
-        (edge) =>
-          relative(edge.to).startsWith('src/runtime/') &&
-          !entrypoints.has(relative(edge.to))
-      )
-      .map(format)
-      .filter((edge) => !optionalCapabilityEdges.has(edge))
-      .sort();
-    expect(forbidden).toEqual([]);
-  });
-
-  it('should keep default singletons behind their access boundary', () => {
-    const allowed = new Set([
-      'src/runtime/access.ts',
-      'src/runtime/transactions/access.ts',
-      'src/runtime/runtime-state.ts',
-      'src/runtime/index.ts',
-      'src/runtime/public-runtime.ts',
-      'src/runtime/public-ownership.ts',
-      'src/fx/index.ts',
-    ]);
-    const forbidden = edges
-      .filter(
-        (edge) =>
-          !edge.typeOnly &&
-          ['src/runtime/scheduler.ts', 'src/runtime/runtime-state.ts'].includes(
-            relative(edge.to)
-          ) &&
-          area(edge.from) !== 'compatibility' &&
-          !allowed.has(relative(edge.from))
-      )
-      .map(format)
-      .sort();
-    expect(forbidden).toEqual([]);
-  });
-
-  it('should keep execution and rendering independent of public compatibility shapes', () => {
-    expect(
-      edges
-        .filter(
-          (edge) =>
-            ['runtime', 'renderer'].includes(area(edge.from)) &&
-            area(edge.to) === 'compatibility'
-        )
-        .map(format)
-    ).toEqual([]);
-  });
-
   it('should separate server rendering from browser DOM implementation', () => {
     const forbidden = edges
       .filter(
         (edge) =>
           !edge.typeOnly &&
           ['ssr', 'ssg'].includes(area(edge.from)) &&
-          area(edge.to) === 'renderer'
+          relative(edge.to).startsWith('src/core/dom/')
       )
       .map(format)
       .sort();
     expect(forbidden).toEqual([]);
-  });
-
-  it('should keep ownership primitives independent of execution, renderer, and compatibility implementations', () => {
-    const owner = path.join(srcDir, 'runtime', 'ownership', 'record.ts');
-    expect(sourcePaths.has(owner)).toBe(true);
-    expect(
-      edges.filter((edge) => edge.from === owner && !edge.typeOnly).map(format)
-    ).toEqual([]);
-    const cleanup = path.join(srcDir, 'runtime', 'component', 'cleanup.ts');
-    expect(
-      edges.some(
-        (edge) => edge.from === cleanup && edge.to === owner && !edge.typeOnly
-      )
-    ).toBe(true);
-  });
-
-  it('should route reconciliation removal through renderer-owned retirement', () => {
-    const hasValueEdge = (from: string, to: string) =>
-      edges.some(
-        (edge) =>
-          !edge.typeOnly &&
-          relative(edge.from) === from &&
-          relative(edge.to) === to
-      );
-    expect(
-      hasValueEdge(
-        'src/renderer/reconciliation/reconcile.ts',
-        'src/renderer/reconciliation/reconcile-commit.ts'
-      )
-    ).toBe(true);
-    expect(
-      hasValueEdge(
-        'src/renderer/reconciliation/reconcile-commit.ts',
-        'src/renderer/ownership/cleanup.ts'
-      )
-    ).toBe(true);
-    expect(
-      hasValueEdge(
-        'src/renderer/ownership/cleanup.ts',
-        'src/runtime/transactions/access.ts'
-      )
-    ).toBe(true);
   });
 });

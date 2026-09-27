@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from 'vite-plus/test';
 
 // Reword readScope()'s out-of-render error. cspNonce() must decide from scope
 // state, not from the wording of that message.
-vi.mock('../../src/runtime/context/context', async (importOriginal) => {
+vi.mock('../../src/core/api/scope', async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import('../../src/runtime/context/context')>();
+    await importOriginal<typeof import('../../src/core/api/scope')>();
   return {
     ...actual,
     readScope: vi.fn((scope: Parameters<typeof actual.readScope>[0]) => {

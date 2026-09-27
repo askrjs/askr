@@ -1,7 +1,10 @@
 import { bench, describe, expect } from 'vite-plus/test';
 import { state } from '../../src';
 import { createIsland } from '../../src/boot';
-import { globalScheduler } from '../../src/runtime/scheduler';
+import {
+  clearScheduler,
+  getSchedulerState,
+} from '../../src/core/reactive/scheduler';
 import {
   createTestContainer,
   flushScheduler,
@@ -39,11 +42,11 @@ verifyTier1Invariant('tier1 hotpath scheduler coalesced state', () => {
     expect(container.querySelector('[data-i="199"]')?.textContent).toBe(
       '100-199'
     );
-    expect(globalScheduler.getState().queueLength).toBe(0);
-    expect(globalScheduler.getState().running).toBe(false);
+    expect(getSchedulerState().queueLength).toBe(0);
+    expect(getSchedulerState().running).toBe(false);
   } finally {
     cleanup();
-    globalScheduler.clearPendingSyncTasks();
+    clearScheduler();
   }
 });
 
@@ -86,7 +89,7 @@ describe('tier1 hotpath scheduler coalesced state', () => {
         cleanup?.();
         cleanup = null;
         countState = null;
-        globalScheduler.clearPendingSyncTasks();
+        clearScheduler();
       },
     }
   );

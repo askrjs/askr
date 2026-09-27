@@ -1,11 +1,6 @@
 import { bench, describe, expect } from 'vite-plus/test';
 import { createIsland } from '../../src/boot';
 import {
-  disableEventDelegation,
-  enableEventDelegation,
-  setGlobalDelegationContainer,
-} from '../../src/renderer/props/events';
-import {
   createTestContainer,
   fireEvent,
   flushScheduler,
@@ -32,16 +27,12 @@ import { tier2BenchOptions } from '../shared/_shared';
   );
 
   try {
-    enableEventDelegation();
-    setGlobalDelegationContainer(container);
     createIsland({ root: container, component: Component });
     flushScheduler();
     fireEvent.click(container.querySelector('#btn-250') as HTMLElement);
     flushScheduler();
     expect(clicks).toBe(1);
   } finally {
-    disableEventDelegation();
-    setGlobalDelegationContainer(document.body);
     cleanup();
   }
 }
@@ -73,14 +64,10 @@ describe('tier2 events delegation', () => {
           </div>
         );
 
-        enableEventDelegation();
-        setGlobalDelegationContainer(result.container);
         createIsland({ root: result.container, component: Component });
         flushScheduler();
       },
       teardown() {
-        disableEventDelegation();
-        setGlobalDelegationContainer(document.body);
         cleanup?.();
         cleanup = null;
         container = null;

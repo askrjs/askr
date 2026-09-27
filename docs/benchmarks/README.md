@@ -27,13 +27,9 @@ npm run bench:tier1
 npm run bench:tier2
 ```
 
-Normal lane runs compile the production hot path without benchmark counters,
-phase timers, or diagnostic wrappers. To investigate attribution rather than
-capture production timing, opt in explicitly:
-
-```bash
-ASKR_BENCH_INSTRUMENTATION=1 npm run bench:tier1
-```
+Lane runs compile the production hot path. The runtime carries no benchmark
+counters, phase timers, or diagnostic wrappers; verify workload shape with DOM
+assertions in each benchmark's preflight.
 
 The maintained comparison contract is documented in
 [performance targets](./performance-targets.md) and implemented by the tracked
@@ -46,7 +42,7 @@ The generated [stability workflow](./stability.md) and [performance targets](./p
 
 JSON files contain the raw fields emitted by the benchmark reporter. Provenance
 (Node/npm versions, commit and dirty state, runner image, CPU/architecture,
-lockfile hash, instrumentation mode, tier, and file filter) is recorded beside
+lockfile hash, tier, and file filter) is recorded beside
 them. Tail ratios and median-of-three comparisons are derived during analysis;
 they are not raw reporter fields. A row is eligible only with at least 10
 samples, RME no greater than 15%, and nonzero p75 and p99.

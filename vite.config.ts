@@ -14,11 +14,7 @@ const isProd =
 const input = createBuildInput();
 
 export default defineConfig({
-  define: createNodeEnvDefine(isProd ? 'production' : 'development', {
-    // Package and application builds never carry benchmark instrumentation.
-    // Vitest benchmark configs opt into it explicitly.
-    bench: false,
-  }),
+  define: createNodeEnvDefine(isProd ? 'production' : 'development'),
   lint: {
     ignorePatterns: ['dist/**', 'node_modules/**', 'coverage/**'],
     options: {

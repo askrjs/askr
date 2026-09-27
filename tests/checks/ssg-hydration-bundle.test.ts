@@ -69,7 +69,6 @@ describe('SSG hydration bundle', () => {
       )
     );
 
-    expect(bundledModules).not.toContain('src/runtime/portal/portal.ts');
     expect(bundledModules).not.toContain('src/router/authoring.ts');
     expect(bundledModules).not.toContain('src/router/deferred.tsx');
     // SSR render-context storage resolves AsyncLocalStorage at run time; the

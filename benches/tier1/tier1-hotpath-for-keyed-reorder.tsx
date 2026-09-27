@@ -9,8 +9,6 @@ import {
   swapRows,
   tier1BenchOptions,
   verifyTier1Invariant,
-  verifyBenchInstrumentation,
-  withForBenchDiagnostics,
 } from '../shared/_shared';
 
 const initialRows = buildRows(1000);
@@ -22,14 +20,11 @@ verifyTier1Invariant('tier1 hotpath for keyed reorder', () => {
     const toggle = createRowToggle(initialRows, swappedRows, 'initial');
     const originalSecondRow = mounted.container.querySelectorAll('tr')[1];
     const originalLastTargetRow = mounted.container.querySelectorAll('tr')[998];
-    let metrics!: ReturnType<typeof withForBenchDiagnostics>['metrics'];
 
     assertToggleMutationGuard(
       mounted.container,
       () => {
-        ({ metrics } = withForBenchDiagnostics(() => {
-          mounted.benchmark.setRows(toggle.next() as RowData[]);
-        }));
+        mounted.benchmark.setRows(toggle.next() as RowData[]);
       },
       () => {
         mounted.benchmark.setRows(toggle.next() as RowData[]);
@@ -56,10 +51,6 @@ verifyTier1Invariant('tier1 hotpath for keyed reorder', () => {
         },
       }
     );
-
-    verifyBenchInstrumentation(() => {
-      expect(metrics.fastLaneName).toBe('SWAP');
-    });
   } finally {
     mounted.cleanup();
   }
