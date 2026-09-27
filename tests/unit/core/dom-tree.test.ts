@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   FRAGMENT,
-  PORTAL,
   TEXT,
   collectDom,
   firstDom,
@@ -54,50 +53,5 @@ describe('rendered tree DOM traversal', () => {
     expect(firstDom(outer)).toBe(dom);
     expect(collectDom(outer)).toEqual([dom, sibling]);
     expect(nextDomAfter(leaf)).toBe(sibling);
-  });
-
-  it('should skip portal content while preserving sibling order', () => {
-    const first = {} as Text;
-    const second = {} as Text;
-    const portal = {
-      kind: PORTAL,
-      parent: null,
-      key: undefined,
-      target: {} as Element,
-      children: [
-        {
-          kind: TEXT,
-          parent: null,
-          key: undefined,
-          node: {} as Text,
-          text: 'portal',
-        } satisfies TextNode,
-      ],
-    } as RNode;
-    const root: FragmentNode = {
-      kind: FRAGMENT,
-      parent: null,
-      key: undefined,
-      children: [
-        portal,
-        {
-          kind: TEXT,
-          parent: null,
-          key: undefined,
-          node: first,
-          text: 'first',
-        },
-        {
-          kind: TEXT,
-          parent: null,
-          key: undefined,
-          node: second,
-          text: 'second',
-        },
-      ],
-    };
-
-    expect(firstDom(root)).toBe(first);
-    expect(collectDom(root)).toEqual([first, second]);
   });
 });

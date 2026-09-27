@@ -22,14 +22,13 @@ import {
   FRAGMENT,
   FUNCTION,
   NATIVE,
-  PORTAL,
   TEXT,
   type Key,
 } from '../view/children';
 import type { ListenerMap } from './events';
 import type { HydrationCursor } from './hydration';
 
-export { COMPONENT, FRAGMENT, NATIVE, PORTAL, TEXT, type Key };
+export { COMPONENT, FRAGMENT, NATIVE, TEXT, type Key };
 export const HOST = ELEMENT;
 export const DYNAMIC = FUNCTION;
 export const ROOT = 5;
@@ -94,13 +93,6 @@ export interface DynamicNode extends Base {
   depth: number;
 }
 
-/** Content rendered into another container; no DOM at its own position. */
-export interface PortalNode extends Base {
-  kind: typeof PORTAL;
-  target: Element;
-  children: RNode[];
-}
-
 export interface RootNode {
   kind: typeof ROOT;
   el: Element;
@@ -117,28 +109,22 @@ export type RNode =
   | NativeNode
   | ComponentNode
   | FragmentNode
-  | DynamicNode
-  | PortalNode;
+  | DynamicNode;
 
 export type Parent =
   | HostNode
   | ComponentNode
   | FragmentNode
   | DynamicNode
-  | PortalNode
   | RootNode;
 
 /** Parents whose children are DOM children of one element. */
-export function isContainer(
-  parent: Parent
-): parent is HostNode | PortalNode | RootNode {
-  return parent.kind === HOST || parent.kind === PORTAL || parent.kind === ROOT;
+export function isContainer(parent: Parent): parent is HostNode | RootNode {
+  return parent.kind === HOST || parent.kind === ROOT;
 }
 
-export function containerElement(
-  parent: HostNode | PortalNode | RootNode
-): Element {
-  return parent.kind === PORTAL ? parent.target : parent.el;
+export function containerElement(parent: HostNode | RootNode): Element {
+  return parent.el;
 }
 
 /** The element that directly contains `parent`'s DOM. */
@@ -159,8 +145,6 @@ export function firstDom(node: RNode): Node | null {
       case TEXT:
       case NATIVE:
         return current.node;
-      case PORTAL:
-        break;
       default:
         for (let i = current.children.length - 1; i >= 0; i--) {
           pending.push(current.children[i]);
@@ -181,8 +165,6 @@ export function collectDom(node: RNode, out: Node[] = []): Node[] {
       case TEXT:
       case NATIVE:
         out.push(current.node);
-        break;
-      case PORTAL:
         break;
       default:
         for (let i = current.children.length - 1; i >= 0; i--) {

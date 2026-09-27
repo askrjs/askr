@@ -29,7 +29,6 @@ import {
   FRAGMENT,
   FUNCTION,
   NATIVE,
-  PORTAL,
   TEXT,
   normalizeChildren,
   functionChildOutput,
@@ -86,6 +85,15 @@ class BufferedSink {
 
   writePortalHost(token: string): void {
     this.operations.push({ portalHost: true, text: token });
+  }
+
+  /** The buffered markup, without portal host tokens. */
+  html(): string {
+    let html = '';
+    for (const operation of this.operations) {
+      if (!operation.portalHost) html += operation.text;
+    }
+    return html;
   }
 
   publishTo(sink: SinkTarget): void {
@@ -372,7 +380,6 @@ function renderChild(child: ChildDescriptor, sink: SinkTarget): void {
         sink
       );
       return;
-    case PORTAL:
     case NATIVE:
       // Client-only content.
       return;
@@ -411,15 +418,38 @@ function renderElement(tag: string, props: Props, sink: SinkTarget): void {
       ? (resolveReactiveAttributeProps(props) ?? props)
       : props;
   const selection = render.selectSelections[render.selectSelections.length - 1];
+  // A value-less option's value is its rendered text, so its children render
+  // first (into a buffer) and the option is written once `selected` is known.
+  let renderedChildren: BufferedSink | null = null;
   if (lower === 'option' && parentNamespace === 'select' && selection) {
-    const value =
-      elementProps.value === undefined
-        ? optionTextValue(elementProps.children)
-        : String(elementProps.value);
+    let value: string;
+    const own = elementProps.value;
+    // An omitted value attribute (`null`, `undefined`, `false`) falls back to
+    // the option's text, as it does in the browser.
+    if (own === undefined || own === null || own === false) {
+      const buffer = new BufferedSink();
+      const props = elementProps;
+      withNamespace(
+        getChildNamespace(parentNamespace, namespace, lower, props),
+        () => writeContent(props, null, buffer)
+      );
+      renderedChildren = buffer;
+      value = optionTextValue(buffer.html());
+    } else {
+      value = String(own);
+    }
     const selected =
       selection.values.has(value) && (selection.multiple || !selection.matched);
     if (selected) selection.matched = true;
     elementProps = { ...elementProps, selected };
+  }
+  if (renderedChildren) {
+    sink.write('<' + tag);
+    renderAttrsDirect(elementProps, sink, tag);
+    sink.write('>');
+    renderedChildren.publishTo(sink);
+    sink.write('</' + tag + '>');
+    return;
   }
   let nextSelection: SelectSelection | null = null;
   if (
@@ -449,15 +479,93 @@ function renderElement(tag: string, props: Props, sink: SinkTarget): void {
   }
 }
 
-function optionTextValue(value: unknown): string {
-  if (value == null || typeof value === 'boolean') return '';
-  if (typeof value === 'string' || typeof value === 'number')
-    return String(value);
-  if (Array.isArray(value)) return value.map(optionTextValue).join('');
-  if (typeof value === 'object' && 'props' in value) {
-    return optionTextValue((value as { props?: Props }).props?.children);
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: '\u00a0',
+};
+
+/** Decode the entity starting at `start` (`&...;`), or null if unknown. */
+function decodeEntity(
+  html: string,
+  start: number
+): { text: string; end: number } | null {
+  const end = html.indexOf(';', start + 1);
+  if (end < 0 || end - start > 12) return null;
+  const name = html.slice(start + 1, end);
+  if (name.startsWith('#')) {
+    const hex = name[1] === 'x' || name[1] === 'X';
+    const code = Number.parseInt(name.slice(hex ? 2 : 1), hex ? 16 : 10);
+    if (!Number.isFinite(code) || code < 0 || code > 0x10ffff) return null;
+    return { text: String.fromCodePoint(code), end };
   }
-  return '';
+  const text = NAMED_ENTITIES[name];
+  return text === undefined ? null : { text, end };
+}
+
+function isAsciiWhitespace(code: number): boolean {
+  return (
+    code === 0x20 ||
+    code === 0x09 ||
+    code === 0x0a ||
+    code === 0x0c ||
+    code === 0x0d
+  );
+}
+
+/**
+ * The value a browser gives a value-less `<option>` rendered as `html`: its
+ * text content with ASCII whitespace stripped and collapsed. The markup is
+ * this renderer's own output, so tags, comments, and the three entities the
+ * text escaper emits are all there is to undo.
+ */
+function optionTextValue(html: string): string {
+  let text = '';
+  let pendingSpace = false;
+  let i = 0;
+  while (i < html.length) {
+    const ch = html[i];
+    if (ch === '<') {
+      if (html.startsWith('<!--', i)) {
+        const end = html.indexOf('-->', i + 4);
+        i = end < 0 ? html.length : end + 3;
+        continue;
+      }
+      const end = html.indexOf('>', i + 1);
+      if (end < 0) break;
+      // Script text is not part of an option's text.
+      if (html.slice(i + 1, i + 7).toLowerCase() === 'script') {
+        const close = html.toLowerCase().indexOf('</script', end);
+        const closeEnd = close < 0 ? -1 : html.indexOf('>', close);
+        i = closeEnd < 0 ? html.length : closeEnd + 1;
+        continue;
+      }
+      i = end + 1;
+      continue;
+    }
+    let decoded = ch;
+    if (ch === '&') {
+      const entity = decodeEntity(html, i);
+      if (entity) {
+        decoded = entity.text;
+        i = entity.end;
+      }
+    }
+    i++;
+    for (const part of decoded) {
+      if (isAsciiWhitespace(part.charCodeAt(0))) {
+        pendingSpace = text.length > 0;
+        continue;
+      }
+      if (pendingSpace) text += ' ';
+      pendingSpace = false;
+      text += part;
+    }
+  }
+  return text;
 }
 
 function writeElement(
@@ -466,11 +574,21 @@ function writeElement(
   rawText: RawTextElement | null,
   sink: SinkTarget
 ): void {
-  const dangerous = (props as { dangerouslySetInnerHTML?: unknown })
-    .dangerouslySetInnerHTML;
   sink.write('<' + tag);
   renderAttrsDirect(props, sink, rawText === null ? tag : undefined);
   sink.write('>');
+  writeContent(props, rawText, sink);
+  sink.write('</' + tag + '>');
+}
+
+/** An element's content: raw HTML, raw text, or rendered children. */
+function writeContent(
+  props: Props,
+  rawText: RawTextElement | null,
+  sink: SinkTarget
+): void {
+  const dangerous = (props as { dangerouslySetInnerHTML?: unknown })
+    .dangerouslySetInnerHTML;
   if (dangerous !== undefined && dangerous !== null) {
     if (typeof dangerous === 'object' && '__html' in dangerous) {
       sink.write(String((dangerous as { __html: unknown }).__html));
@@ -482,7 +600,6 @@ function writeElement(
   } else if (!props.imperativeChildren) {
     renderValue(props.children, sink);
   }
-  sink.write('</' + tag + '>');
 }
 
 /**

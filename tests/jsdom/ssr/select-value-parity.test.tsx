@@ -99,6 +99,137 @@ describe('SSR select value parity', () => {
     ).toEqual([false, true]);
   });
 
+  it.each([
+    [
+      'trailing whitespace',
+      () => (
+        <select value="Apple">
+          <option>{'Pear'}</option>
+          <option>
+            {'  Apple'} {'\n'}
+          </option>
+        </select>
+      ),
+    ],
+    [
+      'a component child',
+      () => {
+        const Label = () => <b>Apple</b>;
+        return (
+          <select value="Apple">
+            <option>Pear</option>
+            <option>
+              <Label />
+            </option>
+          </select>
+        );
+      },
+    ],
+    [
+      'an escaped character',
+      () => (
+        <select value="Salt &amp; Pepper">
+          <option>Pear</option>
+          <option>{'Salt & Pepper'}</option>
+        </select>
+      ),
+    ],
+  ])(
+    'should select a value-less option by its rendered text with %s',
+    async (_name, App) => {
+      const html = renderToStringSync(App);
+      expect(
+        options(html).map((option) => option.hasAttribute('selected'))
+      ).toEqual([false, true]);
+
+      const { container, cleanup } = createTestContainer();
+      try {
+        container.innerHTML = html;
+        await hydrateSPA({
+          root: container,
+          registry: routeRegistryFromTable([{ path: '/', handler: App }]),
+          hydrate: { verifyMarkup: true },
+        });
+        const select = container.querySelector('select') as HTMLSelectElement;
+        expect(select.selectedIndex).toBe(1);
+      } finally {
+        cleanup();
+      }
+    }
+  );
+
+  it('should keep dangerouslySetInnerHTML content on a value-less option and select it', () => {
+    const html = renderToStringSync(() => (
+      <select value="A">
+        <option>Z</option>
+        <option dangerouslySetInnerHTML={{ __html: 'A' }} />
+      </select>
+    ));
+    const [, option] = options(html);
+    expect(option.textContent).toBe('A');
+    expect(option.hasAttribute('selected')).toBe(true);
+  });
+
+  it('should leave imperative option children to the client', () => {
+    const html = renderToStringSync(() => (
+      <select value="X">
+        <option imperativeChildren={true}>X</option>
+      </select>
+    ));
+    expect(options(html)[0].textContent).toBe('');
+  });
+
+  it.each([null, undefined, false])(
+    'should use option text when the option value is %s',
+    (value) => {
+      const html = renderToStringSync(() => (
+        <select value="B">
+          <option>A</option>
+          <option value={value as never}>B</option>
+        </select>
+      ));
+      expect(
+        options(html).map((option) => option.hasAttribute('selected'))
+      ).toEqual([false, true]);
+    }
+  );
+
+  it.each([
+    ['a named entity', 'A&nbsp;B', 'A\u00a0B'],
+    ['a decimal entity', '&#65;', 'A'],
+    ['a hex entity', '&#x41;', 'A'],
+    ['a quote entity', '&quot;A&quot;', '"A"'],
+  ])(
+    'should decode %s in raw option HTML like the browser',
+    (_name, raw, value) => {
+      const html = renderToStringSync(() => (
+        <select value={value}>
+          <option>other</option>
+          <option>
+            <span dangerouslySetInnerHTML={{ __html: raw }} />
+          </option>
+        </select>
+      ));
+      const [, option] = options(html);
+      expect(option.value).toBe(value);
+      expect(option.hasAttribute('selected')).toBe(true);
+    }
+  );
+
+  it('should leave script text out of an option value', () => {
+    const html = renderToStringSync(() => (
+      <select value="B">
+        <option>A</option>
+        <option>
+          B<script>{'ignored'}</script>
+        </option>
+      </select>
+    ));
+    expect(
+      options(html).map((option) => option.hasAttribute('selected'))
+    ).toEqual([false, true]);
+  });
+
   it('should read reactive select and option attributes once for SSR', () => {
     let selectReads = 0;
     let optionReads = 0;

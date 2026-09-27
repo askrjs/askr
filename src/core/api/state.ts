@@ -12,11 +12,16 @@ import {
   Computation,
   Signal,
   getTrackingComputation,
+  isTracking,
   notifySource,
   trackSource,
   type Source,
 } from '../reactive/graph';
-import { effectScheduler, getFlushVersion } from '../reactive/scheduler';
+import {
+  effectScheduler,
+  getFlushVersion,
+  queueTask,
+} from '../reactive/scheduler';
 import { isRendering } from '../component/render-state';
 import { markReadable } from '../reactive/readable';
 import { isSnapshotSource } from './snapshot';
@@ -276,6 +281,13 @@ export function selector<T>(
   return slot.predicate;
 }
 
+const candidateCounts = new WeakMap<object, () => number>();
+
+/** Primitive candidates a selector currently retains (tests and diagnostics). */
+export function selectorCandidateCount(predicate: object): number {
+  return candidateCounts.get(predicate)?.() ?? 0;
+}
+
 function createSelector<T>(
   owner: ComponentInstance,
   initialSource: () => T,
@@ -288,6 +300,38 @@ function createSelector<T>(
   const primitives = new Map<unknown, CandidateSource>();
   const objects = new WeakMap<object, CandidateSource>();
 
+  // A candidate entry is released once no computation reads it, but only
+  // after the current work settles: a reader can take over the same entry
+  // later in the run, and a discarded render restores the subscriptions it
+  // replaced. Entries a failed render created without subscribing are swept
+  // the same way.
+  const sweepCandidates = new Set<CandidateSource>();
+  let sweepQueued = false;
+  const sweep = () => {
+    sweepQueued = false;
+    for (const entry of sweepCandidates) {
+      if (entry._observers?.size) continue;
+      const candidate = entry.candidate;
+      if (
+        (typeof candidate === 'object' && candidate !== null) ||
+        typeof candidate === 'function'
+      ) {
+        if (objects.get(candidate as object) === entry) {
+          objects.delete(candidate as object);
+        }
+      } else if (primitives.get(candidate) === entry) {
+        primitives.delete(candidate);
+      }
+    }
+    sweepCandidates.clear();
+  };
+  const queueSweep = (entry: CandidateSource) => {
+    sweepCandidates.add(entry);
+    if (sweepQueued) return;
+    sweepQueued = true;
+    queueTask(sweep);
+  };
+
   const candidateSource = (candidate: unknown, create: boolean) => {
     const isObject =
       (typeof candidate === 'object' && candidate !== null) ||
@@ -296,7 +340,10 @@ function createSelector<T>(
       ? objects.get(candidate as object)
       : primitives.get(candidate);
     if (!entry && create) {
-      entry = { _observers: null, candidate };
+      const created: CandidateSource = { _observers: null, candidate };
+      created._unobserved = () => queueSweep(created);
+      queueSweep(created);
+      entry = created;
       if (isObject) objects.set(candidate as object, entry);
       else primitives.set(candidate, entry);
     }
@@ -345,12 +392,14 @@ function createSelector<T>(
     if (watcher._running) {
       throw new Error('selector() cannot read itself recursively');
     }
-    const entry = candidateSource(candidate, true)!;
-    trackSource(entry);
-    if (equals !== Object.is) trackSource(allObjects);
     if (watcher.stale) watcher.update();
+    if (isTracking()) {
+      trackSource(candidateSource(candidate, true)!);
+      if (equals !== Object.is) trackSource(allObjects);
+    }
     return equals(value, candidate);
   }) as Selector<T>;
+  candidateCounts.set(predicate, () => primitives.size);
 
   return {
     predicate,
