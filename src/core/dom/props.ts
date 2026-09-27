@@ -33,6 +33,7 @@ import {
   applyStaticScalarPropsToElement,
 } from './prop-values';
 import { HOST, ROOT, type HostNode, type Parent } from './tree';
+import { reportTeardown } from './teardown';
 
 function isBinding(key: string, value: unknown): value is () => unknown {
   return (
@@ -79,17 +80,15 @@ function writeSimpleAttribute(
   node: HostNode,
   key: string,
   value: unknown,
-  previous: unknown
+  previous: unknown,
+  beforeApply?: () => void
 ): void {
   const { el, tag } = node;
   const name = getRenderedAttributeName(el, key);
   pass.op(() => {
-    const before = el.getAttribute(name);
-    pass.onReversibleCommit(() => {
-      if (before === null) el.removeAttribute(name);
-      else el.setAttribute(name, before);
-    });
+    recordAttributeUndo(pass, el, name);
     try {
+      beforeApply?.();
       applyScalarPropValue(el, key, value, tag, previous);
     } catch (error) {
       throw new CommitMutationError(error);
@@ -102,20 +101,62 @@ function writeReflectedProp(
   pass: Pass,
   node: HostNode,
   key: string,
-  apply: () => void
+  apply: () => void,
+  beforeApply?: () => void
 ): void {
   const { el } = node;
   const name = getRenderedAttributeName(el, key);
   pass.op(() => {
-    const before = el.getAttribute(name);
-    pass.onReversibleCommit(() => {
-      if (before === null) el.removeAttribute(name);
-      else el.setAttribute(name, before);
-    });
+    recordAttributeUndo(pass, el, name);
     try {
+      beforeApply?.();
       apply();
     } catch (error) {
       throw new CommitMutationError(error);
+    }
+  });
+}
+
+function recordAttributeUndo(pass: Pass, el: Element, name: string): void {
+  const before = el.getAttribute(name);
+  pass.onReversibleCommit(() => {
+    if (before === null) el.removeAttribute(name);
+    else el.setAttribute(name, before);
+  });
+}
+
+/** Remove a committed binding provisionally and restore it if the pass aborts. */
+function retireBindingForCommit(
+  pass: Pass,
+  node: HostNode,
+  key: string
+): Computation<void> | undefined {
+  const binding = node.bindings?.get(key);
+  if (!binding) return undefined;
+  node.bindings!.delete(key);
+  pass.onReversibleCommit(
+    () => {
+      (node.bindings ??= new Map()).set(key, binding);
+    },
+    () => reportTeardown(binding.dispose())
+  );
+  return binding;
+}
+
+/** Restore or remove a binding-map entry when a provisional install aborts. */
+function recordBindingInstallUndo(
+  pass: Pass,
+  node: HostNode,
+  key: string,
+  binding: Computation<void>,
+  previous: Computation<void> | undefined
+): void {
+  pass.onReversibleCommit(() => {
+    if (node.bindings?.get(key) !== binding) return;
+    if (previous) node.bindings.set(key, previous);
+    else {
+      node.bindings.delete(key);
+      if (node.bindings.size === 0) node.bindings = null;
     }
   });
 }
@@ -379,9 +420,32 @@ export function patchProps(
       writeReflectedProp(pass, node, key, () =>
         applyScalarPropValue(el, key, undefined, tag, old)
       );
+    } else if (isBinding(key, old) && isSimpleAttribute(tag, key, undefined)) {
+      const binding = node.bindings?.get(key);
+      writeSimpleAttribute(
+        pass,
+        node,
+        key,
+        undefined,
+        lastApplied(binding),
+        () => retireBindingForCommit(pass, node, key)
+      );
+    } else if (
+      isBinding(key, old) &&
+      (key === 'class' || key === 'className' || key === 'style')
+    ) {
+      const binding = node.bindings?.get(key);
+      writeReflectedProp(
+        pass,
+        node,
+        key,
+        () =>
+          applyScalarPropValue(el, key, undefined, tag, lastApplied(binding)),
+        () => retireBindingForCommit(pass, node, key)
+      );
     } else {
       pass.op(() => {
-        const binding = unbind(node, key);
+        const binding = retireBindingForCommit(pass, node, key);
         const from = isBinding(key, old) ? lastApplied(binding) : old;
         try {
           applyScalarPropValue(el, key, undefined, tag, from);
@@ -408,15 +472,31 @@ export function patchProps(
       if (value === old && node.bindings?.has(key)) continue;
       const replaced = node.bindings?.get(key);
       const from = replaced ? lastApplied(replaced) : old;
-      pass.op(() => unbind(node, key));
+      pass.op(() => retireBindingForCommit(pass, node, key));
       bind(pass, node, key, value, from, false);
       continue;
     }
     if (isBinding(key, old)) {
-      pass.op(() => {
-        const binding = unbind(node, key);
-        applyScalarPropValue(el, key, value, tag, lastApplied(binding));
-      });
+      const binding = node.bindings?.get(key);
+      const from = lastApplied(binding);
+      if (isSimpleAttribute(tag, key, value)) {
+        writeSimpleAttribute(pass, node, key, value, from, () =>
+          retireBindingForCommit(pass, node, key)
+        );
+      } else if (key === 'class' || key === 'className' || key === 'style') {
+        writeReflectedProp(
+          pass,
+          node,
+          key,
+          () => applyScalarPropValue(el, key, value, tag, from),
+          () => retireBindingForCommit(pass, node, key)
+        );
+      } else {
+        pass.op(() => {
+          const current = retireBindingForCommit(pass, node, key);
+          applyScalarPropValue(el, key, value, tag, lastApplied(current));
+        });
+      }
       continue;
     }
     // A host may change a rendered value between passes. The scalar writer
@@ -449,15 +529,6 @@ export function patchProps(
       });
     }
   }
-}
-
-function unbind(node: HostNode, key: string): Computation<void> | undefined {
-  const binding = node.bindings?.get(key);
-  if (binding) {
-    node.bindings!.delete(key);
-    binding.dispose();
-  }
-  return binding;
 }
 
 function bind(
@@ -494,9 +565,26 @@ function bind(
   );
   pass.own(binding);
   const install = () => {
+    const previous = node.bindings?.get(key);
     (node.bindings ??= new Map()).set(key, binding);
-    binding.run();
-    if (binding._hasError) throw binding._error;
+    const reversibleAttribute =
+      isSimpleAttribute(tag, key, undefined) ||
+      key === 'class' ||
+      key === 'className' ||
+      key === 'style';
+    if (!fresh) {
+      recordBindingInstallUndo(pass, node, key, binding, previous);
+      if (reversibleAttribute) {
+        recordAttributeUndo(pass, el, getRenderedAttributeName(el, key));
+      }
+    }
+    try {
+      binding.run();
+      if (binding._hasError) throw binding._error;
+    } catch (error) {
+      if (!fresh && reversibleAttribute) throw new CommitMutationError(error);
+      throw error;
+    }
   };
   if (fresh) install();
   else pass.op(install);
