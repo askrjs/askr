@@ -20,6 +20,7 @@ import {
   composeRefs,
   formatId,
   mergeProps,
+  type MergedProps,
   setRef,
   type ComposeHandlersOptions,
   type DefaultPreventable,
@@ -320,3 +321,21 @@ declare const maybeLabel: string | undefined;
 expectType<string | number>(
   mergeProps({ label: maybeLabel }, { label: 1 as number }).label
 );
+
+// An untyped base value (JSON.parse returns `any`) keeps its value type.
+declare const untypedValue: ReturnType<typeof JSON.parse>;
+expectType<ReturnType<typeof JSON.parse>>(
+  mergeProps({ x: untypedValue }, {}).x
+);
+// An optional base key is required when the injected side always has it.
+declare const partial: { id?: string };
+expectType<string>(mergeProps(partial, { id: 'generated' }).id);
+// Index-signature props keep the injected handler types.
+declare const rest: Record<string, unknown>;
+const forwarded = mergeProps(rest, {
+  onClick: (_event: MouseEvent) => undefined,
+  role: 'button' as const,
+});
+expectType<'button'>(forwarded.role);
+expectAssignable<(event: MouseEvent) => undefined>(forwarded.onClick);
+expectType<MergedProps<{ id: string }, { role: string }>>(mergedDisjoint);

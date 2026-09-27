@@ -17,8 +17,7 @@ export interface Props {
   [attr: string]: unknown;
 }
 
-/** A value, or a function returning it or a readable of it (read on render). */
-type ReactiveProp<T> = T | (() => T | (() => T));
+type ReactiveProp<T> = T | (() => T);
 
 type BivariantHandler<T> = {
   bivarianceHack(value: T): void;
@@ -53,13 +52,16 @@ export type IntrinsicRef<T extends Element = Element> =
   | null
   | undefined;
 
+/** MathML elements that lib.dom's MathMLElementTagNameMap does not list. */
+export type MathMLExtraTag = 'mglyph' | 'menclose' | 'mlabeledtr' | 'none';
+
 export type IntrinsicElementForTag<Tag extends string> =
   Tag extends keyof HTMLElementTagNameMap
     ? HTMLElementTagNameMap[Tag]
     : Tag extends keyof SVGElementTagNameMap
       ? SVGElementTagNameMap[Tag]
-      : Tag extends keyof MathMLElementTagNameMap
-        ? MathMLElementTagNameMap[Tag]
+      : Tag extends keyof MathMLElementTagNameMap | MathMLExtraTag
+        ? MathMLElement
         : Element;
 
 interface IntrinsicEventProps {
@@ -348,6 +350,11 @@ export interface ImageIntrinsicProps extends IntrinsicProps {
 }
 
 export interface InputIntrinsicProps extends IntrinsicProps {
+  formAction?: ReactiveProp<IntrinsicTextValue>;
+  formEncType?: ReactiveProp<IntrinsicTextValue>;
+  formMethod?: ReactiveProp<IntrinsicTextValue>;
+  formNoValidate?: ReactiveProp<IntrinsicBooleanValue>;
+  formTarget?: ReactiveProp<IntrinsicTextValue>;
   autoComplete?: ReactiveProp<IntrinsicTextValue>;
   autocomplete?: ReactiveProp<IntrinsicTextValue>;
   checked?: ReactiveProp<IntrinsicBooleanValue>;

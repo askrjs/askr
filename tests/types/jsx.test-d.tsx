@@ -539,10 +539,26 @@ expectType<RuntimeJSX.Element>(
   </math>
 );
 
-// A function prop may return a readable; the renderer reads its value.
-declare const readableText: () => string;
-expectType<RuntimeJSX.Element>(<input value={() => readableText} />);
-expectType<RuntimeJSX.Element>(<p title={() => readableText} />);
+// A reactive prop is a value or a function returning one; a nested plain
+// function is not unwrapped by the renderer, so it is rejected.
+expectError(<p title={() => () => 'plain'} />);
+
+// MathML tags missing from lib.dom are still intrinsic.
+expectType<RuntimeJSX.Element>(
+  <math>
+    <mi>
+      <mglyph />
+    </mi>
+    <menclose />
+    <none />
+    <mlabeledtr />
+  </math>
+);
+
+// Submit inputs share the button form overrides.
+expectType<RuntimeJSX.Element>(
+  <input type="submit" formAction="/save" formNoValidate />
+);
 
 // Raw HTML is available on every intrinsic element.
 expectType<RuntimeJSX.Element>(

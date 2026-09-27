@@ -6,6 +6,7 @@ import {
   JSXComponent,
   KnownIntrinsicElementProps,
   JSXElement,
+  MathMLExtraTag,
   Props,
   Fragment,
 } from './elements.js';
@@ -24,7 +25,8 @@ declare namespace JSX {
       Tag in Exclude<
         | keyof HTMLElementTagNameMap
         | keyof SVGElementTagNameMap
-        | Exclude<keyof MathMLElementTagNameMap, `${string}-${string}`>,
+        | Exclude<keyof MathMLElementTagNameMap, `${string}-${string}`>
+        | MathMLExtraTag,
         keyof KnownIntrinsicElementProps
       >
     ]: OtherIntrinsicProps<Tag>;
@@ -47,7 +49,8 @@ type OtherIntrinsicTag =
   | Exclude<
       | keyof HTMLElementTagNameMap
       | keyof SVGElementTagNameMap
-      | Exclude<keyof MathMLElementTagNameMap, `${string}-${string}`>,
+      | Exclude<keyof MathMLElementTagNameMap, `${string}-${string}`>
+      | MathMLExtraTag,
       keyof KnownIntrinsicElementProps
     >
   | `${string}-${string}`;

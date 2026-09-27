@@ -386,10 +386,7 @@ export function stripComments(html: string): string {
  * types a ref by the element it is attached to). The value is unchanged.
  */
 export function refAs<T extends Element>(
-  ref:
-    | { current: Element | null }
-    | ((element: Element | null) => void)
-    | object
-): { current: T | null } {
-  return ref as { current: T | null };
+  ref: { current: Element | null } | ((element: Element | null) => void)
+): { current: T | null } | ((element: T | null) => void) {
+  return ref as { current: T | null } | ((element: T | null) => void);
 }

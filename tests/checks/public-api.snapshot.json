@@ -96,6 +96,7 @@
     "FocusLikeEvent",
     "FormatIdOptions",
     "KeyboardLikeEvent",
+    "MergedProps",
     "PointerLikeEvent",
     "PropagationStoppable",
     "Ref",

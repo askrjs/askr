@@ -29,7 +29,8 @@
  *    `null` is an explicit value and still overrides (base wins).
  *
  * 5. Return Type
- *    Returns intersection type (TInjected & TBase) for type safety.
+ *    Returns MergedProps<TBase, TInjected>: base value types win unless they
+ *    may be undefined, in which case the injected type is included.
  */
 import { composeHandlers } from './compose-handlers';
 
@@ -39,23 +40,48 @@ function isEventHandlerKey(key: string): boolean {
   return key.startsWith('on');
 }
 
-/** A base value, or the injected one where the base may be `undefined`. */
-export type MergedValue<TBase, TInjected> = [TBase] extends [undefined]
-  ? TInjected
-  : undefined extends TBase
-    ? Exclude<TBase, undefined> | TInjected
-    : TBase;
+type IsAny<T> = 0 extends 1 & T ? true : false;
+type HasIndexSignature<T> = string extends keyof T
+  ? true
+  : number extends keyof T
+    ? true
+    : false;
+type RequiredKeys<T> = {
+  [K in keyof T]-?: {} extends Pick<T, K> ? never : K;
+}[keyof T];
 
-/** The props {@link mergeProps} returns: base keys win unless `undefined`. */
-export type MergedProps<TBase extends object, TInjected extends object> = Omit<
-  TInjected,
-  keyof TBase
-> & {
-  [K in keyof TBase]: MergedValue<
-    TBase[K],
-    K extends keyof TInjected ? TInjected[K] : undefined
-  >;
-};
+/** A base value, or the injected one where the base may be `undefined`. */
+export type MergedValue<TBase, TInjected> =
+  IsAny<TBase> extends true
+    ? TBase
+    : [TBase] extends [undefined]
+      ? TInjected
+      : undefined extends TBase
+        ? Exclude<TBase, undefined> | TInjected
+        : TBase;
+
+/**
+ * The props {@link mergeProps} returns: base keys win unless `undefined`, and
+ * a base key is required when the injected props always supply it. Props
+ * with an index signature fall back to the intersection of both sides.
+ */
+export type MergedProps<TBase extends object, TInjected extends object> =
+  HasIndexSignature<TBase> extends true
+    ? TInjected & TBase
+    : HasIndexSignature<TInjected> extends true
+      ? TInjected & TBase
+      : Omit<TInjected, keyof TBase> & {
+          [
+            K in keyof TBase as K extends RequiredKeys<TInjected> ? K : never
+          ]-?: MergedValue<TBase[K], TInjected[K & keyof TInjected]>;
+        } & {
+          [
+            K in keyof TBase as K extends RequiredKeys<TInjected> ? never : K
+          ]: MergedValue<
+            TBase[K],
+            K extends keyof TInjected ? TInjected[K] : undefined
+          >;
+        };
 
 /**
  * Merge `base` props over `injected` props: non-handler keys in `base` win,

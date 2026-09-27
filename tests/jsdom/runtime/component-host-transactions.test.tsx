@@ -219,14 +219,18 @@ describe('component host transactions', () => {
           ? (value: Element | null) => {
               values.push(value);
             }
-          : Object.defineProperty({}, 'current', {
-              configurable: true,
-              get: () => objectValue,
-              set: (value: Element | null) => {
-                objectValue = value;
-                values.push(value);
-              },
-            });
+          : Object.defineProperty(
+              {} as { current: Element | null },
+              'current',
+              {
+                configurable: true,
+                get: () => objectValue,
+                set: (value: Element | null) => {
+                  objectValue = value;
+                  values.push(value);
+                },
+              }
+            );
 
       function Child({ article }: { article: boolean }) {
         return article ? (

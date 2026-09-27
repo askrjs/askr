@@ -6,6 +6,11 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 
+// A function prop may return a readable, which the renderer unwraps (#543).
+// Prop types only accept a value or a function returning one, so these tests
+// opt out of that check explicitly.
+const readableProp = (read: () => unknown) => read as never;
+
 function selectedValues(select: HTMLSelectElement): string[] {
   return Array.from(select.selectedOptions, (option) => option.value);
 }
@@ -190,7 +195,7 @@ describe('reactive form control props', () => {
       a = state('A');
       b = state('B');
       return (
-        <p title={() => (useA() ? a : b)} data-cell={() => a}>
+        <p title={readableProp(() => (useA() ? a : b))} data-cell={() => a}>
           {'x'}
         </p>
       );
@@ -219,7 +224,7 @@ describe('reactive form control props', () => {
     mount(() => {
       choice = state('b');
       return (
-        <select value={() => choice}>
+        <select value={readableProp(() => choice)}>
           <option value="a">A</option>
           <option value="b">B</option>
         </select>
@@ -239,8 +244,8 @@ describe('reactive form control props', () => {
     let choice!: State<string>;
     const Row = () => (
       <li>
-        <span title={() => label}>{() => 'r'}</span>
-        <select value={() => choice}>
+        <span title={readableProp(() => label)}>{() => 'r'}</span>
+        <select value={readableProp(() => choice)}>
           <option value="a">A</option>
           <option value="b">B</option>
         </select>

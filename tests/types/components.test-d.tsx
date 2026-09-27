@@ -62,3 +62,11 @@ declare const boundaryLabel: () => string;
 expectAssignable<JSXElement>(
   <ErrorBoundary fallback={null}>{() => boundaryLabel()}</ErrorBoundary>
 );
+
+// Mixed children, including function children, work as for any element.
+expectAssignable<JSXElement>(
+  <ErrorBoundary fallback={null}>
+    <div />
+    {() => boundaryLabel()}
+  </ErrorBoundary>
+);
