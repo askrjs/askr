@@ -61,4 +61,29 @@ describe('routeError with a converted overflow', () => {
     expect(received).toEqual([converted]);
     root.dispose();
   });
+
+  it('should route a RenderDepthError created in user code by its own origin', () => {
+    const root = new Owner(null);
+    const received: string[] = [];
+    const boundaryAt = (name: string) => {
+      const instance = new ComponentInstance(root, () => null, {});
+      instance.boundary = () => {
+        received.push(name);
+        return true;
+      };
+      return instance;
+    };
+    const earlier = boundaryAt('earlier');
+    const thrower = boundaryAt('thrower');
+
+    // An error that escaped elsewhere earlier, later wrapped by user code.
+    const inner = new RangeError('Maximum call stack size exceeded');
+    noteErrorOrigin(new Owner(earlier), inner);
+    const wrapped = new RenderDepthError(inner);
+    noteErrorOrigin(new Owner(thrower), wrapped);
+
+    routeError(null, wrapped);
+    expect(received).toEqual(['thrower']);
+    root.dispose();
+  });
 });

@@ -18,7 +18,11 @@ export function noteErrorOrigin(owner: Owner | null, error: unknown): void {
     error === null
   )
     return;
-  if (!errorOrigins.has(error)) errorOrigins.set(error, owner);
+  try {
+    if (!errorOrigins.has(error)) errorOrigins.set(error, owner);
+  } catch {
+    // Out of stack near an overflow; a shallower frame records an origin.
+  }
 }
 
 /**
@@ -54,17 +58,16 @@ export function routeError(owner: Owner | null, error: unknown): void {
  * `caught`, or a `RenderDepthError` when it is a stack overflow. The new error
  * inherits the origin recorded on `caught`, so routing still starts where the
  * overflow first escaped. Runs near an exhausted stack: if copying the origin
- * fails, the conversion is kept without it.
+ * fails, `caught` is returned unconverted and a shallower frame converts it.
  */
 export function clarifyRenderError(caught: unknown): unknown {
   const error = clarifyRenderOverflow(caught);
-  if (error !== caught) {
-    try {
-      const origin = errorOrigins.get(caught as object);
-      if (origin) errorOrigins.set(error as object, origin);
-    } catch {
-      // Out of stack; the error keeps no origin.
-    }
+  if (error === caught) return caught;
+  try {
+    const origin = errorOrigins.get(caught as object);
+    if (origin) errorOrigins.set(error as object, origin);
+    return error;
+  } catch {
+    return caught;
   }
-  return error;
 }
