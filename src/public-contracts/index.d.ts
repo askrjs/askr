@@ -20,7 +20,7 @@ import {
   Selector,
 } from './core.js';
 import { Props, Fragment } from './elements.js';
-import { jsxs, jsx } from './jsx.js';
+import { createElement, jsxs, jsx } from './jsx.js';
 export {
   CspNonceScope,
   type Derived,
@@ -34,6 +34,7 @@ export {
   type StateSetter,
   type StateTuple,
   configureRenderDiagnostics,
+  createElement,
   createRef,
   cspNonce,
   defineScope,

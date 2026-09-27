@@ -22,7 +22,12 @@
  *    This is intentional — strict equality, no deep comparison.
  */
 
-import { state, type State } from '../../core/api/state';
+import {
+  makeDestructurable,
+  state,
+  type StateTuple,
+} from '../../core/api/state';
+import { markReadable } from '../../core/reactive/readable';
 
 /** Whether `value` represents controlled mode (not `undefined`). */
 export function isControlled<T>(value: T | undefined): value is T {
@@ -66,8 +71,8 @@ export function makeControllable<T>(options: {
   return { set, isControlled };
 }
 
-/** A {@link State} accessor that also reports whether it is controlled. */
-export type ControllableState<T> = State<T> & { isControlled: boolean };
+/** A {@link StateTuple} accessor that also reports whether it is controlled. */
+export type ControllableState<T> = StateTuple<T> & { isControlled: boolean };
 
 /**
  * controllableState
@@ -106,10 +111,14 @@ export function controllableState<T>(options: {
       return;
     }
 
-    internal!.set(nextOrUpdater as never);
+    // Store the value already computed so an updater runs once. Wrap it so a
+    // function value is stored rather than called as an updater.
+    internal!.set((() => next) as never);
     options.onChange?.(next);
   };
 
-  (read as ControllableState<T>).isControlled = isControlled;
-  return read as ControllableState<T>;
+  (read as unknown as ControllableState<T>).isControlled = isControlled;
+  // Reads and destructures like a `state()` cell.
+  markReadable(read);
+  return makeDestructurable(read) as unknown as ControllableState<T>;
 }

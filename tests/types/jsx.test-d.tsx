@@ -1,6 +1,7 @@
 import { expectAssignable, expectError, expectType } from 'tsd';
 import {
   Fragment as RootFragment,
+  createElement,
   createRef,
   type Props,
   type Ref,
@@ -25,6 +26,13 @@ import {
   jsxDEV,
   type JSX as DevRuntimeJSX,
 } from '@askrjs/askr/jsx-dev-runtime';
+
+// The classic fallback for a key written after a spread.
+declare const spreadProps: Record<string, unknown>;
+expectType<JSXElement>(
+  createElement('li', { ...spreadProps, key: 'row' }, 'text')
+);
+expectType<JSXElement>(createElement(RootFragment, null));
 
 expectAssignable<typeof jsx>(rootJsx);
 expectAssignable<typeof jsxs>(rootJsxs);

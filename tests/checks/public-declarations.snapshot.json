@@ -4,6 +4,9 @@
       "configureRenderDiagnostics": [
         "declare function configureRenderDiagnostics(options: RenderDiagnosticsOptions): () => void;"
       ],
+      "createElement": [
+        "declare function createElement(type: string | symbol | ((props: never) => unknown), props: Record<string, unknown> | null, ...children: unknown[]): JSXElement;"
+      ],
       "createRef": [
         "declare function createRef<T extends Element = Element>(): Ref<T>;"
       ],
@@ -272,7 +275,7 @@
         "declare function controllableState<T>(options: {\n    value: T | undefined;\n    defaultValue: T;\n    onChange?: (next: T) => void;\n}): ControllableState<T>;"
       ],
       "ControllableState": [
-        "type ControllableState<T> = State<T> & {\n    isControlled: boolean;\n};"
+        "type ControllableState<T> = StateTuple<T> & {\n    isControlled: boolean;\n};"
       ],
       "isControlled": [
         "declare function isControlled<T>(value: T | undefined): value is T;"
@@ -1231,7 +1234,7 @@
       "declare function controllableState<T>(options: {\n    value: T | undefined;\n    defaultValue: T;\n    onChange?: (next: T) => void;\n}): ControllableState<T>;"
     ],
     "ControllableState": [
-      "type ControllableState<T> = State<T> & {\n    isControlled: boolean;\n};"
+      "type ControllableState<T> = StateTuple<T> & {\n    isControlled: boolean;\n};"
     ],
     "CoreTelemetry": [
       "interface CoreTelemetry {\n    routeMatch?: TelemetrySpan;\n    loader?: TelemetrySpan;\n    queryPrefetch?: TelemetrySpan;\n    ssrRender?: TelemetrySpan;\n}"
@@ -1241,6 +1244,9 @@
     ],
     "createDataRuntime": [
       "declare function createDataRuntime(options?: DataRuntimeOptions): DataRuntime;"
+    ],
+    "createElement": [
+      "declare function createElement(type: string | symbol | ((props: never) => unknown), props: Record<string, unknown> | null, ...children: unknown[]): JSXElement;"
     ],
     "createFreshQuery": [
       "declare function createFreshQuery<T extends {}>(data: T, options?: MockQueryOptions): Query<T>;"

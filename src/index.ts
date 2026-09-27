@@ -26,6 +26,8 @@ export { registerSSRStyle } from './common/render-context';
 
 // Re-export JSX runtime for tsconfig jsxImportSource
 export { jsx, jsxs, Fragment } from './jsx-runtime';
+// Classic factory the automatic transform uses for a key after a spread.
+export { createElement } from './jsx/jsx-runtime';
 
 // Public types
 export type { Props } from './common/props';

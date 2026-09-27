@@ -283,6 +283,9 @@ const controllable = controllableState<string>({
   defaultValue: 'fallback',
 });
 expectType<ControllableState<string>>(controllable);
+const [controlledValue, setControlledValue] = controllable;
+expectType<string>(controlledValue());
+setControlledValue('next');
 
 const iconSizeToken: IconSizeToken = 'md';
 const iconStyleObject: IconStyleObject = { color: 'red' };

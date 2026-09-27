@@ -68,8 +68,10 @@ Controlled/uncontrolled value helpers.
 
 - `controllableState({ value, defaultValue, onChange? })` returns a getter with
   `.set()` and `isControlled`. It defers to `value` when the parent controls
-  it. Unlike `state()`, the result is not a tuple: call it and its `.set()`
-  instead of destructuring.
+  it, and destructures like `state()`:
+  `const [value, setValue] = controllableState(options)`. The getter is
+  readable like a `state()` getter, so `{() => value}` renders its value, and an
+  updater passed to the setter runs once.
 - `isControlled(value)` is `true` when `value` is not `undefined`.
 - `resolveControllable(value, defaultValue)` returns the effective
   `{ value, isControlled }`.

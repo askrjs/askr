@@ -162,6 +162,31 @@ export function jsx(
   } as JSXElement;
 }
 
+/**
+ * Classic element factory. The automatic JSX transform falls back to it for a
+ * `key` written after a spread (`<Row {...props} key={id} />`). The key and
+ * the development-only `__self`/`__source` props are taken out of `props`,
+ * and child arguments become `props.children`.
+ */
+export function createElement(
+  type: string | symbol | ((props: never) => unknown),
+  props: Record<string, unknown> | null,
+  ...children: unknown[]
+): JSXElement {
+  // Development transforms (Babel, oxc) add `__self` and `__source`.
+  const { key, __self, __source, ...rest } = props ?? {};
+  void __self;
+  void __source;
+  const elementKey = (key as string | number | null | undefined) ?? undefined;
+  if (children.length > 1) {
+    // Several child arguments are fixed JSX children, as with `jsxs()`.
+    rest.children = children;
+    return jsxs(type as symbol, rest as Props, elementKey);
+  }
+  if (children.length === 1) rest.children = children[0];
+  return jsx(type as symbol, rest as Props, elementKey);
+}
+
 /** JSX factory for elements with multiple static children, used by the `jsxImportSource` transform. */
 export function jsxs<TTag extends keyof KnownIntrinsicElementProps>(
   type: TTag,
