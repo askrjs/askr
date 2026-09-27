@@ -63,7 +63,7 @@ describe('deep scope revisions', () => {
     expect(leaf()).toBe('dim');
   });
 
-  it('should restore cached revisions when a render that changed the scope is rolled back', () => {
+  it('should keep committed scope values and avoid extra renders after a rolled-back scope change', () => {
     let theme!: ReturnType<typeof state<string>>;
     let tick!: ReturnType<typeof state<number>>;
     let leafRenders = 0;
@@ -71,7 +71,9 @@ describe('deep scope revisions', () => {
       leafRenders++;
       return <span data-leaf={'true'}>{readScope(Theme)}</span>;
     }
-    function CountedChain(props: { remaining: number }) {
+    // `n` changes only the top level, so its unchanged children consult the
+    // cached ancestor revision instead of re-rendering on props.
+    function CountedChain(props: { remaining: number; n?: number }) {
       return props.remaining === 0 ? (
         <CountedLeaf />
       ) : (
@@ -91,7 +93,7 @@ describe('deep scope revisions', () => {
         return (
           <section data-tick={String(tick())}>
             <Theme value={value}>
-              <CountedChain remaining={50} />
+              <CountedChain remaining={50} n={tick()} />
               <Boom fail={value === 'broken'} />
             </Theme>
           </section>
