@@ -52,6 +52,9 @@ describe('routeError with a converted overflow', () => {
     // Converted after the origin was recorded on the engine error.
     const converted = clarifyRenderOverflow(overflow);
     expect(converted).toBeInstanceOf(RenderDepthError);
+    // A shallower component that converted the error records its own
+    // position, as renderInstance does; the deeper origin must still win.
+    noteErrorOrigin(renderOwner, converted);
 
     routeError(renderOwner, converted);
     expect(received).toEqual([converted]);

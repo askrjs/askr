@@ -48,8 +48,9 @@ export function routeError(owner: Owner | null, error: unknown): void {
 }
 
 /**
- * The origin recorded for `error`, or for the engine error a
- * `RenderDepthError` wraps (the overflow was recorded before conversion).
+ * The origin recorded for `error`. For a `RenderDepthError`, the origin
+ * recorded on the engine error it wraps wins: that was noted where the
+ * overflow first escaped, before a shallower frame converted it.
  */
 function originOf(error: unknown): Owner | undefined {
   if (
@@ -58,10 +59,13 @@ function originOf(error: unknown): Owner | undefined {
   ) {
     return undefined;
   }
-  const origin = errorOrigins.get(error);
-  if (origin || !(error instanceof RenderDepthError)) return origin;
-  const cause = error.cause;
-  return cause !== null && typeof cause === 'object'
-    ? errorOrigins.get(cause)
-    : undefined;
+  if (error instanceof RenderDepthError) {
+    const cause = error.cause;
+    const deeper =
+      cause !== null && typeof cause === 'object'
+        ? errorOrigins.get(cause)
+        : undefined;
+    if (deeper) return deeper;
+  }
+  return errorOrigins.get(error);
 }
