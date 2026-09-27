@@ -6,7 +6,6 @@
  * already detached its DOM.
  */
 
-import { clarifyRenderOverflow } from '../../common/render-depth';
 import type { ComponentFunction } from '../../common/component';
 import type { Props } from '../../common/props';
 import { isSSRPortalWriterAnchor } from '../../common/portal';
@@ -15,7 +14,7 @@ import {
   HookOrderChangeError,
   getContextEpoch,
 } from '../component/instance';
-import { noteErrorOrigin } from '../component/errors';
+import { clarifyRenderError, noteErrorOrigin } from '../component/errors';
 import type { Owner } from '../reactive/owner';
 import { reportUncaughtErrorLater } from '../../common/report-error';
 import { readValue } from '../reactive/readable';
@@ -521,7 +520,7 @@ export function renderInstance(
   } catch (caught) {
     // Convert a stack overflow where it is first caught, so boundaries and
     // error routing see the RenderDepthError.
-    const error = clarifyRenderOverflow(caught);
+    const error = clarifyRenderError(caught);
     if (!instance.boundary) {
       noteErrorOrigin(instance.parent, error);
       throw error;

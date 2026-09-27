@@ -13,11 +13,19 @@ import { createIsland } from '../../../test-utils/render/create-island';
 const SUPPORTED_DEPTH = 200;
 const OVERFLOWING_DEPTH = 5000;
 
-// Build the chain through a local reference to the JSX factory: calling it
-// through the test runner's import getter can turn a stack overflow inside
-// the getter into an unrelated TypeError, which makes the overflow tests
-// depend on exactly where the stack runs out.
+// Build the chain through a local reference to the JSX factory. A stack
+// overflow that lands inside the test runner's import getter surfaces as an
+// unrelated TypeError; calling the factory directly keeps the most frequent
+// call in the chain off that path.
 const h = jsx;
+
+// A component that returns itself directly, with no hooks or element between
+// levels, is walked iteratively and is not bound by the recursion limit.
+function SelfChain(props: { remaining: number; label: string }): JSXElement {
+  return props.remaining === 0
+    ? h('span', { 'data-leaf': 'true', children: props.label })
+    : h(SelfChain, { remaining: props.remaining - 1, label: props.label });
+}
 
 function Chain(props: { remaining: number; label: string }): JSXElement {
   return props.remaining === 0
@@ -55,6 +63,28 @@ describe('deep element-wrapped component chains', () => {
     label.set('b');
     flushScheduler();
     expect(container.querySelector('[data-leaf]')?.textContent).toBe('b');
+  });
+
+  it('should mount, patch, and server-render a direct self chain far beyond the limit', () => {
+    let label!: ReturnType<typeof state<string>>;
+    createIsland({
+      root: container,
+      component: () => {
+        label = state('a');
+        return h(SelfChain, { remaining: OVERFLOWING_DEPTH, label: label() });
+      },
+    });
+    flushScheduler();
+    expect(container.querySelector('[data-leaf]')?.textContent).toBe('a');
+    label.set('b');
+    flushScheduler();
+    expect(container.querySelector('[data-leaf]')?.textContent).toBe('b');
+
+    expect(
+      renderToStringSync(() =>
+        h(SelfChain, { remaining: OVERFLOWING_DEPTH, label: 'ssr' })
+      )
+    ).toBe('<span data-leaf="true">ssr</span>');
   });
 
   it('should explain a stack overflow from a chain that is too deep', () => {

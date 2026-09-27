@@ -41,13 +41,24 @@ export function deliverToBoundary(
 }
 
 /** Deliver `error` to a boundary, or throw it to the caller. */
-export function routeError(owner: Owner | null, raw: unknown): void {
-  // Look up the origin on the error as thrown, then deliver the clarified one.
+export function routeError(owner: Owner | null, error: unknown): void {
   const origin =
-    raw !== null && (typeof raw === 'object' || typeof raw === 'function')
-      ? errorOrigins.get(raw)
+    error !== null && (typeof error === 'object' || typeof error === 'function')
+      ? errorOrigins.get(error)
       : undefined;
-  const error = clarifyRenderOverflow(raw);
   if (origin && deliverToBoundary(origin, error)) return;
   if (!deliverToBoundary(owner, error)) throw error;
+}
+
+/**
+ * A render error with a stack overflow converted to `RenderDepthError`. The
+ * converted error keeps the logical origin recorded on the one thrown.
+ */
+export function clarifyRenderError(error: unknown): unknown {
+  const clarified = clarifyRenderOverflow(error);
+  if (clarified !== error && error !== null && typeof error === 'object') {
+    const origin = errorOrigins.get(error);
+    if (origin) errorOrigins.set(clarified as object, origin);
+  }
+  return clarified;
 }
