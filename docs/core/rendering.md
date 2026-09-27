@@ -572,6 +572,77 @@ listeners, reactive bindings, and ownership are published at commit. A failed
 activation restores the marker and remains retryable, while root cleanup drops
 unrevealed records. Permanent `skipSelectors` remain skipped.
 
+### Stacking layers
+
+A portal shows one writer's content at a time. When several writers target the
+same portal, the writer that rendered last wins. A writer takes the portal
+back only when it renders after the current writer with different `children`;
+re-rendering with the same reference (for example the same string) does not. A writer that unmounts clears
+the portal only if it is still the current writer. To show several layers at
+once, such as stacked dialogs or toasts, let one component own the list of open
+layers and write it through a portal of its own, so other `Portal` writers
+cannot replace it:
+
+```tsx run=layer-stack
+import { defineScope, readScope, state } from '@askrjs/askr';
+import { For } from '@askrjs/askr/control';
+import { definePortal } from '@askrjs/askr/foundations';
+
+interface Layer {
+  id: string;
+  title: string;
+}
+
+interface LayerStackApi {
+  open(layer: Layer): void;
+  close(id: string): void;
+}
+
+const LayerStackScope = defineScope<LayerStackApi | null>(null);
+
+/** Render once where layers should appear, for example at the end of the app. */
+export const LayerHost = definePortal();
+
+export function LayerStack(props: { children?: unknown }) {
+  const layers = state<Layer[]>([]);
+  const stack: LayerStackApi = {
+    open(layer) {
+      if (layers().some((open) => open.id === layer.id)) return;
+      layers.set([...layers(), layer]);
+    },
+    close(id) {
+      layers.set(layers().filter((layer) => layer.id !== id));
+    },
+  };
+  return (
+    <LayerStackScope value={stack}>
+      {props.children}
+      <LayerHost.render>
+        <For each={layers} by={(layer) => layer.id}>
+          {(layer) => (
+            <div role="dialog" data-layer={layer.id}>
+              {layer.title}
+            </div>
+          )}
+        </For>
+      </LayerHost.render>
+    </LayerStackScope>
+  );
+}
+
+export function useLayerStack(): LayerStackApi {
+  return readScope(LayerStackScope)!;
+}
+```
+
+Layers render at `<LayerHost />` in the order they were opened. `LayerHost`
+is one channel for the whole module, so render one `LayerStack` and one
+`<LayerHost />` per module instance. Applications that mount several roots
+should create `LayerHost`, `LayerStack`, and the scope inside a factory called
+once per root. Opening an id
+that is already open does nothing, and closing one layer keeps the others' DOM
+nodes because `For` tracks each layer by its key.
+
 ### Portals on the server
 
 `Portal`, `DefaultPortal`, and portals created by `definePortal()` render in

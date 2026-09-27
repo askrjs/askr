@@ -42,7 +42,7 @@ function outputs(
 }
 
 describe('SSG hydration bundle', () => {
-  it('should omit unused portal, authoring, and deferred capabilities', async () => {
+  it('should keep the core default portal and omit unused authoring and deferred capabilities', async () => {
     const outDir = await mkdtemp(join(tmpdir(), 'askr-ssg-hydration-'));
     temporaryDirectories.push(outDir);
 
@@ -67,10 +67,15 @@ describe('SSG hydration bundle', () => {
     );
     const bundledModules = new Set(
       chunks.flatMap((chunk) =>
-        Object.keys(chunk.modules).map((module) => relative(repoRoot, module))
+        Object.keys(chunk.modules).map((module) =>
+          relative(repoRoot, module).replaceAll('\\', '/')
+        )
       )
     );
 
+    // The default portal is core: every application root provides and hosts
+    // it, so boot bundles it even when the app renders no <Portal> (#611).
+    expect(bundledModules).toContain('src/core/api/portal.ts');
     expect(bundledModules).not.toContain('src/router/authoring.ts');
     expect(bundledModules).not.toContain('src/router/deferred.tsx');
     // SSR render-context storage resolves AsyncLocalStorage at run time; the

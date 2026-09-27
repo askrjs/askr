@@ -16,17 +16,19 @@ loaders, and async document renderers are rejected during the page render.
 ## Hydration bundle boundaries
 
 The browser boot path loads only the runtime needed for the hydrated route.
-Portal hosting, deferred route rendering, and route-authoring implementation
-are not retained by `hydrateSPA()` itself. They enter a client bundle only when
-application code imports those capabilities. In particular, a client route
+Deferred route rendering and route-authoring implementation are not retained
+by `hydrateSPA()` itself. They enter a client bundle only when application code
+imports those capabilities. In particular, a client route
 module that imports `route()`, `group()`, or other declaration helpers is an
 explicit authoring import; hydration verification does not add a second
 framework-owned dependency on that authoring implementation.
 
-Import `Portal`, `DefaultPortal`, or `definePortal` from the foundations entry
-when a route needs portals. Loading that entry also installs the automatic
-default host used by SPA, SSR, and SSG rendering. Routes that do not import the
-portal capability do not pay for its runtime.
+The default portal is part of the core runtime: every application root
+provides it and hosts it automatically, so its code is in every client bundle
+whether or not a route renders a `Portal`. Import `Portal` and `DefaultPortal`
+from `@askrjs/askr/foundations` to write to it or place its host. Portals from
+`definePortal()` are separate named channels with no automatic host; render
+their host where their content should appear.
 
 Hydration markup verification preserves the server-rendered loading branch for
 a `resource()` without preloaded resource data. This supports browser-only

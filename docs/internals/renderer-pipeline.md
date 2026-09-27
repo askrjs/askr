@@ -145,6 +145,12 @@ content. A writer records its content when its render commits. The host
 renders that content at its own position, owned by the writer, so the content
 lives and dies with the writer and reads the writer's scopes. When a writer's
 lifetime ends, it clears the channel only if it is still the current writer.
+Applications stack several layers through one writer that owns the list (see
+[stacking layers](../core/rendering.md#stacking-layers)).
+
+Every application root provides and hosts the default portal, so its code is
+part of the core client bundle even when an app renders no `Portal`; the SSG
+hydration bundle check asserts this.
 
 ## Related docs
 
