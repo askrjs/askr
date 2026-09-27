@@ -182,6 +182,9 @@ that engine error can surface directly. `RenderDepthError` reaches the nearest
 committed DOM is left unchanged. Render long sequences as lists, for example
 with `For`, instead of nesting them.
 
+During deferred selective hydration, an unhandled depth error is reported as
+an uncaught error. The boundary stays dormant so a later reveal can retry it.
+
 ### Imperative widget hosts
 
 Use `imperativeChildren` when a third-party widget owns all descendants of an

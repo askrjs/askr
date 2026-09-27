@@ -8,6 +8,11 @@ import type { ResolvedRoute } from '../common/router';
 import type { ComponentFunction } from '../common/component';
 import type { BootAppRouteSource, HydrateSPAConfig } from './types';
 import { reviveDeferredValue } from '../common/deferred-value';
+import { reportUncaughtErrorLater } from '../common/report-error';
+import {
+  RenderDepthError,
+  clarifyRenderOverflow,
+} from '../common/render-depth';
 import type { AppRenderRuntime } from '../common/app-render-runtime';
 import type { HydrationInteractionReplay } from './hydration-interaction-replay';
 
@@ -186,7 +191,8 @@ function activateVisibleDeferredBoundaries(
   root: Element,
   boundaries: Element[],
   foldY: number,
-  activate: HydrationRuntimeHooks['activateHydrationBoundary']
+  activate: HydrationRuntimeHooks['activateHydrationBoundary'],
+  reportedDepthErrors: WeakSet<Element>
 ): { activated: boolean; remaining: number } {
   let activated = false;
   let remaining = 0;
@@ -201,10 +207,19 @@ function activateVisibleDeferredBoundaries(
       try {
         if (activate(root, element)) {
           activated = true;
+          reportedDepthErrors.delete(element);
         }
-      } catch {
+      } catch (error) {
         // The renderer restores the marker and provisional state on failure;
         // the next reveal event is therefore a safe retry point.
+        const clarified = clarifyRenderOverflow(error);
+        if (
+          clarified instanceof RenderDepthError &&
+          !reportedDepthErrors.has(element)
+        ) {
+          reportedDepthErrors.add(element);
+          reportUncaughtErrorLater(clarified);
+        }
       }
     }
 
@@ -264,6 +279,7 @@ export async function applySelectiveHydration(
   }
 
   let deferredBoundaries: Element[] = [];
+  const reportedDepthErrors = new WeakSet<Element>();
   if (hydrateOptions.deferBelowFold) {
     const foldY = hydrateOptions.foldThreshold ?? window.innerHeight;
     deferredBoundaries = collectDeferredBelowFoldBoundaries(rootElement, foldY);
@@ -277,7 +293,8 @@ export async function applySelectiveHydration(
         rootElement,
         deferredBoundaries,
         foldY,
-        hooks.activateHydrationBoundary
+        hooks.activateHydrationBoundary,
+        reportedDepthErrors
       );
 
       if (!activated) {
@@ -352,7 +369,8 @@ export async function applySelectiveHydration(
           rootElement,
           deferredBoundaries,
           Number.POSITIVE_INFINITY,
-          hooks.activateHydrationBoundary
+          hooks.activateHydrationBoundary,
+          reportedDepthErrors
         );
       } finally {
         releaseSelectiveHydrationResources();

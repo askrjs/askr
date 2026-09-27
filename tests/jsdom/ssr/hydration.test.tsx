@@ -13,7 +13,7 @@ import { hydrateSPA } from '../../../src/boot';
 import { applySelectiveHydration } from '../../../src/boot/hydration';
 import type { HydrationInteractionReplay } from '../../../src/boot/hydration-interaction-replay';
 import { renderToStringSync, renderToString } from '../../../src/ssr';
-import { state } from '../../../src/index';
+import { RenderDepthError, state } from '../../../src/index';
 import { createDataRuntime } from '../../../src/data';
 import { resource } from '../../../src/resources';
 import { defineScope, readScope } from '../../../src/index';
@@ -29,6 +29,16 @@ import {
   flushScheduler,
   stripComments,
 } from '../../../test-utils/render/test-renderer';
+
+function DeferredDepthChain(props: { remaining: number }): JSXElement {
+  return props.remaining === 0 ? (
+    <span>ready</span>
+  ) : (
+    <div>
+      <DeferredDepthChain remaining={props.remaining - 1} />
+    </div>
+  );
+}
 
 describe('hydration (SSR)', () => {
   describe('hydration mismatch', () => {
@@ -1045,6 +1055,122 @@ describe('hydration (SSR)', () => {
       fireEvent.click(container.querySelector('#idle-btn') as HTMLElement);
       flushScheduler();
       expect(clicks).toBe(2);
+    });
+
+    it('should report an overflow when a deferred boundary is activated', async () => {
+      let depth: ReturnType<typeof state<number>> | undefined;
+      const App = () => {
+        depth = state(100);
+        return (
+          <main>
+            <div class="below-fold">
+              <DeferredDepthChain remaining={depth()} />
+            </div>
+          </main>
+        );
+      };
+      const routes = [{ path: '/', handler: App }];
+      container.innerHTML = renderToStringSync(() => <App />);
+      depth = undefined;
+
+      let top = 1000;
+      const originalRect = Element.prototype.getBoundingClientRect;
+      Element.prototype.getBoundingClientRect = function () {
+        if ((this as Element).classList.contains('below-fold')) {
+          return { top } as DOMRect;
+        }
+        return { top: 0 } as DOMRect;
+      };
+      const reportError = vi.fn();
+      vi.stubGlobal('reportError', reportError);
+
+      try {
+        await hydrateSPA({
+          root: container,
+          registry: routeRegistryFromTable(routes),
+          hydrate: { deferBelowFold: true, foldThreshold: 100 },
+        });
+        const boundary = container.querySelector('.below-fold')!;
+        expect(boundary.hasAttribute('data-skip-hydrate')).toBe(true);
+
+        depth!.set(5000);
+        flushScheduler();
+        top = 0;
+        window.dispatchEvent(new Event('scroll'));
+        await Promise.resolve();
+
+        expect(reportError).toHaveBeenCalledTimes(1);
+        const error = reportError.mock.calls[0]![0];
+        expect(error).toBeInstanceOf(RenderDepthError);
+        expect((error as RenderDepthError).cause).toBeInstanceOf(RangeError);
+        expect(boundary.hasAttribute('data-skip-hydrate')).toBe(true);
+
+        window.dispatchEvent(new Event('scroll'));
+        await Promise.resolve();
+        expect(reportError).toHaveBeenCalledTimes(1);
+        expect(boundary.hasAttribute('data-skip-hydrate')).toBe(true);
+
+        depth!.set(100);
+        flushScheduler();
+        window.dispatchEvent(new Event('scroll'));
+        await Promise.resolve();
+        expect(reportError).toHaveBeenCalledTimes(1);
+        expect(boundary.hasAttribute('data-skip-hydrate')).toBe(false);
+      } finally {
+        Element.prototype.getBoundingClientRect = originalRect;
+      }
+    });
+
+    it('should keep non-depth deferred activation errors silent and retryable', async () => {
+      let top = 1000;
+      const reportError = vi.fn();
+      vi.stubGlobal('reportError', reportError);
+      container.innerHTML = '<div class="deferred">content</div>';
+      container.querySelector('.deferred')!.getBoundingClientRect = () =>
+        ({ top }) as DOMRect;
+
+      const failure = new Error('temporary hydration failure');
+      const activateHydrationBoundary = vi.fn(() => {
+        throw failure;
+      });
+      const interactionReplay: HydrationInteractionReplay = {
+        registerDeferredBoundaries: vi.fn(),
+        setOnDeferredBoundariesDrained: vi.fn(),
+        clearDeferredBoundaries: vi.fn(),
+        complete: vi.fn(),
+        abort: vi.fn(),
+      };
+
+      await applySelectiveHydration(
+        container,
+        { handler: () => null, params: {} },
+        '/',
+        undefined,
+        { deferBelowFold: true, foldThreshold: 100 },
+        {
+          registry: routeRegistryFromTable([
+            { path: '/', handler: () => null },
+          ]),
+        },
+        {
+          mountOrUpdate: vi.fn(),
+          registerAppNavigation: vi.fn(async () => undefined),
+          registerRootCleanupCallback: vi.fn(() => () => undefined),
+          activateHydrationBoundary,
+        },
+        interactionReplay
+      );
+
+      const boundary = container.querySelector('.deferred')!;
+      top = 0;
+      window.dispatchEvent(new Event('scroll'));
+      await Promise.resolve();
+      window.dispatchEvent(new Event('scroll'));
+      await Promise.resolve();
+
+      expect(activateHydrationBoundary).toHaveBeenCalledTimes(2);
+      expect(reportError).not.toHaveBeenCalled();
+      expect(boundary.hasAttribute('data-skip-hydrate')).toBe(true);
     });
 
     it('should preserve idle deferral when permanent skip selectors are also configured', async () => {
