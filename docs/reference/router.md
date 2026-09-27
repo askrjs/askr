@@ -442,7 +442,9 @@ not reused by a later render.
 import { resolveRouteRequest, type RouteRegistry } from '@askrjs/askr/router';
 declare const registry: RouteRegistry;
 
-export async function decide(request: Request): Promise<Response> {
+// Returns a response for redirects, denials, and misses; null when the route
+// may be served.
+export async function decide(request: Request): Promise<Response | null> {
   const result = await resolveRouteRequest(request.url, {
     registry,
     mode: 'ssr',
@@ -459,7 +461,7 @@ export async function decide(request: Request): Promise<Response> {
   if (result.kind === 'deny') {
     return new Response(null, { status: result.status });
   }
-  return new Response(null, { status: 204 });
+  return null;
 }
 ```
 
@@ -470,8 +472,8 @@ taken from `request.signal`.
 
 The result is `null` when no route matches or the URL is outside the registry
 base path, a redirect or deny decision, or the matched route with its params.
-Any asynchronous step (lazy routes, preloads, loaders, policies, auth) makes
-the result a Promise, and errors may throw synchronously, so always `await` the
+A route that declares a `preload` always returns a Promise, as does any
+asynchronous lazy route, loader, policy, or auth step, and errors may throw synchronously, so always `await` the
 call inside an `async` function.
 
 ## `navigate(target)`
