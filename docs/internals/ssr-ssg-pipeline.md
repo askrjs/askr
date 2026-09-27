@@ -234,8 +234,8 @@ flowchart LR
 - Both SSR paths resolve policy and auth through the router's
   `resolveRouteRequest()`. `src/ssr/route-policy-resolution.ts` serves the
   synchronous `renderToString()` and `renderToStream()` paths: it pre-matches
-  the route, calls `resolveRouteRequest()` with `load: false`, and rejects
-  route loaders. `src/ssr/route-request-render.ts` owns `renderRouteRequest()`
+  the route, rejects routes with loaders, then calls `resolveRouteRequest()`
+  with `load: false`. `src/ssr/route-request-render.ts` owns `renderRouteRequest()`
   and `renderRouteRequestToString()`, which resolve with loaders and return
   redirect, deny, and no-match results.
 - `src/ssg/create-static-gen.ts` is the top-level SSG orchestrator for
