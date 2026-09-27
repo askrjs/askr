@@ -264,7 +264,8 @@ function renderComponent(
     const restorePortals = capturePortalWrites(render.ctx);
     try {
       withOwner(instance, () => renderValue(componentOutput(output), buffer));
-    } catch (error) {
+    } catch (caught) {
+      const error = clarifyRenderOverflow(caught);
       restorePortals();
       disposeFailedSubtree(instance);
       if (!instance.boundary(error)) throw error;
@@ -659,7 +660,8 @@ function flattenText(value: unknown, element: RawTextElement): string[] {
           const restorePortals = capturePortalWrites(render.ctx);
           try {
             withOwner(instance, () => visit(componentOutput(output)));
-          } catch (error) {
+          } catch (caught) {
+            const error = clarifyRenderOverflow(caught);
             out.length = start;
             restorePortals();
             disposeFailedSubtree(instance);

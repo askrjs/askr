@@ -21,14 +21,23 @@ export class RenderDepthError extends Error {
   }
 }
 
-/** `error`, or a `RenderDepthError` when it is a call stack overflow. */
+/**
+ * `error`, or a `RenderDepthError` when it is an engine stack overflow: a
+ * `RangeError` in V8 and JavaScriptCore, an `InternalError` in Firefox.
+ * Callers near the overflow may have too little stack left to convert; then
+ * the original error is returned and a shallower caller converts it.
+ */
 export function clarifyRenderOverflow(error: unknown): unknown {
-  if (
-    error instanceof RangeError &&
-    STACK_OVERFLOW.test(error.message) &&
-    !(error instanceof RenderDepthError)
-  ) {
-    return new RenderDepthError(error);
+  try {
+    if (
+      error instanceof Error &&
+      (error instanceof RangeError || error.name === 'InternalError') &&
+      STACK_OVERFLOW.test(error.message)
+    ) {
+      return new RenderDepthError(error);
+    }
+  } catch {
+    // Out of stack while converting.
   }
   return error;
 }

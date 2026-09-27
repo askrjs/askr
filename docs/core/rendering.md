@@ -166,11 +166,13 @@ ownership remains balanced when the row is later replaced or removed.
 
 The client renderer and SSR render nested elements and components
 recursively, so tree depth is bounded by the JavaScript call stack. A few
-hundred levels of element-wrapped components render on the default Node.js and
-browser stacks; a chain of components that return the next component directly
-(no element between them) is walked iteratively and can be much deeper. When a
-tree is too deep, the render fails with a `RenderDepthError` whose `cause` is
-the engine's stack overflow, and the committed DOM is left unchanged. Render
+hundred levels of nested elements and components render on the default
+Node.js and browser stacks. When a tree is too deep, the render fails with a
+`RenderDepthError` (exported from `@askrjs/askr`) whose `cause` is the engine's
+stack overflow. It reaches the nearest `ErrorBoundary` like any render error
+(a boundary nested so deep that no stack is left to build the error receives
+the engine's error instead); without one, the render throws and the committed
+DOM is left unchanged. Render
 long sequences as lists, for example with `For`, instead of nesting them.
 
 ### Imperative widget hosts

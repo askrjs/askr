@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
-import { state } from '../../../src/index';
+import { RenderDepthError, state } from '../../../src/index';
+import { ErrorBoundary } from '../../../src/components';
 import { renderToStringSync } from '../../../src/ssr';
 import {
   createTestContainer,
@@ -49,6 +50,7 @@ describe('deep element-wrapped component chains', () => {
   });
 
   it('should explain a stack overflow from a chain that is too deep', () => {
+    container.innerHTML = '<p data-placeholder="true">loading</p>';
     let error: unknown;
     try {
       createIsland({
@@ -63,6 +65,8 @@ describe('deep element-wrapped component chains', () => {
     expect((error as Error).name).toBe('RenderDepthError');
     expect((error as Error).message).toMatch(/component tree is too deep/);
     expect((error as { cause?: unknown }).cause).toBeInstanceOf(RangeError);
+    expect(error).toBeInstanceOf(RenderDepthError);
+    expect(container.querySelector('[data-placeholder]')).not.toBeNull();
   });
 
   it('should explain a stack overflow when an update deepens the chain', () => {
@@ -84,8 +88,40 @@ describe('deep element-wrapped component chains', () => {
       error = caught;
     }
     expect((error as Error).name).toBe('RenderDepthError');
-    // The committed tree is unchanged.
+    // The committed tree is unchanged, and the app renders again later.
     expect(container.querySelectorAll('div')).toHaveLength(10);
+    depth.set(20);
+    flushScheduler();
+    expect(container.querySelectorAll('div')).toHaveLength(20);
+  });
+
+  it('should hand a RenderDepthError to the nearest ErrorBoundary', () => {
+    let depth!: ReturnType<typeof state<number>>;
+    createIsland({
+      root: container,
+      component: () => {
+        depth = state(5);
+        const current = depth();
+        return (
+          <ErrorBoundary
+            resetKey={current}
+            fallback={(error) => (
+              <p data-fallback={'true'}>{(error as Error).name}</p>
+            )}
+          >
+            <Chain remaining={current} label={'a'} />
+          </ErrorBoundary>
+        );
+      },
+    });
+    flushScheduler();
+    expect(container.querySelector('[data-leaf]')).not.toBeNull();
+
+    depth.set(OVERFLOWING_DEPTH);
+    flushScheduler();
+    expect(container.querySelector('[data-fallback]')?.textContent).toBe(
+      'RenderDepthError'
+    );
   });
 
   it('should render within the supported depth and explain an overflow during SSR', () => {
@@ -105,5 +141,12 @@ describe('deep element-wrapped component chains', () => {
       error = caught;
     }
     expect((error as Error).name).toBe('RenderDepthError');
+
+    const html = renderToStringSync(() => (
+      <ErrorBoundary fallback={(caught) => <p>{(caught as Error).name}</p>}>
+        <Chain remaining={OVERFLOWING_DEPTH} label={'ssr'} />
+      </ErrorBoundary>
+    ));
+    expect(html).toBe('<p>RenderDepthError</p>');
   });
 });

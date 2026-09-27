@@ -5,6 +5,7 @@
     "Fragment",
     "Props",
     "Ref",
+    "RenderDepthError",
     "RenderDiagnosticsOptions",
     "Scope",
     "Selector",

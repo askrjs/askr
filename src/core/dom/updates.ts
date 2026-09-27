@@ -100,7 +100,8 @@ function renderAfterUpdate(
       false
     );
     ctx.pass.markRendered(instance);
-  } catch (error) {
+  } catch (caught) {
+    const error = clarifyRenderOverflow(caught);
     if (!instance.boundary) throw error;
     ctx.pass.rewind(mark);
     if (!instance.boundary(error)) throw error;

@@ -21,6 +21,8 @@ Common runtime exports:
   does nothing outside an SSR render, so client code can call it without
   importing the SSR renderer. Registering a different `cssText` under an
   existing `id` throws a `RangeError`.
+- `RenderDepthError` is thrown when a component tree is too deep for the call
+  stack; see [tree depth](../core/rendering.md#tree-depth)
 - `configureRenderDiagnostics(options)` configures development render warnings
   and returns a function that restores the previous settings; see
   [runtime enforcement](../concepts/runtime-enforcement.md)

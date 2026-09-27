@@ -28,6 +28,7 @@ export { registerSSRStyle } from './common/render-context';
 export { jsx, jsxs, Fragment } from './jsx-runtime';
 // Classic factory the automatic transform uses for a key after a spread.
 export { createElement } from './jsx/jsx-runtime';
+export { RenderDepthError } from './common/render-depth';
 
 // Public types
 export type { Props } from './common/props';

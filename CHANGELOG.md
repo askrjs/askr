@@ -3,9 +3,11 @@
 ## Unreleased
 
 - fix(core): a component tree too deep for the call stack fails with a
-  `RenderDepthError` that explains the limit, on mount, update, and SSR,
-  instead of a bare `RangeError`. The rendering guide documents the supported
-  depth (#624).
+  `RenderDepthError` (exported from `@askrjs/askr`) that explains the limit,
+  instead of a bare `RangeError` (or Firefox `InternalError`). It is raised
+  where render errors are first caught, so error boundaries, updates,
+  selective hydration, and SSR all see it. The rendering guide documents the
+  supported depth (#624).
 
 - perf(core): remove quadratic owner, scheduler, and context paths (#612).
   Detaching an owner is O(1) (holes in the parent's child list, compacted when

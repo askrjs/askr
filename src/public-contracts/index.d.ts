@@ -21,11 +21,20 @@ import {
 } from './core.js';
 import { Props, Fragment } from './elements.js';
 import { createElement, jsxs, jsx } from './jsx.js';
+/**
+ * Thrown when a component tree is too deep to render: the JavaScript call
+ * stack overflowed. `cause` is the engine's original error.
+ */
+declare class RenderDepthError extends Error {
+  readonly cause: unknown;
+  constructor(cause: unknown);
+}
 export {
   CspNonceScope,
   type Derived,
   Fragment,
   type Props,
+  RenderDepthError,
   type Ref,
   type RenderDiagnosticsOptions,
   type Scope,
