@@ -137,15 +137,6 @@ type RouteStreamOptions = RouteRenderOptions & {
   onChunk(html: string): void;
   onComplete(): void;
 };
-/** Resolve a URL against a route registry for SSR, applying auth/policies before render. */
-declare function resolveRequest(opts: {
-  url: string;
-  registry: RouteRegistry;
-  auth?: RouteAuthOptions;
-  authContext?: AuthContext;
-  request?: Request;
-  signal?: AbortSignal;
-}): Promise<RouteRequestResult>;
 /** VNode representation for SSR rendering */
 type VNode = {
   type: string | SSRComponent | symbol;
@@ -182,20 +173,6 @@ declare function renderToStringSync(
     onContext?: (ctx: RenderContext) => void;
   }
 ): string;
-/** Synchronously render an already-resolved route handler to an HTML string. */
-declare function renderResolvedToStringSync(opts: {
-  url: string;
-  registry: RouteRegistry;
-  handler: RouteHandler;
-  params?: Record<string, string>;
-  options?: {
-    seed?: number;
-    data?: SSRData;
-    dataRuntime?: DataRuntime;
-    envelope?: PageRenderEnvelope;
-    cspNonce?: string;
-  };
-}): string;
 /** Options for {@link renderRouteRequest} and {@link renderRouteRequestToString}. */
 interface RenderRouteRequestOptions {
   url: string;
@@ -275,13 +252,11 @@ export {
   createRenderContext,
   escapeHtml,
   getRenderContext,
-  renderResolvedToStringSync,
   renderRouteRequest,
   renderRouteRequestToString,
   renderToStream,
   renderToString,
   renderToStringSync,
-  resolveRequest,
   withRenderContext,
   withRenderContextAsync,
 };

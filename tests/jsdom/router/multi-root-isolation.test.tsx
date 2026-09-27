@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { createIsland, createSPA, cleanupApp, hasApp } from '@askrjs/askr/boot';
 import { state, type State } from '../../../src';
 import { Link } from '../../../src/components/link';
-import { getSignal } from '../../../src/resources';
+import { getSignal } from '../../../src';
 import { currentOwner, onDispose } from '../../../src/core/api/hooks';
 import { isRoutePathActive, onRouteChange } from '../../../src/router/activity';
 import { navigate } from '../../../src/router/navigate';

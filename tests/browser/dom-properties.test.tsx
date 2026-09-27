@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vite-plus/test';
-import { For, state } from '../../src';
+import { state } from '../../src';
+import { For } from '@askrjs/askr/control';
 import { createIsland } from '../../test-utils/render/create-island';
 import {
   createTestContainer,

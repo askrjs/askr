@@ -2,9 +2,7 @@ import { expectAssignable, expectError, expectType } from 'tsd';
 import {
   capture,
   documentVisible,
-  getSignal,
   on,
-  onRouteChange,
   resource,
   routeActive,
   stream,
@@ -21,6 +19,8 @@ import {
   type StreamStatus,
   type TimerOptions,
 } from '@askrjs/askr/resources';
+import { getSignal } from '@askrjs/askr';
+import { onRouteChange } from '@askrjs/askr/router';
 import type { RouteChangeCleanup as RouterRouteChangeCleanup } from '@askrjs/askr/router';
 
 declare const eventSource: EventTarget;

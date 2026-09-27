@@ -1,12 +1,12 @@
 import { afterEach, expect, test, vi } from 'vite-plus/test';
-import { debounce, throttle, raf } from '../../src/fx/timing';
+import { throttle, raf } from '../../src/fx/timing';
 
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
-test.each([debounce, throttle])(
+test.each([throttle])(
   'should retain the latest receiver and arguments when coalescing',
   (wrap) => {
     vi.useFakeTimers();
@@ -47,7 +47,7 @@ test('should retain the latest RAF receiver and arguments', () => {
   expect(calls).toEqual(['last:2']);
 });
 
-test.each([debounce, throttle])('timing wrappers return void', (wrap) => {
+test.each([throttle])('timing wrappers return void', (wrap) => {
   vi.useFakeTimers();
   const wrapped = wrap(() => 42, 10);
   const result: void = wrapped();

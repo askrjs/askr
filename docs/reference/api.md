@@ -154,4 +154,4 @@ await createSPA({ root: document.body, registry });
 - `createQueryCollection()` owns a dynamic keyed set of one query definition, bounds collection-started loads and retries, and exposes aggregate results and per-key errors without introducing another cache.
 - `createDataRuntime()` creates isolated query and mutation state for tests, embedded apps, and multi-root shells; pass it through data operation options with `runtime`.
 - `resource()` is available from `@askrjs/askr/resources`.
-- `renderToString()`, `renderToStream()`, `resolveRequest()`, and `createStaticGen()` accept route registries captured with `createRouteRegistry()`.
+- `renderToString()`, `renderToStream()`, `renderRouteRequestToString()`, and `createStaticGen()` accept route registries captured with `createRouteRegistry()`.

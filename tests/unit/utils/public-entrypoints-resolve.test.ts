@@ -44,7 +44,7 @@ describe('public entrypoint resolution', () => {
     expect(typeof data.createMutation).toBe('function');
     expect(typeof data.invalidate).toBe('function');
 
-    expect(typeof fx.debounce).toBe('function');
+    expect((fx as Record<string, unknown>).debounce).toBeUndefined();
     expect(typeof fx.throttle).toBe('function');
     expect(typeof fx.once).toBe('function');
     expect(typeof fx.retry).toBe('function');
@@ -68,11 +68,10 @@ describe('public entrypoint resolution', () => {
     expect(typeof ssr.renderRouteRequestToString).toBe('function');
     expect(typeof ssr.renderToStringSync).toBe('function');
     expect(typeof ssr.renderToStream).toBe('function');
-    expect(typeof ssr.resolveRequest).toBe('function');
-    expect(typeof ssr.renderResolvedToStringSync).toBe('function');
+    expect((ssr as Record<string, unknown>).resolveRequest).toBeUndefined();
     expect(
-      Object.prototype.hasOwnProperty.call(ssr, 'renderResolvedToStringSync')
-    ).toBe(true);
+      (ssr as Record<string, unknown>).renderResolvedToStringSync
+    ).toBeUndefined();
 
     expect(typeof ssg.createStaticGen).toBe('function');
 

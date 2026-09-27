@@ -1,5 +1,5 @@
 import { bench, describe, expect } from 'vite-plus/test';
-import { renderResolvedToStringSync } from '../../src/ssr';
+import { renderResolvedToStringSync } from '../../src/ssr/render-resolved';
 import {
   buildConcurrentSsrRequests,
   tier2BenchOptions,

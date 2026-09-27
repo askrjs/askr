@@ -14,7 +14,8 @@ import {
   Portal,
   definePortal,
 } from '../../../src/foundations/structures/portal';
-import { getSignal, resource, task } from '../../../src/resources';
+import { resource, task } from '../../../src/resources';
+import { getSignal } from '../../../src';
 import {
   createTestContainer,
   flushScheduler,

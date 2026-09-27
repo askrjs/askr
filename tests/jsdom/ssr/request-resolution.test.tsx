@@ -14,10 +14,10 @@ import {
   renderRouteRequestToString,
   renderToStream,
   renderToString,
-  resolveRequest,
   SSRAccessDecisionError,
   SSRDataMissingError,
 } from '../../../src/ssr';
+import { resolveRequest } from '../../../src/ssr/route-render';
 import { renderResolvedToStringSync } from '../../../src/ssr/render-resolved';
 import { getCurrentRenderData } from '../../../src/ssr/render-keys';
 

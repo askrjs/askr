@@ -6,11 +6,8 @@ import {
   resolveRouteRequest,
   route,
 } from '../../../src/router/route';
-import {
-  renderResolvedToStringSync,
-  renderRouteRequestToString,
-  renderToString,
-} from '../../../src/ssr';
+import { renderRouteRequestToString, renderToString } from '../../../src/ssr';
+import { renderResolvedToStringSync } from '../../../src/ssr/render-resolved';
 import { resetRouteState } from '../../router-test-utils';
 
 function userAuth(id: string): AuthContext {

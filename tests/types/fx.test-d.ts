@@ -1,6 +1,5 @@
 import { expectAssignable, expectError, expectType } from 'tsd';
 import {
-  debounce,
   debounceEvent,
   idle,
   once,
@@ -14,17 +13,10 @@ import {
   throttle,
   throttleEvent,
   timeout,
-  type DebounceOptions,
   type RetryOptions,
   type RetryOutcome,
   type ThrottleOptions,
 } from '@askrjs/askr/fx';
-
-const debounceOptions: DebounceOptions = {
-  leading: true,
-  trailing: false,
-};
-expectAssignable<DebounceOptions>(debounceOptions);
 
 const throttleOptions: ThrottleOptions = {
   leading: false,
@@ -38,17 +30,6 @@ const retryOptions: RetryOptions = {
   backoff: (attemptIndex) => attemptIndex + 1,
 };
 expectAssignable<RetryOptions>(retryOptions);
-
-const debounced = debounce(
-  (value: string) => {
-    void value;
-  },
-  10,
-  debounceOptions
-);
-expectType<((value: string) => void) & { cancel(): void }>(debounced);
-debounced('value');
-debounced.cancel();
 
 const throttled = throttle(
   (value: string) => {
@@ -76,7 +57,10 @@ expectType<void>(idle(() => {}, { timeout: 10 }));
 expectType<Promise<void>>(timeout(10));
 expectType<Promise<number>>(retry(async () => 1, retryOptions));
 
-const debouncedEvent = debounceEvent(10, () => {}, debounceOptions);
+const debouncedEvent = debounceEvent(10, () => {}, {
+  leading: true,
+  trailing: false,
+});
 expectType<EventListener & { cancel(): void; flush(): void }>(debouncedEvent);
 debouncedEvent(new Event('click'));
 debouncedEvent.cancel();
@@ -109,5 +93,4 @@ scheduledRetry.cancel();
 
 expectType<EventListener>(scheduleEventHandler(() => {}));
 
-expectError(debounce('bad', 10));
 expectError(throttle('bad', 10));

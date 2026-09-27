@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
-import { For, Show, state } from '../../../src';
+import { state } from '../../../src';
+import { For, Show } from '../../../src/control';
 import { cleanupApp, createIsland } from '../../../src/boot';
 import { task } from '../../../src/resources';
 import { flushScheduler } from '../../../test-utils/render/test-renderer';

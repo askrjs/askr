@@ -6,15 +6,22 @@ import {
   it,
   vi,
 } from 'vite-plus/test';
-import {
-  debounce,
-  idle,
-  once,
-  raf,
-  retry,
-  throttle,
-  timeout,
-} from '@askrjs/askr/fx';
+import { idle, once, raf, retry, throttle, timeout } from '@askrjs/askr/fx';
+import { createDebouncer } from '../../../src/fx/timing';
+
+// The debounce edge rules live in createDebouncer, which debounceEvent uses.
+function debounce(
+  fn: (...args: unknown[]) => void,
+  ms: number,
+  options?: { leading?: boolean; trailing?: boolean }
+): (...args: unknown[]) => void {
+  const debouncer = createDebouncer(
+    (_thisArg, args) => fn(...args),
+    ms,
+    options
+  );
+  return (...args) => debouncer.call(null, args);
+}
 
 type FXGlobal = typeof globalThis & {
   requestAnimationFrame?: typeof requestAnimationFrame;

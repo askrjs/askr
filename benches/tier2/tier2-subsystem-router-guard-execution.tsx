@@ -1,7 +1,7 @@
 import { bench, describe, expect } from 'vite-plus/test';
 import { requireRole } from '@askrjs/auth';
 import { createRouteRegistry, route } from '../../src/router';
-import { resolveRequest } from '../../src/ssr';
+import { resolveRequest } from '../../src/ssr/route-render';
 import {
   tier2BenchOptions,
   createSelectionToggle,

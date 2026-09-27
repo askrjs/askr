@@ -232,7 +232,7 @@ flowchart LR
   cleanup, and default portal wrapping.
 - `src/ssr/route-render.ts` owns object-form `renderToString()`,
   `renderToStream()`, route source normalization, route match resolution,
-  `resolveRequest()`, document render argument construction, and string/stream
+  internal `resolveRequest()`, document render argument construction, and string/stream
   sink orchestration.
 - `src/ssg/create-static-gen.ts` is the top-level SSG orchestrator for
   generation config, render batching, file writes, metadata, and manifest

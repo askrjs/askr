@@ -1,4 +1,4 @@
-import { expectAssignable, expectError, expectType } from 'tsd';
+import { expectAssignable, expectType } from 'tsd';
 import {
   SSRDataMissingError,
   createRenderContext,
@@ -7,7 +7,6 @@ import {
   renderToStream,
   renderToString,
   renderToStringSync,
-  resolveRequest,
   withRenderContext,
   withRenderContextAsync,
   type DocumentRenderArgs,
@@ -20,7 +19,7 @@ import {
   type SSRStyleRegistrationValidation,
   type VNode,
 } from '@askrjs/askr/ssr';
-import type { RouteRegistry, RouteRequestResult } from '@askrjs/askr/router';
+import type { RouteRegistry } from '@askrjs/askr/router';
 
 declare const registry: RouteRegistry;
 
@@ -112,10 +111,9 @@ const renderRouteRequestOptions: RenderRouteRequestOptions = {
 expectType<Promise<RenderRouteRequestResult>>(
   renderRouteRequestToString(renderRouteRequestOptions)
 );
-expectType<Promise<RouteRequestResult>>(
-  resolveRequest({ url: '/users/42', registry })
-);
-expectError(resolveRequest({ url: '/users/42', routes: [] }));
 expectType<SSRDataMissingError>(new SSRDataMissingError('consumer'));
 
-expectError(resolveRequest({ url: '/users/42' }));
+// @ts-expect-error request resolution is internal; use renderRouteRequestToString
+void ({} as typeof import('@askrjs/askr/ssr')).resolveRequest;
+// @ts-expect-error resolved rendering is internal; use renderToString
+void ({} as typeof import('@askrjs/askr/ssr')).renderResolvedToStringSync;

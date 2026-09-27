@@ -7,7 +7,8 @@ import {
   vi,
 } from 'vite-plus/test';
 import { cleanupApp, createIsland } from '@askrjs/askr/boot';
-import { Show, state, type State } from '@askrjs/askr';
+import { state, type State } from '@askrjs/askr';
+import { Show } from '@askrjs/askr/control';
 import { task, watch } from '@askrjs/askr/resources';
 import {
   debounceEvent,

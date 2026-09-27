@@ -1,7 +1,7 @@
 /**
  * Timing and event-scheduling helpers.
  *
- * The timing helpers (`debounce`, `throttle`, `once`, `raf`, `idle`,
+ * The timing helpers (`throttle`, `once`, `raf`, `idle`,
  * `timeout`, `retry`) are plain functions with no runtime dependency. The
  * event and `schedule*` helpers use the Askr scheduler and lifecycle ownership.
  * `debounceEvent`, `throttleEvent`, and `rafEvent` reject invocation during
@@ -10,14 +10,12 @@
  */
 
 export {
-  debounce,
   throttle,
   once,
   raf,
   idle,
   timeout,
   retry,
-  type DebounceOptions,
   type ThrottleOptions,
   type RetryOptions,
 } from './timing';

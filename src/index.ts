@@ -18,16 +18,6 @@ export type {
   StateTuple,
 } from './core/api/state';
 
-// Control flow
-export { Case, For, Match, Show } from './control';
-export type {
-  CaseProps,
-  ForGetterProps,
-  ForProps,
-  MatchProps,
-  ShowProps,
-} from './control';
-
 // Lexical scopes
 export { defineScope, readScope } from './core/api/scope';
 export type { Scope } from './core/api/scope';
@@ -41,23 +31,3 @@ export { jsx, jsxs, Fragment } from './jsx-runtime';
 export type { Props } from './common/props';
 export { createRef } from './ref';
 export type { Ref } from './ref';
-export {
-  createQuery,
-  createQueryCollection,
-  defineQuery,
-  serveQuery,
-  defineServerQueries,
-  prefetchQuery,
-  dehydrateDataRuntime,
-  hydrateDataRuntime,
-} from './data';
-export type {
-  QueryDefinition,
-  QueryCollection,
-  QueryCollectionEntry,
-  QueryCollectionKey,
-  QueryCollectionOptions,
-  QueryPrefetchContext,
-  ServerQueryHandler,
-  DataRuntime,
-} from './data';

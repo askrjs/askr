@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+- **breaking** refactor(api): each public name has one import path (#487).
+  Migration:
+  - `For`, `Show`, `Case`, `Match` and their prop types: import from
+    `@askrjs/askr/control` instead of `@askrjs/askr`.
+  - `createQuery`, `createQueryCollection`, `defineQuery`, `serveQuery`,
+    `defineServerQueries`, `prefetchQuery`, `dehydrateDataRuntime`,
+    `hydrateDataRuntime` and the query types: import from `@askrjs/askr/data`
+    instead of `@askrjs/askr`.
+  - `getSignal`: import from `@askrjs/askr` instead of
+    `@askrjs/askr/resources`.
+  - `onRouteChange`: import from `@askrjs/askr/router` instead of
+    `@askrjs/askr/resources`.
+
+- **breaking** refactor(api): unused low-level exports are removed (#490).
+  `resolveRequest` and `renderResolvedToStringSync` are no longer exported from
+  `@askrjs/askr/ssr`; use `renderToString`, `renderRouteRequest` or
+  `renderRouteRequestToString`. `debounce` and `DebounceOptions` are no longer
+  exported from `@askrjs/askr/fx`; use `debounceEvent` for event handlers.
+
 - fix(types): intrinsic JSX typings accept MathML elements (`<math>`, `<mi>`,
   `<mglyph>`, ...), `dangerouslySetInnerHTML` on every element, and the
   `formAction`/`formMethod`/`formEncType`/`formNoValidate`/`formTarget`
