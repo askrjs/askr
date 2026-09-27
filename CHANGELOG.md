@@ -14,8 +14,8 @@
   transform in TypeScript, esbuild, Babel, and oxc (Vite) compiles a `key`
   written after a spread (`<Row {...props} key={id} />`) to `createElement`
   from the import source, which previously failed to resolve. It removes the
-  development-only `__self`/`__source` props and marks child arguments as
-  static children (#617).
+  development-only `__self`/`__source` props and, like `jsxs()`, marks several
+  child arguments as static children (#617).
 
 - fix(foundations): `controllableState()` results destructure like `state()`
   (`const [value, setValue] = controllableState(...)`). `ControllableState` is

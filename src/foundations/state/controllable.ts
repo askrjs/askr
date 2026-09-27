@@ -111,8 +111,9 @@ export function controllableState<T>(options: {
       return;
     }
 
-    // Store the value already computed so an updater runs once.
-    internal!.set(next as never);
+    // Store the value already computed so an updater runs once. Wrap it so a
+    // function value is stored rather than called as an updater.
+    internal!.set((() => next) as never);
     options.onChange?.(next);
   };
 

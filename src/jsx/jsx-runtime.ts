@@ -177,18 +177,14 @@ export function createElement(
   const { key, __self, __source, ...rest } = props ?? {};
   void __self;
   void __source;
-  if (children.length === 1) rest.children = children[0];
-  else if (children.length > 1) {
-    // Child arguments are fixed JSX children, like `jsxs()`.
+  const elementKey = (key as string | number | null | undefined) ?? undefined;
+  if (children.length > 1) {
+    // Several child arguments are fixed JSX children, as with `jsxs()`.
     rest.children = children;
-    markStaticChildren(rest as Props);
+    return jsxs(type as symbol, rest as Props, elementKey);
   }
-  return {
-    $$typeof: ELEMENT_TYPE,
-    type: type as JSXElementType,
-    props: rest as Props,
-    key: (key as string | number | null | undefined) ?? null,
-  } as JSXElement;
+  if (children.length === 1) rest.children = children[0];
+  return jsx(type as symbol, rest as Props, elementKey);
 }
 
 /** JSX factory for elements with multiple static children, used by the `jsxImportSource` transform. */

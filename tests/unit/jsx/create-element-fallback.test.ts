@@ -1,6 +1,7 @@
 import ts from '@typescript/typescript6';
 import { describe, expect, it } from 'vite-plus/test';
 import * as root from '../../../src/index';
+import { STATIC_CHILDREN } from '../../../src/common/jsx';
 
 describe('createElement fallback for key after spread', () => {
   it('should be the import the automatic JSX transform emits for a key after a spread', () => {
@@ -44,5 +45,32 @@ describe('createElement fallback for key after spread', () => {
     const bare = createElement('br', null);
     expect(bare.key).toBeNull();
     expect(bare.props).toEqual({});
+  });
+
+  it('should drop development __self/__source props and mark several children static', () => {
+    const createElement = (root as Record<string, unknown>).createElement as (
+      type: unknown,
+      props: Record<string, unknown> | null,
+      ...children: unknown[]
+    ) => { props: Record<string, unknown> };
+
+    const element = createElement(
+      'li',
+      { title: 't', key: 'k', __self: {}, __source: { fileName: 'x.tsx' } },
+      'a',
+      'b'
+    );
+    expect(Object.keys(element.props).sort()).toEqual(['children', 'title']);
+    const children = element.props.children as unknown[];
+    expect(
+      (children as unknown as Record<symbol, unknown>)[STATIC_CHILDREN]
+    ).toBe(true);
+
+    const single = createElement('li', null, ['a', 'b']);
+    expect(
+      (single.props.children as unknown as Record<symbol, unknown>)[
+        STATIC_CHILDREN
+      ]
+    ).toBeUndefined();
   });
 });
