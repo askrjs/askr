@@ -4,7 +4,7 @@
  * instance render its fallback on its next render.
  */
 
-import { clarifyRenderOverflow } from '../../common/render-depth';
+import { RenderDepthError } from '../../common/render-depth';
 import type { Owner } from '../reactive/owner';
 import { ComponentInstance } from './instance';
 
@@ -42,23 +42,26 @@ export function deliverToBoundary(
 
 /** Deliver `error` to a boundary, or throw it to the caller. */
 export function routeError(owner: Owner | null, error: unknown): void {
-  const origin =
-    error !== null && (typeof error === 'object' || typeof error === 'function')
-      ? errorOrigins.get(error)
-      : undefined;
+  const origin = originOf(error);
   if (origin && deliverToBoundary(origin, error)) return;
   if (!deliverToBoundary(owner, error)) throw error;
 }
 
 /**
- * A render error with a stack overflow converted to `RenderDepthError`. The
- * converted error keeps the logical origin recorded on the one thrown.
+ * The origin recorded for `error`, or for the engine error a
+ * `RenderDepthError` wraps (the overflow was recorded before conversion).
  */
-export function clarifyRenderError(error: unknown): unknown {
-  const clarified = clarifyRenderOverflow(error);
-  if (clarified !== error && error !== null && typeof error === 'object') {
-    const origin = errorOrigins.get(error);
-    if (origin) errorOrigins.set(clarified as object, origin);
+function originOf(error: unknown): Owner | undefined {
+  if (
+    error === null ||
+    (typeof error !== 'object' && typeof error !== 'function')
+  ) {
+    return undefined;
   }
-  return clarified;
+  const origin = errorOrigins.get(error);
+  if (origin || !(error instanceof RenderDepthError)) return origin;
+  const cause = error.cause;
+  return cause !== null && typeof cause === 'object'
+    ? errorOrigins.get(cause)
+    : undefined;
 }

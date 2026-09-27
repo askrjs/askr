@@ -14,7 +14,8 @@ import {
   HookOrderChangeError,
   getContextEpoch,
 } from '../component/instance';
-import { clarifyRenderError, noteErrorOrigin } from '../component/errors';
+import { noteErrorOrigin } from '../component/errors';
+import { clarifyRenderOverflow } from '../../common/render-depth';
 import type { Owner } from '../reactive/owner';
 import { reportUncaughtErrorLater } from '../../common/report-error';
 import { readValue } from '../reactive/readable';
@@ -520,7 +521,7 @@ export function renderInstance(
   } catch (caught) {
     // Convert a stack overflow where it is first caught, so boundaries and
     // error routing see the RenderDepthError.
-    const error = clarifyRenderError(caught);
+    const error = clarifyRenderOverflow(caught);
     if (!instance.boundary) {
       noteErrorOrigin(instance.parent, error);
       throw error;

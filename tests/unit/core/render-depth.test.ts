@@ -4,7 +4,6 @@ import {
   clarifyRenderOverflow,
 } from '../../../src/common/render-depth';
 import {
-  clarifyRenderError,
   noteErrorOrigin,
   routeError,
 } from '../../../src/core/component/errors';
@@ -33,7 +32,9 @@ describe('clarifyRenderOverflow', () => {
     expect(clarifyRenderOverflow(plain)).toBe(plain);
     expect(clarifyRenderOverflow('text')).toBe('text');
   });
+});
 
+describe('routeError with a converted overflow', () => {
   it('should route a converted overflow to the boundary at its original origin', () => {
     const root = new Owner(null);
     const received: unknown[] = [];
@@ -48,7 +49,8 @@ describe('clarifyRenderOverflow', () => {
 
     const overflow = new RangeError('Maximum call stack size exceeded');
     noteErrorOrigin(origin, overflow);
-    const converted = clarifyRenderError(overflow);
+    // Converted after the origin was recorded on the engine error.
+    const converted = clarifyRenderOverflow(overflow);
     expect(converted).toBeInstanceOf(RenderDepthError);
 
     routeError(renderOwner, converted);

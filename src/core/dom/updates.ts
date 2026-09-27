@@ -8,7 +8,8 @@
  */
 
 import { reportUncaughtErrorLater } from '../../common/report-error';
-import { clarifyRenderError, routeError } from '../component/errors';
+import { routeError } from '../component/errors';
+import { clarifyRenderOverflow } from '../../common/render-depth';
 import { type ComponentInstance, setRenderHost } from '../component/instance';
 import type { Owner } from '../reactive/owner';
 import { schedule, type Job } from '../reactive/scheduler';
@@ -33,7 +34,7 @@ function runPass(owner: Owner | null, render: (pass: Pass) => void): void {
     render(pass);
   } catch (error) {
     for (const failure of pass.discard()) reportUncaughtErrorLater(failure);
-    routeError(owner, clarifyRenderError(error));
+    routeError(owner, clarifyRenderOverflow(error));
     return;
   }
   try {
@@ -100,7 +101,7 @@ function renderAfterUpdate(
     );
     ctx.pass.markRendered(instance);
   } catch (caught) {
-    const error = clarifyRenderError(caught);
+    const error = clarifyRenderOverflow(caught);
     if (!instance.boundary) throw error;
     ctx.pass.rewind(mark);
     if (!instance.boundary(error)) throw error;
