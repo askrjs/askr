@@ -365,11 +365,14 @@ function nearestComponent(
 /**
  * Highest `contextRevision` among `instance`'s component ancestors. Each
  * instance caches its inherited value for the current context epoch, so
- * patching every component in a deep chain stays linear.
+ * patching every component in a deep chain stays linear. The cache relies on
+ * a live instance's parent chain never changing (owners are not reparented).
+ * The epoch is global, so a `provide()` anywhere invalidates every cache; the
+ * worst case is the uncached O(depth) walk.
  */
 function ancestorContextRevision(instance: ComponentInstance): number {
   const epoch = getContextEpoch();
-  const chain: ComponentInstance[] = [];
+  let chain: ComponentInstance[] | null = null;
   let revision = 0;
   for (let current = nearestComponent(instance); current;) {
     if (current.inheritedContextEpoch === epoch) {
@@ -379,9 +382,10 @@ function ancestorContextRevision(instance: ComponentInstance): number {
       );
       break;
     }
-    chain.push(current);
+    (chain ??= []).push(current);
     current = nearestComponent(current);
   }
+  if (!chain) return revision;
   for (let index = chain.length - 1; index >= 0; index--) {
     const ancestor = chain[index]!;
     ancestor.inheritedContextRevision = revision;

@@ -81,4 +81,22 @@ describe('owner detach', () => {
     next.dispose();
     expect(childrenOf(parent)).toEqual([]);
   });
+
+  it('should not let a stale sibling clear a child created during disposal', () => {
+    const parent = new Owner(null);
+    const first = new Owner(parent);
+    const second = new Owner(parent);
+    let created: Owner | null = null;
+    second.onCleanup(() => {
+      // Runs while reset() disposes children newest first: `first` still
+      // points at its old index, which the new child now occupies.
+      created = new Owner(parent);
+      first.dispose();
+    });
+
+    parent.reset();
+    expect(created).not.toBeNull();
+    expect(parent.owned).toEqual([created]);
+    expect(first.disposed).toBe(true);
+  });
 });

@@ -265,10 +265,7 @@ function renderComponent(
       withOwner(instance, () => renderValue(componentOutput(output), buffer));
     } catch (error) {
       restorePortals();
-      // End the lifetimes the failed subtree started.
-      for (const child of [...(instance.owned ?? [])]) {
-        if (child && child !== instance.computation) child.dispose();
-      }
+      disposeFailedSubtree(instance);
       if (!instance.boundary(error)) throw error;
       const fallback = runComponent(instance);
       withOwner(instance, () => renderValue(componentOutput(fallback), sink));
@@ -276,6 +273,18 @@ function renderComponent(
     }
     buffer.publishTo(sink);
     return;
+  }
+}
+
+/**
+ * End the lifetimes a failed boundary subtree started, newest first as in
+ * `Owner.dispose()`, keeping the boundary's own render computation.
+ */
+export function disposeFailedSubtree(instance: ComponentInstance): void {
+  const owned = instance.owned ? [...instance.owned] : [];
+  for (let index = owned.length - 1; index >= 0; index--) {
+    const child = owned[index];
+    if (child && child !== instance.computation) child.dispose();
   }
 }
 
@@ -652,9 +661,7 @@ function flattenText(value: unknown, element: RawTextElement): string[] {
           } catch (error) {
             out.length = start;
             restorePortals();
-            for (const owner of Array.from(instance.owned ?? [])) {
-              if (owner && owner !== instance.computation) owner.dispose();
-            }
+            disposeFailedSubtree(instance);
             if (!instance.boundary(error)) throw error;
             const fallback = runComponent(instance);
             withOwner(instance, () => visit(componentOutput(fallback)));
