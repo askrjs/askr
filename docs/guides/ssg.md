@@ -25,8 +25,10 @@ framework-owned dependency on that authoring implementation.
 
 The default portal is part of the core runtime: every application root
 provides it and hosts it automatically, so its code is in every client bundle
-whether or not a route renders a `Portal`. Import `Portal`, `DefaultPortal`, or
-`definePortal` from `@askrjs/askr/foundations` to use it.
+whether or not a route renders a `Portal`. Import `Portal` and `DefaultPortal`
+from `@askrjs/askr/foundations` to write to it or place its host. Portals from
+`definePortal()` are separate named channels with no automatic host; render
+their host where their content should appear.
 
 Hydration markup verification preserves the server-rendered loading branch for
 a `resource()` without preloaded resource data. This supports browser-only

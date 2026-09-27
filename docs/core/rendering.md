@@ -574,54 +574,69 @@ unrevealed records. Permanent `skipSelectors` remain skipped.
 
 ### Stacking layers
 
-A portal shows one writer's content at a time: when several writers target the
-same portal, the one that rendered last wins, and a writer that unmounts clears
+A portal shows one writer's content at a time. When several writers target the
+same portal, the most recent write wins; a writer re-rendering with an
+unchanged value does not take the portal back. A writer that unmounts clears
 the portal only if it is still the current writer. To show several layers at
 once, such as stacked dialogs or toasts, let one component own the list of open
-layers and write it through a single `Portal`:
+layers and write it through a portal of its own, so other `Portal` writers
+cannot replace it:
 
-```tsx
+```tsx run=layer-stack
 import { defineScope, readScope, state } from '@askrjs/askr';
 import { For } from '@askrjs/askr/control';
-import { Portal } from '@askrjs/askr/foundations';
+import { definePortal } from '@askrjs/askr/foundations';
 
 interface Layer {
   id: string;
   title: string;
 }
 
-const LayerStackScope = defineScope<{
+interface LayerStackApi {
   open(layer: Layer): void;
   close(id: string): void;
-} | null>(null);
+}
+
+const LayerStackScope = defineScope<LayerStackApi | null>(null);
+
+/** Render once where layers should appear, for example at the end of the app. */
+export const LayerHost = definePortal();
 
 export function LayerStack(props: { children?: unknown }) {
   const layers = state<Layer[]>([]);
-  const stack = {
-    open: (layer: Layer) => layers.set([...layers(), layer]),
-    close: (id: string) =>
-      layers.set(layers().filter((layer) => layer.id !== id)),
+  const stack: LayerStackApi = {
+    open(layer) {
+      if (layers().some((open) => open.id === layer.id)) return;
+      layers.set([...layers(), layer]);
+    },
+    close(id) {
+      layers.set(layers().filter((layer) => layer.id !== id));
+    },
   };
   return (
     <LayerStackScope value={stack}>
       {props.children}
-      <Portal>
+      <LayerHost.render>
         <For each={layers} by={(layer) => layer.id}>
-          {(layer) => <div role="dialog">{layer.title}</div>}
+          {(layer) => (
+            <div role="dialog" data-layer={layer.id}>
+              {layer.title}
+            </div>
+          )}
         </For>
-      </Portal>
+      </LayerHost.render>
     </LayerStackScope>
   );
 }
 
-export function useLayerStack() {
+export function useLayerStack(): LayerStackApi {
   return readScope(LayerStackScope)!;
 }
 ```
 
-Layers render in the order they were opened, and closing one keeps the others'
-DOM nodes because `For` tracks each layer by its key. For independent kinds of
-layers, give each its own portal with `definePortal()` and its own host.
+Layers render at `<LayerHost />` in the order they were opened. Opening an id
+that is already open does nothing, and closing one layer keeps the others' DOM
+nodes because `For` tracks each layer by its key.
 
 ### Portals on the server
 

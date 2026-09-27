@@ -3,8 +3,8 @@
 ## Unreleased
 
 - docs(foundations): document stacking dialogs and toasts through one writer
-  that owns the layer list, since a portal shows the last writer's content
-  (#495). The default portal is part of the core client bundle, because every
+  that owns the layer list and writes it through its own `definePortal()`
+  channel, since a portal shows the most recent writer's content (#495). The default portal is part of the core client bundle, because every
   application root provides and hosts it; the SSG hydration bundle check now
   asserts this and the SSG guide no longer says otherwise (#611).
 

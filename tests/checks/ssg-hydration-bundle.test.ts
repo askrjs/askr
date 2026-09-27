@@ -67,7 +67,9 @@ describe('SSG hydration bundle', () => {
     );
     const bundledModules = new Set(
       chunks.flatMap((chunk) =>
-        Object.keys(chunk.modules).map((module) => relative(repoRoot, module))
+        Object.keys(chunk.modules).map((module) =>
+          relative(repoRoot, module).replaceAll('\\', '/')
+        )
       )
     );
 

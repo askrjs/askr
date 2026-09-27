@@ -12,6 +12,8 @@ import {
   it,
   vi,
 } from 'vite-plus/test';
+import { jsx } from '@askrjs/askr';
+import { Portal } from '@askrjs/askr/foundations';
 import { dispatch, render, type RenderResult } from '@askrjs/askr/testing';
 
 /**
@@ -298,6 +300,53 @@ const scenarios: Record<string, Scenario> = {
   'data-resource-user-card': {
     run: (module, context) =>
       expectUserResourceStates(module, context, 'UserCard'),
+  },
+
+  'layer-stack': {
+    run(module, context) {
+      const LayerStack = component(module, 'LayerStack');
+      const LayerHost = component(module, 'LayerHost');
+      const useLayerStack = module.useLayerStack as () => {
+        open(layer: { id: string; title: string }): void;
+        close(id: string): void;
+      };
+      let stack!: ReturnType<typeof useLayerStack>;
+      const Page = () => {
+        stack = useLayerStack();
+        return jsx('main', { children: 'page' });
+      };
+      const result = context.mount(() =>
+        jsx(LayerStack as never, {
+          children: [
+            jsx(Page, {}),
+            jsx('aside', { children: jsx(LayerHost as never, {}) }),
+          ],
+        })
+      );
+      const host = result.root.querySelector('aside')!;
+      const titles = () =>
+        Array.from(host.querySelectorAll('[data-layer]')).map(
+          (node) => node.textContent
+        );
+
+      stack.open({ id: 'settings', title: 'Settings' });
+      stack.open({ id: 'confirm', title: 'Confirm' });
+      stack.open({ id: 'confirm', title: 'Confirm again' });
+      result.flush();
+      expect(titles()).toEqual(['Settings', 'Confirm']);
+      const confirm = host.querySelector('[data-layer="confirm"]');
+
+      // Another default-portal writer does not replace the stack.
+      const tip = context.mount(() => jsx(Portal, { children: 'tip' }));
+      tip.flush();
+      result.flush();
+      expect(titles()).toEqual(['Settings', 'Confirm']);
+
+      stack.close('settings');
+      result.flush();
+      expect(titles()).toEqual(['Confirm']);
+      expect(host.querySelector('[data-layer="confirm"]')).toBe(confirm);
+    },
   },
 
   'quick-start-user': {
