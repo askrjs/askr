@@ -97,6 +97,29 @@ function writeSimpleAttribute(
   });
 }
 
+/** Record a reflected class or style write for an abortable commit. */
+function writeReflectedProp(
+  pass: Pass,
+  node: HostNode,
+  key: string,
+  apply: () => void
+): void {
+  const { el } = node;
+  const name = getRenderedAttributeName(el, key);
+  pass.op(() => {
+    const before = el.getAttribute(name);
+    pass.onReversibleCommit(() => {
+      if (before === null) el.removeAttribute(name);
+      else el.setAttribute(name, before);
+    });
+    try {
+      apply();
+    } catch (error) {
+      throw new CommitMutationError(error);
+    }
+  });
+}
+
 /** Restore both the reflected attribute and the live form value on abort. */
 function writeInputValue(
   pass: Pass,
@@ -192,6 +215,10 @@ export function applyInitialProps(
         const value = batch[key];
         if (isSimpleAttribute(node.tag, key, value)) {
           writeSimpleAttribute(pass, node, key, value, undefined);
+        } else if (key === 'class' || key === 'className' || key === 'style') {
+          writeReflectedProp(pass, node, key, () =>
+            applyStaticScalarPropsToElement(node.el, { [key]: value }, node.tag)
+          );
         } else {
           pass.op(() =>
             applyStaticScalarPropsToElement(node.el, { [key]: value }, node.tag)
@@ -345,6 +372,13 @@ export function patchProps(
       );
     } else if (!isBinding(key, old) && isSimpleAttribute(tag, key, undefined)) {
       writeSimpleAttribute(pass, node, key, undefined, old);
+    } else if (
+      !isBinding(key, old) &&
+      (key === 'class' || key === 'className' || key === 'style')
+    ) {
+      writeReflectedProp(pass, node, key, () =>
+        applyScalarPropValue(el, key, undefined, tag, old)
+      );
     } else {
       pass.op(() => {
         const binding = unbind(node, key);
@@ -400,6 +434,10 @@ export function patchProps(
       );
     } else if (isSimpleAttribute(tag, key, value)) {
       writeSimpleAttribute(pass, node, key, value, old);
+    } else if (key === 'class' || key === 'className' || key === 'style') {
+      writeReflectedProp(pass, node, key, () =>
+        applyScalarPropValue(el, key, value, tag, old)
+      );
     } else {
       pass.op(() => {
         try {
