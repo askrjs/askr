@@ -1,228 +1,10 @@
 import { JSXElementType, JSXElement, Props } from '../elements.js';
 import '../jsx-globals.js';
 import { state, selector } from './state.js';
-import { VNode, RenderableChild, ContextFrame } from './context.js';
-import { ComponentInstance, ReadableSource } from './component.js';
-import {
-  DOMRange,
-  ChildScope,
-  ChildScopeOwnership,
-  ChildScopeTransactionSnapshot,
-} from './renderer.js';
+import { VNode, RenderableChild } from './context.js';
 import { on } from './lifecycle.js';
 
-type ForItemSignal<T> = ReadableSource<T> &
-  (() => T) & {
-    peek(): T;
-    set(newValue: T, notifyReaders?: boolean): void;
-  };
-
-type ForItemPropertySignal = ReadableSource<unknown> &
-  (() => unknown) & {
-    peek(): unknown;
-    set(newValue: unknown, notifyReaders?: boolean): void;
-  };
-
-type ForIndexSignal = ReadableSource<number> &
-  (() => number) & {
-    peek(): number;
-    set(
-      newValue: number | ((prev: number) => number),
-      notifyReaders?: boolean
-    ): void;
-  };
-
-interface ReactiveForItemState<T> {
-  currentItem: T;
-  itemSignal: ForItemSignal<T> | null;
-  propertySignals: Map<PropertyKey, ForItemPropertySignal> | null;
-  coalescedProperties: PropertyKey | PropertyKey[] | null;
-  coalescedProperty2: PropertyKey | null;
-  wholeItemRead: boolean;
-  proxy: T;
-}
-
-interface ForItemInstance<T> {
-  key: string | number;
-  item: T;
-  reactiveItem: T;
-  reactiveItemState: ReactiveForItemState<T> | null;
-  indexSignal: ForIndexSignal;
-  scope: ChildScope;
-  renderedWith: ForRenderItem<T> | null;
-}
-
-interface FineGrainedEffectHandle<T> {
-  cleanup(): void;
-  updateCompute(nextCompute: () => T): void;
-  flush(): void;
-}
-
 type ForEachSource<T> = readonly T[] | (() => readonly T[]);
-
-type ForKeySelector<T> = (item: T, index: number) => string | number;
-
-type ForRenderItem<T> = (item: T, index: () => number) => VNode;
-
-type ForCommitStrategy =
-  | 'APPEND'
-  | 'INSERT_ONE'
-  | 'REMOVE_ONE'
-  | 'TRUNCATE'
-  | 'NO_REORDER'
-  | 'SWAP'
-  | 'FULL_KEYED';
-
-interface ForState<T> {
-  kind: 'for';
-  _contextFrame: ContextFrame | null;
-  _contextFrameChanged: boolean;
-  currentItems: readonly T[];
-  _committedItems: readonly T[];
-  eachSource: ForEachSource<T>;
-  fallback: VNode | null;
-  fallbackScope: ChildScope | null;
-  items: Map<string | number, ForItemInstance<T>>;
-  orderedKeys: Array<string | number>;
-  orderedItems: ForItemInstance<T>[];
-  orderedVNodes: VNode[];
-  byFn: ForKeySelector<T>;
-  renderFn: ForRenderItem<T>;
-  _renderFnChanged: boolean;
-  parentInstance: ComponentInstance | null;
-  lastCommitStrategy: ForCommitStrategy;
-  lastRemovedNodes: Node[];
-  lastRemovedRanges: DOMRange[];
-  pendingDirtyIndices: number[] | null;
-  pendingSwapIndices: [number, number] | null;
-  pendingMoveOnly: boolean;
-  pendingInsertedIndex: number | null;
-  pendingRemovedKey: string | number | null;
-  pendingAppendStart: number | null;
-  _hasResolvedItemDom: boolean;
-  _needsSourceReconcile: boolean;
-  _sourceEffect: FineGrainedEffectHandle<readonly T[]> | null;
-  _suspendSourceCommit: boolean;
-  _enqueueBoundaryCommit?: (() => void) | null;
-  _hasPendingBoundaryCommit?: boolean;
-  _transaction?: ForTransaction<T> | null;
-  _scopeOwnership: ChildScopeOwnership;
-}
-
-interface ForItemTransactionSnapshot<T> {
-  item: T;
-  itemSignalExists: boolean;
-  itemSignalValue: T | undefined;
-  itemSignalHasBeenRead: boolean;
-  indexValue: number;
-  indexHasBeenRead: boolean;
-  propertySignalStore: Map<PropertyKey, ForItemPropertySignal> | null;
-  propertySignals: Map<
-    PropertyKey,
-    {
-      signal: ForItemPropertySignal;
-      value: unknown;
-      hasBeenRead: boolean;
-    }
-  > | null;
-  renderedWith: ForRenderItem<T> | null;
-  scope: ChildScopeTransactionSnapshot;
-}
-
-interface ForTransaction<T> {
-  collectionSnapshotMode: 'copy' | 'reset-empty' | 'preserve-clear' | 'reuse';
-  currentItems: readonly T[];
-  items: Map<string | number, ForItemInstance<T>>;
-  orderedKeys: Array<string | number>;
-  orderedItems: ForItemInstance<T>[];
-  orderedVNodes: VNode[];
-  fallbackScope: ChildScope | null;
-  lastCommitStrategy: ForCommitStrategy;
-  lastRemovedNodes: Node[];
-  lastRemovedRanges: DOMRange[];
-  pendingDirtyIndices: number[] | null;
-  pendingSwapIndices: [number, number] | null;
-  pendingMoveOnly: boolean;
-  pendingInsertedIndex: number | null;
-  pendingRemovedKey: string | number | null;
-  pendingAppendStart: number | null;
-  hasResolvedItemDom: boolean;
-  needsSourceReconcile: boolean;
-  contextFrameChanged: boolean;
-  itemSnapshots: Map<ForItemInstance<T>, ForItemTransactionSnapshot<T>> | null;
-  unreadIndexSnapshots: Map<ForIndexSignal, number> | null;
-  fallbackScopeSnapshot: ChildScopeTransactionSnapshot | null;
-  removedScopes: ChildScope[] | null;
-  removedScopeNodes: Node[] | null;
-  removeAllItems: boolean;
-  signalEffects: Map<
-    ReadableSource<unknown>,
-    {
-      parentInstance: ComponentInstance | null;
-      notify: boolean;
-      skipInstance: ComponentInstance | null;
-      skipOwnedBy: ComponentInstance | null;
-      skipOwnedRenderedAfter: number | null;
-    }
-  > | null;
-  shouldClearDomUpdateState: boolean;
-}
-
-interface MatchBranch {
-  key: string | number;
-  render: () => VNode;
-  when: unknown;
-}
-
-interface BranchControlStateBase {
-  _contextFrame: ContextFrame | null;
-  activeKey: string | number | null;
-  activeScope: ChildScope | null;
-  activeVNodes: VNode[];
-  lastRemovedNodes: Node[];
-  lastRemovedRanges: DOMRange[];
-  parentInstance: ComponentInstance | null;
-  _enqueueBoundaryCommit?: (() => void) | null;
-  _hasPendingBoundaryCommit?: boolean;
-  _transaction?: ControlTransaction | null;
-}
-
-interface ShowState extends BranchControlStateBase {
-  kind: 'show';
-  fallbackScope: ChildScope | null;
-  renderFallback: (() => VNode) | null;
-  renderTruthy: ((value: unknown) => VNode) | (() => VNode);
-  selectedValue: unknown;
-  truthyScope: ChildScope | null;
-}
-
-interface CaseState extends BranchControlStateBase {
-  kind: 'case';
-  fallback: (() => VNode) | null;
-  invalidChildError: Error | null;
-  matches: MatchBranch[];
-}
-
-type ControlBoundaryState = ForState<unknown> | ShowState | CaseState;
-
-type BranchStateSnapshot = {
-  activeKey: string | number | null;
-  activeScope: ChildScope | null;
-  activeVNodes: VNode[];
-  lastRemovedNodes: Node[];
-  lastRemovedRanges: DOMRange[];
-  scopeSnapshots: Map<ChildScope, ChildScopeTransactionSnapshot>;
-  fallbackScope?: ChildScope | null;
-  truthyScope?: ChildScope | null;
-};
-
-interface ControlTransaction {
-  state: ShowState | CaseState;
-  snapshot: BranchStateSnapshot;
-  removedScopes: ChildScope[];
-  shouldClearDomUpdateState: boolean;
-  registered: boolean;
-}
 
 type BoundaryChild = RenderableChild;
 
@@ -252,10 +34,27 @@ type ForProps<T, K extends string | number = string | number> =
   | KeyedForProps<T, K>
   | IndexedForProps<T>;
 
+/**
+ * {@link ForProps} with a getter `each`. A `state()` getter is also an array
+ * (`[getter, setter]`), so `For` tries this form first and reads it as a getter.
+ */
+type ForGetterProps<T, K extends string | number = string | number> = Omit<
+  ForBaseProps<T>,
+  'each'
+> & { each: () => readonly T[] } & (
+    | { by: (item: T, index: number) => K; byIndex?: never }
+    | { by?: never; byIndex: true }
+  );
+
 /** Render a keyed or indexed list, reconciling items by key instead of position. */
-declare const For: <T, K extends string | number = string | number>(
-  props: ForProps<T, K>
-) => JSXElement;
+declare const For: {
+  <T, K extends string | number = string | number>(
+    props: ForGetterProps<T, K>
+  ): JSXElement;
+  <T, K extends string | number = string | number>(
+    props: ForProps<T, K>
+  ): JSXElement;
+};
 
 type ShowSource<T> = T | (() => T);
 
@@ -292,26 +91,7 @@ declare function Match(_props: MatchProps): null;
 /** Render the first matching {@link Match} child (by `when`), or `fallback` if none match. */
 declare const Case: (props: CaseProps) => JSXElement;
 export {
-  ForItemSignal,
-  ForItemPropertySignal,
-  ForIndexSignal,
-  ReactiveForItemState,
-  ForItemInstance,
-  FineGrainedEffectHandle,
   ForEachSource,
-  ForKeySelector,
-  ForRenderItem,
-  ForCommitStrategy,
-  ForState,
-  ForItemTransactionSnapshot,
-  ForTransaction,
-  MatchBranch,
-  BranchControlStateBase,
-  ShowState,
-  CaseState,
-  ControlBoundaryState,
-  BranchStateSnapshot,
-  ControlTransaction,
   BoundaryChild,
   ForBaseProps,
   KeyedForProps,

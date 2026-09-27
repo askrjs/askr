@@ -300,9 +300,26 @@ function validateKey(key: unknown, index: number): void {
   }
 }
 
+type ForGetterProps<T, K extends string | number> = {
+  each: () => readonly T[];
+  fallback?: Renderable;
+  children: (item: T, index: () => number) => Renderable;
+} & (
+  | { by: (item: T, index: number) => K; byIndex?: never }
+  | { by?: never; byIndex: true }
+);
+
 /** Render one row per item, keyed by `by` (or by position with `byIndex`). */
+// A `state()` getter is also an array (`[getter, setter]`): the getter overload
+// comes first so its items keep their element type.
+export function For<T, K extends string | number = string | number>(
+  props: ForGetterProps<T, K>
+): Renderable;
 export function For<T, K extends string | number = string | number>(
   props: ForProps<T, K>
+): Renderable;
+export function For<T, K extends string | number = string | number>(
+  props: ForProps<T, K> | ForGetterProps<T, K>
 ): Renderable {
   const by = props.by;
   if (!by && props.byIndex !== true) {

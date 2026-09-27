@@ -6,14 +6,15 @@ Cause: calling `state()` outside a component or conditionally.
 
 Fix: call `state()` at the top level of a component function.
 
-## Hook/state order violations
+## `Hook order changed` errors
 
 Cause: calling `state()` or another render-scoped hook inside `if`, loops, or
-nested functions, or skipping an eager control primitive such as `<For>` with a
-plain conditional. Adding, removing, or swapping a hook after the first render
-all throw a `Hook order violation` error.
+nested functions. Adding, removing, or swapping a hook after the first render
+throws `[Askr] Hook order changed in <Component>: slot N ...`.
 
-Fix: keep hook calls and control boundaries in stable order on every render.
+Fix: call hooks unconditionally at the top level of the component, in the same
+order on every render. Control flow such as `<For>`, `<Show>`, and `<Case>` and
+child components are not hooks and may be rendered conditionally.
 
 ## `createIsland` with routes
 

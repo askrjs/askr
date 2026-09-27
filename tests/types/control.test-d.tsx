@@ -8,6 +8,7 @@ import {
   type ForProps,
   type MatchProps,
   type ShowProps,
+  state,
 } from '@askrjs/askr';
 import type { JSXElement } from '@askrjs/askr/foundations';
 
@@ -253,3 +254,55 @@ expectError(
     children: <Match when={true}>ready</Match>,
   })
 );
+
+// `each` accepts a state getter: its items are the state's elements, not the
+// [getter, setter] pair a State also iterates as for destructuring.
+type EachRow = { id: number; label: string };
+function StateEach() {
+  const rows = state<EachRow[]>([]);
+  return (
+    <For each={rows} by={(row) => row.id}>
+      {(row) => {
+        expectType<EachRow>(row);
+        return <p>{row.label}</p>;
+      }}
+    </For>
+  );
+}
+function ArrayEach() {
+  const rows: EachRow[] = [];
+  return (
+    <For each={rows} by={(row) => row.id}>
+      {(row) => {
+        expectType<EachRow>(row);
+        return <p>{row.label}</p>;
+      }}
+    </For>
+  );
+}
+function GetterEach() {
+  return (
+    <For each={() => [] as EachRow[]} by={(row) => row.id}>
+      {(row) => {
+        expectType<EachRow>(row);
+        return <p>{row.label}</p>;
+      }}
+    </For>
+  );
+}
+void [StateEach, ArrayEach, GetterEach];
+
+// `when` accepts a state getter: the child receives the state's value.
+type WhenUser = { name: string };
+function StateWhen() {
+  const user = state<WhenUser | null>(null);
+  return (
+    <Show when={user}>
+      {(value) => {
+        expectType<WhenUser>(value);
+        return <p>{value.name}</p>;
+      }}
+    </Show>
+  );
+}
+void StateWhen;

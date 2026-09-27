@@ -4,7 +4,6 @@
 
 import type { Props } from './props';
 import type { JSXElement, JSXElementType } from './jsx';
-export { __CONTROL_BOUNDARY__ } from './control';
 
 export const __ERROR_BOUNDARY__ = Symbol.for('askr.error-boundary');
 

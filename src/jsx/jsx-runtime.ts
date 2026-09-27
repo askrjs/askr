@@ -10,7 +10,6 @@ import type {
   KnownIntrinsicElementProps,
   Props,
 } from '../common/props';
-import type { EagerControlPrimitive } from '../common/control';
 import {
   ELEMENT_TYPE,
   Fragment,
@@ -46,6 +45,11 @@ export namespace JSX {
   export interface ElementChildrenAttribute {
     children: unknown;
   }
+
+  /** Attributes every element accepts, including function components. */
+  export interface IntrinsicAttributes {
+    key?: string | number | null;
+  }
 }
 
 type OtherIntrinsicProps<Tag extends string> = Omit<
@@ -69,12 +73,6 @@ function markStaticChildren(props: Props): void {
   }
 }
 
-export function jsxDEV(
-  type: EagerControlPrimitive,
-  props: Props | null,
-  key?: string | number,
-  isStaticChildren?: boolean
-): unknown;
 export function jsxDEV<TTag extends keyof KnownIntrinsicElementProps>(
   type: TTag,
   props: KnownIntrinsicElementProps[NoInfer<TTag>] | null,
@@ -104,7 +102,7 @@ export function jsxDEV(
   props: Record<string, unknown> | null,
   key?: string | number,
   isStaticChildren = false
-): JSXElement | unknown {
+): JSXElement {
   const normalizedProps = (props ?? {}) as Props;
   if (isStaticChildren) {
     markStaticChildren(normalizedProps);
@@ -122,11 +120,6 @@ export function jsxDEV(
 // aliases: `jsx` never marks static children and `jsxs` always does. Keep the
 // element shape in sync with `jsxDEV`.
 /** JSX factory for elements with a single or no child, used by the `jsxImportSource` transform. */
-export function jsx(
-  type: EagerControlPrimitive,
-  props: Props | null,
-  key?: string | number
-): unknown;
 export function jsx<TTag extends keyof KnownIntrinsicElementProps>(
   type: TTag,
   props: KnownIntrinsicElementProps[NoInfer<TTag>] | null,
@@ -163,11 +156,6 @@ export function jsx(
 }
 
 /** JSX factory for elements with multiple static children, used by the `jsxImportSource` transform. */
-export function jsxs(
-  type: EagerControlPrimitive,
-  props: Props | null,
-  key?: string | number
-): unknown;
 export function jsxs<TTag extends keyof KnownIntrinsicElementProps>(
   type: TTag,
   props: KnownIntrinsicElementProps[NoInfer<TTag>] | null,

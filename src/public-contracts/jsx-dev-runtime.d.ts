@@ -9,7 +9,6 @@ import {
   Props,
   Fragment,
 } from './elements.js';
-import { EagerControlPrimitive } from './eager-control.js';
 declare namespace JSX {
   type ElementType = string | symbol | ((props: never) => unknown);
   interface Element extends JSXElement {
@@ -31,6 +30,11 @@ declare namespace JSX {
   interface ElementChildrenAttribute {
     children: unknown;
   }
+
+  /** Attributes every element accepts, including function components. */
+  interface IntrinsicAttributes {
+    key?: string | number | null;
+  }
 }
 type OtherIntrinsicProps<Tag extends string> = Omit<
   IntrinsicFallbackProps,
@@ -44,12 +48,6 @@ type OtherIntrinsicTag =
     >
   | `${string}-${string}`;
 
-declare function jsxDEV(
-  type: EagerControlPrimitive,
-  props: Props | null,
-  key?: string | number,
-  isStaticChildren?: boolean
-): unknown;
 declare function jsxDEV<TTag extends keyof KnownIntrinsicElementProps>(
   type: TTag,
   props: KnownIntrinsicElementProps[NoInfer<TTag>] | null,
