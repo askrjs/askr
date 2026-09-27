@@ -92,6 +92,11 @@ so repeat qualification when measuring allocations and teardown separately.
 The fixture measures end-to-end time only. Qualify SSR, hydration, and touched
 tier 1 list guardrails independently before a public rollout.
 
+The paired setup-prototype fixture was retired with the old renderer extension.
+`tier2-subsystem-stateful-keyed-rows.tsx` measures mount, parent update, and
+reorder behavior in the current core. The historical paired measurements above
+do not qualify the current implementation.
+
 ## Consumers and migration
 
 | Repository      | Affected surface                                                                                                 | Path                                                                                                                                                                |

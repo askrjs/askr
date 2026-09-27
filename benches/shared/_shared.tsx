@@ -586,21 +586,25 @@ export function createHydrationFixture({
   routes,
   url = '/',
   mutateServerHtml,
+  registry: suppliedRegistry,
 }: {
   routes: Route[];
   url?: string;
   mutateServerHtml?: (container: HTMLDivElement) => void;
+  registry?: RouteRegistry;
 }): HydrationFixture {
   const { container, cleanup } = createTestContainer();
-  const registry = createRouteRegistry(() => {
-    for (const entry of routes) {
-      route(
-        entry.path,
-        entry.handler,
-        entry.namespace ? { namespace: entry.namespace } : undefined
-      );
-    }
-  });
+  const registry =
+    suppliedRegistry ??
+    createRouteRegistry(() => {
+      for (const entry of routes) {
+        route(
+          entry.path,
+          entry.handler,
+          entry.namespace ? { namespace: entry.namespace } : undefined
+        );
+      }
+    });
 
   const renderServerHtml = () => {
     setLocationPath(url);
