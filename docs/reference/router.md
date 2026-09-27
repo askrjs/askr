@@ -428,6 +428,46 @@ function Shell() {
 }
 ```
 
+## `resolveRouteRequest(url, options)`
+
+Resolves a URL against a registry and applies route policies, auth, and
+loaders without rendering. Servers use it to decide a redirect or status before
+choosing a response.
+
+```ts
+import { resolveRouteRequest, type RouteRegistry } from '@askrjs/askr/router';
+declare const registry: RouteRegistry;
+
+export async function decide(request: Request): Promise<Response | null> {
+  const result = await resolveRouteRequest(request.url, {
+    registry,
+    mode: 'ssr',
+    request,
+    signal: request.signal,
+  });
+  if (result === null) return new Response('Not found', { status: 404 });
+  if (result.kind === 'redirect') {
+    return Response.redirect(
+      new URL(result.to, request.url),
+      result.status ?? 302
+    );
+  }
+  return null; // render the matched route
+}
+```
+
+Options: `registry` (required), `mode`, `auth`, `authContext`, `request`,
+`signal`, and `telemetry`. On a server, always pass `mode: 'ssr'`: the default
+is `'spa'` whenever a global `window` exists, and SPA mode records the resolved
+identity as the process-wide client auth.
+
+The result is `null` when no route matches or the URL is outside the registry
+base path, a redirect or deny decision, or the matched route with its params.
+It is returned synchronously when every step is synchronous and as a Promise
+when a lazy route, loader, or auth resolver is async. Errors from policies,
+auth, or loaders may throw synchronously, so `await` the call inside an
+`async` function.
+
 ## `navigate(target)`
 
 Triggers client-side navigation. `target` is a logical path string or a typed

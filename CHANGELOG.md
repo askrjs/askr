@@ -20,9 +20,11 @@
   `resolveRequest` and `renderResolvedToStringSync` are no longer exported from
   `@askrjs/askr/ssr`. To resolve auth, redirects and status without rendering,
   call `resolveRouteRequest(url, { registry, mode: 'ssr', auth, authContext,
-request, signal })` from `@askrjs/askr/router` and `await` the result
-  (it returns synchronously, possibly `null`, when no async guard runs, and
-  throws synchronously when `registry` is missing); to render, use
+request, signal })` from `@askrjs/askr/router`. Pass `mode: 'ssr'`
+  explicitly (the default is `'spa'` when a global `window` exists, which
+  writes a process-wide client identity). The result may be a plain value or a
+  Promise, and errors can throw synchronously, so call it inside an `async`
+  function and `await` it to keep the old always-async behavior; to render, use
   `renderToString`, `renderRouteRequest` or `renderRouteRequestToString`. `debounce` and `DebounceOptions` are no longer
   exported from `@askrjs/askr/fx`; use `debounceEvent` for event handlers, or keep a local
   debounce helper for code outside components.
