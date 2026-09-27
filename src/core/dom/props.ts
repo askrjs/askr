@@ -259,12 +259,18 @@ export function applyTrailingProps(
     else node.bindings?.get('value')?.run();
     return;
   }
+  const writeValue = () => {
+    try {
+      applyScalarPropValue(node.el, 'value', props.value, node.tag, undefined);
+    } catch (error) {
+      if (initial && !adopted) throw error;
+      throw new CommitMutationError(error);
+    }
+  };
   if (initial && adopted) {
-    pass.op(() =>
-      applyScalarPropValue(node.el, 'value', props.value, node.tag, undefined)
-    );
+    pass.op(writeValue);
   } else {
-    applyScalarPropValue(node.el, 'value', props.value, node.tag, undefined);
+    writeValue();
   }
 }
 
@@ -300,7 +306,12 @@ export function patchProps(
       pass.op(() => {
         const binding = unbind(node, key);
         const from = isBinding(key, old) ? lastApplied(binding) : old;
-        applyScalarPropValue(el, key, undefined, tag, from);
+        try {
+          applyScalarPropValue(el, key, undefined, tag, from);
+        } catch (error) {
+          if (!followsChildren(tag, key)) throw error;
+          throw new CommitMutationError(error);
+        }
       });
     }
   }
@@ -347,7 +358,14 @@ export function patchProps(
     } else if (isSimpleAttribute(tag, key, value)) {
       writeSimpleAttribute(pass, node, key, value, old);
     } else {
-      pass.op(() => applyScalarPropValue(el, key, value, tag, old));
+      pass.op(() => {
+        try {
+          applyScalarPropValue(el, key, value, tag, old);
+        } catch (error) {
+          if (!followsChildren(tag, key)) throw error;
+          throw new CommitMutationError(error);
+        }
+      });
     }
   }
 }

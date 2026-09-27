@@ -250,4 +250,42 @@ describe('SSR select value parity', () => {
       cleanup();
     }
   });
+
+  it('should restore selection when writing the selected option fails', async () => {
+    const { container, cleanup } = createTestContainer();
+    let setValue!: (value: string) => void;
+    function App() {
+      const [value, set] = state('a');
+      setValue = set;
+      return (
+        <select value={value()}>
+          <option value="a">A</option>
+          <option value="b">B</option>
+        </select>
+      );
+    }
+    try {
+      await createSPA({
+        root: container,
+        registry: routeRegistryFromTable([{ path: '/', handler: App }]),
+      });
+      const select = container.querySelector('select') as HTMLSelectElement;
+      const before = select.outerHTML;
+      const option = select.options[1];
+      const setAttribute = option.setAttribute.bind(option);
+      option.setAttribute = (name, value) => {
+        if (name === 'selected') throw new Error('selected write failed');
+        setAttribute(name, value);
+      };
+
+      expect(() => {
+        setValue('b');
+        flushScheduler();
+      }).toThrow('selected write failed');
+      expect(select.outerHTML).toBe(before);
+      expect(select.value).toBe('a');
+    } finally {
+      cleanup();
+    }
+  });
 });
