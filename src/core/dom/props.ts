@@ -170,14 +170,7 @@ function writeInputValue(
 ): void {
   const { el, tag } = node;
   pass.op(() => {
-    const control = el as HTMLInputElement | HTMLTextAreaElement;
-    const beforeValue = control.value;
-    const beforeAttribute = el.getAttribute('value');
-    pass.onReversibleCommit(() => {
-      if (beforeAttribute === null) el.removeAttribute('value');
-      else el.setAttribute('value', beforeAttribute);
-      control.value = beforeValue;
-    });
+    recordInputValueUndo(pass, node);
     try {
       applyScalarPropValue(el, 'value', value, tag, previous);
     } catch (error) {
@@ -196,19 +189,38 @@ function writeBooleanControl(
 ): void {
   const { el, tag } = node;
   pass.op(() => {
-    const control = el as HTMLInputElement & HTMLOptionElement;
-    const beforeValue = control[key];
-    const beforeAttribute = el.getAttribute(key);
-    pass.onReversibleCommit(() => {
-      if (beforeAttribute === null) el.removeAttribute(key);
-      else el.setAttribute(key, beforeAttribute);
-      control[key] = beforeValue;
-    });
+    recordBooleanControlUndo(pass, node, key);
     try {
       applyScalarPropValue(el, key, value, tag, previous);
     } catch (error) {
       throw new CommitMutationError(error);
     }
+  });
+}
+
+function recordInputValueUndo(pass: Pass, node: HostNode): void {
+  const control = node.el as HTMLInputElement | HTMLTextAreaElement;
+  const beforeValue = control.value;
+  const beforeAttribute = node.el.getAttribute('value');
+  pass.onReversibleCommit(() => {
+    if (beforeAttribute === null) node.el.removeAttribute('value');
+    else node.el.setAttribute('value', beforeAttribute);
+    control.value = beforeValue;
+  });
+}
+
+function recordBooleanControlUndo(
+  pass: Pass,
+  node: HostNode,
+  key: 'checked' | 'selected'
+): void {
+  const control = node.el as HTMLInputElement & HTMLOptionElement;
+  const beforeValue = control[key];
+  const beforeAttribute = node.el.getAttribute(key);
+  pass.onReversibleCommit(() => {
+    if (beforeAttribute === null) node.el.removeAttribute(key);
+    else node.el.setAttribute(key, beforeAttribute);
+    control[key] = beforeValue;
   });
 }
 
@@ -254,7 +266,17 @@ export function applyInitialProps(
     if (adopted) {
       for (const key in batch) {
         const value = batch[key];
-        if (isSimpleAttribute(node.tag, key, value)) {
+        if (isInputValue(node.tag, key)) {
+          writeInputValue(pass, node, value, undefined);
+        } else if (isBooleanControl(node.tag, key)) {
+          writeBooleanControl(
+            pass,
+            node,
+            key as 'checked' | 'selected',
+            value,
+            undefined
+          );
+        } else if (isSimpleAttribute(node.tag, key, value)) {
           writeSimpleAttribute(pass, node, key, value, undefined);
         } else if (key === 'class' || key === 'className' || key === 'style') {
           writeReflectedProp(pass, node, key, () =>
@@ -572,17 +594,24 @@ function bind(
       key === 'class' ||
       key === 'className' ||
       key === 'style';
+    const reversibleControl =
+      isInputValue(tag, key) || isBooleanControl(tag, key);
     if (!fresh) {
       recordBindingInstallUndo(pass, node, key, binding, previous);
       if (reversibleAttribute) {
         recordAttributeUndo(pass, el, getRenderedAttributeName(el, key));
+      } else if (isInputValue(tag, key)) {
+        recordInputValueUndo(pass, node);
+      } else if (isBooleanControl(tag, key)) {
+        recordBooleanControlUndo(pass, node, key as 'checked' | 'selected');
       }
     }
     try {
       binding.run();
       if (binding._hasError) throw binding._error;
     } catch (error) {
-      if (!fresh && reversibleAttribute) throw new CommitMutationError(error);
+      if (!fresh && (reversibleAttribute || reversibleControl))
+        throw new CommitMutationError(error);
       throw error;
     }
   };
