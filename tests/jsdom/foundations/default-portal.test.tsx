@@ -75,7 +75,8 @@ describe('DefaultPortal', () => {
     expect(container.textContent).toContain('Toast');
     // Text portal content sits among the root's children with no wrapper.
     const initialPortalText = Array.from(container.childNodes).find(
-      (node) => node.nodeType === Node.TEXT_NODE && node.data === 'Toast'
+      (node) =>
+        node.nodeType === Node.TEXT_NODE && (node as Text).data === 'Toast'
     );
     expect(initialPortalText).toBeDefined();
     expect(Array.from(container.children).map((el) => el.tagName)).toEqual([

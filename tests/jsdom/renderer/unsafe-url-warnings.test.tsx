@@ -37,7 +37,9 @@ function renderServerAnchor(href: string): string {
 }
 
 function warnings(spy: ReturnType<typeof vi.spyOn>): string {
-  return spy.mock.calls.map((args) => args.map(String).join(' ')).join('\n');
+  return spy.mock.calls
+    .map((args: unknown[]) => args.map(String).join(' '))
+    .join('\n');
 }
 
 describe('unsafe URL development warnings', () => {

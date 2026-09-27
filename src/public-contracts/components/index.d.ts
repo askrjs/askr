@@ -9,7 +9,8 @@ type ErrorBoundaryFallbackRender = (
 ) => ErrorBoundaryFallbackValue;
 /** Props for {@link ErrorBoundary}. */
 interface ErrorBoundaryProps extends Props {
-  children?: ErrorBoundaryContent;
+  /** Boundary content: nodes, or a function child re-rendered in place. */
+  children?: ErrorBoundaryContent | (() => ErrorBoundaryContent);
   /** Static fallback content, or a render function receiving the error and a reset callback. */
   fallback?: ErrorBoundaryFallbackValue | ErrorBoundaryFallbackRender;
   /** Called with the caught error when the boundary trips. */

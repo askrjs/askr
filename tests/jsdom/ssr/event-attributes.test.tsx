@@ -15,7 +15,14 @@ import {
 import { hydrateSPA } from '../../../src/boot';
 import { renderToString } from '../../../src/ssr';
 import { state } from '../../../src/index';
-import { jsx } from '../../../src/jsx-runtime';
+import { jsx as typedJsx, type JSXElement } from '../../../src/jsx-runtime';
+
+// These tests render deliberately unusual or dynamic tags and prop maps, so
+// they call the runtime factory without the per-tag JSX typings.
+const jsx = typedJsx as unknown as (
+  type: unknown,
+  props: Record<string, unknown> | null
+) => JSXElement;
 
 describe('SSR event handling', () => {
   let container: HTMLElement;

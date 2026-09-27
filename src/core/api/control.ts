@@ -16,6 +16,7 @@ import { recordUndo } from '../component/journal';
 import { isRendering } from '../component/render-state';
 import { Signal } from '../reactive/graph';
 import { currentComponent, hookSlot, onCommit } from './hooks';
+import type { RenderableChild } from '../../common/vnode';
 
 type Renderable = unknown;
 
@@ -47,8 +48,8 @@ type Truthy<T> = T extends false | '' | 0 | 0n | null | undefined ? never : T;
 
 export type ShowProps<T> = {
   when: ShowSource<T>;
-  fallback?: Renderable;
-  children: Renderable | ((value: Truthy<T>) => Renderable);
+  fallback?: RenderableChild;
+  children: RenderableChild | ((value: Truthy<T>) => RenderableChild);
 };
 
 /** Render `children` while `when` is truthy, otherwise `fallback`. */

@@ -11,11 +11,12 @@ function contract(text: string, dependencies: Record<string, string> = {}) {
     moduleResolution: ts.ModuleResolutionKind.NodeNext,
   };
   const host = ts.createCompilerHost(options);
-  host.fileExists = (name) => name in files;
-  host.readFile = (name) => files[name];
+  const sources: Record<string, string> = files;
+  host.fileExists = (name) => name in sources;
+  host.readFile = (name) => sources[name];
   host.getSourceFile = (name) =>
-    name in files
-      ? ts.createSourceFile(name, files[name]!, ts.ScriptTarget.Latest, true)
+    name in sources
+      ? ts.createSourceFile(name, sources[name]!, ts.ScriptTarget.Latest, true)
       : undefined;
   const program = ts.createProgram(Object.keys(files), options, host);
   return declarationContract(program, [['.', file]], (name) => name in files);

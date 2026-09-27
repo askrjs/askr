@@ -529,3 +529,36 @@ expectError(<KeyedRow key={{}} id={1} />);
 expectError(<KeyedRow key={1} />);
 expectAssignable<RuntimeJSX.IntrinsicAttributes>({ key: 1 });
 expectAssignable<DevRuntimeJSX.IntrinsicAttributes>({ key: 'one' });
+
+// MathML elements are intrinsic; their refs are MathMLElement.
+const mathRef = createRef<MathMLElement>();
+expectType<RuntimeJSX.Element>(
+  <math ref={mathRef}>
+    <mi>x</mi>
+    <mtext>text</mtext>
+  </math>
+);
+
+// A function prop may return a readable; the renderer reads its value.
+declare const readableText: () => string;
+expectType<RuntimeJSX.Element>(<input value={() => readableText} />);
+expectType<RuntimeJSX.Element>(<p title={() => readableText} />);
+
+// Raw HTML is available on every intrinsic element.
+expectType<RuntimeJSX.Element>(
+  <option dangerouslySetInnerHTML={{ __html: 'A&nbsp;B' }} />
+);
+expectType<RuntimeJSX.Element>(<p dangerouslySetInnerHTML={{ __html: '' }} />);
+expectError(<p dangerouslySetInnerHTML="<b>raw</b>" />);
+
+// A submit button can override its form's submission.
+expectType<RuntimeJSX.Element>(
+  <button
+    type="submit"
+    formAction="/save"
+    formMethod="post"
+    formEncType="multipart/form-data"
+    formNoValidate
+    formTarget="_blank"
+  />
+);

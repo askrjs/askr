@@ -199,7 +199,9 @@ describe('portal content lifetime', () => {
     const observations: number[] = [];
 
     function Content(props: { count: State<number> }) {
-      watch(props.count, (value) => observations.push(value));
+      watch(props.count, (value) => {
+        observations.push(value);
+      });
       resource(({ signal: ownedSignal }) => {
         signal = ownedSignal;
         return new Promise<string>(() => {});

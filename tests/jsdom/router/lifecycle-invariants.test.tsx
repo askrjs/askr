@@ -24,7 +24,7 @@ describe('router lifecycle invariants', () => {
   });
 
   it('should abort route-root resources and ignore their stale completions', async () => {
-    let resourceSignal: AbortSignal | null = null;
+    let resourceSignal = null as AbortSignal | null;
     let resolveResource!: (value: string) => void;
 
     await createSPA({

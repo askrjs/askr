@@ -30,6 +30,7 @@ import {
   getRouteList,
   getRouteRecords,
 } from '../../../src/router/store';
+import type { RenderableChild } from '../../../src/common/vnode';
 
 const currentManifest = () => ({ records: [...getRouteRecords()] });
 
@@ -432,7 +433,7 @@ describe('manifest shape', () => {
   });
 
   it('should record layout chain from an enclosing layout group', () => {
-    const L1 = ({ children }: { children?: unknown }) => children;
+    const L1 = ({ children }: { children?: RenderableChild }) => children;
     const Page = () => null;
 
     group({ layout: L1 }, () => {
@@ -445,8 +446,8 @@ describe('manifest shape', () => {
   });
 
   it('should record nested layout chains outermost-first', () => {
-    const Outer = ({ children }: { children?: unknown }) => children;
-    const Inner = ({ children }: { children?: unknown }) => children;
+    const Outer = ({ children }: { children?: RenderableChild }) => children;
+    const Inner = ({ children }: { children?: RenderableChild }) => children;
     const Page = () => null;
 
     group({ layout: Outer }, () => {
@@ -486,8 +487,8 @@ describe('manifest shape', () => {
   });
 
   it('should not include sibling layout scope in another route chain', () => {
-    const L1 = ({ children }: { children?: unknown }) => children;
-    const L2 = ({ children }: { children?: unknown }) => children;
+    const L1 = ({ children }: { children?: RenderableChild }) => children;
+    const L2 = ({ children }: { children?: RenderableChild }) => children;
 
     group({ layout: L1 }, () => {
       route('/a', () => null);
@@ -522,9 +523,9 @@ describe('auto-composed handler', () => {
   it('should wrap page in layout when layout is declared', () => {
     const calls: string[] = [];
 
-    const Layout = ({ children }: { children?: unknown }) => {
+    const Layout = ({ children }: { children?: RenderableChild }) => {
       calls.push('layout');
-      return { type: 'layout', children };
+      return { type: 'layout', children } as unknown as RenderableChild;
     };
     const Page = () => {
       calls.push('page');
@@ -586,7 +587,7 @@ describe('_applyManifest cross-mode parity', () => {
   });
 
   it('should preserve page-local fallback behavior after manifest replay', () => {
-    const ComponentsPage = ({ children }: { children?: unknown }) => ({
+    const ComponentsPage = ({ children }: { children?: RenderableChild }) => ({
       type: 'page',
       children,
     });

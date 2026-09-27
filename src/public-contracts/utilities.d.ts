@@ -69,10 +69,27 @@ declare function composeHandlers<A extends readonly unknown[]>(
  * values that are `undefined` are treated as absent and never overwrite an
  * injected value; use `null` to clear one explicitly.
  */
+/** A base value, or the injected one where the base may be `undefined`. */
+type MergedValue<TBase, TInjected> = [TBase] extends [undefined]
+  ? TInjected
+  : undefined extends TBase
+    ? Exclude<TBase, undefined> | TInjected
+    : TBase;
+
+/** The props {@link mergeProps} returns: base keys win unless `undefined`. */
+type MergedProps<TBase extends object, TInjected extends object> = Omit<
+  TInjected,
+  keyof TBase
+> & {
+  [K in keyof TBase]: MergedValue<
+    TBase[K],
+    K extends keyof TInjected ? TInjected[K] : undefined
+  >;
+};
 declare function mergeProps<TBase extends object, TInjected extends object>(
   base: TBase,
   injected: TInjected
-): TInjected & TBase;
+): MergedProps<TBase, TInjected>;
 /**
  * Tiny aria helpers
  */

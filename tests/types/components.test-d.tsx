@@ -56,3 +56,9 @@ expectError(
     {document.createElement('div')}
   </ErrorBoundary>
 );
+
+// Function children are fine-grained content, as for any element.
+declare const boundaryLabel: () => string;
+expectAssignable<JSXElement>(
+  <ErrorBoundary fallback={null}>{() => boundaryLabel()}</ErrorBoundary>
+);

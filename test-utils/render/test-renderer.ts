@@ -380,3 +380,16 @@ export function stripComments(html: string): string {
   for (const comment of comments) comment.parentNode?.removeChild(comment);
   return template.innerHTML;
 }
+
+/**
+ * Re-type a ref that a test deliberately shares across element types (JSX
+ * types a ref by the element it is attached to). The value is unchanged.
+ */
+export function refAs<T extends Element>(
+  ref:
+    | { current: Element | null }
+    | ((element: Element | null) => void)
+    | object
+): { current: T | null } {
+  return ref as { current: T | null };
+}

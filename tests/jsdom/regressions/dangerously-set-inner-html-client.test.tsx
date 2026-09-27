@@ -195,7 +195,10 @@ describe('dangerouslySetInnerHTML on the client renderer', () => {
     function App() {
       payload = state<unknown>(undefined);
       return (
-        <section data-host={'true'} dangerouslySetInnerHTML={payload()}>
+        <section
+          data-host={'true'}
+          dangerouslySetInnerHTML={payload() as { __html: string }}
+        >
           <ManagedChild />
         </section>
       );

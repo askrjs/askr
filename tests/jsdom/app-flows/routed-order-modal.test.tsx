@@ -49,9 +49,9 @@ describe('routed order modal app flow', () => {
 
     function FulfillmentModal(
       { order }: { order: Order },
-      context: { signal: AbortSignal }
+      context?: { signal: AbortSignal }
     ) {
-      modalSignal = context.signal;
+      modalSignal = context!.signal;
 
       return (
         <section role="dialog" aria-label={`Fulfill order ${order.id}`}>

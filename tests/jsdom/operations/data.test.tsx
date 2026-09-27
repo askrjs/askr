@@ -71,8 +71,7 @@ function setDocumentVisibility(value: DocumentVisibilityState): () => void {
       return;
     }
 
-    delete (document as Document & { visibilityState?: unknown })
-      .visibilityState;
+    Reflect.deleteProperty(document, 'visibilityState');
   };
 }
 
@@ -90,7 +89,7 @@ function setDocumentHasFocus(value: boolean): () => void {
       return;
     }
 
-    delete (document as Document & { hasFocus?: unknown }).hasFocus;
+    Reflect.deleteProperty(document, 'hasFocus');
   };
 }
 
@@ -813,7 +812,7 @@ describe('data layer', () => {
     const runtime = createDataRuntime();
     const userQuery = defineQuery({
       key: ({ id }: { id: number }) => `users:${id}`,
-      fetch: async ({ id }: { id: number; signal: AbortSignal }) => ({ id }),
+      fetch: async ({ id }: { id: number }) => ({ id }),
     });
     let setId!: (value: number) => void;
 
@@ -929,7 +928,7 @@ describe('data layer', () => {
     const context = createQueryPrefetchContext({ runtime, mode: 'spa' });
     const userQuery = defineQuery({
       key: ({ id }: { id: number }) => `prefetched-users:${id}`,
-      fetch: async ({ id }: { id: number; signal: AbortSignal }) => ({ id }),
+      fetch: async ({ id }: { id: number }) => ({ id }),
     });
     hydrateDataRuntime(runtime, { 'hydrated:user': { id: 'h' } });
 
@@ -2747,7 +2746,7 @@ describe('data layer', () => {
               return [];
             }
           : (input, result) => {
-              affects(input, result);
+              affects(input as string, result);
               return [];
             },
         afterSuccess: 'invalidate',

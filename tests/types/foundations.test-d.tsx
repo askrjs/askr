@@ -206,9 +206,9 @@ expectType<(event: MouseEvent) => void>(
     composeHandlersOptions
   )
 );
-expectType<{ role: string } & { id: string }>(
-  mergeProps({ id: 'a' }, { role: 'button' })
-);
+const mergedDisjoint = mergeProps({ id: 'a' }, { role: 'button' });
+expectType<string>(mergedDisjoint.id);
+expectType<string>(mergedDisjoint.role);
 expectType<(value: HTMLElement | null) => void>(
   composeRefs<HTMLElement>(callbackRef, objectRef)
 );
@@ -306,3 +306,17 @@ expectType<string>(resolveIconStrokeWidthVariable(2, 'md'));
 expectType<string>(serializeIconStyle(iconStyleObject));
 expectType<string | undefined>(joinIconStyle('color:red', undefined));
 expectError(normalizeIconSizeValue(false));
+
+// Base values win; an `undefined` base value keeps the injected one.
+const mergedOverride = mergeProps(
+  { 'aria-expanded': undefined, role: undefined, id: 'user-id' },
+  { 'aria-expanded': 'false', role: 'menuitem', id: 'generated-id' }
+);
+expectType<string>(mergedOverride['aria-expanded']);
+expectType<string>(mergedOverride.role);
+expectType<string>(mergedOverride.id);
+// A base value that may be undefined falls back to the injected type.
+declare const maybeLabel: string | undefined;
+expectType<string | number>(
+  mergeProps({ label: maybeLabel }, { label: 1 as number }).label
+);

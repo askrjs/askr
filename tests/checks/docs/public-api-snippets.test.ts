@@ -554,7 +554,9 @@ function syntaxCheckSnippet(snippet: Snippet): string[] {
           : ts.ScriptKind.TS
   );
 
-  return source.parseDiagnostics.map((diagnostic) =>
+  return (
+    source as unknown as { parseDiagnostics: ts.DiagnosticWithLocation[] }
+  ).parseDiagnostics.map((diagnostic) =>
     ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')
   );
 }

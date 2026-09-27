@@ -169,7 +169,7 @@ describe('fx public timing helpers', () => {
   it('should preserve the receiver for once() callbacks', () => {
     const receiver = {
       value: 'bound',
-      initialize: once(function () {
+      initialize: once(function (this: { value: string }) {
         return this.value;
       }),
     };

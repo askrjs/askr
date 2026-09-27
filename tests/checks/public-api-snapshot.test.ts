@@ -29,7 +29,9 @@ function generatePublicApiSnapshot() {
     )
     .map(([subpath, conditions]) => {
       const types =
-        typeof conditions === 'string' ? conditions : conditions.types;
+        typeof conditions === 'string'
+          ? conditions
+          : (conditions as { types?: string }).types;
       if (typeof types !== 'string') return null;
       return [subpath, path.join(rootDir, types)];
     })

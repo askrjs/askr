@@ -859,7 +859,7 @@ describe('SSR reactive values', () => {
         <Theme value={'dark'}>
           <div>
             <ErrorBoundary fallback={() => <em>{'fallback'}</em>}>
-              {child}
+              {child as () => JSXElement}
             </ErrorBoundary>
           </div>
         </Theme>

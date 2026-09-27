@@ -39,6 +39,24 @@ function isEventHandlerKey(key: string): boolean {
   return key.startsWith('on');
 }
 
+/** A base value, or the injected one where the base may be `undefined`. */
+export type MergedValue<TBase, TInjected> = [TBase] extends [undefined]
+  ? TInjected
+  : undefined extends TBase
+    ? Exclude<TBase, undefined> | TInjected
+    : TBase;
+
+/** The props {@link mergeProps} returns: base keys win unless `undefined`. */
+export type MergedProps<TBase extends object, TInjected extends object> = Omit<
+  TInjected,
+  keyof TBase
+> & {
+  [K in keyof TBase]: MergedValue<
+    TBase[K],
+    K extends keyof TInjected ? TInjected[K] : undefined
+  >;
+};
+
 /**
  * Merge `base` props over `injected` props: non-handler keys in `base` win,
  * and matching event handlers are composed (`injected` runs first). `base`
@@ -48,14 +66,14 @@ function isEventHandlerKey(key: string): boolean {
 export function mergeProps<TBase extends object, TInjected extends object>(
   base: TBase,
   injected: TInjected
-): TInjected & TBase {
+): MergedProps<TBase, TInjected> {
   // Fast path: if base is empty, return injected as-is
   const baseKeys = Object.keys(base);
   if (baseKeys.length === 0) {
-    return injected as TInjected & TBase;
+    return injected as unknown as MergedProps<TBase, TInjected>;
   }
 
-  const out = { ...(injected as object) } as TInjected & TBase;
+  const out = { ...(injected as object) } as Record<string, unknown>;
 
   for (const key of baseKeys as Array<Extract<keyof TBase, string>>) {
     const baseValue = (base as Record<string, unknown>)[key];
@@ -86,5 +104,5 @@ export function mergeProps<TBase extends object, TInjected extends object>(
     (out as Record<string, unknown>)[key] = baseValue;
   }
 
-  return out;
+  return out as MergedProps<TBase, TInjected>;
 }

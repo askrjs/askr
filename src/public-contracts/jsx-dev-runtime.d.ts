@@ -22,7 +22,9 @@ declare namespace JSX {
   type OtherIntrinsicElements = {
     [
       Tag in Exclude<
-        keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap,
+        | keyof HTMLElementTagNameMap
+        | keyof SVGElementTagNameMap
+        | Exclude<keyof MathMLElementTagNameMap, `${string}-${string}`>,
         keyof KnownIntrinsicElementProps
       >
     ]: OtherIntrinsicProps<Tag>;
@@ -43,7 +45,9 @@ type OtherIntrinsicProps<Tag extends string> = Omit<
 
 type OtherIntrinsicTag =
   | Exclude<
-      keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap,
+      | keyof HTMLElementTagNameMap
+      | keyof SVGElementTagNameMap
+      | Exclude<keyof MathMLElementTagNameMap, `${string}-${string}`>,
       keyof KnownIntrinsicElementProps
     >
   | `${string}-${string}`;

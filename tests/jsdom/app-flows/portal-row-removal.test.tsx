@@ -43,11 +43,11 @@ describe('portal row removal app flow', () => {
         onRemove(): void;
         order: Order;
       },
-      context: { signal: AbortSignal }
+      context?: { signal: AbortSignal }
     ) {
       const menuOpen = state(false);
       menuSetters.set(order.id, menuOpen.set);
-      rowSignals.set(order.id, context.signal);
+      rowSignals.set(order.id, context!.signal);
 
       return (
         <li data-order={order.id}>

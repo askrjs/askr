@@ -275,7 +275,7 @@ describe('child component updates and render transactions (#559)', () => {
         {() => render()}
       </For>
     ),
-    'a Show branch': (render) => <Show when={true}>{render()}</Show>,
+    'a Show branch': (render) => <Show when={true}>{render() as never}</Show>,
   };
 
   for (const [name, wrap] of Object.entries(shapes)) {

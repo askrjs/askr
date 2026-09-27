@@ -757,7 +757,12 @@ describe('hydration (SSR)', () => {
       let failInputBinding = true;
       const addEventListenerSpy = vi
         .spyOn(EventTarget.prototype, 'addEventListener')
-        .mockImplementation(function (type, listener, options) {
+        .mockImplementation(function (
+          this: EventTarget,
+          type,
+          listener,
+          options
+        ) {
           if (failInputBinding && type === 'input') {
             failInputBinding = false;
             throw new Error('intrinsic listener publication failed');

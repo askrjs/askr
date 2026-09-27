@@ -34,7 +34,10 @@ declare function resource<TSource, T>(
   load: (value: TSource, opts: { signal: AbortSignal }) => PromiseLike<T> | T
 ): ResourceResult<T>;
 /** Creates a render-scoped async resource with cancellation and refresh; SSR has special data rules. */
-declare function resource<T, const TDeps extends readonly unknown[]>(
+declare function resource<
+  T,
+  const TDeps extends readonly unknown[] = readonly unknown[],
+>(
   fn: (opts: { signal: AbortSignal }) => PromiseLike<T> | T,
   deps: TDeps
 ): ResourceResult<T>;

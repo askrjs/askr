@@ -10,7 +10,11 @@ test('should load a dynamic schema collection with bounded browser work', async 
   let maxActive = 0;
 
   mockJsonFetch((request, init) => {
-    const database = new URL(request.url).pathname.split('/').at(-1)!;
+    const database = new URL(
+      request instanceof Request ? request.url : String(request)
+    ).pathname
+      .split('/')
+      .at(-1)!;
     started.push(database);
     signalled.push(init?.signal instanceof AbortSignal);
     active += 1;

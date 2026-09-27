@@ -6,8 +6,9 @@ import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
+import type { ComponentFunction } from '../../../src/common/component';
 
-function mount(component: () => unknown) {
+function mount(component: ComponentFunction) {
   const { container, cleanup } = createTestContainer();
   createIsland({ root: container, component });
   flushScheduler();
@@ -281,7 +282,12 @@ describe('prop: review regressions', () => {
 
   it('should render attr: object values the same way in SSR and the DOM', () => {
     function Page() {
-      return <div attr:style={{ color: 'red' }} attr:data-x="1" />;
+      return (
+        <div
+          attr:style={{ color: 'red' } as unknown as string}
+          attr:data-x="1"
+        />
+      );
     }
     const html = renderToStringSync(Page);
     const { container, cleanup } = mount(Page);

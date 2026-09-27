@@ -11,6 +11,8 @@ import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
+import type { RenderableChild } from '../../../src/common/vnode';
+import type { RouteComponent } from '../../../src/router';
 
 function setGlobalWindow(path: string) {
   (global as unknown as { window?: Window }).window = {
@@ -36,7 +38,7 @@ afterEach(() => {
 describe('lazy()', () => {
   it('should discard stale lazy-route results given a newer navigation when the older route resolves later', async () => {
     const { container, cleanup } = createTestContainer();
-    let resolveSlow!: (value: { default: () => unknown }) => void;
+    let resolveSlow!: (value: { default: RouteComponent }) => void;
 
     try {
       route('/', () => <div>home</div>);
@@ -44,7 +46,7 @@ describe('lazy()', () => {
         '/slow',
         lazy(
           () =>
-            new Promise((resolve) => {
+            new Promise<{ default: RouteComponent }>((resolve) => {
               resolveSlow = resolve;
             })
         )
@@ -164,7 +166,7 @@ describe('lazy()', () => {
 
     await stub.preload();
 
-    expect(stub({})).toBe('hello');
+    expect(stub()).toBe('hello');
   });
 
   it('should resolve a module that exports the component directly (no default wrapper)', async () => {
@@ -175,11 +177,11 @@ describe('lazy()', () => {
 
     await stub.preload();
 
-    expect(stub({})).toBe('direct');
+    expect(stub()).toBe('direct');
   });
 
   it('should pass URL params through to the resolved component', async () => {
-    let received: Record<string, string> | null = null;
+    let received = null as Record<string, string> | null;
     const Page = (params: Record<string, string>) => {
       received = params;
       return null;
@@ -195,7 +197,7 @@ describe('lazy()', () => {
   it('should throw before a lazy component is matched or preloaded', () => {
     const stub = lazy(() => new Promise(() => {})); // never resolves
 
-    expect(() => stub({})).toThrow(
+    expect(() => stub()).toThrow(
       /lazy\(\) component used before it was resolved/i
     );
   });
@@ -206,7 +208,7 @@ describe('lazy()', () => {
 
     await stub.preload();
 
-    expect(() => stub({})).toThrow('chunk load failed');
+    expect(() => stub()).toThrow('chunk load failed');
   });
 
   it('should retry a failed lazy import on the next preload', async () => {
@@ -219,12 +221,12 @@ describe('lazy()', () => {
     });
 
     await stub.preload();
-    expect(() => stub({})).toThrow('chunk load failed');
+    expect(() => stub()).toThrow('chunk load failed');
 
     await stub.preload();
 
     expect(attempts).toBe(2);
-    expect(stub({})).toBe('recovered');
+    expect(stub()).toBe('recovered');
   });
 
   it('should preload multiple lazy imports concurrently', async () => {
@@ -238,9 +240,9 @@ describe('lazy()', () => {
 
     await Promise.all([stubA.preload(), stubB.preload(), stubC.preload()]);
 
-    expect(stubA({})).toBe('a');
-    expect(stubB({})).toBe('b');
-    expect(stubC({})).toBe('c');
+    expect(stubA()).toBe('a');
+    expect(stubB()).toBe('b');
+    expect(stubC()).toBe('c');
   });
 
   it('should return immediately from _drainLazy when no lazy() calls were made', async () => {
@@ -261,9 +263,9 @@ describe('lazy()', () => {
 
   it('should work inside a grouped layout scope', async () => {
     const calls: string[] = [];
-    const Layout = ({ children }: { children?: unknown }) => {
+    const Layout = ({ children }: { children?: RenderableChild }) => {
       calls.push('layout');
-      return { type: 'layout', children };
+      return { type: 'layout', children } as unknown as RenderableChild;
     };
     const Page = () => {
       calls.push('page');
@@ -290,15 +292,16 @@ describe('lazy()', () => {
   it('should wait for manifest lazy imports across createSPA boot reset', async () => {
     const t = createTestContainer();
     const { container, cleanup } = t;
-    let resolveModule: ((value: { default: () => unknown }) => void) | null =
-      null;
+    let resolveModule = null as
+      | ((value: { default: RouteComponent }) => void)
+      | null;
 
     try {
       route(
         '/lazy-manifest',
         lazy(
           () =>
-            new Promise<{ default: () => unknown }>((resolve) => {
+            new Promise<{ default: RouteComponent }>((resolve) => {
               resolveModule = resolve;
             })
         )
@@ -340,15 +343,16 @@ describe('lazy()', () => {
   it('should wait for route-table lazy imports across createSPA boot reset', async () => {
     const t = createTestContainer();
     const { container, cleanup } = t;
-    let resolveModule: ((value: { default: () => unknown }) => void) | null =
-      null;
+    let resolveModule = null as
+      | ((value: { default: RouteComponent }) => void)
+      | null;
 
     try {
       route(
         '/lazy-routes',
         lazy(
           () =>
-            new Promise<{ default: () => unknown }>((resolve) => {
+            new Promise<{ default: RouteComponent }>((resolve) => {
               resolveModule = resolve;
             })
         )

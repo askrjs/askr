@@ -46,8 +46,7 @@ function setDocumentVisibility(value: DocumentVisibilityState): () => void {
       return;
     }
 
-    delete (document as Document & { visibilityState?: unknown })
-      .visibilityState;
+    Reflect.deleteProperty(document, 'visibilityState');
   };
 }
 

@@ -110,7 +110,10 @@ export function resource<TSource, T>(
 ): ResourceResult<T>;
 
 /** Creates a render-scoped async resource with cancellation and refresh; SSR has special data rules. */
-export function resource<T, const TDeps extends readonly unknown[]>(
+export function resource<
+  T,
+  const TDeps extends readonly unknown[] = readonly unknown[],
+>(
   fn: (opts: { signal: AbortSignal }) => PromiseLike<T> | T,
   deps: TDeps
 ): ResourceResult<T>;

@@ -13,7 +13,7 @@ describe('state subscription invariants', () => {
   it('should notify only components that read the state', async () => {
     const { container, cleanup } = createTestContainer();
 
-    let shared: ReturnType<typeof state> | null = null;
+    let shared: ReturnType<typeof state<number>> | null = null;
     let aRenders = 0;
     let bRenders = 0;
 
@@ -59,8 +59,8 @@ describe('state subscription invariants', () => {
     allowFrameworkWarnings(/Unused state variable detected in App at index 1/);
     const { container, cleanup } = createTestContainer();
 
-    let shared: ReturnType<typeof state> | null = null;
-    let togg: ReturnType<typeof state> | null = null;
+    let shared: ReturnType<typeof state<number>> | null = null;
+    let togg: ReturnType<typeof state<boolean>> | null = null;
 
     let childRenders = 0;
     let childCleanups = 0;

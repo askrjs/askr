@@ -6,8 +6,13 @@ describe('mergeProps (FOUNDATIONS)', () => {
     const calls: string[] = [];
 
     const merged = mergeProps(
-      { onClick: () => calls.push('base') },
-      { onClick: () => calls.push('injected') }
+      {
+        onClick: (_event: { defaultPrevented: boolean }) => calls.push('base'),
+      },
+      {
+        onClick: (_event: { defaultPrevented: boolean }) =>
+          calls.push('injected'),
+      }
     );
 
     merged.onClick({ defaultPrevented: false });

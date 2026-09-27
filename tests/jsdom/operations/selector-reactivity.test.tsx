@@ -44,12 +44,12 @@ describe('selector reactivity', () => {
     selected.set('c');
     flushScheduler();
 
-    expect(container.querySelector('[data-id="a"]')?.dataset.active).toBe(
-      'false'
-    );
-    expect(container.querySelector('[data-id="c"]')?.dataset.active).toBe(
-      'true'
-    );
+    expect(
+      container.querySelector<HTMLElement>('[data-id="a"]')?.dataset.active
+    ).toBe('false');
+    expect(
+      container.querySelector<HTMLElement>('[data-id="c"]')?.dataset.active
+    ).toBe('true');
   });
 
   it('should invalidate only the previous and next keyed candidates', () => {

@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- fix(types): intrinsic JSX typings accept MathML elements (`<math>`, `<mi>`,
+  ...), `dangerouslySetInnerHTML` on every element, the `formAction`/
+  `formMethod`/`formEncType`/`formNoValidate`/`formTarget` button attributes,
+  and function props that return a readable (`value={() => someState}`).
+
+- fix(types): `resource<T>(load, deps)` with an explicit result type selects
+  the deps overload, `<ErrorBoundary>` accepts a function child, and
+  `mergeProps()` returns the merged prop types (base values win unless
+  `undefined`) instead of an intersection that could collapse to `never`.
+
+- chore(tests): `tests/` is typechecked by `npm run typecheck` (#556).
+
 - fix(types): JSX accepts a `string` or `number` `key` on function components
   whose props do not declare it, as it does on intrinsic elements (#489).
 

@@ -15,7 +15,7 @@ if (!customElements.get('x-props-probe')) {
   customElements.define('x-props-probe', PropsProbe);
 }
 
-function mount(component: () => unknown) {
+function mount(component: Parameters<typeof createIsland>[0]['component']) {
   const { container, cleanup } = createTestContainer();
   createIsland({ root: container, component });
   flushScheduler();

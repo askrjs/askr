@@ -13,6 +13,7 @@ import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
   flushScheduler,
+  refAs,
 } from '../../../test-utils/render/test-renderer';
 
 type Row = {
@@ -229,9 +230,9 @@ describe('component host transactions', () => {
 
       function Child({ article }: { article: boolean }) {
         return article ? (
-          <article ref={sharedRef}>{'new'}</article>
+          <article ref={refAs(sharedRef)}>{'new'}</article>
         ) : (
-          <button ref={sharedRef}>{'old'}</button>
+          <button ref={refAs(sharedRef)}>{'old'}</button>
         );
       }
 
