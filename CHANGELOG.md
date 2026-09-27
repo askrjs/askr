@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- fix(boot): `hydrate: { verifyMarkup: true }` no longer reports a mismatch
+  when a ref callback updates state after the hydration commit (for example,
+  adopting a persisted theme). Client markup passes if it matches the server
+  at the commit or after scheduled hydration work settles.
+
 - breaking(api): remove `@askrjs/askr/experimental` and its runtime and
   renderer-host construction APIs. Use the public boot, component, and state
   APIs to mount and extend applications.

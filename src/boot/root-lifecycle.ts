@@ -172,6 +172,8 @@ export interface MountOptions {
   cspNonce?: string;
   /** The container holds server-rendered markup for this app to adopt. */
   hydrate?: boolean;
+  /** Runs after the render commits, before the work it scheduled flushes. */
+  onCommit?: () => void;
 }
 
 /** Mount `component` at `rootElement`, or re-render the app already there. */
@@ -201,6 +203,7 @@ export function mountOrUpdate(
     app.cleanupStrict = options.cleanupStrict;
   }
   app.root.render(app.view());
+  options?.onCommit?.();
   flushSync();
   if (replacingIsland) {
     const callbacks = Array.from(app.callbacks);

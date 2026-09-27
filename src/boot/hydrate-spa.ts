@@ -137,14 +137,21 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       resolved.kind === 'deny'
         ? { handler: bindDeniedRouteHandler(resolved.status), params: {} }
         : resolved;
+    let verifyClientMarkup: (() => Promise<void>) | undefined;
+    // What the hydration commit itself rendered, before post-commit work runs.
+    let clientMarkup: string | null = null;
+    const captureClientMarkup = () => {
+      if (verifyClientMarkup) clientMarkup = rootElement.innerHTML;
+    };
+
     const mountHydratedRoot: typeof mountOrUpdate = (...args) =>
       mountOrUpdate(args[0], args[1], {
         ...args[2],
         cspNonce: config.cspNonce,
         hydrate: true,
+        onCommit: captureClientMarkup,
       });
 
-    let verifyClientMarkup: (() => Promise<void>) | undefined;
     if (shouldVerifyHydrationMarkup(config)) {
       const {
         captureServerHydrationMarkup,
@@ -181,7 +188,18 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         verifyClientMarkup = async () => {
           // Let the work the hydration commit scheduled settle first.
           await Promise.resolve();
-          if (!verifyClientHydrationMarkup(rootElement, serverMarkup)) {
+          // A renderer divergence differs from the server markup both when the
+          // hydration commit finishes and after the work it scheduled (error
+          // boundary fallbacks, portal retirement) settles. Matching at either
+          // point accepts application updates made after the commit, such as
+          // a ref adopting a persisted preference.
+          const matchedAtCommit =
+            clientMarkup !== null &&
+            verifyClientHydrationMarkup(clientMarkup, serverMarkup);
+          if (
+            !matchedAtCommit &&
+            !verifyClientHydrationMarkup(rootElement.innerHTML, serverMarkup)
+          ) {
             throw new Error(
               '[Askr] Hydration mismatch detected between server and client markup.'
             );
