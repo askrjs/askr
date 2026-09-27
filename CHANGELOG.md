@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- fix(dom): a controlled `<select value>` keeps its value when a child
+  component, `For`, or function child adds, removes, or edits its options
+  without the select itself re-rendering (#608).
+
+- fix(ssr): a value-less `<option>` is selected by its rendered text with
+  whitespace stripped and collapsed, as the browser's `option.value` reads it,
+  including text from component children (#609).
+
+- fix(state): `selector()` releases candidate entries once nothing reads
+  them, so querying many distinct values no longer grows it for the
+  component's lifetime (#613).
+
 - fix(router): a navigation that changes the pathname remounts the route
   leaf, so `state()`, `task()`, and resources start fresh for the new URL
   (`/user/1` to `/user/2`). Layouts keep their instances and DOM.

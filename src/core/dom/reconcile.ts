@@ -27,7 +27,6 @@ import {
   COMPONENT,
   HOST,
   NATIVE,
-  PORTAL,
   collectDom,
   containerOf,
   endOf,
@@ -43,6 +42,8 @@ export interface NodeKinds {
   patch(ctx: RenderContext, node: RNode, child: ChildDescriptor): void;
   /** End the lifetimes a removed subtree owns (its DOM is already detached). */
   release(node: RNode, errors: unknown[]): void;
+  /** A committed parent's child list is about to change in this pass. */
+  listChanged?(ctx: RenderContext, parent: Parent): void;
 }
 
 export interface RenderContext {
@@ -109,8 +110,6 @@ function typeOf(node: RNode): unknown {
       return node.tag;
     case COMPONENT:
       return node.instance.fn;
-    case PORTAL:
-      return node.target;
     case NATIVE:
       return node.node;
     default:
@@ -233,6 +232,7 @@ export function reconcileChildren(
   }
   const stable = longestIncreasingSubsequence(sources);
   const nodes = ctx.nodes;
+  nodes.listChanged?.(ctx, parent);
   ctx.pass.fill(slot, () => {
     const positions: Array<{
       node: Node;

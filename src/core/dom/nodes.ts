@@ -22,7 +22,6 @@ import {
   functionChildOutput,
   NATIVE,
   normalizeChildren,
-  PORTAL,
   TEXT,
   type ChildDescriptor,
   type Key,
@@ -55,7 +54,6 @@ import {
   type FragmentNode,
   type HostNode,
   type Parent,
-  type PortalNode,
   type RNode,
 } from './tree';
 import { reportTeardown } from './teardown';
@@ -83,8 +81,6 @@ export function namespaceAt(parent: Parent): string | null {
     if (p.kind === HOST) return childNamespace(p.tag, namespaceOf(p.el));
     if (p.kind === ROOT)
       return childNamespace(p.el.localName, namespaceOf(p.el));
-    if (p.kind === PORTAL)
-      return childNamespace(p.target.localName, namespaceOf(p.target));
   }
   return null;
 }
@@ -252,6 +248,7 @@ function patchHost(ctx: RenderContext, node: HostNode, props: Props): void {
     reconcileChildren(ctx, node, null, false);
   }
   patchProps(ctx.pass, node, previous, props);
+  if (node.tag === 'option') syncEnclosingSelect(ctx.pass, node.parent);
   if (!wasManaged && isManaged && node.children.length === 0) {
     ctx.pass.op(() => node.el.replaceChildren());
   }
@@ -725,36 +722,9 @@ export function updateDynamic(ctx: RenderContext, node: DynamicNode): void {
 }
 
 // ---------------------------------------------------------------------------
-// Portals
-
-function createPortal(
-  ctx: RenderContext,
-  parent: Parent,
-  key: Key | undefined,
-  target: Element,
-  children: unknown
-): PortalNode {
-  const node: PortalNode = {
-    kind: PORTAL,
-    parent,
-    key,
-    target,
-    children: [],
-  };
-  node.children = reconcileChildren(ctx, node, children, true);
-  const created = node.children;
-  ctx.pass.op(() => {
-    for (const child of created) {
-      for (const dom of collectDom(child)) target.appendChild(dom);
-    }
-  });
-  return node;
-}
-
-// ---------------------------------------------------------------------------
 
 function release(node: RNode, errors: unknown[]): void {
-  const pending: Array<{ node: RNode; finish: boolean; detach?: boolean }> = [
+  const pending: Array<{ node: RNode; finish: boolean }> = [
     { node, finish: false },
   ];
   while (pending.length) {
@@ -770,22 +740,57 @@ function release(node: RNode, errors: unknown[]): void {
       }
       continue;
     }
-    if (frame.detach) {
-      for (const dom of collectDom(current)) dom.parentNode?.removeChild(dom);
-    }
     if (current.kind === TEXT || current.kind === NATIVE) continue;
     pending.push({ node: current, finish: true });
     for (let i = current.children.length - 1; i >= 0; i--) {
-      pending.push({
-        node: current.children[i],
-        finish: false,
-        detach: current.kind === PORTAL,
-      });
+      pending.push({ node: current.children[i], finish: false });
     }
   }
 }
 
+// ---------------------------------------------------------------------------
+// Controlled selects
+
+/**
+ * A select's controlled value depends on its options. When a pass changes
+ * the options without patching the select (a child component or `For` adds,
+ * removes, or edits them), re-apply the select's value once after the pass
+ * commits, with the options in place.
+ */
+const selectsToSync = new WeakMap<Pass, Set<HostNode>>();
+
+function enclosingSelect(parent: Parent | null): HostNode | null {
+  for (let p: Parent | null = parent; p; p = p.parent) {
+    if (p.kind !== HOST) {
+      if (p.kind === ROOT) return null;
+      continue;
+    }
+    if (p.tag === 'select') return p;
+    if (p.tag !== 'optgroup' && p.tag !== 'option') return null;
+  }
+  return null;
+}
+
+function syncEnclosingSelect(pass: Pass, parent: Parent | null): void {
+  const select = enclosingSelect(parent);
+  if (!select || select.dormant) return;
+  let pending = selectsToSync.get(pass);
+  if (!pending) {
+    const selects = new Set<HostNode>();
+    pending = selects;
+    selectsToSync.set(pass, selects);
+    pass.after(() => {
+      selectsToSync.delete(pass);
+      for (const node of selects) applyTrailingProps(pass, node, node.props);
+    });
+  }
+  pending.add(select);
+}
+
 export const domNodes: NodeKinds = {
+  listChanged(ctx, parent) {
+    syncEnclosingSelect(ctx.pass, parent);
+  },
   create(ctx, parent, child: ChildDescriptor): RNode {
     switch (child.kind) {
       case TEXT: {
@@ -836,14 +841,6 @@ export const domNodes: NodeKinds = {
           key: undefined,
           node: child.node as Node,
         };
-      case PORTAL:
-        return createPortal(
-          ctx,
-          parent,
-          child.key,
-          child.target as Element,
-          child.children
-        );
     }
   },
 
@@ -880,14 +877,6 @@ export const domNodes: NodeKinds = {
         );
         return;
       }
-      case PORTAL:
-        reconcileChildren(
-          ctx,
-          node,
-          (child as { children: unknown }).children,
-          false
-        );
-        return;
     }
   },
 

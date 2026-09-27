@@ -22,6 +22,14 @@ type NodeState = typeof CLEAN | typeof CHECK | typeof DIRTY;
 
 export interface Source {
   _observers: Set<Computation> | null;
+  /** Called when the last observer stops reading this source. */
+  _unobserved?(): void;
+}
+
+function unobserve(source: Source, observer: Computation): void {
+  const observers = source._observers;
+  if (!observers?.delete(observer) || observers.size > 0) return;
+  source._unobserved?.();
 }
 
 export type Equals<T> = (a: T, b: T) => boolean;
@@ -251,7 +259,7 @@ export class Computation<T = unknown> extends Owner implements Source {
         if (keepPrevious) {
           next.add(source);
         } else if (!next.has(source)) {
-          source._observers?.delete(this as Computation);
+          unobserve(source, this as Computation);
         }
       }
     }
@@ -287,7 +295,7 @@ export class Computation<T = unknown> extends Owner implements Source {
 
   protected override onDispose(): void {
     for (const source of this._sources ?? EMPTY) {
-      source._observers?.delete(this as Computation);
+      unobserve(source, this as Computation);
     }
     this._sources = null;
     this._observers = null;

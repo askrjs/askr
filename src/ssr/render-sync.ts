@@ -29,7 +29,6 @@ import {
   FRAGMENT,
   FUNCTION,
   NATIVE,
-  PORTAL,
   TEXT,
   normalizeChildren,
   functionChildOutput,
@@ -86,6 +85,15 @@ class BufferedSink {
 
   writePortalHost(token: string): void {
     this.operations.push({ portalHost: true, text: token });
+  }
+
+  /** The buffered markup, without portal host tokens. */
+  html(): string {
+    let html = '';
+    for (const operation of this.operations) {
+      if (!operation.portalHost) html += operation.text;
+    }
+    return html;
   }
 
   publishTo(sink: SinkTarget): void {
@@ -372,7 +380,6 @@ function renderChild(child: ChildDescriptor, sink: SinkTarget): void {
         sink
       );
       return;
-    case PORTAL:
     case NATIVE:
       // Client-only content.
       return;
@@ -411,15 +418,34 @@ function renderElement(tag: string, props: Props, sink: SinkTarget): void {
       ? (resolveReactiveAttributeProps(props) ?? props)
       : props;
   const selection = render.selectSelections[render.selectSelections.length - 1];
+  // A value-less option's value is its rendered text, so its children render
+  // first (into a buffer) and the option is written once `selected` is known.
+  let renderedChildren: BufferedSink | null = null;
   if (lower === 'option' && parentNamespace === 'select' && selection) {
-    const value =
-      elementProps.value === undefined
-        ? optionTextValue(elementProps.children)
-        : String(elementProps.value);
+    let value: string;
+    if (elementProps.value === undefined) {
+      const buffer = new BufferedSink();
+      withNamespace(
+        getChildNamespace(parentNamespace, namespace, lower, elementProps),
+        () => renderValue(elementProps.children, buffer)
+      );
+      renderedChildren = buffer;
+      value = optionTextValue(buffer.html());
+    } else {
+      value = String(elementProps.value);
+    }
     const selected =
       selection.values.has(value) && (selection.multiple || !selection.matched);
     if (selected) selection.matched = true;
     elementProps = { ...elementProps, selected };
+  }
+  if (renderedChildren) {
+    sink.write('<' + tag);
+    renderAttrsDirect(elementProps, sink, tag);
+    sink.write('>');
+    renderedChildren.publishTo(sink);
+    sink.write('</' + tag + '>');
+    return;
   }
   let nextSelection: SelectSelection | null = null;
   if (
@@ -449,15 +475,60 @@ function renderElement(tag: string, props: Props, sink: SinkTarget): void {
   }
 }
 
-function optionTextValue(value: unknown): string {
-  if (value == null || typeof value === 'boolean') return '';
-  if (typeof value === 'string' || typeof value === 'number')
-    return String(value);
-  if (Array.isArray(value)) return value.map(optionTextValue).join('');
-  if (typeof value === 'object' && 'props' in value) {
-    return optionTextValue((value as { props?: Props }).props?.children);
+const TEXT_ENTITIES: Record<string, string> = {
+  '&amp;': '&',
+  '&lt;': '<',
+  '&gt;': '>',
+};
+
+function isAsciiWhitespace(code: number): boolean {
+  return (
+    code === 0x20 ||
+    code === 0x09 ||
+    code === 0x0a ||
+    code === 0x0c ||
+    code === 0x0d
+  );
+}
+
+/**
+ * The value a browser gives a value-less `<option>` rendered as `html`: its
+ * text content with ASCII whitespace stripped and collapsed. The markup is
+ * this renderer's own output, so tags, comments, and the three entities the
+ * text escaper emits are all there is to undo.
+ */
+function optionTextValue(html: string): string {
+  let text = '';
+  let pendingSpace = false;
+  let i = 0;
+  while (i < html.length) {
+    const ch = html[i];
+    if (ch === '<') {
+      const end = html.startsWith('<!--', i)
+        ? html.indexOf('-->', i + 4)
+        : html.indexOf('>', i + 1);
+      i = end < 0 ? html.length : end + (html[end] === '-' ? 3 : 1);
+      continue;
+    }
+    let decoded = ch;
+    if (ch === '&') {
+      const end = html.indexOf(';', i);
+      const entity = end < 0 ? '' : html.slice(i, end + 1);
+      if (entity in TEXT_ENTITIES) {
+        decoded = TEXT_ENTITIES[entity];
+        i = end;
+      }
+    }
+    i++;
+    if (isAsciiWhitespace(decoded.charCodeAt(0))) {
+      pendingSpace = text.length > 0;
+      continue;
+    }
+    if (pendingSpace) text += ' ';
+    pendingSpace = false;
+    text += decoded;
   }
-  return '';
+  return text;
 }
 
 function writeElement(

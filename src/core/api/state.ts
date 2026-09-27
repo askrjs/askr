@@ -12,6 +12,7 @@ import {
   Computation,
   Signal,
   getTrackingComputation,
+  isTracking,
   notifySource,
   trackSource,
   type Source,
@@ -276,6 +277,13 @@ export function selector<T>(
   return slot.predicate;
 }
 
+const candidateCounts = new WeakMap<object, () => number>();
+
+/** Primitive candidates a selector currently retains (tests and diagnostics). */
+export function selectorCandidateCount(predicate: object): number {
+  return candidateCounts.get(predicate)?.() ?? 0;
+}
+
 function createSelector<T>(
   owner: ComponentInstance,
   initialSource: () => T,
@@ -296,7 +304,18 @@ function createSelector<T>(
       ? objects.get(candidate as object)
       : primitives.get(candidate);
     if (!entry && create) {
-      entry = { _observers: null, candidate };
+      const created: CandidateSource = { _observers: null, candidate };
+      // Released once nothing reads it, so the map tracks live readers only.
+      created._unobserved = () => {
+        if (isObject) {
+          if (objects.get(candidate as object) === created) {
+            objects.delete(candidate as object);
+          }
+        } else if (primitives.get(candidate) === created) {
+          primitives.delete(candidate);
+        }
+      };
+      entry = created;
       if (isObject) objects.set(candidate as object, entry);
       else primitives.set(candidate, entry);
     }
@@ -345,12 +364,14 @@ function createSelector<T>(
     if (watcher._running) {
       throw new Error('selector() cannot read itself recursively');
     }
-    const entry = candidateSource(candidate, true)!;
-    trackSource(entry);
-    if (equals !== Object.is) trackSource(allObjects);
     if (watcher.stale) watcher.update();
+    if (isTracking()) {
+      trackSource(candidateSource(candidate, true)!);
+      if (equals !== Object.is) trackSource(allObjects);
+    }
     return equals(value, candidate);
   }) as Selector<T>;
+  candidateCounts.set(predicate, () => primitives.size);
 
   return {
     predicate,

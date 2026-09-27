@@ -99,6 +99,65 @@ describe('SSR select value parity', () => {
     ).toEqual([false, true]);
   });
 
+  it.each([
+    [
+      'trailing whitespace',
+      () => (
+        <select value="Apple">
+          <option>{'Pear'}</option>
+          <option>
+            {'  Apple'} {'\n'}
+          </option>
+        </select>
+      ),
+    ],
+    [
+      'a component child',
+      () => {
+        const Label = () => <b>Apple</b>;
+        return (
+          <select value="Apple">
+            <option>Pear</option>
+            <option>
+              <Label />
+            </option>
+          </select>
+        );
+      },
+    ],
+    [
+      'an escaped character',
+      () => (
+        <select value="Salt &amp; Pepper">
+          <option>Pear</option>
+          <option>{'Salt & Pepper'}</option>
+        </select>
+      ),
+    ],
+  ])(
+    'should select a value-less option by its rendered text with %s',
+    async (_name, App) => {
+      const html = renderToStringSync(App);
+      expect(
+        options(html).map((option) => option.hasAttribute('selected'))
+      ).toEqual([false, true]);
+
+      const { container, cleanup } = createTestContainer();
+      try {
+        container.innerHTML = html;
+        await hydrateSPA({
+          root: container,
+          registry: routeRegistryFromTable([{ path: '/', handler: App }]),
+          hydrate: { verifyMarkup: true },
+        });
+        const select = container.querySelector('select') as HTMLSelectElement;
+        expect(select.selectedIndex).toBe(1);
+      } finally {
+        cleanup();
+      }
+    }
+  );
+
   it('should read reactive select and option attributes once for SSR', () => {
     let selectReads = 0;
     let optionReads = 0;

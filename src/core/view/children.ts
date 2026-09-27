@@ -17,7 +17,6 @@ export const TEXT = 1;
 export const COMPONENT = 2;
 export const FRAGMENT = 3;
 export const FUNCTION = 4;
-export const PORTAL = 6;
 /** A host node supplied directly as a child (e.g. an ErrorBoundary fallback). */
 export const NATIVE = 7;
 /** Explicitly adopted DOM node, used by an error-boundary fallback. */
@@ -42,16 +41,7 @@ export type ChildDescriptor =
       owner?: unknown;
     }
   | { kind: typeof FUNCTION; key: undefined; fn: () => unknown }
-  | { kind: typeof NATIVE; key: undefined; node: object }
-  | {
-      kind: typeof PORTAL;
-      key: Key | undefined;
-      target: unknown;
-      children: unknown;
-    };
-
-/** Element type rendering its children into `props.target`. */
-export const PORTAL_TYPE = Symbol.for('askr.core.portal');
+  | { kind: typeof NATIVE; key: undefined; node: object };
 
 /**
  * Element type rendering its children in place but owned by `props.owner`:
@@ -114,8 +104,6 @@ export function descriptorType(child: ChildDescriptor): unknown {
       return child.tag;
     case COMPONENT:
       return child.fn;
-    case PORTAL:
-      return child.target;
     case NATIVE:
       return child.node;
     default:
@@ -186,14 +174,6 @@ export function normalizeChildren(
       key,
       fn: type as ComponentFunction,
       props: propsOf(vnode),
-    });
-  } else if (type === PORTAL_TYPE) {
-    const props = propsOf(vnode);
-    out.push({
-      kind: PORTAL,
-      key,
-      target: props.target,
-      children: props.children,
     });
   } else if (type === OWNED_TYPE) {
     const props = propsOf(vnode);
