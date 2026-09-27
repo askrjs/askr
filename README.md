@@ -31,14 +31,16 @@ for exactly what Askr guarantees and what it does not.
 
 ## Quick Start
 
-```ts
+```tsx
 import { state } from '@askrjs/askr';
 import { createIsland } from '@askrjs/askr/boot';
 
 function Counter() {
   const [count, setCount] = state(0);
 
-  return <button onClick={() => setCount((value) => value + 1)}>{count()}</button>;
+  return (
+    <button onClick={() => setCount((value) => value + 1)}>{count()}</button>
+  );
 }
 
 createIsland({ root: document.body, component: Counter });
@@ -125,18 +127,21 @@ createSPA({
 
 `resource()` manages async work with cancellation support.
 
-```ts
+```tsx
 import { resource } from '@askrjs/askr/resources';
 
 function Data({ id }: { id: string }) {
-  const data = resource(async ({ signal }) => {
-    const response = await fetch(`/api/${id}`, { signal });
-    return response.json();
-  }, [id]);
+  const data = resource(
+    async ({ signal }) => {
+      const response = await fetch(`/api/${id}`, { signal });
+      return response.json();
+    },
+    [id]
+  );
 
   if (data.pending) return <div>Loading...</div>;
   if (data.error) return <div>Failed to load</div>;
-return <div>{data.value.name}</div>;
+  return <div>{data.value?.name}</div>;
 }
 ```
 
@@ -152,7 +157,7 @@ a `resetKey` tied to your app state. The boundary protects both initial mount
 and scheduled post-mount updates. Portal content follows its logical writer
 boundary and can also recover through a boundary around its host.
 
-```ts
+```tsx
 import { ErrorBoundary } from '@askrjs/askr/components';
 
 function App() {
@@ -166,7 +171,7 @@ function App() {
 
 ## Documentation
 
-- [Documentation Index](docs/index.md)
+- [Documentation Index](docs/README.md)
 - [Installation](docs/getting-started/installation.md)
 - [Quick Start](docs/getting-started/quick-start.md)
 - [State Guide](docs/guides/state.md)

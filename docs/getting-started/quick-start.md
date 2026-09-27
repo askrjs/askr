@@ -80,7 +80,11 @@ await createSPA({
 
 ## 4) Async data pattern
 
-Keep route handlers synchronous. Fetch data in components using resources.
+Components render synchronously. Data a page needs before it renders belongs
+in a route `loader`, read with `routeData()`; see the
+[router reference](../reference/router.md#routedata-defer-and-resolve). For
+component-owned async work that can load after the first render, use
+`resource()`:
 
 ```tsx run=quick-start-user
 import { resource } from '@askrjs/askr/resources';

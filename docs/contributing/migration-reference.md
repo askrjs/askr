@@ -45,7 +45,7 @@ content.
 
 ## Contributor Checklist
 
-- Keep [docs/index.md](../index.md) and [docs/README.md](../README.md) current
+- Keep [docs/README.md](../README.md) current
   when adding or removing pages.
 - Prefer relative links inside this repository.
 - Use GitHub links for package-owned docs in sibling repositories.

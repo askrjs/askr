@@ -315,6 +315,16 @@ injection.
 When you pass `document` to `renderToStream()`, Askr buffers the app HTML first,
 applies the callback, then emits the wrapped document output.
 
+## Render context helpers
+
+`@askrjs/askr/ssr` also exports the request-local render context used by server
+integrations. `createRenderContext(seed?, options?)` builds a fresh context,
+`withRenderContext(ctx, fn)` and `withRenderContextAsync(ctx, fn)` run code with
+it active (isolated per request through async-local storage in Node.js), and
+`getRenderContext()` returns the active context or `null`. The render
+functions above create and activate a context themselves, so most servers never
+call these directly.
+
 ## Related topics
 
 - [SSG Guide](ssg.md)

@@ -24,8 +24,8 @@ pull request open at a time unless a maintainer agrees otherwise.
 
 ## Prerequisites
 
-- Node.js 24.15+ (LTS)
-- npm 10+
+- Node.js 24+ (the `engines` range)
+- npm 12 (the `packageManager` version)
 
 ## Local Setup
 
@@ -35,18 +35,34 @@ cd askr
 npm install
 ```
 
+## Branches
+
+`develop` is the default integration branch. `main` contains release candidates
+and receives changes through promotion pull requests from `develop`.
+
 ## Development Workflow
 
-1. Create a branch from `main`.
+1. Create a topic branch from `develop` and target `develop` with its pull
+   request.
 2. Make focused changes with tests or docs when behavior changes.
 3. Run the relevant quality gates locally.
 4. Open a pull request with a clear description.
+
+## Build and Typecheck
+
+The repository uses TypeScript 7 for command-line typechecking and
+installed-package validation. Checks that inspect source and declarations use
+the TypeScript 6 compiler API through the explicit `@typescript/typescript6`
+dependency. `npm run typecheck` checks `src`, `test-utils`, `benches`, and
+`tests` (`tests/types` holds tsd type tests with intentional errors and runs
+through `npm run test:types` instead).
 
 ## Required Checks Before PR
 
 Run the checks that apply to the change:
 
 ```bash
+npm run fmt -- --check
 npm run lint
 npm run build
 npm test
@@ -81,10 +97,9 @@ boundaries.
   `tests/checks/docs/runnable-snippets.test.ts` that mounts or calls what the
   snippet defines and asserts the documented behavior.
 
-Primary entry points:
-
-- `docs/index.md`
-- `docs/README.md`
+The documentation entry point is `docs/README.md`. Writing conventions are in
+the [docs style guide](docs/contributing/docs-style-guide.md), and test
+patterns in the [testing guide](docs/contributing/testing.md).
 
 ## Testing Expectations
 

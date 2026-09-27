@@ -383,6 +383,47 @@ server render without request auth, such as `renderToString(Component)`, sees
 an anonymous identity; server-side route resolution never updates the
 browser-wide identity.
 
+## Access decisions
+
+Route policies return access decisions. A policy is `(context) => AccessDecision | PromiseLike<AccessDecision>` passed
+in a route's `policies` array.
+
+- `allow()` lets the request continue.
+- `redirect(to, init?)` sends the visitor elsewhere. A string is a logical path
+  that gains the registry `basePath`; a `to()` destination is used as-is.
+  `init` sets `status` and `replace`.
+- `deny(status)` stops the request with a 401, 403, or 404 status.
+  `unauthorized()`, `forbidden()`, and `notFound()` are shorthands for
+  `deny(401)`, `deny(403)`, and `deny(404)`.
+
+## Deferred value helpers
+
+- `isDeferred(value)` checks whether a value came from `defer()`.
+- `resolveDeferredValues(input, signal?)` awaits every `defer()` value nested in
+  `input` and returns the fully resolved structure. Use it when a consumer
+  outside `Resolve`, such as a JSON endpoint, needs the settled data.
+
+## Route metadata helpers
+
+Most applications let the router manage the document head. Custom shells can
+use the same helpers:
+
+- `resolveRouteMeta(record, context)` runs a route's metadata chain and returns
+  the merged `RouteMeta`.
+- `serializeRouteMeta(meta)` renders `<title>`, `<meta>`, `<link>`, and JSON-LD
+  markup for a server-rendered `<head>`.
+- `reconcileRouteMeta(meta, target?)` replaces only Askr-owned head nodes after
+  a client navigation.
+
+## Route testing helpers
+
+`@askrjs/askr/testing` matches routes without mounting an app:
+
+- `matchRoute(path, { registry })` returns the matched route and params, or
+  `null`.
+- `getRouteWarnings({ registry })` reports named-splat routes whose segments
+  collide with sibling static routes.
+
 ## `fallback(Component)`
 
 Registers a pathful miss route.

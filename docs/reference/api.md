@@ -14,6 +14,16 @@ Common runtime exports:
 - `defineScope()`
 - `readScope()`
 - `getSignal()`
+- `createRef()`
+- `cspNonce()` reads the request CSP nonce during render; `CspNonceScope` is the
+  scope that carries it
+- `registerSSRStyle(id, cssText)` adds request-local CSS to the SSR output. It
+  does nothing outside an SSR render, so client code can call it without
+  importing the SSR renderer. Registering a different `cssText` under an
+  existing `id` throws a `RangeError`.
+- `configureRenderDiagnostics(options)` configures development render warnings
+  and returns a function that restores the previous settings; see
+  [runtime enforcement](../concepts/runtime-enforcement.md)
 - JSX runtime exports: `jsx`, `jsxs`, and `Fragment`
 
 Public types:
@@ -86,8 +96,11 @@ Neither is re-exported from the root.
 - `@askrjs/askr/foundations/interactions` - platform internal interaction-policy helpers for sibling UI packages
 - `@askrjs/askr/foundations/state` - controllable-state helpers
 - `@askrjs/askr/foundations/icon` - platform internal icon contracts for sibling icon packages
+
+The foundations subpaths are described in the [foundations reference](./foundations.md).
+
 - `@askrjs/askr/jsx-runtime` - JSX factory exports plus `JSXElement`, `JSXComponent`, and `JSXElementType`
-- `@askrjs/askr/jsx-dev-runtime` - JSX development runtime exports plus the same JSX public types
+- `@askrjs/askr/jsx-dev-runtime` - `jsxDEV` for development JSX transforms (both JSX entrypoints export it), plus the same JSX public types
 
 Both JSX runtime entrypoints export the `JSX` namespace used by TypeScript's
 automatic JSX transform. Askr does not declare a global `JSX` namespace; import
