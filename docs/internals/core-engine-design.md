@@ -114,6 +114,5 @@ for those contracts.
 See [ownership](../development/ownership.md),
 [commit protocol](../development/commit-protocol.md),
 [renderer ownership](../development/renderer-ownership.md),
-[integrations](../development/integration-boundaries.md),
-[runtime extension boundary](./runtime-extension-boundary.md), and
+[integrations](../development/integration-boundaries.md), and
 [quality contracts](../development/quality-contracts.md).

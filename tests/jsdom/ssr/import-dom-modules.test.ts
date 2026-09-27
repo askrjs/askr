@@ -2,7 +2,7 @@ import { expect, it } from 'vite-plus/test';
 
 // This test simulates an SSR-like environment by temporarily removing
 // `document` and `window` from globalThis and dynamically importing the
-// renderer modules to ensure they don't throw at module-eval time.
+// core DOM modules to ensure they don't throw at module-eval time.
 it('should import renderer modules safely in SSR when document/window are missing', async () => {
   const g = globalThis as unknown as Record<string, unknown>;
   const savedDoc = g.document as unknown;
@@ -15,10 +15,10 @@ it('should import renderer modules safely in SSR when document/window are missin
     // because `document` or `window` are undefined (module-eval must be safe).
     // Use import() so the module is evaluated under the altered globals.
     const modules = await Promise.all([
-      import('../../../src/renderer/dom'),
-      import('../../../src/renderer/evaluation/evaluate'),
-      import('../../../src/renderer/reconciliation/fastpath'),
-      import('../../../src/renderer/reconciliation/reconcile'),
+      import('../../../src/core/dom/root'),
+      import('../../../src/core/dom/nodes'),
+      import('../../../src/core/dom/reconcile'),
+      import('../../../src/core/dom/updates'),
     ]);
 
     expect(modules).toHaveLength(4);

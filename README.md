@@ -56,8 +56,7 @@ The tuple form above and the direct callable form below are equivalent; see
 runtime exports.
 
 Public APIs are mostly functions and closures. Error classes such as
-`RouteDataLoadError` and `SSRDataMissingError` live on their subpaths. Runtime
-construction and renderer-host extensions live on the experimental subpath.
+`RouteDataLoadError` and `SSRDataMissingError` live on their subpaths.
 Lexical ownership uses `defineScope()` and `readScope()`;
 there are no compatibility aliases for the clean-break vocabulary.
 

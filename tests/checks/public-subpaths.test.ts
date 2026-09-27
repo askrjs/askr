@@ -17,18 +17,17 @@ describe('published subpath map', () => {
       subpaths: Record<string, { purpose: string; stability: string }>;
     };
     expect(map.version).toBe(1);
+    expect(pkg.exports).not.toHaveProperty('./experimental');
     expect(Object.keys(map.subpaths).sort()).toEqual(
       Object.keys(pkg.exports).sort()
     );
     for (const [subpath, entry] of Object.entries(map.subpaths)) {
       expect(entry.purpose.length).toBeGreaterThan(0);
       const expectedStability =
-        subpath === './experimental'
-          ? 'experimental'
-          : subpath === './foundations/interactions' ||
-              subpath === './foundations/icon'
-            ? 'internal'
-            : 'stable';
+        subpath === './foundations/interactions' ||
+        subpath === './foundations/icon'
+          ? 'internal'
+          : 'stable';
       expect(entry.stability).toBe(expectedStability);
     }
   });

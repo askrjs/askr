@@ -138,9 +138,12 @@ function rerenderDynamic(node: DynamicNode): void {
   });
 }
 
-setRenderHost({
-  rerender: rerenderInstance,
-  isHydrating: isHydratingRender,
-  deferHydration: deferHydratingRender,
-});
-setDynamicUpdateScheduler(scheduleDynamic);
+/** Bind standalone updates when a DOM root is created. */
+export function installRenderUpdates(): void {
+  setRenderHost({
+    rerender: rerenderInstance,
+    isHydrating: isHydratingRender,
+    deferHydration: deferHydratingRender,
+  });
+  setDynamicUpdateScheduler(scheduleDynamic);
+}

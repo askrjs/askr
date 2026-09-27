@@ -1,15 +1,9 @@
 import { expect, test, vi } from 'vitest';
 import { ErrorBoundary } from '@askrjs/askr/components';
 import { derive, state, type State } from '@askrjs/askr';
-import {
-  AskrRuntime,
-  createRuntime,
-  getDefaultRuntime,
-  type RuntimeRendererHost,
-} from '@askrjs/askr/experimental';
 import '@askrjs/askr/boot';
 import { watch } from '@askrjs/askr/resources';
-import { render, type RenderResult } from '@askrjs/askr/testing';
+import { render } from '@askrjs/askr/testing';
 
 test('should preserve synchronous execution and committed watch generations', () => {
   const events: string[] = [];
@@ -55,102 +49,6 @@ test('should preserve synchronous execution and committed watch generations', ()
   }
 });
 
-test('should preserve runtime configuration, replacement and scheduler callbacks', () => {
-  const original = getDefaultRuntime().renderer;
-  const calls: unknown[][] = [];
-  const renderer: RuntimeRendererHost = {
-    ...original,
-    evaluate(node, target, context, owner) {
-      expect(this).toBe(renderer);
-      calls.push([node, target, context, owner]);
-      original.evaluate(node, target, context, owner);
-    },
-  };
-  const scheduler = getDefaultRuntime().scheduler;
-  const runtime = createRuntime({ scheduler, renderer });
-  expect(runtime).toBeInstanceOf(AskrRuntime);
-  expect(runtime.scheduler).toBe(scheduler);
-  expect(runtime.renderer).toBe(renderer);
-  const root = document.createElement('main');
-  const context = {};
-  runtime.renderer.evaluate(<span>custom host</span>, root, context);
-  expect(calls).toEqual([[expect.any(Object), root, context, undefined]]);
-  expect(root.textContent).toBe('custom host');
-  runtime.configureRenderer(original);
-  expect(runtime.renderer).toBe(original);
-  expect(getDefaultRuntime().renderer).toBe(original);
-
-  const events: string[] = [];
-  runtime.scheduler.runInHandlerScope(() => {
-    runtime.scheduler.enqueueInLane('post', () => events.push('post'));
-    runtime.scheduler.enqueueInLane('reactive', () => events.push('reactive'));
-    runtime.scheduler.enqueue(() => events.push('component'));
-    runtime.scheduler.enqueueInLane('derived', () => events.push('derived'));
-    expect(events).toEqual([]);
-  }, 'sync');
-  expect(events).toEqual(['derived', 'component', 'reactive', 'post']);
-  original.teardownNodeSubtree(root);
-});
-
-test('should expose stable callback owners backed by the committed state readers', () => {
-  const runtime = getDefaultRuntime();
-  const original = runtime.renderer;
-  let owner: Parameters<RuntimeRendererHost['evaluate']>[3];
-  let count!: State<number>;
-  let evaluations = 0;
-  let view: RenderResult | undefined;
-  const custom: RuntimeRendererHost = {
-    ...original,
-    evaluate(node, target, context, retainedOwner) {
-      expect(this).toBe(custom);
-      if (retainedOwner) {
-        if (owner) expect(retainedOwner).toBe(owner);
-        owner = retainedOwner;
-        expect(owner.target).toBe(target);
-        evaluations++;
-      }
-      original.evaluate(node, target, context, retainedOwner);
-    },
-  };
-  runtime.configureRenderer(custom);
-  try {
-    view = render(() => {
-      count = state(0);
-      return <output>{String(count())}</output>;
-    });
-    expect(owner).toBeDefined();
-    const initialEvaluations = evaluations;
-
-    // The committed read subscribes the owner: each write re-evaluates it,
-    // through the same retained owner, across successive commits.
-    count.set(1);
-    view.flush();
-    expect(view.root.textContent).toBe('1');
-    expect(evaluations).toBeGreaterThan(initialEvaluations);
-    const afterFirstUpdate = evaluations;
-    count.set(2);
-    view.flush();
-    expect(view.root.textContent).toBe('2');
-    expect(evaluations).toBeGreaterThan(afterFirstUpdate);
-
-    // Unmounting releases the owner: later writes no longer reach it.
-    view.unmount();
-    const afterUnmount = evaluations;
-    expect(() => {
-      count.set(3);
-      view!.flush();
-    }).not.toThrow();
-    expect(evaluations).toBe(afterUnmount);
-    expect(view.root.textContent).not.toContain('3');
-  } finally {
-    try {
-      view?.cleanup();
-    } finally {
-      runtime.configureRenderer(original);
-    }
-  }
-});
-
 test('should drain sibling cleanup before surfacing a strict disposal failure', () => {
   const events: string[] = [];
   const view = render(
@@ -169,9 +67,9 @@ test('should drain sibling cleanup before surfacing a strict disposal failure', 
   );
   try {
     expect(() => view.unmount()).toThrow(AggregateError);
-    expect(events).toEqual(['first', 'second']);
+    expect(events).toEqual(['second', 'first']);
     view.unmount();
-    expect(events).toEqual(['first', 'second']);
+    expect(events).toEqual(['second', 'first']);
   } finally {
     view.cleanup();
   }

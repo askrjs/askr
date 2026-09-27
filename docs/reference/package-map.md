@@ -53,9 +53,6 @@ import { createStaticGen } from '@askrjs/askr/ssg';
 Import `schema`, `createI18n`, and `createTelemetry` from their owning sibling
 packages when those packages are installed.
 
-`@askrjs/askr/experimental` contains construction-only runtime and renderer
-extension wiring for maintainers; see [Experimental runtime extensions](experimental.md).
-
 `@askrjs/askr/foundations/interactions` and
 `@askrjs/askr/foundations/icon` remain published for sibling UI and icon
 packages. They are platform internal building blocks. Applications should

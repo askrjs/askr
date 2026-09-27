@@ -75,30 +75,6 @@ still throw instead of being awaited. The synchronous `renderToString({ url,
 registry })` does not run route loaders and throws `SSRDataMissingError` for a
 route that declares one.
 
-## Runtime boundary
-
-The construction-only `@askrjs/askr/experimental` subpath exposes
-`createRuntime()` and `getDefaultRuntime()` for runtime and renderer maintainers.
-Core implementation modules route default scheduler and renderer access through
-the internal runtime access boundary so hot paths do not import singleton
-globals directly.
-
-`createRuntime()` constructs scheduler and renderer wiring only. Mounting uses
-the default runtime; creating another runtime does not isolate mounted trees.
-An omitted scheduler shares the default scheduler.
-
-`createDOMRendererHost(configure)` constructs an adapter accepted by runtime
-`renderer` options and `configureRenderer()`, without installing it. The callback
-receives complete native `evaluation`, `cleanup`, `scopes`, `keys`, and
-`reactivity` roles. Return all five roles and delegate explicitly where needed.
-Later role and method replacement remains observable; callbacks receive their
-role object as `this`. Legacy renderer hosts remain supported.
-
-Component owners, child scopes, and reactive sources reach host callbacks as
-opaque handles: compare them by identity and pass them back unchanged. The
-handle, patching, and commit rules that renderer maintainers rely on are in
-[Internals: Runtime extension boundary](../internals/runtime-extension-boundary.md).
-
 ## When work becomes observable
 
 Askr uses signals internally, but its public primitives become observable at

@@ -26,11 +26,8 @@ describe('production artifact purity', () => {
   it('should retain lifetime state-read tracking for consumer development diagnostics', () => {
     const source = readProductionJavaScript();
 
-    expect(source).toContain('source._unusedStateDiagnosticEligible === true');
-    expect(source).toContain('source._hasEverBeenRead = true');
-    expect(source).not.toMatch(
-      /function recordReadableRead\(source\) \{\s*source\._hasEverBeenRead = true/
-    );
+    expect(source).toContain('read._everRead = true');
+    expect(source).toContain('Unused state variable detected');
   });
 
   it('should exclude live benchmark and development-only state from dist', () => {

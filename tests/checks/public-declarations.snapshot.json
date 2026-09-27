@@ -617,59 +617,6 @@
         "interface ServerQueryRegistry {\n    readonly entries: readonly ServerQueryEntry<unknown, {}>[];\n    get<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>): ServerQueryHandler<TInput, TResult> | undefined;\n}"
       ]
     },
-    "./experimental": {
-      "AskrRuntime": [
-        "declare class AskrRuntime {\n    readonly scheduler: Scheduler;\n    constructor(options?: AskrRuntimeOptions);\n    get renderer(): RuntimeRendererHost;\n    configureRenderer(renderer: RuntimeRendererHost): void;\n}"
-      ],
-      "AskrRuntimeOptions": [
-        "interface AskrRuntimeOptions {\n    scheduler?: Scheduler;\n    renderer?: RuntimeRendererHost;\n}"
-      ],
-      "createDOMRendererHost": [
-        "export declare function createDOMRendererHost(configure: (native: DOMRendererHost) => DOMRendererHost): RuntimeRendererHost;"
-      ],
-      "createRuntime": [
-        "declare function createRuntime(options?: AskrRuntimeOptions): AskrRuntime;"
-      ],
-      "DOMChildScope": [
-        "export interface DOMChildScope {\n    readonly [scopeBrand]: never;\n}"
-      ],
-      "DOMComponentOwner": [
-        "export interface DOMComponentOwner {\n    readonly [ownerBrand]: never;\n}"
-      ],
-      "DOMReactiveSource": [
-        "export interface DOMReactiveSource {\n    readonly [sourceBrand]: never;\n}"
-      ],
-      "DOMRendererCleanup": [
-        "export interface DOMRendererCleanup {\n    cleanupInstancesUnder(node: Node): void;\n    teardownNodeSubtree(root: Node): void;\n}"
-      ],
-      "DOMRendererEvaluation": [
-        "export interface DOMRendererEvaluation {\n    evaluate(node: unknown, target: Element | null, context?: object, retainedOwner?: DOMComponentOwner): void;\n    replaceComponentRange(owner: DOMComponentOwner, result: unknown, host: Element | Comment): Node | null;\n}"
-      ],
-      "DOMRendererHost": [
-        "export interface DOMRendererHost {\n    evaluation: DOMRendererEvaluation;\n    cleanup: DOMRendererCleanup;\n    scopes: DOMRendererScopes;\n    keys: DOMRendererKeys;\n    reactivity: DOMRendererReactivity;\n}"
-      ],
-      "DOMRendererKeys": [
-        "export interface DOMRendererKeys {\n    populateKeyMapForElement(parent: Element): void;\n    getKeyMapForElement(parent: Element): Map<string | number, Element> | undefined;\n    isKeyedReorderFastPathEligible(parent: Element, children: unknown[], oldKeyMap: Map<string | number, Element> | undefined): RuntimeKeyedReorderDecision;\n}"
-      ],
-      "DOMRendererRange": [
-        "export interface DOMRendererRange {\n    readonly start: Node;\n    readonly end: Node;\n    readonly single: boolean;\n}"
-      ],
-      "DOMRendererReactivity": [
-        "export interface DOMRendererReactivity {\n    markReactivePropsDirtySource(source: DOMReactiveSource): void;\n}"
-      ],
-      "DOMRendererScopes": [
-        "export interface DOMRendererScopes {\n    resolveChildScopeRange(scope: DOMChildScope): DOMRendererRange | null;\n}"
-      ],
-      "getDefaultRuntime": [
-        "declare function getDefaultRuntime(): AskrRuntime;"
-      ],
-      "RuntimeKeyedReorderDecision": [
-        "interface RuntimeKeyedReorderDecision {\n    useFastPath: boolean;\n    totalKeyed: number;\n    totalChildren: number;\n    currentKeyCount: number;\n    moveCount: number;\n    lisLen: number;\n    hasPropChanges: boolean;\n    isWholeKeyedList: boolean;\n}"
-      ],
-      "RuntimeRendererHost": [
-        "interface RuntimeRendererHost {\n    evaluate(node: unknown, target: Element | null, context?: object, retainedOwner?: ComponentInstance): void;\n    cleanupInstancesUnder(node: Node): void;\n    replaceComponentRange(instance: ComponentInstance, result: unknown, host: Element | Comment): Node | null;\n    resolveChildScopeRange?(scope: ChildScope): DOMRange | null;\n    teardownNodeSubtree(root: Node): void;\n    populateKeyMapForElement(parent: Element): void;\n    getKeyMapForElement(parent: Element): Map<string | number, Element> | undefined;\n    isKeyedReorderFastPathEligible(parent: Element, children: unknown[], oldKeyMap: Map<string | number, Element> | undefined): RuntimeKeyedReorderDecision;\n    markReactivePropsDirtySource(source: ReadableSource<unknown>): void;\n}"
-      ]
-    },
     "./testing": {
       "cleanup": [
         "declare function cleanup(target: RenderResult | HTMLElement): void;"
@@ -777,6 +724,9 @@
       "RetryOptions": [
         "interface RetryOptions {\n    maxAttempts?: number;\n    delayMs?: number;\n    backoff?: (attemptIndex: number) => number;\n}"
       ],
+      "RetryOutcome": [
+        "type RetryOutcome<T> = {\n    status: \"success\";\n    value: T;\n} | {\n    status: \"error\";\n    error: unknown;\n} | {\n    status: \"cancelled\";\n};"
+      ],
       "scheduleEventHandler": [
         "declare function scheduleEventHandler(handler: EventListener): EventListener;"
       ],
@@ -798,10 +748,7 @@
       "ThrottleOptions": [
         "interface ThrottleOptions {\n    leading?: boolean;\n    trailing?: boolean;\n}"
       ],
-      "timeout": ["declare function timeout(ms: number): Promise<void>;"],
-      "RetryOutcome": [
-        "type RetryOutcome<T> = {\n    status: \"success\";\n    value: T;\n} | {\n    status: \"error\";\n    error: unknown;\n} | {\n    status: \"cancelled\";\n};"
-      ]
+      "timeout": ["declare function timeout(ms: number): Promise<void>;"]
     },
     "./router": {
       "AccessDecision": [
@@ -1301,12 +1248,6 @@
     "ariaSelected": [
       "declare function ariaSelected(selected?: boolean): {\n    \"aria-selected\"?: \"true\" | \"false\";\n};"
     ],
-    "AskrRuntime": [
-      "declare class AskrRuntime {\n    readonly scheduler: Scheduler;\n    constructor(options?: AskrRuntimeOptions);\n    get renderer(): RuntimeRendererHost;\n    configureRenderer(renderer: RuntimeRendererHost): void;\n}"
-    ],
-    "AskrRuntimeOptions": [
-      "interface AskrRuntimeOptions {\n    scheduler?: Scheduler;\n    renderer?: RuntimeRendererHost;\n}"
-    ],
     "BivariantHandler": [
       "type BivariantHandler<T> = {\n    bivarianceHack(value: T): void;\n}[\"bivarianceHack\"];"
     ],
@@ -1421,9 +1362,6 @@
     "createDataRuntime": [
       "declare function createDataRuntime(options?: DataRuntimeOptions): DataRuntime;"
     ],
-    "createDOMRendererHost": [
-      "export declare function createDOMRendererHost(configure: (native: DOMRendererHost) => DOMRendererHost): RuntimeRendererHost;"
-    ],
     "createFreshQuery": [
       "declare function createFreshQuery<T extends {}>(data: T, options?: MockQueryOptions): Query<T>;"
     ],
@@ -1467,9 +1405,6 @@
     ],
     "createRouteRegistry": [
       "declare function createRouteRegistry(definition: RouteDefinition, options?: RouteRegistryOptions): RouteRegistry;"
-    ],
-    "createRuntime": [
-      "declare function createRuntime(options?: AskrRuntimeOptions): AskrRuntime;"
     ],
     "createSPA": [
       "declare function createSPA(config: SPAConfig): Promise<void>;"
@@ -1574,41 +1509,11 @@
     "documentVisible": [
       "declare function documentVisible(): ActivityPredicate;"
     ],
-    "DOMChildScope": [
-      "export interface DOMChildScope {\n    readonly [scopeBrand]: never;\n}"
-    ],
-    "DOMComponentOwner": [
-      "export interface DOMComponentOwner {\n    readonly [ownerBrand]: never;\n}"
-    ],
     "DOMElement": [
       "interface DOMElement {\n    type: JSXElementType;\n    props?: Props;\n    children?: VNode[];\n    key?: string | number | null;\n    [Symbol.iterator]?: never;\n    _controlState?: ControlBoundaryState;\n}"
     ],
     "DOMRange": [
       "interface DOMRange {\n    start: Node;\n    end: Node;\n    single: boolean;\n}"
-    ],
-    "DOMReactiveSource": [
-      "export interface DOMReactiveSource {\n    readonly [sourceBrand]: never;\n}"
-    ],
-    "DOMRendererCleanup": [
-      "export interface DOMRendererCleanup {\n    cleanupInstancesUnder(node: Node): void;\n    teardownNodeSubtree(root: Node): void;\n}"
-    ],
-    "DOMRendererEvaluation": [
-      "export interface DOMRendererEvaluation {\n    evaluate(node: unknown, target: Element | null, context?: object, retainedOwner?: DOMComponentOwner): void;\n    replaceComponentRange(owner: DOMComponentOwner, result: unknown, host: Element | Comment): Node | null;\n}"
-    ],
-    "DOMRendererHost": [
-      "export interface DOMRendererHost {\n    evaluation: DOMRendererEvaluation;\n    cleanup: DOMRendererCleanup;\n    scopes: DOMRendererScopes;\n    keys: DOMRendererKeys;\n    reactivity: DOMRendererReactivity;\n}"
-    ],
-    "DOMRendererKeys": [
-      "export interface DOMRendererKeys {\n    populateKeyMapForElement(parent: Element): void;\n    getKeyMapForElement(parent: Element): Map<string | number, Element> | undefined;\n    isKeyedReorderFastPathEligible(parent: Element, children: unknown[], oldKeyMap: Map<string | number, Element> | undefined): RuntimeKeyedReorderDecision;\n}"
-    ],
-    "DOMRendererRange": [
-      "export interface DOMRendererRange {\n    readonly start: Node;\n    readonly end: Node;\n    readonly single: boolean;\n}"
-    ],
-    "DOMRendererReactivity": [
-      "export interface DOMRendererReactivity {\n    markReactivePropsDirtySource(source: DOMReactiveSource): void;\n}"
-    ],
-    "DOMRendererScopes": [
-      "export interface DOMRendererScopes {\n    resolveChildScopeRange(scope: DOMChildScope): DOMRendererRange | null;\n}"
     ],
     "EAGER_CONTROL_PRIMITIVE": ["EAGER_CONTROL_PRIMITIVE: unique symbol"],
     "EagerControlPrimitive": [
@@ -1730,7 +1635,6 @@
     "getDefaultDataRuntime": [
       "declare function getDefaultDataRuntime(): DataRuntime;"
     ],
-    "getDefaultRuntime": ["declare function getDefaultRuntime(): AskrRuntime;"],
     "getIconContractProps": [
       "declare function getIconContractProps({ size, strokeWidth, color, title, style, iconName }: Pick<IconProps, \"color\" | \"iconName\" | \"size\" | \"strokeWidth\" | \"style\" | \"title\">): {\n    sizeToken: IconSizeToken | undefined;\n    decorative: string | undefined;\n    iconStyle: string | undefined;\n    attrs: {\n        xmlns: string;\n        width: string;\n        height: string;\n        fill: string;\n        stroke: string;\n        \"stroke-width\": string;\n        role: string;\n        \"aria-hidden\": string | undefined;\n        style: string | undefined;\n        \"data-slot\": string;\n        \"data-icon\": string | undefined;\n        \"data-size\": IconSizeToken | undefined;\n        \"data-decorative\": string | undefined;\n        \"data-color\": string | undefined;\n    };\n};"
     ],
@@ -2135,7 +2039,6 @@
     "OwnedChildScope": [
       "type OwnedChildScope = {\n    key: string | number;\n    dispose(): void;\n};"
     ],
-    "ownerBrand": ["ownerBrand: unique symbol"],
     "page": [
       "declare function page<const TPath extends string, TComponent extends AnyRouteComponent>(path: TPath, Component: CompatibleRouteComponent<TPath, TComponent>, fn: RouteDefinition): void;",
       "declare function page<const TPath extends string, TComponent extends AnyRouteComponent>(path: TPath, Component: CompatibleRouteComponent<TPath, TComponent>, options: PageHelperOptions, fn: RouteDefinition): void;",
@@ -2378,6 +2281,9 @@
     "RetryOptions": [
       "interface RetryOptions {\n    maxAttempts?: number;\n    delayMs?: number;\n    backoff?: (attemptIndex: number) => number;\n}"
     ],
+    "RetryOutcome": [
+      "type RetryOutcome<T> = {\n    status: \"success\";\n    value: T;\n} | {\n    status: \"error\";\n    error: unknown;\n} | {\n    status: \"cancelled\";\n};"
+    ],
     "route": [
       "declare function route<const TPath extends string, TComponent extends AnyRouteComponent, const TSearchSchema extends ObjectSchema<RouteSearch> | undefined = undefined, TLoaderData = unknown, TDehydratedData = TLoaderData>(path: TPath, Component: CompatibleRouteComponent<TPath, TComponent>, options?: RouteOptionsForComponent<TPath, TComponent, TSearchSchema, TLoaderData, TDehydratedData>): RouteRef<RoutePathParams<TPath>, RouteRefSearch<TSearchSchema>>;",
       "declare function route<const TPath extends string, const TSearchSchema extends ObjectSchema<RouteSearch> | undefined = undefined, TLoaderData = unknown, TDehydratedData = TLoaderData>(path: TPath, Component: RouteComponent<RoutePathParams<TPath>>, options?: RouteOptions<RoutePathParams<TPath>, TSearchSchema, TLoaderData, TDehydratedData>): RouteRef<RoutePathParams<TPath>, RouteRefSearch<TSearchSchema>>;"
@@ -2531,12 +2437,6 @@
     "RovingFocusResult": [
       "interface RovingFocusResult {\n    container: {\n        onKeyDown: (e: KeyboardLikeEvent) => void;\n    };\n    item: (index: number) => {\n        tabIndex: number;\n        \"data-roving-index\": number;\n    };\n}"
     ],
-    "RuntimeKeyedReorderDecision": [
-      "interface RuntimeKeyedReorderDecision {\n    useFastPath: boolean;\n    totalKeyed: number;\n    totalChildren: number;\n    currentKeyCount: number;\n    moveCount: number;\n    lisLen: number;\n    hasPropChanges: boolean;\n    isWholeKeyedList: boolean;\n}"
-    ],
-    "RuntimeRendererHost": [
-      "interface RuntimeRendererHost {\n    evaluate(node: unknown, target: Element | null, context?: object, retainedOwner?: ComponentInstance): void;\n    cleanupInstancesUnder(node: Node): void;\n    replaceComponentRange(instance: ComponentInstance, result: unknown, host: Element | Comment): Node | null;\n    resolveChildScopeRange?(scope: ChildScope): DOMRange | null;\n    teardownNodeSubtree(root: Node): void;\n    populateKeyMapForElement(parent: Element): void;\n    getKeyMapForElement(parent: Element): Map<string | number, Element> | undefined;\n    isKeyedReorderFastPathEligible(parent: Element, children: unknown[], oldKeyMap: Map<string | number, Element> | undefined): RuntimeKeyedReorderDecision;\n    markReactivePropsDirtySource(source: ReadableSource<unknown>): void;\n}"
-    ],
     "Scheduled": [
       "type Scheduled<T extends AnyFn> = (this: ThisParameterType<T>, ...args: Parameters<T>) => void;"
     ],
@@ -2546,17 +2446,8 @@
     "scheduleIdle": [
       "declare function scheduleIdle(fn: () => void, options?: {\n    timeout?: number;\n}): CancelFn;"
     ],
-    "Scheduler": [
-      "declare class Scheduler {\n    setBulkCommitProbe(probe: SchedulerBulkCommitProbe): void;\n    enqueue(task: Task): void;\n    enqueueInLane(lane: SchedulerLane, task: Task): void;\n    flush(): void;\n    runWithSyncProgress<T>(fn: () => T): T;\n    waitForFlush(targetVersion?: number, timeoutMs?: number): Promise<void>;\n    getState(): {\n        queueLength: number;\n        running: boolean;\n        depth: number;\n        flushVersion: number;\n        laneQueues: {\n            derived: number;\n            component: number;\n            reactive: number;\n            post: number;\n        };\n        inHandler: boolean;\n        allowSyncProgress: boolean;\n    };\n    getFlushVersion(): number;\n    flushIfQueued(): void;\n    runInHandlerScope<T>(fn: () => T, flushMode?: \"defer\" | \"sync\"): T;\n    isInHandler(): boolean;\n    isExecuting(): boolean;\n    clearPendingSyncTasks(): number;\n}"
-    ],
-    "SchedulerBulkCommitProbe": [
-      "type SchedulerBulkCommitProbe = () => boolean;"
-    ],
     "scheduleRetry": [
       "declare function scheduleRetry<T>(fn: () => Promise<T>, options?: RetryOptions): {\n    cancel(): void;\n    result: Promise<RetryOutcome<T>>;\n};"
-    ],
-    "SchedulerLane": [
-      "type SchedulerLane = \"derived\" | \"component\" | \"reactive\" | \"post\";"
     ],
     "scheduleTimeout": [
       "declare function scheduleTimeout(ms: number, fn: () => void): CancelFn;"
@@ -2564,7 +2455,6 @@
     "Scope": [
       "interface Scope<T> {\n    (props: {\n        value: T;\n        children?: ContextScopeChildren;\n    }): JSXElement;\n    readonly key: ContextKey;\n    readonly defaultValue: T;\n}"
     ],
-    "scopeBrand": ["scopeBrand: unique symbol"],
     "ScrollRestorationOptions": [
       "type ScrollRestorationOptions = {\n    navigation?: NavigationScrollBehavior;\n    history?: HistoryScrollBehavior;\n};"
     ],
@@ -2618,7 +2508,6 @@
     "SnapshotSourceBrand": [
       "type SnapshotSourceBrand = {\n    readonly [SNAPSHOT_SOURCE_BRAND]: true;\n};"
     ],
-    "sourceBrand": ["sourceBrand: unique symbol"],
     "SPAConfig": [
       "type SPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    cleanupStrict?: boolean;\n    component?: never;\n};"
     ],
@@ -2748,7 +2637,6 @@
     "task": [
       "declare function task(fn: () => void | (() => void) | PromiseLike<void | (() => void)>): void;"
     ],
-    "Task": ["type Task = () => void;"],
     "TelemetryFields": [
       "interface TelemetryFields {\n    requestId?: string;\n    traceId?: string;\n    route?: string;\n    action?: string;\n    operation?: string;\n    status?: number;\n    durationMs?: number;\n}"
     ],
@@ -2825,9 +2713,6 @@
     ],
     "withRenderContextAsync": [
       "declare function withRenderContextAsync<T>(ctx: RenderContext, fn: () => T | PromiseLike<T>): Promise<T>;"
-    ],
-    "RetryOutcome": [
-      "type RetryOutcome<T> = {\n    status: \"success\";\n    value: T;\n} | {\n    status: \"error\";\n    error: unknown;\n} | {\n    status: \"cancelled\";\n};"
     ]
   }
 }

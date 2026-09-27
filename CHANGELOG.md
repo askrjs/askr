@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- breaking(api): remove `@askrjs/askr/experimental` and its runtime and
+  renderer-host construction APIs. Use the public boot, component, and state
+  APIs to mount and extend applications.
+
+- fix(runtime): retain standalone reactive component updates in packed builds
+  by installing the DOM render host when a root is created.
+
 - fix(renderer): forced bulk reuse now propagates key attribute write failures
   and restores a partially written key before changing that row's content.
 
