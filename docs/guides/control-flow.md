@@ -14,6 +14,10 @@ callback reruns an existing row, without remounting it, when:
 Whatever causes the rerun, the row renders its latest item. An object item
 arrives as a proxy that reads the current item. Any other item, such as a
 primitive or an array, arrives as its latest value.
+Properties assigned to an object row's proxy stay with that key across item
+replacement. Its own keys, descriptors, and object spread include those
+properties alongside the latest source item's properties. A failed row render
+discards assignments it made to the proxy.
 
 Keys passed to `by` must be stable, non-null, and unique within the list. Keys
 are compared by identity, so `1` and `'1'` are different keys: changing a key's

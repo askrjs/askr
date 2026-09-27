@@ -9,8 +9,8 @@ import {
 } from 'vite-plus/test';
 import { cleanupApp, hydrateSPA } from '../../../src/boot';
 import { For, Show } from '../../../src/control';
-import { resource } from '../../../src/runtime/operations';
-import { state } from '../../../src/runtime/reactivity/state';
+import { resource } from '../../../src/resources';
+import { state } from '../../../src/index';
 import { renderToString } from '../../../src/ssr';
 import {
   createTestContainer,

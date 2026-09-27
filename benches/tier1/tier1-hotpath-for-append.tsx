@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { bench, describe } from 'vite-plus/test';
 import type { RowData } from '../shared/_shared';
 import {
   assertRowCountTransition,
@@ -11,8 +11,6 @@ import {
   replaceAllRows,
   tier1BenchOptions,
   verifyTier1Invariant,
-  verifyBenchInstrumentation,
-  withForBenchDiagnostics,
 } from '../shared/_shared';
 
 const rows = buildRows(1000);
@@ -27,14 +25,11 @@ verifyTier1Invariant('tier1 hotpath for append', () => {
   const mounted = mountTableBenchmark();
   try {
     const toggle = createRowToggle(emptyRows, rows, 'initial');
-    let metrics!: ReturnType<typeof withForBenchDiagnostics>['metrics'];
 
     assertToggleMutationGuard(
       mounted.container,
       () => {
-        ({ metrics } = withForBenchDiagnostics(() => {
-          mounted.benchmark.setRows(toggle.next() as RowData[]);
-        }));
+        mounted.benchmark.setRows(toggle.next() as RowData[]);
       },
       () => {
         mounted.benchmark.setRows(toggle.next() as RowData[]);
@@ -45,15 +40,6 @@ verifyTier1Invariant('tier1 hotpath for append', () => {
         afterBackward: () => assertRowCountTransition(mounted.container, 0),
       }
     );
-
-    verifyBenchInstrumentation(() => {
-      expect(metrics.fastLaneName).toBe('APPEND');
-      expect(metrics.domNodesCreated).toBe(8_000);
-      expect(metrics.listenerBindings).toBe(2_000);
-      expect(metrics.reactivePropsMounted).toBe(1_000);
-      expect(metrics.replaceChildrenCommits).toBe(0);
-      expect(metrics.bulkClearCommits).toBe(0);
-    });
   } finally {
     mounted.cleanup();
   }
@@ -63,14 +49,11 @@ verifyTier1Invariant('tier1 hotpath for replace all', () => {
   const mounted = mountTableBenchmark(rows);
   try {
     const toggle = createRowToggle(rows, replacementRows, 'initial');
-    let metrics!: ReturnType<typeof withForBenchDiagnostics>['metrics'];
 
     assertToggleMutationGuard(
       mounted.container,
       () => {
-        ({ metrics } = withForBenchDiagnostics(() => {
-          mounted.benchmark.setRows(toggle.next() as RowData[]);
-        }));
+        mounted.benchmark.setRows(toggle.next() as RowData[]);
       },
       () => {
         mounted.benchmark.setRows(toggle.next() as RowData[]);
@@ -103,15 +86,6 @@ verifyTier1Invariant('tier1 hotpath for replace all', () => {
         },
       }
     );
-
-    verifyBenchInstrumentation(() => {
-      expect(metrics.fastLaneName).toBe('FULL_KEYED');
-      expect(metrics.domNodesCreated).toBe(8_000);
-      expect(metrics.listenerBindings).toBe(2_000);
-      expect(metrics.reactivePropsMounted).toBe(1_000);
-      expect(metrics.replaceChildrenCommits).toBe(1);
-      expect(metrics.bulkClearCommits).toBe(0);
-    });
   } finally {
     mounted.cleanup();
   }

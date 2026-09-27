@@ -216,7 +216,7 @@ describe('minimal update preserves siblings', () => {
     cleanup();
   });
 
-  it('should preserve a shared shell host and owner chain during nested page updates', () => {
+  it('should preserve a shared shell and focused input during nested page updates', () => {
     const { container, cleanup } = createTestContainer();
 
     const ThemeProviderLike = ({ children }: { children?: unknown }) => (
@@ -290,11 +290,7 @@ describe('minimal update preserves siblings', () => {
     createIsland({ root: container, component: Root });
     flushScheduler();
 
-    const shell = container.querySelector('.app-shell') as
-      | (HTMLElement & {
-          __ASKR_INSTANCES?: Array<{ fn?: { name?: string } }>;
-        })
-      | null;
+    const shell = container.querySelector('.app-shell') as HTMLElement | null;
     const main = container.querySelector('main') as HTMLElement | null;
     const sections = Array.from(
       container.querySelectorAll('.showcase-section')
@@ -306,10 +302,6 @@ describe('minimal update preserves siblings', () => {
     expect(shell).not.toBeNull();
     expect(main).not.toBeNull();
     expect(input).not.toBeNull();
-    expect(
-      shell?.__ASKR_INSTANCES?.map((instance) => instance.fn?.name)
-    ).toEqual(expect.arrayContaining(['ThemeProviderLike', 'AppLayout']));
-
     input!.focus();
     input!.value = 'shell';
     input!.dispatchEvent(new Event('input', { bubbles: true }));

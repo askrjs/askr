@@ -129,6 +129,85 @@ describe('default portal hydration parity', () => {
     }
   });
 
+  it.each([true, false])(
+    'should remove a server-only default portal writer (verifyMarkup=%s)',
+    async (verifyMarkup) => {
+      const Page = () => (
+        <main>
+          <DefaultPortal />
+          {getActiveRenderContext() ? (
+            <Portal>
+              <span data-server-only>{'server only'}</span>
+            </Portal>
+          ) : null}
+          <b data-tail>{'tail'}</b>
+        </main>
+      );
+      const { container, cleanup } = createTestContainer();
+      try {
+        container.innerHTML = renderToStringSync(Page);
+        expect(container.querySelector('[data-server-only]')).not.toBeNull();
+        const hydration = hydrateSPA({
+          root: container,
+          registry: routeRegistryFromTable([{ path: '/', handler: Page }]),
+          hydrate: { verifyMarkup },
+        });
+        if (verifyMarkup) {
+          await expect(hydration).rejects.toThrow(/Hydration mismatch/i);
+        } else {
+          await hydration;
+        }
+        expect(container.querySelector('[data-server-only]')).toBeNull();
+        expect(container.querySelector('[data-tail]')?.textContent).toBe(
+          'tail'
+        );
+      } finally {
+        cleanup();
+      }
+    }
+  );
+
+  it('should restore portal content when hydration rolls back and adopt it on retry', async () => {
+    let failClient = true;
+    let clicks = 0;
+    const Guard = () => {
+      if (!getActiveRenderContext() && failClient) {
+        throw new Error('hydration failed');
+      }
+      return <b>{'ready'}</b>;
+    };
+    const Page = () => (
+      <main>
+        <DefaultPortal />
+        <Portal>
+          <button data-portal-retry onClick={() => (clicks += 1)}>
+            {'retry'}
+          </button>
+        </Portal>
+        <Guard />
+      </main>
+    );
+    const { container, cleanup } = createTestContainer();
+    const registry = routeRegistryFromTable([{ path: '/', handler: Page }]);
+
+    try {
+      container.innerHTML = renderToStringSync(Page);
+      const serverButton = container.querySelector('[data-portal-retry]');
+      await expect(hydrateSPA({ root: container, registry })).rejects.toThrow(
+        'hydration failed'
+      );
+      expect(container.querySelector('[data-portal-retry]')).toBe(serverButton);
+
+      failClient = false;
+      await hydrateSPA({ root: container, registry });
+      expect(container.querySelector('[data-portal-retry]')).toBe(serverButton);
+      (serverButton as HTMLButtonElement).click();
+      expect(clicks).toBe(1);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should reject a portal content mismatch from the client renderer', async () => {
     const Page = () => (
       <main>

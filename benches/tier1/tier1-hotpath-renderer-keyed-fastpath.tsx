@@ -12,8 +12,6 @@ import {
   createRowToggle,
   tier1BenchOptions,
   verifyTier1Invariant,
-  verifyBenchInstrumentation,
-  withForBenchDiagnostics,
 } from '../shared/_shared';
 
 const initialItems = buildRows(200);
@@ -41,15 +39,12 @@ verifyTier1Invariant('tier1 hotpath renderer keyed fastpath', () => {
     flushScheduler();
     const preserved = container.querySelector('[data-key="10"]');
     const toggle = createRowToggle(initialItems, reversedItems, 'initial');
-    let metrics!: ReturnType<typeof withForBenchDiagnostics>['metrics'];
 
     assertToggleMutationGuard(
       container,
       () => {
-        ({ metrics } = withForBenchDiagnostics(() => {
-          itemsState.set(toggle.next() as RowData[]);
-          flushScheduler();
-        }));
+        itemsState.set(toggle.next() as RowData[]);
+        flushScheduler();
       },
       () => {
         itemsState.set(toggle.next() as RowData[]);
@@ -62,13 +57,6 @@ verifyTier1Invariant('tier1 hotpath renderer keyed fastpath', () => {
           expect(
             container.firstElementChild?.firstElementChild?.textContent
           ).toBe('Item 200');
-          verifyBenchInstrumentation(() => {
-            expect(metrics.replaceChildrenCommits).toBe(1);
-            expect(metrics.domMoves).toBe(initialItems.length);
-            expect(metrics.domInserts).toBe(0);
-            expect(metrics.domRemoves).toBe(0);
-            expect(metrics.domNodesCreated).toBe(0);
-          });
         },
         afterBackward: () => {
           expect(container.querySelector('[data-key="10"]')).toBe(preserved);

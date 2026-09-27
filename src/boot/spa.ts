@@ -10,7 +10,7 @@ import {
   setServerLocation,
 } from '../router/route';
 import { clearRouteState } from '../router/store';
-import { assertExecutionModel } from '../runtime';
+import { assertExecutionModel } from '../common/execution-model';
 import { getRouteRenderData, hasRouteRenderData } from '../router/resolution';
 import { createAppRenderRuntime } from '../common/app-render-runtime';
 import { mountOrUpdate, registerAppNavigation } from './root-lifecycle';

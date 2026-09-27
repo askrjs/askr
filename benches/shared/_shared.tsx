@@ -14,7 +14,6 @@ import {
 } from '../../src/router/route';
 import { clearRouteState } from '../../src/router/store';
 import { cleanupNavigation } from '../../src/router/navigate';
-import { getBenchMetrics } from '../../src/runtime/diagnostics/for-bench';
 import { renderToString } from '../../src/ssr';
 import { getCurrentRenderData, getNextKey } from '../../src/ssr/render-keys';
 import type { RouteConfig } from '../../src/ssg/types';
@@ -152,12 +151,6 @@ export function verifyTier1Invariant(label: string, verify: () => void): void {
 }
 
 /** Counter contracts are diagnostic-only; DOM preflights always run. */
-export function verifyBenchInstrumentation(verify: () => void): void {
-  if (process.env.ASKR_BENCH_INSTRUMENTATION === '1') {
-    verify();
-  }
-}
-
 export function buildRows(count: number, startId = 1): RowData[] {
   return Array.from({ length: count }, (_, index) => {
     const id = startId + index;
@@ -586,21 +579,25 @@ export function createHydrationFixture({
   routes,
   url = '/',
   mutateServerHtml,
+  registry: suppliedRegistry,
 }: {
   routes: Route[];
   url?: string;
   mutateServerHtml?: (container: HTMLDivElement) => void;
+  registry?: RouteRegistry;
 }): HydrationFixture {
   const { container, cleanup } = createTestContainer();
-  const registry = createRouteRegistry(() => {
-    for (const entry of routes) {
-      route(
-        entry.path,
-        entry.handler,
-        entry.namespace ? { namespace: entry.namespace } : undefined
-      );
-    }
-  });
+  const registry =
+    suppliedRegistry ??
+    createRouteRegistry(() => {
+      for (const entry of routes) {
+        route(
+          entry.path,
+          entry.handler,
+          entry.namespace ? { namespace: entry.namespace } : undefined
+        );
+      }
+    });
 
   const renderServerHtml = () => {
     setLocationPath(url);
@@ -888,29 +885,4 @@ export function buildDenseRouteTable(routeCount = 512): DenseRouteTableFixture {
     expectedHandler,
     expectedParams,
   };
-}
-
-export function withForBenchDiagnostics<T>(run: () => T): {
-  result: T;
-  metrics: ReturnType<typeof getBenchMetrics>;
-} {
-  const askrGlobal = globalThis as typeof globalThis & {
-    __ASKR_BENCH__?: boolean;
-  };
-  const previous = askrGlobal.__ASKR_BENCH__;
-  askrGlobal.__ASKR_BENCH__ = true;
-
-  try {
-    const result = run();
-    return {
-      result,
-      metrics: getBenchMetrics(),
-    };
-  } finally {
-    if (previous === undefined) {
-      delete askrGlobal.__ASKR_BENCH__;
-    } else {
-      askrGlobal.__ASKR_BENCH__ = previous;
-    }
-  }
 }

@@ -1,6 +1,7 @@
-export { For } from './for';
-export type { ForProps } from './for';
-export { Show } from './show';
-export type { ShowProps } from './show';
-export { Case, Match } from './case';
-export type { CaseProps, MatchProps } from './case';
+export { Case, For, Match, Show } from '../core/api/control';
+export type {
+  CaseProps,
+  ForProps,
+  MatchProps,
+  ShowProps,
+} from '../core/api/control';

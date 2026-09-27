@@ -2,41 +2,12 @@ import { describe, expect, it } from 'vite-plus/test';
 import { defineScope, readScope, state } from '../../../src';
 import { For, Show } from '../../../src/control';
 import { definePortal, Presence } from '../../../src/foundations';
-import { getCurrentComponentInstance } from '../../../src/runtime';
+import { task } from '../../../src/resources';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
-
-type InstanceHost = Node & {
-  __ASKR_INSTANCE?: object;
-  __ASKR_INSTANCES?: object[];
-};
-
-function expectSameOwners(host: InstanceHost, owners: object[]): void {
-  const currentOwners = host.__ASKR_INSTANCES ?? [];
-  expect(currentOwners).toHaveLength(owners.length);
-  currentOwners.forEach((owner, index) => {
-    expect(owner).toBe(owners[index]);
-  });
-}
-
-function findOwnerHost(root: Node, owner: object): InstanceHost | null {
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ALL);
-  let current: Node | null = walker.currentNode;
-  while (current) {
-    const host = current as InstanceHost;
-    if (
-      host.__ASKR_INSTANCE === owner ||
-      host.__ASKR_INSTANCES?.includes(owner)
-    ) {
-      return host;
-    }
-    current = walker.nextNode();
-  }
-  return null;
-}
 
 describe('controlled modal reconciliation', () => {
   it('should preserve controlled fields, portals, handlers, and ownership through mixed boundaries', () => {
@@ -55,7 +26,6 @@ describe('controlled modal reconciliation', () => {
     const created: Array<{ database: string; name: string }> = [];
     let modalMounts = 0;
     let modalCleanups = 0;
-    let modalOwner!: object;
 
     const DialogRoot = ({
       open,
@@ -193,15 +163,12 @@ describe('controlled modal reconciliation', () => {
       const database = state('');
       const loading = false;
       const error: string | null = null;
-      const instance = getCurrentComponentInstance();
-      if (!instance) throw new Error('expected modal component instance');
-      modalOwner = instance;
-      if (!instance.owner.mounted) {
+      task(() => {
         modalMounts += 1;
-        (instance.owner.cleanups ??= []).push(() => {
+        return () => {
           modalCleanups += 1;
-        });
-      }
+        };
+      });
 
       return (
         <DialogRoot open={true}>
@@ -309,16 +276,12 @@ describe('controlled modal reconciliation', () => {
         '[data-create]'
       ) as HTMLButtonElement;
       const tail = container.querySelector('[data-tail]');
-      const ownershipHost = findOwnerHost(container, modalOwner);
-      const owners = [...(ownershipHost?.__ASKR_INSTANCES ?? [])];
 
       expect(dialog).toBeTruthy();
       expect(input).toBeTruthy();
       expect(selectTrigger).toBeTruthy();
       expect(postgresItem).toBeTruthy();
       expect(create.disabled).toBe(true);
-      expect(ownershipHost).toBeTruthy();
-      expect(owners.length).toBeGreaterThan(0);
       expect(modalMounts).toBe(1);
       expect(modalCleanups).toBe(0);
 
@@ -368,8 +331,7 @@ describe('controlled modal reconciliation', () => {
         expect(input.selectionStart).toBe(edit.start);
         expect(input.selectionEnd).toBe(edit.end);
         expect(input.selectionDirection).toBe(edit.direction);
-        expect(findOwnerHost(container, modalOwner)).toBe(ownershipHost);
-        expectSameOwners(ownershipHost!, owners);
+        expect(container.querySelector('[data-dialog-content]')).toBe(dialog);
         expect(modalMounts).toBe(1);
         expect(modalCleanups).toBe(0);
       }
@@ -394,8 +356,7 @@ describe('controlled modal reconciliation', () => {
       expect(document.activeElement).toBe(input);
       expect(input.selectionStart).toBe(4);
       expect(input.selectionEnd).toBe(4);
-      expect(findOwnerHost(container, modalOwner)).toBe(ownershipHost);
-      expectSameOwners(ownershipHost!, owners);
+      expect(container.querySelector('[data-dialog-content]')).toBe(dialog);
       expect(modalMounts).toBe(1);
       expect(modalCleanups).toBe(0);
 
@@ -509,11 +470,8 @@ describe('controlled modal reconciliation', () => {
       createIsland({ root: container, component: App });
       flushScheduler();
 
-      const row = container.querySelector(
-        '[data-saved-query="orders"]'
-      ) as InstanceHost;
+      const row = container.querySelector('[data-saved-query="orders"]');
       const siblingRow = container.querySelector('[data-saved-query="users"]');
-      const rowOwners = [...(row.__ASKR_INSTANCES ?? [])];
       (
         container.querySelector(
           'button[aria-label="Rename Orders"]'
@@ -566,7 +524,9 @@ describe('controlled modal reconciliation', () => {
         expect(input.selectionEnd).toBe(edit.caret);
         expect(input.value).toBe(edit.value);
         expect(save.disabled).toBe(false);
-        expectSameOwners(row, rowOwners);
+        expect(container.querySelector('[data-saved-query="orders"]')).toBe(
+          row
+        );
       }
 
       setRows([second, first]);
@@ -584,7 +544,7 @@ describe('controlled modal reconciliation', () => {
       expect(document.activeElement).toBe(input);
       expect(input.selectionStart).toBe(14);
       expect(input.selectionEnd).toBe(14);
-      expectSameOwners(row, rowOwners);
+      expect(container.querySelector('[data-saved-query="orders"]')).toBe(row);
 
       save.click();
       flushScheduler();

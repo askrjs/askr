@@ -1,6 +1,5 @@
 import { expect, test } from 'vite-plus/test';
 import { For, state, type State } from '../../../src';
-import { applyScalarPropValue } from '../../../src/renderer/props/attributes';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -58,54 +57,28 @@ test('should retain list attributes without rewriting them while updating row ca
 });
 
 test.each(['html', 'svg'])(
-  'should skip equal %s scalar attributes and repair external changes',
-  (kind) => {
-    const element =
-      kind === 'svg'
-        ? document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-        : document.createElement('div');
-    const props = {
-      className: 'row fixed',
-      title: 'title',
-      'aria-hidden': false,
-      tabIndex: 0,
-    };
-    for (const [key, value] of Object.entries(props))
-      applyScalarPropValue(element, key, value, element.localName);
-    const observer = new MutationObserver(() => {});
-    observer.observe(element, { attributes: true });
-    try {
-      for (const [key, value] of Object.entries(props))
-        applyScalarPropValue(element, key, value, element.localName);
-      expect(observer.takeRecords()).toEqual([]);
-
-      element.setAttribute('class', 'external');
-      element.setAttribute('title', 'external');
-      observer.takeRecords();
-      for (const [key, value] of Object.entries(props))
-        applyScalarPropValue(element, key, value, element.localName);
-      expect(element.getAttribute('class')).toBe('row fixed');
-      expect(element.getAttribute('title')).toBe('title');
-      expect(
-        observer.takeRecords().map((record) => record.attributeName)
-      ).toEqual(['class', 'title']);
-    } finally {
-      observer.disconnect();
-    }
-  }
-);
-
-test.each(['html', 'svg'])(
   'should preserve empty %s class attribute semantics',
   (kind) => {
-    const element =
-      kind === 'svg'
-        ? document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-        : document.createElement('div');
-    applyScalarPropValue(element, 'class', '', element.localName);
-    expect(element.getAttribute('class')).toBe(kind === 'svg' ? null : '');
-    element.setAttribute('class', '');
-    applyScalarPropValue(element, 'class', '', element.localName);
-    expect(element.getAttribute('class')).toBe(kind === 'svg' ? null : '');
+    const { container, cleanup } = createTestContainer();
+    let cls!: State<string>;
+    try {
+      createIsland({
+        root: container,
+        component: () => {
+          cls = state('');
+          return kind === 'svg' ? <svg class={cls()} /> : <div class={cls()} />;
+        },
+      });
+      flushScheduler();
+      const element = container.firstElementChild!;
+      expect(element.getAttribute('class')).toBe(kind === 'svg' ? null : '');
+      cls.set('a');
+      flushScheduler();
+      cls.set('');
+      flushScheduler();
+      expect(element.getAttribute('class')).toBe(kind === 'svg' ? null : '');
+    } finally {
+      cleanup();
+    }
   }
 );

@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vite-plus/test';
+import type { JSX } from '../../../src/jsx/jsx-runtime';
 import { defer, Resolve } from '../../../src/router/deferred';
 import { createRouteRegistry, route } from '../../../src/router/route';
 import { definePortal } from '../../../src/foundations/structures/portal';

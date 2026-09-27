@@ -1,7 +1,6 @@
 import { JSXElementType, JSXElement, Props } from '../elements.js';
 import '../jsx-globals.js';
 import { SSRContext } from './server.js';
-import { ControlBoundaryState } from './control.js';
 
 interface DOMElement {
   type: JSXElementType;
@@ -9,7 +8,6 @@ interface DOMElement {
   children?: VNode[];
   key?: string | number | null;
   [Symbol.iterator]?: never;
-  _controlState?: ControlBoundaryState;
 }
 
 type VNode = DOMElement | string | number | boolean | null | undefined;

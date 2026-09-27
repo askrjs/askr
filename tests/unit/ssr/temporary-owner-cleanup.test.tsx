@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
-import { getCurrentComponentInstance } from '../../../src/runtime';
+import { getOwner } from '../../../src/core/reactive/owner';
 import { renderToStringSync } from '../../../src/ssr';
 
 // SSR temporary owners keep cleanup failures on the render's error path. The
@@ -15,8 +15,7 @@ describe('SSR temporary owner cleanup', () => {
     vi.stubGlobal('reportError', reportError);
     const error = new Error('ssr cleanup failed');
     const App = () => {
-      const owner = getCurrentComponentInstance()!.owner;
-      (owner.cleanups ??= []).push(() => {
+      getOwner()!.onCleanup(() => {
         throw error;
       });
       return <div>ok</div>;

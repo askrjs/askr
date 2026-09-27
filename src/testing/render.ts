@@ -1,7 +1,7 @@
 import type { ComponentFunction } from '../common/component';
 import type { RouteAuthOptions, RouteRegistry } from '../common/router';
 import { cleanupApp, createIsland, createSPA } from '../boot';
-import { flushRuntimeScheduler } from '../runtime';
+import { flushSync as flushRuntimeScheduler } from '../core/reactive/scheduler';
 
 /** Options for {@link render} and {@link mount}. */
 export interface RenderOptions {

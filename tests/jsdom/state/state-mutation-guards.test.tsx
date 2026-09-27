@@ -82,20 +82,10 @@ describe('state mutation guards (STATE)', () => {
     expect(renders).toBe(2);
     expect(container.textContent).toBe('first:0');
 
-    const secondReaders = (
-      second as unknown as { _readers?: Map<unknown, unknown> }
-    )._readers;
-    expect(secondReaders?.size ?? 0).toBe(0);
-
     second!.set('second:1');
     expect(() => flushScheduler()).not.toThrow();
     expect(renders).toBe(2);
     expect(container.textContent).toBe('first:0');
-
-    const firstReaders = (
-      first as unknown as { _readers?: Map<unknown, unknown> }
-    )._readers;
-    expect(firstReaders?.size ?? 0).toBe(1);
 
     first!.set('first:1');
     expect(() => flushScheduler()).toThrow(

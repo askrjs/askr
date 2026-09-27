@@ -7,10 +7,9 @@ import path from 'node:path';
 const rootDir = path.resolve(__dirname, '..', '..', '..');
 const browserSourceRoots = [
   path.join(rootDir, 'src', 'boot'),
+  path.join(rootDir, 'src', 'core'),
   path.join(rootDir, 'src', 'dev'),
-  path.join(rootDir, 'src', 'renderer'),
   path.join(rootDir, 'src', 'router'),
-  path.join(rootDir, 'src', 'runtime'),
 ];
 
 function readSourceFiles(dir: string): string[] {

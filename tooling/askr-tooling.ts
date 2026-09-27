@@ -72,23 +72,18 @@ export const tier2BenchIncludes = ['benches/tier2/**/*.{ts,tsx}'] as const;
 export const benchExcludes = ['benches/shared/_shared.*'] as const;
 
 export function createNodeEnvDefine(
-  mode: 'development' | 'production',
-  options?: { bench?: boolean }
+  mode: 'development' | 'production'
 ): Record<
-  | '__ASKR_BENCH_BUILD__'
   | '__ASKR_DEVELOPMENT_BUILD__'
   | 'process.env.NODE_ENV'
-  | 'process.env.ASKR_BENCH'
   | 'process.env.ASKR_PACKAGE_NAME'
   | 'process.env.ASKR_PACKAGE_VERSION'
   | 'process.env.ASKR_BENCHMARK_BUILD_LABEL',
   string
 > {
   return {
-    __ASKR_BENCH_BUILD__: JSON.stringify(options?.bench === true),
     __ASKR_DEVELOPMENT_BUILD__: JSON.stringify(mode === 'development'),
     'process.env.NODE_ENV': JSON.stringify(mode),
-    'process.env.ASKR_BENCH': JSON.stringify(options?.bench ? '1' : '0'),
     'process.env.ASKR_PACKAGE_NAME': JSON.stringify(localPackageMetadata.name),
     'process.env.ASKR_PACKAGE_VERSION': JSON.stringify(
       localPackageMetadata.version

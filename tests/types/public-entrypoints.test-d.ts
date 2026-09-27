@@ -1,10 +1,6 @@
 import { expectAssignable, expectType } from 'tsd';
 import * as rootSurface from '@askrjs/askr';
-import type {
-  AskrRuntimeOptions,
-  RenderDiagnosticsOptions,
-  RuntimeKeyedReorderDecision,
-} from '@askrjs/askr';
+import type { RenderDiagnosticsOptions } from '@askrjs/askr';
 import * as dataSurface from '@askrjs/askr/data';
 import * as resourcesSurface from '@askrjs/askr/resources';
 import * as routerSurface from '@askrjs/askr/router';
@@ -29,19 +25,10 @@ declare const registry: RouteRegistry;
 expectType<string>(
   renderResolvedToStringSync({ url: '/', registry, handler: () => 'ok' })
 );
-expectType<rootSurface.AskrRuntime>(rootSurface.createRuntime());
-expectType<rootSurface.AskrRuntime>(rootSurface.getDefaultRuntime());
-expectAssignable<AskrRuntimeOptions>({});
-expectAssignable<RuntimeKeyedReorderDecision>({
-  useFastPath: false,
-  totalKeyed: 0,
-  totalChildren: 0,
-  currentKeyCount: 0,
-  moveCount: 0,
-  lisLen: 0,
-  hasPropChanges: false,
-  isWholeKeyedList: false,
-});
+// @ts-expect-error runtime construction is no longer published
+expectType<never>(rootSurface.createRuntime);
+// @ts-expect-error renderer host construction is no longer published
+expectType<never>(rootSurface.createDOMRendererHost);
 // @ts-expect-error jsx runtime entrypoint no longer exposes element brand
 void ({} as typeof import('@askrjs/askr/jsx-runtime')).ELEMENT_TYPE;
 // @ts-expect-error jsx dev runtime entrypoint no longer exposes element brand

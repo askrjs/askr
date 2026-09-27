@@ -77,13 +77,10 @@ Benchmark workflow and current optimization goals live under
 [performance targets](./benchmarks/performance-targets.md).
 
 For contributors who need the runtime shape rather than API-first docs, see
-[Internals: Core engine design](./internals/core-engine-design.md) and the
-[runtime source layout](./development/runtime-layout.md) and
-[renderer source layout](./development/renderer-layout.md).
-Published contracts and extension wiring are described in the
-[public compatibility boundary](./development/compatibility-boundary.md) and
-[runtime ownership](./development/ownership.md), and
-[renderer ownership](./development/renderer-ownership.md).
+[Internals: Core rewrite](./internals/core-rewrite.md) and the
+[core source layout](./development/core-layout.md).
+Published contracts are described in the
+[public compatibility boundary](./development/compatibility-boundary.md).
 Root transactions and request isolation are covered in
 [integration boundaries](./development/integration-boundaries.md).
 The detailed drill-downs live in

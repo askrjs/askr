@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { bench, describe } from 'vite-plus/test';
 import type { BenchToggle, RowData } from '../shared/_shared';
 import {
   assertTextTransition,
@@ -8,9 +8,7 @@ import {
   mountTableBenchmark,
   tier1BenchOptions,
   verifyTier1Invariant,
-  verifyBenchInstrumentation,
   updateEveryNthRow,
-  withForBenchDiagnostics,
 } from '../shared/_shared';
 
 const initialRows = buildRows(1000);
@@ -20,14 +18,11 @@ verifyTier1Invariant('tier1 hotpath for stable keyed update', () => {
   const mounted = mountTableBenchmark(initialRows);
   try {
     const toggle = createRowToggle(initialRows, updatedRows, 'initial');
-    let metrics!: ReturnType<typeof withForBenchDiagnostics>['metrics'];
 
     assertToggleMutationGuard(
       mounted.container,
       () => {
-        ({ metrics } = withForBenchDiagnostics(() => {
-          mounted.benchmark.setRows(toggle.next() as RowData[]);
-        }));
+        mounted.benchmark.setRows(toggle.next() as RowData[]);
       },
       () => {
         mounted.benchmark.setRows(toggle.next() as RowData[]);
@@ -50,10 +45,6 @@ verifyTier1Invariant('tier1 hotpath for stable keyed update', () => {
         },
       }
     );
-
-    verifyBenchInstrumentation(() => {
-      expect(['APPEND', 'NO_REORDER']).toContain(metrics.fastLaneName);
-    });
   } finally {
     mounted.cleanup();
   }

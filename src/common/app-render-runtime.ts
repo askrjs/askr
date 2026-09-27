@@ -7,6 +7,12 @@ export interface AppRenderRuntime {
   dataRuntime?: import('../data/types').DataRuntime;
   routeRegistry?: RouteRegistry;
   routeAuth?: RouteAuthOptions;
+  /**
+   * Identifies the route lifetime this runtime renders. A navigation that
+   * replaces the lifetime (a pathname change) gets a new value, which keys the
+   * route leaf so its state and lifecycle start fresh while layouts persist.
+   */
+  lifetime?: number;
 }
 
 const stagedRouteLocations = new WeakMap<AppRenderRuntime, string>();
@@ -21,6 +27,7 @@ export function createAppRenderRuntime(
     dataRuntime: input.dataRuntime,
     routeRegistry: input.routeRegistry,
     routeAuth: input.routeAuth,
+    lifetime: input.lifetime,
   };
 }
 

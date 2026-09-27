@@ -4,7 +4,7 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { state } from '../../../src/index';
-import { capture } from '../../../src/runtime/operations';
+import { capture } from '../../../src/resources';
 import { createIsland } from '../../../test-utils/render/create-island';
 
 describe('Event causality across async boundaries', () => {

@@ -27,7 +27,6 @@ function createInteractiveTableHarness() {
       handler: () => {
         rowsState = state(initialRows);
         selectedState = state<number | null>(null);
-        rowsState._hasBeenRead = true;
 
         const isSelected = selector(selectedState);
 

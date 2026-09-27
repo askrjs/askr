@@ -5,17 +5,14 @@ import { cleanupApp, createSPA, hydrateSPA } from '../../../src/boot';
 import { Case, For, Match, Show } from '../../../src/control';
 import { navigate } from '../../../src/router/navigate';
 import { createRouteRegistry, route } from '../../../src/router/route';
-import { resource, task } from '../../../src/runtime/operations';
-import {
-  cleanupComponent,
-  createComponentInstance,
-} from '../../../src/runtime';
-import { enqueueRuntimeLane } from '../../../src/runtime/access';
-import { state, type State } from '../../../src/runtime/reactivity/state';
+import { resource, task } from '../../../src/resources';
+import { Owner } from '../../../src/core/reactive/owner';
+import { schedule } from '../../../src/core/reactive/scheduler';
+import { state, type State } from '../../../src/index';
 import {
   Portal,
   _resetDefaultPortal,
-} from '../../../src/runtime/portal/portal';
+} from '../../../src/foundations/structures/portal';
 import { renderToStringSync } from '../../../src/ssr';
 import {
   createTestContainer,
@@ -239,7 +236,7 @@ function writeQualityTrace(
 function expectSchedulerQuiescent(): void {
   const scheduler = getSchedulerState();
   expect(scheduler.running).toBe(false);
-  expect(scheduler.taskCount).toBe(0);
+  expect(scheduler.queueLength).toBe(0);
 }
 
 describe('lifecycle sequence invariants', () => {
@@ -550,25 +547,13 @@ describe('lifecycle sequence invariants', () => {
             break;
           }
           case 'cleanup-failure': {
-            const instance = createComponentInstance(
-              'quality-cleanup',
-              () => null,
-              {},
-              null
-            );
-            instance.cleanupStrict = true;
-            (instance.owner.cleanups ??= []).push(() => {
+            const owner = new Owner(null);
+            owner.onCleanup(() => {
               throw new Error('quality cleanup failure');
             });
-            let cleanupError: unknown = null;
-            try {
-              cleanupComponent(instance);
-            } catch (error) {
-              cleanupError = error;
-            }
-            expect(cleanupError).toBeInstanceOf(AggregateError);
+            const cleanupErrors = owner.dispose();
             expect(
-              (cleanupError as AggregateError).errors.some(
+              cleanupErrors.some(
                 (error) =>
                   error instanceof Error &&
                   error.message === 'quality cleanup failure'
@@ -588,18 +573,28 @@ describe('lifecycle sequence invariants', () => {
           }
           case 'scheduler-failure-reschedule': {
             let failed = false;
-            enqueueRuntimeLane('reactive', () => {
-              failed = true;
-              throw new Error('quality scheduler lane failure');
-            });
+            schedule(
+              {
+                run: () => {
+                  failed = true;
+                  throw new Error('quality scheduler lane failure');
+                },
+              },
+              'effect'
+            );
             expect(() => flushScheduler()).toThrow(
               /quality scheduler lane failure/
             );
             expect(failed).toBe(true);
             let rescheduled = false;
-            enqueueRuntimeLane('post', () => {
-              rescheduled = true;
-            });
+            schedule(
+              {
+                run: () => {
+                  rescheduled = true;
+                },
+              },
+              'post'
+            );
             flushScheduler();
             expect(rescheduled).toBe(true);
             expectSchedulerQuiescent();

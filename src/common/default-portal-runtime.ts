@@ -6,6 +6,7 @@ interface DefaultPortalRuntime {
   host: DefaultPortalHost;
   clearForInstance(instance: object): void;
   disposeScope(scope: object | null): void;
+  getUnwrittenHosts(): object[];
 }
 
 let defaultPortalRuntime: DefaultPortalRuntime | null = null;
@@ -35,4 +36,8 @@ export function disposeRegisteredDefaultPortalScope(
   scope: object | null
 ): void {
   defaultPortalRuntime?.disposeScope(scope);
+}
+
+export function getUnwrittenDefaultPortalHosts(): object[] {
+  return defaultPortalRuntime?.getUnwrittenHosts() ?? [];
 }

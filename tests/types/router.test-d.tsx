@@ -1,4 +1,5 @@
 import { expectAssignable, expectError, expectType } from 'tsd';
+import type { JSX } from '@askrjs/askr/jsx-runtime';
 import {
   requirePermission,
   requireRole,

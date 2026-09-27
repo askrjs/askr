@@ -5,9 +5,7 @@ import {
   type PageRenderEnvelope,
 } from '../common/page-render-envelope';
 import type { ResolvedRoute } from '../common/router';
-import type { ComponentFunction } from '../runtime';
-import { setStaticChildSlotsCacheEnabled } from '../renderer/dom';
-import { registerDeferredHydrationBoundary } from '../renderer';
+import type { ComponentFunction } from '../common/component';
 import type { BootAppRouteSource, HydrateSPAConfig } from './types';
 import { reviveDeferredValue } from '../common/deferred-value';
 import type { AppRenderRuntime } from '../common/app-render-runtime';
@@ -172,7 +170,6 @@ function collectDeferredBelowFoldBoundaries(
     const rect = element.getBoundingClientRect();
     if (rect.top >= foldY) {
       element.setAttribute('data-skip-hydrate', 'true');
-      registerDeferredHydrationBoundary(root, element);
       boundaries.push(element);
       continue;
     }
@@ -259,17 +256,8 @@ export async function applySelectiveHydration(
   interactionReplay: HydrationInteractionReplay
 ): Promise<void> {
   const hasBelowFoldDeferral = !!hydrateOptions.deferBelowFold;
-  let staticChildSlotsCacheSuspended = false;
   let releaseSelectiveHydrationResources = () => {};
-
-  const restoreStaticChildSlotsCache = () => {
-    if (!staticChildSlotsCacheSuspended) {
-      return;
-    }
-
-    setStaticChildSlotsCacheEnabled(true);
-    staticChildSlotsCacheSuspended = false;
-  };
+  let registerSelectiveHydrationCleanup = () => {};
 
   if (hydrateOptions.skipSelectors?.length) {
     markSkippedElements(rootElement, hydrateOptions.skipSelectors);
@@ -277,8 +265,6 @@ export async function applySelectiveHydration(
 
   let deferredBoundaries: Element[] = [];
   if (hydrateOptions.deferBelowFold) {
-    setStaticChildSlotsCacheEnabled(false);
-    staticChildSlotsCacheSuspended = true;
     const foldY = hydrateOptions.foldThreshold ?? window.innerHeight;
     deferredBoundaries = collectDeferredBelowFoldBoundaries(rootElement, foldY);
     interactionReplay.registerDeferredBoundaries(deferredBoundaries);
@@ -311,7 +297,6 @@ export async function applySelectiveHydration(
       selectiveHydrationResourcesReleased = true;
       unregisterRootCleanupCallback();
       window.removeEventListener('scroll', handleScroll);
-      restoreStaticChildSlotsCache();
       interactionReplay.clearDeferredBoundaries();
     };
 
@@ -319,10 +304,12 @@ export async function applySelectiveHydration(
       releaseSelectiveHydrationResources
     );
 
-    unregisterRootCleanupCallback = hooks.registerRootCleanupCallback(
-      rootElement,
-      releaseSelectiveHydrationResources
-    );
+    registerSelectiveHydrationCleanup = () => {
+      unregisterRootCleanupCallback = hooks.registerRootCleanupCallback(
+        rootElement,
+        releaseSelectiveHydrationResources
+      );
+    };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
   }
@@ -351,6 +338,7 @@ export async function applySelectiveHydration(
         appRuntime: source?.runtime,
       }
     );
+    registerSelectiveHydrationCleanup();
     await hooks.registerAppNavigation(rootElement, path, source);
   } catch (error) {
     releaseSelectiveHydrationResources();

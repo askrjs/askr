@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { hydrateSPA } from '../../../src/boot';
 import { getActiveRenderContext } from '../../../src/common/render-context';
+import { state } from '../../../src';
 import { renderToString } from '../../../src/ssr';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 import { routeRegistryFromTable } from '../../router-test-utils';
@@ -105,5 +106,31 @@ describe('hydration markup verification parity', () => {
         hydrate: { verifyMarkup: true },
       })
     ).rejects.toThrow(/Hydration mismatch/i);
+  });
+
+  it('should accept updates a ref callback makes after the hydration commit', async () => {
+    // Hydrate identical markup, then adopt browser-only state (a persisted
+    // preference) from a ref once the hydration render has committed.
+    const Adopting = () => {
+      const theme = state('light');
+      const adopt = (element: HTMLElement | null) => {
+        if (element && theme() === 'light') theme.set('dark');
+      };
+      return (
+        <p ref={adopt} data-theme={theme()}>
+          {theme()}
+        </p>
+      );
+    };
+    const { container, registry } = setup(Adopting);
+    expect(container.innerHTML).toBe('<p data-theme="light">light</p>');
+
+    await hydrateSPA({
+      root: container,
+      registry,
+      hydrate: { verifyMarkup: true },
+    });
+
+    expect(container.innerHTML).toBe('<p data-theme="dark">dark</p>');
   });
 });

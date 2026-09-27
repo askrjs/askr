@@ -69,7 +69,6 @@ automation.
 
 ## See Also
 
-- [Runtime source layout](./runtime-layout.md)
-- [Renderer source layout](./renderer-layout.md)
+- [Core source layout](./core-layout.md)
 - [Contributing](./contributing.md)
 - [Release](./release.md)

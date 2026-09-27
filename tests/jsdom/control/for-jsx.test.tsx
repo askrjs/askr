@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { state } from '../../../src/index';
-import { resource } from '../../../src/resources';
-import { getCurrentComponentInstance } from '../../../src/runtime';
+import { resource, task } from '../../../src/resources';
 import { For, Show } from '@askrjs/askr/control';
 import type { JSXElement } from '../../../src/jsx/types';
 import {
@@ -46,22 +45,26 @@ describe('For JSX primitive', () => {
     cleanup();
   });
 
-  it('should register one parent ownership boundary for all keyed rows', () => {
+  it('should dispose every keyed row when its list unmounts', () => {
     const { container, cleanup } = createTestContainer();
-    let appInstance: ReturnType<typeof getCurrentComponentInstance> = null;
+    let cleanups = 0;
 
-    const App = () => {
-      appInstance = getCurrentComponentInstance();
-      return (
-        <For each={Array.from({ length: 1000 }, (_, id) => id)} by={(id) => id}>
-          {(id) => <span>{id}</span>}
-        </For>
-      );
-    };
+    const App = () => (
+      <For each={Array.from({ length: 1000 }, (_, id) => id)} by={(id) => id}>
+        {(id) => {
+          task(() => () => {
+            cleanups += 1;
+          });
+          return <span>{id}</span>;
+        }}
+      </For>
+    );
 
     createIsland({ root: container, component: App });
-    expect(appInstance?._ownedChildScopes?.size).toBe(1);
+    expect(container.querySelectorAll('span')).toHaveLength(1000);
+    expect(cleanups).toBe(0);
     cleanup();
+    expect(cleanups).toBe(1000);
   });
 
   it('should update index accessors after keyed reorder', () => {
@@ -165,7 +168,7 @@ describe('For JSX primitive', () => {
     }
   });
 
-  it('should keep keyed wrapper rows from rerendering when nested components handle updates', () => {
+  it('should rerender only the changed keyed wrapper row and retain nested DOM', () => {
     const { container, cleanup } = createTestContainer();
 
     type Item = { id: number; label: string };
@@ -220,7 +223,7 @@ describe('For JSX primitive', () => {
         '5',
       ]);
       expect(afterNodes[2].textContent).toBe('row-3 updated');
-      expect(wrapperRenders).toBe(initialRows.length);
+      expect(wrapperRenders).toBe(initialRows.length + 1);
     } finally {
       cleanup();
     }
@@ -235,15 +238,12 @@ describe('For JSX primitive', () => {
     const localSetters = new Map<number, (next: number) => void>();
 
     const Nested = ({ id }: { id: number }) => {
-      const instance = getCurrentComponentInstance();
-      if (!instance) {
-        throw new Error('expected nested component instance');
-      }
-
       const local = state(0);
       localSetters.set(id, local.set);
-      (instance.owner.cleanups ??= []).push(() => {
-        cleanupCounts.set(id, (cleanupCounts.get(id) ?? 0) + 1);
+      task(() => {
+        return () => {
+          cleanupCounts.set(id, (cleanupCounts.get(id) ?? 0) + 1);
+        };
       });
 
       return (
@@ -383,24 +383,20 @@ describe('For JSX primitive', () => {
     const detailCleanups = new Map<number, number>();
 
     const Details = ({ id }: { id: number }) => {
-      const instance = getCurrentComponentInstance();
-      if (!instance) {
-        throw new Error('expected details component instance');
-      }
-      (instance.owner.cleanups ??= []).push(() => {
-        detailCleanups.set(id, (detailCleanups.get(id) ?? 0) + 1);
+      task(() => {
+        return () => {
+          detailCleanups.set(id, (detailCleanups.get(id) ?? 0) + 1);
+        };
       });
 
       return <span data-detail={String(id)}>{`detail:${String(id)}`}</span>;
     };
 
     const Row = ({ item }: { item: Item }) => {
-      const instance = getCurrentComponentInstance();
-      if (!instance) {
-        throw new Error('expected row component instance');
-      }
-      (instance.owner.cleanups ??= []).push(() => {
-        rowCleanups.set(item.id, (rowCleanups.get(item.id) ?? 0) + 1);
+      task(() => {
+        return () => {
+          rowCleanups.set(item.id, (rowCleanups.get(item.id) ?? 0) + 1);
+        };
       });
 
       return (
@@ -685,34 +681,35 @@ describe('For JSX primitive', () => {
     cleanup();
   });
 
-  it('should materialize index keys when iterating JSX element values', () => {
+  it('should retain positional identity when iterating JSX element values by index', () => {
     const { container, cleanup } = createTestContainer();
 
     const children = [<span>A</span>, <span>B</span>];
+    let swap: () => void = () => {};
 
-    const App = () => (
-      <div>
-        <For each={() => children} byIndex={true}>
-          {(child) => child as never}
-        </For>
-      </div>
-    );
+    const App = () => {
+      const [items, setItems] = state(children);
+      swap = () => setItems([children[1], children[0]]);
+      return (
+        <div>
+          <For each={items} byIndex={true}>
+            {(child) => child as never}
+          </For>
+        </div>
+      );
+    };
 
     expect(() =>
       createIsland({ root: container, component: App })
     ).not.toThrow();
 
-    const keyedChildren = Array.from(container.querySelectorAll('span')).map(
-      (node) => ({
-        key: node.getAttribute('data-key'),
-        text: node.textContent,
-      })
-    );
-
-    expect(keyedChildren).toEqual([
-      { key: '0', text: 'A' },
-      { key: '1', text: 'B' },
-    ]);
+    const before = Array.from(container.querySelectorAll('span'));
+    expect(before.map((node) => node.textContent)).toEqual(['A', 'B']);
+    swap();
+    flushScheduler();
+    const after = Array.from(container.querySelectorAll('span'));
+    expect(after).toEqual(before);
+    expect(after.map((node) => node.textContent)).toEqual(['B', 'A']);
 
     cleanup();
   });

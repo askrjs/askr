@@ -283,23 +283,6 @@ export function once<T extends AnyFn>(fn: T): T {
 }
 
 /**
- * Defer — schedule on microtask queue
- *
- * Useful for: run-after-current-stack logic
- * More reliable than setTimeout(..., 0)
- *
- * @param fn Function to defer
- *
- * @example
- * ```ts
- * defer(() => update()); // runs after current stack, before next macrotask
- * ```
- */
-export function defer(fn: () => void): void {
-  Promise.resolve().then(fn);
-}
-
-/**
  * RAF — coalesce multiple updates into single frame
  *
  * Useful for: animation, layout work, render updates
@@ -314,24 +297,39 @@ export function defer(fn: () => void): void {
  * update(); // same frame, no duplicate
  * ```
  */
-export function raf<T extends AnyFn>(fn: T): Scheduled<T> {
+export function raf<T extends AnyFn>(fn: T): Scheduled<T> & { cancel(): void } {
   const callable = fn as unknown as CallableFn;
   let frameId: number | null = null;
   let lastArgs: unknown[] | null = null;
   let lastThis: unknown = null;
+  let generation = 0;
 
-  return function (this: unknown, ...args: unknown[]) {
+  const scheduled = function (this: unknown, ...args: unknown[]) {
     lastArgs = args;
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     lastThis = this;
 
     if (frameId === null) {
+      const currentGeneration = ++generation;
       frameId = requestAnimationFrame(() => {
-        callable.apply(lastThis, lastArgs!);
+        if (currentGeneration !== generation) return;
         frameId = null;
+        const args = lastArgs!;
+        const receiver = lastThis;
+        lastArgs = null;
+        lastThis = null;
+        callable.apply(receiver, args);
       });
     }
-  } as unknown as Scheduled<T>;
+  } as unknown as Scheduled<T> & { cancel(): void };
+  scheduled.cancel = () => {
+    generation++;
+    if (frameId !== null) cancelAnimationFrame(frameId);
+    frameId = null;
+    lastArgs = null;
+    lastThis = null;
+  };
+  return scheduled;
 }
 
 /**

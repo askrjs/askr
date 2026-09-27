@@ -4,13 +4,12 @@
  */
 import type {
   IntrinsicFallbackProps,
+  IntrinsicElementForTag,
+  IntrinsicRef,
   KnownIntrinsicElementProps,
   Props,
 } from '../common/props';
-import {
-  isEagerControlPrimitive,
-  type EagerControlPrimitive,
-} from '../common/control';
+import type { EagerControlPrimitive } from '../common/control';
 import {
   ELEMENT_TYPE,
   Fragment,
@@ -18,11 +17,6 @@ import {
   type JSXElementType,
   type JSXElement,
 } from './types';
-import { markReadableUsage } from '../runtime';
-
-declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
-
-const DEVELOPMENT_BUILD_ENABLED = __ASKR_DEVELOPMENT_BUILD__;
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace JSX {
@@ -34,32 +28,36 @@ export namespace JSX {
 
   export interface KnownIntrinsicElements extends KnownIntrinsicElementProps {}
 
-  export interface IntrinsicElements extends KnownIntrinsicElements {
-    [elem: string]:
-      | IntrinsicFallbackProps
-      | KnownIntrinsicElementProps[keyof KnownIntrinsicElementProps];
+  export interface IntrinsicElements
+    extends KnownIntrinsicElements, OtherIntrinsicElements {
+    [elem: `${string}-${string}`]: IntrinsicFallbackProps;
   }
 
-  export interface ElementAttributesProperty {
-    props: Props;
-  }
+  type OtherIntrinsicElements = {
+    [
+      Tag in Exclude<
+        keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap,
+        keyof KnownIntrinsicElementProps
+      >
+    ]: OtherIntrinsicProps<Tag>;
+  };
 
   export interface ElementChildrenAttribute {
     children: unknown;
   }
 }
 
-function annotatePropsUsage(props: Record<string, unknown> | null): Props {
-  const normalizedProps = (props ?? {}) as Props;
+type OtherIntrinsicProps<Tag extends string> = Omit<
+  IntrinsicFallbackProps,
+  'ref'
+> & { ref?: IntrinsicRef<IntrinsicElementForTag<Tag>> };
 
-  if (DEVELOPMENT_BUILD_ENABLED) {
-    for (const key in normalizedProps) {
-      markReadableUsage(normalizedProps[key]);
-    }
-  }
-
-  return normalizedProps;
-}
+type OtherIntrinsicTag =
+  | Exclude<
+      keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap,
+      keyof KnownIntrinsicElementProps
+    >
+  | `${string}-${string}`;
 
 function markStaticChildren(props: Props): Props {
   if (Array.isArray(props.children)) {
@@ -80,13 +78,13 @@ export function jsxDEV(
 ): unknown;
 export function jsxDEV<TTag extends keyof KnownIntrinsicElementProps>(
   type: TTag,
-  props: KnownIntrinsicElementProps[TTag] | null,
+  props: KnownIntrinsicElementProps[NoInfer<TTag>] | null,
   key?: string | number,
   isStaticChildren?: boolean
 ): JSXElement;
-export function jsxDEV<TTag extends string>(
-  type: Exclude<TTag, keyof KnownIntrinsicElementProps>,
-  props: IntrinsicFallbackProps | null,
+export function jsxDEV<TTag extends OtherIntrinsicTag>(
+  type: TTag,
+  props: OtherIntrinsicProps<TTag> | null,
   key?: string | number,
   isStaticChildren?: boolean
 ): JSXElement;
@@ -108,14 +106,10 @@ export function jsxDEV(
   key?: string | number,
   isStaticChildren = false
 ): JSXElement | unknown {
-  const normalizedProps = annotatePropsUsage(props);
+  const normalizedProps = (props ?? {}) as Props;
   const preparedProps = isStaticChildren
     ? markStaticChildren(normalizedProps)
     : normalizedProps;
-
-  if (isEagerControlPrimitive(type)) {
-    return type(preparedProps);
-  }
 
   return {
     $$typeof: ELEMENT_TYPE,

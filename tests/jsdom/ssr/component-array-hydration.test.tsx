@@ -319,18 +319,8 @@ describe('component array hydration', () => {
   it('should keep sibling scope providers distinct during hydration and updates', async () => {
     const LeftScope = defineScope('left-default');
     const RightScope = defineScope('right-default');
-    const leftIdentity = (
-      LeftScope({ value: 'left' }).props as Record<string, unknown>
-    )['__askrIdentityKey'];
-    const rightIdentity = (
-      RightScope({ value: 'right' }).props as Record<string, unknown>
-    )['__askrIdentityKey'];
     let updateLeft!: () => void;
     let updateRight!: () => void;
-
-    expect(typeof leftIdentity).toBe('number');
-    expect(typeof rightIdentity).toBe('number');
-    expect(leftIdentity).not.toBe(rightIdentity);
 
     function LeftLabel() {
       return <span data-left={'true'}>{readScope(LeftScope)}</span>;

@@ -8,7 +8,7 @@ import {
 } from 'vite-plus/test';
 import { createSPA, hydrateSPA } from '../../../src/boot';
 import { Link } from '../../../src/components/link';
-import { state } from '../../../src/runtime/reactivity/state';
+import { state } from '../../../src/index';
 import { isRoutePathActive } from '../../../src/router/activity';
 import { navigate, updateRouteQuery } from '../../../src/router/navigate';
 import {
@@ -182,6 +182,11 @@ describe('client route base paths', () => {
 
     expect(container.querySelector('p')).toBe(paragraph);
     expect(paragraph?.textContent).toBe('pig|2|#results');
+
+    updateRouteQuery({ q: 'owl', page: 3 });
+    flushScheduler();
+    expect(container.querySelector('p')).toBe(paragraph);
+    expect(paragraph?.textContent).toBe('owl|3|#results');
   });
 
   it('should reject changed server markup for a query-rendered mounted page', async () => {

@@ -15,18 +15,12 @@ type QueryStaleReason = 'aborted' | 'error' | 'inconsistent';
 interface DataRuntime {
   readonly queryCache: Map<string, unknown>;
   readonly queryData: Map<string, unknown>;
-  /** Test-only query overrides keyed by the canonical query key. */
-  readonly queryTestOverrides: Map<string, unknown>;
-  /** Test-only mutation overrides keyed by the canonical mutation key. */
-  readonly mutationTestOverrides: Map<string, unknown>;
 }
 
 /** Options for {@link createDataRuntime}. */
 interface DataRuntimeOptions {
   queryCache?: Map<string, unknown>;
   queryData?: Map<string, unknown>;
-  queryTestOverrides?: Map<string, unknown>;
-  mutationTestOverrides?: Map<string, unknown>;
 }
 
 /** Reusable query definition for {@link defineQuery}: key, fetcher, and freshness checks. */
@@ -278,6 +272,8 @@ type QueryOptions<T> = {
   runtime?: DataRuntime;
   initialData?: T;
   skipInitialFetch?: boolean;
+  /** Cache lifetime in milliseconds. Defaults to 0 after component unmount and five minutes for ownerless client queries. */
+  gcTime?: number;
 };
 
 /** Options for {@link createMutation}. */
@@ -290,6 +286,11 @@ type MutationOptions<TInput, TResult> = {
       signal: AbortSignal;
     }
   ) => Promise<TResult>;
+  /** Apply a synchronous optimistic change. Return a rollback for failure or abort. */
+  optimistic?: (
+    input: TInput,
+    ctx: { signal: AbortSignal }
+  ) => void | (() => void);
   /**
    * Query prefixes to invalidate after success, matched by `:`-delimited
    * segment the same way as {@link invalidate}.
@@ -336,8 +337,11 @@ declare function getDefaultDataRuntime(): DataRuntime;
  */
 declare function invalidate(prefix: string, options?: InvalidateOptions): void;
 
-/** Create a {@link QueryScope} that namespaces keys and invalidations under `namespace`. */
-declare function queryScope(namespace: string): QueryScope;
+/** Create a {@link QueryScope} that namespaces keys and can bind invalidations to a runtime. */
+declare function queryScope(
+  namespace: string,
+  options?: Pick<InvalidateOptions, 'runtime'>
+): QueryScope;
 
 /**
  * Periodically invalidate queries matching `prefix` on a fixed interval,

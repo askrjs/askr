@@ -442,6 +442,8 @@ Askr disposes route-local component state, resources, tasks, and abort signals
 before mounting the replacement. Reconciliation can preserve shared layout DOM
 nodes, but state that must survive navigation belongs in a shared layout,
 context, or external store.
+Shared layout components retain their own lifecycle work while that layout
+remains in the route tree; leaving the layout disposes that work.
 
 `navigate(path, { state })` stores transient state on the destination browser
 history entry without serializing it into the URL. Push, replace, redirects,

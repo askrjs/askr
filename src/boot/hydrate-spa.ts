@@ -12,7 +12,8 @@ import {
 } from '../router/route';
 import { clearRouteState } from '../router/store';
 import { readHydratedAuth, withoutHydratedAuth } from '../router/auth';
-import { assertExecutionModel } from '../runtime';
+import { assertExecutionModel } from '../common/execution-model';
+import { flushSync as flushRuntimeScheduler } from '../core/reactive/scheduler';
 import { createAppRenderRuntime } from '../common/app-render-runtime';
 import {
   startHydrationRenderPhase,
@@ -40,16 +41,10 @@ import {
   resolveInitialRoute,
 } from './route-startup';
 import type { HydrateSPAConfig } from './types';
-import { withIntrinsicHydrationAdoption } from '../renderer';
 import { hydrateDataRuntime } from '../data/query-registry';
 import { getDefaultDataRuntime } from '../data/data-runtime';
 import { resolveRootElement } from './root-element';
 import { validateCspNonce } from '../csp-nonce';
-import {
-  beginHydrationListenerTransaction,
-  commitHydrationListenerTransaction,
-  discardHydrationListenerTransaction,
-} from '../renderer/hydration/listener-transaction';
 import { beginHydrationInteractionReplay } from './hydration-interaction-replay';
 
 /**
@@ -142,15 +137,21 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       resolved.kind === 'deny'
         ? { handler: bindDeniedRouteHandler(resolved.status), params: {} }
         : resolved;
-    const mountHydratedRoot: typeof mountOrUpdate = (...args) =>
-      withIntrinsicHydrationAdoption(() =>
-        mountOrUpdate(args[0], args[1], {
-          ...args[2],
-          cspNonce: config.cspNonce,
-        })
-      );
-
     let verifyClientMarkup: (() => Promise<void>) | undefined;
+    // What the hydration commit itself rendered, before post-commit work runs.
+    let clientMarkup: string | null = null;
+    const captureClientMarkup = () => {
+      if (verifyClientMarkup) clientMarkup = rootElement.innerHTML;
+    };
+
+    const mountHydratedRoot: typeof mountOrUpdate = (...args) =>
+      mountOrUpdate(args[0], args[1], {
+        ...args[2],
+        cspNonce: config.cspNonce,
+        hydrate: true,
+        onCommit: captureClientMarkup,
+      });
+
     if (shouldVerifyHydrationMarkup(config)) {
       const {
         captureServerHydrationMarkup,
@@ -187,7 +188,18 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         verifyClientMarkup = async () => {
           // Let the work the hydration commit scheduled settle first.
           await Promise.resolve();
-          if (!verifyClientHydrationMarkup(rootElement, serverMarkup)) {
+          // A renderer divergence differs from the server markup both when the
+          // hydration commit finishes and after the work it scheduled (error
+          // boundary fallbacks, portal retirement) settles. Matching at either
+          // point accepts application updates made after the commit, such as
+          // a ref adopting a persisted preference.
+          const matchedAtCommit =
+            clientMarkup !== null &&
+            verifyClientHydrationMarkup(clientMarkup, serverMarkup);
+          if (
+            !matchedAtCommit &&
+            !verifyClientHydrationMarkup(rootElement.innerHTML, serverMarkup)
+          ) {
             throw new Error(
               '[Askr] Hydration mismatch detected between server and client markup.'
             );
@@ -223,6 +235,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
             stopHydrationRenderPhase();
           }
         }
+        flushRuntimeScheduler();
         if (!rootElement.querySelector('[data-skip-hydrate]')) {
           await verifyClientMarkup?.();
         }
@@ -238,7 +251,6 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     if (hydrationRenderDataForApp) {
       startHydrationRenderPhase(hydrationRenderDataForApp);
     }
-    const listenerTransaction = beginHydrationListenerTransaction();
     try {
       mountHydratedRoot(
         rootElement,
@@ -250,10 +262,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
           appRuntime: appRouteSource.runtime,
         }
       );
-      commitHydrationListenerTransaction(listenerTransaction);
-    } catch (error) {
-      discardHydrationListenerTransaction(listenerTransaction);
-      throw error;
+      flushRuntimeScheduler();
     } finally {
       if (hydrationRenderDataForApp) {
         stopHydrationRenderPhase();

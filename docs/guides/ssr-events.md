@@ -247,8 +247,12 @@ reports a mismatch with a `Hydration mismatch detected` error in two cases:
 - the server HTML differs from a fresh server render of the route (stale or
   edited markup, different data), checked before hydration starts; and
 - the server HTML differs from what the client renderer produces while
-  hydrating it (an SSR/client renderer divergence), checked right after the
-  hydration commit. The client has already reconciled the DOM at that point.
+  hydrating it (an SSR/client renderer divergence). The client markup is
+  compared when the hydration commit finishes and again after the work it
+  scheduled settles (error boundary fallbacks, portal retirement); a match at
+  either point passes. Updates the application makes after the commit, such as
+  a ref callback adopting a persisted preference, are therefore not reported.
+  The client has already reconciled the DOM at that point.
 
 Both comparisons ignore comments and renderer bookkeeping attributes, and
 compare `style` attributes by their parsed declarations, so the server's

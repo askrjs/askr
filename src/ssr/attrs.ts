@@ -19,7 +19,8 @@ import {
 } from '../common/dom-properties';
 import type { RenderSink } from './sink';
 import { escapeAttr, needsEscapeAttr, styleObjToCss } from './escape';
-import { readFunctionChildValue, readUntracked } from '../runtime';
+import { untrack } from '../core/reactive/graph';
+import { readValue } from '../core/reactive/readable';
 
 const ESCAPED_ATTR_VALUE_CACHE_LIMIT = 512;
 const escapedAttrValueCache = new Map<string, string>();
@@ -35,7 +36,7 @@ function isEventHandler(key: string): boolean {
  */
 function resolvePropValue(value: unknown): unknown {
   return typeof value === 'function'
-    ? readUntracked(() => readFunctionChildValue(value as () => unknown))
+    ? untrack(() => readValue(value as () => unknown))
     : value;
 }
 

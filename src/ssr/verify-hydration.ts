@@ -72,7 +72,14 @@ function normalizeHydrationHtml(html: string): string {
     if (cssText) element.setAttribute('style', cssText);
     else element.removeAttribute('style');
   }
-  return template.innerHTML.replace(/<!--[\s\S]*?-->/g, '');
+  const comments = document.createTreeWalker(
+    template.content,
+    NodeFilter.SHOW_COMMENT
+  );
+  const found: Node[] = [];
+  while (comments.nextNode()) found.push(comments.currentNode);
+  for (const comment of found) comment.parentNode?.removeChild(comment);
+  return template.innerHTML;
 }
 
 /**
@@ -110,16 +117,16 @@ export function captureServerHydrationMarkup(
 }
 
 /**
- * Whether the markup the client renderer left under `root` after hydrating
- * matches the server markup captured before it ran. Hydration reconciles the
- * server DOM in place, so an SSR/client renderer divergence shows up here even
- * when a fresh server render reproduces the server HTML exactly.
+ * Whether client markup left by hydration (`clientHtml`) matches the server
+ * markup captured before it ran. Hydration reconciles the server DOM in place,
+ * so an SSR/client renderer divergence shows up here even when a fresh server
+ * render reproduces the server HTML exactly.
  */
 export function verifyClientHydrationMarkup(
-  root: Element,
+  clientHtml: string,
   serverMarkup: string
 ): boolean {
-  return normalizeHydrationHtml(root.innerHTML) === serverMarkup;
+  return normalizeHydrationHtml(clientHtml) === serverMarkup;
 }
 
 export function verifyHydrationSyncForUrl(opts: {

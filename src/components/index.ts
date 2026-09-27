@@ -1,4 +1,4 @@
-export { ErrorBoundary } from './error-boundary';
+export { ErrorBoundary } from '../core/api/error-boundary';
 export type {
   ErrorBoundaryFallbackRender,
   ErrorBoundaryProps,

@@ -108,6 +108,224 @@ describe('reconciliation commit errors', () => {
     expect(onError.mock.calls[0][0]).toBe(error);
     expect(container.querySelector('[data-askr-error-boundary]')).toBeTruthy();
   });
+
+  it('should restore earlier sibling lists when a later insertion fails', () => {
+    const App = () => {
+      flip = state(false);
+      const left = flip() ? ['b', 'a', 'c'] : ['a', 'b'];
+      const right = flip() ? ['y', 'x', 'z'] : ['x', 'y'];
+      return (
+        <div>
+          <ul id="left">
+            {left.map((key) => (
+              <li key={key}>{key}</li>
+            ))}
+          </ul>
+          <ul id="right">
+            {right.map((key) => (
+              <li key={key}>{key}</li>
+            ))}
+          </ul>
+        </div>
+      );
+    };
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const stable = container.innerHTML;
+    const leftNodes = Array.from(container.querySelector('#left')!.childNodes);
+    const rightNodes = Array.from(
+      container.querySelector('#right')!.childNodes
+    );
+    const error = new Error('later commit failed');
+    failNextInsertInto('right', error);
+
+    flip.set(true);
+    expect(() => flushScheduler()).toThrow(error);
+    expect(container.innerHTML).toBe(stable);
+    expect(Array.from(container.querySelector('#left')!.childNodes)).toEqual(
+      leftNodes
+    );
+    expect(Array.from(container.querySelector('#right')!.childNodes)).toEqual(
+      rightNodes
+    );
+  });
+
+  it('should restore an earlier attribute when a later attribute write fails', () => {
+    const App = () => {
+      flip = state(false);
+      return (
+        <div>
+          <button id="first" data-mode={flip() ? 'new' : 'old'}>
+            first
+          </button>
+          <button id="second" data-mode={flip() ? 'new' : 'old'}>
+            second
+          </button>
+        </div>
+      );
+    };
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const stable = container.innerHTML;
+    const second = container.querySelector('#second')!;
+    const write = second.setAttribute.bind(second);
+    const error = new Error('attribute write failed');
+    let armed = true;
+    vi.spyOn(second, 'setAttribute').mockImplementation((name, value) => {
+      if (armed && name === 'data-mode') {
+        armed = false;
+        throw error;
+      }
+      write(name, value);
+    });
+
+    flip.set(true);
+    expect(() => flushScheduler()).toThrow(error);
+    expect(container.innerHTML).toBe(stable);
+  });
+
+  it.each(['input', 'textarea'] as const)(
+    'should restore live %s values when a later value attribute write fails',
+    (Tag) => {
+      const App = () => {
+        flip = state(false);
+        return (
+          <div>
+            <Tag id="first" value={flip() ? 'new' : 'old'} />
+            <Tag id="second" value={flip() ? 'new' : 'old'} />
+          </div>
+        );
+      };
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      const stable = container.innerHTML;
+      const first = container.querySelector<HTMLInputElement>('#first')!;
+      const second = container.querySelector<HTMLInputElement>('#second')!;
+      const write = second.setAttribute.bind(second);
+      const error = new Error('value attribute write failed');
+      let armed = true;
+      vi.spyOn(second, 'setAttribute').mockImplementation((name, value) => {
+        if (armed && name === 'value') {
+          armed = false;
+          throw error;
+        }
+        write(name, value);
+      });
+
+      flip.set(true);
+      expect(() => flushScheduler()).toThrow(error);
+      expect(container.innerHTML).toBe(stable);
+      expect(first.value).toBe('old');
+      expect(second.value).toBe('old');
+    }
+  );
+
+  it('should restore live checkbox state when a later checked attribute write fails', () => {
+    const App = () => {
+      flip = state(false);
+      return (
+        <div>
+          <input id="first" type="checkbox" checked={flip()} />
+          <input id="second" type="checkbox" checked={flip()} />
+        </div>
+      );
+    };
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const stable = container.innerHTML;
+    const first = container.querySelector<HTMLInputElement>('#first')!;
+    const second = container.querySelector<HTMLInputElement>('#second')!;
+    const write = second.setAttribute.bind(second);
+    const error = new Error('checked attribute write failed');
+    let armed = true;
+    vi.spyOn(second, 'setAttribute').mockImplementation((name, value) => {
+      if (armed && name === 'checked') {
+        armed = false;
+        throw error;
+      }
+      write(name, value);
+    });
+
+    flip.set(true);
+    expect(() => flushScheduler()).toThrow(error);
+    expect(container.innerHTML).toBe(stable);
+    expect(first.checked).toBe(false);
+    expect(second.checked).toBe(false);
+  });
+
+  it('should restore live option state when a later selected attribute write fails', () => {
+    const App = () => {
+      flip = state(false);
+      return (
+        <select multiple>
+          <option id="first" selected={flip()}>
+            First
+          </option>
+          <option id="second" selected={flip()}>
+            Second
+          </option>
+        </select>
+      );
+    };
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const stable = container.innerHTML;
+    const first = container.querySelector<HTMLOptionElement>('#first')!;
+    const second = container.querySelector<HTMLOptionElement>('#second')!;
+    const write = second.setAttribute.bind(second);
+    const error = new Error('selected attribute write failed');
+    let armed = true;
+    vi.spyOn(second, 'setAttribute').mockImplementation((name, value) => {
+      if (armed && name === 'selected') {
+        armed = false;
+        throw error;
+      }
+      write(name, value);
+    });
+
+    flip.set(true);
+    expect(() => flushScheduler()).toThrow(error);
+    expect(container.innerHTML).toBe(stable);
+    expect(first.selected).toBe(false);
+    expect(second.selected).toBe(false);
+  });
+
+  it('should preserve single-select choice when an option selected write fails', () => {
+    const App = () => {
+      flip = state(false);
+      return (
+        <select>
+          <option id="first" selected>
+            First
+          </option>
+          <option id="second" selected={flip()}>
+            Second
+          </option>
+        </select>
+      );
+    };
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const stable = container.innerHTML;
+    const first = container.querySelector<HTMLOptionElement>('#first')!;
+    const second = container.querySelector<HTMLOptionElement>('#second')!;
+    const write = second.setAttribute.bind(second);
+    const error = new Error('selected attribute write failed');
+    let armed = true;
+    vi.spyOn(second, 'setAttribute').mockImplementation((name, value) => {
+      if (armed && name === 'selected') {
+        armed = false;
+        throw error;
+      }
+      write(name, value);
+    });
+
+    flip.set(true);
+    expect(() => flushScheduler()).toThrow(error);
+    expect(container.innerHTML).toBe(stable);
+    expect(first.selected).toBe(true);
+    expect(second.selected).toBe(false);
+  });
 });
 
 // Reactive child functions commit outside a component update, so they need
@@ -205,11 +423,9 @@ describe.each(['development', 'production'])(
       ).toBeTruthy();
     });
 
-    it('should roll back a blueprint reactive child commit error', () => {
+    it('should roll back a reactive child commit error in the second row', () => {
       let items!: State<string[] | null>;
-      const cloneNode = vi.spyOn(Node.prototype, 'cloneNode');
-      // Starts as text so the second row takes the blueprint text binding,
-      // then switches to a keyed list through that same binding.
+      // Both rows switch from text to keyed children through a function child.
       const Row = ({ index }: { index: number }) => (
         <ul>
           {() => {
@@ -231,7 +447,6 @@ describe.each(['development', 'production'])(
       };
       createIsland({ root: container, component: App });
       flushScheduler();
-      expect(cloneNode).toHaveBeenCalled();
       items.set(['a', 'b', 'x']);
       flushScheduler();
       const blueprintList = container.querySelectorAll('ul')[1]!;

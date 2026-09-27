@@ -21,14 +21,13 @@ import {
   task,
   timer,
 } from '@askrjs/askr/resources';
-import { state } from '../../../src/runtime/reactivity/state';
+import { state } from '../../../src/index';
 import { navigate } from '../../../src/router/navigate';
 import { group, route } from '../../../src/router/route';
 import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
-import type { ComponentInstance } from '../../../src/runtime';
 
 function setDocumentVisibility(value: DocumentVisibilityState): () => void {
   const ownDescriptor = Object.getOwnPropertyDescriptor(
@@ -440,12 +439,6 @@ describe('component-scoped lifecycle and polling checks', () => {
     setLabel('third');
     flushScheduler();
 
-    const host = container.querySelector('button') as
-      | (HTMLButtonElement & { __ASKR_INSTANCE?: ComponentInstance })
-      | null;
-
-    expect(host?.__ASKR_INSTANCE?.mountOperations).toBeUndefined();
-
     vi.advanceTimersByTime(110);
 
     expect(ticks).toEqual(['third', 'third']);
@@ -743,9 +736,7 @@ describe('component-scoped lifecycle and polling checks', () => {
 
     expect(run).toHaveBeenCalledTimes(1);
     expect(cleanupTask).not.toHaveBeenCalled();
-    expect(container.querySelector('main')?.firstChild?.nodeType).toBe(
-      Node.COMMENT_NODE
-    );
+    expect(container.querySelector('main')?.textContent).toBe('');
 
     target.dispatchEvent(new Event('ping'));
     vi.advanceTimersByTime(110);

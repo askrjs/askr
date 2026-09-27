@@ -24,6 +24,8 @@ export interface SSRPortalHostRegistration {
 export interface SSRPortalSlot {
   hasValue: boolean;
   value: RenderableChild | undefined;
+  /** Owner at the writer position, used when the host renders later. */
+  owner?: unknown;
   hosts: SSRPortalHostRegistration[];
 }
 

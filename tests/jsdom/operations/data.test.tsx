@@ -20,7 +20,10 @@ import {
 } from '../../../src/data';
 import { PREFETCHED_QUERY_DATA_LIMIT } from '../../../src/data/data-runtime';
 import { cleanupApp, createSPA } from '@askrjs/askr/boot';
-import { createInvalidationRecorder } from '../../../src/testing';
+import {
+  createInvalidationRecorder,
+  createQueryTestRegistry,
+} from '../../../src/testing';
 import { addInvalidationListener } from '../../../src/data/testing';
 import { navigate } from '../../../src/router/navigate';
 import { route } from '../../../src/router/route';
@@ -193,6 +196,38 @@ describe('data layer', () => {
     expect(fetchCountB).toBe(1);
     expect(queryA.data).toEqual({ value: 'a:2' });
     expect(queryB.data).toEqual({ value: 'b:1' });
+  });
+
+  it('should invalidate through a runtime-bound scope after an await', async () => {
+    const runtimeA = createDataRuntime();
+    const runtimeB = createDataRuntime();
+    const scope = queryScope('users', { runtime: runtimeA });
+    const key = scope.key('123');
+    let fetchCountA = 0;
+    let fetchCountB = 0;
+    const queryA = createQuery({
+      runtime: runtimeA,
+      key,
+      fetch: async () => ({ value: ++fetchCountA }),
+    });
+    const queryB = createQuery({
+      runtime: runtimeB,
+      key,
+      fetch: async () => ({ value: ++fetchCountB }),
+    });
+
+    await settle();
+    await Promise.resolve();
+    scope.invalidate(['123']);
+    await settle();
+
+    expect(queryA.data).toEqual({ value: 2 });
+    expect(queryB.data).toEqual({ value: 1 });
+
+    scope.invalidate(['123'], { runtime: runtimeB });
+    await settle();
+    expect(queryA.data).toEqual({ value: 2 });
+    expect(queryB.data).toEqual({ value: 2 });
   });
 
   it('should invalidate canonical scoped query prefixes', () => {
@@ -861,12 +896,13 @@ describe('data layer', () => {
   });
 
   it('should not seed a test override reader from hydrated query data', () => {
-    const runtime = createDataRuntime();
+    const registry = createQueryTestRegistry();
+    const runtime = registry.runtime;
     runtime.queryData.set('users:override', { name: 'ssr' });
     const override = { data: { name: 'override' } } as unknown as Query<{
       name: string;
     }>;
-    runtime.queryTestOverrides.set('users:override', override);
+    registry.set('users:override', override);
     const userQuery = defineQuery({
       key: () => 'users:override',
       fetch: async () => ({ name: 'server' }),
@@ -916,8 +952,6 @@ describe('data layer', () => {
     const runtime = {
       queryCache: new Map<string, unknown>(),
       queryData: new Map<string, unknown>(),
-      queryTestOverrides: new Map<string, unknown>(),
-      mutationTestOverrides: new Map<string, unknown>(),
     };
     const userQuery = defineQuery({
       key: () => 'plain-runtime:user',
@@ -1674,6 +1708,174 @@ describe('data layer', () => {
       await settle();
 
       expect(container.textContent).toContain('beta');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should reuse settled query data until its gcTime expires', async () => {
+    const runtime = createDataRuntime();
+    const fetch = vi.fn(async () => 'Ada');
+    const App = (): JSXElement => {
+      const query = createQuery({
+        runtime,
+        key: 'users:retained',
+        fetch,
+        gcTime: 50,
+      });
+      return <span>{query.data ?? 'loading'}</span>;
+    };
+    const { container, cleanup } = createTestContainer();
+
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+      expect(container.textContent).toBe('Ada');
+      expect(fetch).toHaveBeenCalledTimes(1);
+
+      vi.useFakeTimers();
+      cleanup();
+      expect(runtime.queryCache.has('users:retained')).toBe(true);
+
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      expect(container.textContent).toBe('Ada');
+      expect(fetch).toHaveBeenCalledTimes(1);
+
+      cleanup();
+      vi.advanceTimersByTime(49);
+      expect(runtime.queryCache.has('users:retained')).toBe(true);
+      vi.advanceTimersByTime(1);
+      expect(runtime.queryCache.has('users:retained')).toBe(false);
+    } finally {
+      cleanup();
+      vi.useRealTimers();
+    }
+  });
+
+  it('should evict an inactive retained query instead of fetching through its unmounted reader', async () => {
+    const runtime = createDataRuntime();
+    const fetch = vi.fn(async () => 'Ada');
+    const App = (): JSXElement => {
+      const query = createQuery({
+        runtime,
+        key: 'users:inactive-retained',
+        fetch,
+        gcTime: 50,
+      });
+      return <span>{query.data ?? 'loading'}</span>;
+    };
+    const { container, cleanup } = createTestContainer();
+
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+      expect(fetch).toHaveBeenCalledTimes(1);
+      cleanup();
+      expect(runtime.queryCache.has('users:inactive-retained')).toBe(true);
+
+      invalidate('users:inactive-retained', { runtime });
+      flushScheduler();
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(runtime.queryCache.has('users:inactive-retained')).toBe(false);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should keep an ownerless query handle usable with explicit gcTime zero', async () => {
+    const runtime = createDataRuntime();
+    const fetch = vi.fn(async () => 'Ada');
+    const query = createQuery({
+      runtime,
+      key: 'users:ownerless',
+      fetch,
+      skipInitialFetch: true,
+      gcTime: 0,
+    });
+
+    expect(runtime.queryCache.has('users:ownerless')).toBe(false);
+    const pending = query.refresh();
+    flushScheduler();
+    await pending;
+    expect(query.data).toBe('Ada');
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('should evict an ownerless query cache entry after its gcTime', () => {
+    const runtime = createDataRuntime();
+    vi.useFakeTimers();
+    try {
+      createQuery({
+        runtime,
+        key: 'users:ownerless-retained',
+        fetch: async () => 'Ada',
+        skipInitialFetch: true,
+        gcTime: 25,
+      });
+      expect(runtime.queryCache.has('users:ownerless-retained')).toBe(true);
+      vi.advanceTimersByTime(25);
+      expect(runtime.queryCache.has('users:ownerless-retained')).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('should bound the default ownerless query cache lifetime', () => {
+    const runtime = createDataRuntime();
+    vi.useFakeTimers();
+    try {
+      createQuery({
+        runtime,
+        key: 'users:ownerless-default',
+        fetch: async () => 'Ada',
+        skipInitialFetch: true,
+      });
+      vi.advanceTimersByTime(5 * 60_000 - 1);
+      expect(runtime.queryCache.has('users:ownerless-default')).toBe(true);
+      vi.advanceTimersByTime(1);
+      expect(runtime.queryCache.has('users:ownerless-default')).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('should replace an inactive reader definition before an ownerless query fetches', async () => {
+    const runtime = createDataRuntime();
+    const firstFetch = vi.fn(async () => 'first');
+    const nextFetch = vi.fn(async () => 'next');
+    const App = (): JSXElement => {
+      const query = createQuery({
+        runtime,
+        key: 'users:handoff-to-ownerless',
+        fetch: firstFetch,
+        gcTime: 50,
+      });
+      return <span>{query.data ?? 'loading'}</span>;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+      cleanup();
+      expect(runtime.queryCache.has('users:handoff-to-ownerless')).toBe(true);
+
+      const query = createQuery({
+        runtime,
+        key: 'users:handoff-to-ownerless',
+        fetch: nextFetch,
+        skipInitialFetch: true,
+        gcTime: 0,
+      });
+      const pending = query.refresh();
+      flushScheduler();
+      await pending;
+      expect(firstFetch).toHaveBeenCalledTimes(1);
+      expect(nextFetch).toHaveBeenCalledTimes(1);
+      expect(query.data).toBe('next');
     } finally {
       cleanup();
     }

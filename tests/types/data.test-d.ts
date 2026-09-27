@@ -41,8 +41,9 @@ const dataRuntime = createDataRuntime();
 expectType<DataRuntime>(dataRuntime);
 expectType<Map<string, unknown>>(dataRuntime.queryCache);
 expectType<Map<string, unknown>>(dataRuntime.queryData);
-expectType<Map<string, unknown>>(dataRuntime.queryTestOverrides);
-expectType<Map<string, unknown>>(dataRuntime.mutationTestOverrides);
+expectError(dataRuntime.queryTestOverrides);
+expectError(dataRuntime.mutationTestOverrides);
+expectError(createDataRuntime({ queryTestOverrides: new Map() }));
 expectType<DataRuntime>(getDefaultDataRuntime());
 expectType<DataRuntime>(createDataRuntime({ queryCache: new Map() }));
 const dataRuntimeOptions: DataRuntimeOptions = {
@@ -142,6 +143,7 @@ expectType<void>(
 const query = createQuery({
   key: 'user:123',
   runtime: dataRuntime,
+  gcTime: 50,
   fetch: async ({ signal }) => {
     expectType<AbortSignal>(signal);
     return { id: '123', name: 'Ada' };
@@ -158,6 +160,7 @@ const query = createQuery({
 });
 
 expectType<Query<{ id: string; name: string }>>(query);
+expectError(createQuery({ key: 'bad-gc', fetch: async () => 1, gcTime: '50' }));
 expectType<{ id: string; name: string } | null>(query.data);
 expectType<{} | null>(query.error);
 expectType<boolean>(query.loading);
@@ -172,6 +175,7 @@ expectType<void>(invalidate('user:', { runtime: dataRuntime }));
 
 const scoped = queryScope('admin');
 expectType<QueryScope>(scoped);
+expectType<QueryScope>(queryScope('admin', { runtime: dataRuntime }));
 expectType<string>(scoped.key('buckets', 'main', 'files'));
 expectType<string>(scoped.prefix('buckets', 'main'));
 expectType<void>(scoped.invalidate(['buckets', 'main']));
@@ -299,6 +303,11 @@ if (query.consistency === 'fresh' && !query.loading) {
 
 const mutation = createMutation({
   runtime: dataRuntime,
+  optimistic: (input: { id: string }, { signal }) => {
+    expectType<string>(input.id);
+    expectType<AbortSignal>(signal);
+    return () => {};
+  },
   action: async (input: { id: string }, { signal }) => {
     expectType<AbortSignal>(signal);
     return { length: input.id.length };

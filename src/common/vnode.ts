@@ -4,7 +4,6 @@
 
 import type { Props } from './props';
 import type { JSXElement, JSXElementType } from './jsx';
-import type { ControlBoundaryState } from '../runtime';
 export { __CONTROL_BOUNDARY__ } from './control';
 
 export const __ERROR_BOUNDARY__ = Symbol.for('askr.error-boundary');
@@ -18,7 +17,6 @@ export interface DOMElement {
   children?: VNode[];
   key?: string | number | null;
   [Symbol.iterator]?: never;
-  _controlState?: ControlBoundaryState; // Internal: control boundary state
 }
 
 // Type for virtual DOM nodes

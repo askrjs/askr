@@ -330,9 +330,7 @@ const scenarios: Record<string, Scenario> = {
       }
 
       expect(errors).toHaveLength(1);
-      expect((errors[0] as Error).message).toMatch(
-        /render-scoped hook sequence changed/
-      );
+      expect((errors[0] as Error).message).toMatch(/Hook order changed/);
     },
   },
 

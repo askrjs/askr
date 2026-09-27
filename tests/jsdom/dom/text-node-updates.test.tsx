@@ -7,10 +7,6 @@ import {
 } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
 import { allowFrameworkWarnings } from '../../setup-env';
-import {
-  disableEventDelegation,
-  enableEventDelegation,
-} from '../../../src/renderer/props/events';
 
 describe('text node updates (DOM)', () => {
   let { container, cleanup } = createTestContainer();
@@ -1048,73 +1044,67 @@ describe('text node updates (DOM)', () => {
   });
 
   it('should tear down direct listeners when a retained multi-root child range collapses to empty', async () => {
-    disableEventDelegation();
-
     let mode: ReturnType<typeof state<'multi' | 'empty'>> | null = null;
     let clicks = 0;
 
-    try {
-      const Component = () => {
-        mode = state<'multi' | 'empty'>('multi');
+    const Component = () => {
+      mode = state<'multi' | 'empty'>('multi');
 
-        return (
-          <div>
-            {'pre:'}
-            {() =>
-              mode!() === 'multi' ? (
-                <>
-                  <button
-                    data-kind={'action'}
-                    onClick={() => {
-                      clicks += 1;
-                    }}
-                  >
-                    {'go'}
-                  </button>
-                  <span data-kind={'tail'}>{'tail'}</span>
-                </>
-              ) : null
-            }
-            {':post'}
-          </div>
-        );
-      };
+      return (
+        <div>
+          {'pre:'}
+          {() =>
+            mode!() === 'multi' ? (
+              <>
+                <button
+                  data-kind={'action'}
+                  onClick={() => {
+                    clicks += 1;
+                  }}
+                >
+                  {'go'}
+                </button>
+                <span data-kind={'tail'}>{'tail'}</span>
+              </>
+            ) : null
+          }
+          {':post'}
+        </div>
+      );
+    };
 
-      createIsland({ root: container, component: Component });
-      flushScheduler();
+    createIsland({ root: container, component: Component });
+    flushScheduler();
 
-      const button = container.querySelector(
-        '[data-kind="action"]'
-      ) as HTMLButtonElement;
+    const button = container.querySelector(
+      '[data-kind="action"]'
+    ) as HTMLButtonElement;
 
-      button.click();
-      flushScheduler();
-      expect(clicks).toBe(1);
+    button.click();
+    flushScheduler();
+    expect(clicks).toBe(1);
 
-      mode!.set('empty');
-      flushScheduler();
+    mode!.set('empty');
+    flushScheduler();
 
-      expect(container.querySelector('[data-kind="action"]')).toBeNull();
-      expect(container.querySelector('[data-kind="tail"]')).toBeNull();
+    expect(container.querySelector('[data-kind="action"]')).toBeNull();
+    expect(container.querySelector('[data-kind="tail"]')).toBeNull();
 
-      button.click();
-      flushScheduler();
-      expect(clicks).toBe(1);
+    button.click();
+    flushScheduler();
+    expect(clicks).toBe(1);
 
-      mode!.set('multi');
-      flushScheduler();
+    mode!.set('multi');
+    flushScheduler();
 
-      const nextButton = container.querySelector(
-        '[data-kind="action"]'
-      ) as HTMLButtonElement;
+    const nextButton = container.querySelector(
+      '[data-kind="action"]'
+    ) as HTMLButtonElement;
 
-      nextButton.click();
-      flushScheduler();
-      expect(clicks).toBe(2);
-      expect(nextButton).not.toBe(button);
-    } finally {
-      enableEventDelegation();
-    }
+    nextButton.click();
+    flushScheduler();
+    expect(clicks).toBe(2);
+    expect(nextButton).not.toBe(button);
   });
 
   it('should keep a reactive child live after a parent rerender changes static sibling layout', async () => {
@@ -1257,140 +1247,128 @@ describe('text node updates (DOM)', () => {
   });
 
   it('should reset nested component state when a retained multi-root child range remounts', async () => {
-    disableEventDelegation();
-
     let mode: ReturnType<typeof state<'multi' | 'empty'>> | null = null;
     let parentRenderCount = 0;
 
-    try {
-      const Counter = () => {
-        const count = state(0);
+    const Counter = () => {
+      const count = state(0);
 
-        return (
-          <button
-            data-kind={'counter'}
-            onClick={() => {
-              count.set(count() + 1);
-            }}
-          >
-            {count()}
-          </button>
-        );
-      };
+      return (
+        <button
+          data-kind={'counter'}
+          onClick={() => {
+            count.set(count() + 1);
+          }}
+        >
+          {count()}
+        </button>
+      );
+    };
 
-      const Component = () => {
-        parentRenderCount += 1;
-        mode = state<'multi' | 'empty'>('multi');
+    const Component = () => {
+      parentRenderCount += 1;
+      mode = state<'multi' | 'empty'>('multi');
 
-        return (
-          <div>
-            {'pre:'}
-            {() =>
-              mode!() === 'multi' ? (
-                <>
-                  <Counter />
-                  <span data-kind={'tail'}>{'tail'}</span>
-                </>
-              ) : null
-            }
-            {':post'}
-          </div>
-        );
-      };
+      return (
+        <div>
+          {'pre:'}
+          {() =>
+            mode!() === 'multi' ? (
+              <>
+                <Counter />
+                <span data-kind={'tail'}>{'tail'}</span>
+              </>
+            ) : null
+          }
+          {':post'}
+        </div>
+      );
+    };
 
-      createIsland({ root: container, component: Component });
-      flushScheduler();
+    createIsland({ root: container, component: Component });
+    flushScheduler();
 
-      const firstButton = container.querySelector(
-        '[data-kind="counter"]'
-      ) as HTMLButtonElement;
+    const firstButton = container.querySelector(
+      '[data-kind="counter"]'
+    ) as HTMLButtonElement;
 
-      expect(container.textContent).toBe('pre:0tail:post');
-      firstButton.click();
-      flushScheduler();
-      expect(container.textContent).toBe('pre:1tail:post');
+    expect(container.textContent).toBe('pre:0tail:post');
+    firstButton.click();
+    flushScheduler();
+    expect(container.textContent).toBe('pre:1tail:post');
 
-      mode!.set('empty');
-      flushScheduler();
+    mode!.set('empty');
+    flushScheduler();
 
-      expect(container.textContent).toBe('pre::post');
-      expect(container.querySelector('[data-kind="counter"]')).toBeNull();
+    expect(container.textContent).toBe('pre::post');
+    expect(container.querySelector('[data-kind="counter"]')).toBeNull();
 
-      mode!.set('multi');
-      flushScheduler();
+    mode!.set('multi');
+    flushScheduler();
 
-      const secondButton = container.querySelector(
-        '[data-kind="counter"]'
-      ) as HTMLButtonElement;
+    const secondButton = container.querySelector(
+      '[data-kind="counter"]'
+    ) as HTMLButtonElement;
 
-      expect(container.textContent).toBe('pre:0tail:post');
-      expect(secondButton).not.toBe(firstButton);
-      expect(parentRenderCount).toBe(1);
-    } finally {
-      enableEventDelegation();
-    }
+    expect(container.textContent).toBe('pre:0tail:post');
+    expect(secondButton).not.toBe(firstButton);
+    expect(parentRenderCount).toBe(1);
   });
 
   it('should tear down nested component direct listeners when a retained multi-root child range is removed', async () => {
-    disableEventDelegation();
-
     let mode: ReturnType<typeof state<'multi' | 'empty'>> | null = null;
     let outerClicks = 0;
 
-    try {
-      const Counter = () => {
-        const count = state(0);
+    const Counter = () => {
+      const count = state(0);
 
-        return (
-          <button
-            data-kind={'counter'}
-            onClick={() => {
-              outerClicks += 1;
-              count.set(count() + 1);
-            }}
-          >
-            {count()}
-          </button>
-        );
-      };
+      return (
+        <button
+          data-kind={'counter'}
+          onClick={() => {
+            outerClicks += 1;
+            count.set(count() + 1);
+          }}
+        >
+          {count()}
+        </button>
+      );
+    };
 
-      const Component = () => {
-        mode = state<'multi' | 'empty'>('multi');
+    const Component = () => {
+      mode = state<'multi' | 'empty'>('multi');
 
-        return (
-          <div>
-            {() =>
-              mode!() === 'multi' ? (
-                <>
-                  <Counter />
-                  <span data-kind={'tail'}>{'tail'}</span>
-                </>
-              ) : null
-            }
-          </div>
-        );
-      };
+      return (
+        <div>
+          {() =>
+            mode!() === 'multi' ? (
+              <>
+                <Counter />
+                <span data-kind={'tail'}>{'tail'}</span>
+              </>
+            ) : null
+          }
+        </div>
+      );
+    };
 
-      createIsland({ root: container, component: Component });
-      flushScheduler();
+    createIsland({ root: container, component: Component });
+    flushScheduler();
 
-      const firstButton = container.querySelector(
-        '[data-kind="counter"]'
-      ) as HTMLButtonElement;
+    const firstButton = container.querySelector(
+      '[data-kind="counter"]'
+    ) as HTMLButtonElement;
 
-      firstButton.click();
-      flushScheduler();
-      expect(outerClicks).toBe(1);
+    firstButton.click();
+    flushScheduler();
+    expect(outerClicks).toBe(1);
 
-      mode!.set('empty');
-      flushScheduler();
+    mode!.set('empty');
+    flushScheduler();
 
-      firstButton.click();
-      flushScheduler();
-      expect(outerClicks).toBe(1);
-    } finally {
-      enableEventDelegation();
-    }
+    firstButton.click();
+    flushScheduler();
+    expect(outerClicks).toBe(1);
   });
 
   it('should preserve SVG namespace for a single retained reactive child boundary', async () => {

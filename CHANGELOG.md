@@ -2,6 +2,120 @@
 
 ## Unreleased
 
+- fix(router): a navigation that changes the pathname remounts the route
+  leaf, so `state()`, `task()`, and resources start fresh for the new URL
+  (`/user/1` to `/user/2`). Layouts keep their instances and DOM.
+
+- fix(router): when a destination's commit applies but a ref or binding
+  throws, navigation completes (history, location, metadata) and reports the
+  error. When a failed DOM write undoes the commit, navigation rolls back and
+  rethrows, keeping the previous page and location.
+
+- fix(boot): mounting without hydration replaces the container's existing
+  content (a loading placeholder, unhydrated markup) instead of rendering
+  beside it.
+
+- fix(foundations): an explicit `<DefaultPortal>` unmounted in the flush that
+  mounted it no longer hides `<Portal>` content from the automatic host.
+
+- fix(core): renders that are discarded or rewound by an `ErrorBoundary`
+  release event delegation and `For` row property reads they created.
+
+- fix(router): `<Resolve>` renders deferred route data after client
+  navigation. It claimed its resource hook only while the value was pending,
+  so the render after the promise settled failed the hook-order check and the
+  pending placeholder stayed on screen.
+
+- fix(boot): `hydrate: { verifyMarkup: true }` no longer reports a mismatch
+  when a ref callback updates state after the hydration commit (for example,
+  adopting a persisted theme). Client markup passes if it matches the server
+  at the commit or after scheduled hydration work settles.
+
+- breaking(api): remove `@askrjs/askr/experimental` and its runtime and
+  renderer-host construction APIs. Use the public boot, component, and state
+  APIs to mount and extend applications.
+
+- breaking(types): drop the internal `_controlState` field from the published
+  `VNode`/`DOMElement` declaration. It exposed the retired runtime's control,
+  child-scope, and component-instance shapes, which the rebuilt core does not
+  have. No export is removed.
+
+- fix(runtime): retain standalone reactive component updates in packed builds
+  by installing the DOM render host when a root is created.
+
+- fix(renderer): forced bulk reuse now propagates key attribute write failures
+  and restores a partially written key before changing that row's content.
+
+- fix(renderer): strip the forced positional bulk reuse diagnostic switch from
+  production bundles; it remains available in development tests.
+
+- feat(fx): `scheduleRetry()` now returns a `result` promise with the final
+  success value, terminal error, or cancellation status. Terminal errors still
+  reach the host reporter.
+
+- breaking(runtime): remove the scheduler's mutable `setInHandler` flag.
+  Use `runInHandlerScope()` to hold handler permissions for a lexical scope.
+
+- feat(data): mutations support a synchronous `optimistic` callback that
+  returns a rollback for failure or abort. Overlapping executions no longer
+  abort earlier writes by default; explicit abort cancels all pending writes.
+
+- fix(data): ownerless client queries now evict their cache lookup entry after
+  `gcTime` (five minutes by default, or immediately with `gcTime: 0`) while
+  the returned handle remains usable.
+  SSR request caches retain entries through dehydration.
+
+- feat(data): `createQuery()` accepts `gcTime` to retain settled data for a
+  bounded interval after the last component reader unmounts. The default
+  remains immediate eviction.
+
+- breaking(runtime): scheduler diagnostic state no longer includes
+  `taskCount`; use `queueLength` for pending work.
+
+- breaking(runtime): scheduler diagnostic state no longer includes the
+  redundant `executionDepth` field; use `running` or `isExecuting()`.
+
+- fix(runtime): report failed bulk-commit probes and reject work while commit
+  state is unknown instead of silently admitting it.
+
+- fix(fx): `raf()` wrappers now expose `cancel()` and remain usable after a
+  callback throws.
+
+- breaking(fx): remove `defer(fn)` from `@askrjs/askr/fx`; use the platform's
+  `queueMicrotask(fn)` for callback scheduling. `defer(promise)` remains in
+  `@askrjs/askr/router` for deferred route data.
+
+- breaking(data): `DataRuntime` no longer exposes test override maps or accepts
+  them in `createDataRuntime()` options. Use the query and mutation test
+  registries to install fixtures. Both registries now accept an existing
+  runtime when a test needs to share one cache and fixture scope.
+
+- fix(types): intrinsic event props now cover the DOM global handler map,
+  including animation, composition, drag, media, pointer-capture, and
+  transition events. Their `Capture` variants receive the same event type.
+
+- fix(types): intrinsic JSX and `jsx()` refs now use each tag's element type.
+  An `<input>` ref can no longer be passed to `<button>`, and callback refs
+  receive the correct element type. This includes standard tags outside the
+  explicitly tailored intrinsic-prop set.
+
+- breaking(types): Askr's JSX namespace now belongs only to the
+  `jsxImportSource` runtime modules. Import `type JSX` from
+  `@askrjs/askr/jsx-runtime` instead of using global `JSX`. Misspelled standard
+  tags now fail typechecking; hyphenated custom elements remain supported.
+  The unused class-component `ElementAttributesProperty` hook was removed.
+
+- docs(scope): mark the published interaction and icon foundation subpaths as
+  platform internal contracts for sibling UI and icon packages. Their imports
+  and behavior remain available for those packages; application code should
+  use the composed UI and icon packages.
+
+- breaking(api): runtime construction and renderer-host extension exports moved
+  from `@askrjs/askr` to `@askrjs/askr/experimental`. Change their import path;
+  their behavior and signatures remain the same. The root retains application
+  primitives. The experimental subpath is for runtime and renderer maintainers;
+  `createRuntime()` does not isolate mounted trees.
+
 - fix(renderer): a chain of three or more components of the same type, each
   returning the next directly, now keeps the state of every link when an
   outer link re-renders. The update walk previously failed to find the deeper

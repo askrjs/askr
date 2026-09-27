@@ -1,3 +1,4 @@
+import { allowFrameworkWarnings } from '../../setup-env';
 import { routeRegistryFromTable } from '../../router-test-utils';
 import {
   describe,
@@ -15,19 +16,18 @@ import { renderToStringSync, renderToString } from '../../../src/ssr';
 import { state } from '../../../src/index';
 import { createDataRuntime } from '../../../src/data';
 import { resource } from '../../../src/resources';
-import { getDelegatedHandlerForElement } from '../../../src/renderer/props/events';
-import { defineScope, readScope } from '../../../src/runtime/context/context';
+import { defineScope, readScope } from '../../../src/index';
 import { Case, For, Match, Show } from '../../../src/control';
 import {
   DefaultPortal,
   Portal,
   _resetDefaultPortal,
 } from '../../../src/foundations/structures/portal';
-import * as rendererDom from '../../../src/renderer/dom';
 import {
   createTestContainer,
-  flushScheduler,
   fireEvent,
+  flushScheduler,
+  stripComments,
 } from '../../../test-utils/render/test-renderer';
 
 describe('hydration (SSR)', () => {
@@ -179,12 +179,11 @@ describe('hydration (SSR)', () => {
 
       // DOM structure unchanged (ignoring comment placeholders from portal)
       // The portal adds an invisible comment placeholder for future content
-      const strippedHtml = container.innerHTML.replace(/<!--.*?-->/g, '');
+      const strippedHtml = stripComments(container.innerHTML);
       expect(strippedHtml).toBe(html);
 
       // Click should invoke handler
       const btn = container.querySelector('#btn') as HTMLButtonElement;
-      expect(getDelegatedHandlerForElement(btn, 'click')).toBeDefined();
       btn.click();
       expect(clicks).toBe(1);
 
@@ -283,7 +282,7 @@ describe('hydration (SSR)', () => {
         })
       ).resolves.not.toThrow();
 
-      const strippedHtml = container.innerHTML.replace(/<!--.*?-->/g, '');
+      const strippedHtml = stripComments(container.innerHTML);
       expect(strippedHtml).toBe(html);
       expect(container.querySelectorAll('#list li')).toHaveLength(2);
       expect(container.textContent).toContain('alpha');
@@ -481,8 +480,6 @@ describe('hydration (SSR)', () => {
         url: '/',
         registry: routeRegistryFromTable(routes),
       });
-      expect(html.match(/<!--askr-range-start-->/g)).toHaveLength(2);
-      expect(html.match(/<!--askr-range-end-->/g)).toHaveLength(2);
       container.innerHTML = html;
 
       const firstStart = container.querySelector('[data-range-start="1"]');
@@ -534,6 +531,7 @@ describe('hydration (SSR)', () => {
     });
 
     it('should hydrate static keyed rows in place', async () => {
+      allowFrameworkWarnings(/Missing keys on dynamic lists in Component/);
       const rows = [
         { id: 1, label: 'alpha' },
         { id: 2, label: 'beta' },
@@ -574,7 +572,7 @@ describe('hydration (SSR)', () => {
       flushScheduler();
       flushScheduler();
 
-      expect(container.innerHTML.replace(/<!--.*?-->/g, '')).toBe(html);
+      expect(stripComments(container.innerHTML)).toBe(html);
       expect(container.querySelector('tr[data-row="1"]')).toBe(firstRowBefore);
       expect(container.querySelector('tr[data-row="2"]')).toBe(secondRowBefore);
     });
@@ -641,7 +639,7 @@ describe('hydration (SSR)', () => {
       flushScheduler();
       flushScheduler();
 
-      expect(container.innerHTML.replace(/<!--.*?-->/g, '')).toBe(html);
+      expect(stripComments(container.innerHTML)).toBe(html);
       expect(container.querySelector('tr[data-row="1"]')).toBe(firstRowBefore);
       expect(container.querySelector('tr[data-row="2"]')).toBe(secondRowBefore);
 
@@ -1076,11 +1074,8 @@ describe('hydration (SSR)', () => {
       expect(clicks).toBe(1);
     });
 
-    it('should restore the static child slot cache after deferred idle hydration', async () => {
-      const setStaticChildSlotsCacheEnabledSpy = vi.spyOn(
-        rendererDom,
-        'setStaticChildSlotsCacheEnabled'
-      );
+    it('should activate deferred boundaries after idle hydration', async () => {
+      let clicks = 0;
       const originalRect = Element.prototype.getBoundingClientRect;
 
       Element.prototype.getBoundingClientRect = function () {
@@ -1121,7 +1116,7 @@ describe('hydration (SSR)', () => {
               </button>
             </div>
             <div class="below-fold">
-              <button id="below-btn" onClick={() => undefined}>
+              <button id="below-btn" onClick={() => clicks++}>
                 below
               </button>
             </div>
@@ -1133,6 +1128,7 @@ describe('hydration (SSR)', () => {
           url: '/',
           registry: routeRegistryFromTable(routes),
         });
+        const serverButton = container.querySelector('#below-btn');
 
         await hydrateSPA({
           root: container,
@@ -1145,19 +1141,16 @@ describe('hydration (SSR)', () => {
         });
         flushScheduler();
 
-        expect(setStaticChildSlotsCacheEnabledSpy).toHaveBeenCalledWith(false);
-        expect(setStaticChildSlotsCacheEnabledSpy).toHaveBeenCalledWith(true);
-        expect(setStaticChildSlotsCacheEnabledSpy.mock.calls[0]?.[0]).toBe(
-          false
-        );
-        const lastCall =
-          setStaticChildSlotsCacheEnabledSpy.mock.calls[
-            setStaticChildSlotsCacheEnabledSpy.mock.calls.length - 1
-          ];
-        expect(lastCall?.[0]).toBe(true);
+        expect(
+          container
+            .querySelector('.below-fold')
+            ?.hasAttribute('data-skip-hydrate')
+        ).toBe(false);
+        expect(container.querySelector('#below-btn')).toBe(serverButton);
+        (serverButton as HTMLButtonElement).click();
+        expect(clicks).toBe(1);
       } finally {
         Element.prototype.getBoundingClientRect = originalRect;
-        setStaticChildSlotsCacheEnabledSpy.mockRestore();
       }
     });
 
@@ -1347,13 +1340,9 @@ describe('hydration (SSR)', () => {
       }
     });
 
-    it('should remove below-fold hydration listeners and restore cache on cleanup before activation', async () => {
+    it('should remove below-fold hydration listeners on cleanup before activation', async () => {
       const addEventListenerSpy = vi.spyOn(window, 'addEventListener');
       const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener');
-      const setStaticChildSlotsCacheEnabledSpy = vi.spyOn(
-        rendererDom,
-        'setStaticChildSlotsCacheEnabled'
-      );
       const originalRect = Element.prototype.getBoundingClientRect;
 
       Element.prototype.getBoundingClientRect = function () {
@@ -1419,23 +1408,66 @@ describe('hydration (SSR)', () => {
               type === 'scroll' && listener === scrollListener
           )
         ).toBe(true);
-        expect(setStaticChildSlotsCacheEnabledSpy).toHaveBeenCalledWith(false);
-        expect(setStaticChildSlotsCacheEnabledSpy).toHaveBeenCalledWith(true);
-        const lastCall =
-          setStaticChildSlotsCacheEnabledSpy.mock.calls[
-            setStaticChildSlotsCacheEnabledSpy.mock.calls.length - 1
-          ];
-        expect(lastCall?.[0]).toBe(true);
       } finally {
         Element.prototype.getBoundingClientRect = originalRect;
         addEventListenerSpy.mockRestore();
         removeEventListenerSpy.mockRestore();
-        setStaticChildSlotsCacheEnabledSpy.mockRestore();
       }
     });
   });
 
   describe('boundary-local deferred hydration', () => {
+    it('should retire stale portal content beside an unrelated deferred boundary', async () => {
+      const { container, cleanup } = createTestContainer();
+      const originalRect = Element.prototype.getBoundingClientRect;
+      let showWriter = true;
+      const Component = () => (
+        <main>
+          <div class="unrelated-boundary">static</div>
+          {showWriter ? (
+            <Portal>
+              <button id="stale-portal">stale</button>
+            </Portal>
+          ) : null}
+          <DefaultPortal />
+        </main>
+      );
+      const registry = routeRegistryFromTable([
+        { path: '/', handler: Component },
+      ]);
+      Element.prototype.getBoundingClientRect = function () {
+        return {
+          top: this.classList.contains('unrelated-boundary') ? 1000 : 0,
+        } as DOMRect;
+      };
+
+      try {
+        container.innerHTML = renderToString({ url: '/', registry });
+        expect(container.querySelector('#stale-portal')).not.toBeNull();
+        showWriter = false;
+        await hydrateSPA({
+          root: container,
+          registry,
+          hydrate: {
+            deferBelowFold: true,
+            foldThreshold: 100,
+            verifyMarkup: false,
+          },
+        });
+        flushScheduler();
+
+        expect(
+          container
+            .querySelector('.unrelated-boundary')
+            ?.hasAttribute('data-skip-hydrate')
+        ).toBe(true);
+        expect(container.querySelector('#stale-portal')).toBeNull();
+      } finally {
+        Element.prototype.getBoundingClientRect = originalRect;
+        cleanup();
+      }
+    });
+
     it('should activate one boundary without rerunning the root and preserve focus', async () => {
       const { container, cleanup } = createTestContainer();
       const originalRect = Element.prototype.getBoundingClientRect;
@@ -1500,7 +1532,6 @@ describe('hydration (SSR)', () => {
         expect(rootRenders).toBe(rootRendersAfterHydration);
         expect(belowRenders).toBeGreaterThan(0);
         expect(document.activeElement).toBe(button);
-        expect(getDelegatedHandlerForElement(button, 'click')).toBeDefined();
         button.click();
         expect(clicks).toBe(1);
       } finally {
@@ -1801,6 +1832,7 @@ describe('hydration (SSR)', () => {
           '#portal-deferred'
         ) as HTMLButtonElement;
         expect(portalButton).not.toBeNull();
+        expect(portalButton).toBe(serverPortalButton);
         portalButton.click();
         expect(clicks).toBe(1);
       } finally {

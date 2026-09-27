@@ -216,4 +216,32 @@ describe('for-reactive-item-proxy', () => {
       '{"badge":"badge:Alpha","id":1,"label":"Beta","extra":"present"}'
     );
   });
+
+  it('should discard proxy writes from a failed row render', () => {
+    let fail!: State<boolean>;
+    let rowProxy!: { id: number; badge?: string };
+    const App = () => {
+      fail = state(false);
+      return (
+        <For each={[{ id: 1 }]} by={(item) => item.id}>
+          {(item) => {
+            rowProxy = item;
+            if (fail()) {
+              rowProxy.badge = 'discarded';
+              throw new Error('row failed');
+            }
+            return <output>{rowProxy.badge ?? 'clean'}</output>;
+          }}
+        </For>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    expect(container.textContent).toBe('clean');
+
+    fail.set(true);
+    expect(() => flushScheduler()).toThrow('row failed');
+    expect(container.textContent).toBe('clean');
+    expect(rowProxy.badge).toBeUndefined();
+  });
 });

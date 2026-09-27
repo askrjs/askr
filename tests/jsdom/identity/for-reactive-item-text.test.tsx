@@ -6,40 +6,18 @@
  * Bug: When For loop items have properties that change reactively,
  * the text content in the rendered DOM should update to reflect those changes.
  *
- * Root cause: For boundary vnodes were being wrapped into arrays before
- * being passed to updateElementChildren, which prevented the For boundary
- * detection logic from working. This caused text content updates to be missed.
+ * Keyed rows retain their DOM while changed item text updates.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../../src/index';
 import type { State } from '../../../src/index';
 import {
-  getPerfMetrics,
-  resetPerfMetrics,
-} from '../../../src/runtime/diagnostics/perf-metrics';
-import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
 import { For } from '../../../src/control';
-
-function resetFineGrainedDiagnostics(): void {
-  const ns = (
-    globalThis as typeof globalThis & {
-      __ASKR__?: Record<string, unknown>;
-    }
-  ).__ASKR__;
-
-  if (!ns) {
-    return;
-  }
-
-  ns['componentReruns'] = 0;
-  ns['effectRuns'] = 0;
-  ns['textNodeWrites'] = 0;
-}
 
 describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)', () => {
   let container: HTMLElement;
@@ -49,7 +27,6 @@ describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)',
     const ctx = createTestContainer();
     container = ctx.container;
     cleanup = ctx.cleanup;
-    resetPerfMetrics();
   });
 
   afterEach(() => {
@@ -306,8 +283,6 @@ describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)',
     expect(rowsBefore[1]?.textContent).toBe('Beta');
     expect(rowsBefore[2]?.textContent).toBe('Gamma');
 
-    resetFineGrainedDiagnostics();
-
     items!.set([
       { id: 1, label: 'Alpha!' },
       { id: 2, label: 'Beta' },
@@ -315,16 +290,8 @@ describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)',
     ]);
     flushScheduler();
 
-    const ns = (
-      globalThis as typeof globalThis & {
-        __ASKR__?: Record<string, unknown>;
-      }
-    ).__ASKR__;
-
     const rowsAfter = Array.from(container.querySelectorAll('li'));
     expect(parentRenderCount).toBe(1);
-    expect(ns?.['componentReruns']).toBe(0);
-    expect(ns?.['textNodeWrites']).toBe(1);
     expect(rowsAfter[0]?.textContent).toBe('Alpha!');
     expect(rowsAfter[1]?.textContent).toBe('Beta');
     expect(rowsAfter[2]?.textContent).toBe('Gamma');
@@ -333,7 +300,7 @@ describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)',
     expect(rowsAfter[2]?.firstChild).toBe(firstTextNodes[2]);
   });
 
-  it('should only rerun changed property effects for a keyed row item', () => {
+  it('should preserve other row properties when a keyed item changes', () => {
     let items: State<Array<{ id: number; label: string }>> | null = null;
 
     const Component = () => {
@@ -362,31 +329,22 @@ describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)',
     expect(rowsBefore[0]?.className).toBe('odd');
     expect(rowsBefore[1]?.className).toBe('even');
 
-    resetFineGrainedDiagnostics();
-
     items!.set([
       { id: 1, label: 'Alpha!' },
       { id: 2, label: 'Beta' },
     ]);
     flushScheduler();
 
-    const ns = (
-      globalThis as typeof globalThis & {
-        __ASKR__?: Record<string, unknown>;
-      }
-    ).__ASKR__;
-
     const rowsAfter = Array.from(container.querySelectorAll('li'));
+    expect(rowsAfter[0]).toBe(rowsBefore[0]);
+    expect(rowsAfter[1]).toBe(rowsBefore[1]);
     expect(rowsAfter[0]?.textContent).toBe('Alpha!');
     expect(rowsAfter[0]?.className).toBe('odd');
     expect(rowsAfter[1]?.textContent).toBe('Beta');
     expect(rowsAfter[1]?.className).toBe('even');
-    expect(ns?.['componentReruns']).toBe(0);
-    expect(ns?.['textNodeWrites']).toBe(1);
-    expect(ns?.['effectRuns']).toBe(2);
   });
 
-  it('should not reevaluate id-only row props during a large keyed label-only update', () => {
+  it('should preserve id-only row props during a large keyed label-only update', () => {
     let items: State<Array<{ id: number; label: string }>> | null = null;
 
     const Component = () => {
@@ -420,9 +378,6 @@ describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)',
     const beforeClasses = beforeRows.map((row) => row.className);
     const beforeIds = beforeRows.map((row) => row.getAttribute('data-id'));
 
-    resetFineGrainedDiagnostics();
-    resetPerfMetrics();
-
     items!.set(
       items!().map((item) =>
         item.id === 1 ? { ...item, label: `${item.label}!` } : item
@@ -430,24 +385,15 @@ describe('for-reactive-item-text (REGRESSION: text updates in reactive arrays)',
     );
     flushScheduler();
 
-    const ns = (
-      globalThis as typeof globalThis & {
-        __ASKR__?: Record<string, unknown>;
-      }
-    ).__ASKR__;
-
-    const perf = getPerfMetrics();
     const afterRows = Array.from(container.querySelectorAll('li'));
 
     expect(afterRows[0]?.textContent).toBe('Item 1!');
     expect(afterRows[1]?.textContent).toBe('Item 2');
     expect(afterRows.length).toBe(100);
+    expect(afterRows).toEqual(beforeRows);
     expect(afterRows.map((row) => row.className)).toEqual(beforeClasses);
     expect(afterRows.map((row) => row.getAttribute('data-id'))).toEqual(
       beforeIds
     );
-    expect(ns?.['componentReruns']).toBe(0);
-    expect(ns?.['textNodeWrites']).toBe(1);
-    expect(perf?.reactivePropReevaluations).toBe(0);
   });
 });

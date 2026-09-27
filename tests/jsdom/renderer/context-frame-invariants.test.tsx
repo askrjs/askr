@@ -1,16 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import {
+  Case,
+  For,
+  Match,
+  Show,
   defineScope,
-  getVNodeContextFrame,
-  markVNodeTreeWithContextFrame,
   readScope,
-  rebaseVNodeTreeWithContextFrame,
-  withContext,
-  type ContextFrame,
-} from '../../../src/runtime/context/context';
-import { Case, For, Match, Show, state } from '../../../src/index';
+  state,
+} from '../../../src/index';
 import { Portal, Slot } from '@askrjs/askr/foundations';
-import { _resetDefaultPortal } from '../../../src/foundations/structures/portal';
+import {
+  _resetDefaultPortal,
+  definePortal,
+} from '../../../src/foundations/structures/portal';
 import {
   createTestContainer,
   flushScheduler,
@@ -326,56 +328,6 @@ describe('renderer context frame invariants', () => {
     ).toBe('inner');
   });
 
-  it('should rebase stale outer context without dropping a nested provider', () => {
-    const OuterScope = defineScope('light');
-    const InnerScope = defineScope('missing');
-    const staleOuterFrame: ContextFrame = {
-      parent: null,
-      values: new Map([[OuterScope.key, 'dark']]),
-    };
-    const nestedFrame: ContextFrame = {
-      parent: staleOuterFrame,
-      values: new Map([[InnerScope.key, 'inner']]),
-    };
-    const currentOuterFrame: ContextFrame = {
-      parent: null,
-      values: new Map([[OuterScope.key, 'contrast']]),
-    };
-    const cachedSubtree = <div />;
-    markVNodeTreeWithContextFrame(cachedSubtree, nestedFrame, true);
-
-    rebaseVNodeTreeWithContextFrame(
-      cachedSubtree,
-      currentOuterFrame,
-      staleOuterFrame
-    );
-
-    const rebasedFrame = getVNodeContextFrame(cachedSubtree);
-    expect(rebasedFrame).toBeDefined();
-    expect(
-      withContext(rebasedFrame ?? null, () => [
-        readScope(OuterScope),
-        readScope(InnerScope),
-      ])
-    ).toEqual(['contrast', 'inner']);
-  });
-
-  it('should not stamp plain objects from array-valued vnode props', () => {
-    const plainObject = { id: 'user-data' };
-    const ownerFrame: ContextFrame = {
-      parent: null,
-      values: new Map(),
-    };
-    const Carrier = (_props: { items: object[] }) => <div />;
-    const vnode = <Carrier items={[plainObject]} />;
-
-    rebaseVNodeTreeWithContextFrame(vnode, ownerFrame);
-
-    expect(getVNodeContextFrame(vnode)).toBe(ownerFrame);
-    expect(getVNodeContextFrame(plainObject)).toBeUndefined();
-    expect(plainObject).toEqual({ id: 'user-data' });
-  });
-
   it('should refresh an empty For fallback exactly once with new context', () => {
     const ThemeScope = defineScope('light');
     const items: readonly string[] = [];
@@ -553,60 +505,8 @@ describe('renderer context frame invariants', () => {
     );
   });
 
-  it('should override stale frames on vnode props inside a provider', () => {
-    const ThemeScope = defineScope('light');
-
-    const Reader = () => {
-      const theme = readScope(ThemeScope);
-      return <span id={'prop-node-theme'}>{theme}</span>;
-    };
-
-    const NodeView = (props: { node: JSXElement }) => props.node;
-
-    const App = () => {
-      const node = <Reader />;
-      markVNodeTreeWithContextFrame(
-        node,
-        {
-          parent: null,
-          values: new Map([[ThemeScope.key, 'outer']]),
-        },
-        true
-      );
-
-      return (
-        <ThemeScope value={'inner'}>
-          <NodeView node={node} />
-        </ThemeScope>
-      );
-    };
-
-    createIsland({ root: container, component: App });
-    flushScheduler();
-
-    expect(container.querySelector('#prop-node-theme')?.textContent).toBe(
-      'inner'
-    );
-  });
-
   it('should render local portal writes before later sibling hosts', () => {
-    type LocalPortal = (() => JSXElement | null) & {
-      render(props: { children?: unknown }): null;
-    };
-
-    function createLocalPortal(): LocalPortal {
-      let value: unknown = null;
-
-      const LocalPortalHost = (() => value as JSXElement | null) as LocalPortal;
-      LocalPortalHost.render = (props: { children?: unknown }) => {
-        value = props.children ?? null;
-        return null;
-      };
-
-      return LocalPortalHost;
-    }
-
-    const LocalPortalHost = createLocalPortal();
+    const LocalPortalHost = definePortal();
 
     const PortalWriter = (props: { open: boolean }) => {
       return LocalPortalHost.render({

@@ -1,4 +1,4 @@
-import type { ComponentFunction } from '../runtime';
+import type { ComponentFunction } from '../common/component';
 import type { RouteAuthOptions, RouteRegistry } from '../common/router';
 import type { ScrollRestorationOptions } from '../router/navigate';
 import type { AppRenderRuntime } from '../common/app-render-runtime';

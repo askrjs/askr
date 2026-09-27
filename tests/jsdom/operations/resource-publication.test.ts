@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
-import { ResourceCell } from '../../../src/runtime/lifecycle/resource-cell';
+import { ResourceCell } from '../../../src/core/api/resource-cell';
 import { logger } from '../../../src/common/logger';
 
 const cells: ResourceCell<string>[] = [];

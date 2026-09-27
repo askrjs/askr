@@ -1,11 +1,6 @@
 import { bench, describe, expect } from 'vite-plus/test';
 import { createIsland } from '../../src/boot';
 import {
-  disableEventDelegation,
-  enableEventDelegation,
-  setGlobalDelegationContainer,
-} from '../../src/renderer/props/events';
-import {
   createTestContainer,
   fireEvent,
   flushScheduler,
@@ -34,8 +29,6 @@ const targetIndexes = Array.from({ length: 1000 }, (_, index) => index % 500);
   );
 
   try {
-    enableEventDelegation();
-    setGlobalDelegationContainer(container);
     createIsland({ root: container, component: Component });
     flushScheduler();
 
@@ -52,8 +45,6 @@ const targetIndexes = Array.from({ length: 1000 }, (_, index) => index % 500);
 
     expect(clicks).toBe(1000);
   } finally {
-    disableEventDelegation();
-    setGlobalDelegationContainer(document.body);
     cleanup();
   }
 }
@@ -86,8 +77,6 @@ describe('tier2 subsystem events burst delegation', () => {
           </div>
         );
 
-        enableEventDelegation();
-        setGlobalDelegationContainer(result.container);
         createIsland({ root: result.container, component: Component });
         flushScheduler();
         targetButtons = targetIndexes.map((index) => {
@@ -99,8 +88,6 @@ describe('tier2 subsystem events burst delegation', () => {
         });
       },
       teardown() {
-        disableEventDelegation();
-        setGlobalDelegationContainer(document.body);
         cleanup?.();
         cleanup = null;
         targetButtons = [];

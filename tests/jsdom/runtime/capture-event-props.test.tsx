@@ -4,18 +4,9 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../src/boot';
-import { state } from '../../../src/runtime/reactivity/state';
+import { state } from '../../../src/index';
 import { dismissable } from '../../../src/foundations/interactions/dismissable';
-import {
-  createWrappedHandler,
-  parseEventProp,
-  getPassiveOptions,
-} from '../../../src/renderer/utils';
-import { createAppRenderRuntime } from '../../../src/common/app-render-runtime';
-import {
-  getCurrentAppRenderRuntime,
-  withAppRenderRuntime,
-} from '../../../src/runtime';
+import { parseEventProp } from '../../../src/core/dom/events';
 
 describe('capture event props', () => {
   let container: HTMLDivElement;
@@ -38,42 +29,42 @@ describe('capture event props', () => {
     });
   });
 
-  it('should allow cancellation given wheel and touch handlers when they call preventDefault', () => {
-    expect(getPassiveOptions('wheel')).toEqual({ passive: false });
-    expect(getPassiveOptions('touchstart')).toEqual({ passive: false });
-    expect(getPassiveOptions('touchmove')).toEqual({ passive: false });
+  it('should normalize typed multiword event props and capture suffixes', () => {
+    expect(parseEventProp('onAnimationEnd')).toEqual({
+      eventName: 'animationend',
+      capture: false,
+    });
+    expect(parseEventProp('onDragStartCapture')).toEqual({
+      eventName: 'dragstart',
+      capture: true,
+    });
+    expect(parseEventProp('onGotPointerCaptureCapture')).toEqual({
+      eventName: 'gotpointercapture',
+      capture: true,
+    });
   });
 
-  it('should pool shared handlers without crossing application runtime scopes', () => {
-    const firstRuntime = createAppRenderRuntime();
-    const secondRuntime = createAppRenderRuntime();
-    const observedRuntimes: Array<typeof firstRuntime | undefined> = [];
-    const sharedHandler: EventListener = () => {
-      observedRuntimes.push(getCurrentAppRenderRuntime());
-    };
+  it.each(['wheel', 'touchstart', 'touchmove'])(
+    'should allow cancellation given %s handlers when they call preventDefault',
+    (type) => {
+      const handler = (event: Event) => event.preventDefault();
+      const props = {
+        wheel: { onWheel: handler },
+        touchstart: { onTouchStart: handler },
+        touchmove: { onTouchMove: handler },
+      }[type];
+      createIsland({
+        root: container,
+        component: () => <div id="target" {...props} />,
+      });
+      flushScheduler();
 
-    const firstWrapped = withAppRenderRuntime(firstRuntime, () =>
-      createWrappedHandler(sharedHandler, true)
-    );
-    const firstWrappedAgain = withAppRenderRuntime(firstRuntime, () =>
-      createWrappedHandler(sharedHandler, true)
-    );
-    const secondWrapped = withAppRenderRuntime(secondRuntime, () =>
-      createWrappedHandler(sharedHandler, true)
-    );
-    const unscopedWrapped = createWrappedHandler(sharedHandler, true);
-    const unscopedWrappedAgain = createWrappedHandler(sharedHandler, true);
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      container.querySelector('#target')!.dispatchEvent(event);
 
-    expect(firstWrappedAgain).toBe(firstWrapped);
-    expect(secondWrapped).not.toBe(firstWrapped);
-    expect(unscopedWrappedAgain).toBe(unscopedWrapped);
-
-    firstWrapped(new Event('click'));
-    secondWrapped(new Event('click'));
-    unscopedWrapped(new Event('click'));
-
-    expect(observedRuntimes).toEqual([firstRuntime, secondRuntime, undefined]);
-  });
+      expect(event.defaultPrevented).toBe(true);
+    }
+  );
 
   it('should not dispatch an ancestor onFocus given a focused descendant', () => {
     const events: string[] = [];

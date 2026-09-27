@@ -7,8 +7,8 @@ import {
   vi,
 } from 'vite-plus/test';
 import { Show } from '../../../src/control';
-import { For } from '../../../src/control/for';
-import { resource } from '../../../src/runtime/operations';
+import { For } from '../../../src/control';
+import { resource } from '../../../src/resources';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,

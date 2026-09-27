@@ -9,9 +9,20 @@ export interface RootUpdateInput {
   replaceLifetime: boolean;
 }
 
+/** Outcome of publishing a prepared root update. */
+export interface RootPublishResult {
+  /**
+   * The commit was undone by a failed DOM write: the root still shows its
+   * previous content and its app state was restored.
+   */
+  aborted: boolean;
+  /** Failures from the commit, whether or not it was undone. */
+  errors: unknown[];
+}
+
 export interface PreparedRootUpdate {
   apply(): void;
-  publish(): void;
+  publish(): RootPublishResult;
   rollback(): unknown[];
   retire(): unknown[];
 }

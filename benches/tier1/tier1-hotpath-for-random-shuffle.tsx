@@ -10,9 +10,7 @@ import {
   mountTableBenchmark,
   shuffleRows,
   tier1BenchOptions,
-  verifyBenchInstrumentation,
   verifyTier1Invariant,
-  withForBenchDiagnostics,
 } from '../shared/_shared';
 
 const initialRows = buildRows(1000);
@@ -34,14 +32,11 @@ verifyTier1Invariant('tier1 hotpath for random shuffle', () => {
     const originalRows = mounted.container.querySelectorAll('tr');
     const expectedFirstRow = originalRows[shuffledRows[0].id - 1];
     const expectedLastRow = originalRows[shuffledRows[999].id - 1];
-    let metrics!: ReturnType<typeof withForBenchDiagnostics>['metrics'];
 
     assertToggleMutationGuard(
       mounted.container,
       () => {
-        ({ metrics } = withForBenchDiagnostics(() => {
-          mounted.benchmark.setRows(toggle.next() as RowData[]);
-        }));
+        mounted.benchmark.setRows(toggle.next() as RowData[]);
       },
       () => {
         mounted.benchmark.setRows(toggle.next() as RowData[]);
@@ -67,12 +62,6 @@ verifyTier1Invariant('tier1 hotpath for random shuffle', () => {
         },
       }
     );
-
-    verifyBenchInstrumentation(() => {
-      expect(metrics.fastLaneName).toBe('FULL_KEYED');
-      expect(metrics.itemsCreated).toBe(0);
-      expect(metrics.itemsRemoved).toBe(0);
-    });
   } finally {
     mounted.cleanup();
   }

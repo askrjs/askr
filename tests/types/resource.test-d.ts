@@ -48,6 +48,16 @@ expectType<boolean>(asyncResource.pending);
 expectType<Error | null>(asyncResource.error);
 expectType<void>(asyncResource.refresh());
 
+const sourceResource = resource(
+  () => 'user-1',
+  async (id, { signal }) => {
+    expectType<string>(id);
+    expectType<AbortSignal>(signal);
+    return { id };
+  }
+);
+expectType<ResourceResult<{ id: string }>>(sourceResource);
+
 const syncResource = resource(({ signal }) => {
   expectType<AbortSignal>(signal);
   return 123;
@@ -100,6 +110,26 @@ expectType<boolean>(pendingStream.stale);
 expectType<Error | null>(pendingStream.error);
 expectType<void>(pendingStream.restart());
 expectType<void>(pendingStream.close());
+
+const sourceStream = stream(
+  () => 'cursor-1',
+  async function* (cursor, { signal }) {
+    expectType<string>(cursor);
+    expectType<AbortSignal>(signal);
+    yield cursor;
+  },
+  { initialValue: 'cached' }
+);
+expectType<StreamResult<string>>(sourceStream);
+expectError(
+  stream(
+    () => 'cursor-1',
+    async function* () {
+      yield 'value';
+    },
+    { deps: ['cursor-1'] }
+  )
+);
 
 expectError(on(eventSource, transformer));
 expectError(timer(1000));

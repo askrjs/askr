@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vite-plus/test';
 import type { JSXElement } from '../../../src/jsx/types';
 import { cleanupApp } from '../../../src/boot';
+import { task } from '../../../src/resources';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
-import { registerMountOperation } from '../../../src/runtime';
 import { createIsland } from '../../../test-utils/render/create-island';
 
 describe('createIsland cleanup strict mode', () => {
@@ -11,10 +11,7 @@ describe('createIsland cleanup strict mode', () => {
     let cleaned = false;
 
     const Component = () => {
-      // Register a mount operation that returns a cleanup function which throws
-      // This simulates a user error during cleanup that would otherwise be swallowed
-      // Directly push a cleanup fn to instance via mount operation registration
-      registerMountOperation(() => {
+      task(() => {
         return () => {
           cleaned = true;
           throw new Error('cleanup oops');

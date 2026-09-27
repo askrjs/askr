@@ -258,6 +258,6 @@ The SSR and SSG diagrams are backed by architecture checks:
 
 ## Related docs
 
-- [Core engine design](./core-engine-design.md)
+- [Core rewrite](./core-rewrite.md)
 - [Router internals](./router-manifest.md)
 - [Core: Rendering](../core/rendering.md)

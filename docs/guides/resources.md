@@ -104,12 +104,16 @@ declare function ActivityList(props: {
 
 function ActivityFeed({ cursor }: { cursor: string }) {
   const feed = stream(
-    async function* ({ signal }) {
-      for await (const event of connectActivityFeed({ cursor, signal })) {
+    () => cursor,
+    async function* (currentCursor, { signal }) {
+      for await (const event of connectActivityFeed({
+        cursor: currentCursor,
+        signal,
+      })) {
         yield projectLatestActivity(event);
       }
     },
-    { deps: [cursor], initialValue: [] as Activity[] }
+    { initialValue: [] as Activity[] }
   );
 
   if (feed.status === 'error') {

@@ -9,7 +9,9 @@ The default mode. Components are rendered into the DOM via
 `createSPA({ root, registry })` or `createIsland({ root, component })`.
 
 Keyed `For` updates publish through one renderer transaction. If evaluation or
-DOM commit fails, Askr restores the previously committed DOM and ownership
+a structural DOM insertion, standard element attribute write, input/textarea
+value write, checkbox state write, or option selection write fails, Askr
+restores the previously committed DOM and ownership
 state; provisional listeners, refs, portals, resources, subscriptions, and
 child owners do not become live. Cleanup belonging to a successful commit runs
 only after the coherent DOM update. Cleanup failures are reported together and
@@ -45,6 +47,9 @@ several as one `AggregateError`:
 - Failures from work that runs after an update commits (disposing replaced
   components, retiring the previous route, and mount or commit operations that
   throw) produce one report per update.
+
+A disposed component aborts its signal with a context-free `AbortError` reason
+shared across component lifetimes.
 
 An `ErrorBoundary` does not catch teardown errors: they are not render errors,
 and the nearest boundary is often part of the content being removed. Hosts
@@ -87,10 +92,9 @@ That catch-up render uses the child's last committed props with its current
 state. If it throws, its error is reported alongside the original one (an
 `AggregateError`, see [Update loop guard](./runtime.md#update-loop-guard)).
 
-Known limitation: after `hydrateSPA`, a structural function child with keyed
-items in a component's fragment or array result does not update when its
-state changes, whether or not a render failed. Unkeyed items, and structural
-function children inside an element, update as described above.
+After `hydrateSPA`, structural function children in a component's fragment or
+array result keep updating for both keyed and unkeyed items, including after a
+failed render rolls back.
 
 Read the state in the render instead of a binding when a value must change
 together with the rest of the component's output.
@@ -128,6 +132,8 @@ During hydration, a keyed `For` adopts only its own server-rendered rows even
 when a static or component child precedes it in the same parent. The unrelated
 sibling and every adopted row keep their DOM identity through later reorder
 and removal commits.
+Rows returned by components as text or fragments also retain their server nodes
+when text sits before or after the list, with markup verification enabled.
 
 In a mixed parent, an empty or newly emptied `For` also preserves the first
 following sibling as its reconciliation cursor. Later static nodes, components,
@@ -141,6 +147,15 @@ shares an element with text or other children, such as
 their DOM identity while rows update, reorder, or leave. A failed parent
 update retains the previous row commit boundary.
 
+When a row callback reads a getter directly and that getter changes with the
+list in one flush, the list reconcile absorbs the row's scheduled update.
+Removed rows do not run again, and retained rows render once with the latest
+item, index, and getter value.
+
+Re-showing a `Show` branch that contains a `For` renders the current row items,
+positions, and callback values, including when the list and branch change in
+the same flush.
+
 When a keyed row renders a transparent component range, the row continues to
 follow the component's current owned range after reactive resource, portal, or
 result updates. Parent reconciliation preserves that live range and its editor
@@ -152,6 +167,7 @@ ownership remains balanced when the row is later replaced or removed.
 Use `imperativeChildren` when a third-party widget owns all descendants of an
 intrinsic host. Askr will keep updating the host's attributes, event handlers,
 and ref, but it will not reconcile or detach the widget-owned DOM after mount.
+JSX children, if supplied, are rendered on the first mount only.
 
 ```tsx
 function EmbeddedWidget() {
@@ -161,7 +177,8 @@ function EmbeddedWidget() {
 
 The marker is renderer-only and is not emitted as an HTML attribute. Leave it
 off for normal declarative elements so removing JSX children continues to clear
-their DOM and lifecycle ownership normally.
+their DOM and lifecycle ownership normally. A managed host with no declared
+children also clears descendants inserted by other code on its next update.
 
 ### Attributes written by other code
 
@@ -216,6 +233,12 @@ children are created or updated, so options written directly inside it can
 come from the same render. Options rendered by a `For` or a function child
 are not tracked: the value is not re-applied when only they change, so keep a
 value's option rendered before selecting it.
+
+During SSR, a controlled `<select value>` marks matching `<option>` elements
+with `selected`, including options inside `<optgroup>`. A single select marks
+the first match; `multiple` with an array marks every match. If nothing matches,
+no option is marked. Client rendering keeps those option attributes and live
+selection in sync so hydration can adopt the server nodes.
 
 ```tsx
 function RolePicker() {
@@ -442,6 +465,8 @@ child whose hooks change, or give it the same hooks on every run.
 A function child or prop that throws is a render error on both sides: the
 nearest `ErrorBoundary` renders its fallback, and without one the render (or
 the client update) throws.
+Without an explicit fallback, the boundary shows a visible alert with the
+error message and a retry button.
 
 ### Text inside `<script>` and `<style>`
 
@@ -501,6 +526,11 @@ current value. Element children throw during SSR, because they have no raw
 text form. `dangerouslySetInnerHTML` is still written as given and is not
 rewritten.
 
+On the client, a `dangerouslySetInnerHTML` value with a `__html` field owns
+the element's content instead of its JSX children. When that value is
+removed, JSX children mount again. An absent or malformed value leaves the
+children managed normally.
+
 ### Client hydration
 
 ```ts
@@ -522,6 +552,10 @@ transactional. Range markers, matching elements, empty placeholders,
 transparent component ranges, and SSR portal hosts are eligible for adoption
 only inside that scope. Keyed trees, reactive props, and any mismatch use the
 normal reconciliation path.
+
+A page root that returns several sibling nodes, including leading text, adopts
+each matching server node in place. The automatic default portal host does not
+consume one of those siblings when it has no server-rendered content.
 
 Ordinary client reconciliation never infers ownership from matching-looking
 DOM. Unmatched nodes and ranges are removed from a captured next sibling,
@@ -566,18 +600,33 @@ the final value, matching the client runtime.
 Portal values are scoped to one server render root. A portal created with
 `definePortal()` can be reused by application code without carrying content
 between routes or requests. Hydration adopts the server-rendered portal
-content and attaches its normal bindings.
+content and attaches its normal bindings. Named portal hosts retain matching
+server nodes with or without a key, whether the writer renders before or after
+the host.
 
 On the client, removing a portal writer clears its host content and disposes
 the content components, including their tasks, watches, and resources. Removing
 the host disposes those components as well. A named portal writer that leaves
 after another writer has taken the same channel does not clear the replacement.
+An error while rendering portal content reaches the writer's nearest
+`ErrorBoundary`, or a boundary around the host when the writer has none.
+While an explicit `DefaultPortal` host is mounted, the automatic host renders
+nothing. When the explicit host unmounts, content returns to the automatic
+host, except while an `ErrorBoundary` fallback has replaced the explicit host:
+the content stays off the automatic host until that boundary recovers.
+An imperative `DefaultPortal.render()` call outside a component writes to the
+single connected app root, if there is one. A write made before the first root
+mounts appears when that root mounts. With multiple connected roots, the write
+is ambiguous and appears in none of them.
 
 SSR and SSG retain internal comment anchors at default-portal writer positions
 and around default-portal host content. Hydration adopts the host range in
 place, including when an explicit host precedes its writer or has no content.
 The anchors keep adjacent application nodes in position without a visible
 wrapper element. Unused or explicitly suppressed automatic hosts are omitted.
+After a fully hydrated render, server portal content is removed if the client
+has no writer; `verifyMarkup` reports that difference. Content remains visible
+while its writer is in a deferred hydration boundary and is claimed on reveal.
 
 ## Static Site Generation (SSG)
 

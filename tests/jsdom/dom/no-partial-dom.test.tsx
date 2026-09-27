@@ -1,7 +1,6 @@
-// tests/dom/no_partial_dom.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { state } from '../../../src/index';
-import { evaluate, type DOMElement } from '../../../src/renderer';
+import { jsx, type JSXElement } from '../../../src/jsx-runtime';
 import {
   createTestContainer,
   flushScheduler,
@@ -9,8 +8,26 @@ import {
 import { createIsland } from '../../../test-utils/render/create-island';
 import { allowFrameworkWarnings } from '../../setup-env';
 
-function element(type: string, props: Record<string, unknown>): DOMElement {
-  return { type, props };
+function element(type: string, props: Record<string, unknown>): JSXElement {
+  return jsx(type as 'div', props as never);
+}
+
+const updates = new WeakMap<HTMLElement, (view: JSXElement) => void>();
+
+function evaluate(view: JSXElement, container: HTMLElement): void {
+  const update = updates.get(container);
+  if (update) {
+    update(view);
+    flushScheduler();
+    return;
+  }
+  const App = () => {
+    const current = state(view);
+    updates.set(container, current.set);
+    return current();
+  };
+  createIsland({ root: container, component: App });
+  flushScheduler();
 }
 
 describe('no partial DOM (DOM)', () => {

@@ -85,15 +85,23 @@ the root.
   helpers such as `createCollection` and `createLayer`, plus `isElement` and
   `cloneElement` for framework-compatible JSX composition
 - `@askrjs/askr/foundations/utilities` - prop composition and ID helpers
-- `@askrjs/askr/foundations/interactions` - interaction-policy helpers
+- `@askrjs/askr/foundations/interactions` - platform internal interaction-policy helpers for sibling UI packages
 - `@askrjs/askr/foundations/state` - controllable-state helpers
-- `@askrjs/askr/foundations/icon` - icon contract helpers
+- `@askrjs/askr/foundations/icon` - platform internal icon contracts for sibling icon packages
 - `@askrjs/askr/jsx-runtime` - JSX factory exports plus `JSXElement`, `JSXComponent`, and `JSXElementType`
 - `@askrjs/askr/jsx-dev-runtime` - JSX development runtime exports plus the same JSX public types
 
-Both JSX runtime entrypoints also intentionally export the `JSX` namespace
-used by TypeScript's automatic JSX transform. Its intrinsic-element and
-children contracts are part of the supported public API.
+Both JSX runtime entrypoints export the `JSX` namespace used by TypeScript's
+automatic JSX transform. Askr does not declare a global `JSX` namespace; import
+`type JSX` from `@askrjs/askr/jsx-runtime` when naming JSX types. Standard HTML
+and SVG tag names are checked, so a misspelled tag is a type error. Hyphenated
+custom-element names remain available with flexible attributes.
+Intrinsic `ref` callbacks and object refs use the element type for their tag,
+such as `HTMLButtonElement` for `<button>` and `HTMLVideoElement` for `<video>`.
+Intrinsic event props cover the DOM `GlobalEventHandlersEventMap`, with
+conventional names such as `onAnimationEnd`, `onFocusIn`, and `onDragStart`.
+Appending `Capture` selects the capture phase. Pointer-capture event names,
+including `onGotPointerCapture`, remain separate events.
 
 ## Examples
 

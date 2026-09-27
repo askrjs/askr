@@ -7,7 +7,7 @@ import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
-import { globalScheduler } from '../../../src/runtime/scheduler';
+import { schedule } from '../../../src/core/reactive/scheduler';
 
 async function settleResourceWork(): Promise<void> {
   await Promise.resolve();
@@ -296,7 +296,8 @@ describe('resource coverage edges', () => {
       expect(calls).toEqual(['a']);
 
       id.set('b');
-      globalScheduler.enqueue(() => id.set('c'));
+      // Runs after the 'b' render, before post-lane resource starts.
+      schedule({ run: () => id.set('c') }, 'effect');
       flushScheduler();
 
       expect(calls).toEqual(['a', 'c']);

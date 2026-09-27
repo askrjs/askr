@@ -4,7 +4,7 @@ import {
   Portal,
   _resetDefaultPortal,
 } from '../../../src/foundations/structures/portal';
-import { state, type StateSetter } from '../../../src/runtime/reactivity/state';
+import { state, type StateSetter } from '../../../src/index';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,

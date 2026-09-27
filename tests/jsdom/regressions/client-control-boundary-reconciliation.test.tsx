@@ -8,10 +8,7 @@ import {
   Portal,
   Presence,
 } from '../../../src/foundations';
-import { resource } from '../../../src/resources';
-import { getCurrentComponentInstance } from '../../../src/runtime';
-import { createDetachedRange } from '../../../src/renderer/ownership/ranges';
-import { updateMixedControlChildren } from '../../../src/renderer/children/element-children';
+import { resource, task } from '../../../src/resources';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -19,33 +16,6 @@ import {
 } from '../../../test-utils/render/test-renderer';
 
 describe('client control-boundary reconciliation', () => {
-  it('should treat empty mixed children as zero-width before replacing a range', () => {
-    const { container, cleanup } = createTestContainer();
-    const parent = document.createElement('main');
-    container.appendChild(parent);
-    const detachedRange = createDetachedRange(
-      document.createDocumentFragment()
-    );
-    parent.appendChild(detachedRange.fragment!);
-    const staleDialog = document.createElement('div');
-    staleDialog.dataset.dialogContent = 'true';
-    parent.appendChild(staleDialog);
-
-    try {
-      updateMixedControlChildren(
-        parent,
-        [null, <section data-empty={'true'} />],
-        false
-      );
-
-      expect(staleDialog.parentNode).toBeNull();
-      expect(parent.querySelector('[data-dialog-content]')).toBeNull();
-      expect(parent.querySelectorAll('[data-empty]')).toHaveLength(1);
-    } finally {
-      cleanup();
-    }
-  });
-
   it('should remove raw empty siblings before a newly populated keyed For', () => {
     const { container, cleanup } = createTestContainer();
     let openWorkspace!: () => void;
@@ -201,14 +171,12 @@ describe('client control-boundary reconciliation', () => {
       });
       setResult = result.set;
       refreshSchema = () => schema.refresh();
-      const instance = getCurrentComponentInstance();
-      if (!instance) throw new Error('expected query workspace instance');
-      if (!instance.owner.mounted) {
+      task(() => {
         mounts += 1;
-        (instance.owner.cleanups ??= []).push(() => {
+        return () => {
           cleanups += 1;
-        });
-      }
+        };
+      });
       return (
         <>
           <WorkspaceSidebar id={id} queries={() => [{ id }]} />
@@ -911,14 +879,12 @@ describe('client control-boundary reconciliation', () => {
     let cleanups = 0;
 
     const Workspace = ({ id }: { id: string }) => {
-      const instance = getCurrentComponentInstance();
-      if (!instance) throw new Error('expected workspace instance');
-      if (!instance.owner.mounted) {
+      task(() => {
         mounts += 1;
-        (instance.owner.cleanups ??= []).push(() => {
+        return () => {
           cleanups += 1;
-        });
-      }
+        };
+      });
       return <section data-workspace={id}>{`workspace-${id}`}</section>;
     };
 
@@ -995,14 +961,12 @@ describe('client control-boundary reconciliation', () => {
     let cleanups = 0;
 
     const Content = () => {
-      const instance = getCurrentComponentInstance();
-      if (!instance) throw new Error('expected content instance');
-      if (!instance.owner.mounted) {
+      task(() => {
         mounts += 1;
-        (instance.owner.cleanups ??= []).push(() => {
+        return () => {
           cleanups += 1;
-        });
-      }
+        };
+      });
       return <div data-presence-content={'true'}>{'content'}</div>;
     };
 
@@ -1085,9 +1049,12 @@ describe('client control-boundary reconciliation', () => {
 
       setVisible(true);
       flushScheduler();
-      const current = main.querySelector('button') as HTMLButtonElement;
+      const current = main.querySelector(
+        '[data-client-owned="true"]'
+      ) as HTMLButtonElement;
       expect(current).not.toBe(stale);
-      expect(current.dataset.clientOwned).toBe('true');
+      expect(stale.dataset.clientOwned).toBe('false');
+      expect(main.querySelectorAll('button')).toHaveLength(2);
       current.click();
       expect(clicks).toBe(1);
     } finally {

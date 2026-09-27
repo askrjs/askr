@@ -12,6 +12,8 @@ const enabled = state(false);
 const count = state(1);
 const label = derive(() => String(count()));
 expectAssignable<WatchSource<boolean>>(enabled);
+expectError((null as unknown as WatchSource<boolean>)._readers);
+expectError((null as unknown as WatchSource<boolean>)._version);
 expectAssignable<WatchCallback<boolean>>((_value, _context) => {});
 expectType<[boolean, number, string]>(
   null as unknown as WatchValues<[typeof enabled, typeof count, typeof label]>

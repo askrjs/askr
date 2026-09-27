@@ -13,7 +13,7 @@ import {
   makeControllable,
   resolveControllable,
 } from '@askrjs/askr/foundations/state';
-import { state } from '../../../src/runtime';
+import { state } from '../../../src/index';
 import {
   createTestContainer,
   flushScheduler,

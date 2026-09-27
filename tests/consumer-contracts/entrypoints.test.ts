@@ -18,17 +18,4 @@ test('should preserve shared public value identity across package subpaths', () 
   expect(root.jsxs).toBe(jsx.jsxs);
   expect(foundations.Portal).toBe(structures.Portal);
   expect(foundations.Slot).toBe(structures.Slot);
-  expect(root.getDefaultRuntime()).toBeInstanceOf(root.AskrRuntime);
-  expect(root.createRuntime().constructor).toBe(root.AskrRuntime);
-});
-
-test('should preserve consumer subclass fields when renderer configuration changes', () => {
-  class ConsumerRuntime extends root.AskrRuntime {
-    state = 'consumer-owned';
-  }
-  const runtime = new ConsumerRuntime();
-  const replacement = root.createRuntime().renderer;
-  runtime.configureRenderer(replacement);
-  expect(runtime.renderer).toBe(replacement);
-  expect(runtime.state).toBe('consumer-owned');
 });

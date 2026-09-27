@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vite-plus/test';
-import { derive, state } from '../../../src/index';
-import { defineScope, readScope } from '../../../src/runtime/context/context';
+import { defineScope, derive, readScope, state } from '../../../src/index';
 import { For } from '@askrjs/askr/control';
 import type { JSXElement } from '../../../src/jsx/types';
 import {
@@ -20,6 +19,141 @@ function activeRows(container: HTMLElement): Array<string | null> {
 }
 
 describe('For row closures', () => {
+  it('should restore row indices when a later sibling discards the render', () => {
+    const { container, cleanup } = createTestContainer();
+    let reorder: () => void = () => {};
+    let recover: () => void = () => {};
+    const indices = new Map<string, () => number>();
+
+    const Fail = ({ fail }: { fail: boolean }) => {
+      if (fail) throw new Error('discard list render');
+      return null;
+    };
+    const App = () => {
+      const [items, setItems] = state<Item[]>(ITEMS.slice(0, 2));
+      const [fail, setFail] = state(false);
+      reorder = () => {
+        setItems([ITEMS[1], ITEMS[0]]);
+        setFail(true);
+      };
+      recover = () => setFail(false);
+      return (
+        <ul>
+          {/* Read in App so the reorder and the failure share one render. */}
+          <For each={items()} by={(item) => item.id}>
+            {(item, index) => {
+              indices.set(item.id, index);
+              return <li>{`${item.id}:${index()}`}</li>;
+            }}
+          </For>
+          <Fail fail={fail()} />
+        </ul>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    const before = Array.from(container.querySelectorAll('li'));
+    reorder();
+    expect(() => flushScheduler()).toThrow('discard list render');
+    expect(Array.from(container.querySelectorAll('li'))).toEqual(before);
+    expect(indices.get('a')?.()).toBe(0);
+    expect(indices.get('b')?.()).toBe(1);
+
+    recover();
+    flushScheduler();
+    expect(Array.from(container.querySelectorAll('li'))).toEqual([
+      before[1],
+      before[0],
+    ]);
+    expect(indices.get('a')?.()).toBe(1);
+    expect(indices.get('b')?.()).toBe(0);
+    cleanup();
+  });
+
+  it('should absorb self-subscribed row work into a same-flush list reconcile', () => {
+    const { container, cleanup } = createTestContainer();
+    let update: () => void = () => {};
+    const runs: string[] = [];
+
+    const App = () => {
+      const [items, setItems] = state([
+        { id: 'c', label: 'C' },
+        { id: 'd', label: 'D' },
+      ]);
+      const [extra, setExtra] = state('old');
+      update = () => {
+        setExtra('new');
+        setItems([{ id: 'd', label: 'D2' }]);
+      };
+      return (
+        <ul>
+          <For each={items} by={(item) => item.id}>
+            {(item) => {
+              runs.push(item.id);
+              return <li>{`${item.label}:${extra()}`}</li>;
+            }}
+          </For>
+        </ul>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    runs.length = 0;
+    update();
+    flushScheduler();
+
+    expect(container.querySelector('li')?.textContent).toBe('D2:new');
+    expect(runs).toEqual(['d']);
+    cleanup();
+  });
+
+  it('should render moved rows once with their latest item, index, and self-subscribed value', () => {
+    const { container, cleanup } = createTestContainer();
+    let update: () => void = () => {};
+    const runs: string[] = [];
+
+    const App = () => {
+      const [items, setItems] = state([
+        { id: 'a', label: 'A' },
+        { id: 'b', label: 'B' },
+      ]);
+      const [extra, setExtra] = state('old');
+      update = () => {
+        setItems([
+          { id: 'b', label: 'B2' },
+          { id: 'a', label: 'A2' },
+        ]);
+        setExtra('new');
+      };
+      return (
+        <ul>
+          <For each={items} by={(item) => item.id}>
+            {(item, index) => {
+              runs.push(item.id);
+              return <li>{`${item.label}:${index()}:${extra()}`}</li>;
+            }}
+          </For>
+        </ul>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    const rows = Array.from(container.querySelectorAll('li'));
+    runs.length = 0;
+    update();
+    flushScheduler();
+
+    expect(Array.from(container.querySelectorAll('li'))).toEqual([
+      rows[1],
+      rows[0],
+    ]);
+    expect(
+      Array.from(container.querySelectorAll('li')).map((li) => li.textContent)
+    ).toEqual(['B2:0:new', 'A2:1:new']);
+    expect(runs.slice().sort()).toEqual(['a', 'b']);
+    cleanup();
+  });
+
   it('should rerender existing rows with the latest parent-captured constant without remounting them', () => {
     const { container, cleanup } = createTestContainer();
     let select: (id: string) => void = () => {};

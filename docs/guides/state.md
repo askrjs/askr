@@ -73,6 +73,11 @@ read from other derives; captured locals are never stale. The cost model:
 Pass a function defined outside the component to avoid the render-time
 evaluation when its value is already current.
 
+Reading a derive from its own calculation throws a `derive()` recursion
+error. A selector source that calls its own selector throws a `selector()`
+recursion error. Calling either value after its owning component is disposed
+also throws.
+
 Resource snapshots from `resource()` are not readable sources. Use
 `derive(snapshot, map)` or read `resource.value` in JSX; resource updates still
 trigger a component re-render when async work completes.
@@ -136,7 +141,7 @@ function Example({
   return (
     <>
       <Show when={user} fallback={<Login />}>
-        {(value) => <Dashboard user={value} />}
+        {(value: { id: string }) => <Dashboard user={value} />}
       </Show>
 
       <Case fallback={<NotFound />}>

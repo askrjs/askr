@@ -156,6 +156,29 @@ describe('DefaultPortal isolation', () => {
     expect(rootB.textContent).not.toContain('late-toast');
   });
 
+  it('should not replay an ambiguous write in a later app', () => {
+    createIsland({ root: rootA, component: () => <main>{'a'}</main> });
+    createIsland({ root: rootB, component: () => <main>{'b'}</main> });
+    flushScheduler();
+
+    DefaultPortal.render({ children: 'late-toast' });
+    flushScheduler();
+    cleanupA();
+    cleanupB();
+
+    const next = createTestContainer();
+    try {
+      createIsland({
+        root: next.container,
+        component: () => <main>{'c'}</main>,
+      });
+      flushScheduler();
+      expect(next.container.textContent).toBe('c');
+    } finally {
+      next.cleanup();
+    }
+  });
+
   it('should keep single-root imperative writes working after the previous root cleans up', () => {
     createIsland({
       root: rootA,

@@ -1,13 +1,8 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { resource } from '../../../src/resources';
 import type { JSXElement } from '../../../src/jsx/types';
-import { state } from '../../../src';
-import {
-  cleanupComponent,
-  createComponentInstance,
-  mountInstanceInline,
-  renderComponentInline,
-} from '../../../src/runtime';
+import { state, type State } from '../../../src';
+import { schedule } from '../../../src/core/reactive/scheduler';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -26,6 +21,7 @@ describe('resource edge cases', () => {
     const { container, cleanup } = createTestContainer();
     let starts = 0;
     let snapshot: { refresh(): void; value: string | null } | null = null;
+    let show!: State<boolean>;
 
     const App = (): JSXElement => {
       snapshot = resource<string>(() => {
@@ -36,31 +32,34 @@ describe('resource edge cases', () => {
       return <div>{snapshot.value ?? 'loading'}</div>;
     };
 
-    const instance = createComponentInstance(
-      'resource-refresh-generation',
-      App,
-      {},
-      container
-    );
-
     try {
-      mountInstanceInline(instance, container);
-      renderComponentInline(instance);
+      createIsland({
+        root: container,
+        component: () => {
+          show = state(false);
+          return show() ? <App /> : null;
+        },
+      });
+      flushScheduler();
 
-      expect(starts).toBe(0);
-      expect(getSchedulerState().laneQueues.post).toBeGreaterThan(0);
-
-      snapshot!.refresh();
-
-      expect(starts).toBe(1);
-      expect(snapshot!.value).toBe('run:1');
-
+      show.set(true);
+      // Runs after App's render queued its initial start in the post lane.
+      schedule(
+        {
+          run: () => {
+            expect(starts).toBe(0);
+            snapshot!.refresh();
+            expect(starts).toBe(1);
+            expect(snapshot!.value).toBe('run:1');
+          },
+        },
+        'effect'
+      );
       flushScheduler();
 
       expect(starts).toBe(1);
       expect(getSchedulerState().queueLength).toBe(0);
     } finally {
-      cleanupComponent(instance);
       cleanup();
     }
   });

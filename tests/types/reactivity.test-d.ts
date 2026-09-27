@@ -18,6 +18,9 @@ expectType<State<number>>(countValue);
 expectType<StateSetter<number>>(setCountValue);
 expectType<StateTuple<number>>(count);
 expectType<number>(countValue());
+expectError(countValue._readers);
+expectError(countValue._hasBeenRead);
+expectError(countValue._version);
 
 setCountValue(1);
 setCountValue((value) => {
@@ -59,6 +62,8 @@ expectError(setNullableFormatter(hexFormatter));
 const doubled = derive(() => countValue() * 2);
 expectType<Derived<number>>(doubled);
 expectType<number>(doubled());
+expectError(doubled._readers);
+expectError(doubled._version);
 
 const countText = derive(countValue, (value) => value.toString());
 expectType<Derived<string | null>>(countText);

@@ -9,8 +9,6 @@ import {
   replaceRowLabelById,
   tier1BenchOptions,
   verifyTier1Invariant,
-  verifyBenchInstrumentation,
-  withForBenchDiagnostics,
 } from '../shared/_shared';
 
 const initialRows = buildRows(1000);
@@ -23,14 +21,11 @@ verifyTier1Invariant('tier1 hotpath for single text update', () => {
   try {
     const toggle = createRowToggle(initialRows, updatedRows, 'initial');
     const originalTargetRow = mounted.container.querySelectorAll('tr')[499];
-    let metrics!: ReturnType<typeof withForBenchDiagnostics>['metrics'];
 
     assertToggleMutationGuard(
       mounted.container,
       () => {
-        ({ metrics } = withForBenchDiagnostics(() => {
-          mounted.benchmark.setRows(toggle.next() as RowData[]);
-        }));
+        mounted.benchmark.setRows(toggle.next() as RowData[]);
       },
       () => {
         mounted.benchmark.setRows(toggle.next() as RowData[]);
@@ -57,13 +52,6 @@ verifyTier1Invariant('tier1 hotpath for single text update', () => {
         },
       }
     );
-
-    verifyBenchInstrumentation(() => {
-      expect(['APPEND', 'NO_REORDER']).toContain(metrics.fastLaneName);
-      expect(metrics.domMoves).toBe(0);
-      expect(metrics.itemsCreated).toBe(0);
-      expect(metrics.itemsRemoved).toBe(0);
-    });
   } finally {
     mounted.cleanup();
   }

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vite-plus/test';
 import type { JSXElement } from '../../../src/jsx/types';
 import { cleanupApp } from '../../../src/boot';
+import { task } from '../../../src/resources';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
-import { registerMountOperation } from '../../../src/runtime';
 import { createIsland } from '../../../test-utils/render/create-island';
 
 describe('createIsland cleanup non-strict mode', () => {
@@ -14,7 +14,7 @@ describe('createIsland cleanup non-strict mode', () => {
     let cleaned = false;
 
     const Component = () => {
-      registerMountOperation(() => {
+      task(() => {
         return () => {
           cleaned = true;
           throw error;

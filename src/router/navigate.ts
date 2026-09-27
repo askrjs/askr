@@ -36,7 +36,7 @@ import {
   prepareNavigationFocus,
   releaseNavigationFocusCapture,
 } from './navigation-scroll';
-import { isRuntimeSchedulerExecuting } from '../runtime';
+import { isFlushing as isRuntimeSchedulerExecuting } from '../core/reactive/scheduler';
 import {
   cancelHistoryReturn,
   consumeHistoryReturn,

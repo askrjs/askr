@@ -2,7 +2,7 @@ import { resetRouteState, currentRouteRegistry } from '../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { cleanupApp, createSPA } from '../../../src/boot';
 import { Show } from '../../../src/control';
-import { resource } from '../../../src/runtime/operations';
+import { resource } from '../../../src/resources';
 import { navigate } from '../../../src/router/navigate';
 import { group, route } from '../../../src/router/route';
 import {

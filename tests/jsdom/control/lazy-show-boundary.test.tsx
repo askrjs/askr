@@ -6,10 +6,9 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 
-// #485 desired contract. Each expected failure was reproduced against develop;
-// remove `.fails` for a case when the corresponding boundary owns its state.
+// #485 lazy control ownership contract.
 describe('lazy JSX control boundaries', () => {
-  it.fails('can appear and disappear inside a ternary without changing parent hooks', () => {
+  it('should appear and disappear inside a ternary without changing parent hooks', () => {
     const { container, cleanup } = createTestContainer();
     let visible!: ReturnType<typeof state<boolean>>;
     const Page = () => {
@@ -39,7 +38,7 @@ describe('lazy JSX control boundaries', () => {
     }
   });
 
-  it.fails('can follow an early return in the parent component', () => {
+  it('should follow an early return in the parent component', () => {
     const { container, cleanup } = createTestContainer();
     let loading!: ReturnType<typeof state<boolean>>;
     const Page = () => {
@@ -63,7 +62,7 @@ describe('lazy JSX control boundaries', () => {
     }
   });
 
-  it.fails('reacts to a source without rerunning its parent', () => {
+  it('should react to a source without rerunning its parent', () => {
     const { container, cleanup } = createTestContainer();
     let visible!: ReturnType<typeof state<boolean>>;
     let parentRuns = 0;
@@ -92,7 +91,7 @@ describe('lazy JSX control boundaries', () => {
     }
   });
 
-  it.fails('uses its key to remount branch-local state', () => {
+  it('should use its key to remount branch-local state', () => {
     const { container, cleanup } = createTestContainer();
     let identity!: ReturnType<typeof state<string>>;
     const Counter = () => {
@@ -124,7 +123,7 @@ describe('lazy JSX control boundaries', () => {
     }
   });
 
-  it.fails('does not read a hidden For source while creating Show children', () => {
+  it('should not read a hidden For source while creating Show children', () => {
     const { container, cleanup } = createTestContainer();
     let sourceReads = 0;
     const source = () => {
@@ -148,7 +147,7 @@ describe('lazy JSX control boundaries', () => {
     }
   });
 
-  it.fails('allows a changing loop of Show elements', () => {
+  it('should allow a changing loop of Show elements', () => {
     const { container, cleanup } = createTestContainer();
     let items!: ReturnType<typeof state<string[]>>;
     const Page = () => {
@@ -177,7 +176,7 @@ describe('lazy JSX control boundaries', () => {
     }
   });
 
-  it.fails('allows a For element inside a parent ternary', () => {
+  it('should allow a For element inside a parent ternary', () => {
     const { container, cleanup } = createTestContainer();
     let visible!: ReturnType<typeof state<boolean>>;
     const Page = () => {
@@ -203,7 +202,7 @@ describe('lazy JSX control boundaries', () => {
     }
   });
 
-  it.fails('allows a Case after an early return', () => {
+  it('should allow a Case after an early return', () => {
     const { container, cleanup } = createTestContainer();
     let loading!: ReturnType<typeof state<boolean>>;
     const Page = () => {

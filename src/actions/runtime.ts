@@ -1,4 +1,4 @@
-import { getCurrentAppRenderRuntime } from '../runtime';
+import { currentAppRuntime as getCurrentAppRenderRuntime } from '../core/api/hooks';
 
 const emptyFramework = Object.freeze({}) as Readonly<Record<string, unknown>>;
 
