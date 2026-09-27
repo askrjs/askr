@@ -10,6 +10,7 @@
   sibling owners 50.7 ms to 0.43 ms, 5,000 render jobs 13.4 ms to 0.87 ms,
   20,000 effect jobs 20.2 ms to 2.06 ms, patching a 2,000-deep chain 13.0 ms
   to 0.72 ms (mean).
+
 - fix(jsx): export `createElement` from `@askrjs/askr`. The automatic JSX
   transform in TypeScript, esbuild, Babel, and oxc (Vite) compiles a `key`
   written after a spread (`<Row {...props} key={id} />`) to `createElement`
