@@ -9,7 +9,11 @@
 import type { ComponentFunction } from '../../common/component';
 import type { Props } from '../../common/props';
 import { isSSRPortalWriterAnchor } from '../../common/portal';
-import { ComponentInstance, HookOrderChangeError } from '../component/instance';
+import {
+  ComponentInstance,
+  HookOrderChangeError,
+  getContextEpoch,
+} from '../component/instance';
 import { noteErrorOrigin } from '../component/errors';
 import type { Owner } from '../reactive/owner';
 import { reportUncaughtErrorLater } from '../../common/report-error';
@@ -349,12 +353,44 @@ function patchComponent(
   renderInstance(ctx, node, false);
 }
 
-function ancestorContextRevision(instance: ComponentInstance): number {
-  let revision = 0;
+function nearestComponent(
+  instance: ComponentInstance
+): ComponentInstance | null {
   for (let owner = instance.parent; owner; owner = owner.parent) {
-    if (owner instanceof ComponentInstance) {
-      revision = Math.max(revision, owner.contextRevision);
+    if (owner instanceof ComponentInstance) return owner;
+  }
+  return null;
+}
+
+/**
+ * Highest `contextRevision` among `instance`'s component ancestors. Each
+ * instance caches its inherited value for the current context epoch, so
+ * patching every component in a deep chain stays linear. The cache relies on
+ * a live instance's parent chain never changing (owners are not reparented).
+ * The epoch is global, so a `provide()` anywhere invalidates every cache; the
+ * worst case is the uncached O(depth) walk.
+ */
+function ancestorContextRevision(instance: ComponentInstance): number {
+  const epoch = getContextEpoch();
+  let chain: ComponentInstance[] | null = null;
+  let revision = 0;
+  for (let current = nearestComponent(instance); current;) {
+    if (current.inheritedContextEpoch === epoch) {
+      revision = Math.max(
+        current.inheritedContextRevision,
+        current.contextRevision
+      );
+      break;
     }
+    (chain ??= []).push(current);
+    current = nearestComponent(current);
+  }
+  if (!chain) return revision;
+  for (let index = chain.length - 1; index >= 0; index--) {
+    const ancestor = chain[index]!;
+    ancestor.inheritedContextRevision = revision;
+    ancestor.inheritedContextEpoch = epoch;
+    revision = Math.max(revision, ancestor.contextRevision);
   }
   return revision;
 }

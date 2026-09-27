@@ -109,11 +109,11 @@ renderer's single keyed reconciler. See
 
 `src/core/reactive/scheduler.ts` queues stale work into three lanes:
 
-| Lane     | Work                                                                            | Order                                                                                     |
-| -------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `render` | Component and control renders                                                   | Shallowest owner first, so a parent re-render can absorb or remove a child before it runs |
-| `effect` | Fine-grained DOM bindings                                                       | Queue order                                                                               |
-| `post`   | Work that follows a commit: `task()`, `watch()`, resource starts, `queueTask()` | Queue order                                                                               |
+| Lane     | Work                                                                            | Order                                                                                                                      |
+| -------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `render` | Component and control renders                                                   | Shallowest owner first, so a parent re-render can absorb or remove a child before it runs; equal depths run in queue order |
+| `effect` | Fine-grained DOM bindings                                                       | Queue order                                                                                                                |
+| `post`   | Work that follows a commit: `task()`, `watch()`, resource starts, `queueTask()` | Queue order                                                                                                                |
 
 ```mermaid
 flowchart LR
