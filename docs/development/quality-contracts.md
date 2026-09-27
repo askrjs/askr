@@ -6,32 +6,29 @@ durable test family that observes it.
 
 ## Dependency and ownership map
 
-- `compatibility` owns published declarations and extension adapters. See the
+- `src/public-contracts` owns published declarations. See the
   [public compatibility boundary](./compatibility-boundary.md) for contract
-  maintenance, native renderer wiring, and packed consumer validation.
-- `runtime` is platform-neutral. It does not depend on renderer, boot, SSR, or
-  SSG implementations. External subsystems use `runtime/index.ts`, while
-  default scheduler and runtime access stays behind `runtime/access.ts`.
-- `renderer` owns browser DOM mutation. Reconciliation enters through
-  `reconciliation/reconcile-commit.ts`, which either commits the target node sequence or
-  restores a coherent replacement on failure.
-- `ownership/record.ts` owns the lifetime graph and its iterative disposal drain.
-  `component/cleanup.ts` supplies execution invalidation, subscription removal,
-  and strict/non-strict error settlement to that drain.
-- `ssr` and `ssg` do not depend on browser renderer internals. Synchronous SSR
-  remains the documented rendering boundary.
+  maintenance and packed consumer validation.
+- `src/core` owns the runtime and DOM renderer. It does not depend on boot,
+  router, SSR, or SSG implementations, and its layers follow the
+  [core source layout](./core-layout.md).
+- `src/core/reactive/owner.ts` owns the lifetime tree. Disposal runs children
+  first and always finishes, collecting failures.
+- `src/core/dom/pass.ts` owns provisional DOM work. A pass either commits its
+  operations or discards them; a failed structural write restores the child
+  lists it already changed.
+- `ssr` and `ssg` do not depend on `src/core/dom`. Synchronous SSR remains the
+  documented rendering boundary.
 
 ## Test families
 
-- `tests/checks/architecture.test.ts` protects dependency direction,
-  singleton access, server/browser separation, lifecycle ownership, and the
-  reconciliation commit boundary. Its dependency matrix follows value imports,
-  type-only imports, re-exports, and literal dynamic imports.
-  Every implementation-level value-import cycle touching runtime or renderer
-  fails the check. Recursive rendering uses explicit host composition and leaf
-  contracts. Type-only dependencies remain distinguishable from executable
-  dependencies. Module length and source-string matching are not architecture
-  contracts.
+- `tests/checks/architecture.test.ts` and
+  `tests/checks/core-architecture.test.ts` protect dependency direction, core
+  layering, and server/browser separation. The dependency matrix follows value
+  imports, type-only imports, re-exports, and literal dynamic imports. Every
+  value-import cycle touching `src/core` fails the check. Type-only
+  dependencies remain distinguishable from executable dependencies. Module
+  length and source-string matching are not architecture contracts.
 - `tests/checks/public-api-snapshot.test.ts` compares the emitted declaration
   exports for every package subpath with `public-api.snapshot.json` and follows
   their normalized declarations into `public-declarations.snapshot.json`.
@@ -110,6 +107,3 @@ entrypoint incompatibility.
 Before simplifying internals, first add a characterization test for the
 observable invariant. Remove the superseded ownership or rollback path in the
 same change; do not leave obsolete internal adapters or parallel cleanup paths.
-The published runtime and renderer extension surfaces
-(`runtime/public-runtime.ts`, `runtime/public-ownership.ts`,
-`renderer/host-adapter.ts`, `renderer/public-dom-host.ts`) remain supported.

@@ -51,26 +51,23 @@ package boundaries in the platform.
 
 ## Development
 
-| Page                                                              | Description                                                                |
-| ----------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| [Platform charter](./development/platform-charter.md)             | Package roles and operating model                                          |
-| [Repo structure](./development/repo-structure.md)                 | Repository layout                                                          |
-| [Contributing](./development/contributing.md)                     | Setup, build, test, lint                                                   |
-| [Release](./development/release.md)                               | Versioning and publish process                                             |
-| [Quality contracts](./development/quality-contracts.md)           | Runtime invariants and test gates                                          |
-| [Compatibility boundary](./development/compatibility-boundary.md) | Published contracts and extension adapters                                 |
-| [Runtime ownership](./development/ownership.md)                   | Lifetime identity, cancellation, cleanup, and generation preparation       |
-| [Runtime source layout](./development/runtime-layout.md)          | Component, lifecycle, reactivity, and transaction implementation groups    |
-| [Renderer source layout](./development/renderer-layout.md)        | DOM ownership, component hosts, children, props, and reconciliation groups |
-| [Renderer ownership](./development/renderer-ownership.md)         | DOM ranges, host indexes, and platform capabilities                        |
-| [Integration boundaries](./development/integration-boundaries.md) | Root transactions, data attachments, and server request isolation          |
-| [Platform versioning](./development/platform-versioning.md)       | Release coordination policy                                                |
-| [Docs style guide](./contributing/docs-style-guide.md)            | Writing conventions                                                        |
-| [Testing guide](./contributing/testing.md)                        | Test patterns                                                              |
+| Page                                                              | Description                                                       |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------- |
+| [Platform charter](./development/platform-charter.md)             | Package roles and operating model                                 |
+| [Repo structure](./development/repo-structure.md)                 | Repository layout                                                 |
+| [Contributing](./development/contributing.md)                     | Setup, build, test, lint                                          |
+| [Release](./development/release.md)                               | Versioning and publish process                                    |
+| [Quality contracts](./development/quality-contracts.md)           | Runtime invariants and test gates                                 |
+| [Compatibility boundary](./development/compatibility-boundary.md) | Published contracts and consumer validation                       |
+| [Core source layout](./development/core-layout.md)                | Core layers and DOM renderer modules                              |
+| [Integration boundaries](./development/integration-boundaries.md) | Root transactions, data attachments, and server request isolation |
+| [Platform versioning](./development/platform-versioning.md)       | Release coordination policy                                       |
+| [Docs style guide](./contributing/docs-style-guide.md)            | Writing conventions                                               |
+| [Testing guide](./contributing/testing.md)                        | Test patterns                                                     |
 
 ## Additional Reading
 
-- [Internals: Core engine design](./internals/core-engine-design.md)
+- [Internals: Core rewrite](./internals/core-rewrite.md)
 - [Internals: Runtime reactivity](./internals/runtime-reactivity.md)
 - [Internals: Renderer pipeline](./internals/renderer-pipeline.md)
 - [Internals: SSR and SSG pipeline](./internals/ssr-ssg-pipeline.md)

@@ -121,7 +121,7 @@ call order in a component body). That is public API and stays.
 ## What is kept
 
 The DOM prop, attribute, property, URL-guard, and event-delegation semantics
-(`src/renderer/props`, `src/common/*`), SSR escaping and attribute
+(now `src/core/dom/prop-values.ts`, `src/core/dom/events.ts`, and `src/common/*`), SSR escaping and attribute
 serialization, the router, data, fx, actions, foundations, boot configuration,
 and the public declarations in `src/public-contracts`. These are adapted to
 the new owner and reactive APIs, not redesigned.
