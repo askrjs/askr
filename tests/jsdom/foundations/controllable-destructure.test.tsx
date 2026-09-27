@@ -39,4 +39,73 @@ describe('controllableState tuple', () => {
     expect(container.textContent).toBe('2');
     expect(changes).toEqual([2]);
   });
+
+  it('should run an updater once and report the stored value', () => {
+    let setCount!: (next: (prev: number) => number) => void;
+    const changes: number[] = [];
+    let calls = 0;
+    createIsland({
+      root: container,
+      component: () => {
+        const [count, set] = controllableState({
+          value: undefined,
+          defaultValue: 1,
+          onChange: (next: number) => changes.push(next),
+        });
+        setCount = set as never;
+        return <output>{count()}</output>;
+      },
+    });
+    flushScheduler();
+
+    setCount((prev) => {
+      calls++;
+      return prev + 10;
+    });
+    flushScheduler();
+    expect(calls).toBe(1);
+    expect(changes).toEqual([11]);
+    expect(container.textContent).toBe('11');
+  });
+
+  it('should report changes without storing them in controlled mode', () => {
+    let setValue!: (next: string) => void;
+    const changes: string[] = [];
+    createIsland({
+      root: container,
+      component: () => {
+        const [value, set] = controllableState({
+          value: 'fixed',
+          defaultValue: 'unused',
+          onChange: (next: string) => changes.push(next),
+        });
+        setValue = set;
+        return <output>{value()}</output>;
+      },
+    });
+    flushScheduler();
+
+    setValue('next');
+    flushScheduler();
+    expect(changes).toEqual(['next']);
+    expect(container.textContent).toBe('fixed');
+  });
+
+  it('should render when passed as a readable function child', () => {
+    let setCount!: (next: number) => void;
+    createIsland({
+      root: container,
+      component: () => {
+        const count = controllableState({ value: undefined, defaultValue: 3 });
+        setCount = count.set;
+        return <p>{() => count}</p>;
+      },
+    });
+    flushScheduler();
+    expect(container.textContent).toBe('3');
+
+    setCount(4);
+    flushScheduler();
+    expect(container.textContent).toBe('4');
+  });
 });

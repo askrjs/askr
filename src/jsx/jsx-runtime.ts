@@ -164,20 +164,28 @@ export function jsx(
 
 /**
  * Classic element factory. The automatic JSX transform falls back to it for a
- * `key` written after a spread (`<Row {...props} key={id} />`). The key is
- * taken out of `props`, and child arguments become `props.children`.
+ * `key` written after a spread (`<Row {...props} key={id} />`). The key and
+ * the development-only `__self`/`__source` props are taken out of `props`,
+ * and child arguments become `props.children`.
  */
 export function createElement(
-  type: JSXElementType,
+  type: string | symbol | ((props: never) => unknown),
   props: Record<string, unknown> | null,
   ...children: unknown[]
 ): JSXElement {
-  const { key, ...rest } = props ?? {};
+  // Development transforms (Babel, oxc) add `__self` and `__source`.
+  const { key, __self, __source, ...rest } = props ?? {};
+  void __self;
+  void __source;
   if (children.length === 1) rest.children = children[0];
-  else if (children.length > 1) rest.children = children;
+  else if (children.length > 1) {
+    // Child arguments are fixed JSX children, like `jsxs()`.
+    rest.children = children;
+    markStaticChildren(rest as Props);
+  }
   return {
     $$typeof: ELEMENT_TYPE,
-    type,
+    type: type as JSXElementType,
     props: rest as Props,
     key: (key as string | number | null | undefined) ?? null,
   } as JSXElement;

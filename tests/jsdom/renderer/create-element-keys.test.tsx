@@ -29,7 +29,7 @@ describe('createElement keys', () => {
         return (
           <ul>
             {order().map((id) =>
-              createElement(Row as never, { ...{ label: id }, key: id })
+              createElement(Row, { ...{ label: id }, key: id })
             )}
           </ul>
         );
@@ -42,5 +42,51 @@ describe('createElement keys', () => {
     flushScheduler();
     expect(Array.from(container.querySelectorAll('li'))).toEqual([c, a, b]);
     expect(container.textContent).toBe('cab');
+  });
+
+  it('should render a key written after a spread through the real JSX transform', () => {
+    const warnings: unknown[] = [];
+    const warn = console.warn;
+    console.warn = (...args: unknown[]) => warnings.push(args);
+    function Item(props: { label: string; children?: unknown }) {
+      // Development transforms must not leak their __self/__source props.
+      expect(Object.keys(props).sort()).toEqual(['children', 'label']);
+      return <li title={props.label}>{props.children}</li>;
+    }
+    let order!: ReturnType<typeof state<string[]>>;
+    try {
+      createIsland({
+        root: container,
+        component: () => {
+          order = state(['a', 'b']);
+          return (
+            <ul>
+              {order().map((id) => {
+                const rest = { label: id };
+                return (
+                  <Item {...rest} key={id}>
+                    <b>{id}</b>
+                    <i>{'!'}</i>
+                  </Item>
+                );
+              })}
+            </ul>
+          );
+        },
+      });
+      flushScheduler();
+      const [a, b] = Array.from(container.querySelectorAll('li'));
+      expect(a?.getAttribute('__source')).toBeNull();
+
+      order.set(['b', 'a']);
+      flushScheduler();
+      expect(Array.from(container.querySelectorAll('li'))).toEqual([b, a]);
+      expect(container.textContent).toBe('b!a!');
+      expect(
+        warnings.filter((entry) => String(entry).includes('Missing keys'))
+      ).toEqual([]);
+    } finally {
+      console.warn = warn;
+    }
   });
 });

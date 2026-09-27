@@ -11,14 +11,17 @@
   20,000 effect jobs 20.2 ms to 2.06 ms, patching a 2,000-deep chain 13.0 ms
   to 0.72 ms (mean).
 - fix(jsx): export `createElement` from `@askrjs/askr`. The automatic JSX
-  transform in TypeScript and esbuild compiles a `key` written after a spread
-  (`<Row {...props} key={id} />`) to `createElement` from the import source,
-  which previously failed to resolve (#617).
+  transform in TypeScript, esbuild, Babel, and oxc (Vite) compiles a `key`
+  written after a spread (`<Row {...props} key={id} />`) to `createElement`
+  from the import source, which previously failed to resolve. It removes the
+  development-only `__self`/`__source` props and marks child arguments as
+  static children (#617).
 
 - fix(foundations): `controllableState()` results destructure like `state()`
   (`const [value, setValue] = controllableState(...)`). `ControllableState` is
-  now based on `StateTuple`, so the destructured getter and setter are typed
-  (#621).
+  now based on `StateTuple`, so the destructured getter and setter are typed.
+  The getter is readable like a `state()` getter, and an updater passed to its
+  setter runs once (#621).
 
 - docs(foundations): document stacking dialogs and toasts through one writer
   that owns the layer list and writes it through its own `definePortal()`

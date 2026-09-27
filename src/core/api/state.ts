@@ -94,13 +94,21 @@ export function createStateCell<T>(
   };
   markReadable(read);
   read.set = set as State<T>['set'];
+  return makeDestructurable(read) as unknown as StateTuple<T>;
+}
+
+/** Yields the getter, then its `set`: `const [value, setValue] = cell`. */
+function* stateEntries(this: { set: unknown }): Generator<unknown> {
+  yield this;
+  yield this.set;
+}
+
+/** Let a getter with a `set` method destructure into `[getter, setter]`. */
+export function makeDestructurable<T extends { set: unknown }>(read: T): T {
   (read as unknown as { [Symbol.iterator]: () => Iterator<unknown> })[
     Symbol.iterator
-  ] = function* () {
-    yield read;
-    yield set;
-  };
-  return read as unknown as StateTuple<T>;
+  ] = stateEntries;
+  return read;
 }
 
 export function state<T>(initialValue: T): StateTuple<T> {

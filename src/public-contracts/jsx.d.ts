@@ -120,8 +120,9 @@ declare function jsxs(
 ): JSXElement;
 /**
  * Classic element factory. The automatic JSX transform falls back to it for a
- * `key` written after a spread (`<Row {...props} key={id} />`). The key is
- * taken out of `props`, and child arguments become `props.children`.
+ * `key` written after a spread (`<Row {...props} key={id} />`). The key and
+ * the development-only `__self`/`__source` props are taken out of `props`,
+ * and child arguments become `props.children`.
  */
 declare function createElement(
   type: string | symbol | ((props: never) => unknown),

@@ -26,7 +26,9 @@ Common runtime exports:
   [runtime enforcement](../concepts/runtime-enforcement.md)
 - JSX runtime exports: `jsx()`, `jsxs()`, and `Fragment`
 - `createElement(type, props, ...children)`: the classic factory the automatic
-  JSX transform imports when a `key` follows a spread (`<Row {...props} key={id} />`)
+  JSX transform (TypeScript, esbuild, Babel, oxc) imports when a `key` follows a
+  spread (`<Row {...props} key={id} />`); it drops development `__self` and
+  `__source` props
 
 Public types:
 
