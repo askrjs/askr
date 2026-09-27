@@ -54,20 +54,18 @@ function readDocs(): DocPage[] {
   });
 }
 
-const escape = (name: string) => name.replace(/[$]/g, '\\$');
+const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
 
 /** Whether `page` is about `specifier`: it names that exact module path. */
 function namesEntrypoint(page: DocPage, specifier: string): boolean {
-  return new RegExp(`${specifier.replace(/[/]/g, '\\/')}(?![\\w/-])`).test(
-    page.text
-  );
+  return new RegExp(`${escape(specifier)}(?![\\w/-])`).test(page.text);
 }
 
 /**
  * A value is documented when an example imports it from its entrypoint, or a
- * page that names the entrypoint has an inline code span that calls it
+ * page that names the entrypoint has an inline code span that calls the value
  * (`name(`), reads a member (`name.x`, not a file name such as `index.html`),
- * renders it (`<Name`), or names a PascalCase export exactly. Bare lowercase
+ * renders the component (`<Name`), or names a PascalCase export exactly. Bare lowercase
  * spans do not count, since names such as `type` or `click` are also ordinary
  * words. The check is a floor: it proves a mention in the right place, not a
  * complete description.
