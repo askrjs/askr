@@ -214,6 +214,10 @@ navigation reruns the loader and exposes the complete result.
 
 ### Code-split route content
 
+`lazy(() => import('./page'))` wraps a dynamic import as a route component. The
+import starts when the route first matches, and the returned component's
+`preload()` fetches it earlier, for example on hover.
+
 Use `lazyRouteData()` when a content-heavy route should keep only navigation
 and SEO metadata in the route manifest. Its dynamic import starts only after
 that route matches; the imported module is cached and the same loader runs
@@ -399,7 +403,8 @@ in a route's `policies` array.
 ## `RouteDataLoadError`
 
 A loader created with `lazyRouteData()` rejects with a `RouteDataLoadError`
-when its import or `select` step fails. Its `route` is the requested URL,
+when its import or `select` step fails. Its `preload()` rejects with the raw
+import error instead. Its `route` is the requested URL,
 `phase` is where the loader ran (`'client'`, `'server'`, or `'ssg'`), and
 `cause` is the original error. Abort errors pass through unwrapped.
 
@@ -407,8 +412,9 @@ when its import or `select` step fails. Its `route` is the requested URL,
 
 - `isDeferred(value)` checks whether a value came from `defer()`.
 - `resolveDeferredValues(input, signal?)` waits for every `defer()` value
-  nested in `input` and resolves to the same `input` object. It rejects as soon
-  as any deferred value rejects or `signal` aborts. The `defer()` wrappers stay
+  nested in `input`'s arrays and plain objects (not `Map` or `Set` contents)
+  and resolves to the same `input` object. It rejects as soon as any deferred
+  value rejects, or when `signal` aborts while it is waiting. The `defer()` wrappers stay
   in place, now settled, so render them with `Resolve` rather than serializing
   `input` directly.
 

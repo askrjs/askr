@@ -77,7 +77,7 @@ declare function mount(
 declare function renderRoute(
   options: RouteRenderOptions
 ): Promise<RenderResult>;
-/** Dispatch a bubbling `click` event, as Askr's delegated click handlers expect. */
+/** Dispatch one bubbling `click` MouseEvent (no pointerdown/mousedown/mouseup sequence). */
 declare function click(element: Element): boolean;
 /** Append `text` to a text control's value one character at a time, emitting an input event for each. */
 declare function type(

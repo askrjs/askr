@@ -97,8 +97,8 @@ cleanup. Without one, the harness creates and removes a managed container.
 previous URL during cleanup.
 
 Interaction helpers drive the same delegated events a browser would:
-`click(element)` dispatches a bubbling `click` event (no pointer or mouse
-events), `type(input, text)` appends `text` to a text control's value one
+`click(element)` dispatches one bubbling `click` `MouseEvent` (no
+pointerdown, mousedown, or mouseup sequence), `type(input, text)` appends `text` to a text control's value one
 character at a time, emitting an input event for each, and
 `submit(form)` dispatches a cancelable bubbling submit event. `dispatch()`
 sends any other event, `flush()` runs pending work, and `cleanup(view)` tears

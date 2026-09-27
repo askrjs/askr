@@ -86,8 +86,9 @@ Controlled/uncontrolled value helpers.
 - `isElement(value)` checks for a JSX element, and
   `cloneElement(element, props)` copies one with `props` shallow-merged over
   its own.
-- `layout()` and `definePortal()` are also exported here; see the
-  [API overview](./api.md).
+- `layout()`, `definePortal()`, `Portal`, `DefaultPortal`, `Slot`, and
+  `Presence` are also exported here, the same as from
+  `@askrjs/askr/foundations`; see the [API overview](./api.md).
 
 ## `@askrjs/askr/foundations/icon`
 

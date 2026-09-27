@@ -1,6 +1,6 @@
 import { dispatch as dispatchEvent } from './render';
 
-/** Dispatch a bubbling `click` event, as Askr's delegated click handlers expect. */
+/** Dispatch one bubbling `click` MouseEvent (no pointerdown/mousedown/mouseup sequence). */
 export function click(element: Element): boolean {
   if (!element || typeof element.dispatchEvent !== 'function') {
     throw new TypeError('@askrjs/askr/testing click requires an Element.');

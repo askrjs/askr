@@ -74,7 +74,7 @@ function namesEntrypoint(page: DocPage, specifier: string): boolean {
  */
 function documentsValue(pages: DocPage[], specifier: string, name: string) {
   const call = new RegExp(
-    `^${escape(name)}(?:[(<]|\\.(?!(?:html|tsx?|jsx?|mjs|md|json|css)\\b))`
+    `^${escape(name)}(?:[(<]|\\.(?!(?:d\\.ts|[cm]?[jt]sx?|html|md|json|css|svg|txt|ya?ml)\\b))`
   );
   const element = new RegExp(`^<${escape(name)}(?:[\\s>/]|$)`);
   return pages.some(
@@ -94,7 +94,8 @@ function documentsType(pages: DocPage[], specifier: string, name: string) {
   return pages.some(
     (page) =>
       page.imports.get(specifier)?.has(name) ||
-      page.inline.some((span) => mention.test(span))
+      (namesEntrypoint(page, specifier) &&
+        page.inline.some((span) => mention.test(span)))
   );
 }
 
