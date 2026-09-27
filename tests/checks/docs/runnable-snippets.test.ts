@@ -12,7 +12,7 @@ import {
   it,
   vi,
 } from 'vite-plus/test';
-import { jsx } from '@askrjs/askr';
+import { jsx, state } from '@askrjs/askr';
 import { Portal } from '@askrjs/askr/foundations';
 import { dispatch, render, type RenderResult } from '@askrjs/askr/testing';
 
@@ -311,9 +311,24 @@ const scenarios: Record<string, Scenario> = {
         close(id: string): void;
       };
       let stack!: ReturnType<typeof useLayerStack>;
+      let tipOpen!: ReturnType<typeof state<boolean>>;
       const Page = () => {
         stack = useLayerStack();
-        return jsx('main', { children: 'page' });
+        tipOpen = state(false);
+        return jsx('main', {
+          children: [
+            'page',
+            // A default-portal writer in the same root, opened later.
+            tipOpen()
+              ? jsx(Portal, {
+                  children: jsx('span', {
+                    'data-tip': 'true',
+                    children: 'tip',
+                  }),
+                })
+              : null,
+          ],
+        });
       };
       const result = context.mount(() =>
         jsx(LayerStack as never, {
@@ -336,10 +351,10 @@ const scenarios: Record<string, Scenario> = {
       expect(titles()).toEqual(['Settings', 'Confirm']);
       const confirm = host.querySelector('[data-layer="confirm"]');
 
-      // Another default-portal writer does not replace the stack.
-      const tip = context.mount(() => jsx(Portal, { children: 'tip' }));
-      tip.flush();
+      // A default-portal writer in the same root does not replace the stack.
+      tipOpen.set(true);
       result.flush();
+      expect(result.root.querySelector('[data-tip]')).not.toBeNull();
       expect(titles()).toEqual(['Settings', 'Confirm']);
 
       stack.close('settings');
