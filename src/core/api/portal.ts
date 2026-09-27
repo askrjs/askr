@@ -17,7 +17,7 @@ import { getRenderHost } from '../component/instance';
 import { Owner, getOwner } from '../reactive/owner';
 import { Signal } from '../reactive/graph';
 import { OWNED_TYPE } from '../view/children';
-import { currentComponent, onCommit } from './hooks';
+import { currentComponent } from './hooks';
 import {
   holdUntilBoundaryRecovers,
   nearestErrorBoundary,
@@ -255,12 +255,19 @@ export function DefaultPortal(props?: {
   if (instance && !instance.server && !explicitHosts.has(instance)) {
     explicitHosts.add(instance);
     channel.explicitHosts.write(channel.explicitHosts.peek() + 1);
+    // The count is released with the host's lifetime, not after its commit
+    // task: a host can be unmounted in the flush that mounted it, before
+    // post-commit work runs. A discarded render undoes the count instead.
+    let counted = true;
     recordUndo(() => {
+      counted = false;
       explicitHosts.delete(instance);
       channel.explicitHosts.write(channel.explicitHosts.peek() - 1);
     });
     const boundary = nearestErrorBoundary(instance);
-    onCommit(instance, () => () => {
+    instance.onCleanup(() => {
+      if (!counted) return;
+      counted = false;
       const release = () =>
         channel.explicitHosts.write(channel.explicitHosts.peek() - 1);
       // A host that a boundary fallback discarded keeps the content off the

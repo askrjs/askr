@@ -210,4 +210,44 @@ describe('default portal component ownership', () => {
       );
     }
   });
+
+  it('should release an explicit host unmounted in the flush that mounted it', () => {
+    let show!: State<boolean>;
+
+    function Toggler() {
+      show = state(false);
+      return (
+        <main>
+          <Show when={show}>
+            <div>
+              <DefaultPortal />
+              <span ref={(el) => el && show.set(false)} />
+            </div>
+          </Show>
+        </main>
+      );
+    }
+
+    function App() {
+      return (
+        <>
+          <Toggler />
+          <Portal>
+            <b>content</b>
+          </Portal>
+        </>
+      );
+    }
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    expect(container.innerHTML).toContain('<b>content</b>');
+
+    show.set(true);
+    flushScheduler();
+    flushScheduler();
+
+    expect(container.querySelector('main')?.innerHTML).toBe('');
+    expect(container.innerHTML).toContain('<b>content</b>');
+  });
 });

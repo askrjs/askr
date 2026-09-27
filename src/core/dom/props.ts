@@ -16,6 +16,7 @@ import { isSkippedProp } from '../../common/prop-classification';
 import { setRef } from './refs';
 import { Computation } from '../reactive/graph';
 import { deliverToBoundary } from '../component/errors';
+import { recordUndo } from '../component/journal';
 import { readValue } from '../reactive/readable';
 import { effectScheduler } from '../reactive/scheduler';
 import {
@@ -197,8 +198,14 @@ export function applyInitialProps(
     const value = props[key];
     if (parseEventProp(key)) {
       flushScalars();
-      if (adopted) pass.op(() => setHandler(node, key, value));
-      else setHandler(node, key, value);
+      if (adopted) {
+        pass.op(() => setHandler(node, key, value));
+      } else {
+        setHandler(node, key, value);
+        // Registering delegates the event type; a discarded or rewound render
+        // releases it, or the delegation outlives every element using it.
+        recordUndo(() => setHandler(node, key, undefined));
+      }
     } else if (isBinding(key, value)) {
       flushScalars();
       if (!followsChildren(node.tag, key)) {

@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+- fix(router): a navigation that changes the pathname remounts the route
+  leaf, so `state()`, `task()`, and resources start fresh for the new URL
+  (`/user/1` to `/user/2`). Layouts keep their instances and DOM.
+
+- fix(router): when a destination's commit applies but a ref or binding
+  throws, navigation completes (history, location, metadata) and reports the
+  error. When a failed DOM write undoes the commit, navigation rolls back and
+  rethrows, keeping the previous page and location.
+
+- fix(boot): mounting without hydration replaces the container's existing
+  content (a loading placeholder, unhydrated markup) instead of rendering
+  beside it.
+
+- fix(foundations): an explicit `<DefaultPortal>` unmounted in the flush that
+  mounted it no longer hides `<Portal>` content from the automatic host.
+
+- fix(core): renders that are discarded or rewound by an `ErrorBoundary`
+  release event delegation and `For` row property reads they created.
+
 - fix(router): `<Resolve>` renders deferred route data after client
   navigation. It claimed its resource hook only while the value was pending,
   so the render after the promise settled failed the hook-order check and the

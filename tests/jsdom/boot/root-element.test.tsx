@@ -20,4 +20,15 @@ describe('boot root resolution', () => {
     expect(document.getElementById('app')?.textContent).toBe('Northstar');
     expect(hasApp('#app')).toBe(true);
   });
+
+  it('should replace existing container content when mounting without hydration', async () => {
+    document.body.innerHTML = '<div id="app"><p>Loading...</p></div>';
+    const registry = createRouteRegistry(() => {
+      route('/', () => <main>Northstar</main>);
+    });
+    await createSPA({ root: '#app', registry });
+    expect(document.getElementById('app')?.innerHTML).toBe(
+      '<main>Northstar</main>'
+    );
+  });
 });

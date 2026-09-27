@@ -8,6 +8,7 @@ import type {
 } from '../common/router';
 import { ROUTE_ROOT_COMPONENT } from '../common/router-internal';
 import type { RenderableChild } from '../common/vnode';
+import { currentAppRuntime } from '../core/api/hooks';
 import { defineScope, readScope } from '../core/api/scope';
 import type { InternalRouteRecord } from './internal-types';
 import { _associateLazyHandler } from './lazy';
@@ -68,7 +69,9 @@ function createRouteComponentVNode(
     $$typeof: ELEMENT_TYPE,
     type: component,
     props: params,
-    key: null,
+    // A new route lifetime remounts the leaf; enclosing layouts are unkeyed
+    // and keep their instances and DOM.
+    key: routeRoot ? (currentAppRuntime()?.lifetime ?? null) : null,
     ...(routeRoot ? { [ROUTE_ROOT_COMPONENT]: true } : {}),
   };
 }

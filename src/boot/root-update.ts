@@ -31,6 +31,7 @@ function prepare(root: object, input: RootUpdateInput): PreparedRootUpdate {
     routeAuth: current?.routeAuth,
     route: input.routeData,
     hasRoute: input.hasRouteData,
+    lifetime: current?.lifetime,
   });
   const previous = {
     appRuntime: app.appRuntime,
@@ -57,6 +58,7 @@ function prepare(root: object, input: RootUpdateInput): PreparedRootUpdate {
         app.component = input.handler;
         app.handler = wrapRootRouteHandler(input.handler, app.cspNonce);
         app.generation++;
+        runtime.lifetime = app.generation;
       }
       try {
         prepared = app.root.prepare(app.view());
@@ -67,10 +69,18 @@ function prepare(root: object, input: RootUpdateInput): PreparedRootUpdate {
       }
     },
     publish() {
-      if (settled) return;
+      if (settled) return { aborted: false, errors: [] };
       settled = true;
-      prepared?.commit();
-      clearStagedAppRenderRouteLocation(runtime);
+      try {
+        prepared?.commit();
+        return { aborted: false, errors: [] };
+      } catch (error) {
+        const aborted = prepared?.aborted === true;
+        if (aborted) restore();
+        return { aborted, errors: [error] };
+      } finally {
+        clearStagedAppRenderRouteLocation(runtime);
+      }
     },
     rollback() {
       if (settled) return [];

@@ -175,6 +175,9 @@ function createRow(index: number, item: unknown): RowRecord {
     if (!property) {
       property = new Signal(Reflect.get(source.peek() as object, key));
       properties.set(key, property);
+      // Created from an item a discarded render may rewind: forget it then,
+      // so the next read starts from the item the row actually holds.
+      recordRowUndo(() => properties.delete(key));
     }
     return property.read();
   };

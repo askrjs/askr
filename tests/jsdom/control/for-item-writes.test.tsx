@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { For } from '@askrjs/askr/control';
+import { state } from '../../../src';
 import { logger } from '../../../src/common/logger';
 import {
   createTestContainer,
@@ -73,6 +74,56 @@ describe('For item writes', () => {
     });
     try {
       expect(warn).toHaveBeenCalledTimes(1);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should forget item properties first read by a discarded render', () => {
+    type Item = { id: number; label: string; details: string };
+    const v1: Item = { id: 1, label: 'one', details: 'd1' };
+    const v2: Item = { id: 1, label: 'one', details: 'd2' };
+    let items!: ReturnType<typeof state<Item[]>>;
+    let showDetails!: ReturnType<typeof state<boolean>>;
+    let fail!: ReturnType<typeof state<boolean>>;
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({
+        root: container,
+        component: () => {
+          items = state<Item[]>([v1]);
+          showDetails = state(false);
+          fail = state(false);
+          return (
+            <ul>
+              <For each={items} by={(item) => item.id}>
+                {(item) => {
+                  const details = showDetails() ? item.details : '';
+                  if (fail()) throw new Error('row failed');
+                  return (
+                    <li>
+                      {item.label}
+                      {details}
+                    </li>
+                  );
+                }}
+              </For>
+            </ul>
+          );
+        },
+      });
+      flushScheduler();
+      expect(container.textContent).toBe('one');
+
+      items.set([v2]);
+      showDetails.set(true);
+      fail.set(true);
+      expect(() => flushScheduler()).toThrow('row failed');
+
+      fail.set(false);
+      items.set([v1]);
+      flushScheduler();
+      expect(container.textContent).toBe('oned1');
     } finally {
       cleanup();
     }

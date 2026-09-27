@@ -519,10 +519,23 @@ function commitNavigationRoots(
     return;
   }
 
+  // Publish every root. A commit undone by a failed DOM write aborts the
+  // navigation: roots not yet published are rolled back and the location
+  // stays. Failures after a commit applied (a throwing ref) are reported, and
+  // the navigation completes because the page did change.
+  const committedFailures: unknown[] = [];
   for (const root of roots) {
-    root.prepared.publish();
+    const result = root.prepared.publish();
+    if (result.aborted) {
+      rollback();
+      const failure = result.errors[0];
+      logger.error('[Askr] navigation failed:', failure);
+      throw failure;
+    }
+    committedFailures.push(...result.errors);
     syncAppRegistrationLocation(root.target.app, pathname, href);
   }
+  for (const failure of committedFailures) reportUncaughtErrorLater(failure);
   const retired: unknown[] = [];
   for (const root of roots) retired.push(...root.prepared.retire());
   if (retired.length) {

@@ -22,6 +22,8 @@ export interface PreparedRender {
   commit(): void;
   /** Drop the prepared work; returns cleanup failures of provisional owners. */
   discard(): unknown[];
+  /** A failed DOM write undid this commit; the previous content remains. */
+  readonly aborted: boolean;
 }
 
 export interface Root {
@@ -90,6 +92,16 @@ export function createRoot(
             syncChildren(container, dom, before);
             return;
           }
+          if (!before) {
+            // A fresh root owns its container: it replaces what was there
+            // (a loading placeholder, markup it is not hydrating).
+            const replaced = Array.from(container.childNodes);
+            pass.onReversibleCommit(() =>
+              container.replaceChildren(...replaced)
+            );
+            container.replaceChildren(...dom);
+            return;
+          }
           for (const item of dom) container.insertBefore(item, before);
         });
       });
@@ -111,6 +123,9 @@ export function createRoot(
         if (settled) return [];
         settled = true;
         return pass.discard();
+      },
+      get aborted() {
+        return pass.commitAborted;
       },
     };
   }

@@ -73,6 +73,38 @@ describe('route ownership generations', () => {
     expect(cleanups).toBe(8);
   });
 
+  it('should give a route fresh state and lifecycle when only its params change', async () => {
+    const counters = new Map<string, State<number>>();
+    const events: string[] = [];
+
+    route('/user/{id}', (params) => {
+      const count = state(0);
+      counters.set(params.id, count);
+      task(() => {
+        events.push(`start ${params.id}`);
+        return () => events.push(`stop ${params.id}`);
+      });
+      return (
+        <p>
+          {params.id}:{count()}
+        </p>
+      );
+    });
+    window.history.replaceState({}, '', '/user/1');
+    await createSPA({ root: container, registry: currentRouteRegistry() });
+    flushScheduler();
+    counters.get('1')!.set(5);
+    flushScheduler();
+    expect(container.textContent).toBe('1:5');
+
+    navigate('/user/2');
+    flushScheduler();
+
+    expect(container.textContent).toBe('2:0');
+    expect(counters.get('2')).not.toBe(counters.get('1'));
+    expect(events).toEqual(['start 1', 'stop 1', 'start 2']);
+  });
+
   it('should isolate derive, selector, and For hooks across repeated route generations', async () => {
     type RouteControl = {
       value: State<number>;
