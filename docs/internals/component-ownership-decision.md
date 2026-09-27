@@ -27,17 +27,16 @@ data or supplied preload data. A failed render discards commit operations and
 the transaction restores provisional renderer and ownership changes; state
 writes made before the failed render are not automatically undone.
 
-Today JSX creation calls `For`, `Show`, and `Case` eagerly in the parent
-execution. Their calls can claim parent slots, so a plain `if`, ternary, or
-changing loop around those controls can violate hook order. Issue #485 owns
-moving those calls into lazy, separately owned control boundaries.
+Since #485 (delivered in #607), `For`, `Show`, and `Case` are lazy components
+with their own lifetimes and hook slots, so a plain `if`, ternary, or changing
+loop around them no longer affects the parent's hook sequence.
 
-| Example                               | Current component                                                                      | Lifetime setup direction                                                                               |
-| ------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `if`, early return, ternary in render | Safe only if they do not change the hook sequence; eager controls can change it        | Safe for ordinary JSX and nested component nodes in the render callback; lifecycle calls stay in setup |
-| Changing loop in render               | Safe for ordinary keyed JSX; calling hooks or eager controls in the loop changes slots | Safe for ordinary keyed JSX; lazy controls still require #485                                          |
-| Nested component                      | Child has its own positional sequence and lifetime                                     | Child may use either model and owns its own lifetime                                                   |
-| Keyed remount                         | New key creates a new component and fresh cells                                        | New key creates a new setup and fresh cells                                                            |
+| Example                               | Current component                                                                       | Lifetime setup direction                                                                               |
+| ------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `if`, early return, ternary in render | Safe only if they do not change the hook sequence; controls and child components do not | Safe for ordinary JSX and nested component nodes in the render callback; lifecycle calls stay in setup |
+| Changing loop in render               | Safe for ordinary keyed JSX and controls; calling hooks in the loop changes slots       | Safe for ordinary keyed JSX and controls                                                               |
+| Nested component                      | Child has its own positional sequence and lifetime                                      | Child may use either model and owns its own lifetime                                                   |
+| Keyed remount                         | New key creates a new component and fresh cells                                         | New key creates a new setup and fresh cells                                                            |
 
 ## Decision and bounded proof
 

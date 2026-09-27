@@ -515,3 +515,17 @@ expectError(jsx('path', { strokeDasharray: true }));
 expectError(jsx('div', { draggable: 1 }));
 expectError(jsx('label', { htmlFor: 5 }));
 expectError(jsx(Badge, { label: 42 }));
+
+// `key` identifies an element among its siblings for every element type,
+// including function components whose props do not declare it.
+function KeyedRow(props: { id: number }) {
+  return <li>{props.id}</li>;
+}
+expectType<RuntimeJSX.Element>(<KeyedRow key={1} id={1} />);
+expectType<RuntimeJSX.Element>(<KeyedRow key="one" id={1} />);
+expectError(<KeyedRow key={null} id={1} />);
+expectError(<div key={null} />);
+expectError(<KeyedRow key={{}} id={1} />);
+expectError(<KeyedRow key={1} />);
+expectAssignable<RuntimeJSX.IntrinsicAttributes>({ key: 1 });
+expectAssignable<DevRuntimeJSX.IntrinsicAttributes>({ key: 'one' });

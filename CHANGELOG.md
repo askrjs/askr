@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- fix(types): JSX accepts a `string` or `number` `key` on function components
+  whose props do not declare it, as it does on intrinsic elements (#489).
+
+- fix(types): `<For each={items}>` with a `state()` getter or `derive()`
+  result types each row as the list element instead of
+  `State<T[]> | StateSetter<T[]>`, including nullable getters, which render
+  nothing for `null`/`undefined`. A getter that does not return a list is now
+  a type error. `ForGetterProps` is exported.
+
+- breaking(types): remove the `EagerControlPrimitive` type and the
+  `unknown`-returning `jsx()`/`jsxs()`/`jsxDEV()` overloads left from eager
+  control flow, and delete retired runtime declarations that no export
+  reached (#489, #610).
+
 - fix(dom): a controlled `<select value>` keeps its value when a child
   component, `For`, or function child adds, removes, or edits its options, or
   an option's text or bound `value` changes, without the select itself

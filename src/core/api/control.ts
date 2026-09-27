@@ -127,16 +127,28 @@ export function Case(props: CaseProps): JSXElement | null {
 // ---------------------------------------------------------------------------
 // For
 
-type ForEachSource<T> = readonly T[] | (() => readonly T[]);
+/** A list, or a getter returning one (`null`/`undefined` render nothing). */
+type ForEachSource<T> = ForEachGetter<T> | ForEachList<T>;
+
+type ForEachGetter<T> = () => readonly T[] | null | undefined;
+
+/** A list that is not also callable: a `state()` getter is both. */
+type ForEachList<T> = readonly T[] & { readonly call?: never };
+
+/** How rows are identified: by a key function, or by position. */
+type ForKeying<T, K extends string | number> =
+  | { by: (item: T, index: number) => K; byIndex?: never }
+  | { by?: never; byIndex: true };
+
+type ForRowProps<T> = {
+  fallback?: Renderable;
+  children: (item: T, index: () => number) => Renderable;
+};
 
 export type ForProps<T, K extends string | number = string | number> = {
   each: ForEachSource<T>;
-  fallback?: Renderable;
-  children: (item: T, index: () => number) => Renderable;
-} & (
-  | { by: (item: T, index: number) => K; byIndex?: never }
-  | { by?: never; byIndex: true }
-);
+} & ForRowProps<T> &
+  ForKeying<T, K>;
 
 interface RowRecord {
   readonly index: Signal<number>;
@@ -300,9 +312,22 @@ function validateKey(key: unknown, index: number): void {
   }
 }
 
+export type ForGetterProps<T, K extends string | number = string | number> = {
+  each: ForEachGetter<T>;
+} & ForRowProps<T> &
+  ForKeying<T, K>;
+
 /** Render one row per item, keyed by `by` (or by position with `byIndex`). */
+// A `state()` getter is also an array (`[getter, setter]`): the getter overload
+// comes first so its items keep their element type.
+export function For<T, K extends string | number = string | number>(
+  props: ForGetterProps<T, K>
+): Renderable;
 export function For<T, K extends string | number = string | number>(
   props: ForProps<T, K>
+): Renderable;
+export function For<T, K extends string | number = string | number>(
+  props: ForProps<T, K> | ForGetterProps<T, K>
 ): Renderable {
   const by = props.by;
   if (!by && props.byIndex !== true) {

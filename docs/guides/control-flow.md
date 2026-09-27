@@ -119,15 +119,16 @@ expect(active()).toEqual(['c']);
 `waitForNextEvaluation()` is provided by the repository test setup; it is not
 part of the published `@askrjs/askr` package.
 
-## Keep control boundaries in the render sequence
+## Control flow composes like any component
 
-`<For>`, `<Show>`, and the other eager control primitives retain
-render-scoped state. Do not make the primitive call itself appear or disappear
-behind a plain `if`, ternary, `&&` branch, or changing loop:
+`<For>`, `<Show>`, and `<Case>` are components with their own lifetimes. They
+never claim hook slots in the component that renders them, so ordinary
+JavaScript can decide whether they render:
 
 ```tsx
 function Rows() {
-  // Avoid: the For call is skipped while open() is false.
+  if (loading()) return <Spinner />;
+
   return (
     <div>
       {open() ? (
@@ -135,25 +136,19 @@ function Rows() {
           {(item) => <Row item={item} />}
         </For>
       ) : null}
+      {sections().map((section) => (
+        <Show key={section.id} when={section.visible}>
+          <Section section={section} />
+        </Show>
+      ))}
     </div>
   );
 }
 ```
 
-Keep the outer control boundary unconditional and put the conditional branch
-inside `<Show>`, or use a `<Case>` boundary with `<Match>` children:
-
-```tsx
-<Show when={open}>
-  {() => (
-    <For each={items} by={(item) => item.id}>
-      {(item) => <Row item={item} />}
-    </For>
-  )}
-</Show>
-```
-
-This rule is about primitives evaluated in the current component's render
-scope. A normal JSX child such as `<Dialog />` is reconciled as its own
-component instance; its internal hooks do not become conditional hooks in the
-parent merely because the parent selected that child with ordinary JavaScript.
+A control reads getter sources in its own render: with `when={open}` or
+`each={items}` (the getter, not its value), a change re-renders only the
+control. A value such as `when={open()}` is read by the parent, so the parent
+re-renders. Two controls in the same
+position with different sources share one instance, as any component does; give
+them different `key`s when their state must not carry over.

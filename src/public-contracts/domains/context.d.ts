@@ -37,21 +37,12 @@ interface Scope<T> {
   readonly defaultValue: T;
 }
 
-interface ContextFrame {
-  parent: ContextFrame | null;
-  values: Map<ContextKey, unknown> | null;
-}
-
 /** Create a new lexical {@link Scope} with `defaultValue`, readable via {@link readScope}. */
 declare function defineScope<T>(defaultValue: T): Scope<T>;
 
 /** Read the current value of a {@link Scope} during component render or an async resource. */
 declare function readScope<T>(context: Scope<T>): T;
 
-type OwnedChildScope = {
-  key: string | number;
-  dispose(): void;
-};
 export {
   DOMElement,
   VNode,
@@ -62,8 +53,6 @@ export {
   Renderable,
   ContextScopeChildren,
   Scope,
-  ContextFrame,
   defineScope,
   readScope,
-  OwnedChildScope,
 };

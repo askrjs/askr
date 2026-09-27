@@ -41,7 +41,10 @@
       ],
       "Derived": ["interface Derived<T> {\n    (): T;\n}"],
       "For": [
-        "For: <T, K extends string | number = string | number>(props: ForProps<T, K>) => JSXElement"
+        "For: {\n    <T, K extends string | number = string | number>(props: ForGetterProps<T, K>): JSXElement;\n    <T, K extends string | number = string | number>(props: ForProps<T, K>): JSXElement;\n}"
+      ],
+      "ForGetterProps": [
+        "type ForGetterProps<T, K extends string | number = string | number> = Omit<ForBaseProps<T>, \"each\"> & {\n    each: ForEachGetter<T>;\n} & ForKeying<T, K>;"
       ],
       "ForProps": [
         "type ForProps<T, K extends string | number = string | number> = KeyedForProps<T, K> | IndexedForProps<T>;"
@@ -52,14 +55,12 @@
         "declare function hydrateDataRuntime(runtime: DataRuntime, data: unknown): void;"
       ],
       "jsx": [
-        "declare function jsx(type: EagerControlPrimitive, props: Props | null, key?: string | number): unknown;",
         "declare function jsx<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[NoInfer<TTag>] | null, key?: string | number): JSXElement;",
         "declare function jsx<TTag extends OtherIntrinsicTag>(type: TTag, props: OtherIntrinsicProps<TTag> | null, key?: string | number): JSXElement;",
         "declare function jsx<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number): JSXElement;",
         "declare function jsx(type: symbol, props: Props | null, key?: string | number): JSXElement;"
       ],
       "jsxs": [
-        "declare function jsxs(type: EagerControlPrimitive, props: Props | null, key?: string | number): unknown;",
         "declare function jsxs<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[NoInfer<TTag>] | null, key?: string | number): JSXElement;",
         "declare function jsxs<TTag extends OtherIntrinsicTag>(type: TTag, props: OtherIntrinsicProps<TTag> | null, key?: string | number): JSXElement;",
         "declare function jsxs<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number): JSXElement;",
@@ -178,7 +179,10 @@
         "type CaseProps = {\n    fallback?: BoundaryChild;\n    children?: unknown;\n};"
       ],
       "For": [
-        "For: <T, K extends string | number = string | number>(props: ForProps<T, K>) => JSXElement"
+        "For: {\n    <T, K extends string | number = string | number>(props: ForGetterProps<T, K>): JSXElement;\n    <T, K extends string | number = string | number>(props: ForProps<T, K>): JSXElement;\n}"
+      ],
+      "ForGetterProps": [
+        "type ForGetterProps<T, K extends string | number = string | number> = Omit<ForBaseProps<T>, \"each\"> & {\n    each: ForEachGetter<T>;\n} & ForKeying<T, K>;"
       ],
       "ForProps": [
         "type ForProps<T, K extends string | number = string | number> = KeyedForProps<T, K> | IndexedForProps<T>;"
@@ -1136,20 +1140,18 @@
     "./jsx-runtime": {
       "Fragment": ["Fragment: unique symbol"],
       "jsx": [
-        "declare function jsx(type: EagerControlPrimitive, props: Props | null, key?: string | number): unknown;",
         "declare function jsx<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[NoInfer<TTag>] | null, key?: string | number): JSXElement;",
         "declare function jsx<TTag extends OtherIntrinsicTag>(type: TTag, props: OtherIntrinsicProps<TTag> | null, key?: string | number): JSXElement;",
         "declare function jsx<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number): JSXElement;",
         "declare function jsx(type: symbol, props: Props | null, key?: string | number): JSXElement;"
       ],
       "JSX": [
-        "declare namespace JSX {\n    type ElementType = string | symbol | ((props: never) => unknown);\n    interface Element extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements extends KnownIntrinsicElements, OtherIntrinsicElements {\n        [elem: `${string}-${string}`]: IntrinsicFallbackProps;\n    }\n    type OtherIntrinsicElements = {\n        [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap, keyof KnownIntrinsicElementProps>]: OtherIntrinsicProps<Tag>;\n    };\n    interface ElementChildrenAttribute {\n        children: unknown;\n    }\n}"
+        "declare namespace JSX {\n    type ElementType = string | symbol | ((props: never) => unknown);\n    interface Element extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements extends KnownIntrinsicElements, OtherIntrinsicElements {\n        [elem: `${string}-${string}`]: IntrinsicFallbackProps;\n    }\n    type OtherIntrinsicElements = {\n        [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap, keyof KnownIntrinsicElementProps>]: OtherIntrinsicProps<Tag>;\n    };\n    interface ElementChildrenAttribute {\n        children: unknown;\n    }\n    interface IntrinsicAttributes {\n        key?: string | number;\n    }\n}"
       ],
       "JSXComponent": [
         "type JSXComponent<TProps extends object = Props> = {\n    bivarianceHack(props: TProps): unknown;\n}[\"bivarianceHack\"];"
       ],
       "jsxDEV": [
-        "declare function jsxDEV(type: EagerControlPrimitive, props: Props | null, key?: string | number, isStaticChildren?: boolean): unknown;",
         "declare function jsxDEV<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[NoInfer<TTag>] | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
         "declare function jsxDEV<TTag extends OtherIntrinsicTag>(type: TTag, props: OtherIntrinsicProps<TTag> | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
         "declare function jsxDEV<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
@@ -1162,7 +1164,6 @@
         "type JSXElementType = string | JSXComponent | symbol;"
       ],
       "jsxs": [
-        "declare function jsxs(type: EagerControlPrimitive, props: Props | null, key?: string | number): unknown;",
         "declare function jsxs<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[NoInfer<TTag>] | null, key?: string | number): JSXElement;",
         "declare function jsxs<TTag extends OtherIntrinsicTag>(type: TTag, props: OtherIntrinsicProps<TTag> | null, key?: string | number): JSXElement;",
         "declare function jsxs<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number): JSXElement;",
@@ -1172,13 +1173,12 @@
     "./jsx-dev-runtime": {
       "Fragment": ["Fragment: unique symbol"],
       "JSX": [
-        "declare namespace JSX$2 {\n    type ElementType$2 = string | symbol | ((props: never) => unknown);\n    interface Element$2 extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements$2 extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements$2 extends KnownIntrinsicElements$2, OtherIntrinsicElements$2 {\n        [elem: `${string}-${string}`]: IntrinsicFallbackProps;\n    }\n    type OtherIntrinsicElements$2 = {\n        [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap, keyof KnownIntrinsicElementProps>]: OtherIntrinsicProps$2<Tag>;\n    };\n    interface ElementChildrenAttribute$2 {\n        children: unknown;\n    }\n}"
+        "declare namespace JSX$2 {\n    type ElementType$2 = string | symbol | ((props: never) => unknown);\n    interface Element$2 extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements$2 extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements$2 extends KnownIntrinsicElements$2, OtherIntrinsicElements$2 {\n        [elem: `${string}-${string}`]: IntrinsicFallbackProps;\n    }\n    type OtherIntrinsicElements$2 = {\n        [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap, keyof KnownIntrinsicElementProps>]: OtherIntrinsicProps$2<Tag>;\n    };\n    interface ElementChildrenAttribute$2 {\n        children: unknown;\n    }\n    interface IntrinsicAttributes$2 {\n        key?: string | number;\n    }\n}"
       ],
       "JSXComponent": [
         "type JSXComponent<TProps extends object = Props> = {\n    bivarianceHack(props: TProps): unknown;\n}[\"bivarianceHack\"];"
       ],
       "jsxDEV": [
-        "declare function jsxDEV$2(type: EagerControlPrimitive, props: Props | null, key?: string | number, isStaticChildren?: boolean): unknown;",
         "declare function jsxDEV$2<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[NoInfer<TTag>] | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
         "declare function jsxDEV$2<TTag extends OtherIntrinsicTag$2>(type: TTag, props: OtherIntrinsicProps$2<TTag> | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
         "declare function jsxDEV$2<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
@@ -1476,10 +1476,6 @@
     "DOMElement": [
       "interface DOMElement {\n    type: JSXElementType;\n    props?: Props;\n    children?: VNode[];\n    key?: string | number | null;\n    [Symbol.iterator]?: never;\n}"
     ],
-    "EAGER_CONTROL_PRIMITIVE": ["EAGER_CONTROL_PRIMITIVE: unique symbol"],
-    "EagerControlPrimitive": [
-      "type EagerControlPrimitive<P extends Props = Props> = ((props: P) => unknown) & {\n    [EAGER_CONTROL_PRIMITIVE]?: true;\n};"
-    ],
     "Element": [
       "interface Element extends JSXElement {\n    readonly __askrJsxElementBrand?: never;\n}"
     ],
@@ -1535,7 +1531,7 @@
       "interface FocusLikeEvent extends DefaultPreventable, PropagationStoppable {\n    relatedTarget?: unknown;\n}"
     ],
     "For": [
-      "For: <T, K extends string | number = string | number>(props: ForProps<T, K>) => JSXElement"
+      "For: {\n    <T, K extends string | number = string | number>(props: ForGetterProps<T, K>): JSXElement;\n    <T, K extends string | number = string | number>(props: ForProps<T, K>): JSXElement;\n}"
     ],
     "ForBaseProps": [
       "type ForBaseProps<T> = {\n    each: ForEachSource<T>;\n    fallback?: BoundaryChild;\n    children: (item: T, index: () => number) => VNode;\n};"
@@ -1544,8 +1540,20 @@
     "ForbiddenLayoutOnlyProps": [
       "type ForbiddenLayoutOnlyProps = {\n    action?: never;\n    alt?: never;\n    abbr?: never;\n    autoComplete?: never;\n    autocomplete?: never;\n    checked?: never;\n    colSpan?: never;\n    cols?: never;\n    disabled?: never;\n    form?: never;\n    headers?: never;\n    height?: never;\n    href?: never;\n    htmlFor?: never;\n    label?: never;\n    method?: never;\n    maxLength?: never;\n    maxlength?: never;\n    minLength?: never;\n    minlength?: never;\n    multiple?: never;\n    name?: never;\n    noValidate?: never;\n    placeholder?: never;\n    readOnly?: never;\n    readonly?: never;\n    rel?: never;\n    required?: never;\n    rowSpan?: never;\n    rows?: never;\n    scope?: never;\n    selected?: never;\n    src?: never;\n    target?: never;\n    type?: never;\n    value?: never;\n    width?: never;\n};"
     ],
+    "ForEachGetter": [
+      "type ForEachGetter<T> = () => readonly T[] | null | undefined;"
+    ],
+    "ForEachList": [
+      "type ForEachList<T> = readonly T[] & {\n    readonly call?: never;\n};"
+    ],
     "ForEachSource": [
-      "type ForEachSource<T> = readonly T[] | (() => readonly T[]);"
+      "type ForEachSource<T> = ForEachGetter<T> | ForEachList<T>;"
+    ],
+    "ForGetterProps": [
+      "type ForGetterProps<T, K extends string | number = string | number> = Omit<ForBaseProps<T>, \"each\"> & {\n    each: ForEachGetter<T>;\n} & ForKeying<T, K>;"
+    ],
+    "ForKeying": [
+      "type ForKeying<T, K extends string | number> = {\n    by: (item: T, index: number) => K;\n    byIndex?: never;\n} | {\n    by?: never;\n    byIndex: true;\n};"
     ],
     "formatId": [
       "declare function formatId(options: FormatIdOptions): string;"
@@ -1627,7 +1635,7 @@
       "declare function index(Component: RouteComponent, options?: RouteOptions): void;"
     ],
     "IndexedForProps": [
-      "type IndexedForProps<T> = ForBaseProps<T> & {\n    by?: never;\n    byIndex: true;\n};"
+      "type IndexedForProps<T> = ForBaseProps<T> & Extract<ForKeying<T, string | number>, {\n    byIndex: true;\n}>;"
     ],
     "InputIntrinsicProps": [
       "interface InputIntrinsicProps extends IntrinsicProps {\n    autoComplete?: ReactiveProp<IntrinsicTextValue>;\n    autocomplete?: ReactiveProp<IntrinsicTextValue>;\n    checked?: ReactiveProp<IntrinsicBooleanValue>;\n    disabled?: ReactiveProp<IntrinsicBooleanValue>;\n    indeterminate?: ReactiveProp<IntrinsicBooleanValue>;\n    maxLength?: ReactiveProp<IntrinsicNumberValue>;\n    maxlength?: ReactiveProp<IntrinsicNumberValue>;\n    minLength?: ReactiveProp<IntrinsicNumberValue>;\n    minlength?: ReactiveProp<IntrinsicNumberValue>;\n    name?: ReactiveProp<IntrinsicTextValue>;\n    placeholder?: ReactiveProp<IntrinsicTextValue>;\n    readOnly?: ReactiveProp<IntrinsicBooleanValue>;\n    readonly?: ReactiveProp<IntrinsicBooleanValue>;\n    required?: ReactiveProp<IntrinsicBooleanValue>;\n    type?: ReactiveProp<IntrinsicTextValue>;\n    value?: ReactiveProp<IntrinsicFormValue>;\n}"
@@ -1637,6 +1645,12 @@
     ],
     "IntrinsicAriaValue": [
       "type IntrinsicAriaValue = string | number | boolean | null | undefined;"
+    ],
+    "IntrinsicAttributes": [
+      "interface IntrinsicAttributes {\n    key?: string | number;\n}"
+    ],
+    "IntrinsicAttributes$2": [
+      "interface IntrinsicAttributes$2 {\n    key?: string | number;\n}"
     ],
     "IntrinsicBooleanValue": [
       "type IntrinsicBooleanValue = boolean | null | undefined;"
@@ -1732,30 +1746,27 @@
       "declare function joinIconStyle(...styles: Array<string | undefined>): string | undefined;"
     ],
     "jsx": [
-      "declare function jsx(type: EagerControlPrimitive, props: Props | null, key?: string | number): unknown;",
       "declare function jsx(type: symbol, props: Props | null, key?: string | number): JSXElement;",
       "declare function jsx<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number): JSXElement;",
       "declare function jsx<TTag extends OtherIntrinsicTag>(type: TTag, props: OtherIntrinsicProps<TTag> | null, key?: string | number): JSXElement;",
       "declare function jsx<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[NoInfer<TTag>] | null, key?: string | number): JSXElement;"
     ],
     "JSX": [
-      "declare namespace JSX {\n    type ElementType = string | symbol | ((props: never) => unknown);\n    interface Element extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements extends KnownIntrinsicElements, OtherIntrinsicElements {\n        [elem: `${string}-${string}`]: IntrinsicFallbackProps;\n    }\n    type OtherIntrinsicElements = {\n        [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap, keyof KnownIntrinsicElementProps>]: OtherIntrinsicProps<Tag>;\n    };\n    interface ElementChildrenAttribute {\n        children: unknown;\n    }\n}"
+      "declare namespace JSX {\n    type ElementType = string | symbol | ((props: never) => unknown);\n    interface Element extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements extends KnownIntrinsicElements, OtherIntrinsicElements {\n        [elem: `${string}-${string}`]: IntrinsicFallbackProps;\n    }\n    type OtherIntrinsicElements = {\n        [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap, keyof KnownIntrinsicElementProps>]: OtherIntrinsicProps<Tag>;\n    };\n    interface ElementChildrenAttribute {\n        children: unknown;\n    }\n    interface IntrinsicAttributes {\n        key?: string | number;\n    }\n}"
     ],
     "JSX$2": [
-      "declare namespace JSX$2 {\n    type ElementType$2 = string | symbol | ((props: never) => unknown);\n    interface Element$2 extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements$2 extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements$2 extends KnownIntrinsicElements$2, OtherIntrinsicElements$2 {\n        [elem: `${string}-${string}`]: IntrinsicFallbackProps;\n    }\n    type OtherIntrinsicElements$2 = {\n        [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap, keyof KnownIntrinsicElementProps>]: OtherIntrinsicProps$2<Tag>;\n    };\n    interface ElementChildrenAttribute$2 {\n        children: unknown;\n    }\n}"
+      "declare namespace JSX$2 {\n    type ElementType$2 = string | symbol | ((props: never) => unknown);\n    interface Element$2 extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements$2 extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements$2 extends KnownIntrinsicElements$2, OtherIntrinsicElements$2 {\n        [elem: `${string}-${string}`]: IntrinsicFallbackProps;\n    }\n    type OtherIntrinsicElements$2 = {\n        [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap, keyof KnownIntrinsicElementProps>]: OtherIntrinsicProps$2<Tag>;\n    };\n    interface ElementChildrenAttribute$2 {\n        children: unknown;\n    }\n    interface IntrinsicAttributes$2 {\n        key?: string | number;\n    }\n}"
     ],
     "JSXComponent": [
       "type JSXComponent<TProps extends object = Props> = {\n    bivarianceHack(props: TProps): unknown;\n}[\"bivarianceHack\"];"
     ],
     "jsxDEV": [
-      "declare function jsxDEV(type: EagerControlPrimitive, props: Props | null, key?: string | number, isStaticChildren?: boolean): unknown;",
       "declare function jsxDEV(type: symbol, props: Props | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
       "declare function jsxDEV<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
       "declare function jsxDEV<TTag extends OtherIntrinsicTag>(type: TTag, props: OtherIntrinsicProps<TTag> | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
       "declare function jsxDEV<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[NoInfer<TTag>] | null, key?: string | number, isStaticChildren?: boolean): JSXElement;"
     ],
     "jsxDEV$2": [
-      "declare function jsxDEV$2(type: EagerControlPrimitive, props: Props | null, key?: string | number, isStaticChildren?: boolean): unknown;",
       "declare function jsxDEV$2(type: symbol, props: Props | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
       "declare function jsxDEV$2<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
       "declare function jsxDEV$2<TTag extends OtherIntrinsicTag$2>(type: TTag, props: OtherIntrinsicProps$2<TTag> | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
@@ -1766,7 +1777,6 @@
     ],
     "JSXElementType": ["type JSXElementType = string | JSXComponent | symbol;"],
     "jsxs": [
-      "declare function jsxs(type: EagerControlPrimitive, props: Props | null, key?: string | number): unknown;",
       "declare function jsxs(type: symbol, props: Props | null, key?: string | number): JSXElement;",
       "declare function jsxs<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number): JSXElement;",
       "declare function jsxs<TTag extends OtherIntrinsicTag>(type: TTag, props: OtherIntrinsicProps<TTag> | null, key?: string | number): JSXElement;",
@@ -1776,7 +1786,7 @@
       "interface KeyboardLikeEvent extends DefaultPreventable, PropagationStoppable {\n    key: string;\n    currentTarget?: unknown;\n    target?: unknown;\n}"
     ],
     "KeyedForProps": [
-      "type KeyedForProps<T, K extends string | number> = ForBaseProps<T> & {\n    by: (item: T, index: number) => K;\n    byIndex?: never;\n};"
+      "type KeyedForProps<T, K extends string | number> = ForBaseProps<T> & Extract<ForKeying<T, K>, {\n    byIndex?: never;\n}>;"
     ],
     "KnownIntrinsicElementProps": [
       "type KnownIntrinsicElementProps = {\n    [Tag in keyof KnownIntrinsicElementPropsBase]: WithElementRef<KnownIntrinsicElementPropsBase[Tag], IntrinsicElementForTag<Tag>>;\n};"

@@ -9,7 +9,6 @@ import type {
   KnownIntrinsicElementProps,
   Props,
 } from '../common/props';
-import type { EagerControlPrimitive } from '../common/control';
 import {
   ELEMENT_TYPE,
   Fragment,
@@ -45,6 +44,11 @@ export namespace JSX {
   export interface ElementChildrenAttribute {
     children: unknown;
   }
+
+  /** Attributes every element accepts, including function components. */
+  export interface IntrinsicAttributes {
+    key?: string | number;
+  }
 }
 
 type OtherIntrinsicProps<Tag extends string> = Omit<
@@ -70,12 +74,6 @@ function markStaticChildren(props: Props): Props {
   return props;
 }
 
-export function jsxDEV(
-  type: EagerControlPrimitive,
-  props: Props | null,
-  key?: string | number,
-  isStaticChildren?: boolean
-): unknown;
 export function jsxDEV<TTag extends keyof KnownIntrinsicElementProps>(
   type: TTag,
   props: KnownIntrinsicElementProps[NoInfer<TTag>] | null,
@@ -105,7 +103,7 @@ export function jsxDEV(
   props: Record<string, unknown> | null,
   key?: string | number,
   isStaticChildren = false
-): JSXElement | unknown {
+): JSXElement {
   const normalizedProps = (props ?? {}) as Props;
   const preparedProps = isStaticChildren
     ? markStaticChildren(normalizedProps)

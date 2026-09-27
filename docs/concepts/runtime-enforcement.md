@@ -66,9 +66,9 @@ generated output into explicit data traversal or multiple render roots.
 
 ## Render-scoped hook order
 
-Render-scoped hooks and eager control primitives must be evaluated in the same
-order every render. This includes `state()`, `derive()`, lifecycle operations,
-`<For>`, and the other primitives that retain render-owned state.
+Render-scoped hooks must be called in the same order every render. This covers
+`state()`, `derive()`, `selector()`, and the lifecycle APIs (`task()`,
+`watch()`, `resource()`, `stream()`, ...) called in a component body.
 
 The first completed render records which hook claimed each slot. Every later
 render is checked against that sequence in both directions:
@@ -98,13 +98,20 @@ function Component() {
 
 The first render claims one `state()` slot. Clicking the button re-renders the
 component with `expanded()` true, so the conditional `state(0)` claims a slot
-the first render did not, and that render throws.
+the first render did not, and that render throws a `Hook order changed in
+Component` error naming the slot.
 
-The same invariant applies when a plain conditional skips an eager control
-primitive:
+### Control flow and child components are not hooks
+
+`<For>`, `<Show>`, and `<Case>` are components with their own lifetimes and
+hook slots. Like any child component, they do not claim slots in the component
+that renders them, so they can appear and disappear behind plain JavaScript
+control flow:
 
 ```tsx
-function Component() {
+function Rows() {
+  if (loading()) return <Spinner />;
+
   return (
     <div>
       {open() ? (
@@ -117,28 +124,15 @@ function Component() {
 }
 ```
 
-The runtime reports that the render-scoped sequence changed and covers both
-possible causes: a conditional hook call, or a conditional subtree that skips
-its outer control boundary. It recommends keeping the render-scoped call
-unconditional and using `<Show>` or `<Case>` with `<Match>` children for
-conditional branches.
-
-```tsx
-<Show when={open}>
-  {() => (
-    <For each={items} by={(item) => item.id}>
-      {(item) => <Row item={item} />}
-    </For>
-  )}
-</Show>
-```
+A control reads getter sources (`when={open}`, `each={items}`) in its own
+render, so a change to them re-renders only the control. A value read in the
+parent, such as `when={open()}`, re-renders the parent as usual. Give a control
+a `key` to remount it, and its branch-local state, when that key changes.
 
 ### Why This Matters
 
-Changing the render-scoped sequence breaks retained identity. The runtime can
-observe the sequence change, but it cannot infer the exact source construct
-that caused it, so the diagnostic describes both supported fixes instead of
-blaming component structure.
+A hook's state lives in its slot. Changing which hook claims a slot would hand
+one hook's state to another, so the runtime rejects the render instead.
 
 ## Render Mutations
 
