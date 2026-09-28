@@ -32,6 +32,9 @@ Common runtime exports:
   spread (`<Row {...props} key={id} />`); it drops development `__self` and
   `__source` props
 
+Intrinsic JSX keys accept strings or numbers. The generic `Props` bag also
+allows symbol keys for internal keyed frames.
+
 Public types:
 
 - `State`
