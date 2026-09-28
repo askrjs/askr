@@ -2,6 +2,50 @@ import { describe, expect, it, vi } from 'vite-plus/test';
 import { createRoot } from '../../../src/core/dom/root';
 
 describe('hydration child sync rollback', () => {
+  it('should retry root hydration after a structural sync abort', () => {
+    const container = document.createElement('div');
+    container.innerHTML =
+      '<button id="button">button</button><span id="extra">server only</span>';
+    const originalChildren = Array.from(container.childNodes);
+    const button = container.querySelector('#button')!;
+    const extra = container.querySelector('#extra')!;
+    const removeChild = container.removeChild.bind(container);
+    const failure = new Error('hydration removal failed once');
+    let shouldFail = true;
+    const removeChildSpy = vi
+      .spyOn(container, 'removeChild')
+      .mockImplementation((child) => {
+        const removed = removeChild(child);
+        if (child === extra && shouldFail) {
+          shouldFail = false;
+          throw failure;
+        }
+        return removed;
+      });
+    const ref = vi.fn();
+    const view = (
+      <button id="button" ref={ref}>
+        button
+      </button>
+    );
+    const root = createRoot(container, { hydrate: true });
+
+    expect(() => root.prepare(view).commit()).toThrow(failure);
+    expect(Array.from(container.childNodes)).toEqual(originalChildren);
+    expect(root.node.children).toHaveLength(0);
+    expect(ref).not.toHaveBeenCalled();
+
+    removeChildSpy.mockRestore();
+    root.prepare(view).commit();
+
+    expect(container.childNodes).toHaveLength(1);
+    expect(container.firstChild).toBe(button);
+    expect(container.querySelector('#button')).toBe(button);
+    expect(ref).toHaveBeenCalledTimes(1);
+    expect(ref).toHaveBeenCalledWith(button);
+    root.dispose();
+  });
+
   it('should restore adopted root children when removal partially mutates and fails', () => {
     const container = document.createElement('div');
     container.innerHTML =
