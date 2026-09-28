@@ -50,7 +50,9 @@ export function createRoot(
   options: RootOptions = {}
 ): Root {
   installRenderUpdates();
-  const owner = new Owner(options.owner ?? getOwner());
+  const owner = new Owner(
+    options.owner === undefined ? getOwner() : options.owner
+  );
   (owner.context ??= new Map()).set(EVENT_ROOT_CONTAINER, container);
   const node: RootNode = {
     kind: ROOT,

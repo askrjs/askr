@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createRoot } from '../../../src/core/dom/root';
 import { state, derive } from '../../../src/core/api/state';
 import { flushSync } from '../../../src/core/reactive/scheduler';
+import { Owner, runWithOwner } from '../../../src/core/reactive/owner';
 
 function mount(view: unknown) {
   const el = document.createElement('div');
@@ -12,6 +13,46 @@ function mount(view: unknown) {
 }
 
 describe('core renderer', () => {
+  it('should inherit the current owner when the root owner is omitted', () => {
+    const parent = new Owner(null);
+    const container = document.createElement('div');
+    const root = runWithOwner(parent, () => createRoot(container));
+
+    expect(root.owner.parent).toBe(parent);
+    parent.dispose();
+    expect(root.owner.disposed).toBe(true);
+  });
+
+  it('should keep an explicitly detached root outside the current owner', () => {
+    const parent = new Owner(null);
+    const container = document.createElement('div');
+    const root = runWithOwner(parent, () =>
+      createRoot(container, { owner: null })
+    );
+
+    expect(root.owner.parent).toBeNull();
+    parent.dispose();
+    expect(root.owner.disposed).toBe(false);
+
+    root.dispose();
+    expect(root.owner.disposed).toBe(true);
+  });
+
+  it('should use an explicitly supplied root owner', () => {
+    const current = new Owner(null);
+    const explicit = new Owner(null);
+    const container = document.createElement('div');
+    const root = runWithOwner(current, () =>
+      createRoot(container, { owner: explicit })
+    );
+
+    expect(root.owner.parent).toBe(explicit);
+    current.dispose();
+    expect(root.owner.disposed).toBe(false);
+    explicit.dispose();
+    expect(root.owner.disposed).toBe(true);
+  });
+
   it('should render and update a stateful component', () => {
     let setCount!: (n: number) => void;
     let renders = 0;
