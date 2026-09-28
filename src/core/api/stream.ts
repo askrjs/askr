@@ -110,12 +110,12 @@ function returnIterator<T>(generation: StreamGeneration<T>): void {
   }
 
   generation.returned = true;
-  const returnMethod = generation.iterator.return;
-  if (typeof returnMethod !== 'function') {
-    return;
-  }
-
   try {
+    const returnMethod = generation.iterator.return;
+    if (typeof returnMethod !== 'function') {
+      return;
+    }
+
     void Promise.resolve(returnMethod.call(generation.iterator)).catch(
       () => {}
     );
