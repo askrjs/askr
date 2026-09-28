@@ -508,22 +508,35 @@ export function hydrateDeferredComponent(
   const container = deferred.container;
   const after = nextDomAfter(node);
   ctx.pass.op(() => {
+    const previousDom = Array.from(container.childNodes);
+    ctx.pass.onReversibleCommit(() => {
+      try {
+        restoreNodeChildren(container, previousDom);
+      } finally {
+        node.children = previous;
+        node.deferredHydration = deferred;
+      }
+    });
     const retained = new Set(next.flatMap((child) => collectDom(child)));
-    for (const child of previous) {
-      for (const dom of collectDom(child)) {
-        if (!retained.has(dom)) dom.parentNode?.removeChild(dom);
-      }
-    }
-    let before = after;
-    for (let index = next.length - 1; index >= 0; index--) {
-      const doms = collectDom(next[index]);
-      for (let item = doms.length - 1; item >= 0; item--) {
-        const dom = doms[item];
-        if (dom.parentNode !== container || dom.nextSibling !== before) {
-          container.insertBefore(dom, before);
+    try {
+      for (const child of previous) {
+        for (const dom of collectDom(child)) {
+          if (!retained.has(dom)) dom.parentNode?.removeChild(dom);
         }
-        before = dom;
       }
+      let before = after;
+      for (let index = next.length - 1; index >= 0; index--) {
+        const doms = collectDom(next[index]);
+        for (let item = doms.length - 1; item >= 0; item--) {
+          const dom = doms[item];
+          if (dom.parentNode !== container || dom.nextSibling !== before) {
+            container.insertBefore(dom, before);
+          }
+          before = dom;
+        }
+      }
+    } catch (error) {
+      throw new CommitMutationError(error);
     }
     node.children = next;
     node.deferredHydration = null;
@@ -674,6 +687,17 @@ function reconcileComponentOutput(
     });
   }
   return node.children;
+}
+
+function restoreNodeChildren(container: Node, previous: readonly Node[]): void {
+  for (let index = 0; index < previous.length; index += 1) {
+    const current = container.childNodes[index] ?? null;
+    if (current !== previous[index])
+      container.insertBefore(previous[index], current);
+  }
+  while (container.childNodes.length > previous.length) {
+    container.removeChild(container.lastChild!);
+  }
 }
 
 function selfChild(

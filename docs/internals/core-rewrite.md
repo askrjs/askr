@@ -169,6 +169,8 @@ retry can reuse the original container contents.
 Raw HTML writes and transitions between raw HTML and managed JSX children
 restore the exact previous child nodes on commit abort, preserving child
 ownership until the transition settles.
+Deferred portal placement restores the prior host child order and deferred
+renderer state when a live insertion or removal fails during commit.
 
 Portal channel writes settle when the writer's render commits. This queues
 the host update before the scheduler revisits portal descendants whose inputs
