@@ -405,8 +405,7 @@ describe('deferred route streaming', () => {
     await reader.cancel();
 
     release('ready');
-    await Promise.resolve();
-    await Promise.resolve();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
 
     expect(boundaryRenders).toBe(0);
     expect((await reader.read()).done).toBe(true);
