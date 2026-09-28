@@ -19,6 +19,8 @@ import { ATTRIBUTE_PROP_PREFIX } from '../../common/dom-properties';
 import { isSSRPortalHydrationAnchor } from '../../common/portal';
 import { getRenderedAttributeName } from './element-attributes';
 import { parseEventProp } from './events';
+import type { Pass } from './pass';
+import { CommitMutationError } from './pass';
 
 export interface DeferredHydration {
   readonly render: () => void;
@@ -158,29 +160,49 @@ function isInsignificantWhitespace(node: Text): boolean {
  * node that was not claimed. Nodes after `stopAt` are left alone.
  */
 export function syncChildren(
+  pass: Pass,
   container: Node,
   expected: readonly Node[],
   stopAt: Node | null = null
 ): void {
-  // SSR portal anchors stay where the server put them.
-  const skipAnchors = (node: Node | null): Node | null => {
-    while (node && node !== stopAt && isSSRPortalHydrationAnchor(node)) {
-      node = node.nextSibling;
+  const previous = Array.from(container.childNodes);
+  pass.onReversibleCommit(() => restoreChildren(container, previous));
+
+  try {
+    // SSR portal anchors stay where the server put them.
+    const skipAnchors = (node: Node | null): Node | null => {
+      while (node && node !== stopAt && isSSRPortalHydrationAnchor(node)) {
+        node = node.nextSibling;
+      }
+      return node;
+    };
+    let cursor = skipAnchors(container.firstChild);
+    for (const node of expected) {
+      if (node === cursor) {
+        cursor = skipAnchors(cursor.nextSibling);
+      } else {
+        container.insertBefore(node, cursor);
+      }
     }
-    return node;
-  };
-  let cursor = skipAnchors(container.firstChild);
-  for (const node of expected) {
-    if (node === cursor) {
-      cursor = skipAnchors(cursor.nextSibling);
-    } else {
-      container.insertBefore(node, cursor);
+    while (cursor && cursor !== stopAt) {
+      const next = cursor.nextSibling;
+      if (!isSSRPortalHydrationAnchor(cursor)) container.removeChild(cursor);
+      cursor = next;
+    }
+  } catch (error) {
+    throw new CommitMutationError(error);
+  }
+}
+
+function restoreChildren(container: Node, previous: readonly Node[]): void {
+  for (let index = 0; index < previous.length; index++) {
+    const current = container.childNodes[index] ?? null;
+    if (current !== previous[index]) {
+      container.insertBefore(previous[index], current);
     }
   }
-  while (cursor && cursor !== stopAt) {
-    const next = cursor.nextSibling;
-    if (!isSSRPortalHydrationAnchor(cursor)) container.removeChild(cursor);
-    cursor = next;
+  while (container.childNodes.length > previous.length) {
+    container.removeChild(container.lastChild!);
   }
 }
 

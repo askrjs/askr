@@ -157,6 +157,7 @@ export function reconcileChildren(
         const el = parent.el;
         ctx.pass.op(() =>
           syncChildren(
+            ctx.pass,
             el,
             result.flatMap((node) => collectDom(node))
           )
