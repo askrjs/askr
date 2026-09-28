@@ -1,6 +1,14 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vite-plus/test';
 import { cleanupApp, hydrateSPA } from '../../../src/boot';
 import { ErrorBoundary } from '../../../src/components';
+import { navigate } from '../../../src/router';
 import { resource } from '../../../src/resources';
 import { renderToString } from '../../../src/ssr';
 import { routeRegistryFromTable } from '../../router-test-utils';
@@ -204,5 +212,56 @@ describe('deferred resource hydration data', () => {
 
     expect(boundary.textContent).toBe('recovered');
     expect(clientLoaderCalls).toBe(0);
+  });
+
+  it('should not seed a later route from the initial hydration resource payload', async () => {
+    let nextRouteLoaderCalls = 0;
+
+    function DeferredPanel() {
+      const profile = resource(() => 'unused client value', ['profile']);
+      return <p>{profile.value}</p>;
+    }
+
+    function InitialPage() {
+      return (
+        <section class="below-fold">
+          <DeferredPanel />
+        </section>
+      );
+    }
+
+    function NextPage() {
+      const value = resource(() => {
+        nextRouteLoaderCalls += 1;
+        return 'next route value';
+      }, ['next']);
+      return <p class="next-route">{value.value}</p>;
+    }
+
+    const routes = [
+      { path: '/', handler: InitialPage },
+      { path: '/next', handler: NextPage },
+    ];
+    const registry = routeRegistryFromTable(routes);
+    container.innerHTML = renderToString({
+      url: '/',
+      registry,
+      data: { 'r:0': 'initial route value' },
+    });
+    const boundary = container.querySelector('.below-fold')!;
+    boundary.getBoundingClientRect = () => ({ top: 1000 }) as DOMRect;
+    await hydrateSPA({
+      root: container,
+      registry,
+      hydrate: { deferBelowFold: true, foldThreshold: 100 },
+    });
+
+    navigate('/next');
+    await vi.waitFor(() => {
+      expect(container.querySelector('.next-route')?.textContent).toBe(
+        'next route value'
+      );
+    });
+    expect(nextRouteLoaderCalls).toBe(1);
   });
 });
