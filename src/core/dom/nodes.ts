@@ -146,13 +146,19 @@ function createHost(
     bindings: null,
     listeners: null,
     owner: nearestInstance(ctx.owner),
-    imperative: Boolean(props.imperativeChildren),
   };
   if (adopted?.hasAttribute(SKIP_HYDRATE)) {
     // Server markup that stays static until activated.
     ctx.pass.hasDormantPortalWriter ||= containsPortalWriterAnchor(adopted);
     node.dormant = { owner: ctx.owner, ns };
-    ctx.pass.op(() => dormantHosts.set(adopted, node));
+    ctx.pass.op(() => {
+      const previous = dormantHosts.get(adopted);
+      ctx.pass.onReversibleCommit(() => {
+        if (previous) dormantHosts.set(adopted, previous);
+        else dormantHosts.delete(adopted);
+      });
+      dormantHosts.set(adopted, node);
+    });
     return node;
   }
   applyInitialProps(ctx.pass, node, adopted !== null);
@@ -272,6 +278,10 @@ function patchHost(ctx: RenderContext, node: HostNode, props: Props): void {
   if (node.dormant) {
     // Activation hydrates with the latest props.
     ctx.pass.op(() => {
+      const previous = node.props;
+      ctx.pass.onReversibleCommit(() => {
+        node.props = previous;
+      });
       node.props = props;
     });
     return;
@@ -311,13 +321,25 @@ function patchHost(ctx: RenderContext, node: HostNode, props: Props): void {
       props.children === false
     ) {
       ctx.pass.op(() => {
-        if (node.el.firstChild) node.el.replaceChildren();
+        if (!node.el.firstChild) return;
+        const previous = Array.from(node.el.childNodes);
+        ctx.pass.onReversibleCommit(() =>
+          restoreElementChildren(node.el, previous)
+        );
+        try {
+          node.el.replaceChildren();
+        } catch (error) {
+          throw new CommitMutationError(error);
+        }
       });
     }
   }
   ctx.pass.op(() => {
+    const previous = node.props;
+    ctx.pass.onReversibleCommit(() => {
+      node.props = previous;
+    });
     node.props = props;
-    node.imperative = Boolean(props.imperativeChildren);
   });
   if (node.tag === 'select') {
     ctx.pass.op(() => {
@@ -459,6 +481,20 @@ export function isHydratingRender(): boolean {
   return hydratingRender !== null;
 }
 
+function commitSeenAncestorContextRevision(
+  pass: Pass,
+  instance: ComponentInstance,
+  revision: number
+): void {
+  pass.op(() => {
+    const previous = instance.seenAncestorContextRevision;
+    pass.onReversibleCommit(() => {
+      instance.seenAncestorContextRevision = previous;
+    });
+    instance.seenAncestorContextRevision = revision;
+  });
+}
+
 /**
  * Render the hydrating component again after the rest of its root, claiming
  * the server nodes reserved at its position (portal hosts whose content is
@@ -568,9 +604,7 @@ export function renderInstance(
     const children = reconcileComponentOutput(inner, node, output, fresh);
     ctx.pass.markRendered(instance);
     const revision = ancestorContextRevision(instance);
-    ctx.pass.op(() => {
-      instance.seenAncestorContextRevision = revision;
-    });
+    commitSeenAncestorContextRevision(ctx.pass, instance, revision);
     return children;
   } catch (caught) {
     // Convert a stack overflow where it is first caught, so boundaries and
@@ -592,9 +626,7 @@ export function renderInstance(
     );
     ctx.pass.markRendered(instance);
     const revision = ancestorContextRevision(instance);
-    ctx.pass.op(() => {
-      instance.seenAncestorContextRevision = revision;
-    });
+    commitSeenAncestorContextRevision(ctx.pass, instance, revision);
     return children;
   }
 }
@@ -687,9 +719,7 @@ function reconcileComponentOutput(
     const instance = rendered[i].instance;
     ctx.pass.markRendered(instance);
     const revision = ancestorContextRevision(instance);
-    ctx.pass.op(() => {
-      instance.seenAncestorContextRevision = revision;
-    });
+    commitSeenAncestorContextRevision(ctx.pass, instance, revision);
   }
   return node.children;
 }
@@ -823,13 +853,26 @@ export function updateDynamic(ctx: RenderContext, node: DynamicNode): void {
       const container = containerOf(parent);
       const next = nextDomAfter(node);
       const oldDom = collectDom(node);
-      const errors: unknown[] = [];
-      for (const dom of oldDom) dom.parentNode?.removeChild(dom);
-      release(node, errors);
-      parent.children[parent.children.indexOf(node)] = replacement;
-      for (const dom of collectDom(replacement))
-        container.insertBefore(dom, next);
-      reportTeardown(errors);
+      const replacementDom = collectDom(replacement);
+      const index = parent.children.indexOf(node);
+      ctx.pass.onReversibleCommit(
+        () => {
+          for (const dom of replacementDom) dom.parentNode?.removeChild(dom);
+          parent.children[index] = node;
+        },
+        () => {
+          const errors: unknown[] = [];
+          for (const dom of oldDom) dom.parentNode?.removeChild(dom);
+          release(node, errors);
+          reportTeardown(errors);
+        }
+      );
+      parent.children[index] = replacement;
+      try {
+        for (const dom of replacementDom) container.insertBefore(dom, next);
+      } catch (error) {
+        throw new CommitMutationError(error);
+      }
     });
   }
 }

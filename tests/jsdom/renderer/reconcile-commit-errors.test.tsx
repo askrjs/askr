@@ -42,6 +42,7 @@ describe('reconciliation commit errors', () => {
   let container: HTMLElement;
   let cleanup: () => void;
   let flip!: State<boolean>;
+  let unrelated!: State<number>;
 
   beforeEach(() => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -181,6 +182,213 @@ describe('reconciliation commit errors', () => {
         (item) => item.textContent
       )
     ).toEqual(['b', 'a', 'c']);
+  });
+
+  it('should retry an imperative child transition after a later commit failure', () => {
+    const App = () => {
+      flip = state(false);
+      unrelated = state(0);
+      const keys = flip() ? ['b', 'a', 'c'] : ['a', 'b'];
+      return (
+        <div>
+          <section id="host" imperativeChildren={flip()}>
+            {flip() ? null : <b>managed</b>}
+          </section>
+          <ul id="list">
+            {keys.map((key) => (
+              <li key={key}>{key}</li>
+            ))}
+          </ul>
+          <span>{unrelated()}</span>
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const error = new Error('later insertion failed');
+    failNextInsertInto('list', error);
+
+    expect(() => {
+      flip.set(true);
+      flushScheduler();
+    }).toThrow(error);
+    expect(container.querySelector('#host')?.textContent).toBe('managed');
+
+    unrelated.set(1);
+    flushScheduler();
+
+    expect(container.querySelector('#host')?.textContent).toBe('');
+    expect(
+      Array.from(
+        container.querySelectorAll('#list li'),
+        (item) => item.textContent
+      )
+    ).toEqual(['b', 'a', 'c']);
+  });
+
+  it('should restore an earlier event handler when a later insertion fails', () => {
+    const previousHandler = vi.fn();
+    const nextHandler = vi.fn();
+    const App = () => {
+      flip = state(false);
+      const keys = flip() ? ['b', 'a', 'c'] : ['a', 'b'];
+      return (
+        <div>
+          <button id="action" onClick={flip() ? nextHandler : previousHandler}>
+            action
+          </button>
+          <ul id="list">
+            {keys.map((key) => (
+              <li key={key}>{key}</li>
+            ))}
+          </ul>
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const error = new Error('later insertion failed');
+    failNextInsertInto('list', error);
+
+    expect(() => {
+      flip.set(true);
+      flushScheduler();
+    }).toThrow(error);
+
+    container
+      .querySelector('#action')!
+      .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(previousHandler).toHaveBeenCalledTimes(1);
+    expect(nextHandler).not.toHaveBeenCalled();
+  });
+
+  it('should restore fallback and namespaced attributes after a later failure', () => {
+    const App = () => {
+      flip = state(false);
+      const keys = flip() ? ['b', 'a', 'c'] : ['a', 'b'];
+      return (
+        <div>
+          <x-widget id="widget" {...{ 'attr:mode': flip() ? 'new' : 'old' }} />
+          <svg>
+            <use xlinkHref={flip() ? '#new' : '#old'} />
+          </svg>
+          <ul id="list">
+            {keys.map((key) => (
+              <li key={key}>{key}</li>
+            ))}
+          </ul>
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const widget = container.querySelector('x-widget')!;
+    const use = container.querySelector('use')!;
+    const error = new Error('later insertion failed');
+    failNextInsertInto('list', error);
+
+    expect(() => {
+      flip.set(true);
+      flushScheduler();
+    }).toThrow(error);
+
+    expect(widget.getAttribute('mode')).toBe('old');
+    expect(use.getAttributeNS('http://www.w3.org/1999/xlink', 'href')).toBe(
+      '#old'
+    );
+    expect(use.getAttribute('xlink:href')).toBe('#old');
+    expect(use.getAttributeNode('xlink:href')?.namespaceURI).toBe(
+      'http://www.w3.org/1999/xlink'
+    );
+  });
+
+  it('should retain a function child when its hook remount is rolled back', () => {
+    const App = () => {
+      flip = state(true);
+      const keys = flip() ? ['a', 'b'] : ['b', 'a', 'c'];
+      return (
+        <div>
+          <p id="dynamic">
+            {() => {
+              const [value] = state('old');
+              if (flip()) return <b>{value()}</b>;
+              value();
+              const [next] = state('new');
+              return <b>{next()}</b>;
+            }}
+          </p>
+          <ul id="list">
+            {keys.map((key) => (
+              <li key={key}>{key}</li>
+            ))}
+          </ul>
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const stable = container.innerHTML;
+    const error = new Error('later insertion failed');
+    failNextInsertInto('list', error);
+
+    expect(() => {
+      flip.set(false);
+      flushScheduler();
+    }).toThrow(error);
+
+    expect(container.innerHTML).toBe(stable);
+  });
+
+  it('should undo a function child replacement that mutates then throws', () => {
+    const App = () => {
+      flip = state(true);
+      return (
+        <p id="dynamic">
+          {() => {
+            const [value] = state('old');
+            if (flip()) return <b>{value()}</b>;
+            value();
+            const [next] = state('new');
+            return <b>{next()}</b>;
+          }}
+        </p>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const dynamic = container.querySelector('#dynamic')!;
+    const previous = dynamic.firstChild;
+    const insertBefore = dynamic.insertBefore.bind(dynamic);
+    const error = new Error('replacement insertion failed after mutation');
+    let shouldFail = true;
+    vi.spyOn(dynamic, 'insertBefore').mockImplementation((node, before) => {
+      const inserted = insertBefore(node, before);
+      if (shouldFail) {
+        shouldFail = false;
+        throw error;
+      }
+      return inserted;
+    });
+
+    expect(() => {
+      flip.set(false);
+      flushScheduler();
+    }).toThrow(error);
+
+    expect(dynamic.firstChild).toBe(previous);
+    expect(dynamic.textContent).toBe('old');
+
+    flip.set(true);
+    flushScheduler();
+    flip.set(false);
+    flushScheduler();
+    expect(dynamic.textContent).toBe('new');
   });
 
   it('should route a commit error to the nearest ErrorBoundary', () => {

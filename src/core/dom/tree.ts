@@ -49,8 +49,6 @@ export interface HostNode extends Base {
   listeners: ListenerMap | null;
   /** Component whose render produced this element. */
   owner: ComponentInstance | null;
-  /** Descendants belong to imperative code; children are not reconciled. */
-  imperative: boolean;
   /**
    * Adopted server markup whose hydration is skipped or deferred
    * (`data-skip-hydrate`): props and children wait for activation.
