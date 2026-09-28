@@ -206,6 +206,52 @@ describe('dangerouslySetInnerHTML rollback', () => {
     expect(host.querySelector('[data-raw]')).toBeNull();
   });
 
+  it('should restore raw nodes when clearing them mutates and throws', () => {
+    let setManaged!: (value: boolean) => void;
+    const App = () => {
+      const managed = state(false);
+      setManaged = managed.set;
+      return (
+        <section
+          dangerouslySetInnerHTML={
+            managed() ? undefined : { __html: '<i data-raw>raw</i>' }
+          }
+        >
+          {managed() ? <span data-managed="true">managed</span> : null}
+        </section>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const host = container.querySelector('section')!;
+    const raw = host.firstChild;
+    const replaceChildren = host.replaceChildren.bind(host);
+    const failure = new Error('raw child clearing failed');
+    let shouldThrow = true;
+    vi.spyOn(host, 'replaceChildren').mockImplementation((...children) => {
+      replaceChildren(...children);
+      if (shouldThrow && children.length === 0) {
+        shouldThrow = false;
+        throw failure;
+      }
+    });
+
+    expect(() => {
+      setManaged(true);
+      flushScheduler();
+    }).toThrow(failure);
+    expect(host.firstChild).toBe(raw);
+    expect(host.querySelector('[data-managed]')).toBeNull();
+
+    setManaged(false);
+    flushScheduler();
+    setManaged(true);
+    flushScheduler();
+    expect(host.querySelectorAll('[data-managed]')).toHaveLength(1);
+    expect(host.querySelector('[data-raw]')).toBeNull();
+  });
+
   it('should restore adopted server nodes when initial raw HTML assignment aborts', () => {
     const container = document.createElement('div');
     container.innerHTML = '<section><b data-server>server</b></section>';
