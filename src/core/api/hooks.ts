@@ -136,15 +136,3 @@ export function provideAppRuntime(runtime: AppRenderRuntime | undefined): void {
 export function currentAppRuntime(): AppRenderRuntime | undefined {
   return getOwner()?.lookup(APP_RUNTIME) as AppRenderRuntime | undefined;
 }
-
-/** Run `fn` with `runtime` as the current application runtime. */
-export function withAppRuntime<T>(
-  runtime: AppRenderRuntime | undefined,
-  fn: () => T
-): T {
-  if (!runtime) return fn();
-  const owner = new Owner(null);
-  owner.parent = getOwner();
-  owner.context = new Map([[APP_RUNTIME, runtime]]);
-  return runWithOwner(owner, fn);
-}
