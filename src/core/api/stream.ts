@@ -346,7 +346,6 @@ function disposeSlot<T>(slot: StreamSlot<T>): void {
 function commitSlot<T>(instance: ComponentInstance, slot: StreamSlot<T>): void {
   const depsChanged = !depsEqual(slot.deps, slot.pendingDeps);
   const firstCommit = !slot.activated;
-  const wasRunning = slot.current !== null;
 
   slot.owner = instance;
   slot.source = slot.pendingSource;
@@ -359,7 +358,7 @@ function commitSlot<T>(instance: ComponentInstance, slot: StreamSlot<T>): void {
     instance.onCleanup(() => disposeSlot(slot));
   }
 
-  if (!slot.explicitlyClosed && (firstCommit || (depsChanged && wasRunning))) {
+  if (!slot.explicitlyClosed && (firstCommit || depsChanged)) {
     queueStart(slot);
   }
 }

@@ -127,6 +127,9 @@ The adapter should bound its projection, preserve any server cursor, deduplicate
 replayed events, and decide how to reconnect. `stream()` supplies cancellation
 and latest-value lifecycle state; it does not infer replay or retry semantics.
 SSR and SSG render the initial value, when supplied, without opening the source.
+After a stream completes or errors, a committed source change starts a new
+connection. Calling `close()` keeps it closed across source changes until
+`restart()` is called.
 
 ## SSR with preloaded data
 
