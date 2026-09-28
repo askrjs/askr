@@ -187,6 +187,47 @@ describe('resource() deps change in a rolled-back render (#471)', () => {
     }
   });
 
+  it('should not publish pending state from a deps change whose render rolls back', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const load = vi.fn(async ({ id }: { id: string }) => `value:${id}`);
+    let id!: State<string>;
+    let fail!: State<boolean>;
+    let result!: ReturnType<typeof resource<string>>;
+
+    const App = (): JSXElement => {
+      id = state('a');
+      fail = state(false);
+      const current = id();
+      result = resource(() => load({ id: current }), [current]);
+      if (fail()) throw new Error('render failed');
+      return (
+        <p id="value">{result.pending ? 'loading' : String(result.value)}</p>
+      );
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settleResourceWork();
+      expect(result.pending).toBe(false);
+      expect(result.value).toBe('value:a');
+
+      id.set('b');
+      fail.set(true);
+      flushIgnoringRenderFailure();
+
+      expect(container.querySelector('#value')?.textContent).toBe('value:a');
+      expect(result.pending).toBe(false);
+      expect(result.value).toBe('value:a');
+      expect(result.error).toBeNull();
+      expect(load).not.toHaveBeenCalledWith({ id: 'b' });
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should refresh with the committed deps loader after a rolled-back deps change', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});

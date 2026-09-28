@@ -20,6 +20,7 @@ import {
   throwSSRDataMissing,
 } from '../../common/render-context';
 import { queueTask } from '../reactive/scheduler';
+import { recordUndo } from '../component/journal';
 import {
   createSource,
   currentComponent,
@@ -163,6 +164,20 @@ interface ResourceSlot<T> {
   snapshot: ResourceResult<T>;
   uncommittedDeps: boolean;
   source: ReadableSource;
+}
+
+/** Restore render-time snapshot edits when the render transaction is discarded. */
+function journalSnapshot<T>(snapshot: ResourceResult<T>): void {
+  const previous = {
+    value: snapshot.value,
+    pending: snapshot.pending,
+    error: snapshot.error,
+  };
+  recordUndo(() => {
+    snapshot.value = previous.value;
+    snapshot.pending = previous.pending;
+    snapshot.error = previous.error;
+  });
 }
 
 function createResource<T>(
@@ -348,6 +363,7 @@ function createResource<T>(
     cell.deps.some((d, i) => !Object.is(d, deps[i]));
 
   if (depsChanged) {
+    journalSnapshot(h.snapshot);
     // Synchronously reflect the pending state into the stable snapshot so the
     // render that triggered the deps change can surface a loading indicator.
     // The async start() runs with notify=false and the deps-change branch never
@@ -372,7 +388,11 @@ function createResource<T>(
         }
       } else {
         const nextDeps = deps.slice();
+        const hadUncommittedDeps = h.uncommittedDeps;
         h.uncommittedDeps = true;
+        recordUndo(() => {
+          h.uncommittedDeps = hadUncommittedDeps;
+        });
         onCommit(inst, () => {
           h.uncommittedDeps = false;
           cell.setLoader(fn);
@@ -411,7 +431,12 @@ function createResource<T>(
       // A render proposed different deps but was rolled back before commit,
       // and this render is back on the committed deps: drop the loading state
       // that render published so the snapshot matches the committed cell.
+      const hadUncommittedDeps = h.uncommittedDeps;
+      journalSnapshot(h.snapshot);
       h.uncommittedDeps = false;
+      recordUndo(() => {
+        h.uncommittedDeps = hadUncommittedDeps;
+      });
       h.snapshot.pending = cell.pending;
       h.snapshot.error = cell.error;
     }
