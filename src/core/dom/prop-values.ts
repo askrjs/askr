@@ -91,7 +91,27 @@ function applyDangerousInnerHTMLValue(el: Element, value: unknown): void {
   }
 
   const html = value.__html;
-  el.innerHTML = html === null || html === undefined ? '' : String(html);
+  const nextHtml = html === null || html === undefined ? '' : String(html);
+  if (hasMatchingInnerHTML(el, nextHtml)) return;
+  el.innerHTML = nextHtml;
+}
+
+/** Compare parsed HTML without replacing the live descendants. */
+function hasMatchingInnerHTML(el: Element, html: string): boolean {
+  try {
+    if (el.innerHTML === html) return true;
+    if (el.childNodes.length === 0 || !el.namespaceURI) return false;
+    const template = el.ownerDocument.createElement('template');
+    const probe = template.content.ownerDocument.createElementNS(
+      el.namespaceURI,
+      el.localName
+    );
+    probe.innerHTML = html;
+    return probe.innerHTML === el.innerHTML;
+  } catch {
+    // This comparison is an optimization; fall back to the normal live write.
+    return false;
+  }
 }
 
 type ClassTokenDescriptor = {

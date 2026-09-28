@@ -66,4 +66,27 @@ describe('dormant hydration rollback', () => {
     expect(boundary.hasAttribute('data-server-only')).toBe(false);
     expect(dormantHostFor(boundary)).toBeNull();
   });
+
+  it('should preserve matching raw descendants when a dormant host activates', async () => {
+    const html = '<button disabled>ready</button>';
+    const App = () => (
+      <main>
+        <section class="deferred" dangerouslySetInnerHTML={{ __html: html }} />
+      </main>
+    );
+    const routes = [{ path: '/', handler: App }];
+    container.innerHTML = renderToStringSync(() => <App />);
+    const boundary = container.querySelector('.deferred')!;
+    const serverNode = boundary.firstChild;
+
+    await hydrateSPA({
+      root: container,
+      registry: routeRegistryFromTable(routes),
+      hydrate: { skipSelectors: ['.deferred'], verifyMarkup: false },
+    });
+
+    expect(dormantHostFor(boundary)).not.toBeNull();
+    expect(activateHydrationBoundary(container, boundary)).toBe(true);
+    expect(boundary.firstChild).toBe(serverNode);
+  });
 });
