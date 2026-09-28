@@ -142,7 +142,11 @@ export class HydrationCursor {
     if (!node || node.nodeType !== 1) return null;
     const el = node as Element;
     const expectedNs = namespace ?? 'http://www.w3.org/1999/xhtml';
-    if (el.localName !== tag.toLowerCase() && el.localName !== tag) return null;
+    const matchesTag =
+      expectedNs === 'http://www.w3.org/1999/xhtml'
+        ? el.localName === tag.toLowerCase()
+        : el.localName === tag;
+    if (!matchesTag) return null;
     if ((el.namespaceURI ?? expectedNs) !== expectedNs) return null;
     this.advance(container, el);
     return el;
