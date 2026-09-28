@@ -99,8 +99,11 @@ function applyDangerousInnerHTMLValue(el: Element, value: unknown): void {
 /** Compare parsed HTML without replacing the live descendants. */
 function hasMatchingInnerHTML(el: Element, html: string): boolean {
   if (el.childNodes.length === 0 || !el.namespaceURI) return false;
-  const probeDocument = el.ownerDocument.implementation.createHTMLDocument('');
-  const probe = probeDocument.createElementNS(el.namespaceURI, el.localName);
+  const template = el.ownerDocument.createElement('template');
+  const probe = template.content.ownerDocument.createElementNS(
+    el.namespaceURI,
+    el.localName
+  );
   probe.innerHTML = html;
   return probe.innerHTML === el.innerHTML;
 }
