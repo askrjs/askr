@@ -113,6 +113,7 @@ export class Computation<T = unknown> extends Owner implements Source {
   _error: unknown = undefined;
   _hasError = false;
   _running = false;
+  _invalidatedWhileRunning = false;
   /** The scheduler dropped this computation's pending run. */
   _dropped = false;
   readonly _equals: Equals<T> | null;
@@ -176,6 +177,8 @@ export class Computation<T = unknown> extends Owner implements Source {
     tracking = this as Computation;
     trackingSources = nextSources;
     this._running = true;
+    this._invalidatedWhileRunning = false;
+    this._dropped = false;
     let value: T | undefined;
     let error: unknown;
     let failed = false;
@@ -189,16 +192,14 @@ export class Computation<T = unknown> extends Owner implements Source {
       tracking = previous;
       trackingSources = previousSources;
     }
-    this._state = CLEAN;
-    this._dropped = false;
+    if (this.disposed) return;
+    this._state = this._invalidatedWhileRunning ? DIRTY : CLEAN;
     this.setSources(
       failed && this._failedRunSources === 'previous'
         ? new Set(this._sources ?? EMPTY)
         : nextSources,
       failed && this._failedRunSources === 'union'
     );
-    if (this.disposed) return;
-
     if (failed) {
       const changed = !this._hasError || this._error !== error;
       this._hasError = true;
@@ -279,6 +280,20 @@ export class Computation<T = unknown> extends Owner implements Source {
 
   _mark(state: NodeState): void {
     if (this.disposed) return;
+    if (this._running && state === DIRTY) {
+      const firstInvalidation = !this._invalidatedWhileRunning;
+      this._invalidatedWhileRunning = true;
+      if (state > this._state) this._state = state;
+      this._dropped = false;
+      this._schedule?.(this as Computation);
+      if (firstInvalidation) {
+        const observers = this._observers;
+        if (observers) {
+          for (const observer of observers) observer._mark(CHECK);
+        }
+      }
+      return;
+    }
     const dropped = this._dropped;
     if (this._state >= state && !dropped) return;
     const wasClean = this._state === CLEAN;

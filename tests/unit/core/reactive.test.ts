@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Computation, Signal, untrack } from '../../../src/core/reactive/graph';
 import { Owner } from '../../../src/core/reactive/owner';
 import {
+  clearScheduler,
   effectScheduler,
   flushSync,
 } from '../../../src/core/reactive/scheduler';
@@ -78,6 +79,166 @@ describe('reactive graph', () => {
     x.write('x2');
     flushSync();
     expect(seen).toEqual(['x', 'y2']);
+  });
+
+  it('should retain invalidation when an effect writes a source it reads', () => {
+    const count = new Signal(0);
+    const seen: number[] = [];
+    let writeDuringRun = false;
+    const computation = effect(() => {
+      const value = count.read();
+      seen.push(value);
+      if (writeDuringRun && value < 3) count.write(value + 1);
+    });
+
+    writeDuringRun = true;
+    count.write(1);
+    flushSync();
+
+    expect(seen).toEqual([0, 1, 2, 3]);
+    expect(count.peek()).toBe(3);
+    computation.dispose();
+  });
+
+  it('should report a self-invalidating effect through the scheduler guard', () => {
+    const count = new Signal(0);
+    let writeDuringRun = false;
+    const computation = effect(() => {
+      const value = count.read();
+      if (writeDuringRun) count.write(value + 1);
+    });
+
+    writeDuringRun = true;
+    count.write(1);
+    expect(() => flushSync()).toThrow(/exceeded MAX_FLUSH_DEPTH/);
+    expect(count.peek()).toBe(51);
+
+    writeDuringRun = false;
+    count.write(100);
+    flushSync();
+    expect(count.peek()).toBe(100);
+    computation.dispose();
+  });
+
+  it('should bound and report failures from a self-invalidating effect', () => {
+    const count = new Signal(0);
+    let failDuringRun = false;
+    const computation = effect(() => {
+      const value = count.read();
+      if (!failDuringRun) return;
+      count.write(value + 1);
+      throw new Error('effect failed after invalidation');
+    });
+
+    failDuringRun = true;
+    count.write(1);
+    let failure: unknown;
+    try {
+      flushSync();
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toBeInstanceOf(AggregateError);
+    const failures = (failure as AggregateError).errors;
+    expect(
+      failures.filter(
+        (error) =>
+          error instanceof Error &&
+          error.message === 'effect failed after invalidation'
+      )
+    ).toHaveLength(50);
+    expect(
+      failures.some(
+        (error) =>
+          error instanceof Error &&
+          /exceeded MAX_FLUSH_DEPTH/.test(error.message)
+      )
+    ).toBe(true);
+    expect(count.peek()).toBe(51);
+
+    failDuringRun = false;
+    count.write(100);
+    expect(() => flushSync()).not.toThrow();
+    expect(count.peek()).toBe(100);
+    computation.dispose();
+  });
+
+  it('should leave downstream effects observing the settled source value', () => {
+    const count = new Signal(0);
+    let writeDuringRun = false;
+    const writer = effect(() => {
+      const value = count.read();
+      if (writeDuringRun && value < 3) count.write(value + 1);
+    });
+    const seen: number[] = [];
+    const observer = effect(() => seen.push(count.read()));
+
+    writeDuringRun = true;
+    count.write(1);
+    flushSync();
+
+    expect(count.peek()).toBe(3);
+    expect(seen.at(-1)).toBe(3);
+    writer.dispose();
+    observer.dispose();
+  });
+
+  it('should allow a later source write after clearing a self-requeued job', () => {
+    const count = new Signal(0);
+    let writeDuringRun = false;
+    let clearDuringRun = false;
+    const seen: number[] = [];
+    const computation = effect(() => {
+      const value = count.read();
+      seen.push(value);
+      if (writeDuringRun && value < 3) {
+        count.write(value + 1);
+        if (clearDuringRun) {
+          clearDuringRun = false;
+          clearScheduler();
+        }
+      }
+    });
+
+    writeDuringRun = true;
+    clearDuringRun = true;
+    count.write(1);
+    flushSync();
+
+    writeDuringRun = false;
+    count.write(100);
+    flushSync();
+
+    expect(seen.at(-1)).toBe(100);
+    computation.dispose();
+  });
+
+  it('should not restore subscriptions when disposed during a run', () => {
+    const count = new Signal(0);
+    let computation!: Computation<unknown>;
+    let disposeDuringRun = false;
+    computation = new Computation<unknown>(
+      null,
+      () => {
+        const value = count.read();
+        if (disposeDuringRun) {
+          count.write(value + 1);
+          computation.dispose();
+        }
+      },
+      effectScheduler('effect'),
+      null
+    );
+    computation.update();
+
+    disposeDuringRun = true;
+    count.write(1);
+    flushSync();
+
+    expect(computation.disposed).toBe(true);
+    expect(count._observers?.has(computation)).toBe(false);
+    computation.dispose();
   });
 
   it('should keep outer dependencies across a nested computation run', () => {

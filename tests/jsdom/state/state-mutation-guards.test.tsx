@@ -112,4 +112,34 @@ describe('state mutation guards (STATE)', () => {
 
     expect(container.textContent).toBe('2');
   });
+
+  it('should rerun a binding when its read expression updates that state', () => {
+    let count!: ReturnType<typeof state<number>>;
+    let advance = false;
+
+    const Component = () => {
+      count = state(0);
+      return (
+        <output
+          title={() => {
+            const value = count();
+            if (advance && value < 3) count.set(value + 1);
+            return String(value);
+          }}
+        >
+          ready
+        </output>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    advance = true;
+    count.set(1);
+    flushScheduler();
+
+    expect(count()).toBe(3);
+    expect(container.querySelector('output')?.getAttribute('title')).toBe('3');
+  });
 });
