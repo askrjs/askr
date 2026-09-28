@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vite-plus/test';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { hydrateSPA } from '../../../src/boot';
 import {
   createRouteRegistry,
@@ -362,6 +362,59 @@ describe('deferred route streaming', () => {
     await reader.read();
     controller.abort();
 
+    expect((await reader.read()).done).toBe(true);
+  });
+
+  it('should ignore deferred boundary settlements after consumer cancellation', async () => {
+    let release!: (value: string) => void;
+    const pending = new Promise<string>((resolve) => {
+      release = resolve;
+    });
+    let boundaryRenders = 0;
+    const registry = createRouteRegistry(() => {
+      route(
+        '/',
+        () => {
+          const data = routeData<DeferredPageData>();
+          return (
+            <Resolve
+              value={data.message}
+              pending={<p>loading</p>}
+              rejected={(error) => {
+                boundaryRenders++;
+                return <p id="rejected">{String(error)}</p>;
+              }}
+            >
+              {(message) => {
+                boundaryRenders++;
+                return <p id="ready">{message}</p>;
+              }}
+            </Resolve>
+          );
+        },
+        { loader: () => ({ message: defer(pending) }) }
+      );
+    });
+    const result = await renderRouteRequest({ url: '/', registry });
+    if (result.kind !== 'render' || !result.stream)
+      throw new Error('expected stream');
+
+    const reader = result.stream.getReader();
+    const shell = await reader.read();
+    expect(new TextDecoder().decode(shell.value)).toContain('loading');
+    await reader.cancel();
+
+    release('ready');
+    vi.useFakeTimers();
+    try {
+      const settled = new Promise<void>((resolve) => setTimeout(resolve, 0));
+      await vi.runAllTimersAsync();
+      await settled;
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(boundaryRenders).toBe(0);
     expect((await reader.read()).done).toBe(true);
   });
 
