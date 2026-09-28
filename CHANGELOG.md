@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.4.0 — 2026-09-28
+
 - fix(core): a component tree too deep for the call stack fails with a
   `RenderDepthError` (exported from `@askrjs/askr`) that explains the limit,
   instead of a bare `RangeError` (or Firefox `InternalError`). It is raised
