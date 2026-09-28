@@ -187,10 +187,12 @@ export function isHydrationVerificationRender(): boolean {
 
 /** @internal Read a server-captured resource branch without invoking its loader. */
 export function getResourceVerificationSnapshot(
-  key: string
+  key: string,
+  framework:
+    | Readonly<Record<string, unknown>>
+    | undefined = getCurrentRenderData()?.framework
 ): ResourceVerificationSnapshot | null {
-  const snapshots =
-    getCurrentRenderData()?.framework[RESOURCE_VERIFICATION_SNAPSHOTS];
+  const snapshots = framework?.[RESOURCE_VERIFICATION_SNAPSHOTS];
   if (!snapshots || typeof snapshots !== 'object' || Array.isArray(snapshots)) {
     return null;
   }

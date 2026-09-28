@@ -27,6 +27,7 @@ import {
   notify,
   onCommit,
   readSource,
+  currentAppRuntime,
   type ComponentInstance,
   type ReadableSource,
 } from './hooks';
@@ -58,11 +59,13 @@ function hydrationVerificationSnapshot<T>(): ResourceResult<T> {
  * the "is this a hydrating render with preloaded values" decision from drifting
  * between them.
  */
-function resolveResourceRenderData(): {
+function resolveResourceRenderData(useRuntimeResources: boolean): {
   renderData: Record<string, unknown> | undefined;
   hasPreloadedData: boolean;
 } {
-  const renderData = getCurrentRenderData()?.resources;
+  const renderData =
+    getCurrentRenderData()?.resources ??
+    (useRuntimeResources ? currentAppRuntime()?.hydrationResources : undefined);
   const hasPreloadedData = Boolean(
     renderData &&
     (getActiveRenderContext()?.resourceDataProvided ||
@@ -78,7 +81,7 @@ function resolveResourceRenderData(): {
  * data; every other caller is creating a resource where it cannot be owned.
  */
 function resolveResourceWithoutInstance<T>(): ResourceResult<T> {
-  const { renderData, hasPreloadedData } = resolveResourceRenderData();
+  const { renderData, hasPreloadedData } = resolveResourceRenderData(false);
   if (renderData && hasPreloadedData) {
     const key = getNextRenderKey();
     if (!(key in renderData)) {
@@ -173,11 +176,26 @@ function createResource<T>(
   // resources backed by preloaded data. Verification snapshots and preloaded
   // values must consult the same key so mixed pages stay aligned.
   const { renderData, hasPreloadedData: hasPreloadedResourceData } =
-    resolveResourceRenderData();
+    resolveResourceRenderData(inst.hydrationResourceKeys !== null);
+  const componentKey =
+    inst.hydrationResourceKeys === null
+      ? undefined
+      : inst.hydrationResourceKeys[inst.hydrationResourceIndex++];
+  if (inst.hydrationResourceKeys !== null && !componentKey) {
+    throwSSRDataMissing();
+  }
   const renderKey =
-    inst.server || hasPreloadedResourceData ? getNextRenderKey() : null;
+    componentKey ??
+    (inst.server || hasPreloadedResourceData ? getNextRenderKey() : null);
+  if (inst.server && renderKey) inst.serverResourceKeys.push(renderKey);
   const verificationSnapshot = renderKey
-    ? getResourceVerificationSnapshot(renderKey)
+    ? getResourceVerificationSnapshot(
+        renderKey,
+        getCurrentRenderData()?.framework ??
+          (inst.hydrationResourceKeys !== null
+            ? currentAppRuntime()?.framework
+            : undefined)
+      )
     : null;
 
   // A concrete preloaded value is authoritative even if stale framework

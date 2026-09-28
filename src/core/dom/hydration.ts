@@ -33,6 +33,35 @@ export class HydrationCursor {
 
   constructor(private readonly stopAt: Node | null = null) {}
 
+  /** Consume private SSR metadata emitted immediately before a component output. */
+  claimResourceSlots(container: Node): string[] | null {
+    let node = this.next.has(container)
+      ? this.next.get(container)!
+      : container.firstChild;
+    for (; node && node !== this.stopAt; node = node.nextSibling) {
+      if (node.nodeType === 3 && isInsignificantWhitespace(node as Text)) {
+        continue;
+      }
+      if (node.nodeType !== 8) return null;
+      const match = /^askr-resource:(r:\d+(?:,r:\d+)*)$/.exec(
+        (node as Comment).data
+      );
+      if (match) {
+        this.advance(container, node);
+        return match[1]!.split(',');
+      }
+      // Range comments delimit reserved portal output, so they belong to the
+      // cursor protocol and must not be skipped by resource metadata lookup.
+      if (
+        isRangeMarker(node, 'askr-range-start') ||
+        isRangeMarker(node, 'askr-range-end')
+      ) {
+        return null;
+      }
+    }
+    return null;
+  }
+
   /** Server nodes reserved for a portal host whose writer has not hydrated. */
   heldNodes(container: Node): Node[] {
     if (!this.stopAt) return [];

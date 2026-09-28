@@ -81,6 +81,11 @@ export class ComponentInstance extends Owner {
   view: unknown = null;
   /** Rendering on the server: lifecycle work that needs a commit is skipped. */
   server = false;
+  /** Resource render-order keys recorded for this SSR component. */
+  serverResourceKeys: string[] = [];
+  /** Resource keys claimed from this component's SSR marker during hydration. */
+  hydrationResourceKeys: readonly string[] | null = null;
+  hydrationResourceIndex = 0;
   /** Server render context passed to the component as `context.ssr`. */
   serverContext: unknown = undefined;
   /** Error boundary handler, when this instance is a boundary. */
@@ -123,6 +128,8 @@ export class ComponentInstance extends Owner {
   private invoke(): unknown {
     const previous = enterInstance(this);
     this.hookIndex = 0;
+    this.hydrationResourceIndex = 0;
+    if (this.server) this.serverResourceKeys = [];
     // Commit work belongs to the render that registers it.
     this.commitQueue = null;
     this.commitSyncQueue = null;

@@ -160,6 +160,10 @@ resource: it is not pending and its loader does not run. Later re-renders keep
 that value while `deps` are unchanged; a `deps` change or `refresh()` fetches as
 usual.
 
+This also applies when hydration is deferred for a below-fold boundary. Visible
+components keep their own render-order slots while the boundary is dormant, and
+the deferred component reads its preloaded value when it activates.
+
 ## Combining resources with `derive()`
 
 A resource snapshot is not a `ReadableSource`. Reading `user.value` inside

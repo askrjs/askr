@@ -7,12 +7,13 @@
  * renderer. The server reads function children and props once, never
  * subscribes, and ends every lifetime when the render finishes.
  *
- * The output is plain HTML: no marker comments or framework attributes.
- * Portal hosts write tokens that are replaced with their final content once
- * the render root completes.
+ * The output is plain HTML apart from private hydration markers when the
+ * render contains preloaded resource slots. Portal hosts write tokens that
+ * are replaced with their final content once the render root completes.
  */
 
 import { clarifyRenderOverflow } from '../common/render-depth';
+import { getCurrentRenderData } from '../common/render-context';
 import type { AuthContext } from '@askrjs/auth';
 import { DEFERRED_BOUNDARY } from '../common/deferred-value';
 import type { JSXElement } from '../common/jsx';
@@ -242,6 +243,16 @@ function renderComponent(
     instance.server = true;
     instance.serverContext = render.ctx;
     const output = runComponent(instance);
+    const resources = getCurrentRenderData()?.resources;
+    if (
+      instance.serverResourceKeys.length &&
+      resources &&
+      Object.keys(resources).some((key) => /^r:\d+$/.test(key))
+    ) {
+      sink.write(
+        `<!--askr-resource:${instance.serverResourceKeys.join(',')}-->`
+      );
+    }
     if (fn === Portal) {
       sink.write(
         createSSRPortalAnchorToken(render.ctx.ssrPortals.nextHostId++)
