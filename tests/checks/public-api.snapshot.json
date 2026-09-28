@@ -325,6 +325,7 @@
     "isDeferred",
     "lazy",
     "lazyRouteData",
+    "matchRoute",
     "navigate",
     "notFound",
     "onRouteChange",

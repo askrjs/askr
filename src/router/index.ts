@@ -73,6 +73,7 @@ export {
   serializeRouteMeta,
 } from './metadata';
 export { resolveRouteRequest } from './resolution';
+export { matchRoute } from './route-matching';
 export {
   defer,
   isDeferred,

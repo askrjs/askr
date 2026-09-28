@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- feat(router): expose `matchRoute(path, { registry })` for synchronous route
+  path checks without resolving policies or loading route data. The testing
+  helper uses the same implementation.
+
 - fix(core): a component tree too deep for the call stack fails with a
   `RenderDepthError` (exported from `@askrjs/askr`) that explains the limit,
   instead of a bare `RangeError` (or Firefox `InternalError`). It is raised
