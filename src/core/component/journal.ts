@@ -1,27 +1,52 @@
 /**
- * The render journal records how to undo component state changed while
- * rendering (new props, provided scope values). A render pass marks it before
- * rendering, rewinds it when that work is discarded, and clears it when the
- * work commits. It never holds entries outside a render.
+ * A render journal records how to undo render-time changes for one pass.
+ * Nested error boundaries can rewind to a local mark; independent prepared
+ * roots never share entries or clear one another's undo work.
  */
 
 type Undo = () => void;
 
-const entries: Undo[] = [];
-
-export function recordUndo(undo: Undo): void {
-  entries.push(undo);
+export interface RenderJournal {
+  readonly entries: Undo[];
 }
 
-export function journalMark(): number {
-  return entries.length;
+let activeJournal: RenderJournal | null = null;
+
+export function createRenderJournal(): RenderJournal {
+  return { entries: [] };
+}
+
+/** Run synchronous render work with `journal` as its undo destination. */
+export function withRenderJournal<T>(
+  journal: RenderJournal,
+  render: () => T
+): T {
+  const previous = activeJournal;
+  activeJournal = journal;
+  try {
+    return render();
+  } finally {
+    activeJournal = previous;
+  }
+}
+
+export function recordUndo(undo: Undo, journal = activeJournal): void {
+  journal?.entries.push(undo);
+}
+
+export function journalMark(journal: RenderJournal): number {
+  return journal.entries.length;
 }
 
 /** Undo everything recorded after `mark`, most recent first. */
-export function rewindJournal(mark: number, errors: unknown[]): void {
-  while (entries.length > mark) {
+export function rewindJournal(
+  journal: RenderJournal,
+  mark: number,
+  errors: unknown[]
+): void {
+  while (journal.entries.length > mark) {
     try {
-      entries.pop()!();
+      journal.entries.pop()!();
     } catch (error) {
       errors.push(error);
     }
@@ -29,6 +54,6 @@ export function rewindJournal(mark: number, errors: unknown[]): void {
 }
 
 /** Keep the changes recorded after `mark` (their render committed). */
-export function settleJournal(mark: number): void {
-  entries.length = Math.min(entries.length, mark);
+export function settleJournal(journal: RenderJournal, mark: number): void {
+  journal.entries.length = Math.min(journal.entries.length, mark);
 }

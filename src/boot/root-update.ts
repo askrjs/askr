@@ -62,6 +62,7 @@ function prepare(root: object, input: RootUpdateInput): PreparedRootUpdate {
       }
       try {
         prepared = app.root.prepare(app.view());
+        prepared.apply();
       } catch (error) {
         restore();
         clearStagedAppRenderRouteLocation(runtime);
@@ -72,7 +73,7 @@ function prepare(root: object, input: RootUpdateInput): PreparedRootUpdate {
       if (settled) return { aborted: false, errors: [] };
       settled = true;
       try {
-        prepared?.commit();
+        prepared?.publish();
         return { aborted: false, errors: [] };
       } catch (error) {
         const aborted = prepared?.aborted === true;
@@ -86,7 +87,7 @@ function prepare(root: object, input: RootUpdateInput): PreparedRootUpdate {
       if (settled) return [];
       settled = true;
       clearStagedAppRenderRouteLocation(runtime);
-      const errors = prepared?.discard() ?? [];
+      const errors = prepared?.rollback() ?? [];
       restore();
       return errors;
     },

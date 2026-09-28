@@ -1,5 +1,12 @@
 import { routeRegistryFromTable } from '../../router-test-utils';
-import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  vi,
+} from 'vite-plus/test';
 import { createIsland, createSPA, cleanupApp, hasApp } from '@askrjs/askr/boot';
 import { state, type State } from '../../../src';
 import { Link } from '../../../src/components/link';
@@ -102,6 +109,85 @@ describe('multi-root SPA isolation', () => {
 
     expect(rootA.textContent).toBe('A next');
     expect(rootB.textContent).toBe('B next');
+  });
+
+  it('should restore earlier roots when a later root commit aborts navigation', async () => {
+    let destinationRefCalls = 0;
+    let removedOwnerCleanupCalls = 0;
+    function AStart() {
+      onDispose(currentOwner()!, () => {
+        removedOwnerCleanupCalls += 1;
+      });
+      return <p>A start</p>;
+    }
+
+    await createSPA({
+      root: rootA,
+      registry: routeRegistryFromTable([
+        { path: '/start', handler: () => <AStart /> },
+        {
+          path: '/next',
+          handler: () => (
+            <section
+              ref={(element) => {
+                if (element) destinationRefCalls += 1;
+              }}
+            >
+              A next
+            </section>
+          ),
+        },
+      ]),
+    });
+    await createSPA({
+      root: rootB,
+      registry: routeRegistryFromTable([
+        { path: '/start', handler: () => <p>B start</p> },
+        {
+          path: '/next',
+          handler: () => (
+            <section
+              ref={(element) => {
+                if (element) destinationRefCalls += 1;
+              }}
+            >
+              B next
+            </section>
+          ),
+        },
+      ]),
+    });
+    await settleNavigation();
+
+    const failure = new Error('second root insertion failed');
+    const insertBefore = Element.prototype.insertBefore;
+    const failSecondRoot = vi
+      .spyOn(Element.prototype, 'insertBefore')
+      .mockImplementation(function <T extends Node>(
+        this: Element,
+        node: T,
+        child: Node | null
+      ): T {
+        if (this === rootB) throw failure;
+        return insertBefore.call(this, node, child) as T;
+      });
+    expect(() => navigate('/next')).toThrow(failure);
+    failSecondRoot.mockRestore();
+    await settleNavigation();
+
+    expect(rootA.textContent).toBe('A start');
+    expect(rootB.textContent).toBe('B start');
+    expect(window.location.pathname).toBe('/start');
+    expect(destinationRefCalls).toBe(0);
+    expect(removedOwnerCleanupCalls).toBe(0);
+
+    navigate('/next');
+    await settleNavigation();
+    expect(rootA.textContent).toBe('A next');
+    expect(rootB.textContent).toBe('B next');
+    expect(window.location.pathname).toBe('/next');
+    expect(destinationRefCalls).toBe(2);
+    expect(removedOwnerCleanupCalls).toBe(1);
   });
 
   it('should roll back every root when one destination fails', async () => {
