@@ -218,9 +218,15 @@ function renderedAttributes(el: Element, props: Props): Set<string> {
  * Server attributes the client does not render are removed from an adopted
  * element, so a mismatched attribute does not survive hydration.
  */
-export function removeUnrenderedAttributes(el: Element, props: Props): void {
+export function removeUnrenderedAttributes(
+  el: Element,
+  props: Props,
+  beforeRemove?: (attributes: readonly Attr[]) => void
+): void {
   const keep = renderedAttributes(el, props);
-  for (const attribute of Array.from(el.attributes)) {
-    if (!keep.has(attribute.name)) el.removeAttribute(attribute.name);
-  }
+  const removed = Array.from(el.attributes).filter(
+    (attribute) => !keep.has(attribute.name)
+  );
+  beforeRemove?.(removed);
+  for (const attribute of removed) el.removeAttribute(attribute.name);
 }
