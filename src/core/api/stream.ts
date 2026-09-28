@@ -273,7 +273,13 @@ function closeSlot<T>(slot: StreamSlot<T>): void {
   }
 
   slot.explicitlyClosed = true;
-  stopGeneration(slot.current);
+  const previous = slot.current;
+  stopGeneration(previous);
+  // Aborting invokes user listeners synchronously. A listener may restart,
+  // close again, or dispose the slot; keep that newer lifecycle decision.
+  if (slot.disposed || slot.current !== previous || !slot.explicitlyClosed) {
+    return;
+  }
   slot.current = null;
   slot.snapshot.status = 'closed';
   slot.snapshot.pending = false;

@@ -629,6 +629,55 @@ describe('stream()', () => {
     }
   });
 
+  it('should keep a restart made while close aborts the active generation', async () => {
+    const sources = [
+      new ControlledAsyncIterable<string>(),
+      new ControlledAsyncIterable<string>(),
+    ];
+    const signals: AbortSignal[] = [];
+    let starts = 0;
+    let current: StreamResult<string> | undefined;
+    const { container, cleanup } = createTestContainer();
+
+    try {
+      createIsland({
+        root: container,
+        component: () => {
+          current = stream(({ signal }) => {
+            signals.push(signal);
+            return sources[starts++]!;
+          });
+          return <p>{current.value ?? current.status}</p>;
+        },
+      });
+      flushScheduler();
+      await settle();
+
+      signals[0]!.addEventListener('abort', () => current?.restart(), {
+        once: true,
+      });
+      current?.close();
+
+      expect(starts).toBe(2);
+      expect(signals[0]?.aborted).toBe(true);
+      expect(signals[1]?.aborted).toBe(false);
+      expect(sources[0]?.returnCalls).toBe(1);
+      expect(current?.status).toBe('connecting');
+
+      sources[1]!.yield('restarted');
+      await settle();
+      expect(current?.value).toBe('restarted');
+      expect(container.textContent).toBe('restarted');
+
+      current?.close();
+      expect(signals[1]?.aborted).toBe(true);
+      expect(sources[1]?.returnCalls).toBe(1);
+      expect(current?.status).toBe('closed');
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should preserve a restart made by iterator return()', async () => {
     const second = new ControlledAsyncIterable<string>();
     let returnCalls = 0;
