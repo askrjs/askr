@@ -86,7 +86,7 @@ describe('production artifact purity', () => {
 
     for (const name of optionalPeers) {
       expect(manifest.dependencies?.[name], name).toBeUndefined();
-      expect(manifest.peerDependencies?.[name], name).toBe('>=0.3.0 <0.4.0');
+      expect(manifest.peerDependencies?.[name], name).toBe('>=0.4.0 <0.5.0');
       expect(manifest.peerDependenciesMeta?.[name], name).toEqual({
         optional: true,
       });

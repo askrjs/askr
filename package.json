@@ -1,6 +1,6 @@
 {
   "name": "@askrjs/askr",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "A TypeScript UI runtime with getter-based state, fine-grained bindings, transactional commits with rollback, and one route graph for SPA, SSR, and SSG.",
   "keywords": [
     "askr",
@@ -147,8 +147,8 @@
     "prepublishOnly": "npm run check"
   },
   "devDependencies": {
-    "@askrjs/auth": ">=0.3.0 <0.4.0",
-    "@askrjs/schema": ">=0.3.0 <0.4.0",
+    "@askrjs/auth": ">=0.4.0 <0.5.0",
+    "@askrjs/schema": ">=0.4.0 <0.5.0",
     "@types/node": "^26.6.2",
     "@typescript/typescript6": "^6.0.2",
     "@vitest/browser-playwright": "4.1.11",
@@ -161,8 +161,8 @@
     "vite-plus": "^0.3.1"
   },
   "peerDependencies": {
-    "@askrjs/auth": ">=0.3.0 <0.4.0",
-    "@askrjs/schema": ">=0.3.0 <0.4.0"
+    "@askrjs/auth": ">=0.4.0 <0.5.0",
+    "@askrjs/schema": ">=0.4.0 <0.5.0"
   },
   "peerDependenciesMeta": {
     "@askrjs/auth": {

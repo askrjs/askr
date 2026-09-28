@@ -9,12 +9,12 @@ in arbitrary order.
 
 ## Why CI is red before the first publish
 
-Every repo declares its siblings by range, for example `>=0.3.0 <0.4.0`. Until
+Every repo declares its siblings by range, for example `>=0.4.0 <0.5.0`. Until
 the first package is on npm, `npm ci` in every dependent repo fails with:
 
 ```
 npm error code ETARGET
-npm error notarget No matching version found for @askrjs/askr@>=0.3.0 <0.4.0.
+npm error notarget No matching version found for @askrjs/askr@>=0.4.0 <0.5.0.
 ```
 
 This is expected and is not a code failure. It clears wave by wave as packages
@@ -44,8 +44,8 @@ node scripts/publish-order.mjs
 This is the step most likely to be missed.
 
 Bumping a range in `package.json` does **not** update the resolved tree in
-`package-lock.json`. A lockfile can declare `>=0.3.0 <0.4.0` at its root while
-still resolving `node_modules/@askrjs/askr` to `0.2.4`. `npm ci` installs
+`package-lock.json`. A lockfile can declare `>=0.4.0 <0.5.0` at its root while
+still resolving `node_modules/@askrjs/askr` to `0.3.0`. `npm ci` installs
 strictly from that tree, so the repo keeps failing after its dependencies are
 published, and the failure still looks like the ETARGET error above.
 
@@ -53,7 +53,7 @@ After each wave lands on npm, in every repo that depends on it:
 
 ```sh
 npm install                 # re-resolves the tree against the published versions
-git diff package-lock.json  # expect node_modules/@askrjs/* to move to 0.3.x
+git diff package-lock.json  # expect node_modules/@askrjs/* to move to 0.4.x
 npm ci                      # must now succeed from a clean tree
 ```
 
