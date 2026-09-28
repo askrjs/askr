@@ -574,6 +574,107 @@ describe('stream()', () => {
     }
   });
 
+  it('should preserve lifecycle changes made by abort listeners', async () => {
+    const sources = [
+      new ControlledAsyncIterable<string>(),
+      new ControlledAsyncIterable<string>(),
+      new ControlledAsyncIterable<string>(),
+    ];
+    const signals: AbortSignal[] = [];
+    let starts = 0;
+    let current: StreamResult<string> | undefined;
+    const { container, cleanup } = createTestContainer();
+
+    try {
+      createIsland({
+        root: container,
+        component: () => {
+          current = stream(({ signal }) => {
+            signals.push(signal);
+            return sources[starts++]!;
+          });
+          return <p>{current.value ?? 'none'}</p>;
+        },
+      });
+      flushScheduler();
+      await settle();
+
+      signals[0]!.addEventListener('abort', () => current?.restart(), {
+        once: true,
+      });
+      current?.restart();
+
+      expect(starts).toBe(2);
+      expect(sources[0]?.returnCalls).toBe(1);
+      expect(signals[1]?.aborted).toBe(false);
+
+      sources[1]!.yield('successor');
+      await settle();
+      expect(container.textContent).toBe('successor');
+
+      signals[1]!.addEventListener('abort', () => current?.close(), {
+        once: true,
+      });
+      current?.restart();
+
+      expect(starts).toBe(2);
+      expect(sources[1]?.returnCalls).toBe(1);
+      expect(current).toMatchObject({
+        status: 'closed',
+        pending: false,
+        error: null,
+      });
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should preserve a restart made by iterator return()', async () => {
+    const second = new ControlledAsyncIterable<string>();
+    let returnCalls = 0;
+    let starts = 0;
+    let current: StreamResult<string> | undefined;
+    const first: AsyncIterable<string> = {
+      [Symbol.asyncIterator]: () => ({
+        next: () => new Promise<IteratorResult<string>>(() => {}),
+        return: () => {
+          returnCalls += 1;
+          current?.restart();
+          return Promise.resolve({ done: true, value: undefined });
+        },
+      }),
+    };
+    const signals: AbortSignal[] = [];
+    const { container, cleanup } = createTestContainer();
+
+    try {
+      createIsland({
+        root: container,
+        component: () => {
+          current = stream(({ signal }) => {
+            signals.push(signal);
+            return starts++ === 0 ? first : second;
+          });
+          return <p>{current.value ?? 'none'}</p>;
+        },
+      });
+      flushScheduler();
+      await settle();
+
+      current?.restart();
+
+      expect(starts).toBe(2);
+      expect(returnCalls).toBe(1);
+      expect(signals[1]?.aborted).toBe(false);
+
+      second.yield('successor');
+      await settle();
+      expect(container.textContent).toBe('successor');
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should never execute a source during synchronous SSR', () => {
     let calls = 0;
 

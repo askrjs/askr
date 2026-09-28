@@ -199,7 +199,14 @@ function startSlot<T>(slot: StreamSlot<T>): void {
     return;
   }
 
-  stopGeneration(slot.current);
+  const previous = slot.current;
+  stopGeneration(previous);
+  // Aborting a generation invokes user listeners synchronously. A listener
+  // can restart, close, or dispose this slot, so stale outer work must not
+  // replace the lifecycle decision it made.
+  if (slot.disposed || slot.current !== previous) {
+    return;
+  }
   slot.explicitlyClosed = false;
   setStartingState(slot);
   publish(slot);
