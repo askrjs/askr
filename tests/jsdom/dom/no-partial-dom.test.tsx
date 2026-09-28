@@ -1,4 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  vi,
+} from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { jsx, type JSXElement } from '../../../src/jsx-runtime';
 import {
@@ -7,6 +14,7 @@ import {
 } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
 import { allowFrameworkWarnings } from '../../setup-env';
+import { currentOwner, onDispose } from '../../../src/core/api/hooks';
 
 function element(type: string, props: Record<string, unknown>): JSXElement {
   return jsx(type as 'div', props as never);
@@ -760,5 +768,74 @@ describe('no partial DOM (DOM)', () => {
     expect(Array.from(retained?.children ?? [])).toEqual(beforeChildren);
     expect(retained?.textContent).toBe('ABC');
     expect(retained?.getAttribute('title')).toBe('stable');
+  });
+
+  it('should restore keyed child order and lifetimes after a DOM move fails', () => {
+    let setRows!: (rows: string[]) => void;
+    let removedCleanupCalls = 0;
+    const Item = ({ row }: { row: string }) => {
+      onDispose(currentOwner()!, () => {
+        if (row === 'b') removedCleanupCalls += 1;
+      });
+      return <li data-row={row}>{row}</li>;
+    };
+    const App = () => {
+      const rows = state(['a', 'b', 'c', 'd']);
+      setRows = rows.set;
+      return (
+        <ul>
+          {rows().map((row) => (
+            <Item key={row} row={row} />
+          ))}
+        </ul>
+      ) as unknown as JSXElement;
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const list = container.querySelector('ul')!;
+    const before = Array.from(list.children);
+    const failure = new Error('keyed child insertion failed');
+    let successfulInsertions = 0;
+    let failedAfterSuccessfulMove = false;
+    const insertBefore = list.insertBefore.bind(list);
+    const insertBeforeSpy = vi
+      .spyOn(list, 'insertBefore')
+      .mockImplementation((node, child) => {
+        if (successfulInsertions === 1 && !failedAfterSuccessfulMove) {
+          failedAfterSuccessfulMove = true;
+          throw failure;
+        }
+        const inserted = insertBefore(node, child);
+        successfulInsertions += 1;
+        return inserted;
+      });
+
+    setRows(['d', 'c', 'a']);
+    expect(() => flushScheduler()).toThrow(failure);
+    expect(failedAfterSuccessfulMove).toBe(true);
+    expect(successfulInsertions).toBeGreaterThanOrEqual(2);
+    insertBeforeSpy.mockRestore();
+
+    expect(Array.from(list.children)).toEqual(before);
+    expect(Array.from(list.children).map((node) => node.textContent)).toEqual([
+      'a',
+      'b',
+      'c',
+      'd',
+    ]);
+    expect(removedCleanupCalls).toBe(0);
+
+    setRows(['d', 'c', 'a']);
+    flushScheduler();
+    expect(Array.from(list.children).map((node) => node.textContent)).toEqual([
+      'd',
+      'c',
+      'a',
+    ]);
+    expect(list.children[0]).toBe(before[3]);
+    expect(list.children[1]).toBe(before[2]);
+    expect(list.children[2]).toBe(before[0]);
+    expect(removedCleanupCalls).toBe(1);
   });
 });
