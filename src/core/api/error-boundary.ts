@@ -11,6 +11,7 @@ import { logger } from '../../common/logger';
 import { ELEMENT_TYPE, Fragment, STATIC_CHILDREN } from '../../common/jsx';
 import { isDevelopmentEnvironment } from '../../common/env';
 import { requireInstance, type ComponentInstance } from '../component/instance';
+import { recordUndo } from '../component/journal';
 import type { Owner } from '../reactive/owner';
 import { NATIVE_TYPE } from '../view/children';
 import { hookSlot, onCommit } from './hooks';
@@ -142,6 +143,7 @@ export function ErrorBoundary(props: ErrorBoundaryProps): unknown {
     slot.error = undefined;
   }
 
+  const previousBoundary = instance.boundary;
   instance.boundary = (error) => {
     // A failure while showing the fallback belongs to an outer boundary.
     if (slot.caught) return false;
@@ -155,6 +157,9 @@ export function ErrorBoundary(props: ErrorBoundaryProps): unknown {
     logger.error('[Askr] ErrorBoundary caught render error:', error);
     return true;
   };
+  recordUndo(() => {
+    instance.boundary = previousBoundary;
+  });
 
   boundarySlots.set(instance, slot);
 

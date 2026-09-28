@@ -610,14 +610,15 @@ export function renderInstance(
     // Convert a stack overflow where it is first caught, so boundaries and
     // error routing see the RenderDepthError.
     const error = clarifyRenderError(caught);
-    if (!instance.boundary) {
+    const boundary = instance.boundary;
+    if (!boundary) {
       noteErrorOrigin(instance.parent, error);
       throw error;
     }
     for (const failure of ctx.pass.rewind(mark)) {
       reportUncaughtErrorLater(failure);
     }
-    if (!instance.boundary(error)) throw error;
+    if (!boundary(error)) throw error;
     const children = reconcileChildren(
       inner,
       node,
