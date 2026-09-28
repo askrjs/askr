@@ -59,6 +59,93 @@ function writeProperty(el: Element, name: string, value: unknown): void {
   host[name] = value;
 }
 
+/** Capture property and ownership state before a pass writes a DOM property. */
+export function captureDomPropertyUndo(
+  el: Element,
+  key: string,
+  value: unknown,
+  tagName: string
+): (() => void) | null {
+  const name = getDomPropertyName(tagName, key, value);
+  const written = writtenDomProperties.get(el);
+  const previousName = written?.get(key);
+  if (name === null && previousName === undefined) return null;
+
+  const names = new Set<string>();
+  if (name !== null && !BLOCKED_PROPERTY_NAMES.has(name)) names.add(name);
+  if (previousName !== undefined) names.add(previousName);
+  const host = el as PropertyHost;
+  const properties = Array.from(names, (property) => ({
+    property,
+    descriptor: Object.getOwnPropertyDescriptor(host, property),
+    value: host[property],
+  }));
+  const attributeNames = new Set<string>();
+  for (const property of names) {
+    attributeNames.add(getRenderedAttributeName(el, property));
+  }
+  if (!key.startsWith(PROPERTY_PROP_PREFIX)) {
+    attributeNames.add(getRenderedAttributeName(el, key));
+  }
+  const attributes = Array.from(attributeNames, (attribute) => ({
+    attribute,
+    value: el.getAttribute(attribute),
+  }));
+  const hadWrittenMap = written !== undefined;
+  const writtenBefore = written ? new Map(written) : null;
+
+  return () => {
+    const failures: unknown[] = [];
+    for (const { property, descriptor, value: before } of properties) {
+      try {
+        if (descriptor && 'value' in descriptor) {
+          Object.defineProperty(host, property, descriptor);
+          continue;
+        }
+        if (!Reflect.set(host, property, before)) {
+          throw new TypeError(`Could not restore DOM property ${property}`);
+        }
+        if (descriptor) Object.defineProperty(host, property, descriptor);
+        else delete host[property];
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    for (const { attribute, value: before } of attributes) {
+      try {
+        if (before === null) el.removeAttribute(attribute);
+        else el.setAttribute(attribute, before);
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    try {
+      if (hadWrittenMap) {
+        writtenDomProperties.set(el, new Map(writtenBefore));
+      } else {
+        writtenDomProperties.delete(el);
+      }
+    } catch (error) {
+      failures.push(error);
+    }
+    if (failures.length === 1) throw failures[0];
+    if (failures.length > 1)
+      throw new AggregateError(failures, 'DOM property rollback failed');
+  };
+}
+
+export function hasDomPropertyWrite(
+  el: Element,
+  key: string,
+  value: unknown,
+  tagName: string
+): boolean {
+  return (
+    getDomPropertyName(tagName, key, value) !== null ||
+    writtenDomProperties.get(el)?.has(key) === true
+  );
+}
+
 /**
  * Put a property back to its default once Askr no longer sets it.
  *
