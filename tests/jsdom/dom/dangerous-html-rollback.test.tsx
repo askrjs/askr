@@ -280,4 +280,70 @@ describe('dangerouslySetInnerHTML rollback', () => {
     expect(host.innerHTML).toBe('<i>client</i>');
     root.dispose();
   });
+
+  it('should preserve matching adopted raw HTML descendants during hydration', () => {
+    const container = document.createElement('div');
+    container.innerHTML = '<section><button disabled>ready</button></section>';
+    const host = container.firstElementChild!;
+    const serverNode = host.firstChild;
+    const root = createRoot(container, { hydrate: true });
+
+    root
+      .prepare(
+        <section
+          dangerouslySetInnerHTML={{
+            __html: '<button disabled>ready</button>',
+          }}
+        />
+      )
+      .commit();
+
+    expect(host.firstChild).toBe(serverNode);
+    root.dispose();
+  });
+
+  it('should not construct probe custom elements while comparing raw HTML', () => {
+    let constructions = 0;
+    if (!customElements.get('x-askr-raw-hydration')) {
+      customElements.define(
+        'x-askr-raw-hydration',
+        class extends HTMLElement {
+          constructor() {
+            super();
+            constructions += 1;
+          }
+        }
+      );
+    }
+    const container = document.createElement('div');
+    const html = '<x-askr-raw-hydration></x-askr-raw-hydration>';
+    container.innerHTML = `<section>${html}</section>`;
+    const host = container.firstElementChild!;
+    const serverNode = host.firstChild;
+    const beforeHydration = constructions;
+    const root = createRoot(container, { hydrate: true });
+
+    root
+      .prepare(<section dangerouslySetInnerHTML={{ __html: html }} />)
+      .commit();
+
+    expect(host.firstChild).toBe(serverNode);
+    expect(constructions).toBe(beforeHydration);
+    root.dispose();
+  });
+
+  it('should preserve normalized SVG descendants during hydration', () => {
+    const container = document.createElement('div');
+    container.innerHTML = '<svg><path></path></svg>';
+    const host = container.firstElementChild!;
+    const serverNode = host.firstChild;
+    const root = createRoot(container, { hydrate: true });
+
+    root
+      .prepare(<svg dangerouslySetInnerHTML={{ __html: '<path/>' }} />)
+      .commit();
+
+    expect(host.firstChild).toBe(serverNode);
+    root.dispose();
+  });
 });

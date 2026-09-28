@@ -576,6 +576,10 @@ transparent component ranges, and SSR portal hosts are eligible for adoption
 only inside that scope. Keyed trees, reactive props, and any mismatch use the
 normal reconciliation path.
 
+For an adopted host with `dangerouslySetInnerHTML`, matching parsed HTML keeps
+the server's descendant nodes in place. Different content is applied through
+the normal transactional raw HTML write.
+
 A page root that returns several sibling nodes, including leading text, adopts
 each matching server node in place. The automatic default portal host does not
 consume one of those siblings when it has no server-rendered content.
