@@ -971,8 +971,21 @@ export const domNodes: NodeKinds = {
         const text = (child as { text: string }).text;
         if (node.text !== text) {
           ctx.pass.op(() => {
-            node.node.data = text;
-            node.text = text;
+            const previous = node.text;
+            const previousData = node.node.data;
+            ctx.pass.onReversibleCommit(() => {
+              try {
+                node.node.data = previousData;
+              } finally {
+                node.text = previous;
+              }
+            });
+            try {
+              node.node.data = text;
+              node.text = text;
+            } catch (error) {
+              throw new CommitMutationError(error);
+            }
           });
           // A value-less option's value is its text.
           syncEnclosingSelect(ctx.pass, node.parent);

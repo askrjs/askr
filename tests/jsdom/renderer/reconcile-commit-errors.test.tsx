@@ -139,6 +139,50 @@ describe('reconciliation commit errors', () => {
     expect(list.children[1]).toBe(stableChildren[0]);
   });
 
+  it('should restore an earlier text patch when a later insertion fails', () => {
+    const App = () => {
+      flip = state(false);
+      const keys = flip() ? ['b', 'a', 'c'] : ['a', 'b'];
+      return (
+        <div>
+          <p id="label">{flip() ? 'new' : 'old'}</p>
+          <ul id="list">
+            {keys.map((key) => (
+              <li key={key}>{key}</li>
+            ))}
+          </ul>
+        </div>
+      );
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const stable = container.innerHTML;
+    const error = new Error('later insertion failed');
+    failNextInsertInto('list', error);
+
+    expect(() => {
+      flip.set(true);
+      flushScheduler();
+    }).toThrow(error);
+
+    expect(container.innerHTML).toBe(stable);
+    expect(container.querySelector('#label')?.textContent).toBe('old');
+
+    flip.set(false);
+    flushScheduler();
+    flip.set(true);
+    flushScheduler();
+
+    expect(container.querySelector('#label')?.textContent).toBe('new');
+    expect(
+      Array.from(
+        container.querySelectorAll('#list li'),
+        (item) => item.textContent
+      )
+    ).toEqual(['b', 'a', 'c']);
+  });
+
   it('should route a commit error to the nearest ErrorBoundary', () => {
     const onError = vi.fn();
     const App = () => (
