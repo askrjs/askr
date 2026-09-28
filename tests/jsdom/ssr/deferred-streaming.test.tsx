@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vite-plus/test';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { hydrateSPA } from '../../../src/boot';
 import {
   createRouteRegistry,
@@ -405,7 +405,14 @@ describe('deferred route streaming', () => {
     await reader.cancel();
 
     release('ready');
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    vi.useFakeTimers();
+    try {
+      const settled = new Promise<void>((resolve) => setTimeout(resolve, 0));
+      await vi.runAllTimersAsync();
+      await settled;
+    } finally {
+      vi.useRealTimers();
+    }
 
     expect(boundaryRenders).toBe(0);
     expect((await reader.read()).done).toBe(true);
