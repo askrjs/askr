@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { cleanupApp } from '../../../src/boot';
+import { task } from '../../../src/resources';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
-import { registerMountOperation } from '../../../src/runtime';
 import type { JSXElement } from '../../../src/jsx/types';
 import { createIsland } from '../../../test-utils/render/create-island';
 
@@ -11,8 +11,7 @@ describe('createIsland cleanup', () => {
     let cleaned = false;
 
     const Component = () => {
-      // Register mount operation that returns a cleanup function
-      registerMountOperation(() => {
+      task(() => {
         return () => {
           cleaned = true;
         };

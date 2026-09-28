@@ -116,10 +116,6 @@ describe('keyed component identity in For loop', () => {
       container.querySelectorAll('.inner')
     ) as HTMLElement[];
     expect(rowsInitial).toHaveLength(2);
-    // Check if data-key is present
-    expect(rowsInitial[0].getAttribute('data-key')).toBe('1');
-    expect(rowsInitial[1].getAttribute('data-key')).toBe('2');
-
     const elA = rowsInitial[0];
     const elB = rowsInitial[1];
 

@@ -5,8 +5,8 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import { cleanupApp, createSPA } from '../../../../src/boot';
-import { resource } from '../../../../src/runtime/operations';
-import { state } from '../../../../src/runtime/reactivity/state';
+import { state } from '../../../../src';
+import { resource } from '../../../../src/resources';
 import { navigate } from '../../../../src/router/navigate';
 import { allow } from '../../../../src/router/policy';
 import {
@@ -332,6 +332,9 @@ describe('navigation rendering invariants regression coverage', () => {
       container.querySelectorAll('[data-testid="menu-group"]')
     ).toHaveLength(3);
     expect(container.textContent).not.toContain('delta');
+    // A shared layout keeps its state across sibling navigation
+    // (docs/reference/router.md).
+    expect(shell?.getAttribute('data-mode')).toBe('compact');
 
     (container.querySelector('#toggle-shell') as HTMLButtonElement).click();
     flushScheduler();
@@ -341,7 +344,7 @@ describe('navigation rendering invariants regression coverage', () => {
       container
         .querySelector('[data-testid="routed-shell"]')
         ?.getAttribute('data-mode')
-    ).toBe('compact');
+    ).toBe('full');
     expect(textFor('[data-testid="route-title"]', container)).toBe('Beta');
     expect(
       container.querySelectorAll('[data-testid="menu-group"]')

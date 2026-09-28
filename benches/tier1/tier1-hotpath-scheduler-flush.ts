@@ -1,5 +1,10 @@
 import { bench, describe, expect } from 'vite-plus/test';
-import { globalScheduler } from '../../src/runtime/scheduler';
+import {
+  clearScheduler,
+  flushSync,
+  getSchedulerState,
+  queueTask,
+} from '../../src/core/reactive/scheduler';
 import { tier1BenchOptions, verifyTier1Invariant } from '../shared/_shared';
 
 const taskCount = 500;
@@ -7,15 +12,15 @@ const taskIndexes = Array.from({ length: taskCount }, (_, index) => index + 1);
 
 verifyTier1Invariant('tier1 hotpath scheduler flush', () => {
   let total = 0;
-  globalScheduler.clearPendingSyncTasks();
+  clearScheduler();
   for (const index of taskIndexes) {
-    globalScheduler.enqueue(() => {
+    queueTask(() => {
       total += index;
     });
   }
-  globalScheduler.flush();
+  flushSync();
   expect(total).toBeGreaterThan(0);
-  expect(globalScheduler.getState().queueLength).toBe(0);
+  expect(getSchedulerState().queueLength).toBe(0);
 });
 
 describe('tier1 scheduler flush', () => {
@@ -24,11 +29,11 @@ describe('tier1 scheduler flush', () => {
     () => {
       let total = 0;
       for (const index of taskIndexes) {
-        globalScheduler.enqueue(() => {
+        queueTask(() => {
           total += index;
         });
       }
-      globalScheduler.flush();
+      flushSync();
       if (total === 0) {
         throw new Error('scheduler batch failed to run');
       }
@@ -36,7 +41,7 @@ describe('tier1 scheduler flush', () => {
     {
       ...tier1BenchOptions,
       teardown() {
-        globalScheduler.clearPendingSyncTasks();
+        clearScheduler();
       },
     }
   );

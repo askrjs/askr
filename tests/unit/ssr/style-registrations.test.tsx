@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vite-plus/test';
+import type { JSX } from '../../../src/jsx/jsx-runtime';
 import { defer, Resolve } from '../../../src/router/deferred';
 import { createRouteRegistry, route } from '../../../src/router/route';
 import { definePortal } from '../../../src/foundations/structures/portal';
@@ -12,6 +13,7 @@ import {
   renderToString,
   renderToStringSync,
 } from '../../../src/ssr';
+import type { DocumentRenderArgs } from '../../../src/ssr';
 
 const rendererKey = 'doc' + 'ument';
 
@@ -31,7 +33,7 @@ describe('SSR style registrations', () => {
     const html = renderToString({
       url: '/',
       registry,
-      [rendererKey]: ({ appHtml, context }) =>
+      [rendererKey]: ({ appHtml, context }: DocumentRenderArgs) =>
         `<html><head>${context.styles?.map((style) => `<style>${style.cssText}</style>`).join('')}</head><body>${appHtml}</body></html>`,
     });
 
@@ -51,7 +53,7 @@ describe('SSR style registrations', () => {
       const html = renderToString({
         url: '/',
         registry,
-        [rendererKey]: ({ appHtml }) =>
+        [rendererKey]: ({ appHtml }: DocumentRenderArgs) =>
           `<html><head></head><body>${appHtml}</body></html>`,
       });
 
@@ -80,14 +82,15 @@ describe('SSR style registrations', () => {
       const represented = renderToString({
         url: '/',
         registry,
-        [rendererKey]: ({ appHtml, context }) =>
+        [rendererKey]: ({ appHtml, context }: DocumentRenderArgs) =>
           `<html><head><style>${context.styles?.map((style) => style.cssText).join('\n')}</style></head><body>${appHtml}</body></html>`,
       });
       const intentionallyOmitted = renderToString({
         url: '/',
         registry,
         styleRegistrationValidation: 'off',
-        [rendererKey]: ({ appHtml }) => `<html><body>${appHtml}</body></html>`,
+        [rendererKey]: ({ appHtml }: DocumentRenderArgs) =>
+          `<html><body>${appHtml}</body></html>`,
       });
 
       expect(represented).toContain('.ak-style-handled{color:green}');
@@ -113,7 +116,8 @@ describe('SSR style registrations', () => {
         url: '/',
         registry,
         styleRegistrationValidation: 'error',
-        [rendererKey]: ({ appHtml }) => `<html><body>${appHtml}</body></html>`,
+        [rendererKey]: ({ appHtml }: DocumentRenderArgs) =>
+          `<html><body>${appHtml}</body></html>`,
       })
     ).toThrow(/dropped 1 registered SSR style.*ak-style-strict/i);
   });
@@ -140,7 +144,7 @@ describe('SSR style registrations', () => {
         outputDir,
         concurrency: 2,
         styleRegistrationValidation: 'error',
-        [rendererKey]: ({ appHtml, context }) =>
+        [rendererKey]: ({ appHtml, context }: DocumentRenderArgs) =>
           context.pathname === '/represented'
             ? `<html><head><style>${context.styles?.map((style) => style.cssText).join('\n')}</style></head><body>${appHtml}</body></html>`
             : `<html><body>${appHtml}</body></html>`,
@@ -189,7 +193,7 @@ describe('SSR style registrations', () => {
       {
         onContext: (context) =>
           styles.push(
-            ...context.ssrStyles.values().map((style) => style.cssText)
+            ...Array.from(context.ssrStyles.values(), (style) => style.cssText)
           ),
       }
     );
@@ -211,7 +215,7 @@ describe('SSR style registrations', () => {
           return <div>safe</div>;
         });
       }),
-      [rendererKey]: ({ appHtml, context }) =>
+      [rendererKey]: ({ appHtml, context }: DocumentRenderArgs) =>
         `<style>${context.styles?.[0]?.cssText}</style>${appHtml}`,
     });
 

@@ -52,7 +52,7 @@ behavior fixtures against the installed tarball. PR CI checks scheduler/host
 configuration, lifecycle ordering, hydration adoption, navigation cancellation,
 and server execution without browser globals from that package boundary.
 
-Core consolidation also qualifies packed artifacts in isolated sibling
+Core changes also qualify packed artifacts in isolated sibling
 checkouts. Record each consumer commit, its original installed baseline, the
 candidate tarball digest, dependency resolution, and build/type/test results.
 Install the candidate throughout the consumer dependency tree; a successful
@@ -61,8 +61,6 @@ source checkouts unchanged. Generate SPA, SSR, and SSG applications using a
 packed CLI and run their complete `check` commands with the candidate installed.
 SSG qualification also verifies the generated sitemap, robots file, and manifest.
 This qualification does not publish a package or require a version change.
-See the [core consolidation qualification](core-consolidation-qualification.md)
-for the recorded package, consumer, browser, and performance evidence.
 
 The intended happy path is:
 
@@ -110,4 +108,4 @@ before retrying publish.
 
 - [Coordinated release](./coordinated-release.md)
 - [Repo structure](./repo-structure.md)
-- [Contributing](./contributing.md)
+- [Contributing](../../CONTRIBUTING.md)

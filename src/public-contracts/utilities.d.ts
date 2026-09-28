@@ -63,6 +63,49 @@ declare function composeHandlers<A extends readonly unknown[]>(
   second?: (...args: A) => void,
   options?: ComposeHandlersOptions
 ): (...args: A) => void;
+type IsAny<T> = 0 extends 1 & T ? true : false;
+type HasIndexSignature<T> = string extends keyof T
+  ? true
+  : number extends keyof T
+    ? true
+    : false;
+type RequiredKeys<T> = {
+  [K in keyof T]-?: {} extends Pick<T, K> ? never : K;
+}[keyof T];
+
+/** A base value, or the injected one where the base may be `undefined`. */
+type MergedValue<TBase, TInjected> =
+  IsAny<TBase> extends true
+    ? TBase
+    : [TBase] extends [undefined]
+      ? TInjected
+      : undefined extends TBase
+        ? Exclude<TBase, undefined> | TInjected
+        : TBase;
+
+/**
+ * The props {@link mergeProps} returns: base keys win unless `undefined`, and
+ * a base key is required when the injected props always supply it. Props
+ * with an index signature fall back to the intersection of both sides.
+ */
+type MergedProps<TBase extends object, TInjected extends object> =
+  HasIndexSignature<TBase> extends true
+    ? TInjected & TBase
+    : HasIndexSignature<TInjected> extends true
+      ? TInjected & TBase
+      : Omit<TInjected, keyof TBase> & {
+          [
+            K in keyof TBase as K extends RequiredKeys<TInjected> ? K : never
+          ]-?: MergedValue<TBase[K], TInjected[K & keyof TInjected]>;
+        } & {
+          [
+            K in keyof TBase as K extends RequiredKeys<TInjected> ? never : K
+          ]: MergedValue<
+            TBase[K],
+            K extends keyof TInjected ? TInjected[K] : undefined
+          >;
+        };
+
 /**
  * Merge `base` props over `injected` props: non-handler keys in `base` win,
  * and matching event handlers are composed (`injected` runs first). `base`
@@ -72,7 +115,7 @@ declare function composeHandlers<A extends readonly unknown[]>(
 declare function mergeProps<TBase extends object, TInjected extends object>(
   base: TBase,
   injected: TInjected
-): TInjected & TBase;
+): MergedProps<TBase, TInjected>;
 /**
  * Tiny aria helpers
  */
@@ -126,6 +169,7 @@ export {
   DefaultPreventable,
   formatId,
   mergeProps,
+  MergedProps,
   PropagationStoppable,
   ariaDisabled,
   ComposeHandlersOptions,

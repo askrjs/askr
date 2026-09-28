@@ -1,13 +1,12 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { renderToStringSync, SSRDataMissingError } from '../../../src/ssr';
-import { resource as runtimeResource } from '../../../src/runtime/operations';
 import { resource } from '../../../src/resources';
 import type { JSXElement } from '../../../src/jsx/types';
 
 describe('SSR resource behavior', () => {
   it('should throw SSRDataMissingError when resource() is called during SSR', () => {
     const Comp = () => {
-      runtimeResource(async () => 'x');
+      resource(async () => 'x');
       return <div>x</div>;
     };
 

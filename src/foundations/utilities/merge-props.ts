@@ -29,7 +29,8 @@
  *    `null` is an explicit value and still overrides (base wins).
  *
  * 5. Return Type
- *    Returns intersection type (TInjected & TBase) for type safety.
+ *    Returns MergedProps<TBase, TInjected>: base value types win unless they
+ *    may be undefined, in which case the injected type is included.
  */
 import { composeHandlers } from './compose-handlers';
 
@@ -38,6 +39,49 @@ type Fn = (...args: readonly unknown[]) => void;
 function isEventHandlerKey(key: string): boolean {
   return key.startsWith('on');
 }
+
+type IsAny<T> = 0 extends 1 & T ? true : false;
+type HasIndexSignature<T> = string extends keyof T
+  ? true
+  : number extends keyof T
+    ? true
+    : false;
+type RequiredKeys<T> = {
+  [K in keyof T]-?: {} extends Pick<T, K> ? never : K;
+}[keyof T];
+
+/** A base value, or the injected one where the base may be `undefined`. */
+export type MergedValue<TBase, TInjected> =
+  IsAny<TBase> extends true
+    ? TBase
+    : [TBase] extends [undefined]
+      ? TInjected
+      : undefined extends TBase
+        ? Exclude<TBase, undefined> | TInjected
+        : TBase;
+
+/**
+ * The props {@link mergeProps} returns: base keys win unless `undefined`, and
+ * a base key is required when the injected props always supply it. Props
+ * with an index signature fall back to the intersection of both sides.
+ */
+export type MergedProps<TBase extends object, TInjected extends object> =
+  HasIndexSignature<TBase> extends true
+    ? TInjected & TBase
+    : HasIndexSignature<TInjected> extends true
+      ? TInjected & TBase
+      : Omit<TInjected, keyof TBase> & {
+          [
+            K in keyof TBase as K extends RequiredKeys<TInjected> ? K : never
+          ]-?: MergedValue<TBase[K], TInjected[K & keyof TInjected]>;
+        } & {
+          [
+            K in keyof TBase as K extends RequiredKeys<TInjected> ? never : K
+          ]: MergedValue<
+            TBase[K],
+            K extends keyof TInjected ? TInjected[K] : undefined
+          >;
+        };
 
 /**
  * Merge `base` props over `injected` props: non-handler keys in `base` win,
@@ -48,14 +92,14 @@ function isEventHandlerKey(key: string): boolean {
 export function mergeProps<TBase extends object, TInjected extends object>(
   base: TBase,
   injected: TInjected
-): TInjected & TBase {
+): MergedProps<TBase, TInjected> {
   // Fast path: if base is empty, return injected as-is
   const baseKeys = Object.keys(base);
   if (baseKeys.length === 0) {
-    return injected as TInjected & TBase;
+    return injected as unknown as MergedProps<TBase, TInjected>;
   }
 
-  const out = { ...(injected as object) } as TInjected & TBase;
+  const out = { ...(injected as object) } as Record<string, unknown>;
 
   for (const key of baseKeys as Array<Extract<keyof TBase, string>>) {
     const baseValue = (base as Record<string, unknown>)[key];
@@ -86,5 +130,5 @@ export function mergeProps<TBase extends object, TInjected extends object>(
     (out as Record<string, unknown>)[key] = baseValue;
   }
 
-  return out;
+  return out as MergedProps<TBase, TInjected>;
 }

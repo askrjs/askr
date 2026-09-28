@@ -10,11 +10,12 @@ import { cleanupApp, createIsland } from '@askrjs/askr/boot';
 import {
   capture,
   on,
-  onRouteChange,
   stream,
   task,
   timer,
+  type StreamResult,
 } from '@askrjs/askr/resources';
+import { onRouteChange } from '@askrjs/askr/router';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 
 beforeEach(() => {
@@ -127,15 +128,29 @@ describe('resources public API', () => {
     value = 2;
 
     expect(snapshot()).toBe(1);
-    const result = stream<string>(async function* () {
-      yield 'value';
-    });
-    expect(result.value).toBeNull();
-    expect(result.pending).toBe(true);
-    expect(result.status).toBe('connecting');
-    expect(result.stale).toBe(false);
-    expect(result.error).toBeNull();
-    expect(typeof result.restart).toBe('function');
-    expect(typeof result.close).toBe('function');
+    const { container, cleanup } = createTestContainer();
+    let result: StreamResult<string> | undefined;
+    try {
+      createIsland({
+        root: container,
+        component: () => {
+          result = stream<string>(async function* () {
+            yield 'value';
+          });
+          return <div />;
+        },
+      });
+
+      expect(result?.value).toBeNull();
+      expect(result?.pending).toBe(true);
+      expect(result?.status).toBe('connecting');
+      expect(result?.stale).toBe(false);
+      expect(result?.error).toBeNull();
+      expect(typeof result?.restart).toBe('function');
+      expect(typeof result?.close).toBe('function');
+    } finally {
+      cleanupApp(container);
+      cleanup();
+    }
   });
 });

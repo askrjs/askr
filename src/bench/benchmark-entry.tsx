@@ -1,13 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createIsland } from '../boot';
-import { installRendererBridge } from '../boot/runtime-wiring';
-import { flushRuntimeScheduler } from '../runtime';
-import { selector } from '../runtime';
-import { state, State } from '../runtime';
+import { flushSync as flushRuntimeScheduler } from '../core/reactive/scheduler';
+import { selector, state, type State } from '../core/api/state';
 import { BenchmarkTable } from './components/benchmark-table';
 import type { BenchmarkRowData } from './components/benchmark-row';
-
-installRendererBridge();
 
 type RowData = BenchmarkRowData;
 
@@ -47,7 +43,6 @@ export function mountBenchmark(root: Element, initialRows?: RowData[]) {
   const App = () => {
     dataState = state<RowData[]>(initialRowsTyped);
     selectedState = state<number | null>(null);
-    dataState._hasBeenRead = true;
     const isSelected = selector(selectedState);
 
     const select = (id: number) => selectedState.set(id);

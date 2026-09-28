@@ -6,6 +6,7 @@ import {
   flushScheduler,
   captureSSRSnapshot,
 } from '../../../test-utils/render/test-renderer';
+import type { ComponentFunction } from '../../../src/common/component';
 
 const XLINK_NAMESPACE = 'http://www.w3.org/1999/xlink';
 const XML_NAMESPACE = 'http://www.w3.org/XML/1998/namespace';
@@ -23,7 +24,7 @@ describe('attribute name and value serialization', () => {
     cleanup();
   });
 
-  function renderDOM(Component: () => unknown): void {
+  function renderDOM(Component: ComponentFunction): void {
     createIsland({ root: container, component: Component });
     flushScheduler();
   }
@@ -153,7 +154,12 @@ describe('attribute name and value serialization', () => {
     it('should drop script-scheme xlink:href URLs on both sides', async () => {
       const Unsafe = () => (
         <svg>
-          <a xlinkHref="javascript:alert(1)">
+          <a
+            {...({ xlinkHref: 'javascript:alert(1)' } as Record<
+              string,
+              string
+            >)}
+          >
             <text>x</text>
           </a>
         </svg>

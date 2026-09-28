@@ -8,11 +8,27 @@ import type {
 } from '../common/router';
 import { ROUTE_ROOT_COMPONENT } from '../common/router-internal';
 import type { RenderableChild } from '../common/vnode';
-import { defineScope, readScope } from '../runtime';
+import { currentAppRuntime } from '../core/api/hooks';
+import { defineScope, readScope } from '../core/api/scope';
 import type { InternalRouteRecord } from './internal-types';
 import { _associateLazyHandler } from './lazy';
 
 const outletScope = defineScope<RenderableChild>(null);
+const clientLayouts = new WeakMap<RouteComponent, RouteComponent>();
+
+function clientLayout(layout: RouteComponent): RouteComponent {
+  let wrapped = clientLayouts.get(layout);
+  if (!wrapped) {
+    wrapped = (props) => {
+      const output = layout(props);
+      return typeof Node !== 'undefined' && output instanceof Node
+        ? null
+        : output;
+    };
+    clientLayouts.set(layout, wrapped);
+  }
+  return wrapped;
+}
 
 /** Renders the nested route content for the enclosing layout or page scope. */
 export function Outlet(): JSXElement {
@@ -53,7 +69,9 @@ function createRouteComponentVNode(
     $$typeof: ELEMENT_TYPE,
     type: component,
     props: params,
-    key: null,
+    // A new route lifetime remounts the leaf; enclosing layouts are unkeyed
+    // and keep their instances and DOM.
+    key: routeRoot ? (currentAppRuntime()?.lifetime ?? null) : null,
     ...(routeRoot ? { [ROUTE_ROOT_COMPONENT]: true } : {}),
   };
 }
@@ -73,10 +91,20 @@ export function createRouteHandler(
 
     for (let i = layoutChain.length - 1; i >= 0; i--) {
       const layout = layoutChain[i].component;
-      // Layouts remain part of the route-root render scope. The renderer
-      // reconciles their intrinsic root in place, which preserves the shell
-      // element while keeping route remount state deterministic.
-      content = layout({ children: content });
+      // A client layout owns its hooks independently of the route root. The
+      // same layout type can then retain its shell across leaf navigation.
+      const rendered = deferComponents
+        ? ({
+            $$typeof: ELEMENT_TYPE,
+            type: clientLayout(layout),
+            props: { children: content },
+            key: null,
+          } as JSXElement)
+        : layout({ children: content });
+      content =
+        typeof Node !== 'undefined' && rendered instanceof Node
+          ? null
+          : rendered;
     }
 
     return content;

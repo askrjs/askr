@@ -116,12 +116,12 @@ describe('derive() across same-flush re-renders (#428)', () => {
     const beforeUpdate = computes;
 
     // setS(2) re-renders C, then watch() sets 3 and re-renders C again in the
-    // same flush. The stable compute reads an unchanged source, so only the
-    // first render of the flush may recompute it.
+    // same flush. The stable compute reads an unchanged source, so neither
+    // render needs to recompute it.
     setS(2);
     flushScheduler();
     expect(container.textContent).toBe('3:10');
-    expect(computes).toBe(beforeUpdate + 1);
+    expect(computes).toBe(beforeUpdate);
   });
 
   // Audit guard (#428 asks to check selector() for the same pattern): selector()
@@ -393,14 +393,11 @@ describe('derive() evaluation counts', () => {
         count.set(2);
         flushScheduler();
         expect(island.container.textContent).toBe(`${readSource ? '2' : ''}:7`);
-        // Sound-evaluation cost (#428): when the owner does not read the
-        // source, the derived lane evaluates `a` eagerly with the previous
-        // render's closure to learn whether the owner must re-render. It
-        // changed, so the owner re-renders and evaluates its new closure
-        // once more. When the owner reads the source it is already queued,
-        // so the render is the only evaluation.
+        // Without a direct source read, the chain first updates lazily to
+        // decide whether the owner must render, then reads its fresh render
+        // closures. A direct source read needs one evaluation per derive.
         expect(evaluations).toEqual(
-          readSource ? { a: 1, b: 1, c: 1 } : { a: 2, b: 1, c: 1 }
+          readSource ? { a: 1, b: 1, c: 1 } : { a: 2, b: 2, c: 2 }
         );
       } finally {
         island.cleanup();

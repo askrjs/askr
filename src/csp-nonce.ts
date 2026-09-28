@@ -1,4 +1,9 @@
-import { defineScope, isScopeReadable, readScope, type Scope } from './runtime';
+import {
+  defineScope,
+  isScopeReadable,
+  readScope,
+  type Scope,
+} from './core/api/scope';
 
 /** Lexical scope carrying the CSP nonce for the current render, if any. */
 export const CspNonceScope: Scope<string | undefined> = defineScope<
@@ -33,7 +38,9 @@ export function validateCspNonce(
     invalid();
   }
   const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
-  const unpadded = normalized.replace(/=+$/, '');
+  let end = normalized.length;
+  while (end > 0 && normalized[end - 1] === '=') end--;
+  const unpadded = normalized.slice(0, end);
   const padded = unpadded.padEnd(Math.ceil(unpadded.length / 4) * 4, '=');
   let decoded = '';
   try {

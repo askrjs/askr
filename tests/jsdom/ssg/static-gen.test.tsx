@@ -18,8 +18,7 @@ import type { RouteConfig } from '../../../src/ssg/types';
 import type { JSXElement } from '../../../src/jsx/types';
 import type { DocumentRenderContext } from '../../../src/common/ssr';
 import { resource } from '../../../src/resources';
-import { defineScope } from '../../../src/runtime/context/context';
-import { state } from '../../../src/runtime/reactivity/state';
+import { defineScope, state } from '../../../src/index';
 import {
   DefaultPortal,
   Portal,
@@ -33,6 +32,7 @@ import {
 } from '../../../src/router/route';
 import { requireAnonymous, requireUser } from '@askrjs/auth';
 import { Link } from '../../../src/components/link';
+import type { DocumentRenderArgs } from '../../../src/ssr';
 
 /** Convert the historical fixture shorthand into the explicit registry API. */
 function createStaticGen(
@@ -390,12 +390,12 @@ describe('Static Site Generation', () => {
       expect(
         fs.readFileSync(path.join(tempDir, 'explicit', 'index.html'), 'utf8')
       ).toBe(
-        '<main><strong>explicit portal</strong><!--askr-portal-anchor:1--></main>'
+        '<main><!--askr-range-start--><strong>explicit portal</strong><!--askr-range-end--><!--askr-portal-anchor:1--></main>'
       );
       expect(
         fs.readFileSync(path.join(tempDir, 'automatic', 'index.html'), 'utf8')
       ).toBe(
-        '<main><!--askr-portal-anchor:0--></main><strong>automatic portal</strong>'
+        '<main><!--askr-portal-anchor:0--></main><!--askr-range-start--><strong>automatic portal</strong><!--askr-range-end-->'
       );
     });
 
@@ -418,7 +418,7 @@ describe('Static Site Generation', () => {
       const ssg = createStaticGen({
         routes: [{ path: '/', component: Home }],
         outputDir: tempDir,
-        document: ({ appHtml, context }) => {
+        document: ({ appHtml, context }: DocumentRenderArgs) => {
           seenContext = context;
           return `<!doctype html><html><body data-path="${String(
             context.pathname
@@ -561,7 +561,7 @@ describe('Static Site Generation', () => {
           },
         ],
         outputDir: tempDir,
-        document: ({ appHtml, context }) => {
+        document: ({ appHtml, context }: DocumentRenderArgs) => {
           contexts.push(context);
           return `<html><body>${appHtml}</body></html>`;
         },
@@ -946,7 +946,7 @@ describe('Static Site Generation', () => {
         component: BlogPost,
         entries: async () =>
           [{ id: 'wrong-key' }] as unknown as Array<Record<string, string>>,
-      } as RouteConfig;
+      } as unknown as RouteConfig;
 
       const ssg = createStaticGen({
         routes: [invalidEntryRoute],
@@ -1285,6 +1285,7 @@ describe('Static Site Generation', () => {
               renderDuration: 0,
               resourceCount: 0,
               status: 'success',
+              reason: 'full',
               written: true,
             },
           ],
@@ -1304,6 +1305,7 @@ describe('Static Site Generation', () => {
               renderDuration: 0,
               resourceCount: 0,
               status: 'removed',
+              reason: 'full',
               written: false,
             },
           ],
@@ -1493,7 +1495,7 @@ describe('Static Site Generation', () => {
 
   describe('concurrent rendering', () => {
     it('should render multiple routes in parallel', async () => {
-      const routes: RouteConfig[] = Array.from({ length: 5 }, (_, i) => ({
+      const routes = Array.from({ length: 5 }, (_, i) => ({
         path: `/page-${i}`,
         component: () => <div>Page {i}</div>,
       }));

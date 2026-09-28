@@ -1,8 +1,6 @@
 import { expectAssignable, expectError, expectType } from 'tsd';
 import {
-  debounce,
   debounceEvent,
-  defer,
   idle,
   once,
   raf,
@@ -15,16 +13,10 @@ import {
   throttle,
   throttleEvent,
   timeout,
-  type DebounceOptions,
   type RetryOptions,
+  type RetryOutcome,
   type ThrottleOptions,
 } from '@askrjs/askr/fx';
-
-const debounceOptions: DebounceOptions = {
-  leading: true,
-  trailing: false,
-};
-expectAssignable<DebounceOptions>(debounceOptions);
 
 const throttleOptions: ThrottleOptions = {
   leading: false,
@@ -38,17 +30,6 @@ const retryOptions: RetryOptions = {
   backoff: (attemptIndex) => attemptIndex + 1,
 };
 expectAssignable<RetryOptions>(retryOptions);
-
-const debounced = debounce(
-  (value: string) => {
-    void value;
-  },
-  10,
-  debounceOptions
-);
-expectType<((value: string) => void) & { cancel(): void }>(debounced);
-debounced('value');
-debounced.cancel();
 
 const throttled = throttle(
   (value: string) => {
@@ -65,19 +46,21 @@ const onceOnly = once((value: string) => value.length);
 expectType<(value: string) => number>(onceOnly);
 expectType<number>(onceOnly('value'));
 
-expectType<void>(defer(() => {}));
-
 const rafCallback = raf((value: string) => {
   void value;
 });
-expectType<(value: string) => void>(rafCallback);
+expectType<((value: string) => void) & { cancel(): void }>(rafCallback);
 rafCallback('value');
+rafCallback.cancel();
 
 expectType<void>(idle(() => {}, { timeout: 10 }));
 expectType<Promise<void>>(timeout(10));
 expectType<Promise<number>>(retry(async () => 1, retryOptions));
 
-const debouncedEvent = debounceEvent(10, () => {}, debounceOptions);
+const debouncedEvent = debounceEvent(10, () => {}, {
+  leading: true,
+  trailing: false,
+});
 expectType<EventListener & { cancel(): void; flush(): void }>(debouncedEvent);
 debouncedEvent(new Event('click'));
 debouncedEvent.cancel();
@@ -102,10 +85,12 @@ expectType<() => void>(cancelIdle);
 cancelIdle();
 
 const scheduledRetry = scheduleRetry(async () => 1, retryOptions);
-expectType<{ cancel(): void }>(scheduledRetry);
+expectType<{
+  cancel(): void;
+  result: Promise<RetryOutcome<number>>;
+}>(scheduledRetry);
 scheduledRetry.cancel();
 
 expectType<EventListener>(scheduleEventHandler(() => {}));
 
-expectError(debounce('bad', 10));
 expectError(throttle('bad', 10));

@@ -6,6 +6,7 @@ import {
   Match,
   MatchProps,
   ForProps,
+  ForGetterProps,
   Case,
 } from '../core.js';
 export {
@@ -13,6 +14,7 @@ export {
   type CaseProps,
   For,
   type ForProps,
+  type ForGetterProps,
   Match,
   type MatchProps,
   Show,

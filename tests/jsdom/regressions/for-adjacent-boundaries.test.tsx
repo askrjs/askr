@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
+import type { JSX } from '../../../src/jsx/jsx-runtime';
 import { createSPA, cleanupApp, hydrateSPA } from '../../../src/boot';
 import { Link } from '../../../src/components/link';
 import { For } from '../../../src/control';

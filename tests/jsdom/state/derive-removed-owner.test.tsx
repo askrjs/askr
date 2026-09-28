@@ -1,14 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
-import {
-  derive,
-  selector,
-  state,
-  Case,
-  For,
-  Match,
-  Show,
-  type Derived,
-} from '../../../src/index';
+import { derive, selector, state, type Derived } from '../../../src/index';
+import { Case, For, Match, Show } from '../../../src/control';
 import {
   DefaultPortal,
   Portal,

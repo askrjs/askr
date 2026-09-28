@@ -61,7 +61,7 @@ describe('query collection concurrency', () => {
     const context = createQueryPrefetchContext({ runtime });
     const query = defineQuery({
       key: ({ id }: { id: number }) => `payload:${id}`,
-      fetch: async ({ id }: { id: number; signal: AbortSignal }) => ({ id }),
+      fetch: async ({ id }: { id: number }) => ({ id }),
     });
 
     for (let id = 0; id < 200; id += 1) {
@@ -75,12 +75,10 @@ describe('query collection concurrency', () => {
     const runtime = {
       queryCache: new Map<string, unknown>(),
       queryData: new Map<string, unknown>(),
-      queryTestOverrides: new Map<string, unknown>(),
-      mutationTestOverrides: new Map<string, unknown>(),
     };
     const query = defineQuery({
       key: ({ id }: { id: number }) => `plain:${id}`,
-      fetch: async ({ id }: { id: number; signal: AbortSignal }) => ({ id }),
+      fetch: async ({ id }: { id: number }) => ({ id }),
     });
     const registry = defineServerQueries(
       serveQuery(query, ({ input }) => ({ id: input.id }))

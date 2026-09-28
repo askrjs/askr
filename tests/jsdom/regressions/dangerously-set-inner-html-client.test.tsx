@@ -8,7 +8,6 @@ import {
 } from 'vite-plus/test';
 import { logger } from '../../../src/common/logger';
 import { state } from '../../../src/index';
-import { getKeyMapForElement } from '../../../src/renderer/reconciliation/keyed';
 import { resource, task } from '../../../src/resources';
 import { renderToStringSync } from '../../../src/ssr';
 import { createIsland } from '../../../test-utils/render/create-island';
@@ -196,7 +195,10 @@ describe('dangerouslySetInnerHTML on the client renderer', () => {
     function App() {
       payload = state<unknown>(undefined);
       return (
-        <section data-host={'true'} dangerouslySetInnerHTML={payload()}>
+        <section
+          data-host={'true'}
+          dangerouslySetInnerHTML={payload() as { __html: string }}
+        >
           <ManagedChild />
         </section>
       );
@@ -286,14 +288,12 @@ describe('dangerouslySetInnerHTML on the client renderer', () => {
       container.querySelectorAll('[data-managed]')
     );
     expect(firstManaged).toHaveLength(2);
-    expect(getKeyMapForElement(host)?.size).toBe(2);
 
     useDangerousHTML.set(true);
     flushScheduler();
     expect(container.querySelector('[data-host]')).toBe(host);
     expect(container.querySelectorAll('[data-raw]')).toHaveLength(1);
     expect(container.querySelectorAll('[data-managed]')).toHaveLength(0);
-    expect(getKeyMapForElement(host)).toBeUndefined();
     expect(cleanups).toBe(2);
     expect(refValues.filter((value) => value === null)).toHaveLength(2);
 
@@ -313,8 +313,20 @@ describe('dangerouslySetInnerHTML on the client renderer', () => {
     flushScheduler();
     expect(container.querySelectorAll('[data-raw]')).toHaveLength(1);
     expect(container.querySelectorAll('[data-managed]')).toHaveLength(0);
-    expect(getKeyMapForElement(host)).toBeUndefined();
     expect(cleanups).toBe(4);
     expect(refValues.filter((value) => value === null)).toHaveLength(4);
   });
+
+  it.each([null, undefined])(
+    'should render empty content for __html %s on the server and the client',
+    (html) => {
+      function App() {
+        return <p dangerouslySetInnerHTML={{ __html: html }} />;
+      }
+      expect(renderToStringSync(App)).toBe('<p></p>');
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      expect(container.querySelector('p')?.innerHTML).toBe('');
+    }
+  );
 });

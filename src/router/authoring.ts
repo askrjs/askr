@@ -12,8 +12,8 @@ import type {
 } from '../common/router';
 import type { AuthDecision, AuthRequirement } from '@askrjs/auth';
 import type { ObjectSchema } from '@askrjs/schema';
-import { getCurrentComponentInstance } from '../runtime';
-import { getExecutionModel } from '../runtime';
+import { currentComponent as getCurrentComponentInstance } from '../core/api/hooks';
+import { getExecutionModel } from '../common/execution-model';
 import {
   computeRank,
   normalizeRouteSegmentName,
@@ -188,7 +188,11 @@ function normalizeAbsoluteRoutePath(path: string): string {
 
 function joinRoutePaths(prefix: string, path: string): string {
   const normalizedPrefix = normalizeAbsoluteRoutePath(prefix || '/');
-  const normalizedPath = path.replace(/^\/+|\/+$/g, '');
+  let start = 0;
+  let end = path.length;
+  while (start < end && path[start] === '/') start++;
+  while (end > start && path[end - 1] === '/') end--;
+  const normalizedPath = path.slice(start, end);
 
   if (!normalizedPath) {
     return normalizedPrefix;
@@ -614,7 +618,7 @@ export function route(
   }
 
   const currentInst = getCurrentComponentInstance();
-  if (currentInst && currentInst.ssr) {
+  if (currentInst && currentInst.server) {
     throw new Error(
       'route() cannot be called during SSR rendering. Register routes at module load time instead.'
     );

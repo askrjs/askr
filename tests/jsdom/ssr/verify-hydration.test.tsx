@@ -86,6 +86,45 @@ describe('verifyHydrationSyncForUrl', () => {
     }
   });
 
+  it('should compare style attributes by their parsed declarations', () => {
+    const { container, cleanup } = createTestContainer();
+
+    try {
+      const Component = () => (
+        <p style={{ color: 'red', marginTop: 0 }}>styled</p>
+      );
+      const registry = routeRegistryFromTable([
+        { path: '/', handler: Component },
+      ]);
+      // The CSSOM serialization of the same declarations the SSR renderer
+      // writes as `color:red;margin-top:0;`.
+      container.innerHTML =
+        '<p style="color: red; margin-top: 0px;">styled</p>';
+
+      expect(
+        verifyHydrationSyncForUrl({
+          root: container,
+          url: '/',
+          registry,
+          resolved: { handler: Component, params: {} },
+        })
+      ).toBe(true);
+
+      container.innerHTML =
+        '<p style="color: blue; margin-top: 0px;">styled</p>';
+      expect(
+        verifyHydrationSyncForUrl({
+          root: container,
+          url: '/',
+          registry,
+          resolved: { handler: Component, params: {} },
+        })
+      ).toBe(false);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should ignore the request-local SSR style carrier when comparing app markup', () => {
     const { container, cleanup } = createTestContainer();
 

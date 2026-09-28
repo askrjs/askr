@@ -11,7 +11,7 @@ const browser = (process.env.ASKR_BROWSER ?? 'chromium') as
   | 'webkit';
 
 export default defineConfig({
-  define: createNodeEnvDefine('development', { bench: true }),
+  define: createNodeEnvDefine('development'),
   oxc: {
     jsx: {
       runtime: 'automatic',

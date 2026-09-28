@@ -16,8 +16,8 @@ describe('state destructuring (STATE)', () => {
   afterEach(() => cleanup());
 
   it('should support destructuring into [getter, setter]', () => {
-    let getter: ReturnType<typeof state<number>> | null = null;
-    let setter: ((v: number | ((p: number) => number)) => void) | null = null;
+    let getter: ReturnType<typeof state<number>>[0] | null = null;
+    let setter: ReturnType<typeof state<number>>[1] | null = null;
 
     const Component = () => {
       [getter, setter] = state(0);
@@ -37,8 +37,8 @@ describe('state destructuring (STATE)', () => {
   });
 
   it('should allow destructuring directly from state() call (tuple)', () => {
-    let g: ReturnType<typeof state<number>> | null = null;
-    let s: ((v: number | ((p: number) => number)) => void) | null = null;
+    let g: ReturnType<typeof state<number>>[0] | null = null;
+    let s: ReturnType<typeof state<number>>[1] | null = null;
 
     const Component = () => {
       [g, s] = state(5);

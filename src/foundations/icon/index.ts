@@ -1,13 +1,4 @@
-export {
-  IconBase,
-  getIconContractProps,
-  isIconSizeToken,
-  joinIconStyle,
-  normalizeIconSizeValue,
-  resolveIconSizeVariable,
-  resolveIconStrokeWidthVariable,
-  serializeIconStyle,
-} from './icon';
+export { IconBase } from './icon';
 export type {
   IconOwnProps,
   IconProps,

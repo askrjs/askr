@@ -69,7 +69,6 @@ describe('verified platform recipe documentation', () => {
 
     expect(recipes).toContain('askrjs/askr-themes/blob/main/docs/recipes.md');
     expect(recipes).toContain('askrjs/askr-ui/blob/main/docs/components.md');
-    expect(read('docs/index.md')).toContain('./guides/platform-recipes.md');
     expect(read('docs/README.md')).toContain('./guides/platform-recipes.md');
   });
 

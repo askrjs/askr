@@ -6,26 +6,10 @@ import {
 } from '../../../src/foundations/structures/portal';
 import { state } from '../../../src/index';
 import {
-  beginCommitTransaction,
-  discardTransaction,
-  commitTransaction,
-} from '../../../src/runtime/component/lifecycle';
-import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
-
-function writePortalInNestedBatch(children: string): void {
-  const batch = beginCommitTransaction();
-  try {
-    Portal({ children });
-    commitTransaction(batch);
-  } catch (error) {
-    discardTransaction(batch);
-    throw error;
-  }
-}
 
 describe('DefaultPortal', () => {
   let container: HTMLElement;
@@ -89,24 +73,31 @@ describe('DefaultPortal', () => {
     flushScheduler();
 
     expect(container.textContent).toContain('Toast');
-    const initialPortalHost = Array.from(container.children).find(
-      (element) => element.textContent === 'Toast'
+    // Text portal content sits among the root's children with no wrapper.
+    const initialPortalText = Array.from(container.childNodes).find(
+      (node) =>
+        node.nodeType === Node.TEXT_NODE && (node as Text).data === 'Toast'
     );
-    expect(initialPortalHost).toBeDefined();
+    expect(initialPortalText).toBeDefined();
+    expect(Array.from(container.children).map((el) => el.tagName)).toEqual([
+      'BUTTON',
+    ]);
 
     (container.querySelector('button') as HTMLButtonElement).click();
     flushScheduler();
 
     expect(container.textContent).not.toContain('Toast');
     expect(container.textContent).toContain('Updated');
-    expect(initialPortalHost?.isConnected).toBe(false);
     expect(container.textContent?.match(/Updated/g)).toHaveLength(1);
+    expect(Array.from(container.children).map((el) => el.tagName)).toEqual([
+      'BUTTON',
+    ]);
   });
 
-  it('should preserve a replacement portal write adopted from a nested batch', () => {
+  it('should preserve the final portal write in one render', () => {
     function NestedPortalWriter(props: { children: string }) {
-      writePortalInNestedBatch(`${props.children} pending`);
-      writePortalInNestedBatch(props.children);
+      Portal({ children: `${props.children} pending` });
+      Portal({ children: props.children });
       return null;
     }
 
@@ -133,10 +124,23 @@ describe('DefaultPortal', () => {
     expect(container.textContent?.match(/Updated/g)).toHaveLength(1);
   });
 
-  it('should roll back sequential nested portal writes with their parent batch', () => {
+  it('should discard portal writes from a failed render without dropping other writers', () => {
+    let mode!: ReturnType<typeof state<'idle' | 'fail' | 'recover'>>;
     createIsland({
       root: container,
-      component: () => <main>{'content'}</main>,
+      component: () => {
+        mode = state<'idle' | 'fail' | 'recover'>('idle');
+        if (mode() === 'fail') {
+          Portal({ children: 'Broken pending' });
+          Portal({ children: 'Broken' });
+          throw new Error('render failed');
+        }
+        if (mode() === 'recover') {
+          Portal({ children: 'Recovered pending' });
+          Portal({ children: 'Recovered' });
+        }
+        return <main>{'content'}</main>;
+      },
     });
     flushScheduler();
 
@@ -144,23 +148,17 @@ describe('DefaultPortal', () => {
     flushScheduler();
     expect(container.textContent?.match(/Stable/g)).toHaveLength(1);
 
-    const rolledBackParent = beginCommitTransaction();
-    writePortalInNestedBatch('Broken pending');
-    writePortalInNestedBatch('Broken');
-    discardTransaction(rolledBackParent);
-    flushScheduler();
+    mode.set('fail');
+    expect(() => flushScheduler()).toThrow('render failed');
 
     expect(container.textContent?.match(/Stable/g)).toHaveLength(1);
     expect(container.textContent).not.toContain('Broken');
     expect(container.textContent).not.toContain('pending');
 
-    const committedParent = beginCommitTransaction();
-    writePortalInNestedBatch('Recovered pending');
-    writePortalInNestedBatch('Recovered');
-    commitTransaction(committedParent);
+    mode.set('recover');
     flushScheduler();
 
-    expect(container.textContent).not.toContain('Stable');
+    expect(container.textContent?.match(/Stable/g)).toHaveLength(1);
     expect(container.textContent).not.toContain('pending');
     expect(container.textContent?.match(/Recovered/g)).toHaveLength(1);
   });

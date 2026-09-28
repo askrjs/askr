@@ -2,37 +2,42 @@ import { bench, describe, expect } from 'vite-plus/test';
 import { createHydrationFixture, tier2BenchOptions } from '../shared/_shared';
 import { hydrateSPA } from '../../src/boot';
 import { navigate } from '../../src/router/navigate';
+import { createRouteRegistry, group, route } from '../../src/router';
 import { flushScheduler } from '../../test-utils/render/test-renderer';
 
 function createHydrationNavigationHarness() {
+  const Layout = ({ children }: { children?: unknown }) => (
+    <section class="shell">
+      <header>Bench Shell</header>
+      {children as never}
+    </section>
+  );
   const routes = [
     {
       path: '/dashboard',
-      handler: () => (
-        <section class="shell">
-          <header>Bench Shell</header>
-          <main class="page">Dashboard</main>
-        </section>
-      ),
+      handler: () => <main class="page">Dashboard</main>,
     },
     {
       path: '/reports/{id}',
       handler: (params: Record<string, string>) => (
-        <section class="shell">
-          <header>Bench Shell</header>
-          <main class="page">Report {params.id}</main>
-        </section>
+        <main class="page">Report {params.id}</main>
       ),
     },
   ];
 
-  return { routes };
+  const registry = createRouteRegistry(() => {
+    group({ layout: Layout }, () => {
+      for (const entry of routes) route(entry.path, entry.handler);
+    });
+  });
+  return { routes, registry };
 }
 
 await (async () => {
   const harness = createHydrationNavigationHarness();
   const fixture = createHydrationFixture({
     routes: harness.routes,
+    registry: harness.registry,
     url: '/dashboard',
   });
 
@@ -43,7 +48,7 @@ await (async () => {
     flushScheduler();
 
     const shell = fixture.container.querySelector('.shell');
-    navigate('/reports/42');
+    await navigate('/reports/42');
     flushScheduler();
 
     expect(fixture.container.querySelector('.shell')).toBe(shell);
@@ -69,7 +74,7 @@ describe('tier2 subsystem hydration to navigation', () => {
         registry: fixture!.registry,
       });
       flushScheduler();
-      navigate('/reports/42');
+      await navigate('/reports/42');
       flushScheduler();
     },
     {
@@ -78,6 +83,7 @@ describe('tier2 subsystem hydration to navigation', () => {
         harness = createHydrationNavigationHarness();
         fixture = createHydrationFixture({
           routes: harness.routes,
+          registry: harness.registry,
           url: '/dashboard',
         });
       },

@@ -1,15 +1,22 @@
 import { afterEach, describe, expect, it } from 'vite-plus/test';
-import { state } from '@askrjs/askr';
-import { createIsland } from '@askrjs/askr/boot';
+import { ErrorBoundary } from '../../../src/components';
+import { createIsland } from '../../../src/boot';
+import { createTestContainer } from '../../../test-utils/render/test-renderer';
 import {
-  createTestContainer,
-  flushScheduler,
-} from '../../../test-utils/render/test-renderer';
+  runDeepNestingClientLifecycle,
+  supportedNestingDepth,
+  type DeepNestingShape,
+} from '../../../test-utils/fixtures/deep-nesting';
 
-const nestingDepth = 10_000;
-// Both cases take well under a second; the bound leaves headroom for slow CI
+// Every case takes well under a second; the bound leaves headroom for slow CI
 // hosts without letting a performance regression hide behind a long timeout.
 const stressTestTimeout = 15_000;
+
+const clientCases: Array<[DeepNestingShape, number]> = [
+  ['wrapper-chain', supportedNestingDepth.wrapperChain],
+  ['element-interleaved', supportedNestingDepth.elementNesting],
+  ['element-only', supportedNestingDepth.elementNesting],
+];
 
 describe('deep component nesting', () => {
   const fixtures: Array<ReturnType<typeof createTestContainer>> = [];
@@ -20,60 +27,42 @@ describe('deep component nesting', () => {
     }
   });
 
-  it(
-    'should mount a component chain past the former stack-overflow depth',
-    () => {
+  it.each(clientCases)(
+    'should mount, reconcile, and tear down %s nesting %i levels deep',
+    (shape, depth) => {
       const fixture = createTestContainer();
       fixtures.push(fixture);
 
-      function Nested({ depth }: { depth: number }) {
-        return depth === 0 ? (
-          <button data-depth-leaf="true">leaf</button>
-        ) : (
-          <Nested depth={depth - 1} />
-        );
-      }
-
-      expect(() =>
-        createIsland({
-          root: fixture.container,
-          component: () => <Nested depth={nestingDepth} />,
-        })
-      ).not.toThrow();
       expect(
-        fixture.container.querySelector('[data-depth-leaf="true"]')?.textContent
-      ).toBe('leaf');
+        runDeepNestingClientLifecycle(fixture.container, shape, depth)
+      ).toEqual({
+        mounted: 'before:0',
+        leafUpdated: 'before:5',
+        rootUpdated: 'after:5',
+        leafAbortedOnTeardown: true,
+      });
     },
     stressTestTimeout
   );
 
-  it(
-    'should reconcile a retained component chain without recursive rendering',
-    () => {
-      const fixture = createTestContainer();
-      fixtures.push(fixture);
-      let labelState!: ReturnType<typeof state<string>>;
+  it('should deliver a deep chain failure to its owning boundary', () => {
+    const fixture = createTestContainer();
+    fixtures.push(fixture);
+    const Failure = () => {
+      throw new Error('deep failure');
+    };
+    const Chain = ({ depth }: { depth: number }): unknown =>
+      depth === 0 ? <Failure /> : <Chain depth={depth - 1} />;
 
-      function Nested({ depth, label }: { depth: number; label: string }) {
-        return depth === 0 ? (
-          <button data-depth-leaf="true">{label}</button>
-        ) : (
-          <Nested depth={depth - 1} label={label} />
-        );
-      }
+    createIsland({
+      root: fixture.container,
+      component: () => (
+        <ErrorBoundary fallback={<p>recovered</p>}>
+          <Chain depth={1_000} />
+        </ErrorBoundary>
+      ),
+    });
 
-      function App() {
-        labelState = state('before');
-        return <Nested depth={1_000} label={labelState()} />;
-      }
-
-      createIsland({ root: fixture.container, component: App });
-      labelState.set('after');
-      expect(() => flushScheduler()).not.toThrow();
-      expect(
-        fixture.container.querySelector('[data-depth-leaf="true"]')?.textContent
-      ).toBe('after');
-    },
-    stressTestTimeout
-  );
+    expect(fixture.container.textContent).toBe('recovered');
+  });
 });

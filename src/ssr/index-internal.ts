@@ -2,7 +2,6 @@ import type { JSXElement } from '../common/jsx';
 import {
   renderRouteToStream,
   renderRouteToString,
-  resolveRequest,
   type RouteRenderHost,
   type RouteRenderOptions,
   type RouteStreamOptions,
@@ -22,7 +21,6 @@ export type {
 } from '../common/ssr';
 export type { SSRRoute } from './route-render';
 export type { VNode, SSRComponent } from './types';
-export { renderResolvedToStringSync } from './render-resolved';
 export {
   renderRouteRequest,
   renderRouteRequestToString,
@@ -31,7 +29,7 @@ export type {
   RenderRouteRequestOptions,
   RenderRouteRequestResult,
 } from './route-request-render';
-export { renderToStringSync, resolveRequest };
+export { renderToStringSync };
 
 const routeRenderHost: RouteRenderHost = {
   renderAppToSink: renderSSRRouteAppToSink,

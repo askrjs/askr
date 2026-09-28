@@ -6,15 +6,6 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 
-type HostInstance = {
-  fn?: { name?: string };
-};
-
-type HostElement = SVGSVGElement & {
-  __ASKR_INSTANCE?: HostInstance;
-  __ASKR_INSTANCES?: HostInstance[];
-};
-
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
 describe('component icon swaps', () => {
@@ -30,7 +21,7 @@ describe('component icon swaps', () => {
     cleanup();
   });
 
-  it('should swap same-host SVG component children without dropping icon output or retaining stale component owners', () => {
+  it('should swap SVG component children without dropping icon output', () => {
     let paused!: ReturnType<typeof state<boolean>>;
 
     function PauseIcon() {
@@ -64,7 +55,7 @@ describe('component icon swaps', () => {
     flushScheduler();
 
     const button = container.querySelector('button');
-    const initialSvg = container.querySelector('svg') as HostElement | null;
+    const initialSvg = container.querySelector('svg');
 
     expect(button?.getAttribute('aria-label')).toBe('Pause');
     expect(initialSvg?.getAttribute('data-icon')).toBe('pause');
@@ -72,17 +63,13 @@ describe('component icon swaps', () => {
     expect(
       Array.from(initialSvg?.children ?? []).map((child) => child.namespaceURI)
     ).toEqual([SVG_NAMESPACE, SVG_NAMESPACE]);
-    expect(
-      initialSvg?.__ASKR_INSTANCES?.map((instance) => instance.fn?.name)
-    ).toEqual(['PauseIcon']);
 
     for (let index = 0; index < 6; index += 1) {
       const nextPaused = index % 2 === 0;
       paused.set(nextPaused);
       flushScheduler();
 
-      const svg = container.querySelector('svg') as HostElement | null;
-      expect(svg).toBe(initialSvg);
+      const svg = container.querySelector('svg');
       expect(container.querySelectorAll('svg')).toHaveLength(1);
       expect(svg?.querySelectorAll('[data-shape]')).toHaveLength(
         nextPaused ? 1 : 2
@@ -99,9 +86,6 @@ describe('component icon swaps', () => {
       expect(svg?.querySelector('[data-shape="pause-left"]') !== null).toBe(
         !nextPaused
       );
-      expect(
-        svg?.__ASKR_INSTANCES?.map((instance) => instance.fn?.name)
-      ).toEqual([nextPaused ? 'PlayIcon' : 'PauseIcon']);
     }
   });
 });

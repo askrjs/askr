@@ -1,4 +1,3 @@
-import { createComponentInstance } from '../../../src/runtime';
 import { resetRouteState, currentRouteRegistry } from '../../router-test-utils';
 import { describe, it, expect, beforeEach } from 'vite-plus/test';
 import {
@@ -38,11 +37,9 @@ describe('route registration constraints', () => {
   it('should forbid registrations after app startup', () => {
     expect(() => route('/ok', () => null)).not.toThrow();
 
-    registerAppInstance(
-      createComponentInstance('registration', () => null, {}, null),
-      '/',
-      { registry: currentRouteRegistry() }
-    );
+    registerAppInstance({ appRuntime: undefined }, '/', {
+      registry: currentRouteRegistry(),
+    });
 
     lockRouteRegistration();
 

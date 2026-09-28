@@ -7,15 +7,10 @@ import {
   vi,
 } from 'vite-plus/test';
 import { cleanupApp, createSPA } from '../../../src/boot';
-import { task } from '../../../src/runtime/operations';
-import { getSignal } from '../../../src/resources';
+import { task } from '../../../src/resources';
+import { getSignal } from '../../../src';
 import { navigate } from '../../../src/router/navigate';
 import { routeRegistryFromTable } from '../../router-test-utils';
-import {
-  beginCommitTransaction,
-  commitTransaction,
-  discardTransaction,
-} from '../../../src/runtime/transactions/access';
 import {
   createTestContainer,
   flushScheduler,
@@ -63,7 +58,13 @@ describe('navigation during lifecycle settlement', () => {
     vi.spyOn(window.history, 'pushState').mockImplementationOnce(() => {
       throw failure;
     });
+    // The failure is thrown to the navigation caller only, not also reported.
+    const reportError = vi.fn();
+    vi.stubGlobal('reportError', reportError);
     expect(() => navigate('/second')).toThrow(failure);
+    await Promise.resolve();
+    expect(reportError).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
     expect(firstSignal.aborted).toBe(true);
     expect(secondSignal.aborted).toBe(false);
     expect(view.container.textContent).toBe('second');
@@ -73,62 +74,6 @@ describe('navigation during lifecycle settlement', () => {
     expect(window.location.pathname).toBe('/second');
     expect(secondSignal).toBe(retained);
   });
-
-  it.each(['commit', 'discard'] as const)(
-    'should defer nested navigation publication until the enclosing transaction can %s',
-    async (outcome) => {
-      const calls: string[] = [];
-      let firstSignal!: AbortSignal;
-      await createSPA({
-        root: view.container,
-        registry: routeRegistryFromTable([
-          {
-            path: '/first',
-            handler: () => {
-              firstSignal = getSignal();
-              task(() => () => {
-                calls.push('first cleanup');
-              });
-              return <p>{'first'}</p>;
-            },
-          },
-          {
-            path: '/second',
-            handler: () => {
-              task(() => {
-                calls.push(`second task:${window.location.pathname}`);
-              });
-              return <p>{'second'}</p>;
-            },
-          },
-        ]),
-      });
-      await Promise.resolve();
-      await Promise.resolve();
-      const transaction = beginCommitTransaction();
-      try {
-        navigate('/second');
-        flushScheduler();
-        expect(calls).toEqual([]);
-        expect(firstSignal.aborted).toBe(false);
-        expect(window.location.pathname).toBe('/first');
-        if (outcome === 'commit') commitTransaction(transaction);
-        else discardTransaction(transaction);
-      } finally {
-        discardTransaction(transaction);
-      }
-      expect(view.container.textContent).toBe(
-        outcome === 'commit' ? 'second' : 'first'
-      );
-      expect(window.location.pathname).toBe(
-        outcome === 'commit' ? '/second' : '/first'
-      );
-      expect(firstSignal.aborted).toBe(outcome === 'commit');
-      expect(calls).toEqual(
-        outcome === 'commit' ? ['first cleanup', 'second task:/first'] : []
-      );
-    }
-  );
 
   it.each(['push', 'popstate'] as const)(
     'should preserve a newer navigation and retire every departed lifetime after %s settlement',

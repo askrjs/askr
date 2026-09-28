@@ -1,9 +1,9 @@
-﻿# Installation
+# Installation
 
 ## Prerequisites
 
-- Node.js 24.15+
-- npm 10+
+- Node.js 24+
+- npm, or another package manager that installs from the npm registry
 
 ## Install package
 

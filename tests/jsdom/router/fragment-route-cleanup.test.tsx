@@ -107,7 +107,9 @@ function GridLike({ children }: { children?: unknown }) {
       <For
         each={() => toChildArray(children)}
         by={(child, index) =>
-          isJsxElement(child) && child.key != null ? child.key : index
+          isJsxElement(child) && child.key != null
+            ? (child.key as string | number)
+            : index
         }
       >
         {(child) => child as never}

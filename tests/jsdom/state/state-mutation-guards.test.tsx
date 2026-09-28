@@ -82,20 +82,10 @@ describe('state mutation guards (STATE)', () => {
     expect(renders).toBe(2);
     expect(container.textContent).toBe('first:0');
 
-    const secondReaders = (
-      second as unknown as { _readers?: Map<unknown, unknown> }
-    )._readers;
-    expect(secondReaders?.size ?? 0).toBe(0);
-
     second!.set('second:1');
     expect(() => flushScheduler()).not.toThrow();
     expect(renders).toBe(2);
     expect(container.textContent).toBe('first:0');
-
-    const firstReaders = (
-      first as unknown as { _readers?: Map<unknown, unknown> }
-    )._readers;
-    expect(firstReaders?.size ?? 0).toBe(1);
 
     first!.set('first:1');
     expect(() => flushScheduler()).toThrow(
@@ -121,5 +111,35 @@ describe('state mutation guards (STATE)', () => {
     flushScheduler();
 
     expect(container.textContent).toBe('2');
+  });
+
+  it('should rerun a binding when its read expression updates that state', () => {
+    let count!: ReturnType<typeof state<number>>;
+    let advance = false;
+
+    const Component = () => {
+      count = state(0);
+      return (
+        <output
+          title={() => {
+            const value = count();
+            if (advance && value < 3) count.set(value + 1);
+            return String(value);
+          }}
+        >
+          ready
+        </output>
+      );
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+
+    advance = true;
+    count.set(1);
+    flushScheduler();
+
+    expect(count()).toBe(3);
+    expect(container.querySelector('output')?.getAttribute('title')).toBe('3');
   });
 });

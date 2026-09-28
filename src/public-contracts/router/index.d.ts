@@ -222,6 +222,11 @@ declare function resolveRouteRequest(
   target: string,
   options: RouteRequestOptions
 ): RouteRequestResult | Promise<RouteRequestResult>;
+/** Match a path against a route registry without resolving route policies or loading data. */
+declare function matchRoute(
+  pathname: string,
+  options: { registry: RouteRegistry }
+): RouteMatch | null;
 /**
  * Run `definition` to declare routes (via `route`/`page`/`group`/`fallback`)
  * and build a {@link RouteRegistry} to pass to `createSPA`/`hydrateSPA`.
@@ -268,7 +273,7 @@ declare function lazyRouteData<TModule, TData = TModule>(
 declare function Outlet(): JSXElement;
 /** Which environment a route's data loader ran (or failed) in. */
 type RouteDataLoadPhase = 'client' | 'server' | 'ssg';
-/** Thrown when a route's `loader` rejects; wraps the original `cause`. */
+/** Rejection of a `lazyRouteData()` loader whose import or `select` failed; wraps the original `cause`. */
 declare class RouteDataLoadError extends Error {
   readonly route: string;
   readonly phase: RouteDataLoadPhase;
@@ -517,6 +522,7 @@ export {
   isDeferred,
   lazy,
   lazyRouteData,
+  matchRoute,
   navigate,
   notFound,
   onRouteChange,

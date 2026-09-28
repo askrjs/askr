@@ -21,7 +21,7 @@ import {
 import { requireAnonymous, requireUser } from '@askrjs/auth';
 import { createSPA } from '@askrjs/askr/boot';
 import { state, type State } from '../../../src/index';
-import { task, watch } from '../../../src/runtime/operations';
+import { task, watch } from '../../../src/resources';
 import { navigate } from '../../../src/router/navigate';
 import {
   createRouteRegistry,
@@ -40,6 +40,12 @@ async function settleNavigation(): Promise<void> {
     await Promise.resolve();
     flushScheduler();
   }
+}
+
+function cleanupMessages(value: unknown): string[] {
+  if (value instanceof AggregateError)
+    return value.errors.flatMap((nested) => cleanupMessages(nested));
+  return value instanceof Error ? [value.message] : [];
 }
 
 describe('history integration (ROUTER)', () => {
@@ -584,9 +590,8 @@ describe('history integration (ROUTER)', () => {
     });
 
     it('should report popstate cleanup failures after committing the destination', async () => {
-      const consoleError = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
+      const reportError = vi.fn();
+      vi.stubGlobal('reportError', reportError);
 
       try {
         route('/home', () => {
@@ -617,16 +622,15 @@ describe('history integration (ROUTER)', () => {
 
         await settleNavigation();
 
-        expect(consoleError).toHaveBeenCalledWith(
-          '[Askr] route cleanup failed:',
-          expect.objectContaining({
-            message: expect.stringMatching(/Cleanup failed|cleanup failed/i),
-          })
-        );
+        await Promise.resolve();
+        expect(reportError).toHaveBeenCalledTimes(1);
+        expect(cleanupMessages(reportError.mock.calls[0]![0])).toEqual([
+          'cleanup failed',
+        ]);
         expect(window.location.pathname).toBe('/slow');
         expect(container.textContent).toContain('slow');
       } finally {
-        consoleError.mockRestore();
+        vi.unstubAllGlobals();
       }
     });
 

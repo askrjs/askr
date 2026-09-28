@@ -26,11 +26,8 @@ describe('production artifact purity', () => {
   it('should retain lifetime state-read tracking for consumer development diagnostics', () => {
     const source = readProductionJavaScript();
 
-    expect(source).toContain('source._unusedStateDiagnosticEligible === true');
-    expect(source).toContain('source._hasEverBeenRead = true');
-    expect(source).not.toMatch(
-      /function recordReadableRead\(source\) \{\s*source\._hasEverBeenRead = true/
-    );
+    expect(source).toContain('read._everRead = true');
+    expect(source).toContain('Unused state variable detected');
   });
 
   it('should exclude live benchmark and development-only state from dist', () => {
@@ -51,6 +48,7 @@ describe('production artifact purity', () => {
     expect(source).not.toContain('__LAST_FASTPATH_COMMIT_COUNT');
     expect(source).not.toContain('__ENQUEUE_LOGS');
     expect(source).not.toContain('ASKR_FASTPATH_DEBUG');
+    expect(source).not.toContain('ASKR_FORCE_BULK_POSREUSE');
     expect(source).not.toContain('recordBenchCounter');
     expect(source).not.toContain('recordBenchTiming');
     expect(source).not.toContain('withBenchMetricScope');
@@ -66,7 +64,7 @@ describe('production artifact purity', () => {
     expect(source).not.toContain('queryOwners');
     expect(source).not.toContain('queryCells');
     expect(source).not.toContain('queuedSchedulerWork');
-    expect(source).not.toContain('Duplicate key');
+    // The core keyed reconciler rejects duplicate keys in every build.
     expect(source).not.toContain('DEVELOPMENT_BUILD_ENABLED = true');
   });
 
@@ -88,7 +86,7 @@ describe('production artifact purity', () => {
 
     for (const name of optionalPeers) {
       expect(manifest.dependencies?.[name], name).toBeUndefined();
-      expect(manifest.peerDependencies?.[name], name).toBe('>=0.3.0 <0.4.0');
+      expect(manifest.peerDependencies?.[name], name).toBe('>=0.4.0 <0.5.0');
       expect(manifest.peerDependenciesMeta?.[name], name).toEqual({
         optional: true,
       });

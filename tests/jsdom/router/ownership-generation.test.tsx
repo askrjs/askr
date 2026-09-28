@@ -1,66 +1,17 @@
-import {
-  resetRouteState,
-  currentRouteRegistry,
-  routeRegistryFromTable,
-} from '../../router-test-utils';
+import { resetRouteState, currentRouteRegistry } from '../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { createSPA } from '@askrjs/askr/boot';
 import { createDataRuntime, createQuery } from '../../../src/data';
 import { derive, selector, state, type State } from '../../../src';
 import { For } from '../../../src/control';
-import { Presence } from '../../../src/foundations/structures';
-import { task } from '../../../src/runtime/operations';
-import { definePortal, Portal } from '../../../src/runtime/portal/portal';
-import {
-  defineScope,
-  getCurrentComponentInstance,
-  readScope,
-  type ComponentInstance,
-} from '../../../src/runtime';
-import { currentRoute } from '../../../src/router/activity';
+import { task } from '../../../src/resources';
+import { Portal } from '../../../src/foundations';
 import { navigate } from '../../../src/router/navigate';
-import { createRouteRegistry, group, route } from '../../../src/router/route';
+import { route } from '../../../src/router/route';
 import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
-
-type InstanceHostNode = Node & {
-  __ASKR_INSTANCE?: ComponentInstance;
-  __ASKR_INSTANCES?: ComponentInstance[];
-};
-
-function collectMountedHostMismatches(root: Node): ComponentInstance[] {
-  const mismatches = new Set<ComponentInstance>();
-  const walker = document.createTreeWalker(root, 0xffffffff);
-  let node: Node | null = walker.currentNode;
-  while (node) {
-    const host = node as InstanceHostNode;
-    const instances = new Set(host.__ASKR_INSTANCES ?? []);
-    if (host.__ASKR_INSTANCE) instances.add(host.__ASKR_INSTANCE);
-    for (const instance of instances) {
-      const ownHost = instance.target ?? instance._placeholder;
-      if (instance.owner.mounted && ownHost?.isConnected !== true) {
-        mismatches.add(instance);
-      }
-    }
-    node = walker.nextNode();
-  }
-  return Array.from(mismatches);
-}
-
-function collectHostInstances(root: Node): Set<ComponentInstance> {
-  const instances = new Set<ComponentInstance>();
-  const walker = document.createTreeWalker(root, 0xffffffff);
-  let node: Node | null = walker.currentNode;
-  while (node) {
-    const host = node as InstanceHostNode;
-    for (const instance of host.__ASKR_INSTANCES ?? []) instances.add(instance);
-    if (host.__ASKR_INSTANCE) instances.add(host.__ASKR_INSTANCE);
-    node = walker.nextNode();
-  }
-  return instances;
-}
 
 describe('route ownership generations', () => {
   let container: HTMLElement;
@@ -122,401 +73,36 @@ describe('route ownership generations', () => {
     expect(cleanups).toBe(8);
   });
 
-  it('should dispose departed fragment, portal, and comment host instances', async () => {
-    const routeInstances = new Map<string, Set<ComponentInstance>>();
-    const cleanupCounts = new Map<ComponentInstance, number>();
+  it('should give a route fresh state and lifecycle when only its params change', async () => {
+    const counters = new Map<string, State<number>>();
+    const events: string[] = [];
 
-    const recordInstance = (routeName: string): void => {
-      const instance = getCurrentComponentInstance();
-      expect(instance).not.toBeNull();
-      const instances = routeInstances.get(routeName) ?? new Set();
-      instances.add(instance!);
-      routeInstances.set(routeName, instances);
-      task(() => () => {
-        cleanupCounts.set(instance!, (cleanupCounts.get(instance!) ?? 0) + 1);
+    route('/user/{id}', (params) => {
+      const count = state(0);
+      counters.set(params.id, count);
+      task(() => {
+        events.push(`start ${params.id}`);
+        return () => events.push(`stop ${params.id}`);
       });
-    };
-
-    const createPage = (routeName: string) => {
-      const ElementLeaf = () => {
-        recordInstance(routeName);
-        return <span data-owned-element={routeName}>{routeName}</span>;
-      };
-      const CommentLeaf = () => {
-        recordInstance(routeName);
-        return null;
-      };
-      const FragmentOwner = () => {
-        recordInstance(routeName);
-        return (
-          <>
-            <ElementLeaf />
-            <CommentLeaf />
-          </>
-        );
-      };
-      const PortalSurface = () => {
-        recordInstance(routeName);
-        return (
-          <>
-            <aside data-owned-portal={routeName}>{routeName}</aside>
-            <CommentLeaf />
-          </>
-        );
-      };
-      const PortalWriter = () => {
-        recordInstance(routeName);
-        return (
-          <Portal>
-            <PortalSurface />
-          </Portal>
-        );
-      };
-
-      return () => (
-        <>
-          <FragmentOwner />
-          <ElementLeaf />
-          <CommentLeaf />
-          <PortalWriter />
-        </>
-      );
-    };
-
-    const SharedLayout = ({ children }: { children?: unknown }) => (
-      <main data-generation-layout="shared">{children as never}</main>
-    );
-    const registry = createRouteRegistry(() => {
-      group({ layout: SharedLayout }, () => {
-        route('/a', createPage('a'));
-        route('/b', createPage('b'));
-      });
-    });
-    window.history.replaceState({}, '', '/a');
-    await createSPA({ root: container, registry });
-    flushScheduler();
-    await Promise.resolve();
-    await Promise.resolve();
-
-    let departed = new Set(
-      Array.from(routeInstances.get('a') ?? []).filter(
-        (instance) => instance.owner.mounted
-      )
-    );
-    const generationSize = departed.size;
-    expect(generationSize).toBeGreaterThanOrEqual(8);
-    expect(container.querySelector('[data-owned-element="a"]')).not.toBeNull();
-    expect(container.querySelector('[data-owned-portal="a"]')).not.toBeNull();
-    expect(collectMountedHostMismatches(container)).toEqual([]);
-
-    for (let cycle = 0; cycle < 6; cycle += 1) {
-      const routeName = cycle % 2 === 0 ? 'b' : 'a';
-      navigate(`/${routeName}`);
-      flushScheduler();
-      await Promise.resolve();
-      await Promise.resolve();
-
-      expect(
-        container.querySelector(`[data-owned-element="${routeName}"]`)
-      ).not.toBeNull();
-      expect(
-        container.querySelector(`[data-owned-portal="${routeName}"]`)
-      ).not.toBeNull();
-      expect(collectMountedHostMismatches(container)).toEqual([]);
-      for (const instance of departed) {
-        expect(instance.owner.mounted).toBe(false);
-        expect(instance.notifyUpdate).toBeNull();
-        expect(cleanupCounts.get(instance)).toBe(1);
-      }
-
-      const current = new Set(
-        Array.from(routeInstances.get(routeName) ?? []).filter(
-          (instance) => instance.owner.mounted
-        )
-      );
-      expect(current.size).toBe(generationSize);
-      departed = current;
-    }
-  });
-
-  it('should keep connected host metadata aligned across same-handler route branches', async () => {
-    const OuterScope = defineScope('outer');
-    const InnerScope = defineScope('inner');
-    const routeInstances = new Map<string, Set<ComponentInstance>>();
-
-    const recordInstance = (routeName: string): void => {
-      const instance = getCurrentComponentInstance()!;
-      const instances = routeInstances.get(routeName) ?? new Set();
-      instances.add(instance);
-      routeInstances.set(routeName, instances);
-    };
-
-    const createBranch = (routeName: string) => {
-      const ContextLeaf = () => {
-        recordInstance(routeName);
-        return (
-          <div data-context-provider={routeName}>
-            {`${readScope(OuterScope)}:${readScope(InnerScope)}`}
-          </div>
-        );
-      };
-      const CommentLeaf = () => {
-        recordInstance(routeName);
-        return null;
-      };
-      const PortalSurface = () => {
-        recordInstance(routeName);
-        return <aside data-branch-portal={routeName}>{routeName}</aside>;
-      };
-      const PortalWriter = () => {
-        recordInstance(routeName);
-        return (
-          <Portal>
-            <PortalSurface />
-          </Portal>
-        );
-      };
-      const Wrapper = () => {
-        recordInstance(routeName);
-        return (
-          <>
-            <ContextLeaf />
-            <CommentLeaf />
-            <PortalWriter />
-          </>
-        );
-      };
-
-      return () => {
-        recordInstance(routeName);
-        return (
-          <OuterScope value={`${routeName}-outer`}>
-            <InnerScope value={`${routeName}-inner`}>
-              <Wrapper />
-            </InnerScope>
-          </OuterScope>
-        );
-      };
-    };
-
-    const BranchA = createBranch('a');
-    const BranchB = createBranch('b');
-    const SamePage = () =>
-      currentRoute().path === '/same/a' ? <BranchA /> : <BranchB />;
-    const SharedLayout = ({ children }: { children?: unknown }) => (
-      <main data-same-handler-layout="shared">{children as never}</main>
-    );
-
-    const registry = createRouteRegistry(() => {
-      group({ layout: SharedLayout }, () => {
-        route('/same/a', SamePage);
-        route('/same/b', SamePage);
-      });
-    });
-    window.history.replaceState({}, '', '/same/a');
-    await createSPA({ root: container, registry });
-    flushScheduler();
-
-    expect(collectMountedHostMismatches(container)).toEqual([]);
-    for (let cycle = 0; cycle < 8; cycle += 1) {
-      const routeName = cycle % 2 === 0 ? 'b' : 'a';
-      const departedName = routeName === 'a' ? 'b' : 'a';
-      const departed = Array.from(
-        routeInstances.get(departedName) ?? []
-      ).filter((instance) => instance.owner.mounted);
-
-      navigate(`/same/${routeName}`);
-      flushScheduler();
-
-      expect(
-        container.querySelector(`[data-context-provider="${routeName}"]`)
-      ).not.toBeNull();
-      expect(
-        container.querySelector(`[data-branch-portal="${routeName}"]`)
-      ).not.toBeNull();
-      expect(collectMountedHostMismatches(container)).toEqual([]);
-      for (const instance of departed) {
-        expect(instance.owner.mounted).toBe(false);
-        expect(instance.notifyUpdate).toBeNull();
-      }
-    }
-  });
-
-  it('should recursively dispose a shared-layout conditional wrapper chain', async () => {
-    type MenuContext = {
-      open: boolean;
-      setOpen: (open: boolean) => void;
-    };
-
-    const MenuScope = defineScope<MenuContext | null>(null);
-    const ContentScope = defineScope('content');
-    const LayoutScope = defineScope('layout');
-    const PersistentPortal = definePortal();
-    let shared!: State<number> & {
-      _readers?: Map<ComponentInstance, unknown>;
-    };
-
-    const ReactiveComment = () => {
-      shared();
-      return null;
-    };
-    const FocusScope = ({ children }: { children?: unknown }) =>
-      children as never;
-    const DismissableLayer = ({ children }: { children?: unknown }) =>
-      children as never;
-    const MenuSurface = () => (
-      <div data-menu-content="true">
-        <ReactiveComment />
-      </div>
-    );
-    const MenuContent = () => {
-      const root = readScope(MenuScope)!;
-      return PersistentPortal.render({
-        children: (
-          <Presence present={root.open}>
-            <FocusScope>
-              <DismissableLayer>
-                <MenuSurface />
-              </DismissableLayer>
-            </FocusScope>
-          </Presence>
-        ),
-      });
-    };
-    const MenuTrigger = () => {
-      const root = readScope(MenuScope)!;
       return (
-        <button data-profile-trigger="true" onClick={() => root.setOpen(true)}>
-          trigger
-        </button>
+        <p>
+          {params.id}:{count()}
+        </p>
       );
-    };
-    const DropdownMenu = ({ children }: { children?: unknown }) => {
-      const open = state(false);
-      return (
-        <MenuScope value={{ open: open(), setOpen: open.set }}>
-          <ContentScope value="content">
-            {children as never}
-            <PersistentPortal key="profile-portal" />
-          </ContentScope>
-        </MenuScope>
-      );
-    };
-    const ProfileMenu = () => (
-      <DropdownMenu>
-        <MenuTrigger />
-        <MenuContent />
-      </DropdownMenu>
-    );
-    const AuthNavControl = () => {
-      currentRoute();
-      return <ProfileMenu />;
-    };
-    const Header = () => (
-      <header data-conditional-header="true">
-        <AuthNavControl />
-      </header>
-    );
-    const StableReader = () => {
-      shared();
-      return null;
-    };
-    const LayoutSurface = ({ children }: { children?: unknown }) => {
-      shared = state(0) as typeof shared;
-      const path = currentRoute().path;
-      return (
-        <div data-conditional-layout="true">
-          {path.startsWith('/docs') ? null : <Header />}
-          {children as never}
-          <StableReader />
-        </div>
-      );
-    };
-    const SharedLayout = ({ children }: { children?: unknown }) => (
-      <LayoutScope value="layout">
-        <LayoutSurface>{children as never}</LayoutSurface>
-      </LayoutScope>
-    );
-    const DocsProfile = () => (
-      <MenuScope value={{ open: false, setOpen: () => undefined }}>
-        <ContentScope value="docs-content">
-          <div data-docs-profile="true">
-            <PersistentPortal key="profile-portal" />
-          </div>
-        </ContentScope>
-      </MenuScope>
-    );
-
-    const registry = createRouteRegistry(() => {
-      group({ layout: SharedLayout }, () => {
-        route('/app', () => <main>app</main>);
-        route('/metrics', () => <main>metrics</main>);
-        route('/settings', () => <main>settings</main>);
-        route('/logs', () => <main>logs</main>);
-        route('/docs', () => (
-          <main>
-            docs
-            <DocsProfile />
-          </main>
-        ));
-      });
     });
-    window.history.replaceState({}, '', '/logs');
-    const routes = registry.routes;
-    await createSPA({
-      root: container,
-      registry: routeRegistryFromTable(routes),
-    });
+    window.history.replaceState({}, '', '/user/1');
+    await createSPA({ root: container, registry: currentRouteRegistry() });
+    flushScheduler();
+    counters.get('1')!.set(5);
+    flushScheduler();
+    expect(container.textContent).toBe('1:5');
+
+    navigate('/user/2');
     flushScheduler();
 
-    expect(collectMountedHostMismatches(container)).toEqual([]);
-    navigate('/metrics');
-    flushScheduler();
-    expect(collectMountedHostMismatches(container)).toEqual([]);
-
-    const trigger = container.querySelector(
-      '[data-profile-trigger="true"]'
-    ) as HTMLButtonElement;
-    trigger.click();
-    flushScheduler();
-
-    expect(
-      container.querySelector('[data-menu-content="true"]')
-    ).not.toBeNull();
-    expect(collectMountedHostMismatches(container)).toEqual([]);
-    for (const instance of collectHostInstances(container)) {
-      if (instance.fn === AuthNavControl || instance.fn === ProfileMenu) {
-        expect(instance.target?.isConnected).toBe(true);
-      }
-    }
-
-    navigate('/settings');
-    flushScheduler();
-    expect(collectMountedHostMismatches(container)).toEqual([]);
-
-    const header = container.querySelector('[data-conditional-header]')!;
-    const departed = collectHostInstances(header);
-    const departedPortal = Array.from(departed).find(
-      (instance) => instance.fn === PersistentPortal
-    );
-    const portalSource = departedPortal?.owner.reads?.values().next().value;
-    expect(departed.size).toBeGreaterThanOrEqual(6);
-    expect(departedPortal).toBeDefined();
-    expect(portalSource?._readers?.size).toBe(1);
-    expect(shared._readers?.size).toBe(2);
-
-    navigate('/docs');
-    flushScheduler();
-
-    expect(container.querySelector('[data-conditional-header]')).toBeNull();
-    expect(shared._readers?.size).toBe(2);
-    expect(portalSource?._readers?.size).toBe(1);
-    expect(portalSource?._readers?.has(departedPortal!)).toBe(false);
-    for (const instance of departed) {
-      expect(instance.owner.mounted).toBe(false);
-      expect(instance.notifyUpdate).toBeNull();
-      expect(shared._readers?.has(instance) ?? false).toBe(false);
-    }
+    expect(container.textContent).toBe('2:0');
+    expect(counters.get('2')).not.toBe(counters.get('1'));
+    expect(events).toEqual(['start 1', 'stop 1', 'start 2']);
   });
 
   it('should isolate derive, selector, and For hooks across repeated route generations', async () => {
@@ -604,7 +190,7 @@ describe('route ownership generations', () => {
     }
   });
 
-  it('should hand off keyed and fragment For boundaries in a retained route host', async () => {
+  it('should isolate keyed and fragment For boundaries across route generations', async () => {
     type Row = { id: string | number; label: string };
     type RouteControl = {
       keyedRows: State<Row[]>;
@@ -650,9 +236,6 @@ describe('route ownership generations', () => {
     await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
 
-    const keyedNodes = Array.from(
-      container.querySelectorAll('[data-keyed-row]')
-    );
     let departed = controls.get('a')!;
 
     for (let cycle = 0; cycle < 4; cycle += 1) {
@@ -662,9 +245,6 @@ describe('route ownership generations', () => {
 
       const current = controls.get(name)!;
       const subject = container.querySelector(`[data-for-route="${name}"]`)!;
-      expect(Array.from(subject.querySelectorAll('[data-keyed-row]'))).toEqual(
-        keyedNodes
-      );
       expect(
         Array.from(
           subject.querySelectorAll('[data-keyed-row]'),
@@ -819,8 +399,7 @@ describe('route ownership generations', () => {
 
     route('/a', () => {
       departed = state(0);
-      const instance = getCurrentComponentInstance()!;
-      (instance.owner.cleanups ??= []).push(() => departed!.set(1));
+      task(() => () => departed!.set(1));
       return <p>{String(departed())}</p>;
     });
     route('/b', () => {
@@ -867,49 +446,6 @@ describe('route ownership generations', () => {
 
     expect(container.textContent).toBe('destination');
     expect(oldTaskCleanups).toBe(1);
-  });
-
-  it('should dispose null component hosts from every departed route generation', async () => {
-    type CommentHost = Comment & {
-      __ASKR_INSTANCE?: { mounted: boolean };
-    };
-    const componentCommentHosts = (): CommentHost[] => {
-      const hosts: CommentHost[] = [];
-      const walker = document.createTreeWalker(container, 128);
-      let current = walker.nextNode();
-      while (current) {
-        const host = current as CommentHost;
-        if (host.__ASKR_INSTANCE) hosts.push(host);
-        current = walker.nextNode();
-      }
-      return hosts;
-    };
-
-    route('/a', () => <p>route a</p>);
-    route('/b', () => <p>route b</p>);
-    window.history.replaceState({}, '', '/a');
-    await createSPA({ root: container, registry: currentRouteRegistry() });
-    flushScheduler();
-
-    for (let cycle = 0; cycle < 4; cycle += 1) {
-      const previousHosts = componentCommentHosts().map((host) => ({
-        host,
-        instance: host.__ASKR_INSTANCE!,
-      }));
-      expect(previousHosts.length).toBeGreaterThan(0);
-
-      navigate(cycle % 2 === 0 ? '/b' : '/a');
-      flushScheduler();
-
-      const departedHosts = previousHosts.filter(
-        ({ host }) => !host.isConnected
-      );
-      expect(departedHosts.length).toBeGreaterThan(0);
-      for (const { host, instance } of departedHosts) {
-        expect(host.__ASKR_INSTANCE).toBeUndefined();
-        expect(instance.mounted).toBe(false);
-      }
-    }
   });
 
   it('should preserve the destination portal when the departed generation used the same root owner', async () => {

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vite-plus/test';
-import { For, state } from '../../src';
+import { state } from '../../src';
+import { For } from '@askrjs/askr/control';
 import { createIsland } from '../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -15,7 +16,7 @@ if (!customElements.get('x-props-probe')) {
   customElements.define('x-props-probe', PropsProbe);
 }
 
-function mount(component: () => unknown) {
+function mount(component: Parameters<typeof createIsland>[0]['component']) {
   const { container, cleanup } = createTestContainer();
   createIsland({ root: container, component });
   flushScheduler();

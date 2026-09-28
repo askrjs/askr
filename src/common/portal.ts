@@ -7,6 +7,55 @@
 export const SSR_PORTAL_HOST = Symbol.for('askr.ssr-portal-host');
 export const SSR_PORTAL_ANCHOR = Symbol.for('askr.ssr-portal-anchor');
 
+export interface PortalWriterOwner {
+  readonly parent: PortalWriterOwner | null;
+  readonly ownedIndex: number;
+}
+
+/** Compare writer positions in their owner trees, independent of activation order. */
+export function comparePortalWriterOrder(
+  left: PortalWriterOwner | null,
+  right: PortalWriterOwner | null,
+  leftSourceOrder?: number,
+  rightSourceOrder?: number
+): number {
+  if (leftSourceOrder !== undefined && rightSourceOrder !== undefined) {
+    return leftSourceOrder - rightSourceOrder;
+  }
+  const leftPath = portalWriterOrder(left);
+  const rightPath = portalWriterOrder(right);
+  const length = Math.min(leftPath.length, rightPath.length);
+  for (let index = 0; index < length; index++) {
+    if (leftPath[index] !== rightPath[index]) {
+      return leftPath[index] - rightPath[index];
+    }
+  }
+  return leftPath.length - rightPath.length;
+}
+
+function portalWriterOrder(owner: PortalWriterOwner | null): number[] {
+  if (!owner) return [-1];
+  const path: number[] = [];
+  for (
+    let current: PortalWriterOwner | null = owner;
+    current;
+    current = current.parent
+  ) {
+    path.push(current.ownedIndex);
+  }
+  return path.reverse();
+}
+
+const namedPortalHosts = new WeakSet<Function>();
+
+export function markNamedPortalHost(host: Function): void {
+  namedPortalHosts.add(host);
+}
+
+export function isNamedPortalHost(host: unknown): boolean {
+  return typeof host === 'function' && namedPortalHosts.has(host);
+}
+
 const SSR_PORTAL_HOST_PREFIX = 'askr-portal:';
 const SSR_PORTAL_ANCHOR_PREFIX = 'askr-portal-anchor:';
 
@@ -41,5 +90,12 @@ export function isSSRPortalHydrationAnchor(node: unknown): node is Comment {
     typeof data === 'string' &&
     (isSSRPortalMarkerData(data, SSR_PORTAL_HOST_PREFIX) ||
       isSSRPortalMarkerData(data, SSR_PORTAL_ANCHOR_PREFIX))
+  );
+}
+
+export function isSSRPortalWriterAnchor(node: unknown): node is Comment {
+  return (
+    isSSRPortalHydrationAnchor(node) &&
+    node.data.startsWith(SSR_PORTAL_ANCHOR_PREFIX)
   );
 }

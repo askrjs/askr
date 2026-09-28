@@ -1,6 +1,7 @@
 import { expectAssignable, expectError, expectType } from 'tsd';
 import {
   Fragment as RootFragment,
+  createElement,
   createRef,
   type Props,
   type Ref,
@@ -10,6 +11,8 @@ import {
 
 const buttonRef = createRef<HTMLButtonElement>();
 expectType<Ref<HTMLButtonElement>>(buttonRef);
+const inputRef = createRef<HTMLInputElement>();
+const videoRef = createRef<HTMLVideoElement>();
 import {
   Fragment,
   jsx,
@@ -24,38 +27,25 @@ import {
   type JSX as DevRuntimeJSX,
 } from '@askrjs/askr/jsx-dev-runtime';
 
+// The classic fallback for a key written after a spread.
+declare const spreadProps: Record<string, unknown>;
+expectType<JSXElement>(
+  createElement('li', { ...spreadProps, key: 'row' }, 'text')
+);
+expectType<JSXElement>(createElement(RootFragment, null));
+
 expectAssignable<typeof jsx>(rootJsx);
 expectAssignable<typeof jsxs>(rootJsxs);
 expectAssignable<symbol>(RootFragment);
 expectAssignable<symbol>(Fragment);
 expectAssignable<JSXElement>({} as RuntimeJSX.Element);
 expectAssignable<JSXElement>({} as DevRuntimeJSX.Element);
-expectType<Props>({} as RuntimeJSX.ElementAttributesProperty['props']);
 expectType<unknown>({} as RuntimeJSX.ElementChildrenAttribute['children']);
-type RuntimeIntrinsicKeysMissingFromGlobal = Exclude<
-  keyof RuntimeJSX.KnownIntrinsicElements,
-  keyof JSX.IntrinsicElements
->;
-type GlobalIntrinsicKeysMissingFromRuntime = Exclude<
-  keyof JSX.IntrinsicElements,
-  keyof RuntimeJSX.KnownIntrinsicElements
->;
-expectType<never>({} as RuntimeIntrinsicKeysMissingFromGlobal);
-expectType<never>({} as GlobalIntrinsicKeysMissingFromRuntime);
 expectType<RuntimeJSX.IntrinsicElements['output']>(
-  {} as JSX.IntrinsicElements['output']
+  {} as DevRuntimeJSX.IntrinsicElements['output']
 );
 expectType<RuntimeJSX.IntrinsicElements['rect']>(
-  {} as JSX.IntrinsicElements['rect']
-);
-expectType<RuntimeJSX.IntrinsicElements['small']>(
-  {} as JSX.IntrinsicElements['small']
-);
-expectType<RuntimeJSX.IntrinsicElements['tfoot']>(
-  {} as JSX.IntrinsicElements['tfoot']
-);
-expectType<RuntimeJSX.IntrinsicElements['title']>(
-  {} as JSX.IntrinsicElements['title']
+  {} as DevRuntimeJSX.IntrinsicElements['rect']
 );
 
 const rootProps: Props = {
@@ -100,12 +90,28 @@ const callButton = jsx('button', {
     expectType<PointerEvent>(event);
   },
   ref: (element) => {
-    expectType<Element | null>(element);
+    expectType<HTMLButtonElement | null>(element);
   },
   value: 'save',
   children: 'go',
 });
 expectType<JSXElement>(callButton);
+jsx('div', {
+  onFocusIn: (event) => expectType<FocusEvent>(event),
+  onAnimationEnd: (event) => expectType<AnimationEvent>(event),
+  onTransitionEnd: (event) => expectType<TransitionEvent>(event),
+  onDragStart: (event) => expectType<DragEvent>(event),
+  onCopy: (event) => expectType<ClipboardEvent>(event),
+  onGotPointerCapture: (event) => expectType<PointerEvent>(event),
+  onAnimationEndCapture: (event) => expectType<AnimationEvent>(event),
+});
+expectError(jsx('button', { ref: inputRef }));
+expectError(<button ref={inputRef} />);
+expectAssignable<JSXElement>(<input ref={inputRef} />);
+expectAssignable<JSXElement>(<video ref={videoRef} />);
+expectError(<video ref={inputRef} />);
+expectError(jsx('video', { ref: inputRef }));
+jsx('video', { ref: videoRef });
 
 const callInput = jsx('input', {
   autocomplete: 'off',
@@ -517,3 +523,71 @@ expectError(jsx('path', { strokeDasharray: true }));
 expectError(jsx('div', { draggable: 1 }));
 expectError(jsx('label', { htmlFor: 5 }));
 expectError(jsx(Badge, { label: 42 }));
+
+// `key` identifies an element among its siblings for every element type,
+// including function components whose props do not declare it.
+function KeyedRow(props: { id: number }) {
+  return <li>{props.id}</li>;
+}
+expectType<RuntimeJSX.Element>(<KeyedRow key={1} id={1} />);
+expectType<RuntimeJSX.Element>(<KeyedRow key="one" id={1} />);
+expectError(<KeyedRow key={null} id={1} />);
+expectError(<div key={null} />);
+expectError(<div key={Symbol('internal')} />);
+expectError(<KeyedRow key={{}} id={1} />);
+expectError(<KeyedRow key={1} />);
+expectAssignable<RuntimeJSX.IntrinsicAttributes>({ key: 1 });
+expectAssignable<DevRuntimeJSX.IntrinsicAttributes>({ key: 'one' });
+expectError(jsx('div', { key: Symbol('internal') }));
+
+const internalFrameProps: Props = { key: Symbol('internal') };
+expectAssignable<Props>(internalFrameProps);
+
+// MathML elements are intrinsic; their refs are MathMLElement.
+const mathRef = createRef<MathMLElement>();
+expectType<RuntimeJSX.Element>(
+  <math ref={mathRef}>
+    <mi>x</mi>
+    <mtext>text</mtext>
+  </math>
+);
+
+// A reactive prop is a value or a function returning one; a nested plain
+// function is not unwrapped by the renderer, so it is rejected.
+expectError(<p title={() => () => 'plain'} />);
+
+// MathML tags missing from lib.dom are still intrinsic.
+expectType<RuntimeJSX.Element>(
+  <math>
+    <mi>
+      <mglyph />
+    </mi>
+    <menclose />
+    <none />
+    <mlabeledtr />
+  </math>
+);
+
+// Submit inputs share the button form overrides.
+expectType<RuntimeJSX.Element>(
+  <input type="submit" formAction="/save" formNoValidate />
+);
+
+// Raw HTML is available on every intrinsic element.
+expectType<RuntimeJSX.Element>(
+  <option dangerouslySetInnerHTML={{ __html: 'A&nbsp;B' }} />
+);
+expectType<RuntimeJSX.Element>(<p dangerouslySetInnerHTML={{ __html: '' }} />);
+expectError(<p dangerouslySetInnerHTML="<b>raw</b>" />);
+
+// A submit button can override its form's submission.
+expectType<RuntimeJSX.Element>(
+  <button
+    type="submit"
+    formAction="/save"
+    formMethod="post"
+    formEncType="multipart/form-data"
+    formNoValidate
+    formTarget="_blank"
+  />
+);

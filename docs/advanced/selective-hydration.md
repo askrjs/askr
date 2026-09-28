@@ -68,6 +68,7 @@ Current behavior:
 
 - Below-fold elements are marked with `data-skip-hydrate="true"` before hydration.
 - Their event listeners and reactive props are not attached during the initial hydration pass.
+- Preloaded `resource()` values keep their server render-order slots while the boundary is dormant; visible components continue to read their own values.
 - When the subtree becomes visible during scroll handling, Askr activates that boundary in place so its nodes become interactive.
 - A discrete interaction inside a still-deferred boundary activates it immediately and replays the interaction after its listeners commit.
 

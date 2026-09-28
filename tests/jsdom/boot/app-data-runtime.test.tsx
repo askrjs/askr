@@ -17,6 +17,7 @@ import {
 } from '../../../src/data';
 import { navigate } from '../../../src/router/navigate';
 import { createRouteRegistry, route } from '../../../src/router/route';
+import { resource } from '../../../src/resources';
 import { renderToString } from '../../../src/ssr';
 import {
   createTestContainer,
@@ -81,6 +82,66 @@ describe('app data runtime', () => {
     expect(getDefaultDataRuntime().queryCache.has('app-runtime:hydrated')).toBe(
       false
     );
+  });
+
+  it('should keep resource slots and query keys in separate hydration namespaces', async () => {
+    // A query key that looks like a resource slot key.
+    const user = defineUserQuery('r:0', 'client');
+    const Page = () => {
+      const slot = resource<string>(() => 'client-resource', []);
+      const query = createQuery(user, {});
+      return (
+        <p>
+          {String(slot.value)}|{query.data?.name ?? 'loading'}
+        </p>
+      );
+    };
+    const registry = () =>
+      createRouteRegistry(() => {
+        route('/', Page);
+      });
+    const serverRuntime = createDataRuntime();
+    serverRuntime.queryData.set('r:0', { name: 'server-query' });
+    container.innerHTML = renderToString({
+      url: '/',
+      registry: registry(),
+      data: { 'r:0': 'server-resource' },
+      dataRuntime: serverRuntime,
+    });
+    expect(container.querySelector('p')?.textContent).toBe(
+      'server-resource|server-query'
+    );
+    const dataRuntime = createDataRuntime();
+
+    await hydrateSPA({ root: container, registry: registry(), dataRuntime });
+    await settle();
+
+    expect(container.textContent).toBe('server-resource|server-query');
+    expect(user.fetch).not.toHaveBeenCalled();
+  });
+
+  it('should not hydrate resource slots into the query data runtime', async () => {
+    const Page = () => {
+      const slot = resource<string>(() => 'client-resource', []);
+      return <p>{String(slot.value)}</p>;
+    };
+    const registry = () =>
+      createRouteRegistry(() => {
+        route('/', Page);
+      });
+    container.innerHTML = renderToString({
+      url: '/',
+      registry: registry(),
+      data: { 'r:0': 'server-resource' },
+      dataRuntime: createDataRuntime(),
+    });
+    const dataRuntime = createDataRuntime();
+
+    await hydrateSPA({ root: container, registry: registry(), dataRuntime });
+    await settle();
+
+    expect(container.textContent).toBe('server-resource');
+    expect([...dataRuntime.queryData.keys()]).toEqual([]);
   });
 
   it('should preload the initial route into a custom runtime given createSPA', async () => {

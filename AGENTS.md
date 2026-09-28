@@ -53,7 +53,6 @@ change. Package-specific docs belong in the owning package repository.
 
 Primary docs entry points:
 
-- `docs/index.md`
 - `docs/README.md`
 
 ## Runtime and Async Conventions

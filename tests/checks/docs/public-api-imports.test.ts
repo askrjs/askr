@@ -124,6 +124,11 @@ const forbiddenPatterns = [
     label: 'source-relative import',
     pattern: /\.\.\/src\//,
   },
+  {
+    // Foundations are published by this package; @askrjs/ui has no such subpath.
+    label: 'nonexistent @askrjs/ui/foundations import',
+    pattern: /@askrjs\/ui\/foundations/,
+  },
 ];
 
 function collectFiles(dirPath: string): string[] {
@@ -532,19 +537,9 @@ function probeDistExports(): unknown {
               },
               icon: {
                 IconBase: typeof iconModule.IconBase,
-                getIconContractProps: typeof iconModule.getIconContractProps,
-                isIconSizeToken: typeof iconModule.isIconSizeToken,
-                normalizeIconSizeValue:
-                  typeof iconModule.normalizeIconSizeValue,
-                resolveIconSizeVariable:
-                  typeof iconModule.resolveIconSizeVariable,
-                resolveIconStrokeWidthVariable:
-                  typeof iconModule.resolveIconStrokeWidthVariable,
-                serializeIconStyle: typeof iconModule.serializeIconStyle,
-                joinIconStyle: typeof iconModule.joinIconStyle,
               },
               fx: {
-                debounce: typeof fxModule.debounce,
+                throttle: typeof fxModule.throttle,
                 scheduleEventHandler: typeof fxModule.scheduleEventHandler,
               },
               ssg: {
@@ -728,15 +723,15 @@ describe('public docs and examples', () => {
         hasRoute: false,
         hasNavigate: false,
         hasResource: false,
-        hasCreateQuery: true,
+        hasCreateQuery: false,
         hasCreateMutation: false,
         hasInvalidate: false,
         hasLink: false,
         hasErrorBoundary: false,
-        hasFor: true,
-        hasShow: true,
-        hasCase: true,
-        hasMatch: true,
+        hasFor: false,
+        hasShow: false,
+        hasCase: false,
+        hasMatch: false,
         hasLayout: false,
         hasSlot: false,
         hasPresence: false,
@@ -760,7 +755,7 @@ describe('public docs and examples', () => {
       },
       resources: {
         resource: 'function',
-        getSignal: 'function',
+        getSignal: 'undefined',
         on: 'function',
         timer: 'function',
         task: 'function',
@@ -835,16 +830,9 @@ describe('public docs and examples', () => {
       },
       icon: {
         IconBase: 'function',
-        getIconContractProps: 'function',
-        isIconSizeToken: 'function',
-        normalizeIconSizeValue: 'function',
-        resolveIconSizeVariable: 'function',
-        resolveIconStrokeWidthVariable: 'function',
-        serializeIconStyle: 'function',
-        joinIconStyle: 'function',
       },
       fx: {
-        debounce: 'function',
+        throttle: 'function',
         scheduleEventHandler: 'function',
       },
       ssg: {
@@ -858,7 +846,7 @@ describe('public docs and examples', () => {
         renderToString: 'function',
         renderToStringSync: 'function',
         renderToStream: 'function',
-        resolveRequest: 'function',
+        resolveRequest: 'undefined',
         hasCollectResources: false,
         hasResolvePlan: false,
         hasResolveResources: false,

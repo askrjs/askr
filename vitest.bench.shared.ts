@@ -8,12 +8,7 @@ import {
 
 export { benchExcludes, tier1BenchIncludes, tier2BenchIncludes };
 
-export const benchInstrumentationEnabled =
-  process.env.ASKR_BENCH_INSTRUMENTATION === '1';
-
-export const benchDefine = createNodeEnvDefine('production', {
-  bench: benchInstrumentationEnabled,
-});
+export const benchDefine = createNodeEnvDefine('production');
 
 export const benchOxc = {
   jsx: {

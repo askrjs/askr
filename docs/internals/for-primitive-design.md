@@ -32,139 +32,94 @@ const status: () => 'loading' | 'ready' = () => 'loading';
 
 `For` is JSX-only. Stable keyed identity requires `by`. Positional identity is opt-in through `byIndex={true}`. Keys are typed identities: numeric `1` and string `'1'` are different keys, while a key must retain its own type across renders. The canonical feature subpath for these primitives is `@askrjs/askr/control`.
 
-## Core Runtime Primitive
+## Controls are components
 
-Control flow is built on runtime-owned child scopes:
+`Show`, `Case`, and `For` (`src/core/api/control.ts`) are ordinary lazy
+components. Each renders in its own lifetime, reads its sources (`when`,
+`each`) in its own render, and never claims hook slots in the component that
+uses it. A control therefore works under `if`, ternaries, early returns, and
+loops, and a change to its source re-renders the control, not the parent.
 
-```ts
-interface ChildScope {
-  key: string | number;
-  render(fn: () => VNode): VNode;
-  markDirty(): void;
-  dispose(): void;
-}
-```
-
-The runtime owns:
-
-- component instance switching
-- state index reset and restore
-- reactive read tracking and finalization
-- scheduler integration
-- cleanup and disposal
-
-The control primitives own only:
+The core provides everything else: owner lifetimes, reactive tracking, scheduling,
+and cleanup (see [runtime reactivity](./runtime-reactivity.md)). The controls own
+only:
 
 - branch selection
-- keyed reconciliation
-- ordered output
+- row keys and key validation
 - fallback selection
-- child and key validation
+- child validation
 
-## Control Boundary VNodes
-
-`For`, `Show`, and `Case` are eager JSX primitives. During parent render they allocate persistent boundary state and return a small internal control-boundary vnode.
-
-The renderer recognizes that boundary and delegates to runtime state:
-
-- `ForState`
-- `ShowState`
-- `CaseState`
-
-`Match` is metadata-only. `Case` reads its direct children and turns them into branch descriptors. `Match` does not render independently.
+A branch is wrapped in a keyed fragment, so switching branches replaces the
+branch's lifetime instead of patching one branch's DOM into the other's.
 
 ## For
-
-`For` is a thin keyed reconciliation layer over child scopes.
 
 - keyed mode: `each`, `by`, `fallback`, `children`
 - positional mode: `each`, `byIndex={true}`, `fallback`, `children`
 - `by` and `byIndex` are mutually exclusive
 - missing both is a hard error
 
-Each live key owns:
+`For` renders one `ForRow` component per item, keyed by the row key. Rows are
+placed by the renderer's single keyed reconciler, with one
+longest-increasing-subsequence move pass. There are no list-specific fast
+paths; see the [renderer pipeline](./renderer-pipeline.md#reconciliation).
 
-- one `ChildScope`
-- one reactive index accessor
-- one cached vnode
-- one cached DOM root
+Each live key keeps one row record, held in a hook slot on the `For` instance:
 
-Reconciliation strategy and key validation live in
-`src/runtime/control/for-reconcile.ts`. Item and fallback child scopes live in
-`src/runtime/control/for-scopes.ts`. Reactive item and index accessor mechanics live in
-`src/runtime/control/for-signals.ts`; the scope owner calls into that helper to create
-row-local item signals, proxy object/function property reads, pass array items
-through as native arrays, notify readable subscribers, and prune parent readers
-when a row updates without rerendering the owning component.
+- an index signal, read by the row's `index()` accessor
+- an item signal
+- one signal per item property a row has read
 
-Each reconcile pass resolves every row key once (`resolveForKeys`), and the
-reconciliation paths read those keys instead of calling `by` again. Every build
-rejects null or undefined keys and duplicate keys within one list before
-reconciling: the paths address rows by key, so letting a violation through
-would silently drop or merge rows. While the new keys match a prefix of the
-committed keys they cannot contain a duplicate, so a lookup `Set` is only built from
-the first divergence. A validation error rolls the `For` transaction back and
-reaches the nearest `ErrorBoundary`: on mount through the boundary's own
-render, and on a boundary-local update through the control boundary commit.
+A row re-renders when its item or the row callback changes. When an item is
+replaced, the row writes each property signal that something has read, so
+fine-grained readers of unchanged properties are not notified. Object items are exposed
+through a proxy that reads through those property signals. Arrays and
+primitives pass through unchanged. Assigning to a proxied item property
+shadows the source value, and development builds warn when the name collides
+with a source property.
 
-Control child scopes (For rows, Show and Case branches) are owned by the
-component that created the control, which can sit above the `ErrorBoundary`
-the control renders inside. When a control boundary is materialized the
-renderer records its output owner: the component rendering at that point, or,
-for a control materialized by another control's local commit, that control's
-owner. Failures from the control's local commits and from components rendered
-in its child scopes route through that owner, so they reach the boundary
-around where the control was rendered.
+Every render validates keys before reconciling: `null`, `undefined`, and
+duplicate keys within one list throw. Keys are compared by identity, so numeric
+`1` and string `'1'` are different keys. A validation error discards the render
+pass and reaches the nearest `ErrorBoundary` above the `For`.
 
-The `each` source is owned by the `For` boundary itself. List-source reads are tracked through a boundary-local fine-grained effect, so source changes dirty the `For` boundary instead of subscribing the parent component render. Same-order keyed updates can therefore stay row-local, while append, truncate, and reorder work still flow through keyed reconciliation.
-
-The runtime keeps the existing fast lanes:
-
-- `APPEND`
-- `TRUNCATE`
-- `NO_REORDER`
-- `SWAP`
-- `FULL_KEYED`
-
-Fallback rendering also uses a child scope, so empty-list behavior follows the same lifecycle and cleanup rules as keyed rows.
+Row records are pruned when the render commits. Row changes made during a
+render that is then discarded are undone through the render journal. An empty
+list renders `fallback` as its own branch.
 
 ## Show
 
-`Show` keeps one truthy child scope and one fallback child scope.
-
-- when the condition stays truthy, the truthy scope is reused
-- when the condition switches to falsy, the truthy scope is disposed
-- when fallback becomes active, it is rendered through its own scope
-
-Function children receive the resolved truthy value. Static children are rendered inside the active scope.
+`Show` renders `children` while `when` is truthy and `fallback` otherwise. The
+two branches have separate keys (`show:when`, `show:fallback`), so a switch
+disposes one branch's lifetime and creates the other. Function children receive
+the resolved truthy value.
 
 ## Case and Match
 
-`Case` owns selection and lifecycle. It scans direct `Match` children, picks the first truthy branch, and renders only that branch.
+`Case` scans its direct `Match` children, renders the first whose `when` is
+truthy, and falls back to `fallback`.
 
-- selected branch key: an internal branch identity derived from match position plus user key
-- fallback is prop-only
-- replaced branches are disposed immediately
-- a direct child that is not `Match` throws in every build when the `Case` is evaluated, so the nearest `ErrorBoundary` around the `Case` catches it
+- the branch key combines the match position with the `Match` key, so
+  reordering or re-keying matches replaces the branch
+- `fallback` is prop-only
+- a direct child that is not `Match` throws when the `Case` renders, so the
+  nearest `ErrorBoundary` around the `Case` catches it
 
 `Match` only describes a branch:
 
 ```ts
 type MatchProps = {
+  key?: string | number | null;
   when: unknown;
   children: JSXNode | (() => JSXNode);
 };
 ```
 
-Using `Match` outside `Case` throws in every build.
+Rendering `Match` outside `Case` throws in every build.
 
-## Disposal Model
+## Disposal
 
-When a child scope is disposed:
-
-- readable subscriptions are cleaned up
-- cleanup hooks run
-- owned child scopes are released
-- cached vnode and DOM references are cleared
-
-Parent component cleanup disposes all owned child scopes automatically, which keeps control-flow lifecycles bounded to the owning render tree.
+A control's rows and branches are owners in the owner tree. Removing a row or
+switching a branch disposes its owner: children first, then cleanups, with
+failures collected rather than stopping teardown. Disposing the component that
+rendered the control disposes the control and everything it owns.

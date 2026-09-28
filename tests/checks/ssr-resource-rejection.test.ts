@@ -16,22 +16,26 @@ describe('SSR resource failure containment', () => {
           import assert from 'node:assert/strict';
           import { renderToStringSync, SSRDataMissingError } from './dist/ssr/index.js';
           import { resource } from './dist/resources/index.js';
+          const mode = ${JSON.stringify(mode)};
           let signal;
+          let loaderReached;
+          const loaderDidRun = new Promise(resolve => { loaderReached = resolve; });
           assert.throws(() => renderToStringSync(() => {
             resource(({ signal: current }) => {
               signal = current;
-              if (${JSON.stringify(mode)} === 'thenable') return { then(_, reject) { reject(new Error('thenable failed')); } };
-              if (${JSON.stringify(mode)} === 'throwing-then') {
+              if (mode === 'thenable') return { then(_, reject) { loaderReached(); reject(new Error('thenable failed')); } };
+              if (mode === 'throwing-then') {
                 let reads = 0;
-                return { get then() { if (++reads > 1) throw new Error('then access'); return () => {}; } };
+                return { get then() { loaderReached(); if (++reads > 1) throw new Error('then access'); return () => {}; } };
               }
-              if (${JSON.stringify(mode)} === 'immediate') return Promise.reject(new Error('loader failed'));
-              if (${JSON.stringify(mode)} === 'delayed') return new Promise((_, reject) => setTimeout(() => reject(new Error('loader failed')), 5));
-              return new Promise((_, reject) => current.addEventListener('abort', () => reject(new Error('cancelled')), { once: true }));
+              if (mode === 'immediate') { loaderReached(); return Promise.reject(new Error('loader failed')); }
+              if (mode === 'delayed') return new Promise((_, reject) => setImmediate(() => { loaderReached(); reject(new Error('loader failed')); }));
+              return new Promise((_, reject) => current.addEventListener('abort', () => { loaderReached(); reject(new Error('cancelled')); }, { once: true }));
             }, []);
             return null;
           }), SSRDataMissingError);
-          await new Promise(resolve => setTimeout(resolve, 30));
+          await loaderDidRun;
+          await new Promise(resolve => setImmediate(resolve));
           assert.equal(signal.aborted, true);
           assert.equal(renderToStringSync(() => 'healthy'), 'healthy');
         `,

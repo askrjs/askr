@@ -9,8 +9,8 @@ import {
 } from '../../../src/foundations/structures/portal';
 import { hydrateSPA } from '../../../src/boot';
 import { renderToStringSync } from '../../../src/ssr';
-import { task } from '../../../src/runtime/operations';
-import { state, type State } from '../../../src/runtime/reactivity/state';
+import { task } from '../../../src/resources';
+import { state, type State } from '../../../src/index';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -20,10 +20,6 @@ import {
   resetRouteState,
   routeRegistryFromTable,
 } from '../../router-test-utils';
-
-type ReaderTrackedState = State<number> & {
-  _readers?: Map<unknown, unknown>;
-};
 
 const EXECUTION_MODEL_KEY = Symbol.for('__ASKR_EXECUTION_MODEL__');
 
@@ -52,15 +48,12 @@ describe('default portal component ownership', () => {
   });
 
   it('should retain a bare component child rendered by an explicit host', () => {
-    let countSource!: ReaderTrackedState;
-
     function Leaf(props: { count: State<number> }) {
       return <span data-portal-count={'true'}>{`count=${props.count()}`}</span>;
     }
 
     function App() {
-      const count = state(0) as ReaderTrackedState;
-      countSource = count;
+      const count = state(0);
 
       return (
         <>
@@ -84,7 +77,6 @@ describe('default portal component ownership', () => {
     expect(container.querySelector('[data-portal-count]')?.textContent).toBe(
       'count=0'
     );
-    expect(countSource._readers?.size).toBe(1);
 
     for (let count = 1; count <= 3; count += 1) {
       button.click();
@@ -92,20 +84,16 @@ describe('default portal component ownership', () => {
       expect(container.querySelector('[data-portal-count]')?.textContent).toBe(
         `count=${count}`
       );
-      expect(countSource._readers?.size).toBe(1);
     }
   });
 
   it('should retain a bare component child after hydration', async () => {
-    let countSource!: ReaderTrackedState;
-
     function Leaf(props: { count: State<number> }) {
       return <span data-portal-count={'true'}>{`count=${props.count()}`}</span>;
     }
 
     function App() {
-      const count = state(0) as ReaderTrackedState;
-      countSource = count;
+      const count = state(0);
 
       return (
         <>
@@ -134,7 +122,6 @@ describe('default portal component ownership', () => {
     expect(container.querySelector('[data-portal-count]')?.textContent).toBe(
       'count=0'
     );
-    expect(countSource._readers?.size).toBe(1);
 
     for (let count = 1; count <= 3; count += 1) {
       button.click();
@@ -142,14 +129,12 @@ describe('default portal component ownership', () => {
       expect(container.querySelector('[data-portal-count]')?.textContent).toBe(
         `count=${count}`
       );
-      expect(countSource._readers?.size).toBe(1);
     }
   });
 
   it('should preserve a nested portal across repeated Show toggles', async () => {
     let setOpen!: (open: boolean) => void;
     let setVersion!: (version: number) => void;
-    let openSource!: State<boolean> & { _readers?: Map<unknown, unknown> };
     let nestedPortalCleanups = 0;
     const NestedPortalHost = definePortal();
 
@@ -173,7 +158,6 @@ describe('default portal component ownership', () => {
       const open = state(true);
       const version = state(0);
       setOpen = open.set;
-      openSource = open;
       setVersion = version.set;
 
       return (
@@ -201,7 +185,6 @@ describe('default portal component ownership', () => {
     await Promise.resolve();
 
     expect(container.querySelectorAll('[data-nested-portal]')).toHaveLength(1);
-    expect(openSource._readers?.size).toBe(1);
     expect(container.querySelector('[data-nested-portal]')?.textContent).toBe(
       'version=0'
     );
@@ -226,5 +209,45 @@ describe('default portal component ownership', () => {
         `version=${version}`
       );
     }
+  });
+
+  it('should release an explicit host unmounted in the flush that mounted it', () => {
+    let show!: State<boolean>;
+
+    function Toggler() {
+      show = state(false);
+      return (
+        <main>
+          <Show when={show}>
+            <div>
+              <DefaultPortal />
+              <span ref={(el) => el && show.set(false)} />
+            </div>
+          </Show>
+        </main>
+      );
+    }
+
+    function App() {
+      return (
+        <>
+          <Toggler />
+          <Portal>
+            <b>content</b>
+          </Portal>
+        </>
+      );
+    }
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    expect(container.innerHTML).toContain('<b>content</b>');
+
+    show.set(true);
+    flushScheduler();
+    flushScheduler();
+
+    expect(container.querySelector('main')?.innerHTML).toBe('');
+    expect(container.innerHTML).toContain('<b>content</b>');
   });
 });

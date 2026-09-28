@@ -11,6 +11,14 @@ callback reruns an existing row, without remounting it, when:
 - a reactive value that the callback read directly, such as a parent `state()`
   getter, changes. The read subscribes the row, not the parent.
 
+Whatever causes the rerun, the row renders its latest item. An object item
+arrives as a proxy that reads the current item. Any other item, such as a
+primitive or an array, arrives as its latest value.
+Properties assigned to an object row's proxy stay with that key across item
+replacement. Its own keys, descriptors, and object spread include those
+properties alongside the latest source item's properties. A failed row render
+discards assignments it made to the proxy.
+
 Keys passed to `by` must be stable, non-null, and unique within the list. Keys
 are compared by identity, so `1` and `'1'` are different keys: changing a key's
 type remounts that row. Every build throws a descriptive error for a null,
@@ -24,6 +32,10 @@ without one, the error propagates from the render or scheduler flush.
 
 Use `selector()` for a keyed membership test. Only rows whose membership
 changes need to update:
+
+Passing a new comparator function on a later render invalidates all readers,
+since any row's membership may have changed. Keep the comparator stable when
+practical.
 
 ```tsx
 import { selector, state } from '@askrjs/askr';
@@ -111,15 +123,16 @@ expect(active()).toEqual(['c']);
 `waitForNextEvaluation()` is provided by the repository test setup; it is not
 part of the published `@askrjs/askr` package.
 
-## Keep control boundaries in the render sequence
+## Control flow composes like any component
 
-`<For>`, `<Show>`, and the other eager control primitives retain
-render-scoped state. Do not make the primitive call itself appear or disappear
-behind a plain `if`, ternary, `&&` branch, or changing loop:
+`<For>`, `<Show>`, and `<Case>` are components with their own lifetimes. They
+never claim hook slots in the component that renders them, so ordinary
+JavaScript can decide whether they render:
 
 ```tsx
 function Rows() {
-  // Avoid: the For call is skipped while open() is false.
+  if (loading()) return <Spinner />;
+
   return (
     <div>
       {open() ? (
@@ -127,25 +140,19 @@ function Rows() {
           {(item) => <Row item={item} />}
         </For>
       ) : null}
+      {sections().map((section) => (
+        <Show key={section.id} when={section.visible}>
+          <Section section={section} />
+        </Show>
+      ))}
     </div>
   );
 }
 ```
 
-Keep the outer control boundary unconditional and put the conditional branch
-inside `<Show>`, or use a `<Case>` boundary with `<Match>` children:
-
-```tsx
-<Show when={open}>
-  {() => (
-    <For each={items} by={(item) => item.id}>
-      {(item) => <Row item={item} />}
-    </For>
-  )}
-</Show>
-```
-
-This rule is about primitives evaluated in the current component's render
-scope. A normal JSX child such as `<Dialog />` is reconciled as its own
-component instance; its internal hooks do not become conditional hooks in the
-parent merely because the parent selected that child with ordinary JavaScript.
+A control reads getter sources in its own render: with `when={open}` or
+`each={items}` (the getter, not its value), a change re-renders only the
+control. A value such as `when={open()}` is read by the parent, so the parent
+re-renders. Two controls in the same
+position with different sources share one instance, as any component does; give
+them different `key`s when their state must not carry over.

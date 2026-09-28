@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { Show } from '../../../../src/control';
-import { state } from '../../../../src/runtime/reactivity/state';
+import { state } from '../../../../src';
 import { createIsland } from '../../../../test-utils/render/create-island';
 import {
   createTestContainer,

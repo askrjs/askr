@@ -9,11 +9,56 @@ The default mode. Components are rendered into the DOM via
 `createSPA({ root, registry })` or `createIsland({ root, component })`.
 
 Keyed `For` updates publish through one renderer transaction. If evaluation or
-DOM commit fails, Askr restores the previously committed DOM and ownership
+a structural DOM insertion, standard element attribute write, input/textarea
+value write, checkbox state write, or option selection write fails, Askr
+restores the previously committed DOM and ownership
 state; provisional listeners, refs, portals, resources, subscriptions, and
 child owners do not become live. Cleanup belonging to a successful commit runs
 only after the coherent DOM update. Cleanup failures are reported together and
 do not roll back an already successful render.
+
+### Teardown errors
+
+When an update removes DOM, Askr tears down the removed subtree: callback refs
+receive `null`, listeners and fine-grained bindings are removed, and component
+lifetimes are disposed, running their cleanup functions (returned by mount
+operations, tasks, and watches). Every one of these steps runs for every node in
+the subtree, even when an earlier one throws. Each step runs at most once: a
+callback ref that throws is not called with `null` again.
+
+Failures are reported with the platform `reportError()`, the same path
+[event handler errors](../advanced/event-delegation.md#handler-errors) take, in
+development and production builds. Reports are queued and delivered in order
+once the current task finishes (on the next microtask), after the DOM update is
+complete. An `error` handler can therefore update state, and a handler that
+throws cannot interrupt or roll back the update; Askr logs that failure with
+`console.error` instead. The update is not rolled back, and the removed content
+is not restored.
+
+Reports are grouped by the unit that was cleaned up, a single failure as-is and
+several as one `AggregateError`:
+
+- Each removed DOM node produces one report for its refs, listeners, bindings,
+  and the components hosted in it. Removing several nodes in one update (for
+  example, clearing a list whose rows each fail) produces one report per node.
+- A component tree disposed together produces one report: the failures of
+  descendant components without `cleanupStrict` are handed to the component
+  where disposal started, which reports them once.
+- Failures from work that runs after an update commits (disposing replaced
+  components, retiring the previous route, and mount or commit operations that
+  throw) produce one report per update.
+
+A disposed component aborts its signal with a context-free `AbortError` reason
+shared across component lifetimes.
+
+An `ErrorBoundary` does not catch teardown errors: they are not render errors,
+and the nearest boundary is often part of the content being removed. Hosts
+without `reportError()`, including Node and jsdom, rethrow the error from a
+microtask, where Node and test runners treat it as an unhandled error. Stub
+`globalThis.reportError` in tests that throw from cleanup on purpose.
+
+`cleanupApp()` on an app created with `cleanupStrict: true` throws the failures
+instead of reporting them (see [cleanup](./runtime.md#cleanup)).
 
 ### Fine-grained bindings and rollback
 
@@ -36,6 +81,20 @@ function Counter() {
 // After count.set(2): <b>2</b> <i>1</i>. The render rolled back; the binding
 // reflects the state.
 ```
+
+The rule covers structural function children too, such as a list whose
+length follows state (`{() => Array.from({ length: n() }, ...)}`), inside an
+element or in a component's fragment or array result. It also covers a child
+component that re-renders on its own state: when that update joined a parent
+render that failed, the child renders again after the rollback. A failed render
+does not wait for the next state change to bring either of them up to date.
+That catch-up render uses the child's last committed props with its current
+state. If it throws, its error is reported alongside the original one (an
+`AggregateError`, see [Update loop guard](./runtime.md#update-loop-guard)).
+
+After `hydrateSPA`, structural function children in a component's fragment or
+array result keep updating for both keyed and unkeyed items, including after a
+failed render rolls back.
 
 Read the state in the render instead of a binding when a value must change
 together with the rest of the component's output.
@@ -73,6 +132,8 @@ During hydration, a keyed `For` adopts only its own server-rendered rows even
 when a static or component child precedes it in the same parent. The unrelated
 sibling and every adopted row keep their DOM identity through later reorder
 and removal commits.
+Rows returned by components as text or fragments also retain their server nodes
+when text sits before or after the list, with markup verification enabled.
 
 In a mixed parent, an empty or newly emptied `For` also preserves the first
 following sibling as its reconciliation cursor. Later static nodes, components,
@@ -80,17 +141,56 @@ and control boundaries are updated in place instead of being duplicated,
 reordered, or remounted. This applies equally to accessor-backed collections
 and parents that contain portal writers.
 
+Rows of a nested `For` also commit their own reactive updates when the list
+shares an element with text or other children, such as
+`<li>Label: <For each={items}>...</For></li>`. The surrounding children keep
+their DOM identity while rows update, reorder, or leave. A failed parent
+update retains the previous row commit boundary.
+
+When a row callback reads a getter directly and that getter changes with the
+list in one flush, the list reconcile absorbs the row's scheduled update.
+Removed rows do not run again, and retained rows render once with the latest
+item, index, and getter value.
+
+Re-showing a `Show` branch that contains a `For` renders the current row items,
+positions, and callback values, including when the list and branch change in
+the same flush.
+
 When a keyed row renders a transparent component range, the row continues to
 follow the component's current owned range after reactive resource, portal, or
 result updates. Parent reconciliation preserves that live range and its editor
 or widget identity instead of restoring a stale pre-update range. Cleanup
 ownership remains balanced when the row is later replaced or removed.
 
+### Tree depth
+
+The client renderer and SSR render nested elements and components
+recursively, so tree depth is bounded by the JavaScript call stack. Askr
+supports at least 200 levels of nested elements and components on the default
+Node.js stack; the exact ceiling depends on the engine and its stack size. A
+component that returns the same component type directly, with no hooks and no
+element in between, is walked iteratively and does not count against that
+limit.
+
+When Askr recognizes a stack overflow during a render, it throws a
+`RenderDepthError` (exported from `@askrjs/askr`) whose `cause` is the engine's
+error. It usually means the tree is too deep, but a component or computation
+that recurses without end produces the same error. If stack exhaustion raises
+an unrecognized engine error, or leaves too little stack to build the wrapper,
+that engine error can surface directly. `RenderDepthError` reaches the nearest
+`ErrorBoundary` like any render error; without one, the render throws and the
+committed DOM is left unchanged. Render long sequences as lists, for example
+with `For`, instead of nesting them.
+
+During deferred selective hydration, an unhandled depth error is reported as
+an uncaught error. The boundary stays dormant so a later reveal can retry it.
+
 ### Imperative widget hosts
 
 Use `imperativeChildren` when a third-party widget owns all descendants of an
 intrinsic host. Askr will keep updating the host's attributes, event handlers,
 and ref, but it will not reconcile or detach the widget-owned DOM after mount.
+JSX children, if supplied, are rendered on the first mount only.
 
 ```tsx
 function EmbeddedWidget() {
@@ -100,7 +200,8 @@ function EmbeddedWidget() {
 
 The marker is renderer-only and is not emitted as an HTML attribute. Leave it
 off for normal declarative elements so removing JSX children continues to clear
-their DOM and lifecycle ownership normally.
+their DOM and lifecycle ownership normally. A managed host with no declared
+children also clears descendants inserted by other code on its next update.
 
 ### Attributes written by other code
 
@@ -146,6 +247,39 @@ function Media(props: { muted: boolean; stream: MediaStream; rows: Row[] }) {
 }
 ```
 
+Form state props accept a function or cell like any other prop, and the
+binding keeps the live property in sync: `value={() => name()}` on an
+`<input>` or `<textarea>`, `checked={() => on()}`, `selected={() => on()}`
+on an `<option>`, and `value={() => role()}` on a `<select>` (an array for
+`multiple`). A `<select>` value is applied again after the select's own
+children are created or updated, so options written directly inside it can
+come from the same render. Options rendered by a `For` or a function child
+are not tracked: the value is not re-applied when only they change, so keep a
+value's option rendered before selecting it.
+
+During SSR, a controlled `<select value>` marks matching `<option>` elements
+with `selected`, including options inside `<optgroup>`. A single select marks
+the first match; `multiple` with an array marks every match. If nothing matches,
+no option is marked. Client rendering keeps those option attributes and live
+selection in sync so hydration can adopt the server nodes.
+
+```tsx
+function RolePicker() {
+  const role = state('admin');
+  return (
+    <select
+      value={() => role()}
+      onChange={(event: Event) =>
+        role.set((event.currentTarget as HTMLSelectElement).value)
+      }
+    >
+      <option value="viewer">Viewer</option>
+      <option value="admin">Admin</option>
+    </select>
+  );
+}
+```
+
 Values SSR cannot render are applied when the client hydrates. Attributes a
 property reflects (`prop:href` sets `href`, `prop:hidden` sets `hidden`) are
 kept on re-render like any other attribute Askr rendered.
@@ -157,6 +291,27 @@ value set before a custom element upgraded) is deleted; other string
 properties become `''` and booleans `false`. Numeric properties with no
 attribute (`prop:volume`) keep their last value. A failed commit rolls
 property writes back with the rest of the element.
+
+URL attributes are checked the same way on the client and in SSR. `href`,
+`action`, `formAction` and `xlink:href` render only relative URLs or the
+`http`, `https`, `mailto`, `sms` and `tel` schemes. `src` and `data` render
+any URL except a script scheme (`javascript:`, `vbscript:`). The scheme is
+read case-insensitively after trimming the value and removing ASCII spaces
+and control characters (U+0000-U+0020, U+007F-U+009F) anywhere in it, so
+`java\tscript:` is still a script URL. A non-string value is converted to
+text once, and that text is both checked and written.
+
+A blocked value, such as a custom `vscode:` or `slack:` link in `href`, is
+omitted. In development Askr logs a warning naming the attribute and the
+blocked scheme, once per attribute and value; production omits it silently.
+To link to a trusted custom scheme, leave the `href` prop off and set the
+attribute from a ref. Askr does not remove attributes it did not render:
+
+```tsx
+<a ref={(el) => el?.setAttribute('href', 'vscode://file/src/app.ts')}>
+  Open in VS Code
+</a>
+```
 
 The escape hatches keep the usual guards:
 
@@ -179,7 +334,8 @@ defined after it renders should re-read such properties in its constructor
 (the "lazy properties" pattern), or be defined before Askr renders it.
 
 A function value is still a reactive binding, so pass a callback property as
-`prop:onSelect={() => handler}`.
+`prop:onSelect={() => handler}`. The binding's result is assigned as-is, even
+a cell: `prop:source={() => cell}` passes the cell, not its value.
 
 See [Runtime](./runtime.md) for boot APIs.
 
@@ -276,6 +432,12 @@ or fragment it returns) renders nothing, and so does a component that returns
 a function or a cell. Elements a function child returns keep their own
 reactive children and props.
 
+A function prop follows the same rule: `title={() => (useFull() ? fullName :
+shortName)}` renders the selected cell's value on the server and the client,
+and the client binding follows both the choice and the chosen cell.
+`prop:` is the exception: it assigns the function's result as-is, so
+`prop:source={() => cell}` hands the cell itself to a custom element.
+
 Function children are not limited to elements. A function or cell among the
 items of a fragment or array a component returns, such as a layout that
 renders `<>{props.children}</>`, a function child of `ErrorBoundary`, and a
@@ -326,6 +488,8 @@ child whose hooks change, or give it the same hooks on every run.
 A function child or prop that throws is a render error on both sides: the
 nearest `ErrorBoundary` renders its fallback, and without one the render (or
 the client update) throws.
+Without an explicit fallback, the boundary shows a visible alert with the
+error message and a retry button.
 
 ### Text inside `<script>` and `<style>`
 
@@ -385,6 +549,11 @@ current value. Element children throw during SSR, because they have no raw
 text form. `dangerouslySetInnerHTML` is still written as given and is not
 rewritten.
 
+On the client, a `dangerouslySetInnerHTML` value with a `__html` field owns
+the element's content instead of its JSX children. When that value is
+removed, JSX children mount again. An absent or malformed value leaves the
+children managed normally.
+
 ### Client hydration
 
 ```ts
@@ -407,6 +576,14 @@ transparent component ranges, and SSR portal hosts are eligible for adoption
 only inside that scope. Keyed trees, reactive props, and any mismatch use the
 normal reconciliation path.
 
+For an adopted host with `dangerouslySetInnerHTML`, matching parsed HTML keeps
+the server's descendant nodes in place. Different content is applied through
+the normal transactional raw HTML write.
+
+A page root that returns several sibling nodes, including leading text, adopts
+each matching server node in place. The automatic default portal host does not
+consume one of those siblings when it has no server-rendered content.
+
 Ordinary client reconciliation never infers ownership from matching-looking
 DOM. Unmatched nodes and ranges are removed from a captured next sibling,
 their component subtrees are torn down exactly once, and newly rendered
@@ -421,6 +598,75 @@ single lifecycle transaction; it does not rerun the application root. Refs,
 listeners, reactive bindings, and ownership are published at commit. A failed
 activation restores the marker and remains retryable, while root cleanup drops
 unrevealed records. Permanent `skipSelectors` remain skipped.
+
+### Stacking layers
+
+A portal renders each mounted writer as an independent layer in source order.
+Updating or removing one writer leaves the other
+writers' content and DOM in place. Each writer's content remains owned by that
+writer, so its tasks, watches, and resources end when it unmounts. To manage a
+collection of layers from one component, a single writer can still own the
+list and render it with keyed children:
+
+```tsx run=layer-stack
+import { defineScope, readScope, state } from '@askrjs/askr';
+import { For } from '@askrjs/askr/control';
+import { definePortal } from '@askrjs/askr/foundations';
+
+interface Layer {
+  id: string;
+  title: string;
+}
+
+interface LayerStackApi {
+  open(layer: Layer): void;
+  close(id: string): void;
+}
+
+const LayerStackScope = defineScope<LayerStackApi | null>(null);
+
+/** Render once where layers should appear, for example at the end of the app. */
+export const LayerHost = definePortal();
+
+export function LayerStack(props: { children?: unknown }) {
+  const layers = state<Layer[]>([]);
+  const stack: LayerStackApi = {
+    open(layer) {
+      if (layers().some((open) => open.id === layer.id)) return;
+      layers.set([...layers(), layer]);
+    },
+    close(id) {
+      layers.set(layers().filter((layer) => layer.id !== id));
+    },
+  };
+  return (
+    <LayerStackScope value={stack}>
+      {props.children}
+      <LayerHost.render>
+        <For each={layers} by={(layer) => layer.id}>
+          {(layer) => (
+            <div role="dialog" data-layer={layer.id}>
+              {layer.title}
+            </div>
+          )}
+        </For>
+      </LayerHost.render>
+    </LayerStackScope>
+  );
+}
+
+export function useLayerStack(): LayerStackApi {
+  return readScope(LayerStackScope)!;
+}
+```
+
+Layers render at `<LayerHost />` in the order they were opened. `LayerHost`
+is one channel for the whole module, so render one `LayerStack` and one
+`<LayerHost />` per module instance. Applications that mount several roots
+should create `LayerHost`, `LayerStack`, and the scope inside a factory called
+once per root. Opening an id
+that is already open does nothing, and closing one layer keeps the others' DOM
+nodes because `For` tracks each layer by its key.
 
 ### Portals on the server
 
@@ -444,19 +690,39 @@ const Page = () => (
 
 An explicit `DefaultPortal` is preferred over the automatic host appended by
 the SSR and SSG runtimes. Without an explicit host, the automatic host renders
-the content after the application root. Multiple writes to the same portal use
-the final value, matching the client runtime.
+the content after the application root. Multiple writers to the same portal
+render as ordered layers on both the server and client.
 
 Portal values are scoped to one server render root. A portal created with
 `definePortal()` can be reused by application code without carrying content
 between routes or requests. Hydration adopts the server-rendered portal
-content and attaches its normal bindings.
+content and attaches its normal bindings. Named portal hosts retain matching
+server nodes with or without a key, whether the writer renders before or after
+the host.
+
+On the client, removing a portal writer clears its host content and disposes
+the content components, including their tasks, watches, and resources. Removing
+the host disposes those components as well. A writer that leaves does not
+clear the other writers' layers.
+An error while rendering portal content reaches the writer's nearest
+`ErrorBoundary`, or a boundary around the host when the writer has none.
+While an explicit `DefaultPortal` host is mounted, the automatic host renders
+nothing. When the explicit host unmounts, content returns to the automatic
+host, except while an `ErrorBoundary` fallback has replaced the explicit host:
+the content stays off the automatic host until that boundary recovers.
+An imperative `DefaultPortal.render()` call outside a component writes to the
+single connected app root, if there is one. A write made before the first root
+mounts appears when that root mounts. With multiple connected roots, the write
+is ambiguous and appears in none of them.
 
 SSR and SSG retain internal comment anchors at default-portal writer positions
-and at a written automatic host whose current value is empty. Hydration adopts
-those anchors so adjacent application nodes keep their identity without a
-visible wrapper element. Unused or explicitly suppressed automatic hosts are
-omitted.
+and around default-portal host content. Hydration adopts the host range in
+place, including when an explicit host precedes its writer or has no content.
+The anchors keep adjacent application nodes in position without a visible
+wrapper element. Unused or explicitly suppressed automatic hosts are omitted.
+After a fully hydrated render, server portal content is removed if the client
+has no writer; `verifyMarkup` reports that difference. Content remains visible
+while its writer is in a deferred hydration boundary and is claimed on reveal.
 
 ## Static Site Generation (SSG)
 

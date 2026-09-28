@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { stream, type StreamResult } from '../../../src/resources';
-import { state, type State } from '../../../src/runtime';
+import { state, type State } from '../../../src/index';
 import { renderToStringSync } from '../../../src/ssr';
 import {
   createTestContainer,
@@ -83,6 +83,124 @@ async function settle(): Promise<void> {
 }
 
 describe('stream()', () => {
+  it('should reject calls without a component owner', () => {
+    let inputReads = 0;
+    let starts = 0;
+
+    expect(() =>
+      stream(
+        () => {
+          inputReads += 1;
+          return 'stream-id';
+        },
+        () => {
+          starts += 1;
+          return new ControlledAsyncIterable<string>();
+        }
+      )
+    ).toThrow(
+      '[Askr] stream() must be called during component render inside an app.'
+    );
+    expect(inputReads).toBe(0);
+    expect(starts).toBe(0);
+
+    expect(() =>
+      stream(() => {
+        starts += 1;
+        return new ControlledAsyncIterable<string>();
+      })
+    ).toThrow(
+      '[Askr] stream() must be called during component render inside an app.'
+    );
+    expect(starts).toBe(0);
+  });
+
+  it('should restart from a render source after commit and retire the prior iterator', async () => {
+    const sources = {
+      first: new ControlledAsyncIterable<string>(),
+      second: new ControlledAsyncIterable<string>(),
+    };
+    const started: string[] = [];
+    let currentId!: State<'first' | 'second'>;
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({
+        root: container,
+        component: () => {
+          currentId = state<'first' | 'second'>('first');
+          const result = stream(currentId, (id, { signal }) => {
+            expect(signal).toBeInstanceOf(AbortSignal);
+            started.push(id);
+            return sources[id];
+          });
+          return <p>{result.value ?? 'pending'}</p>;
+        },
+      });
+      flushScheduler();
+      expect(started).toEqual(['first']);
+      sources.first.yield('one');
+      await settle();
+      expect(container.textContent).toBe('one');
+
+      currentId.set('second');
+      flushScheduler();
+      expect(started).toEqual(['first', 'second']);
+      expect(sources.first.returnCalls).toBe(1);
+      sources.second.yield('two');
+      await settle();
+      expect(container.textContent).toBe('two');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should retain the committed stream when a source-changing render rolls back', async () => {
+    const sources = new Map<string, ControlledAsyncIterable<string>>();
+    const started: string[] = [];
+    let setId!: (value: string) => void;
+    let setFailure!: (value: boolean) => void;
+    const Failure = ({ active }: { active: boolean }) => {
+      if (active) throw new Error('render failed');
+      return <span>{'ready'}</span>;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({
+        root: container,
+        component: () => {
+          const id = state('first');
+          const fail = state(false);
+          setId = id.set;
+          setFailure = fail.set;
+          stream(id, (value) => {
+            started.push(value);
+            const source = new ControlledAsyncIterable<string>();
+            sources.set(value, source);
+            return source;
+          });
+          return <Failure active={fail()} />;
+        },
+      });
+      flushScheduler();
+      expect(started).toEqual(['first']);
+
+      setId('second');
+      setFailure(true);
+      expect(() => flushScheduler()).toThrow();
+      await settle();
+      expect(started).toEqual(['first']);
+      expect(sources.get('first')?.returnCalls).toBe(0);
+
+      setFailure(false);
+      setId('third');
+      flushScheduler();
+      expect(started).toEqual(['first', 'third']);
+      expect(sources.get('first')?.returnCalls).toBe(1);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should start after commit and expose one stable latest-value snapshot', async () => {
     const source = new ControlledAsyncIterable<number>();
     let calls = 0;
@@ -307,6 +425,87 @@ describe('stream()', () => {
     }
   });
 
+  it.each(['completion', 'error'] as const)(
+    'should reconnect after %s when committed source dependencies change',
+    async (terminal) => {
+      const sources = {
+        first: new ControlledAsyncIterable<string>(),
+        second: new ControlledAsyncIterable<string>(),
+      };
+      const started: string[] = [];
+      let currentId!: State<'first' | 'second'>;
+      const { container, cleanup } = createTestContainer();
+
+      try {
+        createIsland({
+          root: container,
+          component: () => {
+            currentId = state<'first' | 'second'>('first');
+            const result = stream(currentId, (id) => {
+              started.push(id);
+              return sources[id];
+            });
+            return <p>{result.status}</p>;
+          },
+        });
+        flushScheduler();
+        expect(started).toEqual(['first']);
+
+        if (terminal === 'completion') sources.first.complete();
+        else sources.first.fail(new Error('offline'));
+        await settle();
+        await settle();
+        expect(container.textContent).toBe(
+          terminal === 'completion' ? 'closed' : 'error'
+        );
+
+        currentId.set('second');
+        flushScheduler();
+        expect(started).toEqual(['first', 'second']);
+        expect(container.textContent).toBe('connecting');
+      } finally {
+        cleanup();
+      }
+    }
+  );
+
+  it('should not reconnect a source change after explicit close until restart', async () => {
+    const sources = {
+      first: new ControlledAsyncIterable<string>(),
+      second: new ControlledAsyncIterable<string>(),
+    };
+    const started: string[] = [];
+    let currentId!: State<'first' | 'second'>;
+    let current!: StreamResult<string>;
+    const { container, cleanup } = createTestContainer();
+
+    try {
+      createIsland({
+        root: container,
+        component: () => {
+          currentId = state<'first' | 'second'>('first');
+          current = stream(currentId, (id) => {
+            started.push(id);
+            return sources[id];
+          });
+          return <p>{current.status}</p>;
+        },
+      });
+      flushScheduler();
+      current.close();
+
+      currentId.set('second');
+      flushScheduler();
+      expect(started).toEqual(['first']);
+      expect(container.textContent).toBe('closed');
+
+      current.restart();
+      expect(started).toEqual(['first', 'second']);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should abort and return an iterator exactly once while ignoring late work', async () => {
     const source = new ControlledAsyncIterable<string>();
     let signal: AbortSignal | undefined;
@@ -336,6 +535,193 @@ describe('stream()', () => {
     await settle();
     expect(source.returnCalls).toBe(1);
     expect(current?.value).toBe('live');
+  });
+
+  it('should close when an iterator return getter throws', async () => {
+    const iterator: AsyncIterator<string> = {
+      next: () => new Promise<IteratorResult<string>>(() => {}),
+    };
+    Object.defineProperty(iterator, 'return', {
+      get() {
+        throw new Error('return getter failed');
+      },
+    });
+    const source: AsyncIterable<string> = {
+      [Symbol.asyncIterator]: () => iterator,
+    };
+    let current: StreamResult<string> | undefined;
+    const { container, cleanup } = createTestContainer();
+
+    try {
+      createIsland({
+        root: container,
+        component: () => {
+          current = stream(() => source);
+          return <p>{current.status}</p>;
+        },
+      });
+      flushScheduler();
+      await settle();
+
+      expect(() => current?.close()).not.toThrow();
+      expect(current).toMatchObject({
+        status: 'closed',
+        pending: false,
+        error: null,
+      });
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should preserve lifecycle changes made by abort listeners', async () => {
+    const sources = [
+      new ControlledAsyncIterable<string>(),
+      new ControlledAsyncIterable<string>(),
+      new ControlledAsyncIterable<string>(),
+    ];
+    const signals: AbortSignal[] = [];
+    let starts = 0;
+    let current: StreamResult<string> | undefined;
+    const { container, cleanup } = createTestContainer();
+
+    try {
+      createIsland({
+        root: container,
+        component: () => {
+          current = stream(({ signal }) => {
+            signals.push(signal);
+            return sources[starts++]!;
+          });
+          return <p>{current.value ?? 'none'}</p>;
+        },
+      });
+      flushScheduler();
+      await settle();
+
+      signals[0]!.addEventListener('abort', () => current?.restart(), {
+        once: true,
+      });
+      current?.restart();
+
+      expect(starts).toBe(2);
+      expect(sources[0]?.returnCalls).toBe(1);
+      expect(signals[1]?.aborted).toBe(false);
+
+      sources[1]!.yield('successor');
+      await settle();
+      expect(container.textContent).toBe('successor');
+
+      signals[1]!.addEventListener('abort', () => current?.close(), {
+        once: true,
+      });
+      current?.restart();
+
+      expect(starts).toBe(2);
+      expect(sources[1]?.returnCalls).toBe(1);
+      expect(current).toMatchObject({
+        status: 'closed',
+        pending: false,
+        error: null,
+      });
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should keep a restart made while close aborts the active generation', async () => {
+    const sources = [
+      new ControlledAsyncIterable<string>(),
+      new ControlledAsyncIterable<string>(),
+    ];
+    const signals: AbortSignal[] = [];
+    let starts = 0;
+    let current: StreamResult<string> | undefined;
+    const { container, cleanup } = createTestContainer();
+
+    try {
+      createIsland({
+        root: container,
+        component: () => {
+          current = stream(({ signal }) => {
+            signals.push(signal);
+            return sources[starts++]!;
+          });
+          return <p>{current.value ?? current.status}</p>;
+        },
+      });
+      flushScheduler();
+      await settle();
+
+      signals[0]!.addEventListener('abort', () => current?.restart(), {
+        once: true,
+      });
+      current?.close();
+
+      expect(starts).toBe(2);
+      expect(signals[0]?.aborted).toBe(true);
+      expect(signals[1]?.aborted).toBe(false);
+      expect(sources[0]?.returnCalls).toBe(1);
+      expect(current?.status).toBe('connecting');
+
+      sources[1]!.yield('restarted');
+      await settle();
+      expect(current?.value).toBe('restarted');
+      expect(container.textContent).toBe('restarted');
+
+      current?.close();
+      expect(signals[1]?.aborted).toBe(true);
+      expect(sources[1]?.returnCalls).toBe(1);
+      expect(current?.status).toBe('closed');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should preserve a restart made by iterator return()', async () => {
+    const second = new ControlledAsyncIterable<string>();
+    let returnCalls = 0;
+    let starts = 0;
+    let current: StreamResult<string> | undefined;
+    const first: AsyncIterable<string> = {
+      [Symbol.asyncIterator]: () => ({
+        next: () => new Promise<IteratorResult<string>>(() => {}),
+        return: () => {
+          returnCalls += 1;
+          current?.restart();
+          return Promise.resolve({ done: true, value: undefined });
+        },
+      }),
+    };
+    const signals: AbortSignal[] = [];
+    const { container, cleanup } = createTestContainer();
+
+    try {
+      createIsland({
+        root: container,
+        component: () => {
+          current = stream(({ signal }) => {
+            signals.push(signal);
+            return starts++ === 0 ? first : second;
+          });
+          return <p>{current.value ?? 'none'}</p>;
+        },
+      });
+      flushScheduler();
+      await settle();
+
+      current?.restart();
+
+      expect(starts).toBe(2);
+      expect(returnCalls).toBe(1);
+      expect(signals[1]?.aborted).toBe(false);
+
+      second.yield('successor');
+      await settle();
+      expect(container.textContent).toBe('successor');
+    } finally {
+      cleanup();
+    }
   });
 
   it('should never execute a source during synchronous SSR', () => {

@@ -10,19 +10,30 @@ import type { JSXElement } from '../../../src/jsx/types';
 import { routeRegistryFromTable } from '../../router-test-utils';
 import { cleanupApp, createSPA, hydrateSPA } from '../../../src/boot';
 import { renderToStringSync } from '../../../src/ssr';
-import { ErrorBoundary } from '../../../src/components/error-boundary';
+import { ErrorBoundary } from '../../../src/components';
 import { For, Show } from '../../../src/control';
-import { defineScope, readScope } from '../../../src/runtime/context/context';
 import { resource, task, watch } from '../../../src/resources';
 import {
   Portal,
   _resetDefaultPortal,
 } from '../../../src/foundations/structures/portal';
-import { derive, state, type State } from '../../../src/index';
+import {
+  defineScope,
+  derive,
+  readScope,
+  state,
+  type State,
+} from '../../../src/index';
 import {
   createTestContainer,
   flushScheduler,
+  stripComments,
 } from '../../../test-utils/render/test-renderer';
+
+// A function prop may return a readable, which the renderer unwraps (#543).
+// Prop types only accept a value or a function returning one, so these tests
+// opt out of that check explicitly.
+const readableProp = (read: () => unknown) => read as never;
 
 type Page = () => JSXElement;
 
@@ -42,9 +53,7 @@ async function renderOnClient(Component: Page): Promise<string> {
 }
 
 function normalizeHtml(html: string): string {
-  const template = document.createElement('template');
-  template.innerHTML = html.replace(/<!--[\s\S]*?-->/g, '');
-  return template.innerHTML;
+  return stripComments(html);
 }
 
 function renderOnServer(Component: Page): string {
@@ -136,6 +145,44 @@ describe('SSR reactive values', () => {
         );
       },
       '<p title="say &quot;hi&quot; &lt;now&gt;" class="lead" data-count="2">z</p>',
+    ],
+    [
+      'a function prop returning a state cell',
+      () => {
+        const useA = state(true);
+        const a = state('A');
+        return (
+          <p
+            title={readableProp(() => (useA() ? a : 'none'))}
+            data-cell={() => a}
+          >
+            {'z'}
+          </p>
+        );
+      },
+      '<p title="A" data-cell="A">z</p>',
+    ],
+    [
+      'form controls with function values',
+      () => {
+        const name = state('Ada');
+        const on = state(true);
+        const role = state('b');
+        return (
+          <form>
+            <input value={() => name()} />
+            <input type="checkbox" checked={() => on()} />
+            <textarea value={readableProp(() => name)}></textarea>
+            <select value={() => role()}>
+              <option value="a">{'A'}</option>
+              <option value="b" selected={readableProp(() => on)}>
+                {'B'}
+              </option>
+            </select>
+          </form>
+        );
+      },
+      '<form><input value="Ada" /><input type="checkbox" checked /><textarea value="Ada"></textarea><select value="b"><option value="a">A</option><option value="b" selected>B</option></select></form>',
     ],
     [
       'a function child returning a state cell',
@@ -347,6 +394,55 @@ describe('SSR reactive values', () => {
     expect(p.getAttribute('title')).toBe('after');
   });
 
+  it('should keep hydrated form control and readable-returning props reactive', async () => {
+    let name!: State<string>;
+    let on!: State<boolean>;
+    let role!: State<string>;
+    const Component = () => {
+      name = state('Ada');
+      on = state(true);
+      role = state('b');
+      return (
+        <form title={readableProp(() => name)}>
+          <input value={() => name()} />
+          <input type="checkbox" checked={() => on()} />
+          <textarea value={readableProp(() => name)}></textarea>
+          <select value={() => role()}>
+            <option value="a">{'A'}</option>
+            <option value="b">{'B'}</option>
+          </select>
+        </form>
+      );
+    };
+
+    container.innerHTML = renderToStringSync(Component);
+    const form = container.querySelector('form')!;
+    const input = container.querySelector('input')!;
+    const checkbox = container.querySelectorAll('input')[1];
+    const textarea = container.querySelector('textarea')!;
+    const select = container.querySelector('select')!;
+    await hydrate(Component);
+
+    expect(container.querySelector('form')).toBe(form);
+    expect(container.querySelector('select')).toBe(select);
+    expect(form.getAttribute('title')).toBe('Ada');
+    expect(input.value).toBe('Ada');
+    expect(checkbox.checked).toBe(true);
+    expect(textarea.value).toBe('Ada');
+    expect(select.value).toBe('b');
+
+    name.set('Grace');
+    on.set(false);
+    role.set('a');
+    flushScheduler();
+
+    expect(form.getAttribute('title')).toBe('Grace');
+    expect(input.value).toBe('Grace');
+    expect(checkbox.checked).toBe(false);
+    expect(textarea.value).toBe('Grace');
+    expect(select.value).toBe('a');
+  });
+
   it('should follow the state cell a hydrated function child returns', async () => {
     let useA!: State<boolean>;
     let b!: State<string>;
@@ -432,6 +528,93 @@ describe('SSR reactive values', () => {
     container.innerHTML = renderToStringSync(Page);
     await hydrate(Page);
     expect(normalizeHtml(container.innerHTML)).toBe('a<b>1</b>');
+  });
+
+  it('should update keyed structural children in a hydrated component fragment', async () => {
+    let count!: State<number>;
+    const Inner = () => (
+      <>
+        {() =>
+          Array.from({ length: count() }, (_, index) => (
+            <li key={index}>{index}</li>
+          ))
+        }
+        <i>{'tail'}</i>
+      </>
+    );
+    const Page = () => {
+      count = state(1);
+      return <Inner />;
+    };
+
+    container.innerHTML = renderToStringSync(Page);
+    await hydrate(Page);
+
+    count.set(3);
+    flushScheduler();
+    expect(
+      Array.from(container.querySelectorAll('li'), (li) => li.textContent)
+    ).toEqual(['0', '1', '2']);
+  });
+
+  it('should update unkeyed structural children in a hydrated component fragment', async () => {
+    let count!: State<number>;
+    const Inner = () => (
+      <>
+        {() => Array.from({ length: count() }, (_, index) => <li>{index}</li>)}
+        <i>{'tail'}</i>
+      </>
+    );
+    const Page = () => {
+      count = state(1);
+      return <Inner />;
+    };
+
+    container.innerHTML = renderToStringSync(Page);
+    await hydrate(Page);
+    count.set(3);
+    flushScheduler();
+    expect(
+      Array.from(container.querySelectorAll('li'), (li) => li.textContent)
+    ).toEqual(['0', '1', '2']);
+  });
+
+  it('should keep a hydrated keyed structural child current after rollback', async () => {
+    let count!: State<number>;
+    let ok!: State<boolean>;
+    const Guard = (props: { value: number; ok: boolean }) => {
+      if (props.value === 2 && !props.ok) throw new Error('boom');
+      return <span>{props.value}</span>;
+    };
+    const Inner = () => (
+      <>
+        {() =>
+          Array.from({ length: count() }, (_, index) => (
+            <li key={index}>{index}</li>
+          ))
+        }
+        <Guard value={count()} ok={ok()} />
+      </>
+    );
+    const Page = () => {
+      count = state(1);
+      ok = state(false);
+      return <Inner />;
+    };
+
+    container.innerHTML = renderToStringSync(Page);
+    await hydrate(Page);
+    expect(() => {
+      count.set(2);
+      flushScheduler();
+    }).toThrow('boom');
+    expect(container.querySelectorAll('li')).toHaveLength(2);
+    expect(container.querySelector('span')?.textContent).toBe('1');
+
+    ok.set(true);
+    flushScheduler();
+    expect(container.querySelectorAll('li')).toHaveLength(2);
+    expect(container.querySelector('span')?.textContent).toBe('2');
   });
 
   it('should evaluate each function child and prop once on the server', () => {
@@ -684,7 +867,7 @@ describe('SSR reactive values', () => {
         <Theme value={'dark'}>
           <div>
             <ErrorBoundary fallback={() => <em>{'fallback'}</em>}>
-              {child}
+              {child as () => JSXElement}
             </ErrorBoundary>
           </div>
         </Theme>

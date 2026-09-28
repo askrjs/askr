@@ -160,6 +160,7 @@ export function createRenderContext(
     ssrPortals: {
       slots: new Map(),
       nextHostId: 0,
+      nextWriteOrder: 0,
     },
     cspNonce: opts.cspNonce,
   };

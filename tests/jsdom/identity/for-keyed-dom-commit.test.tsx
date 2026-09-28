@@ -7,19 +7,6 @@ import {
 } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
 
-function getDomReplaceCount(): number {
-  const devNamespace =
-    (
-      globalThis as Record<string, unknown> & {
-        __ASKR__?: Record<string, unknown>;
-      }
-    ).__ASKR__ ?? {};
-
-  return typeof devNamespace.__DOM_REPLACE_COUNT === 'number'
-    ? (devNamespace.__DOM_REPLACE_COUNT as number)
-    : 0;
-}
-
 function interleaveRows<T>(rows: readonly T[]): T[] {
   const evenRows: T[] = [];
   const oddRows: T[] = [];
@@ -67,7 +54,10 @@ describe('for keyed DOM commit', () => {
             {
               <For each={() => rowsState!()} by={(item) => item.id}>
                 {(item) => (
-                  <tr class={() => (isSelected(item.id) ? 'danger' : '')}>
+                  <tr
+                    data-row={item.id}
+                    class={() => (isSelected(item.id) ? 'danger' : '')}
+                  >
                     <td>{item.label}</td>
                   </tr>
                 )}
@@ -81,28 +71,26 @@ describe('for keyed DOM commit', () => {
     createIsland({ root: container, component: Component });
     flushScheduler();
 
-    const row1Before = container.querySelector('[data-key="1"]');
-    const row2Before = container.querySelector('[data-key="2"]');
-    const row3Before = container.querySelector('[data-key="3"]');
-    const replaceBefore = getDomReplaceCount();
+    const row1Before = container.querySelector('[data-row="1"]');
+    const row2Before = container.querySelector('[data-row="2"]');
+    const row3Before = container.querySelector('[data-row="3"]');
 
     selectedState!.set(2);
     flushScheduler();
 
-    expect(container.querySelector('[data-key="1"]')).toBe(row1Before);
-    expect(container.querySelector('[data-key="2"]')).toBe(row2Before);
-    expect(container.querySelector('[data-key="3"]')).toBe(row3Before);
+    expect(container.querySelector('[data-row="1"]')).toBe(row1Before);
+    expect(container.querySelector('[data-row="2"]')).toBe(row2Before);
+    expect(container.querySelector('[data-row="3"]')).toBe(row3Before);
     expect((row2Before as HTMLElement).className).toBe('danger');
 
     selectedState!.set(3);
     flushScheduler();
 
-    expect(container.querySelector('[data-key="1"]')).toBe(row1Before);
-    expect(container.querySelector('[data-key="2"]')).toBe(row2Before);
-    expect(container.querySelector('[data-key="3"]')).toBe(row3Before);
+    expect(container.querySelector('[data-row="1"]')).toBe(row1Before);
+    expect(container.querySelector('[data-row="2"]')).toBe(row2Before);
+    expect(container.querySelector('[data-row="3"]')).toBe(row3Before);
     expect((row2Before as HTMLElement).className).toBe('');
     expect((row3Before as HTMLElement).className).toBe('danger');
-    expect(getDomReplaceCount() - replaceBefore).toBe(0);
   });
 
   it('should replace all keyed rows with new DOM nodes when every key changes', () => {
@@ -123,7 +111,7 @@ describe('for keyed DOM commit', () => {
             {
               <For each={() => rowsState!()} by={(item) => item.id}>
                 {(item) => (
-                  <tr>
+                  <tr data-row={item.id}>
                     <td>{item.label}</td>
                   </tr>
                 )}
@@ -137,7 +125,7 @@ describe('for keyed DOM commit', () => {
     createIsland({ root: container, component: Component });
     flushScheduler();
 
-    const firstRowBefore = container.querySelector('tr[data-key="1"]');
+    const firstRowBefore = container.querySelector('tr[data-row="1"]');
     expect(firstRowBefore?.textContent).toContain('One');
 
     rowsState!.set([
@@ -147,10 +135,10 @@ describe('for keyed DOM commit', () => {
     ]);
     flushScheduler();
 
-    const firstRowAfter = container.querySelector('tr[data-key="11"]');
+    const firstRowAfter = container.querySelector('tr[data-row="11"]');
     expect(firstRowAfter?.textContent).toContain('Eleven');
     expect(firstRowAfter).not.toBe(firstRowBefore);
-    expect(container.querySelector('tr[data-key="1"]')).toBeNull();
+    expect(container.querySelector('tr[data-row="1"]')).toBeNull();
   });
 
   it('should keep keyed row identity for same-order updates', () => {
@@ -172,7 +160,7 @@ describe('for keyed DOM commit', () => {
             {
               <For each={() => rowsState!()} by={(item) => item.id}>
                 {(item) => (
-                  <tr>
+                  <tr data-row={item.id}>
                     <td>{item.label}</td>
                   </tr>
                 )}
@@ -187,10 +175,9 @@ describe('for keyed DOM commit', () => {
     flushScheduler();
 
     const rowsBefore = new Map<string, Element>();
-    container.querySelectorAll('tr[data-key]').forEach((row) => {
-      rowsBefore.set(row.getAttribute('data-key') || '', row);
+    container.querySelectorAll('tr[data-row]').forEach((row) => {
+      rowsBefore.set(row.getAttribute('data-row') || '', row);
     });
-    const replaceBefore = getDomReplaceCount();
 
     rowsState!.set((rows) =>
       rows.map((item, index) =>
@@ -199,21 +186,20 @@ describe('for keyed DOM commit', () => {
     );
     flushScheduler();
 
-    container.querySelectorAll('tr[data-key]').forEach((row) => {
-      const key = row.getAttribute('data-key') || '';
+    container.querySelectorAll('tr[data-row]').forEach((row) => {
+      const key = row.getAttribute('data-row') || '';
       expect(row).toBe(rowsBefore.get(key));
     });
 
-    expect(container.querySelector('tr[data-key="1"] td')?.textContent).toBe(
+    expect(container.querySelector('tr[data-row="1"] td')?.textContent).toBe(
       'Row 1 !!!'
     );
-    expect(container.querySelector('tr[data-key="2"] td')?.textContent).toBe(
+    expect(container.querySelector('tr[data-row="2"] td')?.textContent).toBe(
       'Row 2'
     );
-    expect(container.querySelector('tr[data-key="11"] td')?.textContent).toBe(
+    expect(container.querySelector('tr[data-row="11"] td')?.textContent).toBe(
       'Row 11 !!!'
     );
-    expect(getDomReplaceCount() - replaceBefore).toBe(0);
   });
 
   it('should reorder keyed rows without recreating them', () => {
@@ -236,7 +222,7 @@ describe('for keyed DOM commit', () => {
             {
               <For each={() => rowsState!()} by={(item) => item.id}>
                 {(item) => (
-                  <tr>
+                  <tr data-row={item.id}>
                     <td>{item.label}</td>
                   </tr>
                 )}
@@ -251,10 +237,9 @@ describe('for keyed DOM commit', () => {
     flushScheduler();
 
     const rowsBefore = new Map<string, Element>();
-    container.querySelectorAll('tr[data-key]').forEach((row) => {
-      rowsBefore.set(row.getAttribute('data-key') || '', row);
+    container.querySelectorAll('tr[data-row]').forEach((row) => {
+      rowsBefore.set(row.getAttribute('data-row') || '', row);
     });
-    const replaceBefore = getDomReplaceCount();
 
     rowsState!.set((rows) => {
       const next = rows.slice();
@@ -266,15 +251,14 @@ describe('for keyed DOM commit', () => {
     flushScheduler();
 
     const orderedKeys = Array.from(
-      container.querySelectorAll('tr[data-key]')
-    ).map((row) => row.getAttribute('data-key'));
+      container.querySelectorAll('tr[data-row]')
+    ).map((row) => row.getAttribute('data-row'));
 
     expect(orderedKeys).toEqual(['1', '4', '3', '2', '5']);
-    container.querySelectorAll('tr[data-key]').forEach((row) => {
-      const key = row.getAttribute('data-key') || '';
+    container.querySelectorAll('tr[data-row]').forEach((row) => {
+      const key = row.getAttribute('data-row') || '';
       expect(row).toBe(rowsBefore.get(key));
     });
-    expect(getDomReplaceCount() - replaceBefore).toBe(0);
   });
 
   it('should preserve keyed table identity across JSX component boundaries', () => {
@@ -291,7 +275,10 @@ describe('for keyed DOM commit', () => {
       isSelected: (id: number) => boolean;
     }) {
       return (
-        <tr class={() => (isSelected(item.id) ? 'danger' : '')}>
+        <tr
+          data-row={item.id}
+          class={() => (isSelected(item.id) ? 'danger' : '')}
+        >
           <td>{item.label}</td>
         </tr>
       );
@@ -332,17 +319,16 @@ describe('for keyed DOM commit', () => {
     createIsland({ root: container, component: Component });
     flushScheduler();
 
-    const row1Before = container.querySelector('[data-key="1"]');
-    const row2Before = container.querySelector('[data-key="2"]');
-    const row3Before = container.querySelector('[data-key="3"]');
-    const replaceBefore = getDomReplaceCount();
+    const row1Before = container.querySelector('[data-row="1"]');
+    const row2Before = container.querySelector('[data-row="2"]');
+    const row3Before = container.querySelector('[data-row="3"]');
 
     selectedState!.set(2);
     flushScheduler();
 
-    expect(container.querySelector('[data-key="1"]')).toBe(row1Before);
-    expect(container.querySelector('[data-key="2"]')).toBe(row2Before);
-    expect(container.querySelector('[data-key="3"]')).toBe(row3Before);
+    expect(container.querySelector('[data-row="1"]')).toBe(row1Before);
+    expect(container.querySelector('[data-row="2"]')).toBe(row2Before);
+    expect(container.querySelector('[data-row="3"]')).toBe(row3Before);
     expect((row2Before as HTMLElement).className).toBe('danger');
 
     rowsState!.set((rows) =>
@@ -352,23 +338,22 @@ describe('for keyed DOM commit', () => {
     );
     flushScheduler();
 
-    expect(container.querySelector('[data-key="1"]')).toBe(row1Before);
-    expect(container.querySelector('[data-key="2"]')).toBe(row2Before);
-    expect(container.querySelector('[data-key="3"]')).toBe(row3Before);
+    expect(container.querySelector('[data-row="1"]')).toBe(row1Before);
+    expect(container.querySelector('[data-row="2"]')).toBe(row2Before);
+    expect(container.querySelector('[data-row="3"]')).toBe(row3Before);
     expect(row1Before?.querySelector('td')?.textContent).toBe('Row 1 !!!');
 
     rowsState!.set((rows) => [rows[0], rows[2], rows[1]]);
     flushScheduler();
 
     const orderedKeys = Array.from(
-      container.querySelectorAll('tr[data-key]')
-    ).map((row) => row.getAttribute('data-key'));
+      container.querySelectorAll('tr[data-row]')
+    ).map((row) => row.getAttribute('data-row'));
 
     expect(orderedKeys).toEqual(['1', '3', '2']);
-    expect(container.querySelector('[data-key="1"]')).toBe(row1Before);
-    expect(container.querySelector('[data-key="2"]')).toBe(row2Before);
-    expect(container.querySelector('[data-key="3"]')).toBe(row3Before);
-    expect(getDomReplaceCount() - replaceBefore).toBe(0);
+    expect(container.querySelector('[data-row="1"]')).toBe(row1Before);
+    expect(container.querySelector('[data-row="2"]')).toBe(row2Before);
+    expect(container.querySelector('[data-row="3"]')).toBe(row3Before);
   });
 
   it(
@@ -420,7 +405,6 @@ describe('for keyed DOM commit', () => {
       createIsland({ root: container, component: Component });
       flushScheduler();
 
-      const replaceBefore = getDomReplaceCount();
       const idToCheck = 10;
       const beforeElem = container.querySelector(
         `[data-row="${idToCheck}"]`
@@ -447,7 +431,6 @@ describe('for keyed DOM commit', () => {
       expect(afterElem).to.equal(beforeElem);
       expect(afterElem.textContent).to.equal('Row 10:1');
       expect(rowRenderCounts.get(idToCheck)).to.equal(1);
-      expect(getDomReplaceCount() - replaceBefore).toBe(0);
 
       afterElem.click();
       flushScheduler();

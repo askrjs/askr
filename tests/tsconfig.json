@@ -1,6 +1,9 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "jsxImportSource": "@askrjs/askr",
     "outDir": null,
@@ -29,10 +32,12 @@
       "@askrjs/askr/ssg": ["../src/ssg/index.ts"],
       "@askrjs/askr/ssr": ["../src/ssr/index.ts"],
       "@askrjs/askr/jsx-runtime": ["../src/jsx-runtime.ts"],
-      "@askrjs/askr/jsx-dev-runtime": ["../src/jsx-dev-runtime.ts"]
-    }
+      "@askrjs/askr/jsx-dev-runtime": ["../src/jsx-dev-runtime.ts"],
+      "@askrjs/askr/testing": ["../src/testing/index.ts"]
+    },
+    "noEmit": true,
+    "composite": false
   },
-  "references": [{ "path": "../tsconfig.json" }],
-  "include": ["./**/*"],
-  "exclude": []
+  "include": ["./**/*", "../src/**/*"],
+  "exclude": ["./types/**/*"]
 }

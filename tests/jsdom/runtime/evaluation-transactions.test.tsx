@@ -16,6 +16,7 @@ import {
   afterEach,
   vi,
 } from 'vite-plus/test';
+
 import { createIsland } from '@askrjs/askr/boot';
 import { For } from '@askrjs/askr/control';
 import { state, type State } from '../../../src';
@@ -26,7 +27,20 @@ import {
   createTestContainer,
   expectDOM,
   flushScheduler,
+  refAs,
 } from '../../../test-utils/render/test-renderer';
+
+function withoutComments(element: Element): string {
+  const clone = element.cloneNode(true) as Element;
+  const walker = element.ownerDocument.createTreeWalker(
+    clone,
+    NodeFilter.SHOW_COMMENT
+  );
+  while (walker.nextNode()) {
+    walker.currentNode.parentNode?.removeChild(walker.currentNode);
+  }
+  return clone.innerHTML;
+}
 
 describe('evaluation transactions (SPEC 2.1)', () => {
   let { container, cleanup } = createTestContainer();
@@ -250,11 +264,11 @@ describe('evaluation transactions (SPEC 2.1)', () => {
           throw new Error('same-key later row failed');
         }
         if (row.root === 'article') {
-          return <article ref={sharedRef}>{row.label}</article>;
+          return <article ref={refAs(sharedRef)}>{row.label}</article>;
         }
         return (
           <button
-            ref={row.id === 1 ? sharedRef : undefined}
+            ref={row.id === 1 ? refAs(sharedRef) : undefined}
             onClick={() => clicks++}
           >
             {row.label}
@@ -354,7 +368,7 @@ describe('evaluation transactions (SPEC 2.1)', () => {
         return (
           <div>
             <For each={rows} by={(row) => row.id}>
-              {(row) => <button ref={sharedRef}>{row.label}</button>}
+              {(row) => <button ref={refAs(sharedRef)}>{row.label}</button>}
             </For>
           </div>
         );
@@ -382,11 +396,11 @@ describe('evaluation transactions (SPEC 2.1)', () => {
 
       const renderObjectRow = (row: Row) =>
         row.root === 'button' ? (
-          <button data-object-root={'button'} ref={objectRef}>
+          <button data-object-root={'button'} ref={refAs(objectRef)}>
             {'button'}
           </button>
         ) : (
-          <a data-object-root={'anchor'} ref={objectRef}>
+          <a data-object-root={'anchor'} ref={refAs(objectRef)}>
             {'anchor'}
           </a>
         );
@@ -724,7 +738,7 @@ describe('evaluation transactions (SPEC 2.1)', () => {
 
       expectDOM(container).text('Loaded');
       // Strip comment placeholders for comparison since they're implementation details
-      const snapshot = container.innerHTML.replace(/<!--.*?-->/g, '');
+      const snapshot = withoutComments(container);
 
       // A resource rejection settles as resource state; it is not a failed
       // renderer transaction. The committed fallback is coherent (no partial
@@ -737,7 +751,7 @@ describe('evaluation transactions (SPEC 2.1)', () => {
       flushScheduler();
 
       // Strip comment placeholders for comparison.
-      const afterFail = container.innerHTML.replace(/<!--.*?-->/g, '');
+      const afterFail = withoutComments(container);
       expect(snapshot).toBe('<div>Loaded</div>');
       expect(afterFail).toBe('<div></div>');
     });

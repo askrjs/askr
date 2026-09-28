@@ -1,6 +1,7 @@
 // tests/state/hook_order_enforcement.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
-import { derive, For, state } from '../../../src/index';
+import { derive, state } from '../../../src/index';
+import { For } from '../../../src/control';
 import { createIsland } from '@askrjs/askr/boot';
 import {
   createTestContainer,
@@ -165,7 +166,7 @@ describe('hook order enforcement (STATE)', () => {
     expect(container.textContent).toContain('firstsecond');
   });
 
-  it('should explain conditional control-boundary violations without blaming component structure', () => {
+  it('should allow a conditional For without changing the parent hook order', () => {
     let open: ReturnType<typeof state<boolean>> | null = null;
 
     const Component = () => {
@@ -187,13 +188,8 @@ describe('hook order enforcement (STATE)', () => {
     expect(() => {
       open!.set(true);
       flushScheduler();
-    }).toThrow(
-      expect.objectContaining({
-        message: expect.stringMatching(
-          /conditional subtree.*control boundary.*<Show>.*<Case>.*<Match>/is
-        ),
-      })
-    );
+    }).not.toThrow();
+    expect(container.textContent).toBe('firstsecond');
 
     expect(() => {
       open!.set(false);
@@ -219,7 +215,7 @@ describe('hook order enforcement (STATE)', () => {
     expect(() => {
       flag!.set(false);
       flushScheduler();
-    }).toThrow(/hook order violation.*1 hook.*first render.*2.*state\(\)/is);
+    }).toThrow(/hook order changed.*slot 1.*state\(\).*not claimed/i);
 
     expect(() => {
       flag!.set(true);
@@ -248,7 +244,7 @@ describe('hook order enforcement (STATE)', () => {
     expect(() => {
       flag!.set(false);
       flushScheduler();
-    }).toThrow(/hook order violation.*derive\(\).*index 1.*state\(\)/is);
+    }).toThrow(/hook order changed.*slot 1.*state\(\).*derive\(\)/i);
 
     expect(() => {
       flag!.set(true);
@@ -257,7 +253,7 @@ describe('hook order enforcement (STATE)', () => {
     expect(container.textContent).toBe('on');
   });
 
-  it('should throw when a conditional control boundary is skipped after the first render', () => {
+  it('should remove a conditional For without changing the parent hook order', () => {
     let open: ReturnType<typeof state<boolean>> | null = null;
 
     const Component = () => {
@@ -280,13 +276,8 @@ describe('hook order enforcement (STATE)', () => {
     expect(() => {
       open!.set(false);
       flushScheduler();
-    }).toThrow(
-      expect.objectContaining({
-        message: expect.stringMatching(
-          /<For> at index 1 was skipped.*conditional subtree.*control boundary/is
-        ),
-      })
-    );
+    }).not.toThrow();
+    expect(container.textContent).toBe('');
   });
 
   it('should accept the same hook sequence on every render', () => {

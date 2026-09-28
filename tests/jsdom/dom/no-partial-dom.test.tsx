@@ -1,22 +1,304 @@
-// tests/dom/no_partial_dom.test.ts
-import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  vi,
+} from 'vite-plus/test';
 import { state } from '../../../src/index';
-import { evaluate, type DOMElement } from '../../../src/renderer';
+import { jsx, type JSXElement } from '../../../src/jsx-runtime';
 import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { createIsland } from '../../../test-utils/render/create-island';
 import { allowFrameworkWarnings } from '../../setup-env';
+import { currentOwner, onDispose } from '../../../src/core/api/hooks';
 
-function element(type: string, props: Record<string, unknown>): DOMElement {
-  return { type, props };
+function element(type: string, props: Record<string, unknown>): JSXElement {
+  return jsx(type as 'div', props as never);
+}
+
+const updates = new WeakMap<HTMLElement, (view: JSXElement) => void>();
+
+function evaluate(view: JSXElement, container: HTMLElement): void {
+  const update = updates.get(container);
+  if (update) {
+    update(view);
+    flushScheduler();
+    return;
+  }
+  const App = () => {
+    const current = state(view);
+    updates.set(container, current.set);
+    return current();
+  };
+  createIsland({ root: container, component: App });
+  flushScheduler();
 }
 
 describe('no partial DOM (DOM)', () => {
   let { container, cleanup } = createTestContainer();
   beforeEach(() => ({ container, cleanup } = createTestContainer()));
   afterEach(() => cleanup());
+
+  it('should restore a property whose setter mutates and then throws', () => {
+    let setValue!: (value: boolean) => void;
+    const next = new Error('property setter failed');
+    const App = () => {
+      const value = state(false);
+      setValue = value.set;
+      return element('input', { indeterminate: value() });
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const input = container.querySelector('input') as HTMLInputElement;
+    let current = input.indeterminate;
+    Object.defineProperty(input, 'indeterminate', {
+      configurable: true,
+      get: () => current,
+      set(value: boolean) {
+        current = value;
+        if (value) throw next;
+      },
+    });
+
+    expect(() => {
+      setValue(true);
+      flushScheduler();
+    }).toThrow(next);
+    expect(input.indeterminate).toBe(false);
+
+    delete (input as { indeterminate?: boolean }).indeterminate;
+    setValue(false);
+    flushScheduler();
+    setValue(true);
+    flushScheduler();
+    expect(input.indeterminate).toBe(true);
+  });
+
+  it('should restore custom-element property and attribute state after a failed write', () => {
+    const tag = 'x-rollback-prop-probe';
+    if (!customElements.get(tag)) {
+      class RollbackPropProbe extends HTMLElement {
+        private value: unknown;
+        throwOn: unknown;
+        get config(): unknown {
+          return this.value;
+        }
+        set config(value: unknown) {
+          this.value = value;
+          if (value === this.throwOn) throw new Error('custom setter failed');
+        }
+      }
+      customElements.define(tag, RollbackPropProbe);
+    }
+
+    const previous = { mode: 'old' };
+    const next = { mode: 'new' };
+    let setStage!: (stage: number) => void;
+    const App = () => {
+      const stage = state(0);
+      setStage = stage.set;
+      return element(tag, {
+        config: stage() === 0 ? 'attribute-value' : next,
+      });
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const probe = container.querySelector(tag) as HTMLElement & {
+      config: unknown;
+      throwOn: unknown;
+    };
+    probe.config = previous;
+    probe.throwOn = next;
+
+    expect(() => {
+      setStage(1);
+      flushScheduler();
+    }).toThrow('custom setter failed');
+    expect(probe.config).toBe(previous);
+    expect(probe.getAttribute('config')).toBe('attribute-value');
+
+    probe.throwOn = undefined;
+    setStage(0);
+    flushScheduler();
+    setStage(1);
+    flushScheduler();
+    expect(probe.config).toBe(next);
+    expect(probe.hasAttribute('config')).toBe(false);
+  });
+
+  it('should restore a custom-element property when its attribute transition fails', () => {
+    const tag = 'x-property-transition-rollback';
+    if (!customElements.get(tag)) {
+      class PropertyTransitionRollback extends HTMLElement {
+        private value: unknown;
+        get config(): unknown {
+          return this.value;
+        }
+        set config(value: unknown) {
+          this.value = value;
+        }
+      }
+      customElements.define(tag, PropertyTransitionRollback);
+    }
+
+    const previous = { mode: 'property' };
+    let setAttributeValue!: (enabled: boolean) => void;
+    const App = () => {
+      const enabled = state(false);
+      setAttributeValue = enabled.set;
+      return element(tag, {
+        config: enabled() ? 'attribute' : previous,
+      });
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const probe = container.querySelector(tag) as HTMLElement & {
+      config: unknown;
+    };
+    expect(probe.config).toBe(previous);
+    const originalSetAttribute = probe.setAttribute.bind(probe);
+    const failure = new Error('attribute transition failed');
+    let shouldThrow = true;
+    vi.spyOn(probe, 'setAttribute').mockImplementation((name, value) => {
+      originalSetAttribute(name, value);
+      if (shouldThrow && name === 'config' && value === 'attribute') {
+        shouldThrow = false;
+        throw failure;
+      }
+    });
+
+    expect(() => {
+      setAttributeValue(true);
+      flushScheduler();
+    }).toThrow(failure);
+    expect(probe.hasAttribute('config')).toBe(false);
+    expect(probe.config).toBe(previous);
+
+    shouldThrow = false;
+    setAttributeValue(false);
+    flushScheduler();
+    setAttributeValue(true);
+    flushScheduler();
+    expect(probe.config).toBeUndefined();
+    expect(probe.getAttribute('config')).toBe('attribute');
+  });
+
+  it('should restore an earlier property when a later property write aborts', () => {
+    const tag = 'x-later-property-failure';
+    const failure = new Error('later property failed');
+    if (!customElements.get(tag)) {
+      class LaterPropertyFailure extends HTMLElement {
+        configValue: unknown;
+        triggerValue: unknown;
+        shouldThrow = false;
+        get config(): unknown {
+          return this.configValue;
+        }
+        set config(value: unknown) {
+          this.configValue = value;
+        }
+        get trigger(): unknown {
+          return this.triggerValue;
+        }
+        set trigger(value: unknown) {
+          this.triggerValue = value;
+          if (this.shouldThrow && value === 'explode') throw failure;
+        }
+      }
+      customElements.define(tag, LaterPropertyFailure);
+    }
+
+    const before = { mode: 'before' };
+    const after = { mode: 'after' };
+    let setStage!: (stage: number) => void;
+    const App = () => {
+      const stage = state(0);
+      setStage = stage.set;
+      return element(tag, {
+        'prop:config': stage() === 0 ? before : after,
+        'prop:trigger': stage() === 0 ? 'stable' : 'explode',
+      });
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const probe = container.querySelector(tag) as HTMLElement & {
+      config: unknown;
+      trigger: unknown;
+      shouldThrow: boolean;
+    };
+    probe.shouldThrow = true;
+
+    expect(() => {
+      setStage(1);
+      flushScheduler();
+    }).toThrow(failure);
+    expect(probe.config).toBe(before);
+    expect(probe.trigger).toBe('stable');
+
+    probe.shouldThrow = false;
+    setStage(0);
+    flushScheduler();
+    setStage(1);
+    flushScheduler();
+    expect(probe.config).toBe(after);
+    expect(probe.trigger).toBe('explode');
+  });
+
+  it('should restore a bound property when its setter mutates and throws', () => {
+    const tag = 'x-bound-property-failure';
+    if (!customElements.get(tag)) {
+      class BoundPropertyFailure extends HTMLElement {
+        private value: unknown;
+        throwOn: unknown;
+        get config(): unknown {
+          return this.value;
+        }
+        set config(value: unknown) {
+          this.value = value;
+          if (value === this.throwOn) throw new Error('bound setter failed');
+        }
+      }
+      customElements.define(tag, BoundPropertyFailure);
+    }
+
+    const before = { mode: 'before' };
+    const after = { mode: 'after' };
+    let setValue!: (value: { mode: string }) => void;
+    const App = () => {
+      const value = state(before);
+      setValue = value.set;
+      return element(tag, { config: () => value() });
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const probe = container.querySelector(tag) as HTMLElement & {
+      config: unknown;
+      throwOn: unknown;
+    };
+    probe.throwOn = after;
+
+    expect(() => {
+      setValue(after);
+      flushScheduler();
+    }).toThrow('bound setter failed');
+    expect(probe.config).toBe(before);
+
+    probe.throwOn = undefined;
+    setValue(before);
+    flushScheduler();
+    setValue(after);
+    flushScheduler();
+    expect(probe.config).toBe(after);
+  });
 
   it('should complete render fully or not at all', async () => {
     const ok = () => (
@@ -544,5 +826,74 @@ describe('no partial DOM (DOM)', () => {
     expect(Array.from(retained?.children ?? [])).toEqual(beforeChildren);
     expect(retained?.textContent).toBe('ABC');
     expect(retained?.getAttribute('title')).toBe('stable');
+  });
+
+  it('should restore keyed child order and lifetimes after a DOM move fails', () => {
+    let setRows!: (rows: string[]) => void;
+    let removedCleanupCalls = 0;
+    const Item = ({ row }: { row: string }) => {
+      onDispose(currentOwner()!, () => {
+        if (row === 'b') removedCleanupCalls += 1;
+      });
+      return <li data-row={row}>{row}</li>;
+    };
+    const App = () => {
+      const rows = state(['a', 'b', 'c', 'd']);
+      setRows = rows.set;
+      return (
+        <ul>
+          {rows().map((row) => (
+            <Item key={row} row={row} />
+          ))}
+        </ul>
+      ) as unknown as JSXElement;
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const list = container.querySelector('ul')!;
+    const before = Array.from(list.children);
+    const failure = new Error('keyed child insertion failed');
+    let successfulInsertions = 0;
+    let failedAfterSuccessfulMove = false;
+    const insertBefore = list.insertBefore.bind(list);
+    const insertBeforeSpy = vi
+      .spyOn(list, 'insertBefore')
+      .mockImplementation((node, child) => {
+        if (successfulInsertions === 1 && !failedAfterSuccessfulMove) {
+          failedAfterSuccessfulMove = true;
+          throw failure;
+        }
+        const inserted = insertBefore(node, child);
+        successfulInsertions += 1;
+        return inserted;
+      });
+
+    setRows(['d', 'c', 'a']);
+    expect(() => flushScheduler()).toThrow(failure);
+    expect(failedAfterSuccessfulMove).toBe(true);
+    expect(successfulInsertions).toBeGreaterThanOrEqual(2);
+    insertBeforeSpy.mockRestore();
+
+    expect(Array.from(list.children)).toEqual(before);
+    expect(Array.from(list.children).map((node) => node.textContent)).toEqual([
+      'a',
+      'b',
+      'c',
+      'd',
+    ]);
+    expect(removedCleanupCalls).toBe(0);
+
+    setRows(['d', 'c', 'a']);
+    flushScheduler();
+    expect(Array.from(list.children).map((node) => node.textContent)).toEqual([
+      'd',
+      'c',
+      'a',
+    ]);
+    expect(list.children[0]).toBe(before[3]);
+    expect(list.children[1]).toBe(before[2]);
+    expect(list.children[2]).toBe(before[0]);
+    expect(removedCleanupCalls).toBe(1);
   });
 });

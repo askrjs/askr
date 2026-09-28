@@ -104,12 +104,16 @@ declare function ActivityList(props: {
 
 function ActivityFeed({ cursor }: { cursor: string }) {
   const feed = stream(
-    async function* ({ signal }) {
-      for await (const event of connectActivityFeed({ cursor, signal })) {
+    () => cursor,
+    async function* (currentCursor, { signal }) {
+      for await (const event of connectActivityFeed({
+        cursor: currentCursor,
+        signal,
+      })) {
         yield projectLatestActivity(event);
       }
     },
-    { deps: [cursor], initialValue: [] as Activity[] }
+    { initialValue: [] as Activity[] }
   );
 
   if (feed.status === 'error') {
@@ -123,6 +127,9 @@ The adapter should bound its projection, preserve any server cursor, deduplicate
 replayed events, and decide how to reconnect. `stream()` supplies cancellation
 and latest-value lifecycle state; it does not infer replay or retry semantics.
 SSR and SSG render the initial value, when supplied, without opening the source.
+After a stream completes or errors, a committed source change starts a new
+connection. Calling `close()` keeps it closed across source changes until
+`restart()` is called.
 
 ## SSR with preloaded data
 
@@ -143,12 +150,19 @@ const html = renderToStringSync(Page, undefined, {
 });
 ```
 
-Resource keys are assigned in render order (`r:0`, `r:1`, ...).
+Resource keys are assigned in render order (`r:0`, `r:1`, ...). They live in
+their own namespace in the hydration payload: dehydrated data-runtime query
+entries are embedded separately, so a query key such as `r:0` never replaces a
+resource slot and resource slots never enter the client data runtime.
 
 When the client hydrates with the same data, the preloaded value seeds the
 resource: it is not pending and its loader does not run. Later re-renders keep
 that value while `deps` are unchanged; a `deps` change or `refresh()` fetches as
 usual.
+
+This also applies when hydration is deferred for a below-fold boundary. Visible
+components keep their own render-order slots while the boundary is dormant, and
+the deferred component reads its preloaded value when it activates.
 
 ## Combining resources with `derive()`
 

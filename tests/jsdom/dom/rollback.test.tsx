@@ -4,7 +4,6 @@ import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
-import { registerMountOperation } from '../../../src/runtime';
 import type { JSXElement } from '../../../src/jsx/types';
 import { createIsland } from '../../../test-utils/render/create-island';
 
@@ -20,24 +19,15 @@ describe('rollback behavior', () => {
       const t = state(false);
       setThrow = (v: boolean) => t.set(v);
 
-      // Add a mount operation that attaches a real DOM listener to the button
-      // so we can check it survives a failed render attempt.
-      registerMountOperation(() => {
-        const btn = container.querySelector('#btn');
-        if (btn) {
-          btn.addEventListener('click', () => {
-            clicked = true;
-          });
-        }
-      });
-
       if (t()) {
         throw new Error('render failed intentionally');
       }
 
       return (
         <div>
-          <button id={'btn'}>{'click'}</button>
+          <button id={'btn'} onClick={() => (clicked = true)}>
+            {'click'}
+          </button>
         </div>
       ) as unknown as JSXElement;
     };

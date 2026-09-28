@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { state } from '../../../src/index';
-import { defineScope, readScope } from '../../../src/runtime/context/context';
+import { defineScope, readScope } from '../../../src/index';
 import { resource } from '../../../src/resources';
 import {
   createTestContainer,
@@ -40,8 +40,8 @@ describe('context snapshot stack balance (REGRESSION)', () => {
         return <div>{r.value ?? 'pending'}</div>;
       };
 
-      let themeState!: ReturnType<typeof state>;
-      let showChildState!: ReturnType<typeof state>;
+      let themeState!: ReturnType<typeof state<string>>;
+      let showChildState!: ReturnType<typeof state<boolean>>;
 
       const App = () => {
         themeState = state('A');

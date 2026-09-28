@@ -1,9 +1,7 @@
 import { resetRouteState } from '../../router-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { createSPA } from '@askrjs/askr/boot';
-import { definePortal, type Portal } from '../../../src/runtime/portal/portal';
-import type { ComponentInstance } from '../../../src/runtime';
-import type { ReadableSource } from '../../../src/runtime/reactivity/readable';
+import { definePortal, type Portal } from '../../../src/foundations';
 import { currentRoute } from '../../../src/router/activity';
 import { navigate } from '../../../src/router/navigate';
 import { createRouteRegistry, group, route } from '../../../src/router/route';
@@ -12,33 +10,13 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 
-type InstanceHost = Node & {
-  __ASKR_INSTANCE?: ComponentInstance;
-  __ASKR_INSTANCES?: ComponentInstance[];
-};
-
-function collectInstances(root: Node): Set<ComponentInstance> {
-  const instances = new Set<ComponentInstance>();
-  const walker = document.createTreeWalker(root, 0xffffffff);
-  let node: Node | null = walker.currentNode;
-  while (node) {
-    const host = node as InstanceHost;
-    if (host.__ASKR_INSTANCE) instances.add(host.__ASKR_INSTANCE);
-    for (const instance of host.__ASKR_INSTANCES ?? []) instances.add(instance);
-    node = walker.nextNode();
-  }
-  return instances;
+function surfaces(root: Element): string[] {
+  return Array.from(root.querySelectorAll('[data-portal-surface]'), (node) =>
+    node.getAttribute('data-portal-surface')!
+  ).sort();
 }
 
-function getPortalSource(
-  root: Node,
-  portal: Portal
-): ReadableSource<unknown> | undefined {
-  const portalInstance = Array.from(collectInstances(root)).find(
-    (instance) => instance.fn === portal
-  );
-  return portalInstance?.owner.reads?.values().next().value;
-}
+const TABLE_SURFACES = ['layout', 'row-0', 'row-1', 'row-2', 'row-3', 'row-4'];
 
 describe('portal cleanup in routed layout and keyed table children', () => {
   let result: ReturnType<typeof createTestContainer>;
@@ -53,7 +31,7 @@ describe('portal cleanup in routed layout and keyed table children', () => {
     resetRouteState();
   });
 
-  it('should use destination route context and keep portal readers stable given a shared layout when navigating repeatedly', async () => {
+  it('should use destination route context and keep portal content stable given a shared layout when navigating repeatedly', async () => {
     const layoutPortal = definePortal();
     const rowPortals = Array.from({ length: 5 }, () => definePortal());
     const renderedLayoutPaths: string[] = [];
@@ -145,14 +123,7 @@ describe('portal cleanup in routed layout and keyed table children', () => {
 
     expect(renderedLayoutPaths).not.toContain('/plain');
 
-    const layoutSource = getPortalSource(result.container, layoutPortal);
-    const rowSources = rowPortals.map((portal) =>
-      getPortalSource(result.container, portal)
-    );
-    expect(layoutSource?._readers?.size).toBe(1);
-    expect(rowSources.map((source) => source?._readers?.size)).toEqual([
-      1, 1, 1, 1, 1,
-    ]);
+    expect(surfaces(result.container)).toEqual(TABLE_SURFACES);
 
     for (let cycle = 0; cycle < 4; cycle += 1) {
       renderedLayoutPaths.length = 0;
@@ -160,10 +131,7 @@ describe('portal cleanup in routed layout and keyed table children', () => {
       flushScheduler();
 
       expect(renderedLayoutPaths).not.toContain('/table');
-      expect(layoutSource?._readers?.size ?? 0).toBe(0);
-      expect(rowSources.map((source) => source?._readers?.size ?? 0)).toEqual([
-        0, 0, 0, 0, 0,
-      ]);
+      expect(surfaces(result.container)).toEqual([]);
 
       renderedLayoutPaths.length = 0;
       navigate('/table');
@@ -171,10 +139,7 @@ describe('portal cleanup in routed layout and keyed table children', () => {
       flushScheduler();
 
       expect(renderedLayoutPaths).not.toContain('/plain');
-      expect(layoutSource?._readers?.size).toBe(1);
-      expect(rowSources.map((source) => source?._readers?.size)).toEqual([
-        1, 1, 1, 1, 1,
-      ]);
+      expect(surfaces(result.container)).toEqual(TABLE_SURFACES);
     }
   });
 });

@@ -1,13 +1,14 @@
 import { scheduleEventHandler } from '../core.js';
 /**
- * Timing utilities — pure helpers for common async patterns
- * No framework coupling. No lifecycle awareness.
+ * Timing and event-scheduling helpers.
+ *
+ * The timing helpers (`throttle`, `once`, `raf`, `idle`,
+ * `timeout`, `retry`) are plain functions with no runtime dependency. The
+ * event and `schedule*` helpers use the Askr scheduler and lifecycle ownership.
+ * `debounceEvent`, `throttleEvent`, and `rafEvent` reject invocation during
+ * render and cancel pending work on owner cleanup. `scheduleEventHandler`
+ * runs its handler in the captured owner's scope.
  */
-/** Options for {@link debounce}. */
-interface DebounceOptions {
-  leading?: boolean;
-  trailing?: boolean;
-}
 /** Options for {@link throttle}. */
 interface ThrottleOptions {
   leading?: boolean;
@@ -24,30 +25,6 @@ type Scheduled<T extends AnyFn> = (
   this: ThisParameterType<T>,
   ...args: Parameters<T>
 ) => void;
-/**
- * Debounce — delay execution, coalesce rapid calls
- *
- * Useful for: text input, resize, autosave
- *
- * @param fn Function to debounce
- * @param ms Delay in milliseconds
- * @param options trailing (default true), leading
- * @returns Debounced function with cancel() method
- *
- * @example
- * ```ts
- * const save = debounce((text) => api.save(text), 500);
- * input.addEventListener('input', (e) => save(e.target.value));
- * save.cancel(); // stop any pending execution
- * ```
- */
-declare function debounce<T extends AnyFn>(
-  fn: T,
-  ms: number,
-  options?: DebounceOptions
-): Scheduled<T> & {
-  cancel(): void;
-};
 /**
  * Throttle — rate-limit execution, keep first/last
  *
@@ -90,20 +67,6 @@ declare function throttle<T extends AnyFn>(
  */
 declare function once<T extends AnyFn>(fn: T): T;
 /**
- * Defer — schedule on microtask queue
- *
- * Useful for: run-after-current-stack logic
- * More reliable than setTimeout(..., 0)
- *
- * @param fn Function to defer
- *
- * @example
- * ```ts
- * defer(() => update()); // runs after current stack, before next macrotask
- * ```
- */
-declare function defer(fn: () => void): void;
-/**
  * RAF — coalesce multiple updates into single frame
  *
  * Useful for: animation, layout work, render updates
@@ -118,7 +81,7 @@ declare function defer(fn: () => void): void;
  * update(); // same frame, no duplicate
  * ```
  */
-declare function raf<T extends AnyFn>(fn: T): Scheduled<T>;
+declare function raf<T extends AnyFn>(fn: T): Scheduled<T> & { cancel(): void };
 /**
  * Idle — schedule low-priority work
  *
@@ -220,29 +183,27 @@ declare function scheduleIdle(
     timeout?: number;
   }
 ): CancelFn;
-interface RetryOptions$1 {
-  maxAttempts?: number;
-  delayMs?: number;
-  backoff?: (attemptIndex: number) => number;
-}
 /**
  * Run `fn`, retrying with backoff on failure. Called from a mounted
  * component's task, watch callback, or event handler, pending attempts are
  * also cancelled when that component is cleaned up.
  */
+type RetryOutcome<T> =
+  | { status: 'success'; value: T }
+  | { status: 'error'; error: unknown }
+  | { status: 'cancelled' };
 declare function scheduleRetry<T>(
   fn: () => Promise<T>,
-  options?: RetryOptions$1
+  options?: RetryOptions
 ): {
   cancel(): void;
+  result: Promise<RetryOutcome<T>>;
 };
 export {
-  type DebounceOptions,
   type RetryOptions,
+  type RetryOutcome,
   type ThrottleOptions,
-  debounce,
   debounceEvent,
-  defer,
   idle,
   once,
   raf,

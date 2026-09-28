@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { For } from '../../../src/control';
 import { createIsland } from '../../../src/boot';
-import { getCurrentComponentInstance } from '../../../src/runtime';
-import { state, type State } from '../../../src/runtime/reactivity/state';
+import { state, type State } from '../../../src/index';
+import { task } from '../../../src/resources';
 import {
   createTestContainer,
   flushScheduler,
@@ -34,11 +34,9 @@ describe('keyed For truncation', () => {
     const frameworkClicks: number[] = [];
 
     function RowView({ row }: { row: Row }) {
-      const instance = getCurrentComponentInstance();
-      if (!instance) throw new Error('expected row component instance');
       const local = state(0);
       localSetters.set(row.id, local.set);
-      (instance.owner.cleanups ??= []).push(() => {
+      task(() => () => {
         cleanupCounts.set(row.id, (cleanupCounts.get(row.id) ?? 0) + 1);
       });
 
@@ -117,10 +115,8 @@ describe('keyed For truncation', () => {
     const cleanupCounts = new Map<number, number>();
 
     function RowView({ row }: { row: Row }) {
-      const instance = getCurrentComponentInstance();
-      if (!instance) throw new Error('expected row component instance');
       if (row.broken) throw new Error('retained truncate update failed');
-      (instance.owner.cleanups ??= []).push(() => {
+      task(() => () => {
         cleanupCounts.set(row.id, (cleanupCounts.get(row.id) ?? 0) + 1);
       });
       return <button data-row={String(row.id)}>{row.label}</button>;

@@ -2,6 +2,357 @@
 
 ## Unreleased
 
+## 0.4.0 — 2026-09-28
+
+- feat(router): expose `matchRoute(path, { registry })` for synchronous route
+  path checks without resolving policies or loading route data. The testing
+  helper uses the same implementation.
+
+- fix(core): a component tree too deep for the call stack fails with a
+  `RenderDepthError` (exported from `@askrjs/askr`) that explains the limit,
+  instead of a bare `RangeError` (or Firefox `InternalError`). It is raised
+  where render errors are first caught, so error boundaries, updates, and SSR
+  see it. The rendering guide documents the supported depth (#624).
+
+- perf(core): remove quadratic owner, scheduler, and context paths (#612).
+  Detaching an owner is O(1) (holes in the parent's child list, compacted when
+  they dominate), the render lane is a depth-ordered heap and the effect and
+  post lanes are O(1) queues, and each component caches its inherited context
+  revision. On the new `tier2-subsystem-core-scaling` bench: disposing 10,000
+  sibling owners 50.7 ms to 0.43 ms, 5,000 render jobs 13.4 ms to 0.87 ms,
+  20,000 effect jobs 20.2 ms to 2.06 ms, patching a 2,000-deep chain 13.0 ms
+  to 0.72 ms (mean).
+
+- fix(jsx): export `createElement` from `@askrjs/askr`. The automatic JSX
+  transform in TypeScript, esbuild, Babel, and oxc (Vite) compiles a `key`
+  written after a spread (`<Row {...props} key={id} />`) to `createElement`
+  from the import source, which previously failed to resolve. It removes the
+  development-only `__self`/`__source` props and, like `jsxs()`, marks several
+  child arguments as static children (#617).
+
+- fix(foundations): `controllableState()` results destructure like `state()`
+  (`const [value, setValue] = controllableState(...)`). `ControllableState` is
+  now based on `StateTuple`, so the destructured getter and setter are typed.
+  The getter is readable like a `state()` getter, and an updater passed to its
+  setter runs once (#621).
+
+- docs(foundations): document stacking dialogs and toasts through one writer
+  that owns the layer list and writes it through its own `definePortal()`
+  channel, since a portal shows the most recent writer's content (#495). The
+  default portal is part of the core client bundle, because every application
+  root provides and hosts it; the SSG hydration bundle check now asserts this
+  and the SSG guide no longer says otherwise (#611).
+
+- **breaking** refactor(api): control, data, `getSignal` and `onRouteChange`
+  each have one import path (#487).
+  Migration:
+  - `For`, `Show`, `Case`, `Match` and their prop types: import from
+    `@askrjs/askr/control` instead of `@askrjs/askr`.
+  - `createQuery`, `createQueryCollection`, `defineQuery`, `serveQuery`,
+    `defineServerQueries`, `prefetchQuery`, `dehydrateDataRuntime`,
+    `hydrateDataRuntime` and the query types: import from `@askrjs/askr/data`
+    instead of `@askrjs/askr`.
+  - `getSignal`: import from `@askrjs/askr` instead of
+    `@askrjs/askr/resources`.
+  - `onRouteChange`, `RouteChangeCleanup`, `RouteChangeOptions`: import from
+    `@askrjs/askr/router` instead of `@askrjs/askr/resources`.
+
+- **breaking** refactor(api): unused low-level exports are removed (#490).
+  `resolveRequest` and `renderResolvedToStringSync` are no longer exported from
+  `@askrjs/askr/ssr`. To resolve auth, redirects and status without rendering,
+  call `resolveRouteRequest(url, { registry, mode: 'ssr', auth, authContext,
+request, signal })` from `@askrjs/askr/router`. Pass `mode: 'ssr'`
+  explicitly (the default is `'spa'` when a global `window` exists) and pass
+  `signal` explicitly (it is not taken from `request.signal`). The result may be a plain value or a
+  Promise, and errors can throw synchronously, so call it inside an `async`
+  function and `await` it to keep the old always-async behavior; to render, use
+  `renderToString`, `renderRouteRequest` or `renderRouteRequestToString`. `debounce` and `DebounceOptions` are no longer
+  exported from `@askrjs/askr/fx`; use `debounceEvent` for event handlers, or keep a local
+  debounce helper for code outside components.
+
+- fix(types): intrinsic JSX typings accept MathML elements (`<math>`, `<mi>`,
+  `<mglyph>`, ...), `dangerouslySetInnerHTML` on every element, and the
+  `formAction`/`formMethod`/`formEncType`/`formNoValidate`/`formTarget`
+  attributes on `<button>` and `<input>`.
+
+- fix(ssr): a `dangerouslySetInnerHTML` payload whose `__html` is `null` or
+  `undefined` renders no content, as on the client, instead of the text
+  `null`/`undefined`.
+
+- fix(types): `resource<T>(load, deps)` with an explicit result type selects
+  the deps overload, `<ErrorBoundary>` accepts function and mixed children,
+  and `mergeProps()` returns `MergedProps` (base values win unless `undefined`;
+  a key the injected props always supply is required; index-signature props
+  keep the intersection) instead of an intersection that could collapse to
+  `never`. `MergedProps` is exported from `@askrjs/askr/foundations/utilities`.
+
+- chore(tests): `tests/` is typechecked by `npm run typecheck` (#556).
+
+- fix(types): JSX accepts a `string` or `number` `key` on function components
+  whose props do not declare it, as it does on intrinsic elements (#489).
+
+- fix(types): `<For each={items}>` with a `state()` getter or `derive()`
+  result types each row as the list element instead of
+  `State<T[]> | StateSetter<T[]>`, including nullable getters, which render
+  nothing for `null`/`undefined`. A getter that does not return a list is now
+  a type error. `ForGetterProps` is exported.
+
+- breaking(types): remove the `EagerControlPrimitive` type and the
+  `unknown`-returning `jsx()`/`jsxs()`/`jsxDEV()` overloads left from eager
+  control flow, and delete retired runtime declarations that no export
+  reached (#489, #610).
+
+- fix(dom): a controlled `<select value>` keeps its value when a child
+  component, `For`, or function child adds, removes, or edits its options, or
+  an option's text or bound `value` changes, without the select itself
+  re-rendering (#608).
+
+- fix(ssr): a value-less `<option>` (no `value`, or `null`/`false`) is
+  selected by its rendered text with whitespace stripped and collapsed, as the
+  browser's `option.value` reads it, including text from component children
+  and raw HTML entities, and excluding script text (#609).
+
+- fix(state): `selector()` releases candidate entries once nothing reads
+  them, so querying many distinct values no longer grows it for the
+  component's lifetime (#613).
+
+- fix(router): a navigation that changes the pathname remounts the route
+  leaf, so `state()`, `task()`, and resources start fresh for the new URL
+  (`/user/1` to `/user/2`). Layouts keep their instances and DOM.
+
+- fix(router): when a destination's commit applies but a ref or binding
+  throws, navigation completes (history, location, metadata) and reports the
+  error. When a failed DOM write undoes the commit, navigation rolls back and
+  rethrows, keeping the previous page and location.
+
+- fix(boot): mounting without hydration replaces the container's existing
+  content (a loading placeholder, unhydrated markup) instead of rendering
+  beside it.
+
+- fix(foundations): an explicit `<DefaultPortal>` unmounted in the flush that
+  mounted it no longer hides `<Portal>` content from the automatic host.
+
+- fix(core): renders that are discarded or rewound by an `ErrorBoundary`
+  release event delegation and `For` row property reads they created.
+
+- fix(router): `<Resolve>` renders deferred route data after client
+  navigation. It claimed its resource hook only while the value was pending,
+  so the render after the promise settled failed the hook-order check and the
+  pending placeholder stayed on screen.
+
+- fix(boot): `hydrate: { verifyMarkup: true }` no longer reports a mismatch
+  when a ref callback updates state after the hydration commit (for example,
+  adopting a persisted theme). Client markup passes if it matches the server
+  at the commit or after scheduled hydration work settles.
+
+- breaking(api): remove `@askrjs/askr/experimental` and its runtime and
+  renderer-host construction APIs. Use the public boot, component, and state
+  APIs to mount and extend applications.
+
+- breaking(types): drop the internal `_controlState` field from the published
+  `VNode`/`DOMElement` declaration. It exposed the retired runtime's control,
+  child-scope, and component-instance shapes, which the rebuilt core does not
+  have. No export is removed.
+
+- fix(runtime): retain standalone reactive component updates in packed builds
+  by installing the DOM render host when a root is created.
+
+- fix(renderer): forced bulk reuse now propagates key attribute write failures
+  and restores a partially written key before changing that row's content.
+
+- fix(renderer): strip the forced positional bulk reuse diagnostic switch from
+  production bundles; it remains available in development tests.
+
+- feat(fx): `scheduleRetry()` now returns a `result` promise with the final
+  success value, terminal error, or cancellation status. Terminal errors still
+  reach the host reporter.
+
+- breaking(runtime): remove the scheduler's mutable `setInHandler` flag.
+  Use `runInHandlerScope()` to hold handler permissions for a lexical scope.
+
+- feat(data): mutations support a synchronous `optimistic` callback that
+  returns a rollback for failure or abort. Overlapping executions no longer
+  abort earlier writes by default; explicit abort cancels all pending writes.
+
+- fix(data): ownerless client queries now evict their cache lookup entry after
+  `gcTime` (five minutes by default, or immediately with `gcTime: 0`) while
+  the returned handle remains usable.
+  SSR request caches retain entries through dehydration.
+
+- feat(data): `createQuery()` accepts `gcTime` to retain settled data for a
+  bounded interval after the last component reader unmounts. The default
+  remains immediate eviction.
+
+- breaking(runtime): scheduler diagnostic state no longer includes
+  `taskCount`; use `queueLength` for pending work.
+
+- breaking(runtime): scheduler diagnostic state no longer includes the
+  redundant `executionDepth` field; use `running` or `isExecuting()`.
+
+- fix(runtime): report failed bulk-commit probes and reject work while commit
+  state is unknown instead of silently admitting it.
+
+- fix(fx): `raf()` wrappers now expose `cancel()` and remain usable after a
+  callback throws.
+
+- breaking(fx): remove `defer(fn)` from `@askrjs/askr/fx`; use the platform's
+  `queueMicrotask(fn)` for callback scheduling. `defer(promise)` remains in
+  `@askrjs/askr/router` for deferred route data.
+
+- breaking(data): `DataRuntime` no longer exposes test override maps or accepts
+  them in `createDataRuntime()` options. Use the query and mutation test
+  registries to install fixtures. Both registries now accept an existing
+  runtime when a test needs to share one cache and fixture scope.
+
+- fix(types): intrinsic event props now cover the DOM global handler map,
+  including animation, composition, drag, media, pointer-capture, and
+  transition events. Their `Capture` variants receive the same event type.
+
+- fix(types): intrinsic JSX and `jsx()` refs now use each tag's element type.
+  An `<input>` ref can no longer be passed to `<button>`, and callback refs
+  receive the correct element type. This includes standard tags outside the
+  explicitly tailored intrinsic-prop set.
+
+- breaking(types): Askr's JSX namespace now belongs only to the
+  `jsxImportSource` runtime modules. Import `type JSX` from
+  `@askrjs/askr/jsx-runtime` instead of using global `JSX`. Misspelled standard
+  tags now fail typechecking; hyphenated custom elements remain supported.
+  The unused class-component `ElementAttributesProperty` hook was removed.
+
+- docs(scope): mark the published interaction and icon foundation subpaths as
+  platform internal contracts for sibling UI and icon packages. Their imports
+  and behavior remain available for those packages; application code should
+  use the composed UI and icon packages.
+
+- breaking(api): runtime construction and renderer-host extension exports moved
+  from `@askrjs/askr` to `@askrjs/askr/experimental`. Change their import path;
+  their behavior and signatures remain the same. The root retains application
+  primitives. The experimental subpath is for runtime and renderer maintainers;
+  `createRuntime()` does not isolate mounted trees.
+
+- fix(renderer): a chain of three or more components of the same type, each
+  returning the next directly, now keeps the state of every link when an
+  outer link re-renders. The update walk previously failed to find the deeper
+  links and recreated them, which also made updating a long chain quadratic in
+  its length. Updating a 10,000-component wrapper chain now takes linear time.
+  The runtime enforcement docs now state the nesting depths Askr guarantees
+  for each tree shape and rendering path: the 10,000-level guarantee covers
+  client wrapper chains only, while element nesting, server rendering, and
+  hydration recurse and are bounded by the engine's call stack.
+- fix(renderer): a component that renders text, or a component whose result
+  spans several nodes, no longer gets a wrapper `<div>` on the client. This
+  applied when the result was the first render or followed an empty first
+  render, including `<Portal>{'x'}</Portal>`, Portal function children,
+  wrapper fragments rendering text, and content in the automatic default-portal
+  host. The client now places that content among its siblings inside
+  `askr-range` comment anchors, matching the server markup. A nested
+  component that renders nothing and later renders text keeps its instance
+  and state.
+
+- fix(runtime): a failed render no longer leaves a structural function child
+  stale. A function child in a component's fragment or array result
+  (`<>{() => Array.from({ length: n() }, ...)}</>`) renders as a small
+  component; when its update joined a parent render that failed, the rollback
+  dropped that update, so the list kept the old item count until `n` changed
+  again, even after the parent recovered. The same applied to any child
+  component re-rendering on its own state. A rolled-back render now restores
+  the update the component was due (a queued run, or a scheduled render it
+  superseded), so the component renders again with the current state, as
+  fine-grained bindings do since #546.
+- fix(runtime): cleanup failures are no longer swallowed in production. When
+  an update removes DOM or an app is cleaned up, a callback ref that throws on
+  `null`, a listener that cannot be removed, a throwing component cleanup
+  function (from a mount operation, task, or watch), or a failing root cleanup
+  callback was logged with a development-only warning. Every cleanup step still
+  runs, and the failures are now reported with `reportError()` in every build,
+  queued until the current task finishes: one report per removed subtree (a
+  single failure as-is, several as an `AggregateError`) and one per component.
+  Error handlers run after the update, can update state, and cannot roll it
+  back. `For` row disposal failures (previously a development-only
+  `console.error`), provisional component cleanup failures during a failed
+  render (previously dropped), and an async mount cleanup that resolves after
+  unmount (previously `console.error`) are reported the same way. A throwing
+  ref is no longer called with `null` twice. With
+  `cleanupStrict: true`, `cleanupApp()` now throws the failures of descendant
+  refs, listeners, and components, including components rendered inside `For`,
+  `Show`, and `Case`, instead of dropping them. In hosts without
+  `reportError()`, such as jsdom and Node under Vitest, the failures surface as
+  unhandled errors; stub `globalThis.reportError` in tests that throw from
+  cleanup on purpose.
+- breaking(data): `dehydrateDataRuntime()` now throws a `TypeError` naming the
+  query key and property path when cached query data is not JSON
+  transport-safe (a `Date`, `Map`, `Set`, class instance, bigint, non-finite
+  number, `undefined`, accessor, or cyclic value). It was documented as
+  dropping non-serializable values, and in practice let `JSON.stringify()`
+  turn a `Date` into a string and a `Map` into `{}`. Query data now follows
+  the same transport rules as route hydration data. An SSR-mode
+  `prefetchQuery()` applies them as each value arrives and
+  `renderRouteRequest()` checks the data runtime before returning a streamed
+  result, so the render fails before a shell is sent. The shared validator
+  walks iteratively, so deeply nested data no longer overflows the stack, and
+  a fulfilled deferred that contains itself is reported as cyclic.
+- breaking(actions): a failed `action().submit()` now always rejects with an
+  `Error` whose message carries the HTTP status (`Action failed (403): ...`),
+  including non-JSON bodies on any status. The server value (the envelope
+  `error`, or the body itself such as an RFC 7807 problem, whose `detail` or
+  `title` is used for the message) is kept as `cause`. It used to throw the
+  raw envelope `error` value, and a non-JSON body surfaced as a JSON
+  `SyntaxError` that hid the status. 422 validation replays keep their
+  `ActionValidationError` shape, and a bodiless success (204, 205, or an empty
+  2xx body) resolves with `undefined` and still runs declared invalidations.
+- fix(ssr): dehydrated query data now travels in a separate `queries` record
+  of the hydration payload instead of the `resources` record, so a query key
+  such as `r:0` no longer replaces resource slot data and resource slots are
+  no longer hydrated into the client data runtime. HTML rendered before this
+  change carries query data under `resources`; a new client bundle hydrating
+  such HTML fetches that query data again instead of reusing it.
+- fix(data): concurrent `prefetchQuery()` calls for the same key and runtime
+  share one in-flight fetch. A joiner still rejects promptly with its own
+  `signal.reason`, and starts a replacement fetch as soon as the starting
+  context aborts. An `invalidate()` covering the key detaches the fetch: later
+  prefetches fetch again, and no caller of the detached fetch stores its
+  pre-invalidation result.
+- perf(data): invalidation skips invalidation-listener dispatch entirely when
+  no listener is registered (listeners come only from
+  `createInvalidationRecorder()`).
+
+- fix(runtime): cleanup failures are no longer swallowed in production. When
+  an update removes DOM or an app is cleaned up, a callback ref that throws on
+  `null`, a listener that cannot be removed, a throwing component cleanup
+  function (from a mount operation, task, or watch), or a failing root cleanup
+  callback was logged with a development-only warning. Every cleanup step still
+  runs, and the failures are now reported with `reportError()` in every build,
+  queued until the current task finishes: one report per removed DOM node, one
+  per component tree disposed together, and one per update for work that runs
+  after the update commits (a single failure as-is, several as an
+  `AggregateError`). Error handlers run after the update, can update state, and
+  cannot roll it back. `For` row disposal failures (previously a
+  development-only `console.error`), provisional component cleanup failures
+  during a failed render (previously dropped), an async mount cleanup that
+  resolves after unmount, cleanup of the previous route after navigation, and
+  mount or commit operations that throw after an update commits (all
+  previously `console.error`) are reported the same way. A throwing ref is no
+  longer called with `null` twice. With `cleanupStrict: true`, `cleanupApp()`
+  now throws the failures of descendant refs, listeners, and components,
+  including components rendered inside `For`, `Show`, and `Case` at any depth
+  and after re-renders, instead of dropping them; failures during ordinary
+  updates of a strict app are reported. A cleanup failure during server
+  rendering is thrown from the render call. In hosts without `reportError()`,
+  such as jsdom and Node under Vitest, reported failures surface as unhandled
+  errors; stub `globalThis.reportError` in tests that throw from cleanup on
+  purpose.
+- fix(hydration): markup verification (`hydrate: { verifyMarkup }`, on by
+  default outside production) now also compares the server HTML with the DOM
+  the client renderer produces while hydrating it, so SSR/client renderer
+  divergences such as a function child the server rendered empty throw
+  `Hydration mismatch detected` instead of passing a server-against-server
+  comparison. Both comparisons normalize through the DOM and compare `style`
+  attributes by their parsed declarations, so the SSR `color:red;` and the
+  DOM's `color: red;` are equal. The client check is skipped for static pages
+  hydrated at a client-only query or hash and for pages with server-rendered
+  portal content. A mount failure under `hydrate: { deferUntilIdle: true }` now
+  rejects `hydrateSPA()` instead of leaving it pending.
+
 - fix(runtime): an `ErrorBoundary` fallback now removes the portal content its
   failed subtree wrote. A component that rendered no DOM of its own (such as
   a writer that returns only `<Portal>`) shared the boundary's host node and

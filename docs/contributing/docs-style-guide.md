@@ -37,4 +37,4 @@ Every page should include:
 - Technically accurate
 - Consistent terminology
 - No dead links
-- Updated navigation in [Docs Index](../index.md)
+- Updated navigation in [Docs Index](../README.md)

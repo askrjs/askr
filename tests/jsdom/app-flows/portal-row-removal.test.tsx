@@ -4,7 +4,7 @@ import {
   Portal,
   _resetDefaultPortal,
 } from '../../../src/foundations/structures/portal';
-import { state, type StateSetter } from '../../../src/runtime/reactivity/state';
+import { state, type StateSetter } from '../../../src/index';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -43,11 +43,11 @@ describe('portal row removal app flow', () => {
         onRemove(): void;
         order: Order;
       },
-      context: { signal: AbortSignal }
+      context?: { signal: AbortSignal }
     ) {
       const menuOpen = state(false);
       menuSetters.set(order.id, menuOpen.set);
-      rowSignals.set(order.id, context.signal);
+      rowSignals.set(order.id, context!.signal);
 
       return (
         <li data-order={order.id}>

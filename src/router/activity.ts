@@ -1,23 +1,14 @@
-import {
-  getComponentLifecycleSlot,
-  ownComponentCleanup,
-  isServerComponent,
-} from '../runtime/component/capabilities';
 import type { RouteMatch, RouteParams, RouteSnapshot } from '../common/router';
 import { getStagedAppRenderRouteLocation } from '../common/app-render-runtime';
 import { syncRouteActivitySnapshot } from '../common/route-activity';
 import { getActiveRenderContext } from '../common/render-context';
 import {
-  getCurrentAppRenderRuntime,
-  getCurrentComponentInstance,
-  claimHookIndex,
-  registerCommitOperation,
-} from '../runtime';
-import {
-  notifyReadableSource,
-  recordReadableRead,
-  type ReadableSource,
-} from '../runtime';
+  currentAppRuntime as getCurrentAppRenderRuntime,
+  currentComponent as getCurrentComponentInstance,
+  hookSlot,
+  onCommit,
+} from '../core/api/hooks';
+import { createSource, notify, readSource } from '../core/api/hooks';
 import { deepFreeze, makeQuery, parseLocation } from './route-context';
 import { computeMatchesFromRoutes } from './route-matching';
 import { getActiveRouteBasePath, getActiveRoutes } from './store';
@@ -47,11 +38,7 @@ function routeSignature(route: RouteSnapshot): string {
 
 let currentRouteSnapshot = buildRouteSnapshot('/', '', '');
 
-const currentRouteSource = (() =>
-  currentRouteSnapshot) as ReadableSource<RouteSnapshot> &
-  (() => RouteSnapshot);
-
-currentRouteSource._readers = new Map();
+const currentRouteSource = createSource();
 
 /** Register a callback to run whenever the active route changes, with optional cleanup. */
 export function onRouteChange(
@@ -64,34 +51,27 @@ export function onRouteChange(
   const instance = getCurrentComponentInstance();
   if (!instance) return;
   const route = currentRoute();
-  const index = claimHookIndex(instance, 'onRouteChange');
-  const slot = getComponentLifecycleSlot<RouteChangeSlot>(
-    instance,
-    index,
-    'route-change',
-    () => ({
-      kind: 'route-change',
-      previous: null,
-      pending: null,
-      cleanup: null,
-      cleanupRegistered: false,
-      callback: fn,
-      immediate: options.immediate === true,
-    }),
-    'onRouteChange'
-  );
+  const slot = hookSlot<RouteChangeSlot>(instance, 'onRouteChange', () => ({
+    kind: 'route-change',
+    previous: null,
+    pending: null,
+    cleanup: null,
+    cleanupRegistered: false,
+    callback: fn,
+    immediate: options.immediate === true,
+  }));
   slot.pending = route;
   slot.callback = fn;
   slot.immediate = options.immediate === true;
   if (!slot.cleanupRegistered) {
-    ownComponentCleanup(instance, () => {
+    instance.onCleanup(() => {
       slot.cleanup?.();
       slot.cleanup = null;
     });
     slot.cleanupRegistered = true;
   }
   if (!slot.previous) {
-    registerCommitOperation(() => {
+    onCommit(instance, () => {
       const committed = slot.pending;
       if (!committed) return;
       if (slot.immediate) slot.cleanup = slot.callback(committed, null) ?? null;
@@ -100,7 +80,7 @@ export function onRouteChange(
     return;
   }
   if (routeSignature(slot.previous) === routeSignature(route)) return;
-  registerCommitOperation(() => {
+  onCommit(instance, () => {
     const previous = slot.previous;
     const committed = slot.pending;
     if (
@@ -200,8 +180,7 @@ function setCurrentRouteSnapshot(
     activityMatches ?? currentRouteSnapshot.matches
   );
 
-  const instance = getCurrentComponentInstance();
-  notifyReadableSource(currentRouteSource, { skipInstance: instance });
+  notify(currentRouteSource);
 }
 
 function normalizeRouteActivityPath(path: string): string {
@@ -339,11 +318,11 @@ export function currentRoute<
     );
   }
 
-  if (typeof window === 'undefined' || isServerComponent(instance)) {
+  if (typeof window === 'undefined' || instance.server) {
     return readCurrentRouteSnapshot<TParams, TState>();
   }
 
-  recordReadableRead(currentRouteSource);
+  readSource(currentRouteSource);
   return readCurrentRouteSnapshot<TParams, TState>();
 }
 

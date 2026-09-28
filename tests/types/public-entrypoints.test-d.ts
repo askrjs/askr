@@ -1,19 +1,18 @@
 import { expectAssignable, expectType } from 'tsd';
 import * as rootSurface from '@askrjs/askr';
-import type {
-  AskrRuntimeOptions,
-  RenderDiagnosticsOptions,
-  RuntimeKeyedReorderDecision,
-} from '@askrjs/askr';
-import * as dataSurface from '@askrjs/askr/data';
+import { RenderDepthError, type RenderDiagnosticsOptions } from '@askrjs/askr';
 import * as resourcesSurface from '@askrjs/askr/resources';
 import * as routerSurface from '@askrjs/askr/router';
 import * as foundationsSurface from '@askrjs/askr/foundations';
-import { renderResolvedToStringSync } from '@askrjs/askr/ssr';
-import type { RouteRegistry } from '@askrjs/askr/router';
 
 // @ts-expect-error root package does not expose JSXElement
 expectType<never>(null as unknown as import('@askrjs/askr').JSXElement);
+
+declare const renderFailure: unknown;
+if (renderFailure instanceof RenderDepthError) {
+  expectType<unknown>(renderFailure.cause);
+  expectAssignable<Error>(renderFailure);
+}
 
 expectAssignable<RenderDiagnosticsOptions>({
   slowRenderWarnings: false,
@@ -25,23 +24,10 @@ expectType<void>(
 expectType<() => void>(
   rootSurface.configureRenderDiagnostics({ slowRenderWarnings: false })
 );
-declare const registry: RouteRegistry;
-expectType<string>(
-  renderResolvedToStringSync({ url: '/', registry, handler: () => 'ok' })
-);
-expectType<rootSurface.AskrRuntime>(rootSurface.createRuntime());
-expectType<rootSurface.AskrRuntime>(rootSurface.getDefaultRuntime());
-expectAssignable<AskrRuntimeOptions>({});
-expectAssignable<RuntimeKeyedReorderDecision>({
-  useFastPath: false,
-  totalKeyed: 0,
-  totalChildren: 0,
-  currentKeyCount: 0,
-  moveCount: 0,
-  lisLen: 0,
-  hasPropChanges: false,
-  isWholeKeyedList: false,
-});
+// @ts-expect-error runtime construction is no longer published
+expectType<never>(rootSurface.createRuntime);
+// @ts-expect-error renderer host construction is no longer published
+expectType<never>(rootSurface.createDOMRendererHost);
 // @ts-expect-error jsx runtime entrypoint no longer exposes element brand
 void ({} as typeof import('@askrjs/askr/jsx-runtime')).ELEMENT_TYPE;
 // @ts-expect-error jsx dev runtime entrypoint no longer exposes element brand
@@ -55,7 +41,8 @@ expectType<never>(rootSurface.route);
 expectType<never>(rootSurface.resource);
 // @ts-expect-error root package does not expose component helpers
 expectType<never>(rootSurface.ErrorBoundary);
-expectType<typeof dataSurface.createQuery>(rootSurface.createQuery);
+// @ts-expect-error data helpers are published from @askrjs/askr/data only
+expectType<never>(rootSurface.createQuery);
 // @ts-expect-error root package does not expose data helpers
 expectType<never>(rootSurface.queryScope);
 // @ts-expect-error root package does not expose foundations helpers

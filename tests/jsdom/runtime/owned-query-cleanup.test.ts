@@ -1,8 +1,5 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
-import {
-  createComponentInstance,
-  cleanupComponent,
-} from '../../../src/runtime';
+import { ComponentInstance } from '../../../src/core/component/instance';
 import {
   createDataRuntime,
   resolveDataRuntimeState,
@@ -14,16 +11,15 @@ import { QueryCell } from '../../../src/data/query-cell';
 describe('owned query cleanup', () => {
   it('should drain query attachments and remove departed bookkeeping after a detach failure', () => {
     const runtime = resolveDataRuntimeState(createDataRuntime());
-    const instance = createComponentInstance('queries', () => null, {}, null);
-    instance.cleanupStrict = true;
-    const generation = instance.owner.identity;
+    const instance = new ComponentInstance(null, () => null, {});
+    const generation = instance;
     const sharedGeneration = {};
-    const first = new QueryCell(
+    const first = new QueryCell<unknown>(
       { key: 'first', fetch: async () => 1, initialData: 1 },
       'first',
       runtime.queryCache
     );
-    const second = new QueryCell(
+    const second = new QueryCell<unknown>(
       { key: 'second', fetch: async () => 2, initialData: 2 },
       'second',
       runtime.queryCache
@@ -43,13 +39,13 @@ describe('owned query cleanup', () => {
       throw new Error('detach failed');
     });
     const secondDetach = vi.spyOn(second, 'detach');
-    expect(() => cleanupComponent(instance)).toThrow(AggregateError);
+    expect(instance.dispose()).toEqual([new Error('detach failed')]);
     expect(secondDetach).toHaveBeenCalledWith(generation, 1);
     expect(slots.size).toBe(0);
     expect(runtime.querySlotsByGeneration.has(generation)).toBe(false);
     expect(runtime.queryCleanupRegistered.has(generation)).toBe(false);
     expect(runtime.queryCache.get('second')).toBe(second);
-    cleanupComponent(instance);
+    expect(instance.dispose()).toEqual([]);
     expect(secondDetach).toHaveBeenCalledOnce();
     second.detach(sharedGeneration, 0);
     expect(runtime.queryCache.size).toBe(0);

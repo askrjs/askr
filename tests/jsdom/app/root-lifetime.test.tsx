@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { cleanupApp, hasApp } from '../../../src/boot';
 import { registerRootCleanupCallback } from '../../../src/boot/root-lifecycle';
-import { registerMountOperation } from '../../../src/runtime';
-import { resource } from '../../../src/runtime/operations';
+import { resource, task } from '../../../src/resources';
 import { createIsland } from '../../../test-utils/render/create-island';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 
@@ -27,7 +26,7 @@ describe('root lifetime cleanup', () => {
         createIsland({
           root: container,
           component: () => {
-            registerMountOperation(() => replacementCleanup);
+            task(() => replacementCleanup);
             resource(({ signal }) => {
               replacementSignal = signal;
               return 'active';
@@ -41,7 +40,7 @@ describe('root lifetime cleanup', () => {
         root: container,
         cleanupStrict: true,
         component: () => {
-          if (phase === 'component') registerMountOperation(() => replace);
+          if (phase === 'component') task(() => replace);
           return (
             <div
               ref={(element) => {
@@ -84,7 +83,7 @@ describe('root lifetime cleanup', () => {
     createIsland({
       root: container,
       component: () => {
-        registerMountOperation(() => retired);
+        task(() => retired);
         return <div>original</div>;
       },
     });
@@ -103,7 +102,7 @@ describe('root lifetime cleanup', () => {
       createIsland({
         root: container,
         component: () => {
-          registerMountOperation(() => replacementCleanup);
+          task(() => replacementCleanup);
           return <div>replacement</div>;
         },
       });

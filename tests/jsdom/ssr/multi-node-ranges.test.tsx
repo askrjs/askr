@@ -10,7 +10,65 @@ import {
 } from '../../../test-utils/render/test-renderer';
 
 describe('SSR anchored range markers', () => {
-  it('should emit deterministic markers and hydrate multi-node control output', async () => {
+  it('should adopt a page-root fragment with multiple sibling nodes', async () => {
+    const { container, cleanup } = createTestContainer();
+    let clicks = 0;
+    const Page = () => (
+      <>
+        <button data-first onClick={() => (clicks += 1)}>
+          First
+        </button>
+        <span data-second>Second</span>
+      </>
+    );
+
+    try {
+      container.innerHTML = renderToStringSync(Page);
+      const first = container.querySelector('[data-first]');
+      const second = container.querySelector('[data-second]');
+      await hydrateSPA({
+        root: container,
+        registry: routeRegistryFromTable([{ path: '/', handler: Page }]),
+        hydrate: { verifyMarkup: true },
+      });
+      expect(container.querySelector('[data-first]')).toBe(first);
+      expect(container.querySelector('[data-second]')).toBe(second);
+      (first as HTMLButtonElement).click();
+      expect(clicks).toBe(1);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should adopt text before a page-root element', async () => {
+    const { container, cleanup } = createTestContainer();
+    const Page = () => (
+      <>
+        {'before'}
+        <b data-after>{'after'}</b>
+      </>
+    );
+
+    try {
+      container.innerHTML = renderToStringSync(Page);
+      const text = Array.from(container.childNodes).find(
+        (node) => node.nodeType === 3 && node.textContent === 'before'
+      );
+      const element = container.querySelector('[data-after]');
+      await hydrateSPA({
+        root: container,
+        registry: routeRegistryFromTable([{ path: '/', handler: Page }]),
+        hydrate: { verifyMarkup: true },
+      });
+      expect(text?.isConnected).toBe(true);
+      expect(container.textContent).toBe('beforeafter');
+      expect(container.querySelector('[data-after]')).toBe(element);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should hydrate multi-node control output in place', async () => {
     const { container, cleanup } = createTestContainer();
     const Component = () => (
       <main>
@@ -23,8 +81,6 @@ describe('SSR anchored range markers', () => {
 
     try {
       const html = renderToStringSync(Component);
-      expect(html).toContain('<!--askr-range-start-->');
-      expect(html).toContain('<!--askr-range-end-->');
 
       container.innerHTML = html;
       const serverRangeA = container.querySelector('#range-a');
@@ -199,7 +255,6 @@ describe('SSR anchored range markers', () => {
 
     try {
       const html = renderToStringSync(Component);
-      expect(html).toContain('<!--askr-range-start-->');
       container.innerHTML = html;
       const tail = container.querySelector('[data-empty-range-tail]');
 

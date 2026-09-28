@@ -15,7 +15,7 @@ describe('state ownership invariants', () => {
   });
   afterEach(() => cleanup());
 
-  it('should record its owning component and remain stable', () => {
+  it('should retain the same state cell across renders of its component', () => {
     let count: ReturnType<typeof state<number>> | null = null;
     const Component = () => {
       count = state(0);
@@ -25,14 +25,10 @@ describe('state ownership invariants', () => {
     createIsland({ root: container, component: Component });
     flushScheduler();
 
-    // owner metadata should exist
-    const owner = (count as unknown as { _owner?: object })?._owner;
-    expect(owner).toBeTruthy();
-
-    // performing an update should not change owner
-    const beforeOwner = owner;
+    const firstCell = count;
     count!.set(1);
     flushScheduler();
-    expect((count as unknown as { _owner?: object })._owner).toBe(beforeOwner);
+    expect(count).toBe(firstCell);
+    expect(container.textContent).toBe('1');
   });
 });

@@ -214,6 +214,10 @@ navigation reruns the loader and exposes the complete result.
 
 ### Code-split route content
 
+`lazy(() => import('./page'))` wraps a dynamic import as a route component. The
+import starts when the route first matches, and the returned component's
+`preload()` fetches it earlier, for example on hover.
+
 Use `lazyRouteData()` when a content-heavy route should keep only navigation
 and SEO metadata in the route manifest. Its dynamic import starts only after
 that route matches; the imported module is cached and the same loader runs
@@ -374,10 +378,67 @@ awaited in declaration order. During client navigation, an auth result that
 settles after its request was aborted by a newer navigation is discarded, so
 `currentAuth()` continues to describe the navigation that actually committed.
 During server rendering it reads only the request render context, including
-deferred streaming boundaries, so concurrent requests cannot replace it. A
+deferred streaming boundaries. That context is request-scoped through
+`AsyncLocalStorage`, so concurrent requests cannot replace it; on a runtime
+without `AsyncLocalStorage`, Askr accepts only synchronous server renders and
+rejects async ones instead of sharing a context between requests (see
+[SSR](../guides/ssr.md)). A
 server render without request auth, such as `renderToString(Component)`, sees
 an anonymous identity; server-side route resolution never updates the
 browser-wide identity.
+
+## Access decisions
+
+Route policies return access decisions. A policy is `(context) => AccessDecision | PromiseLike<AccessDecision>` passed
+in a route's `policies` array.
+
+- `allow()` lets the request continue.
+- `redirect(to, init?)` sends the visitor elsewhere. A string is a logical path
+  that gains the registry `basePath`; a `to()` destination is used as-is.
+  `init` sets `status` and `replace`.
+- `deny(status)` stops the request with a 401, 403, or 404 status.
+  `unauthorized()`, `forbidden()`, and `notFound()` are shorthands for
+  `deny(401)`, `deny(403)`, and `deny(404)`.
+
+## `RouteDataLoadError`
+
+A loader created with `lazyRouteData()` rejects with a `RouteDataLoadError`
+when its import or `select` step fails. Its `preload()` rejects with the raw
+import error instead. Its `route` is the requested URL,
+`phase` is where the loader ran (`'client'`, `'server'`, or `'ssg'`), and
+`cause` is the original error. Abort errors pass through unwrapped.
+
+## Deferred value helpers
+
+- `isDeferred(value)` checks whether a value came from `defer()`.
+- `resolveDeferredValues(input, signal?)` waits for every `defer()` value
+  reachable through arrays and object property values (not `Map` or `Set`
+  contents) and resolves to the same `input` object. It rejects as soon as any
+  deferred value rejects, or with an `AbortError` once `signal` is aborted and
+  a `defer()` value is reached. The `defer()` wrappers stay
+  in place, now settled, so render them with `Resolve` rather than serializing
+  `input` directly.
+
+## Route metadata helpers
+
+Most applications let the router manage the document head. Custom shells can
+use the same helpers:
+
+- `resolveRouteMeta(record, context)` runs a route's metadata chain and resolves
+  to the merged `RouteMeta`; `await` it before serializing.
+- `serializeRouteMeta(meta)` renders `<title>`, `<meta>`, `<link>`, and JSON-LD
+  markup for a server-rendered `<head>`.
+- `reconcileRouteMeta(meta, target?)` replaces only Askr-owned head nodes after
+  a client navigation.
+
+## Route testing helpers
+
+`@askrjs/askr/testing` matches routes without mounting an app:
+
+- `matchRoute(path, { registry })` returns the matched route and params, or
+  `null`.
+- `getRouteWarnings({ registry })` reports named-splat routes whose segments
+  collide with sibling static routes.
 
 ## `fallback(Component)`
 
@@ -398,6 +459,79 @@ Registers a pathful miss route.
 
 Inside a component, call `currentRoute()` to read the current route snapshot,
 including entry-local `state` and `hasState`.
+
+## `onRouteChange(callback, options?)`
+
+Runs after a persistent component commits a pathname, query, or hash change. The
+initial route is skipped by default; pass `{ immediate: true }` to include it.
+The callback receives the current and previous route snapshots. A returned
+cleanup runs before the next callback and when the component unmounts. Failed or
+superseded navigations do not publish a callback. Browser history back/forward
+navigations are committed route changes and invoke the callback as well. During
+SSR and SSG there is no client navigation commit, so `onRouteChange` does not
+run; use the render-time route APIs for initial data.
+
+```ts
+import { onRouteChange } from '@askrjs/askr/router';
+declare function announce(message: string): void;
+declare function cancelAnnouncement(path: string | undefined): void;
+
+function Shell() {
+  onRouteChange((current, previous) => {
+    announce(`Opened ${current.path}`);
+    return () => cancelAnnouncement(previous?.path);
+  });
+  return <main />;
+}
+```
+
+## `resolveRouteRequest(url, options)`
+
+Resolves a URL against a registry and applies route policies, auth, preloads
+and loaders without rendering. A server that renders the page should call
+`renderRouteRequest()` or `renderRouteRequestToString()` from
+`@askrjs/askr/ssr` instead: they resolve once and return the same redirect,
+deny, and no-match decisions. Use `resolveRouteRequest()` only when you need
+the decision and will not render the route, since loader and preload work is
+not reused by a later render.
+
+```ts
+import { resolveRouteRequest, type RouteRegistry } from '@askrjs/askr/router';
+declare const registry: RouteRegistry;
+
+// Returns a response for redirects, denials, and misses; null when the route
+// may be served.
+export async function decide(request: Request): Promise<Response | null> {
+  const result = await resolveRouteRequest(request.url, {
+    registry,
+    mode: 'ssr',
+    request,
+    signal: request.signal,
+  });
+  if (result === null) return new Response('Not found', { status: 404 });
+  if (result.kind === 'redirect') {
+    return Response.redirect(
+      new URL(result.to, request.url),
+      result.status ?? 302
+    );
+  }
+  if (result.kind === 'deny') {
+    return new Response(null, { status: result.status });
+  }
+  return null;
+}
+```
+
+Options: `registry` (required), `mode`, `auth`, `authContext`, `request`,
+`signal`, and `telemetry`. On a server, pass `mode: 'ssr'`; the default is
+`'spa'` whenever a global `window` exists. Pass `signal` explicitly: it is not
+taken from `request.signal`.
+
+The result is `null` when no route matches or the URL is outside the registry
+base path, a redirect or deny decision, or the matched route with its params.
+Depending on which steps run, the result is a plain value or a Promise, and
+errors may throw synchronously, so always `await` the call inside an `async`
+function.
 
 ## `navigate(target)`
 
@@ -438,6 +572,8 @@ Askr disposes route-local component state, resources, tasks, and abort signals
 before mounting the replacement. Reconciliation can preserve shared layout DOM
 nodes, but state that must survive navigation belongs in a shared layout,
 context, or external store.
+Shared layout components retain their own lifecycle work while that layout
+remains in the route tree; leaving the layout disposes that work.
 
 `navigate(path, { state })` stores transient state on the destination browser
 history entry without serializing it into the URL. Push, replace, redirects,

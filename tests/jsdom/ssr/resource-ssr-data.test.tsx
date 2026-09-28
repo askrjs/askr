@@ -15,6 +15,34 @@ function UsesSyncResource(): JSXElement {
 }
 
 describe('SSR resource() with preloaded data', () => {
+  it('should preserve source-driven preloaded resources during component render', () => {
+    let sourceReads = 0;
+    let loaderCalls = 0;
+    function App(): JSXElement {
+      const result = resource(
+        () => {
+          sourceReads += 1;
+          return 'resource-id';
+        },
+        () => {
+          loaderCalls += 1;
+          return 'unused-loader';
+        }
+      );
+      return <div>{result.value ?? 'loading'}</div>;
+    }
+
+    const html = renderToStringSync(
+      App as unknown as () => JSXElement,
+      undefined,
+      { data: { 'r:0': 'preloaded-value' } }
+    );
+
+    expect(html).toContain('preloaded-value');
+    expect(sourceReads).toBe(1);
+    expect(loaderCalls).toBe(0);
+  });
+
   it('should render a preloaded resource value without throwing', () => {
     function App(): JSXElement {
       const r = resource<string>(() => 'unused-loader', []);
@@ -122,7 +150,7 @@ describe('SSR resource() with preloaded data', () => {
     });
 
     expect(html).toBe(
-      '<main>42:Ada:profile</main><script type="application/json" data-askr-render-data="true">{"version":1,"resources":{"r:0":"Ada","r:1":"profile"},"framework":{"hu":"/users/42?tab=profile"}}</script>'
+      '<!--askr-resource:r:0,r:1--><main>42:Ada:profile</main><script type="application/json" data-askr-render-data="true">{"version":1,"resources":{"r:0":"Ada","r:1":"profile"},"framework":{"hu":"/users/42?tab=profile"}}</script>'
     );
     expect(nameLoader).not.toHaveBeenCalled();
     expect(tabLoader).not.toHaveBeenCalled();

@@ -5,12 +5,12 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import { cleanupApp, createSPA } from '../../../../src/boot';
-import { state } from '../../../../src/runtime/reactivity/state';
+import { state } from '../../../../src/index';
 import {
-  recordReadableRead,
-  notifyReadableReaders,
-  type ReadableSource,
-} from '../../../../src/runtime/reactivity/readable';
+  createSource,
+  notify,
+  readSource,
+} from '../../../../src/core/api/hooks';
 import { group, route } from '../../../../src/router/route';
 import {
   createTestContainer,
@@ -42,8 +42,9 @@ describe('routed theme remount loading recovery', () => {
 
   it('should recover a routed loading branch when the readable source changes during a remounting theme toggle', async () => {
     let content = 'Loading messaging topology...';
+    const topologySource = createSource();
     function topology() {
-      recordReadableRead(topology as unknown as ReadableSource<string>);
+      readSource(topologySource);
       return content;
     }
     let step = 0;
@@ -60,7 +61,7 @@ describe('routed theme remount loading recovery', () => {
 
       didMutate = true;
       content = 'Messaging topology';
-      notifyReadableReaders(topology as unknown as ReadableSource<string>);
+      notify(topologySource);
       return null;
     }
 

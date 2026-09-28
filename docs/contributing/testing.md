@@ -96,6 +96,14 @@ cleanup. Without one, the harness creates and removes a managed container.
 `renderRoute({ registry, url })` uses the production SPA router and restores the
 previous URL during cleanup.
 
+Interaction helpers drive the same delegated events a browser would:
+`click(element)` dispatches one bubbling `click` `MouseEvent` (no
+pointerdown, mousedown, or mouseup sequence), `type(input, text)` appends `text` to a text control's value one
+character at a time, emitting an input event for each, and
+`submit(form)` dispatches a cancelable bubbling submit event. `dispatch()`
+sends any other event, `flush()` runs pending work, and `cleanup(view)` tears
+down a render given its result or container.
+
 Each result owns its cleanup, so sibling renders can be torn down independently.
 Test files remain isolated by the test runner's jsdom realm. The harness fails
 with a configuration hint when no DOM environment exists.

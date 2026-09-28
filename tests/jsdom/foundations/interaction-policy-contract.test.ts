@@ -37,14 +37,14 @@ describe('interaction policy contract helpers (FOUNDATIONS)', () => {
       onPress,
     });
 
-    expect(props.role).toBe('button');
-    expect(props.tabIndex).toBe(-1);
-    expect(props['aria-disabled']).toBe('true');
+    expect((props as Record<string, unknown>).role).toBe('button');
+    expect((props as Record<string, unknown>).tabIndex).toBe(-1);
+    expect((props as Record<string, unknown>)['aria-disabled']).toBe('true');
 
     const preventDefault = vi.fn();
     const stopPropagation = vi.fn();
 
-    props.onClick({ preventDefault, stopPropagation });
+    props.onClick({ preventDefault, stopPropagation } as unknown as Event);
 
     expect(onPress).not.toHaveBeenCalled();
     expect(preventDefault).toHaveBeenCalled();
@@ -64,7 +64,7 @@ describe('interaction policy contract helpers (FOUNDATIONS)', () => {
 
     const preventDefault = vi.fn();
 
-    props.onClick({ preventDefault });
+    props.onClick({ preventDefault } as unknown as Event);
 
     expect(onPress).not.toHaveBeenCalled();
     expect(preventDefault).toHaveBeenCalled();
@@ -97,8 +97,8 @@ describe('interaction policy contract helpers (FOUNDATIONS)', () => {
     expect(merged.id).toBe('policy');
     expect(merged.title).toBe('user-title');
 
-    merged.onClick({ defaultPrevented: false });
-    merged.ref?.('node');
+    (merged.onClick as (event: unknown) => void)({ defaultPrevented: false });
+    (merged.ref as ((node: string) => void) | undefined)?.('node');
 
     expect(calls).toEqual(['policy', 'user', 'child']);
     expect(childRef).toHaveBeenCalledWith('node');

@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { state } from '../../../src/index';
-import { resource } from '../../../src/resources';
-import { getCurrentComponentInstance } from '../../../src/runtime';
-import { createFineGrainedEffect } from '../../../src/runtime/reactivity/effect';
+import { resource, task, watch } from '../../../src/resources';
 import { Case, Match, Show } from '@askrjs/askr/control';
 import {
   createTestContainer,
@@ -12,20 +10,20 @@ import {
 import { createIsland } from '../../../test-utils/render/create-island';
 import { allowFrameworkWarnings } from '../../setup-env';
 
-type ReaderTracked = {
-  _readers?: Map<unknown, unknown>;
-};
-
 describe('Show primitive', () => {
   it('should dispose a removed comment-host component subscription', () => {
     const { container, cleanup } = createTestContainer();
     let visible!: ReturnType<typeof state<boolean>>;
     let shared!: ReturnType<typeof state<number>>;
     let childRenders = 0;
+    let childCleanups = 0;
 
     const EmptyReader = () => {
       childRenders += 1;
       shared();
+      task(() => () => {
+        childCleanups += 1;
+      });
       return null;
     };
 
@@ -42,18 +40,10 @@ describe('Show primitive', () => {
     createIsland({ root: container, component: App });
     flushScheduler();
 
-    const readers = (shared as ReaderTracked)._readers!;
-    const [departedInstance] = readers.keys() as IterableIterator<{
-      mounted: boolean;
-    }>;
-    expect(readers.size).toBe(1);
-    expect(departedInstance?.mounted).toBe(true);
-
     visible.set(false);
     flushScheduler();
 
-    expect(readers.has(departedInstance)).toBe(false);
-    expect(departedInstance?.mounted).toBe(false);
+    expect(childCleanups).toBe(1);
 
     shared.set(1);
     flushScheduler();
@@ -134,7 +124,7 @@ describe('Show primitive', () => {
 
   it('should switch from fallback to truthy content when a resource-backed condition resolves', async () => {
     const { container, cleanup } = createTestContainer();
-    let resolveUser: ((value: { name: string }) => void) | null = null;
+    let resolveUser = null as ((value: { name: string }) => void) | null;
 
     const App = () => {
       const user = resource<{ name: string }>(
@@ -343,7 +333,6 @@ describe('Show primitive', () => {
 
     createIsland({ root: container, component: App });
     expect(container.querySelector('#show-truthy')?.textContent).toBe('ready');
-    expect((shared as unknown as ReaderTracked)._readers?.size ?? 0).toBe(1);
 
     setVisible(false);
     flushScheduler();
@@ -352,7 +341,6 @@ describe('Show primitive', () => {
     expect(container.querySelector('#show-fallback')?.textContent).toBe(
       'fallback'
     );
-    expect((shared as unknown as ReaderTracked)._readers?.size ?? 0).toBe(0);
 
     const renderCount = branchRenders;
     shared.set('changed');
@@ -371,11 +359,6 @@ describe('Show primitive', () => {
     const effectCommits: number[] = [];
 
     const Nested = () => {
-      const instance = getCurrentComponentInstance();
-      if (!instance) {
-        throw new Error('expected nested component instance');
-      }
-
       const count = state(0);
       setNestedCount = count.set;
       const data = resource<string>(
@@ -387,17 +370,11 @@ describe('Show primitive', () => {
           }),
         []
       );
-      const effect = createFineGrainedEffect({
-        lane: 'reactive',
-        compute: () => count(),
-        commit: (value) => {
-          effectCommits.push(value);
-        },
-      });
-
-      (instance.owner.cleanups ??= []).push(() => {
-        effectCleanups += 1;
-        effect.cleanup();
+      watch(count, (value) => {
+        effectCommits.push(value);
+        return () => {
+          effectCleanups += 1;
+        };
       });
 
       return (
@@ -727,14 +704,12 @@ describe('Case primitive', () => {
     expect(container.querySelector('#case-loading')?.textContent).toBe(
       'shared:1'
     );
-    expect((shared as unknown as ReaderTracked)._readers?.size ?? 0).toBe(1);
 
     setMode('ready');
     flushScheduler();
 
     expect(container.querySelector('#case-loading')).toBeNull();
     expect(container.querySelector('#case-ready')?.textContent).toBe('ready');
-    expect((shared as unknown as ReaderTracked)._readers?.size ?? 0).toBe(0);
 
     const renderCount = loadingRenders;
     shared.set('changed');

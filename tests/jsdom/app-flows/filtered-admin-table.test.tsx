@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { For } from '../../../src/control';
-import { derive } from '../../../src/runtime/reactivity/derive';
-import { state, type StateSetter } from '../../../src/runtime/reactivity/state';
+import { derive, state, type StateSetter } from '../../../src/index';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -48,11 +47,11 @@ describe('filtered admin table app flow', () => {
         onRemove(): void;
         order: Order;
       },
-      context: { signal: AbortSignal }
+      context?: { signal: AbortSignal }
     ) {
       const draft = state(order.note);
       latestDraftSetters.set(order.id, draft.set);
-      latestSignals.set(order.id, context.signal);
+      latestSignals.set(order.id, context!.signal);
 
       return (
         <li data-order-id={order.id}>

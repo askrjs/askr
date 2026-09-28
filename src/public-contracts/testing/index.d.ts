@@ -77,9 +77,9 @@ declare function mount(
 declare function renderRoute(
   options: RouteRenderOptions
 ): Promise<RenderResult>;
-/** Dispatch the browser click sequence expected by Askr's delegated events. */
+/** Dispatch one bubbling `click` MouseEvent (no pointerdown/mousedown/mouseup sequence). */
 declare function click(element: Element): boolean;
-/** Set a text control's value and emit an input event for each character. */
+/** Append `text` to a text control's value one character at a time, emitting an input event for each. */
 declare function type(
   element: HTMLInputElement | HTMLTextAreaElement,
   text: string
@@ -94,7 +94,9 @@ interface QueryTestRegistry {
   clear(): void;
 }
 /** Create a keyed query fixture registry for a test render runtime. */
-declare function createQueryTestRegistry(): QueryTestRegistry;
+declare function createQueryTestRegistry(
+  runtime?: DataRuntime
+): QueryTestRegistry;
 /** Keyed mutation fixture registry returned by {@link createMutationTestRegistry}. */
 interface MutationTestRegistry {
   readonly runtime: DataRuntime;
@@ -103,7 +105,9 @@ interface MutationTestRegistry {
   clear(): void;
 }
 /** Create a keyed mutation fixture registry for a test render runtime. */
-declare function createMutationTestRegistry(): MutationTestRegistry;
+declare function createMutationTestRegistry(
+  runtime?: DataRuntime
+): MutationTestRegistry;
 /** Initial state for {@link mutationState}; exactly one of `pending`/`error`/`result` may be set. */
 type MutationFixtureInitial<TResult> = {
   pending?: boolean;

@@ -6,7 +6,7 @@ import {
   flushScheduler,
   waitForNextEvaluation,
 } from '../../../test-utils/render/test-renderer';
-import { globalScheduler } from '../../../src/runtime/scheduler';
+import { queueTask } from '../../../src/core/reactive/scheduler';
 import { createIsland } from '../../../test-utils/render/create-island';
 
 /*
@@ -21,6 +21,7 @@ describe('runtime fast-lane', () => {
     let container: HTMLElement;
     let cleanup: () => void;
     let items!: State<Array<{ id: number; text: string }>>;
+    let originalNodes: Map<string, Element>;
 
     beforeAll(async () => {
       const ctx = createTestContainer();
@@ -48,62 +49,28 @@ describe('runtime fast-lane', () => {
       createIsland({ root: container, component: Component });
       flushScheduler();
       await waitForNextEvaluation();
+      originalNodes = new Map(
+        Array.from(container.querySelectorAll('li'), (node) => [
+          node.getAttribute('data-key')!,
+          node,
+        ])
+      );
     });
 
-    it('should take the fast-path on large pathological reorder', async () => {
+    it('should preserve keyed nodes on a large pathological reorder', async () => {
       // Rearrange: reverse and shuffle to ensure pathological movement
       items.set([...items()].reverse());
       flushScheduler();
       await waitForNextEvaluation();
 
-      const ns =
-        (
-          globalThis as unknown as Record<string, unknown> & {
-            __ASKR__?: Record<string, unknown>;
-          }
-        ).__ASKR__ || {};
-      type FastpathStats = {
-        n?: number;
-        reused?: number;
-        reusedCount?: number;
-      };
-      const stats =
-        (ns['__LAST_FASTPATH_STATS'] as FastpathStats) ??
-        (ns['__LAST_FASTPATH_HISTORY'] as FastpathStats[] | undefined)?.slice(
-          -1
-        )[0];
-      expect(stats).toBeDefined();
-      expect((stats as FastpathStats).n).toBe(200);
-
-      const last =
-        (ns['__LAST_FASTPATH_HISTORY'] as FastpathStats[] | undefined)?.slice(
-          -1
-        )[0] ?? (ns['__LAST_FASTPATH_STATS'] as FastpathStats);
-
-      // Prefer explicit, typed checks instead of `any` to satisfy test-suite guidelines
-      let reusedObserved = false;
-      if (last) {
-        if (
-          typeof (last as { reusedCount?: unknown }).reusedCount === 'number'
-        ) {
-          reusedObserved = true;
-        } else if (typeof (last as { reused?: unknown }).reused === 'number') {
-          reusedObserved = true;
-        }
+      const nodes = Array.from(container.querySelectorAll('li'));
+      expect(nodes.map((node) => node.getAttribute('data-key'))).toEqual(
+        items().map((item) => String(item.id))
+      );
+      expect(nodes).toHaveLength(200);
+      for (const node of nodes) {
+        expect(node).toBe(originalNodes.get(node.getAttribute('data-key')!));
       }
-      if (!reusedObserved && ns['__LAST_FASTPATH_REUSED'])
-        reusedObserved = true;
-      expect(reusedObserved).toBeTruthy();
-
-      const commitCount = ns['__LAST_FASTPATH_COMMIT_COUNT'] as
-        | number
-        | undefined;
-      expect(commitCount).toBe(1);
-      expect(
-        Array.from(container.querySelectorAll('li'), (node) =>
-          node.getAttribute('data-key')
-        )
-      ).toEqual(items().map((item) => String(item.id)));
     });
 
     afterAll(() => cleanup());
@@ -147,14 +114,7 @@ describe('runtime fast-lane', () => {
       await waitForNextEvaluation();
     });
 
-    it('should decline fast-path when props differ', async () => {
-      const ns = (
-        globalThis as unknown as Record<string, unknown> & {
-          __ASKR__?: Record<string, unknown>;
-        }
-      ).__ASKR__;
-      if (ns) delete ns['__LAST_FASTLANE_INVARIANTS'];
-
+    it('should apply prop changes during a keyed reorder', async () => {
       // Reverse order AND mutate props for the same keys.
       items.set(
         [...items()].reverse().map((item) => ({
@@ -165,15 +125,13 @@ describe('runtime fast-lane', () => {
       flushScheduler();
       await waitForNextEvaluation();
 
-      const ns2 =
-        (
-          globalThis as unknown as Record<string, unknown> & {
-            __ASKR__?: Record<string, unknown>;
-          }
-        ).__ASKR__ || {};
-
-      // Runtime fast-lane invariants are only written when fast-lane commits.
-      expect(ns2['__LAST_FASTLANE_INVARIANTS']).toBeUndefined();
+      const nodes = Array.from(container.querySelectorAll('li'));
+      expect(nodes.map((node) => node.getAttribute('data-key'))).toEqual(
+        items().map((item) => String(item.id))
+      );
+      expect(nodes.map((node) => node.className)).toEqual(
+        items().map((item) => String(item.togg))
+      );
     });
 
     afterAll(() => cleanup());
@@ -188,8 +146,6 @@ describe('fast-lane large reorder regression', () => {
   const N = 2000; // large enough to reproduce previous hang but small enough for CI
 
   beforeAll(() => {
-    process.env.ASKR_FORCE_BULK_POSREUSE = '1';
-
     const ctx = createTestContainer();
     container = ctx.container;
     cleanup = ctx.cleanup;
@@ -226,22 +182,13 @@ describe('fast-lane large reorder regression', () => {
       const afterEls = Array.from(container.querySelectorAll('li'));
       expect(afterEls.length).toBe(N);
 
-      const ns =
-        (
-          globalThis as unknown as Record<string, unknown> & {
-            __ASKR__?: Record<string, unknown>;
-          }
-        ).__ASKR__ || {};
-      if (ns['__LAST_FASTPATH_STATS']) {
-        const _stats = ns['__LAST_FASTPATH_STATS'] as { n?: number };
-        expect(_stats.n).toBe(N);
-      }
+      expect(afterEls[0]?.getAttribute('data-key')).toBe('1');
+      expect(afterEls.at(-1)?.getAttribute('data-key')).toBe(String(N));
     }
   );
 
   afterAll(() => {
     cleanup();
-    delete process.env.ASKR_FORCE_BULK_POSREUSE;
   });
 });
 
@@ -268,7 +215,7 @@ describe('fast-lane scheduler progress escape hatch', () => {
         }))
       );
 
-      globalScheduler.enqueue(() => {
+      queueTask(() => {
         marker = true;
       });
 
@@ -294,7 +241,7 @@ describe('fast-lane scheduler progress escape hatch', () => {
     flushScheduler();
     await waitForNextEvaluation();
 
-    // The enqueued task should have executed synchronously during the fast-lane
+    // The enqueued task should have executed during the scheduler flush.
     expect(marker).toBeTruthy();
 
     cleanup();

@@ -25,6 +25,9 @@ createIsland({ root: 'counter-root', component: Counter });
 
 `createIsland()` mounts the component once and manages its lifecycle until the container
 is removed from the DOM.
+Calling it again with a different component at the same root ends the old
+island lifetime, runs its cleanup, and mounts the new component. If cleanup
+mounts another island at that root, that replacement takes precedence.
 
 ## SPA mode
 
@@ -72,40 +75,6 @@ still throw instead of being awaited. The synchronous `renderToString({ url,
 registry })` does not run route loaders and throws `SSRDataMissingError` for a
 route that declares one.
 
-## Runtime boundary
-
-The public runtime exposes `createRuntime()` and `getDefaultRuntime()`. Core implementation modules route
-default scheduler and renderer access through the internal runtime access
-boundary so hot paths do not import singleton globals directly.
-
-`createRuntime()` constructs scheduler and renderer wiring only. Mounting uses
-the default runtime; creating another runtime does not isolate mounted trees.
-An omitted scheduler shares the default scheduler.
-
-`createDOMRendererHost(configure)` constructs an adapter accepted by runtime
-`renderer` options and `configureRenderer()`, without installing it. The callback
-receives complete native `evaluation`, `cleanup`, `scopes`, `keys`, and
-`reactivity` roles. Return all five roles and delegate explicitly where needed.
-Later role and method replacement remains observable; callbacks receive their
-role object as `this`. Legacy renderer hosts remain supported.
-
-Component owners, child scopes, and reactive sources cross this API as frozen,
-empty opaque handles. Identity follows the underlying record across rerenders.
-Native delegates reject forged, wrong-kind, and foreign-factory handles before
-mutation. Handles add no disposal or generation semantics. Returned ranges
-expose only readonly `start`, `end`, and `single` fields.
-
-Stable intrinsic patches preflight the complete supported tree. A declined
-patch executes no components and changes no DOM, bindings, refs, or cleanup.
-Components, boundaries, fragments, reactive children, and dangerous HTML use
-ordinary synchronization. Application errors retain transaction rollback.
-
-Commit participants are keyed by kind and identity. Re-registering the same
-object is idempotent; a distinct collision must explicitly keep the first
-participant or merge into it. Nested joins validate all collisions before
-transferring membership. A throwing merge discards affected transactions and
-drains rollback before propagating the initiating error.
-
 ## When work becomes observable
 
 Askr uses signals internally, but its public primitives become observable at
@@ -136,15 +105,17 @@ that corresponds to the public operation above.
 
 ## Update loop guard
 
-A scheduler flush drains every lane until no work remains. A task that throws is
+A scheduler flush runs queued work until none remains. A task that throws is
 consumed, the drain continues, and the flush rethrows the failure afterwards
-(an `AggregateError` when several tasks failed, in execution order).
+(an `AggregateError` when several tasks failed, in execution order). The order
+in which queued work runs is described in
+[Runtime reactivity internals](../internals/runtime-reactivity.md#scheduler-lanes).
 
 If the same scheduled task runs more than 50 times in one flush (for example a
 component whose ref callback writes state it renders), the scheduler treats it
 as an update loop: it drops that task, records an `exceeded MAX_FLUSH_DEPTH`
 error with the other failures, and keeps draining the remaining queued work, so
-earlier failures are still reported and later lanes are not stranded. Dropping a
+earlier failures are still reported and other queued work is not stranded. Dropping a
 task clears its owner's pending flag (unless another copy of it is still
 queued), so a later write schedules it again: a component re-renders on its
 next state change.
@@ -179,6 +150,26 @@ if (hasApp('app')) {
   cleanupApp('app');
 }
 ```
+
+Cleanup always finishes: every ref, listener, reactive binding, and component
+lifetime in the app is torn down even when one of them throws. What happens to
+the failures depends on the app's `cleanupStrict` option:
+
+- By default, `cleanupApp()` does not throw. Failures (a callback ref throwing
+  when it receives `null`, a listener that cannot be removed, a throwing
+  component cleanup function, a failing root cleanup callback) are reported
+  with `reportError()` once the current task finishes, in development and
+  production builds (see [teardown errors](./rendering.md#teardown-errors)).
+- With `cleanupStrict: true`, `cleanupApp()` throws one `AggregateError` after
+  cleanup finishes. It contains every failure, including those of components
+  rendered inside `For`, `Show`, and `Case` at any depth, and none of them is
+  also passed to `reportError()`. Failures during ordinary updates of a strict
+  app (removed rows, replaced components, an `ErrorBoundary` fallback, a
+  route change) are still reported rather than thrown, so an update is never
+  interrupted.
+
+Server rendering has no `reportError()`: a cleanup failure of a component
+rendered on the server is thrown from the render call instead.
 
 ## See also
 

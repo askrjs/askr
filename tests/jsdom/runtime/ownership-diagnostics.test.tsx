@@ -1,24 +1,36 @@
 import { resetRouteState, currentRouteRegistry } from '../../router-test-utils';
-import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vite-plus/test';
 import { cleanupApp, createSPA } from '@askrjs/askr/boot';
 import { createDataRuntime, createQuery } from '../../../src/data';
-import { Portal } from '../../../src/runtime/portal/portal';
-import { resource } from '../../../src/runtime/lifecycle/resource';
-import { timer } from '../../../src/runtime/lifecycle/operations';
-import { stream } from '../../../src/runtime/lifecycle/stream';
-import { getOwnershipDiagnostics } from '../../../src/runtime/diagnostics/ownership-diagnostics';
+import { resolveDataRuntimeState } from '../../../src/data/data-runtime';
+import { Portal } from '../../../src/foundations';
+import { resource, stream, timer } from '../../../src/resources';
 import { navigate } from '../../../src/router/navigate';
 import { route } from '../../../src/router/route';
 import {
   createTestContainer,
   flushScheduler,
+  getSchedulerState,
 } from '../../../test-utils/render/test-renderer';
 
-describe('ownership diagnostics', () => {
+async function settle(): Promise<void> {
+  for (let i = 0; i < 4; i += 1) await Promise.resolve();
+  flushScheduler();
+}
+
+describe('route-owned work', () => {
   let container: HTMLElement;
   let cleanup: () => void;
 
   beforeEach(() => {
+    vi.useFakeTimers();
     ({ container, cleanup } = createTestContainer());
     resetRouteState();
   });
@@ -27,29 +39,45 @@ describe('ownership diagnostics', () => {
     cleanupApp(container);
     cleanup();
     resetRouteState();
+    vi.useRealTimers();
   });
 
-  it('should return route-owned resources to their development plateaus', async () => {
-    const baseline = getOwnershipDiagnostics();
+  it('should release route-owned work each time the route is left', async () => {
     const dataRuntime = createDataRuntime();
+    const live = { resources: 0, streams: 0 };
+    let ticks = 0;
 
     function InstrumentedRoute() {
       const query = createQuery({
         runtime: dataRuntime,
-        key: 'ownership-diagnostics',
+        key: 'route-owned-work',
         initialData: { label: 'query' },
         fetch: async () => ({ label: 'query' }),
       });
-      const currentResource = resource(() => 'resource', []);
-      timer(60_000, () => {});
+      const currentResource = resource(({ signal }) => {
+        live.resources += 1;
+        signal.addEventListener('abort', () => (live.resources -= 1));
+        return 'resource';
+      }, []);
+      timer(1_000, () => {
+        ticks += 1;
+      });
       stream(async function* ({ signal }) {
+        live.streams += 1;
         await new Promise<void>((resolve) => {
-          signal.addEventListener('abort', () => resolve(), { once: true });
+          signal.addEventListener(
+            'abort',
+            () => {
+              live.streams -= 1;
+              resolve();
+            },
+            { once: true }
+          );
         });
         yield* [];
       });
       Portal({
-        children: <aside data-diagnostic-portal={'true'}>{'portal'}</aside>,
+        children: <aside data-route-portal={'true'}>{'portal'}</aside>,
       });
 
       return (
@@ -67,45 +95,40 @@ describe('ownership diagnostics', () => {
       registry: currentRouteRegistry(),
       dataRuntime,
     });
-    flushScheduler();
-    flushScheduler();
+    await settle();
 
-    const activePlateau = getOwnershipDiagnostics();
-    expect(activePlateau.routeGenerations).toBe(baseline.routeGenerations + 1);
-    expect(activePlateau.queryOwners).toBe(baseline.queryOwners + 1);
-    expect(activePlateau.queryCells).toBe(baseline.queryCells + 1);
-    expect(activePlateau.timers).toBe(baseline.timers + 1);
-    expect(activePlateau.resources).toBe(baseline.resources + 1);
-    expect(activePlateau.streams).toBe(baseline.streams + 1);
-    expect(activePlateau.portals).toBe(baseline.portals + 1);
-    expect(activePlateau.readableReaders).toBeGreaterThan(
-      baseline.readableReaders
-    );
-    expect(activePlateau.queuedSchedulerWork).toBe(0);
+    const queryCache = resolveDataRuntimeState(dataRuntime).queryCache;
+    const portals = () => container.querySelectorAll('[data-route-portal]');
+    const expectActive = () => {
+      expect(live).toEqual({ resources: 1, streams: 1 });
+      expect(queryCache.size).toBe(1);
+      expect(portals()).toHaveLength(1);
+      expect(getSchedulerState().queueLength).toBe(0);
+    };
+    expectActive();
+    vi.advanceTimersByTime(1_000);
+    expect(ticks).toBe(1);
 
     for (let cycle = 0; cycle < 3; cycle += 1) {
       navigate('/plain');
-      flushScheduler();
+      await settle();
 
-      const plainPlateau = getOwnershipDiagnostics();
-      expect(plainPlateau.routeGenerations).toBe(baseline.routeGenerations + 1);
-      expect(plainPlateau.queryOwners).toBe(baseline.queryOwners);
-      expect(plainPlateau.queryCells).toBe(baseline.queryCells);
-      expect(plainPlateau.timers).toBe(baseline.timers);
-      expect(plainPlateau.resources).toBe(baseline.resources);
-      expect(plainPlateau.streams).toBe(baseline.streams);
-      expect(plainPlateau.portals).toBe(baseline.portals);
-      expect(plainPlateau.queuedSchedulerWork).toBe(0);
+      expect(live).toEqual({ resources: 0, streams: 0 });
+      expect(queryCache.size).toBe(0);
+      expect(portals()).toHaveLength(0);
+      expect(getSchedulerState().queueLength).toBe(0);
+      ticks = 0;
+      vi.advanceTimersByTime(5_000);
+      expect(ticks).toBe(0);
 
       navigate('/instrumented');
-      flushScheduler();
-      flushScheduler();
-
-      expect(getOwnershipDiagnostics()).toEqual(activePlateau);
+      await settle();
+      expectActive();
     }
 
     cleanupApp(container);
-    flushScheduler();
-    expect(getOwnershipDiagnostics()).toEqual(baseline);
+    await settle();
+    expect(live).toEqual({ resources: 0, streams: 0 });
+    expect(queryCache.size).toBe(0);
   });
 });

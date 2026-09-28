@@ -12,7 +12,7 @@ import { getRouteRenderContext } from '../router/resolution';
 import { readHistoryIndex } from '../router/history-index';
 import { loadDocument } from '../router/document-navigation';
 import { resolveNavigationUrl } from '../common/url';
-import type { ComponentFunction } from '../runtime';
+import type { ComponentFunction } from '../common/component';
 import type { DataRuntime } from '../data/types';
 
 const MAX_INITIAL_ROUTE_REDIRECTS = 20;

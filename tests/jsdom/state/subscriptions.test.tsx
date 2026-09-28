@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vite-plus/test';
 import { state } from '../../../src/index';
+import { task } from '../../../src/resources';
 import { createIsland } from '@askrjs/askr/boot';
 import {
   createTestContainer,
@@ -12,7 +13,7 @@ describe('state subscription invariants', () => {
   it('should notify only components that read the state', async () => {
     const { container, cleanup } = createTestContainer();
 
-    let shared: ReturnType<typeof state> | null = null;
+    let shared: ReturnType<typeof state<number>> | null = null;
     let aRenders = 0;
     let bRenders = 0;
 
@@ -58,13 +59,17 @@ describe('state subscription invariants', () => {
     allowFrameworkWarnings(/Unused state variable detected in App at index 1/);
     const { container, cleanup } = createTestContainer();
 
-    let shared: ReturnType<typeof state> | null = null;
-    let togg: ReturnType<typeof state> | null = null;
+    let shared: ReturnType<typeof state<number>> | null = null;
+    let togg: ReturnType<typeof state<boolean>> | null = null;
 
     let childRenders = 0;
+    let childCleanups = 0;
 
     const Child = () => {
       childRenders++;
+      task(() => () => {
+        childCleanups++;
+      });
       return <div>{shared!()}</div>;
     };
 
@@ -87,44 +92,12 @@ describe('state subscription invariants', () => {
     await waitForNextEvaluation();
     expect(childRenders).toBe(2);
 
-    // Readers map should contain the child before unmount
-    const readersBefore = (
-      shared as unknown as { _readers?: Map<unknown, unknown> }
-    )._readers as Map<unknown, unknown> | undefined;
-    expect(readersBefore?.size ?? 0).toBe(1);
-
-    // Capture the child's instance (attached to its host element) for inspection
-    type InstanceHost = Element & {
-      __ASKR_INSTANCE?: import('../../../src/runtime').ComponentInstance;
-    };
-    const childHost = Array.from(container.querySelectorAll('*')).find(
-      (el) => (el as InstanceHost).__ASKR_INSTANCE !== undefined
-    );
-    const childInst = childHost
-      ? (childHost as InstanceHost).__ASKR_INSTANCE
-      : null;
-    expect(childInst).toBeDefined();
-    expect(childInst!.owner.reads?.has(shared!)).toBeTruthy();
-
     // Unmount the child
     togg!.set(false);
     flushScheduler();
     await waitForNextEvaluation();
 
-    // The child's instance should have been cleaned up
-    // If cleanup didn't run, attempt manual cleanup to assert behavior
-    if ((childInst!.owner.reads?.size ?? 0) !== 0) {
-      // Call cleanup to ensure we clear subscriptions
-      const { cleanupComponent } = await import('../../../src/runtime');
-      cleanupComponent(childInst!);
-    }
-
-    expect(childInst!.owner.reads?.size ?? 0).toBe(0);
-
-    // Readers map should no longer contain the child instance
-    const readers = (shared as unknown as { _readers?: Map<unknown, unknown> })
-      ._readers as Map<unknown, unknown> | undefined;
-    expect(readers?.size ?? 0).toBe(0);
+    expect(childCleanups).toBe(1);
 
     // Clear previous count baseline
     const prev = childRenders;

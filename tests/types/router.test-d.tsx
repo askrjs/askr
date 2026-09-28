@@ -1,4 +1,5 @@
 import { expectAssignable, expectError, expectType } from 'tsd';
+import type { JSX } from '@askrjs/askr/jsx-runtime';
 import {
   requirePermission,
   requireRole,
@@ -20,6 +21,7 @@ import {
   index,
   lazy,
   lazyRouteData,
+  matchRoute,
   navigate,
   notFound,
   page,
@@ -155,6 +157,7 @@ expectType<RouteRegistry>(
 const registry = createRouteRegistry(() => {
   route('/registry/{id}', (params) => params.id);
 });
+expectType<RouteMatch | null>(matchRoute('/registry/42', { registry }));
 expectType<RouteRegistry>(registry);
 expectType<RouteManifest>(registry.manifest);
 expectType<readonly import('@askrjs/askr/router').Route[]>(registry.routes);

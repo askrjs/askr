@@ -1,15 +1,12 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { For } from '@askrjs/askr/control';
 import { state } from '../../../src';
-import { getCurrentComponentInstance } from '../../../src/runtime';
+import { task } from '../../../src/resources';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
-
-type ReaderInstance = { mounted: boolean };
-type ReaderTracked = { _readers?: Map<ReaderInstance, unknown> };
 
 describe('For comment host cleanup', () => {
   it('should dispose a removed single comment-host row exactly once', () => {
@@ -17,12 +14,12 @@ describe('For comment host cleanup', () => {
     let rows!: ReturnType<typeof state<number[]>>;
     let shared!: ReturnType<typeof state<number>>;
     let cleanupCount = 0;
+    let readerRenders = 0;
 
     const NullReader = () => {
+      readerRenders += 1;
       shared();
-      const instance = getCurrentComponentInstance();
-      if (!instance) throw new Error('expected null reader instance');
-      (instance.owner.cleanups ??= []).push(() => {
+      task(() => () => {
         cleanupCount += 1;
       });
       return null;
@@ -42,24 +39,21 @@ describe('For comment host cleanup', () => {
       createIsland({ root: container, component: App });
       flushScheduler();
 
-      const readers = (shared as ReaderTracked)._readers!;
-      const departedReader = [...readers.keys()][0]!;
-      expect(readers.size).toBe(1);
-      expect(departedReader.mounted).toBe(true);
+      expect(readerRenders).toBe(1);
 
       rows.set([]);
       flushScheduler();
 
-      expect(readers.size).toBe(0);
-      expect(departedReader.mounted).toBe(false);
       expect(cleanupCount).toBe(1);
+      shared.set(1);
+      flushScheduler();
+      expect(readerRenders).toBe(1);
 
       rows.set([1]);
       flushScheduler();
       rows.set([]);
       flushScheduler();
 
-      expect(readers.size).toBe(0);
       expect(cleanupCount).toBe(2);
     } finally {
       cleanup();
@@ -71,12 +65,12 @@ describe('For comment host cleanup', () => {
     let rows!: ReturnType<typeof state<number[]>>;
     let shared!: ReturnType<typeof state<number>>;
     let cleanupCount = 0;
+    let readerRenders = 0;
 
     const NullReader = () => {
+      readerRenders += 1;
       shared();
-      const instance = getCurrentComponentInstance();
-      if (!instance) throw new Error('expected null reader instance');
-      (instance.owner.cleanups ??= []).push(() => {
+      task(() => () => {
         cleanupCount += 1;
       });
       return null;
@@ -103,18 +97,16 @@ describe('For comment host cleanup', () => {
       createIsland({ root: container, component: App });
       flushScheduler();
 
-      const readers = (shared as ReaderTracked)._readers!;
-      const departedReader = [...readers.keys()][0]!;
-      expect(readers.size).toBe(1);
-      expect(departedReader.mounted).toBe(true);
+      expect(readerRenders).toBe(1);
 
       rows.set([]);
       flushScheduler();
 
       expect(container.querySelector('[data-row]')).toBeNull();
-      expect(readers.size).toBe(0);
-      expect(departedReader.mounted).toBe(false);
       expect(cleanupCount).toBe(1);
+      shared.set(1);
+      flushScheduler();
+      expect(readerRenders).toBe(1);
     } finally {
       cleanup();
     }

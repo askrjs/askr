@@ -18,17 +18,29 @@ export interface DeferredBoundaryRegistration {
 export interface SSRPortalHostRegistration {
   token: string;
   automatic: boolean;
+  defaultPortal?: boolean;
 }
 
 export interface SSRPortalSlot {
   hasValue: boolean;
   value: RenderableChild | undefined;
+  /** Owner at the writer position, used when the host renders later. */
+  owner?: unknown;
+  /** Independent writer entries, ordered by first evaluation in this root. */
+  writers: Map<unknown, SSRPortalWrite>;
   hosts: SSRPortalHostRegistration[];
+}
+
+export interface SSRPortalWrite {
+  readonly owner: unknown;
+  readonly value: RenderableChild | undefined;
+  readonly order: number;
 }
 
 export interface SSRPortalState {
   slots: Map<object, SSRPortalSlot>;
   nextHostId: number;
+  nextWriteOrder: number;
 }
 
 export interface ActiveRenderContext {
@@ -175,10 +187,12 @@ export function isHydrationVerificationRender(): boolean {
 
 /** @internal Read a server-captured resource branch without invoking its loader. */
 export function getResourceVerificationSnapshot(
-  key: string
+  key: string,
+  framework:
+    | Readonly<Record<string, unknown>>
+    | undefined = getCurrentRenderData()?.framework
 ): ResourceVerificationSnapshot | null {
-  const snapshots =
-    getCurrentRenderData()?.framework[RESOURCE_VERIFICATION_SNAPSHOTS];
+  const snapshots = framework?.[RESOURCE_VERIFICATION_SNAPSHOTS];
   if (!snapshots || typeof snapshots !== 'object' || Array.isArray(snapshots)) {
     return null;
   }

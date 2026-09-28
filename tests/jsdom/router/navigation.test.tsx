@@ -15,7 +15,7 @@ import {
   vi,
 } from 'vite-plus/test';
 import { state } from '../../../src/index';
-import { registerMountOperation } from '../../../src/runtime';
+import { task } from '../../../src/resources';
 import { Portal } from '../../../src/foundations/structures/portal';
 import { createSPA } from '@askrjs/askr/boot';
 import { navigate, updateRouteQuery } from '../../../src/router/navigate';
@@ -35,6 +35,12 @@ vi.mock('../../../src/router/document-navigation', () => ({
   loadDocument: vi.fn(),
   reloadDocument: vi.fn(),
 }));
+
+function cleanupMessages(value: unknown): string[] {
+  if (value instanceof AggregateError)
+    return value.errors.flatMap((nested) => cleanupMessages(nested));
+  return value instanceof Error ? [value.message] : [];
+}
 
 describe('route navigation (ROUTER)', () => {
   let { container, cleanup } = createTestContainer();
@@ -233,12 +239,13 @@ describe('route navigation (ROUTER)', () => {
     });
 
     it('should report strict cleanup errors after committing the destination route', async () => {
-      const consoleError = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
+      // Route retirement settles after the destination commits; its cleanup
+      // failures are reported through reportError once navigation finishes.
+      const reportError = vi.fn();
+      vi.stubGlobal('reportError', reportError);
       window.history.replaceState({}, '', '/old');
       route('/old', () => {
-        registerMountOperation(() => () => {
+        task(() => () => {
           throw new Error('old route cleanup failed');
         });
         return <p>old route</p>;
@@ -256,14 +263,13 @@ describe('route navigation (ROUTER)', () => {
         expect(() => navigate('/next')).not.toThrow();
         expect(window.location.pathname).toBe('/next');
         expect(container.textContent).toContain('next route');
-        expect(consoleError).toHaveBeenCalledWith(
-          '[Askr] route cleanup failed:',
-          expect.objectContaining({
-            message: expect.stringMatching(/Cleanup failed|cleanup failed/i),
-          })
-        );
+        await Promise.resolve();
+        expect(reportError).toHaveBeenCalledTimes(1);
+        expect(cleanupMessages(reportError.mock.calls[0]![0])).toEqual([
+          'old route cleanup failed',
+        ]);
       } finally {
-        consoleError.mockRestore();
+        vi.unstubAllGlobals();
       }
     });
 

@@ -5,11 +5,14 @@ import {
   type PageRenderEnvelope,
 } from '../common/page-render-envelope';
 import type { ResolvedRoute } from '../common/router';
-import type { ComponentFunction } from '../runtime';
-import { setStaticChildSlotsCacheEnabled } from '../renderer/dom';
-import { registerDeferredHydrationBoundary } from '../renderer';
+import type { ComponentFunction } from '../common/component';
 import type { BootAppRouteSource, HydrateSPAConfig } from './types';
 import { reviveDeferredValue } from '../common/deferred-value';
+import { reportUncaughtErrorLater } from '../common/report-error';
+import {
+  RenderDepthError,
+  clarifyRenderOverflow,
+} from '../common/render-depth';
 import type { AppRenderRuntime } from '../common/app-render-runtime';
 import type { HydrationInteractionReplay } from './hydration-interaction-replay';
 
@@ -172,7 +175,6 @@ function collectDeferredBelowFoldBoundaries(
     const rect = element.getBoundingClientRect();
     if (rect.top >= foldY) {
       element.setAttribute('data-skip-hydrate', 'true');
-      registerDeferredHydrationBoundary(root, element);
       boundaries.push(element);
       continue;
     }
@@ -189,7 +191,8 @@ function activateVisibleDeferredBoundaries(
   root: Element,
   boundaries: Element[],
   foldY: number,
-  activate: HydrationRuntimeHooks['activateHydrationBoundary']
+  activate: HydrationRuntimeHooks['activateHydrationBoundary'],
+  reportedDepthErrors: WeakSet<Element>
 ): { activated: boolean; remaining: number } {
   let activated = false;
   let remaining = 0;
@@ -204,10 +207,19 @@ function activateVisibleDeferredBoundaries(
       try {
         if (activate(root, element)) {
           activated = true;
+          reportedDepthErrors.delete(element);
         }
-      } catch {
+      } catch (error) {
         // The renderer restores the marker and provisional state on failure;
         // the next reveal event is therefore a safe retry point.
+        const clarified = clarifyRenderOverflow(error);
+        if (
+          clarified instanceof RenderDepthError &&
+          !reportedDepthErrors.has(element)
+        ) {
+          reportedDepthErrors.add(element);
+          reportUncaughtErrorLater(clarified);
+        }
       }
     }
 
@@ -220,22 +232,22 @@ function activateVisibleDeferredBoundaries(
 }
 
 function queueIdleWork(work: () => void): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    const run = () => {
+      try {
+        work();
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
+    };
+
     if (typeof requestIdleCallback !== 'undefined') {
-      requestIdleCallback(
-        () => {
-          work();
-          resolve();
-        },
-        { timeout: 2000 }
-      );
+      requestIdleCallback(run, { timeout: 2000 });
       return;
     }
 
-    setTimeout(() => {
-      work();
-      resolve();
-    }, 0);
+    setTimeout(run, 0);
   });
 }
 
@@ -259,26 +271,16 @@ export async function applySelectiveHydration(
   interactionReplay: HydrationInteractionReplay
 ): Promise<void> {
   const hasBelowFoldDeferral = !!hydrateOptions.deferBelowFold;
-  let staticChildSlotsCacheSuspended = false;
   let releaseSelectiveHydrationResources = () => {};
-
-  const restoreStaticChildSlotsCache = () => {
-    if (!staticChildSlotsCacheSuspended) {
-      return;
-    }
-
-    setStaticChildSlotsCacheEnabled(true);
-    staticChildSlotsCacheSuspended = false;
-  };
+  let registerSelectiveHydrationCleanup = () => {};
 
   if (hydrateOptions.skipSelectors?.length) {
     markSkippedElements(rootElement, hydrateOptions.skipSelectors);
   }
 
   let deferredBoundaries: Element[] = [];
+  const reportedDepthErrors = new WeakSet<Element>();
   if (hydrateOptions.deferBelowFold) {
-    setStaticChildSlotsCacheEnabled(false);
-    staticChildSlotsCacheSuspended = true;
     const foldY = hydrateOptions.foldThreshold ?? window.innerHeight;
     deferredBoundaries = collectDeferredBelowFoldBoundaries(rootElement, foldY);
     interactionReplay.registerDeferredBoundaries(deferredBoundaries);
@@ -291,7 +293,8 @@ export async function applySelectiveHydration(
         rootElement,
         deferredBoundaries,
         foldY,
-        hooks.activateHydrationBoundary
+        hooks.activateHydrationBoundary,
+        reportedDepthErrors
       );
 
       if (!activated) {
@@ -311,7 +314,6 @@ export async function applySelectiveHydration(
       selectiveHydrationResourcesReleased = true;
       unregisterRootCleanupCallback();
       window.removeEventListener('scroll', handleScroll);
-      restoreStaticChildSlotsCache();
       interactionReplay.clearDeferredBoundaries();
     };
 
@@ -319,10 +321,12 @@ export async function applySelectiveHydration(
       releaseSelectiveHydrationResources
     );
 
-    unregisterRootCleanupCallback = hooks.registerRootCleanupCallback(
-      rootElement,
-      releaseSelectiveHydrationResources
-    );
+    registerSelectiveHydrationCleanup = () => {
+      unregisterRootCleanupCallback = hooks.registerRootCleanupCallback(
+        rootElement,
+        releaseSelectiveHydrationResources
+      );
+    };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
   }
@@ -351,6 +355,7 @@ export async function applySelectiveHydration(
         appRuntime: source?.runtime,
       }
     );
+    registerSelectiveHydrationCleanup();
     await hooks.registerAppNavigation(rootElement, path, source);
   } catch (error) {
     releaseSelectiveHydrationResources();
@@ -364,7 +369,8 @@ export async function applySelectiveHydration(
           rootElement,
           deferredBoundaries,
           Number.POSITIVE_INFINITY,
-          hooks.activateHydrationBoundary
+          hooks.activateHydrationBoundary,
+          reportedDepthErrors
         );
       } finally {
         releaseSelectiveHydrationResources();

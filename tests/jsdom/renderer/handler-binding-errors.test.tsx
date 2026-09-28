@@ -9,10 +9,6 @@ import {
 import { state, type State } from '../../../src/index';
 import { ErrorBoundary } from '@askrjs/askr/components';
 import { scheduleEventHandler } from '../../../src/fx';
-import {
-  disableEventDelegation,
-  enableEventDelegation,
-} from '../../../src/renderer/props/events';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -41,21 +37,26 @@ describe.each(['development', 'production'])(
 
     afterEach(() => {
       cleanup();
-      enableEventDelegation();
       process.env.NODE_ENV = previousNodeEnv;
       vi.unstubAllGlobals();
       vi.restoreAllMocks();
     });
 
-    function mountThrowingHandler() {
+    function mountThrowingHandler(event: 'click' | 'pointerdown' = 'click') {
       const error = new Error('handler failed');
       const outerClicks = vi.fn();
       const App = () => (
-        <div onClick={outerClicks}>
+        <div
+          {...{
+            [event === 'click' ? 'onClick' : 'onPointerDown']: outerClicks,
+          }}
+        >
           <button
             id="btn"
-            onClick={() => {
-              throw error;
+            {...{
+              [event === 'click' ? 'onClick' : 'onPointerDown']: () => {
+                throw error;
+              },
             }}
           >
             boom
@@ -65,7 +66,9 @@ describe.each(['development', 'production'])(
 
       createIsland({ root: container, component: App });
       flushScheduler();
-      container.querySelector<HTMLButtonElement>('#btn')!.click();
+      container
+        .querySelector<HTMLButtonElement>('#btn')!
+        .dispatchEvent(new Event(event, { bubbles: true }));
       flushScheduler();
       return { error, outerClicks };
     }
@@ -79,8 +82,7 @@ describe.each(['development', 'production'])(
     });
 
     it('should report direct listener errors through reportError', () => {
-      disableEventDelegation();
-      const { error, outerClicks } = mountThrowingHandler();
+      const { error, outerClicks } = mountThrowingHandler('pointerdown');
 
       expect(reportError).toHaveBeenCalledTimes(1);
       expect(reportError).toHaveBeenCalledWith(error);
@@ -99,6 +101,7 @@ describe.each(['development', 'production'])(
       );
 
       button.click();
+      flushScheduler();
 
       expect(reportError).toHaveBeenCalledTimes(1);
       expect(reportError).toHaveBeenCalledWith(error);
@@ -122,7 +125,7 @@ describe.each(['development', 'production'])(
       };
 
       const App = () => (
-        <ErrorBoundary onError={onError}>
+        <ErrorBoundary onError={onError} fallback={<p id="fallback" />}>
           <Child />
         </ErrorBoundary>
       );
@@ -140,9 +143,7 @@ describe.each(['development', 'production'])(
       expect((onError.mock.calls[0][0] as Error).message).toBe(
         'binding failed'
       );
-      expect(
-        container.querySelector('[data-askr-error-boundary]')
-      ).toBeTruthy();
+      expect(container.querySelector('#fallback')).toBeTruthy();
     });
 
     it('should route a binding that is a direct ErrorBoundary child to that boundary', () => {
@@ -154,7 +155,7 @@ describe.each(['development', 'production'])(
         broken = state(false);
         return (
           <ErrorBoundary onError={outerOnError}>
-            <ErrorBoundary onError={onError}>
+            <ErrorBoundary onError={onError} fallback={<p id="fallback" />}>
               <div
                 id="bound"
                 title={() => {
@@ -178,9 +179,7 @@ describe.each(['development', 'production'])(
         'direct binding failed'
       );
       expect(outerOnError).not.toHaveBeenCalled();
-      expect(
-        container.querySelectorAll('[data-askr-error-boundary]')
-      ).toHaveLength(1);
+      expect(container.querySelectorAll('#fallback')).toHaveLength(1);
     });
 
     it('should route a binding in a nested component to the innermost ErrorBoundary', () => {
@@ -269,12 +268,9 @@ describe.each(['development', 'production'])(
       expect(container.querySelector('#inner-fallback')).toBeNull();
     });
 
-    // The second <Row /> is materialized from the component blueprint cached
-    // by the first, so its bindings run as one grouped blueprint effect.
-    function mountBlueprintRows(withBoundary: boolean) {
+    function mountRepeatedRows(withBoundary: boolean) {
       let broken!: State<boolean>;
       const onError = vi.fn();
-      const cloneNode = vi.spyOn(Node.prototype, 'cloneNode');
 
       const Row = ({ index }: { index: number }) => (
         <span
@@ -301,7 +297,7 @@ describe.each(['development', 'production'])(
 
       const App = withBoundary
         ? () => (
-            <ErrorBoundary onError={onError}>
+            <ErrorBoundary onError={onError} fallback={<p id="fallback" />}>
               <Rows />
             </ErrorBoundary>
           )
@@ -309,7 +305,6 @@ describe.each(['development', 'production'])(
 
       createIsland({ root: container, component: App });
       flushScheduler();
-      expect(cloneNode).toHaveBeenCalled();
       expect(
         Array.from(container.querySelectorAll('span')).map((span) => [
           span.textContent,
@@ -322,8 +317,8 @@ describe.each(['development', 'production'])(
       return { broken, onError };
     }
 
-    it('should route blueprint binding errors to the owning ErrorBoundary', () => {
-      const { broken, onError } = mountBlueprintRows(true);
+    it('should route repeated row binding errors to the owning ErrorBoundary', () => {
+      const { broken, onError } = mountRepeatedRows(true);
 
       broken.set(true);
       flushScheduler();
@@ -332,13 +327,11 @@ describe.each(['development', 'production'])(
       expect((onError.mock.calls[0][0] as Error).message).toBe(
         'blueprint binding failed'
       );
-      expect(
-        container.querySelector('[data-askr-error-boundary]')
-      ).toBeTruthy();
+      expect(container.querySelector('#fallback')).toBeTruthy();
     });
 
-    it('should surface blueprint binding errors without a boundary', () => {
-      const { broken } = mountBlueprintRows(false);
+    it('should surface repeated row binding errors without a boundary', () => {
+      const { broken } = mountRepeatedRows(false);
 
       expect(() => {
         broken.set(true);

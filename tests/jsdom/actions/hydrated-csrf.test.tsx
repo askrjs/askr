@@ -65,7 +65,10 @@ describe('hydrated action CSRF', () => {
       navigate('/action');
       flushScheduler();
       await command.submit({ name: 'Ada' });
-      const headers = new Headers(request.mock.calls[0]?.[1]?.headers);
+      const headers = new Headers(
+        (request.mock.calls[0] as unknown as [unknown, RequestInit?])?.[1]
+          ?.headers
+      );
       expect(headers.get('x-askr-csrf-token')).toBe('hydrated-token');
     } finally {
       cleanupApp(container);

@@ -142,31 +142,34 @@ describe('event delegation matches native dispatch in a real browser', () => {
     }
   });
 
-  test('should dispatch to apps mounted inside a shadow root', () => {
-    const { container: host, cleanup } = createTestContainer();
-    cleanups.push(cleanup);
-    const shadow = host.attachShadow({ mode: 'open' });
-    const root = document.createElement('div');
-    shadow.appendChild(root);
-    mountRoot(root);
-    const calls: string[] = [];
+  test.each(['open', 'closed'] as const)(
+    'should dispatch to apps mounted inside a %s shadow root',
+    (mode) => {
+      const { container: host, cleanup } = createTestContainer();
+      cleanups.push(cleanup);
+      const shadow = host.attachShadow({ mode });
+      const root = document.createElement('div');
+      shadow.appendChild(root);
+      mountRoot(root);
+      const calls: string[] = [];
 
-    createIsland({
-      root,
-      component: () => (
-        <div onClick={() => calls.push('outer')}>
-          <button id="shadow-button" onClick={() => calls.push('button')}>
-            {'inside'}
-          </button>
-        </div>
-      ),
-    });
-    flushScheduler();
+      createIsland({
+        root,
+        component: () => (
+          <div onClick={() => calls.push('outer')}>
+            <button id="shadow-button" onClick={() => calls.push('button')}>
+              {'inside'}
+            </button>
+          </div>
+        ),
+      });
+      flushScheduler();
 
-    root.querySelector<HTMLButtonElement>('#shadow-button')!.click();
+      root.querySelector<HTMLButtonElement>('#shadow-button')!.click();
 
-    expect(calls).toEqual(['button', 'outer']);
-  });
+      expect(calls).toEqual(['button', 'outer']);
+    }
+  );
 
   function renderShadowFixture(
     mode: ShadowRootMode,
@@ -239,6 +242,14 @@ describe('event delegation matches native dispatch in a real browser', () => {
     expect(calls).toEqual(['host', 'outer']);
   });
 
+  test('should not dispatch a non-composed click from an open shadow root', () => {
+    const { calls, button } = renderShadowFixture('open');
+
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(calls).toEqual([]);
+  });
+
   test('should dispatch once to an app nested in an open shadow root of another app', () => {
     const outerRoot = mountRoot();
     const calls: string[] = [];
@@ -286,7 +297,7 @@ describe('event delegation matches native dispatch in a real browser', () => {
   ) {
     const root = mountRoot();
     const calls: string[] = [];
-    createIsland({ root, component: () => body(calls) });
+    createIsland({ root, component: () => body(calls) as never });
     flushScheduler();
     const host = root.querySelector<HTMLElement>('#host')!;
     const moved = root.querySelector<HTMLElement>('#moved')!;

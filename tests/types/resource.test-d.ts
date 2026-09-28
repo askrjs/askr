@@ -2,9 +2,7 @@ import { expectAssignable, expectError, expectType } from 'tsd';
 import {
   capture,
   documentVisible,
-  getSignal,
   on,
-  onRouteChange,
   resource,
   routeActive,
   stream,
@@ -14,14 +12,17 @@ import {
   type ActivityPredicate,
   type ListenerTarget,
   type ResourceResult,
-  type RouteChangeCleanup,
-  type RouteChangeOptions,
   type StreamResult,
   type StreamOptions,
   type StreamStatus,
   type TimerOptions,
 } from '@askrjs/askr/resources';
-import type { RouteChangeCleanup as RouterRouteChangeCleanup } from '@askrjs/askr/router';
+import { getSignal } from '@askrjs/askr';
+import { onRouteChange } from '@askrjs/askr/router';
+import type {
+  RouteChangeCleanup,
+  RouteChangeOptions,
+} from '@askrjs/askr/router';
 
 declare const eventSource: EventTarget;
 declare const transformer: () => void;
@@ -48,6 +49,16 @@ expectType<boolean>(asyncResource.pending);
 expectType<Error | null>(asyncResource.error);
 expectType<void>(asyncResource.refresh());
 
+const sourceResource = resource(
+  () => 'user-1',
+  async (id, { signal }) => {
+    expectType<string>(id);
+    expectType<AbortSignal>(signal);
+    return { id };
+  }
+);
+expectType<ResourceResult<{ id: string }>>(sourceResource);
+
 const syncResource = resource(({ signal }) => {
   expectType<AbortSignal>(signal);
   return 123;
@@ -70,7 +81,7 @@ expectType<void>(task(() => {}));
 expectType<void>(task(async () => {}));
 expectType<void>(onRouteChange(() => {}));
 const routeCleanup: RouteChangeCleanup = () => {};
-expectAssignable<RouterRouteChangeCleanup>(routeCleanup);
+expectAssignable<RouteChangeCleanup>(routeCleanup);
 expectType<void>(
   onRouteChange(
     (current, previous) => {
@@ -101,8 +112,36 @@ expectType<Error | null>(pendingStream.error);
 expectType<void>(pendingStream.restart());
 expectType<void>(pendingStream.close());
 
+const sourceStream = stream(
+  () => 'cursor-1',
+  async function* (cursor, { signal }) {
+    expectType<string>(cursor);
+    expectType<AbortSignal>(signal);
+    yield cursor;
+  },
+  { initialValue: 'cached' }
+);
+expectType<StreamResult<string>>(sourceStream);
+expectError(
+  stream(
+    () => 'cursor-1',
+    async function* () {
+      yield 'value';
+    },
+    { deps: ['cursor-1'] }
+  )
+);
+
 expectError(on(eventSource, transformer));
 expectError(timer(1000));
 expectError(timer(1000, () => {}, { when: [123] }));
 expectError(stream('source'));
 expectError(stream(() => Promise.resolve('not iterable')));
+
+// An explicit result type with a deps array selects the deps overload.
+expectType<ResourceResult<string>>(
+  resource<string>(({ signal }) => {
+    expectType<AbortSignal>(signal);
+    return Promise.resolve('value');
+  }, [])
+);

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
+import { state } from '../../../src';
 import { Link } from '../../../src/components/link';
 import { renderToStringSync } from '../../../src/ssr';
 import { createIsland } from '../../../test-utils/render/create-island';
@@ -53,6 +54,53 @@ describe('unsafe href schemes', () => {
 
       const html = renderToStringSync(() => <a {...unsafeProps}>unsafe</a>, {});
       expect(html).toBe('<a>unsafe</a>');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should check and write the same text for a stateful toString() href', () => {
+    // Each conversion returns a different string: the first passes the check,
+    // later ones are a script URL. The renderer may read a value more than
+    // once (static-reuse comparisons), but whatever it writes is the text it
+    // just checked, never a later conversion.
+    const statefulHref = () => {
+      let calls = 0;
+      return {
+        toString: () => (++calls === 1 ? '/safe' : 'javascript:alert(1)'),
+      } as unknown as string;
+    };
+    const { container, cleanup } = createTestContainer();
+    let bump!: () => void;
+    function Page() {
+      const count = state(0);
+      bump = () => count.set((value) => value + 1);
+      return (
+        <div>
+          <a data-case="static" href={statefulHref()}>
+            static
+          </a>
+          <a data-case="updated" data-n={count()} href={statefulHref()}>
+            updated
+          </a>
+        </div>
+      );
+    }
+    try {
+      createIsland({ root: container, component: Page });
+      flushScheduler();
+      for (const anchor of container.querySelectorAll('a')) {
+        expect(anchor.getAttribute('href')).toBe('/safe');
+      }
+
+      bump();
+      flushScheduler();
+      expect(
+        container.querySelector('[data-case="updated"]')?.getAttribute('data-n')
+      ).toBe('1');
+      for (const anchor of container.querySelectorAll('a')) {
+        expect(anchor.getAttribute('href') ?? '').not.toMatch(/script:/i);
+      }
     } finally {
       cleanup();
     }

@@ -53,7 +53,6 @@ import {
   type SelectedRoute,
 } from './generation-plan';
 import { normalizeStaticRoutes, splitStaticRoutes } from './static-routes';
-import { addPerfDuration, incrementPerfMetric } from '../runtime';
 
 /**
  * Create a Static Site Generator
@@ -234,11 +233,9 @@ async function publishGeneration({
     // Write HTML, metadata, and the manifest into the same target. Full
     // builds use a sibling staging directory; incremental builds retain
     // their existing per-route behavior.
-    const writeStartTime = performance.now();
     await writeStaticFiles(routeResults, targetOutputDir, {
       concurrency,
     });
-    addPerfDuration('ssgWriteTimeMs', performance.now() - writeStartTime);
 
     await writeMetadata(metadata, targetOutputDir);
 
@@ -357,8 +354,6 @@ export function createStaticGen(options: SSGOptions) {
             routesToRender.push(entry);
           }
         }
-        const renderStartTime = performance.now();
-        incrementPerfMetric('ssgWorkerCount', resolvedParallelism);
         const renderedResults =
           routesToRender.length > 0
             ? await batchRenderRoutes(getRoutesToRender(routesToRender), {
@@ -370,7 +365,6 @@ export function createStaticGen(options: SSGOptions) {
                   options.styleRegistrationValidation,
               })
             : [];
-        addPerfDuration('ssgRenderTimeMs', performance.now() - renderStartTime);
         const renderedByRouteId = new Map<string, RouteRenderResult>();
         for (let index = 0; index < renderedResults.length; index += 1) {
           renderedByRouteId.set(

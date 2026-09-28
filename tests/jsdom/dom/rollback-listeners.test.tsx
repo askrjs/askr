@@ -4,8 +4,6 @@ import {
   createTestContainer,
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
-import { registerMountOperation } from '../../../src/runtime';
-import type { JSXElement } from '../../../src/jsx/types';
 import { createIsland } from '../../../test-utils/render/create-island';
 
 describe('rollback listeners', () => {
@@ -19,18 +17,15 @@ describe('rollback listeners', () => {
       const t = state(false);
       setThrow = (v: boolean) => t.set(v);
 
-      registerMountOperation(() => {
-        const btn = container.querySelector('#btn');
-        if (btn) btn.addEventListener('click', () => (clicked = true));
-      });
-
       if (t()) throw new Error('boom');
 
       return (
         <div>
-          <button id={'btn'}>{'click'}</button>
+          <button id={'btn'} onClick={() => (clicked = true)}>
+            {'click'}
+          </button>
         </div>
-      ) as unknown as JSXElement;
+      );
     };
 
     createIsland({ root: container, component: Component });

@@ -1,7 +1,27 @@
 # Migration from React
 
-Askr keeps JSX component composition while using explicit getter functions,
-lexical scopes, and framework-owned route primitives.
+Askr keeps JSX component composition. The main differences are that state is
+read through getter functions, components render once per change instead of
+on every parent render, and routing, data loading, and forms are built in.
+
+## Concept map
+
+| React                             | Askr                                                               | Import from                                     |
+| --------------------------------- | ------------------------------------------------------------------ | ----------------------------------------------- |
+| `useState`                        | `state()`                                                          | `@askrjs/askr`                                  |
+| `useMemo`, derived values         | `derive()`; `selector()` for per-row selection                     | `@askrjs/askr`                                  |
+| `createContext`, `useContext`     | `defineScope()`, `readScope()`                                     | `@askrjs/askr`                                  |
+| `useRef` for DOM nodes            | `ref` prop with a callback or `createRef()`                        | `@askrjs/askr`                                  |
+| `useEffect` on mount              | `task()`                                                           | `@askrjs/askr/resources`                        |
+| `useEffect` with dependencies     | `watch(source, callback)`                                          | `@askrjs/askr/resources`                        |
+| `useEffect` for event listeners   | `on(target, event, handler)`                                       | `@askrjs/askr/resources`                        |
+| fetch in `useEffect`              | route `loader` + `routeData()`, or `resource()` in a component     | `@askrjs/askr/router`, `@askrjs/askr/resources` |
+| `array.map` with `key`            | `<For each={items} by={(item) => item.id}>` or `key` on elements   | `@askrjs/askr/control`                          |
+| `cond && <X />`, ternaries        | `<Show when={cond}>`, `<Case>`/`<Match>`, or plain JSX expressions | `@askrjs/askr/control`                          |
+| React Router routes and `<Link>`  | `createRouteRegistry()`, `route()`, `to()`, `<Link>`               | `@askrjs/askr/router`                           |
+| data libraries (React Query, SWR) | `createQuery()`, `createMutation()`, `invalidate()`                | `@askrjs/askr/data`                             |
+| form libraries and server actions | `defineAction()`, `action()`, `ActionForm`                         | `@askrjs/askr/actions`                          |
+| error boundaries                  | `ErrorBoundary`                                                    | `@askrjs/askr/components`                       |
 
 ## State and derived values
 
@@ -15,40 +35,80 @@ const [count, setCount] = state(0);
 console.log(count());
 ```
 
-Prefer functions and closures for stateful services. Use structural interfaces
-for dependencies instead of introducing service classes.
+Calling the getter tracks the read, so only the components and bindings that
+read `count()` update when it changes. There is no dependency array: `derive()`
+recomputes when the state it read changes, and `watch()` takes the state
+accessor itself (`watch(count, ...)`, not `watch(count(), ...)`).
 
-## Public vocabulary
+Hooks such as `state()` must run in the same order on every render, as in
+React. Askr throws when the number of hook calls, or the kind of hook in a
+position, changes between renders, for example when a condition or a loop
+count changes. It cannot detect two hooks of the same kind trading places; see
+[runtime enforcement](../concepts/runtime-enforcement.md).
 
-Use the clean-break Askr APIs directly:
+## Effects and cleanup
 
-- `defineScope()` and `readScope()` for lexical runtime scope
-- `ThemeScope` and `theme()` for theme ownership and access
-- `ToastHost` for the mounted toast region
-- `SidebarScope` for sidebar state ownership
-- `routeData()` for critical loader data
-- `action()` and `ActionForm` for declared page actions
-- `Resolve` for an explicit deferred value
+Split `useEffect` by intent:
 
-Do not add compatibility wrappers for an earlier Askr vocabulary. Server-domain
-names such as `ServerContext`, `RouteContext`, `AuthContext`, and
-`JwksProvider` remain accurate and are not UI scope conventions.
+- Mount-only setup with cleanup is `task()`. Its returned cleanup runs when
+  the component unmounts.
+- Work that reacts to a value is `watch(source, callback)`. The callback gets
+  an `AbortSignal` that aborts when the value changes again or the component
+  unmounts.
+- Subscriptions to DOM or other event targets are `on()`, which removes the
+  listener with the component.
 
-## Routes and destinations
+Async work receives a `signal` instead of an "ignore stale result" flag. Pass
+it to `fetch()` and other cancellable APIs.
 
-Declare routes once, retain the returned route reference, and construct typed
-destinations with `to()`. Pass that destination to `Link`; use raw `href` only
-when the destination is intentionally untyped.
+## Context
 
-## Data and forms
+`defineScope(defaultValue)` returns a scope component. Render it with a
+`value` to provide, and call `readScope(Scope)` during render to read the
+nearest value:
 
-Critical loader data is read with `routeData()`. Mark only intentionally
-deferred promises with `defer()` and render them with `Resolve`.
+```tsx
+// Askr
+const DensityScope = defineScope<'compact' | 'comfortable'>('comfortable');
 
-Define a browser-safe action descriptor beside its schema. Register the server
-handler in the composition root, authorize the descriptor on the matched
-route, and render `ActionForm` so native and enhanced submissions share the
-same validation and protection behavior.
+function Label() {
+  return <span>{readScope(DensityScope)}</span>;
+}
+
+function App() {
+  return (
+    <DensityScope value="compact">
+      <Label />
+    </DensityScope>
+  );
+}
+```
+
+## Refs and keys
+
+An element's `ref` prop receives the element on mount and `null` on removal.
+Use a callback or an object from `createRef()`.
+
+Keys work as in React for sibling elements. For lists, prefer `<For>` with a
+`by` function: rows keep their identity and state when the list reorders.
+
+## Routes and data
+
+Declare routes once with `createRouteRegistry()` and keep the returned route
+references to build typed destinations with `to()`. Pass a destination to
+`<Link>`; use a raw `href` only for an intentionally untyped target.
+
+Data a page needs before it renders belongs in a route `loader`, read with
+`routeData()`. Wrap only non-critical promises in `defer()` and render them
+with `Resolve`. Define form actions with `defineAction()` and render them with
+`ActionForm`, so native and enhanced submissions share validation.
+
+## UI packages
+
+Askr's UI components and theming live in separate, optional packages:
+`@askrjs/ui` (headless components such as `ToastHost`) and `@askrjs/themes`
+(styling and the `ThemeScope` theme provider). The runtime itself has no
+component library.
 
 ## Next
 

@@ -16,6 +16,12 @@ The platform is split by responsibility, not by implementation convenience:
 - `@askrjs/cli` provides project scaffolding and workflow tools.
 - `@askrjs/vite` provides Vite integration for the runtime and starter workflows.
 
+The core package publishes low-level interaction and icon contracts for sibling
+package implementations. `@askrjs/ui` owns the composed headless component
+behavior; `@askrjs/lucide` and `@askrjs/logos` own icon wrappers. The
+`@askrjs/askr/foundations/interactions` and `/icon` subpaths are platform
+internal contracts for those maintainers, not application component APIs.
+
 ## How the parts work together
 
 The intended dependency flow is simple:

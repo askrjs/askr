@@ -11,16 +11,10 @@ import {
   documentVisible,
   task,
   watch,
-  getSignal,
   WatchContext,
   windowFocused,
   timer,
 } from '../core.js';
-import {
-  onRouteChange,
-  RouteChangeOptions,
-  RouteChangeCleanup,
-} from '../route-activity.js';
 /** Reactive result of a {@link resource}: current value, loading state, and controls. */
 interface ResourceResult<T> {
   value: T | null;
@@ -28,10 +22,21 @@ interface ResourceResult<T> {
   error: Error | null;
   refresh(): void;
 }
+/** Create a source-driven resource whose loader receives the latest source value. */
+declare function resource<TSource, T>(
+  source: () => TSource,
+  load: (value: TSource, opts: { signal: AbortSignal }) => PromiseLike<T> | T
+): ResourceResult<T>;
 /** Creates a render-scoped async resource with cancellation and refresh; SSR has special data rules. */
-declare function resource<T, const TDeps extends readonly unknown[]>(
+declare function resource<
+  T,
+  const TDeps extends readonly unknown[] = readonly unknown[],
+>(
   fn: (opts: { signal: AbortSignal }) => PromiseLike<T> | T,
   deps: TDeps
+): ResourceResult<T>;
+declare function resource<T>(
+  fn: (opts: { signal: AbortSignal }) => PromiseLike<T> | T
 ): ResourceResult<T>;
 /** Connection status of a {@link stream}. */
 type StreamStatus =
@@ -58,6 +63,15 @@ interface StreamOptions<T> {
 type StreamSource<T> = (context: {
   signal: AbortSignal;
 }) => AsyncIterable<T> | PromiseLike<AsyncIterable<T>>;
+/** Connect a stream from an input read during a positional component render. */
+declare function stream<TSource, T>(
+  source: () => TSource,
+  connect: (
+    value: TSource,
+    context: { signal: AbortSignal }
+  ) => AsyncIterable<T> | PromiseLike<AsyncIterable<T>>,
+  options?: Omit<StreamOptions<T>, 'deps'>
+): StreamResult<T>;
 /** Subscribe to a streaming data source for the current component's lifetime, with auto reconnect/cleanup. */
 declare function stream<T>(
   source: StreamSource<T>,
@@ -67,8 +81,6 @@ export {
   type ActivityPredicate,
   type ListenerTarget,
   type ResourceResult,
-  type RouteChangeCleanup,
-  type RouteChangeOptions,
   type StreamOptions,
   type StreamResult,
   type StreamStatus,
@@ -79,9 +91,7 @@ export {
   type WatchValues,
   capture,
   documentVisible,
-  getSignal,
   on,
-  onRouteChange,
   resource,
   routeActive,
   stream,

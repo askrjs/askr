@@ -1,13 +1,7 @@
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from 'vite-plus/test';
+import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { For } from '../../../src/control';
-import { state, type State } from '../../../src/runtime/reactivity/state';
+import { defineScope, readScope } from '../../../src';
+import { state, type State } from '../../../src/index';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -39,12 +33,13 @@ describe('For scope metadata rollback', () => {
     function App() {
       phase = state<Phase>('initial');
       const rows = state<Row[]>([{ id: 1 }, { id: 2 }]);
+      // Read in App so every row renders in App's pass and rolls back with it.
+      const currentPhase = phase();
 
       return (
         <main>
           <For each={rows} by={(row) => row.id}>
             {(row) => {
-              const currentPhase = phase();
               if (currentPhase === 'broken') {
                 return row.id === 1 ? (
                   <section data-row={'1'}>{'provisional'}</section>
@@ -156,7 +151,7 @@ describe('For scope metadata rollback', () => {
 
       return (
         <main>
-          <For each={rows} by={(value) => value}>
+          <For each={rows()} by={(value) => value}>
             {(value, index) => {
               indices.set(value, index);
               return <span data-row={String(value)}>{String(value)}</span>;
@@ -226,14 +221,10 @@ describe('For scope metadata rollback', () => {
 
     const host = container.querySelector('[data-boundary]')!;
     const fallback = container.querySelector('[data-fallback]');
-    const replaceSpy = vi.spyOn(host, 'replaceChild');
 
     phase.set('broken');
     expect(() => flushScheduler()).toThrow('later sibling failed');
-    expect(replaceSpy).toHaveBeenCalled();
-    const provisionalFallback = replaceSpy.mock.calls[0]![0];
-    expect(provisionalFallback).toBeInstanceOf(HTMLElement);
-    expect((provisionalFallback as Element).tagName).toBe('SECTION');
+    expect(host.isConnected).toBe(true);
     expect(container.querySelector('[data-fallback]')).toBe(fallback);
     expect(fallback?.tagName).toBe('BUTTON');
 
@@ -243,7 +234,60 @@ describe('For scope metadata rollback', () => {
     expect(container.querySelector('[data-fallback]')).toBe(fallback);
     expect(fallback?.textContent).toBe('recovered');
     expect(container.querySelectorAll('[data-fallback]')).toHaveLength(1);
+  });
 
-    replaceSpy.mockRestore();
+  it('should keep a context change pending when the commit that applied it fails', () => {
+    type Row = { id: string; label: string; broken?: boolean };
+    const ThemeScope = defineScope('t0');
+
+    let theme!: State<string>;
+    let rows!: State<Row[]>;
+
+    function BrokenRow(): never {
+      throw new Error('row failed');
+    }
+
+    function Reader({ label }: { label: string }) {
+      return <li>{`${label}:${readScope(ThemeScope)}`}</li>;
+    }
+
+    const renderRow = (row: Row) =>
+      row.broken ? <BrokenRow /> : <Reader label={row.label} />;
+
+    function App() {
+      theme = state('t0');
+      rows = state<Row[]>([
+        { id: 'a', label: 'A' },
+        { id: 'b', label: 'B' },
+        { id: 'c', label: 'C' },
+      ]);
+
+      return (
+        <ThemeScope value={theme()}>
+          <ul>
+            <For each={rows()} by={(row) => row.id}>
+              {renderRow}
+            </For>
+          </ul>
+        </ThemeScope>
+      );
+    }
+
+    const texts = () =>
+      Array.from(container.querySelectorAll('li')).map((li) => li.textContent);
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    expect(texts()).toEqual(['A:t0', 'B:t0', 'C:t0']);
+    const [a, , c] = rows();
+
+    theme.set('t1');
+    rows.set([a!, { id: 'b', label: 'B', broken: true }, c!]);
+    expect(() => flushScheduler()).toThrow('row failed');
+
+    rows.set([a!, { id: 'b', label: 'B2' }, c!]);
+    flushScheduler();
+
+    expect(texts()).toEqual(['A:t1', 'B2:t1', 'C:t1']);
   });
 });

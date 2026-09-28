@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
-import { For, Show, state } from '../../../src';
+import { state } from '../../../src';
+import { For, Show } from '../../../src/control';
 import { cleanupApp, createIsland } from '../../../src/boot';
-import { captureParentFocus } from '../../../src/renderer/component/fragment-range';
-import { getCurrentComponentInstance } from '../../../src/runtime';
+import { task } from '../../../src/resources';
 import { flushScheduler } from '../../../test-utils/render/test-renderer';
 
 describe('component fragment structure', () => {
@@ -22,11 +22,9 @@ describe('component fragment structure', () => {
     let setLabel!: (label: string) => void;
     const cleanupCalls: string[] = [];
     const Body = () => {
-      const instance = getCurrentComponentInstance();
-      if (!instance) throw new Error('expected component instance');
-      if (!instance.owner.mounted) {
-        (instance.owner.cleanups ??= []).push(() => cleanupCalls.push('body'));
-      }
+      task(() => {
+        return () => cleanupCalls.push('body');
+      });
       const shape = state<'scalar' | 'array' | 'fragment' | 'empty'>('array');
       const label = state('stable');
       setShape = shape.set;
@@ -199,127 +197,6 @@ describe('component fragment structure', () => {
     ).toEqual([]);
     expect(navigation.isConnected).toBe(false);
     expect(links.isConnected).toBe(false);
-  });
-
-  it('should not scan a component Fragment range when focus is outside its parent', () => {
-    root = document.createElement('div');
-    document.body.appendChild(root);
-    const start = document.createComment('askr-range-start');
-    const end = document.createComment('askr-range-end');
-    root.appendChild(start);
-    for (let index = 0; index < 128; index++) {
-      root.appendChild(document.createElement('span'));
-    }
-    root.appendChild(end);
-
-    const nextSibling = Object.getOwnPropertyDescriptor(
-      Node.prototype,
-      'nextSibling'
-    )!.get!;
-    let nextSiblingReads = 0;
-    const nextSiblingSpy = vi
-      .spyOn(Node.prototype, 'nextSibling', 'get')
-      .mockImplementation(function (this: Node) {
-        nextSiblingReads++;
-        return nextSibling.call(this);
-      });
-
-    const restoreFocus = captureParentFocus(
-      { start, end, single: false },
-      root
-    );
-    nextSiblingSpy.mockRestore();
-
-    expect(nextSiblingReads).toBe(0);
-    restoreFocus();
-  });
-
-  it('should ignore focus capture when HTMLElement is unavailable', () => {
-    root = document.createElement('div');
-    document.body.appendChild(root);
-    const start = document.createComment('start');
-    const end = document.createComment('end');
-    root.append(start, document.createElement('input'), end);
-
-    vi.stubGlobal('HTMLElement', undefined);
-
-    expect(() =>
-      captureParentFocus({ start, end, single: false }, root!)
-    ).not.toThrow();
-  });
-
-  it('should retry focus without options when preventScroll is unsupported', () => {
-    root = document.createElement('div');
-    document.body.appendChild(root);
-    const start = document.createComment('start');
-    const input = document.createElement('input');
-    const end = document.createComment('end');
-    root.append(start, input, end);
-    input.focus();
-
-    const restoreFocus = captureParentFocus(
-      { start, end, single: false },
-      root
-    );
-    input.blur();
-    const nativeFocus = input.focus.bind(input);
-    const focusSpy = vi
-      .spyOn(input, 'focus')
-      .mockImplementation((options?: FocusOptions) => {
-        if (options) {
-          throw new TypeError('focus options are unsupported');
-        }
-        nativeFocus();
-      });
-
-    expect(restoreFocus).not.toThrow();
-    expect(focusSpy).toHaveBeenNthCalledWith(1, { preventScroll: true });
-    expect(focusSpy).toHaveBeenNthCalledWith(2);
-    expect(document.activeElement).toBe(input);
-  });
-
-  it('should not override focus intentionally moved during a range commit', () => {
-    root = document.createElement('div');
-    document.body.appendChild(root);
-    const start = document.createComment('start');
-    const input = document.createElement('input');
-    const end = document.createComment('end');
-    const destination = document.createElement('button');
-    root.append(start, input, end, destination);
-    input.focus();
-
-    const restoreFocus = captureParentFocus(
-      { start, end, single: false },
-      root
-    );
-    destination.focus();
-    restoreFocus();
-
-    expect(document.activeElement).toBe(destination);
-  });
-
-  it('should not override focus intentionally moved to an SVG during a range commit', () => {
-    root = document.createElement('div');
-    document.body.appendChild(root);
-    const start = document.createComment('start');
-    const input = document.createElement('input');
-    const end = document.createComment('end');
-    const destination = document.createElementNS(
-      'http://www.w3.org/2000/svg',
-      'svg'
-    );
-    destination.setAttribute('tabindex', '0');
-    root.append(start, input, end, destination);
-    input.focus();
-
-    const restoreFocus = captureParentFocus(
-      { start, end, single: false },
-      root
-    );
-    destination.focus();
-    restoreFocus();
-
-    expect(document.activeElement).toBe(destination);
   });
 
   it('should keep legacy Fragment symbols transparent across component updates', () => {
@@ -767,13 +644,11 @@ describe('component fragment structure', () => {
     function Content() {
       const expanded = state(false);
       expand = () => expanded.set(true);
-      const instance = getCurrentComponentInstance();
-      if (!instance) throw new Error('expected Content component instance');
-      if (!instance.owner.mounted) {
-        (instance.owner.cleanups ??= []).push(() => {
+      task(() => {
+        return () => {
           cleanups += 1;
-        });
-      }
+        };
+      });
       return expanded() ? (
         <>
           <span data-show-start={'true'}>{'start'}</span>
@@ -866,13 +741,11 @@ describe('component fragment structure', () => {
     let secondCleanups = 0;
 
     function First({ id }: { id: string }) {
-      const instance = getCurrentComponentInstance();
-      if (!instance) throw new Error('expected First component instance');
-      if (!instance.owner.mounted) {
-        (instance.owner.cleanups ??= []).push(() => {
+      task(() => {
+        return () => {
           firstCleanups += 1;
-        });
-      }
+        };
+      });
       return (
         <>
           <span data-first-start={id}>{'first:start'}</span>
@@ -882,13 +755,11 @@ describe('component fragment structure', () => {
     }
 
     function Second({ id }: { id: string }) {
-      const instance = getCurrentComponentInstance();
-      if (!instance) throw new Error('expected Second component instance');
-      if (!instance.owner.mounted) {
-        (instance.owner.cleanups ??= []).push(() => {
+      task(() => {
+        return () => {
           secondCleanups += 1;
-        });
-      }
+        };
+      });
       return (
         <>
           <strong data-second-start={id}>{'second:start'}</strong>
@@ -965,13 +836,11 @@ describe('component fragment structure', () => {
 
       const expanded = state(true);
       setExpanded = expanded.set;
-      const instance = getCurrentComponentInstance();
-      if (!instance) throw new Error('expected Row component instance');
-      if (!instance.owner.mounted) {
-        (instance.owner.cleanups ??= []).push(() => {
+      task(() => {
+        return () => {
           cleanups += 1;
-        });
-      }
+        };
+      });
       return expanded() ? (
         <>
           <span data-range-row={id} data-range-part={'start'}>
@@ -1062,13 +931,11 @@ describe('component fragment structure', () => {
     function Fallback() {
       const expanded = state(false);
       expandFallback = () => expanded.set(true);
-      const instance = getCurrentComponentInstance();
-      if (!instance) throw new Error('expected Fallback component instance');
-      if (!instance.owner.mounted) {
-        (instance.owner.cleanups ??= []).push(() => {
+      task(() => {
+        return () => {
           fallbackCleanups += 1;
-        });
-      }
+        };
+      });
       return expanded() ? (
         <>
           <span data-fallback-start={'true'}>{'empty:start'}</span>
@@ -1080,13 +947,11 @@ describe('component fragment structure', () => {
     }
 
     function Row({ id }: { id: string }) {
-      const instance = getCurrentComponentInstance();
-      if (!instance) throw new Error('expected fallback Row instance');
-      if (!instance.owner.mounted) {
-        (instance.owner.cleanups ??= []).push(() => {
+      task(() => {
+        return () => {
           rowCleanups += 1;
-        });
-      }
+        };
+      });
       return (
         <>
           <span data-fallback-row-start={id}>{`${id}:start`}</span>

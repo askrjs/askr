@@ -115,7 +115,7 @@ describe('guarded router navigation coverage', () => {
   });
 
   it('should ignore stale async guarded navigations after a newer navigation wins', async () => {
-    let releaseSlowGuard: (() => void) | null = null;
+    let releaseSlowGuard = null as (() => void) | null;
 
     route('/', () => <div>{'home'}</div>);
     route('/slow', () => <div>{'slow'}</div>, {
@@ -151,8 +151,8 @@ describe('guarded router navigation coverage', () => {
   });
 
   it('should keep the newest guarded navigation when guards resolve out of order', async () => {
-    let releaseFirstGuard: (() => void) | null = null;
-    let releaseSecondGuard: (() => void) | null = null;
+    let releaseFirstGuard = null as (() => void) | null;
+    let releaseSecondGuard = null as (() => void) | null;
     const rendered: string[] = [];
 
     route('/', () => <div>{'home'}</div>);

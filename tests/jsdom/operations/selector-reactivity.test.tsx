@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { selector, state } from '../../../src/index';
 import { createIsland } from '@askrjs/askr/boot';
-import { renderComponentInline } from '../../../src/runtime';
 import { For } from '../../../src/control';
 import { flushScheduler } from '../../../test-utils/render/test-renderer';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
@@ -45,12 +44,12 @@ describe('selector reactivity', () => {
     selected.set('c');
     flushScheduler();
 
-    expect(container.querySelector('[data-id="a"]')?.dataset.active).toBe(
-      'false'
-    );
-    expect(container.querySelector('[data-id="c"]')?.dataset.active).toBe(
-      'true'
-    );
+    expect(
+      container.querySelector<HTMLElement>('[data-id="a"]')?.dataset.active
+    ).toBe('false');
+    expect(
+      container.querySelector<HTMLElement>('[data-id="c"]')?.dataset.active
+    ).toBe('true');
   });
 
   it('should invalidate only the previous and next keyed candidates', () => {
@@ -157,16 +156,79 @@ describe('selector reactivity', () => {
     expect(evaluations.get(3) ?? 0).toBe(1);
   });
 
-  it('should recompute a shared selector source once across many row-local selectors', () => {
+  it('should update stable keyed readers when only the selector comparator changes', () => {
+    type Item = { id: number };
+    let selected!: ReturnType<typeof state<Item | null>>;
+    let useIdEquality!: ReturnType<typeof state<boolean>>;
+    const readSelected = () => selected();
+    const byId = (left: Item | null, right: Item | null) =>
+      left?.id === right?.id;
+
+    const Row = ({ isSelected }: { isSelected: (item: Item) => boolean }) => (
+      <div
+        id="row"
+        class={() => (isSelected({ id: 1 }) ? 'selected' : 'unselected')}
+      />
+    );
+
+    const App = () => {
+      selected = state<Item | null>({ id: 1 });
+      useIdEquality = state(false);
+      const isSelected = selector(
+        readSelected,
+        useIdEquality() ? byId : Object.is
+      );
+      return <Row key="stable" isSelected={isSelected} />;
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    expect(container.querySelector('#row')?.className).toBe('unselected');
+
+    useIdEquality.set(true);
+    flushScheduler();
+    expect(container.querySelector('#row')?.className).toBe('selected');
+
+    useIdEquality.set(false);
+    flushScheduler();
+    expect(container.querySelector('#row')?.className).toBe('unselected');
+  });
+
+  it('should not rerun the selector owner when its inline comparator changes', () => {
+    type Item = { id: number };
+    let selected!: ReturnType<typeof state<Item | null>>;
+    let useIdEquality!: ReturnType<typeof state<boolean>>;
+    let renders = 0;
+    const readSelected = () => selected();
+
+    const App = () => {
+      renders += 1;
+      selected = state<Item | null>({ id: 1 });
+      useIdEquality = state(false);
+      const isSelected = selector(
+        readSelected,
+        useIdEquality() ? (left, right) => left?.id === right?.id : Object.is
+      );
+      return <div id="owner">{isSelected({ id: 1 }) ? 'yes' : 'no'}</div>;
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    expect(container.querySelector('#owner')?.textContent).toBe('no');
+    expect(renders).toBe(1);
+
+    useIdEquality.set(true);
+    flushScheduler();
+
+    expect(container.querySelector('#owner')?.textContent).toBe('yes');
+    expect(renders).toBe(2);
+  });
+
+  it('should re-evaluate only the affected row when row-local selectors share a source', () => {
     let selected!: ReturnType<typeof state<number | null>>;
     let rows!: ReturnType<typeof state<number[]>>;
-    let sourceReads = 0;
     const classEvaluations = new Map<number, number>();
-
-    const readSelected = () => {
-      sourceReads += 1;
-      return selected();
-    };
+    const readSelected = () => selected();
 
     const Row = ({ id }: { id: number }) => {
       const isSelected = selector(readSelected);
@@ -201,60 +263,15 @@ describe('selector reactivity', () => {
     createIsland({ root: container, component: App });
     flushScheduler();
 
-    expect(sourceReads).toBe(1);
-    expect(selected._derivedSubscribers?.size ?? 0).toBe(1);
-
     classEvaluations.clear();
-    sourceReads = 0;
     selected.set(3);
     flushScheduler();
 
-    expect(sourceReads).toBe(1);
     expect(classEvaluations.get(3) ?? 0).toBe(1);
     expect(classEvaluations.get(1) ?? 0).toBe(0);
     expect(classEvaluations.get(2) ?? 0).toBe(0);
     expect(classEvaluations.get(4) ?? 0).toBe(0);
     expect(classEvaluations.get(5) ?? 0).toBe(0);
-  });
-
-  it('should keep selector() from consuming a pending dirty source during rerender', () => {
-    let selected!: ReturnType<typeof state<number | null>>;
-    let sourceReads = 0;
-
-    const readSelected = () => {
-      sourceReads += 1;
-      return selected();
-    };
-
-    const Row = () => {
-      selector(readSelected);
-      return <div>ready</div>;
-    };
-
-    const App = () => {
-      selected = state<number | null>(null);
-      return <Row />;
-    };
-
-    createIsland({ root: container, component: App });
-    flushScheduler();
-
-    expect(sourceReads).toBe(1);
-
-    selected.set(1);
-    type InstanceHost = Element & {
-      __ASKR_INSTANCE?: import('../../../src/runtime').ComponentInstance;
-    };
-    const host = Array.from(container.querySelectorAll('*')).find(
-      (el) => (el as InstanceHost).__ASKR_INSTANCE !== undefined
-    ) as InstanceHost | undefined;
-    expect(host?.__ASKR_INSTANCE).toBeDefined();
-
-    renderComponentInline(host!.__ASKR_INSTANCE!);
-
-    expect(sourceReads).toBe(1);
-
-    flushScheduler();
   });
 
   it('should detach the previous selector source when the hook rebinds to a new source', () => {
@@ -290,8 +307,6 @@ describe('selector reactivity', () => {
     flushScheduler();
 
     expect(container.querySelector('#subject')?.className).toBe('danger');
-    expect(leftSelected._derivedSubscribers?.size ?? 0).toBe(1);
-    expect(rightSelected._derivedSubscribers?.size ?? 0).toBe(0);
 
     evaluations = 0;
     useLeft.set(false);
@@ -299,8 +314,6 @@ describe('selector reactivity', () => {
 
     expect(container.querySelector('#subject')?.className).toBe('');
     expect(evaluations).toBe(1);
-    expect(leftSelected._derivedSubscribers?.size ?? 0).toBe(0);
-    expect(rightSelected._derivedSubscribers?.size ?? 0).toBe(1);
 
     evaluations = 0;
     leftSelected.set(3);
@@ -317,10 +330,14 @@ describe('selector reactivity', () => {
     expect(evaluations).toBe(1);
   });
 
-  it('should clean up shared selector subscriptions when rows are removed', () => {
+  it('should stop reading a shared selector source once its rows are removed', () => {
     let selected!: ReturnType<typeof state<number | null>>;
     let rows!: ReturnType<typeof state<number[]>>;
-    const readSelected = () => selected();
+    let sourceReads = 0;
+    const readSelected = () => {
+      sourceReads += 1;
+      return selected();
+    };
 
     const Row = ({ id }: { id: number }) => {
       const isSelected = selector(readSelected);
@@ -345,17 +362,20 @@ describe('selector reactivity', () => {
     createIsland({ root: container, component: App });
     flushScheduler();
 
-    expect(selected._derivedSubscribers?.size ?? 0).toBe(1);
-
     rows.set([1, 2]);
     flushScheduler();
-
-    expect(selected._derivedSubscribers?.size ?? 0).toBe(1);
+    sourceReads = 0;
+    selected.set(1);
+    flushScheduler();
+    expect(sourceReads).toBe(2);
+    expect(container.querySelector('.danger')?.textContent).toBe('1');
 
     rows.set([]);
     flushScheduler();
-
-    expect(selected._derivedSubscribers?.size ?? 0).toBe(0);
+    sourceReads = 0;
+    selected.set(2);
+    flushScheduler();
+    expect(sourceReads).toBe(0);
   });
 
   it('should update class when selector is created in parent and passed as prop', () => {

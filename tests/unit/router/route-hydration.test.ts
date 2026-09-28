@@ -117,6 +117,18 @@ describe('route hydration transport', () => {
     );
   });
 
+  it('should reject a fulfilled deferred whose value is itself', async () => {
+    let self!: ReturnType<typeof defer<unknown>>;
+    self = defer(
+      new Promise<unknown>((resolve) => queueMicrotask(() => resolve(self)))
+    );
+    await self.promise;
+
+    expect(() => validateRouteHydrationData(self, '/self')).toThrow(
+      /\/self.*\$\.value.*cyclic/
+    );
+  });
+
   it('should reject cyclic values at the concrete property path', () => {
     const value: { child?: unknown } = {};
     value.child = value;

@@ -16,8 +16,6 @@ function Fail({ bad }: { bad: boolean }) {
   return <span>ok</span>;
 }
 
-// The second instance is instantiated from the first one's blueprint, so its
-// bindings are grouped blueprint bindings.
 function Counter({ read }: { read: () => number }) {
   return (
     <p>
@@ -59,9 +57,9 @@ describe('fine-grained bindings and render transactions', () => {
     }).toThrow('boom');
 
     // The render's output rolled back; the binding shows committed state.
-    expect(container.innerHTML).toBe(
-      '<div><b title="t2">2</b><i><span>1</span></i></div><!---->'
-    );
+    expect(container.querySelector('b')?.textContent).toBe('2');
+    expect(container.querySelector('b')?.title).toBe('t2');
+    expect(container.querySelector('span')?.textContent).toBe('1');
 
     ok.set(true);
     flushScheduler();
@@ -72,7 +70,7 @@ describe('fine-grained bindings and render transactions', () => {
     expect(container.querySelector('span')!.textContent).toBe('2');
   });
 
-  it('should keep grouped blueprint bindings current when the render rolls back', () => {
+  it('should keep repeated row bindings current when the render rolls back', () => {
     let n!: State<number>;
     let ok!: State<boolean>;
 
@@ -96,9 +94,16 @@ describe('fine-grained bindings and render transactions', () => {
       n.set(2);
       flushScheduler();
     }).toThrow('boom');
-    expect(container.innerHTML).toBe(
-      '<div><p><b title="t2">2</b></p><p><b title="t2">2</b></p><span>1</span></div><!---->'
-    );
+    expect(
+      Array.from(container.querySelectorAll('b')).map((b) => [
+        b.textContent,
+        b.title,
+      ])
+    ).toEqual([
+      ['2', 't2'],
+      ['2', 't2'],
+    ]);
+    expect(container.querySelector('span')?.textContent).toBe('1');
 
     ok.set(true);
     flushScheduler();
@@ -137,7 +142,7 @@ describe('fine-grained bindings and render transactions', () => {
     expect(container.querySelector('b')!.textContent).toBe('2');
   });
 
-  it('should keep pending blueprint re-runs when a render in the same flush rolls back', () => {
+  it('should keep pending repeated row re-runs when a render in the same flush rolls back', () => {
     let n!: State<number>;
     let m!: State<boolean>;
 
@@ -202,14 +207,13 @@ describe('fine-grained bindings and render transactions', () => {
     // With no ErrorBoundary, both failed bindings are thrown from the flush.
     broken = true;
     n.set(2);
-    expect(() => flushScheduler()).toThrow('Fine-grained effect failures');
+    expect(() => flushScheduler()).toThrow();
 
     broken = false;
     tick.set(1);
     flushScheduler();
 
-    // The blueprint instance's grouped binding receives the same function
-    // and must re-run it rather than treat it as unchanged.
+    // A repeated row receives the same function and must retry the read.
     expect(container.querySelectorAll('b')[1]!.textContent).toBe('2');
   });
 

@@ -1,46 +1,69 @@
 import {
   IntrinsicFallbackProps,
+  IntrinsicElementForTag,
+  IntrinsicRef,
   JSXElementType,
   JSXComponent,
   KnownIntrinsicElementProps,
   JSXElement,
+  MathMLExtraTag,
   Props,
   Fragment,
 } from './elements.js';
-import { EagerControlPrimitive } from './eager-control.js';
 declare namespace JSX {
   type ElementType = string | symbol | ((props: never) => unknown);
   interface Element extends JSXElement {
     readonly __askrJsxElementBrand?: never;
   }
   interface KnownIntrinsicElements extends KnownIntrinsicElementProps {}
-  interface IntrinsicElements extends KnownIntrinsicElements {
-    [elem: string]:
-      | IntrinsicFallbackProps
-      | KnownIntrinsicElementProps[keyof KnownIntrinsicElementProps];
+  interface IntrinsicElements
+    extends KnownIntrinsicElements, OtherIntrinsicElements {
+    [elem: `${string}-${string}`]: IntrinsicFallbackProps;
   }
-  interface ElementAttributesProperty {
-    props: Props;
-  }
+  type OtherIntrinsicElements = {
+    [
+      Tag in Exclude<
+        | keyof HTMLElementTagNameMap
+        | keyof SVGElementTagNameMap
+        | Exclude<keyof MathMLElementTagNameMap, `${string}-${string}`>
+        | MathMLExtraTag,
+        keyof KnownIntrinsicElementProps
+      >
+    ]: OtherIntrinsicProps<Tag>;
+  };
   interface ElementChildrenAttribute {
     children: unknown;
   }
+
+  /** Attributes every element accepts, including function components. */
+  interface IntrinsicAttributes {
+    key?: string | number;
+  }
 }
-declare function jsxDEV(
-  type: EagerControlPrimitive,
-  props: Props | null,
-  key?: string | number,
-  isStaticChildren?: boolean
-): unknown;
+type OtherIntrinsicProps<Tag extends string> = Omit<
+  IntrinsicFallbackProps,
+  'ref'
+> & { ref?: IntrinsicRef<IntrinsicElementForTag<Tag>> };
+
+type OtherIntrinsicTag =
+  | Exclude<
+      | keyof HTMLElementTagNameMap
+      | keyof SVGElementTagNameMap
+      | Exclude<keyof MathMLElementTagNameMap, `${string}-${string}`>
+      | MathMLExtraTag,
+      keyof KnownIntrinsicElementProps
+    >
+  | `${string}-${string}`;
+
 declare function jsxDEV<TTag extends keyof KnownIntrinsicElementProps>(
   type: TTag,
-  props: KnownIntrinsicElementProps[TTag] | null,
+  props: KnownIntrinsicElementProps[NoInfer<TTag>] | null,
   key?: string | number,
   isStaticChildren?: boolean
 ): JSXElement;
-declare function jsxDEV<TTag extends string>(
-  type: Exclude<TTag, keyof KnownIntrinsicElementProps>,
-  props: IntrinsicFallbackProps | null,
+declare function jsxDEV<TTag extends OtherIntrinsicTag>(
+  type: TTag,
+  props: OtherIntrinsicProps<TTag> | null,
   key?: string | number,
   isStaticChildren?: boolean
 ): JSXElement;

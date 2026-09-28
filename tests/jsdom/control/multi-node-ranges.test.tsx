@@ -60,8 +60,6 @@ describe('anchored multi-node control ranges', () => {
       expect(container.querySelector('#show-b')).not.toBeNull();
       expect(container.querySelector('#case-one-a')).not.toBeNull();
       expect(container.querySelector('#case-one-b')).not.toBeNull();
-      expect(container.innerHTML).toContain('askr-range-start');
-      expect(container.innerHTML).toContain('askr-range-end');
 
       setVisible(false);
       setChoice('two');
@@ -112,8 +110,6 @@ describe('anchored multi-node control ranges', () => {
       );
       expect(rows).toEqual(['a3', 'b3', 'a1', 'b1', 'a2', 'b2']);
       expect(container.querySelector('[data-row="2"]')).toBe(before);
-      expect(container.innerHTML).toContain('askr-range-start');
-      expect(container.innerHTML).toContain('askr-range-end');
 
       setRows([3, 1]);
       flushScheduler();

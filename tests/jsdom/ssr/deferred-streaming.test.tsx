@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vite-plus/test';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { hydrateSPA } from '../../../src/boot';
 import {
   createRouteRegistry,
@@ -8,12 +8,19 @@ import {
 import { currentRoute } from '../../../src/router/activity';
 import { Link } from '../../../src/components/link';
 import { defer, Resolve, routeData } from '../../../src/router/deferred';
-import { state } from '../../../src/runtime/reactivity/state';
+import { state } from '../../../src/index';
 import {
   renderRouteRequest,
   renderRouteRequestToString,
 } from '../../../src/ssr';
 import { REDACTED_DEFERRED_ERROR } from '../../../src/ssr/hydration-data';
+import {
+  createDataRuntime,
+  createQueryPrefetchContext,
+  defineQuery,
+  defineServerQueries,
+  serveQuery,
+} from '../../../src/data';
 import type { AuthContext } from '@askrjs/auth';
 import { JSDOM } from 'jsdom';
 import {
@@ -355,6 +362,59 @@ describe('deferred route streaming', () => {
     await reader.read();
     controller.abort();
 
+    expect((await reader.read()).done).toBe(true);
+  });
+
+  it('should ignore deferred boundary settlements after consumer cancellation', async () => {
+    let release!: (value: string) => void;
+    const pending = new Promise<string>((resolve) => {
+      release = resolve;
+    });
+    let boundaryRenders = 0;
+    const registry = createRouteRegistry(() => {
+      route(
+        '/',
+        () => {
+          const data = routeData<DeferredPageData>();
+          return (
+            <Resolve
+              value={data.message}
+              pending={<p>loading</p>}
+              rejected={(error) => {
+                boundaryRenders++;
+                return <p id="rejected">{String(error)}</p>;
+              }}
+            >
+              {(message) => {
+                boundaryRenders++;
+                return <p id="ready">{message}</p>;
+              }}
+            </Resolve>
+          );
+        },
+        { loader: () => ({ message: defer(pending) }) }
+      );
+    });
+    const result = await renderRouteRequest({ url: '/', registry });
+    if (result.kind !== 'render' || !result.stream)
+      throw new Error('expected stream');
+
+    const reader = result.stream.getReader();
+    const shell = await reader.read();
+    expect(new TextDecoder().decode(shell.value)).toContain('loading');
+    await reader.cancel();
+
+    release('ready');
+    vi.useFakeTimers();
+    try {
+      const settled = new Promise<void>((resolve) => setTimeout(resolve, 0));
+      await vi.runAllTimersAsync();
+      await settled;
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(boundaryRenders).toBe(0);
     expect((await reader.read()).done).toBe(true);
   });
 
@@ -714,5 +774,74 @@ describe('deferred route streaming', () => {
     expect(html).toContain('<p>full:ready</p>');
     expect(html).toContain('"__askr_deferred__":"fulfilled"');
     expect(html).not.toContain('"serverOnly":"full"');
+  });
+
+  it('should reject non-JSON preloaded query data before streaming the shell', async () => {
+    const pending = new Promise<string>(() => undefined);
+    const event = defineQuery({
+      key: () => 'event:1',
+      fetch: async () => ({ at: '' }),
+    });
+    const queryRegistry = defineServerQueries(
+      serveQuery(event, () => ({ at: new Date(0) as unknown as string }))
+    );
+    const registry = createRouteRegistry(() => {
+      route('/event', deferredPage, {
+        preload: ({ data }) => data.prefetch(event, {}),
+        loader: () => ({ message: defer(pending) }),
+      });
+    });
+
+    await expect(
+      renderRouteRequest({ url: '/event', registry, queryRegistry })
+    ).rejects.toThrow(
+      '[Askr] Query data for key "event:1" at "$.at" is not JSON transport-safe'
+    );
+  });
+
+  it('should reject non-JSON seeded query data before streaming the shell', async () => {
+    const pending = new Promise<string>(() => undefined);
+    const dataRuntime = createDataRuntime();
+    dataRuntime.queryData.set('event:seeded', { at: new Date(0) });
+    const registry = createRouteRegistry(() => {
+      route('/seeded', deferredPage, {
+        loader: () => ({ message: defer(pending) }),
+      });
+    });
+
+    await expect(
+      renderRouteRequest({ url: '/seeded', registry, dataRuntime })
+    ).rejects.toThrow(
+      '[Askr] Query data for key "event:seeded" at "$.at" is not JSON transport-safe'
+    );
+  });
+
+  it('should reject non-JSON data from a SPA-mode prefetch context before streaming', async () => {
+    const pending = new Promise<string>(() => undefined);
+    const dataRuntime = createDataRuntime();
+    const event = defineQuery({
+      key: () => 'event:spa',
+      fetch: async () => ({ at: new Date(0) as unknown as string }),
+    });
+    const registry = createRouteRegistry(() => {
+      route('/spa-prefetch', deferredPage, {
+        preload: ({ data }) => data.prefetch(event, {}),
+        loader: () => ({ message: defer(pending) }),
+      });
+    });
+
+    await expect(
+      renderRouteRequest({
+        url: '/spa-prefetch',
+        registry,
+        dataRuntime,
+        queryPrefetch: createQueryPrefetchContext({
+          runtime: dataRuntime,
+          mode: 'spa',
+        }),
+      })
+    ).rejects.toThrow(
+      '[Askr] Query data for key "event:spa" at "$.at" is not JSON transport-safe'
+    );
   });
 });

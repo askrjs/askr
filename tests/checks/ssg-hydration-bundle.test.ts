@@ -42,7 +42,7 @@ function outputs(
 }
 
 describe('SSG hydration bundle', () => {
-  it('should omit unused portal, authoring, and deferred capabilities', async () => {
+  it('should keep the core default portal and omit unused authoring and deferred capabilities', async () => {
     const outDir = await mkdtemp(join(tmpdir(), 'askr-ssg-hydration-'));
     temporaryDirectories.push(outDir);
 
@@ -50,7 +50,9 @@ describe('SSG hydration bundle', () => {
       root: fixtureRoot,
       logLevel: 'silent',
       define: createNodeEnvDefine('production'),
-      esbuild: askrEsbuild,
+      // vite-plus types the legacy `esbuild` option narrowly; the build still
+      // honors these JSX settings.
+      esbuild: askrEsbuild as never,
       resolve: { alias: createPackageAliases() },
       build: {
         outDir,
@@ -65,11 +67,15 @@ describe('SSG hydration bundle', () => {
     );
     const bundledModules = new Set(
       chunks.flatMap((chunk) =>
-        Object.keys(chunk.modules).map((module) => relative(repoRoot, module))
+        Object.keys(chunk.modules).map((module) =>
+          relative(repoRoot, module).replaceAll('\\', '/')
+        )
       )
     );
 
-    expect(bundledModules).not.toContain('src/runtime/portal/portal.ts');
+    // The default portal is core: every application root provides and hosts
+    // it, so boot bundles it even when the app renders no <Portal> (#611).
+    expect(bundledModules).toContain('src/core/api/portal.ts');
     expect(bundledModules).not.toContain('src/router/authoring.ts');
     expect(bundledModules).not.toContain('src/router/deferred.tsx');
     // SSR render-context storage resolves AsyncLocalStorage at run time; the
@@ -164,6 +170,30 @@ describe('SSG hydration bundle', () => {
     // #517's function children (measured 281,638 bytes on this branch).
     // #534 adds composedPath() traversal and target retargeting for open
     // shadow roots (+543 bytes, 282,181 bytes total). It stays within 276 KiB.
-    expect(initialBytes).toBeLessThanOrEqual(276 * 1024);
+    // #542 compares the hydrated DOM with captured server markup when enabled
+    // (+510 bytes, 282,691 bytes total).
+    // 278 KiB: #559 restores a component's pending re-run when a render that
+    // included it rolls back, and re-queues a scheduled commit superseded by a
+    // rolled-back render, so a failed render never leaves a child component or
+    // fragment function child stale (+333 bytes, 283,801 bytes total).
+    // #543 reads a readable a prop function returns and re-applies a reactive
+    // select value after its options (+144 bytes over 283,765 on develop,
+    // 283,909 bytes total).
+    // 279 KiB: #473 shares in-flight route prefetches and walks the hydration
+    // validator iteratively (+997 bytes over 283,909 on develop, 284,906
+    // bytes total).
+    // 280 KiB: #558 gives text and multi-node component results anchored
+    // ranges instead of wrapper elements, retains sibling ranges on updates,
+    // and updates one text node in place with rollback (+371 bytes over
+    // 285,439 on develop, 285,810 bytes total).
+    // #445 retains same-type links in a deep wrapper chain and groups a long
+    // host owner list by parent (+305 bytes, 286,115 bytes total).
+    // 282 KiB: #600 commits mixed-parent For rows locally and invalidates
+    // callbacks after removal (+1,883 bytes, 287,998 bytes total).
+    // 283 KiB: #578 retires stale default portal SSR content after hydration
+    // and preserves content for deferred writers (+1,360 bytes over 287,998).
+    // 284 KiB: #575's internal setup prototype tracks current props for
+    // setup-owned reactive reads (289,993 bytes, 201 above the prior cap).
+    expect(initialBytes).toBeLessThanOrEqual(284 * 1024);
   });
 });

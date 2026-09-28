@@ -7,11 +7,6 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { For } from '../../../src/control';
-import { DIRECT_REPLACE_CHILDREN_SPREAD_LIMIT } from '../../../src/renderer/utils';
-import {
-  disableEventDelegation,
-  enableEventDelegation,
-} from '../../../src/renderer/props/events';
 
 test('should update item locally when nested state changes without rerendering the parent', () => {
   const { container, cleanup } = createTestContainer();
@@ -237,7 +232,6 @@ test('should update only dirty For rows during no-reorder commits', () => {
 
 test('should clean removed For row listeners without cleaning retained rows', () => {
   const { container, cleanup } = createTestContainer();
-  disableEventDelegation();
 
   try {
     let rowsState!: ReturnType<typeof state<number[]>>;
@@ -305,7 +299,6 @@ test('should clean removed For row listeners without cleaning retained rows', ()
     expect(removedRow.textContent).to.equal('2:0');
     expect(retainedAfter.textContent).to.equal('3:2');
   } finally {
-    enableEventDelegation();
     cleanup();
   }
 });
@@ -404,7 +397,7 @@ test('should keep For keyed behavior correct across append truncate swap and ful
   cleanup();
 });
 
-test('should publish a disjoint keyed replacement with one live DOM write', () => {
+test('should publish a disjoint keyed replacement', () => {
   const { container, cleanup } = createTestContainer();
   let rowsState!: ReturnType<
     typeof state<Array<{ id: number; label: string }>>
@@ -428,9 +421,7 @@ test('should publish a disjoint keyed replacement with one live DOM write', () =
   flushScheduler();
 
   const parent = container.querySelector('section')!;
-  const replaceSpy = vi.spyOn(parent, 'replaceChildren');
-  const insertSpy = vi.spyOn(parent, 'insertBefore');
-  const removeSpy = vi.spyOn(parent, 'removeChild');
+  const oldRows = Array.from(parent.children);
 
   rowsState.set([
     { id: 3, label: 'three' },
@@ -439,29 +430,22 @@ test('should publish a disjoint keyed replacement with one live DOM write', () =
   ]);
   flushScheduler();
 
-  expect(replaceSpy).toHaveBeenCalledTimes(1);
-  expect(replaceSpy.mock.calls[0]).toHaveLength(3);
-  expect(replaceSpy.mock.calls[0][0]).not.toBeInstanceOf(DocumentFragment);
-  expect(insertSpy).not.toHaveBeenCalled();
-  expect(removeSpy).not.toHaveBeenCalled();
+  expect(oldRows.every((row) => !row.isConnected)).toBe(true);
   expect(
     Array.from(parent.children, (child) => child.getAttribute('data-row'))
   ).to.deep.equal(['3', '4', '5']);
 
-  replaceSpy.mockRestore();
-  insertSpy.mockRestore();
-  removeSpy.mockRestore();
   cleanup();
 });
 
 test(
-  'should use the fragment path above the For direct spread threshold',
-  // This intentionally renders 4,097 rows. Keep the assertion intact while
-  // allowing the stress case to complete on slower Windows CI runners.
+  'should preserve keyed row identity through a large reversal',
+  // This intentionally renders 4,097 rows. Keep the stress case while
+  // allowing it to complete on slower Windows CI runners.
   { timeout: 60000 },
   () => {
     const { container, cleanup } = createTestContainer();
-    const count = DIRECT_REPLACE_CHILDREN_SPREAD_LIMIT + 1;
+    const count = 4097;
     let rowsState!: ReturnType<
       typeof state<Array<{ id: number; label: string }>>
     >;
@@ -491,15 +475,9 @@ test(
       `[data-row="${idToCheck}"]`
     ) as HTMLElement;
     const parent = container.querySelector('section') as HTMLElement;
-    const replaceSpy = vi.spyOn(parent, 'replaceChildren');
 
     rowsState.set([...rowsState()].reverse());
     flushScheduler();
-
-    expect(replaceSpy).toHaveBeenCalled();
-    const replaceCall = replaceSpy.mock.calls.at(-1)!;
-    expect(replaceCall.length).to.equal(1);
-    expect(replaceCall[0]).to.be.instanceOf(DocumentFragment);
 
     const afterElem = container.querySelector(
       `[data-row="${idToCheck}"]`
@@ -510,7 +488,6 @@ test(
     );
     expect(parent.lastElementChild?.getAttribute('data-row')).to.equal('1');
 
-    replaceSpy.mockRestore();
     cleanup();
   }
 );

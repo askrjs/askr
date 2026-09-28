@@ -73,6 +73,11 @@ read from other derives; captured locals are never stale. The cost model:
 Pass a function defined outside the component to avoid the render-time
 evaluation when its value is already current.
 
+Reading a derive from its own calculation throws a `derive()` recursion
+error. A selector source that calls its own selector throws a `selector()`
+recursion error. Calling either value after its owning component is disposed
+also throws.
+
 Resource snapshots from `resource()` are not readable sources. Use
 `derive(snapshot, map)` or read `resource.value` in JSX; resource updates still
 trigger a component re-render when async work completes.
@@ -94,6 +99,10 @@ function TableRow({ row }: { row: { id: number } }) {
 ```
 
 For keyed lists, create the selector once in the owner component and pass it down.
+A selector keeps one entry per key that something is currently reading. When the
+last reader of a key goes away (a paged-out or removed row), the selector drops that
+entry after the current update settles, so querying many distinct keys over time
+does not grow it.
 
 ```tsx
 import { selector, state } from '@askrjs/askr';
@@ -136,7 +145,7 @@ function Example({
   return (
     <>
       <Show when={user} fallback={<Login />}>
-        {(value) => <Dashboard user={value} />}
+        {(value: { id: string }) => <Dashboard user={value} />}
       </Show>
 
       <Case fallback={<NotFound />}>

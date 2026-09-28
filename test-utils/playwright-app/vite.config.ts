@@ -5,7 +5,7 @@ import {
 } from '../../tooling/askr-tooling';
 
 export default defineConfig({
-  define: createNodeEnvDefine('development', { bench: true }),
+  define: createNodeEnvDefine('development'),
   oxc: {
     jsx: {
       runtime: 'automatic',

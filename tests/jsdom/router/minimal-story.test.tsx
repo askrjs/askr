@@ -16,7 +16,7 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { navigate } from '../../../src/router/navigate';
-import { route } from '../../../src/router/route';
+import { group, route } from '../../../src/router/route';
 
 // Minimal testing window helper
 function setGlobalWindow(path: string) {
@@ -151,18 +151,14 @@ describe('Minimal router story (authoritative)', () => {
   });
 
   it('should preserve shared layout DOM across navigations (atomic commit)', async () => {
-    // two routes that share the same layout wrapper element
-    route('/layout/a', () => (
-      <div class="layout">
-        <div class="inner">A</div>
-      </div>
-    ));
-
-    route('/layout/b', () => (
-      <div class="layout">
-        <div class="inner">B</div>
-      </div>
-    ));
+    // Two routes in one group share its layout element.
+    function Layout({ children }: { children?: unknown }) {
+      return <div class="layout">{children as never}</div>;
+    }
+    group({ layout: Layout }, () => {
+      route('/layout/a', () => <div class="inner">A</div>);
+      route('/layout/b', () => <div class="inner">B</div>);
+    });
 
     setGlobalWindow('/layout/a');
     await createSPA({ root: container, registry: currentRouteRegistry() });

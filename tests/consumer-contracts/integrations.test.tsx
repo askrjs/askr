@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
-import { createRef, getDefaultRuntime, state } from '@askrjs/askr';
+import { createRef, state } from '@askrjs/askr';
 import { cleanupApp, createSPA, hydrateSPA } from '@askrjs/askr/boot';
+import { flush } from '@askrjs/askr/testing';
 import { resource } from '@askrjs/askr/resources';
 import {
   createRouteRegistry,
@@ -43,7 +44,7 @@ test('should adopt hydrated inputs and refs before handling interactions', async
     expect(calls).toBe(0);
     input.value = 'client';
     input.dispatchEvent(new Event('input', { bubbles: true }));
-    getDefaultRuntime().scheduler.flushIfQueued();
+    flush();
     expect(calls).toBe(1);
     expect(input.value).toBe('client');
     expect(ref.current).toBe(input);
@@ -81,7 +82,7 @@ test('should publish navigation and retire pending work from the previous route'
     await createSPA({ root, registry, scrollRestoration: false });
     expect(signal.aborted).toBe(false);
     await navigate('/complete');
-    getDefaultRuntime().scheduler.flushIfQueued();
+    flush();
     expect(signal.aborted).toBe(true);
     expect(root.textContent).toBe('complete');
     expect(committedRoutePath).toBe('/complete');
@@ -89,7 +90,7 @@ test('should publish navigation and retire pending work from the previous route'
     resolve('departed');
     await Promise.resolve();
     await Promise.resolve();
-    getDefaultRuntime().scheduler.flushIfQueued();
+    flush();
     expect(root.textContent).toBe('complete');
   } finally {
     cleanupApp(root);

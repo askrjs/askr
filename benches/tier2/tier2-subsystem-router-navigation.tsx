@@ -1,6 +1,6 @@
 import { bench, describe, expect } from 'vite-plus/test';
 import { createSPA } from '../../src/boot';
-import { createRouteRegistry, route } from '../../src/router';
+import { createRouteRegistry, group, route } from '../../src/router';
 import { navigate } from '../../src/router/navigate';
 import {
   createTestContainer,
@@ -12,40 +12,36 @@ import {
   tier2BenchOptions,
 } from '../shared/_shared';
 
+const Layout = ({ children }: { children?: unknown }) => (
+  <div class="layout">{children as never}</div>
+);
+
+function createNavigationRegistry() {
+  return createRouteRegistry(() => {
+    group({ layout: Layout }, () => {
+      route('/alpha', () => <div class="page">Alpha</div>);
+      route('/beta', () => <div class="page">Beta</div>);
+    });
+  });
+}
+
 await (async () => {
   const { container, cleanup } = createTestContainer();
 
-  const routes = [
-    {
-      path: '/alpha',
-      handler: () => (
-        <div class="layout">
-          <div class="page">Alpha</div>
-        </div>
-      ),
-    },
-    {
-      path: '/beta',
-      handler: () => (
-        <div class="layout">
-          <div class="page">Beta</div>
-        </div>
-      ),
-    },
-  ];
-
   try {
     setLocationPath('/alpha');
-    const registry = createRouteRegistry(() => {
-      for (const entry of routes) route(entry.path, entry.handler);
-    });
+    const registry = createNavigationRegistry();
     await createSPA({ root: container, registry });
     flushScheduler();
     const layout = container.querySelector('.layout');
-    navigate('/beta');
+    await navigate('/beta');
     flushScheduler();
     expect(container.querySelector('.layout')).toBe(layout);
     expect(container.querySelector('.page')?.textContent).toBe('Beta');
+    await navigate('/alpha');
+    flushScheduler();
+    expect(container.querySelector('.layout')).toBe(layout);
+    expect(container.querySelector('.page')?.textContent).toBe('Alpha');
   } finally {
     cleanup();
     resetRouterState();
@@ -54,31 +50,23 @@ await (async () => {
 
 describe('tier2 router navigation', () => {
   let cleanup: (() => void) | null = null;
+  let nextPath = '/beta';
 
   bench(
     'navigate between sibling routes with shared layout shape',
     async () => {
-      navigate('/beta');
+      await navigate(nextPath);
       flushScheduler();
+      nextPath = nextPath === '/beta' ? '/alpha' : '/beta';
     },
     {
       ...tier2BenchOptions,
       async setup() {
+        nextPath = '/beta';
         const result = createTestContainer();
         cleanup = result.cleanup;
         setLocationPath('/alpha');
-        const registry = createRouteRegistry(() => {
-          route('/alpha', () => (
-            <div class="layout">
-              <div class="page">Alpha</div>
-            </div>
-          ));
-          route('/beta', () => (
-            <div class="layout">
-              <div class="page">Beta</div>
-            </div>
-          ));
-        });
+        const registry = createNavigationRegistry();
         await createSPA({ root: result.container, registry });
         flushScheduler();
       },
