@@ -144,6 +144,9 @@ export function resource<T, TSource = unknown>(
     | ((value: TSource, opts: { signal: AbortSignal }) => PromiseLike<T> | T)
 ): ResourceResult<T> {
   if (typeof depsOrLoader === 'function') {
+    if (!currentComponent()) {
+      return resolveResourceWithoutInstance<T>();
+    }
     const source = sourceOrLoader as () => TSource;
     const load = depsOrLoader;
     const value = source();
