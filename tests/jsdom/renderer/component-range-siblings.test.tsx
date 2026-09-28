@@ -18,9 +18,23 @@ import {
 
 /** Markup without range anchors or the renderers' key bookkeeping attributes. */
 function markup(html: string): string {
-  return html
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/ data-(?:key|askr-key-kind)="[^"]*"/g, '');
+  let result = '';
+  let offset = 0;
+  while (offset < html.length) {
+    const start = html.indexOf('<!--', offset);
+    if (start === -1) {
+      result += html.slice(offset);
+      break;
+    }
+    result += html.slice(offset, start);
+    const end = html.indexOf('-->', start + 4);
+    if (end === -1) {
+      result += html.slice(start);
+      break;
+    }
+    offset = end + 3;
+  }
+  return result.replace(/ data-(?:key|askr-key-kind)="[^"]*"/g, '');
 }
 
 function Txt(props: { v: string }) {

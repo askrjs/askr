@@ -10,7 +10,23 @@ import {
 import { routeRegistryFromTable } from '../../router-test-utils';
 
 function markup(html: string): string {
-  return html.replace(/<!--[\s\S]*?-->/g, '');
+  let result = '';
+  let offset = 0;
+  while (offset < html.length) {
+    const start = html.indexOf('<!--', offset);
+    if (start === -1) {
+      result += html.slice(offset);
+      break;
+    }
+    result += html.slice(offset, start);
+    const end = html.indexOf('-->', start + 4);
+    if (end === -1) {
+      result += html.slice(start);
+      break;
+    }
+    offset = end + 3;
+  }
+  return result;
 }
 
 function elementTags(root: Element): string[] {
@@ -60,7 +76,11 @@ describe('hydrated component that is empty on the server', () => {
     _resetDefaultPortal();
     const { container, cleanup } = createTestContainer();
     try {
-      container.innerHTML = renderToStringSync(App);
+      const serverDocument = new DOMParser().parseFromString(
+        renderToStringSync(App),
+        'text/html'
+      );
+      container.replaceChildren(...Array.from(serverDocument.body.childNodes));
       const emptyMarkup = markup(container.innerHTML);
       const main = container.querySelector('main');
       const tail = container.querySelector('[data-tail]');
