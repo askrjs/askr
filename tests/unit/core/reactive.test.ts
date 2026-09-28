@@ -120,6 +120,50 @@ describe('reactive graph', () => {
     computation.dispose();
   });
 
+  it('should bound and report failures from a self-invalidating effect', () => {
+    const count = new Signal(0);
+    let failDuringRun = false;
+    const computation = effect(() => {
+      const value = count.read();
+      if (!failDuringRun) return;
+      count.write(value + 1);
+      throw new Error('effect failed after invalidation');
+    });
+
+    failDuringRun = true;
+    count.write(1);
+    let failure: unknown;
+    try {
+      flushSync();
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toBeInstanceOf(AggregateError);
+    const failures = (failure as AggregateError).errors;
+    expect(
+      failures.filter(
+        (error) =>
+          error instanceof Error &&
+          error.message === 'effect failed after invalidation'
+      )
+    ).toHaveLength(50);
+    expect(
+      failures.some(
+        (error) =>
+          error instanceof Error &&
+          /exceeded MAX_FLUSH_DEPTH/.test(error.message)
+      )
+    ).toBe(true);
+    expect(count.peek()).toBe(51);
+
+    failDuringRun = false;
+    count.write(100);
+    expect(() => flushSync()).not.toThrow();
+    expect(count.peek()).toBe(100);
+    computation.dispose();
+  });
+
   it('should leave downstream effects observing the settled source value', () => {
     const count = new Signal(0);
     let writeDuringRun = false;
