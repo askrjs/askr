@@ -166,6 +166,9 @@ value cannot be made transactional by the renderer; rollback continues for
 attributes and ownership metadata, and reports the property restoration error.
 An initial root that aborts its first commit stays fresh or hydrating so a
 retry can reuse the original container contents.
+Raw HTML writes and transitions between raw HTML and managed JSX children
+restore the exact previous child nodes on commit abort, preserving child
+ownership until the transition settles.
 
 Portal channel writes settle when the writer's render commits. This queues
 the host update before the scheduler revisits portal descendants whose inputs
@@ -177,8 +180,7 @@ stale props.
 The following live-DOM paths still need focused failure injection and review
 before the comprehensive architecture audit is complete:
 
-- `dangerouslySetInnerHTML` and controlled select value writes need targeted
-  rollback qualification.
+- Controlled select value writes still need targeted rollback qualification.
 
 Use a focused regression for each confirmed defect, then run the full required
 gates on the exact PR head. Keep open questions separate from verified

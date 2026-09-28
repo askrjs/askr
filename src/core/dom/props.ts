@@ -32,6 +32,7 @@ import { captureDomPropertyUndo, hasDomPropertyWrite } from './dom-properties';
 import {
   applyScalarPropValue,
   applyStaticScalarPropsToElement,
+  isDangerousInnerHTMLPayload,
 } from './prop-values';
 import { HOST, ROOT, type HostNode, type Parent } from './tree';
 import { reportTeardown } from './teardown';
@@ -126,6 +127,24 @@ function recordAttributeUndo(pass: Pass, el: Element, name: string): void {
   });
 }
 
+/** Restore exact child identities without needlessly disconnecting unchanged nodes. */
+export function restoreElementChildren(
+  el: Element,
+  children: readonly Node[]
+): void {
+  if (el.childNodes.length === children.length) {
+    let unchanged = true;
+    for (let index = 0; index < children.length; index += 1) {
+      if (el.childNodes[index] !== children[index]) {
+        unchanged = false;
+        break;
+      }
+    }
+    if (unchanged) return;
+  }
+  el.replaceChildren(...children);
+}
+
 /** Make property-backed scalar writes part of the pass rollback journal. */
 function writePropertyScalar(
   pass: Pass,
@@ -152,6 +171,22 @@ function queueScalarProp(
   value: unknown,
   apply: () => void
 ): void {
+  if (key === 'dangerouslySetInnerHTML') {
+    if (!isDangerousInnerHTMLPayload(value)) {
+      pass.op(apply);
+      return;
+    }
+    pass.op(() => {
+      const children = Array.from(node.el.childNodes);
+      pass.onReversibleCommit(() => restoreElementChildren(node.el, children));
+      try {
+        apply();
+      } catch (error) {
+        throw new CommitMutationError(error);
+      }
+    });
+    return;
+  }
   if (hasDomPropertyWrite(node.el, key, value, node.tag)) {
     writePropertyScalar(pass, node, key, value, apply);
   } else {
