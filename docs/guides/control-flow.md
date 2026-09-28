@@ -33,6 +33,10 @@ without one, the error propagates from the render or scheduler flush.
 Use `selector()` for a keyed membership test. Only rows whose membership
 changes need to update:
 
+Passing a new comparator function on a later render invalidates all readers,
+since any row's membership may have changed. Keep the comparator stable when
+practical.
+
 ```tsx
 import { selector, state } from '@askrjs/askr';
 import { For } from '@askrjs/askr/control';

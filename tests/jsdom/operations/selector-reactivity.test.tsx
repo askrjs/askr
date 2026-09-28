@@ -156,6 +156,74 @@ describe('selector reactivity', () => {
     expect(evaluations.get(3) ?? 0).toBe(1);
   });
 
+  it('should update stable keyed readers when only the selector comparator changes', () => {
+    type Item = { id: number };
+    let selected!: ReturnType<typeof state<Item | null>>;
+    let useIdEquality!: ReturnType<typeof state<boolean>>;
+    const readSelected = () => selected();
+    const byId = (left: Item | null, right: Item | null) =>
+      left?.id === right?.id;
+
+    const Row = ({ isSelected }: { isSelected: (item: Item) => boolean }) => (
+      <div
+        id="row"
+        class={() => (isSelected({ id: 1 }) ? 'selected' : 'unselected')}
+      />
+    );
+
+    const App = () => {
+      selected = state<Item | null>({ id: 1 });
+      useIdEquality = state(false);
+      const isSelected = selector(
+        readSelected,
+        useIdEquality() ? byId : Object.is
+      );
+      return <Row key="stable" isSelected={isSelected} />;
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    expect(container.querySelector('#row')?.className).toBe('unselected');
+
+    useIdEquality.set(true);
+    flushScheduler();
+    expect(container.querySelector('#row')?.className).toBe('selected');
+
+    useIdEquality.set(false);
+    flushScheduler();
+    expect(container.querySelector('#row')?.className).toBe('unselected');
+  });
+
+  it('should not rerun the selector owner when its inline comparator changes', () => {
+    type Item = { id: number };
+    let selected!: ReturnType<typeof state<Item | null>>;
+    let useIdEquality!: ReturnType<typeof state<boolean>>;
+    let renders = 0;
+    const readSelected = () => selected();
+
+    const App = () => {
+      renders += 1;
+      selected = state<Item | null>({ id: 1 });
+      useIdEquality = state(false);
+      const isSelected = selector(
+        readSelected,
+        useIdEquality() ? (left, right) => left?.id === right?.id : Object.is
+      );
+      return <div id="owner">{isSelected({ id: 1 }) ? 'yes' : 'no'}</div>;
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    expect(container.querySelector('#owner')?.textContent).toBe('no');
+    expect(renders).toBe(1);
+
+    useIdEquality.set(true);
+    flushScheduler();
+
+    expect(container.querySelector('#owner')?.textContent).toBe('yes');
+    expect(renders).toBe(2);
+  });
+
   it('should re-evaluate only the affected row when row-local selectors share a source', () => {
     let selected!: ReturnType<typeof state<number | null>>;
     let rows!: ReturnType<typeof state<number[]>>;

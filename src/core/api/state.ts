@@ -400,7 +400,9 @@ function createSelector<T>(
     if (watcher.stale) watcher.update();
     if (isTracking()) {
       trackSource(candidateSource(candidate, true)!);
-      if (equals !== Object.is) trackSource(allObjects);
+      // Comparator changes can affect every candidate, including objects in
+      // the WeakMap that cannot be enumerated for targeted invalidation.
+      trackSource(allObjects);
     }
     return equals(value, candidate);
   }) as Selector<T>;
@@ -409,7 +411,11 @@ function createSelector<T>(
   return {
     predicate,
     setSource(nextSource, nextEquals) {
+      const comparatorChanged = equals !== nextEquals;
       equals = nextEquals;
+      if (comparatorChanged) {
+        notifySource(allObjects, getTrackingComputation() ?? undefined);
+      }
       if (nextSource !== source) {
         source = nextSource;
         watcher.invalidate();
