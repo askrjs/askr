@@ -24,6 +24,18 @@ interface BoundarySlot {
   resetKey: unknown;
 }
 
+type BoundaryState = Pick<BoundarySlot, 'caught' | 'error' | 'resetKey'>;
+
+function boundaryState(slot: BoundarySlot): BoundaryState {
+  return { caught: slot.caught, error: slot.error, resetKey: slot.resetKey };
+}
+
+function restoreBoundaryState(slot: BoundarySlot, previous: BoundaryState) {
+  slot.caught = previous.caught;
+  slot.error = previous.error;
+  slot.resetKey = previous.resetKey;
+}
+
 const boundarySlots = new WeakMap<Owner, BoundarySlot>();
 const recoveryHolds = new WeakMap<Owner, Set<() => void>>();
 
@@ -138,6 +150,8 @@ export function ErrorBoundary(props: ErrorBoundaryProps): unknown {
     resetKey: props.resetKey,
   }));
   if (!Object.is(slot.resetKey, props.resetKey)) {
+    const previous = boundaryState(slot);
+    recordUndo(() => restoreBoundaryState(slot, previous));
     slot.resetKey = props.resetKey;
     slot.caught = false;
     slot.error = undefined;
@@ -146,7 +160,10 @@ export function ErrorBoundary(props: ErrorBoundaryProps): unknown {
   const previousBoundary = instance.boundary;
   instance.boundary = (error) => {
     // A failure while showing the fallback belongs to an outer boundary.
-    if (slot.caught) return false;
+    if (slot.caught && Object.is(slot.resetKey, props.resetKey)) return false;
+    const previous = boundaryState(slot);
+    recordUndo(() => restoreBoundaryState(slot, previous));
+    slot.resetKey = props.resetKey;
     slot.caught = true;
     slot.error = error;
     try {
