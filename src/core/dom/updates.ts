@@ -30,7 +30,7 @@ import type { ComponentNode, DynamicNode } from './tree';
 function runPass(owner: Owner | null, render: (pass: Pass) => void): void {
   const pass = new Pass();
   try {
-    render(pass);
+    pass.run(() => render(pass));
   } catch (error) {
     for (const failure of pass.discard()) reportUncaughtErrorLater(failure);
     routeError(owner, clarifyRenderError(error));

@@ -17,11 +17,14 @@
 import { reportUncaughtErrorLater } from '../../common/report-error';
 import type { ComponentInstance } from '../component/instance';
 import {
+  createRenderJournal,
   journalMark,
   recordUndo,
   rewindJournal,
   settleJournal,
+  withRenderJournal,
 } from '../component/journal';
+import type { RenderJournal } from '../component/journal';
 import type { Owner } from '../reactive/owner';
 import { queueTask } from '../reactive/scheduler';
 
@@ -60,7 +63,15 @@ export class Pass {
   private readonly beforeSettle: Op[] = [];
   private readonly commitUndo: Op[] = [];
   private readonly commitSettle: Op[] = [];
-  private readonly journalStart = journalMark();
+  private readonly journal: RenderJournal = createRenderJournal();
+  private phase: 'prepared' | 'applied' | 'published' | 'discarded' =
+    'prepared';
+  private failures: unknown[] = [];
+
+  /** Run render work with this pass's provisional undo journal active. */
+  run<T>(render: () => T): T {
+    return withRenderJournal(this.journal, render);
+  }
 
   /** Record an operation on committed state. */
   op(fn: Op): void {
@@ -89,7 +100,7 @@ export class Pass {
 
   /** Undo a provisional render-time change if this work is discarded. */
   onDiscard(fn: Op): void {
-    recordUndo(fn);
+    recordUndo(fn, this.journal);
   }
 
   /** Run after all operations are applied (refs). */
@@ -113,7 +124,7 @@ export class Pass {
       ops: this.ops.length,
       created: this.created.length,
       rendered: this.renderedInstances.length,
-      journal: journalMark(),
+      journal: journalMark(this.journal),
       after: this.afterCommit.length,
       beforeSettle: this.beforeSettle.length,
       commitUndo: this.commitUndo.length,
@@ -132,7 +143,7 @@ export class Pass {
     this.beforeSettle.length = mark.beforeSettle;
     this.commitUndo.length = mark.commitUndo;
     this.commitSettle.length = mark.commitSettle;
-    rewindJournal(mark.journal, errors);
+    rewindJournal(this.journal, mark.journal, errors);
     for (const owner of this.created.splice(mark.created).reverse()) {
       owner.dispose(errors);
     }
@@ -140,11 +151,14 @@ export class Pass {
   }
 
   discard(): unknown[] {
+    if (this.phase === 'applied') return this.rollback();
+    if (this.phase === 'published' || this.phase === 'discarded') return [];
+    this.phase = 'discarded';
     return this.rewind({
       ops: 0,
       created: 0,
       rendered: 0,
-      journal: this.journalStart,
+      journal: 0,
       after: 0,
       beforeSettle: 0,
       commitUndo: 0,
@@ -153,20 +167,18 @@ export class Pass {
     });
   }
 
-  commit(): void {
-    const failures: unknown[] = [];
+  /** Apply reversible operations while retaining undo work for rollback. */
+  apply(): void {
+    if (this.phase === 'applied') return;
+    if (this.phase !== 'prepared') {
+      throw new Error('[Askr] Cannot apply a settled render pass.');
+    }
     const abort = (failure: unknown): never => {
       this.commitAborted = true;
-      for (const undo of this.commitUndo.reverse()) {
-        try {
-          undo();
-        } catch (error) {
-          reportUncaughtErrorLater(error);
-        }
-      }
-      for (const error of this.discard()) reportUncaughtErrorLater(error);
+      for (const error of this.rollback()) reportUncaughtErrorLater(error);
       throw failure;
     };
+    this.phase = 'applied';
     for (const op of this.ops) {
       if (!op) continue;
       try {
@@ -175,7 +187,7 @@ export class Pass {
         if (error instanceof CommitMutationError) {
           abort(error.failure);
         }
-        failures.push(error);
+        this.failures.push(error);
       }
     }
     for (const fn of this.beforeSettle) {
@@ -183,22 +195,33 @@ export class Pass {
         fn();
       } catch (error) {
         if (error instanceof CommitMutationError) abort(error.failure);
-        failures.push(error);
+        this.failures.push(error);
       }
     }
-    settleJournal(this.journalStart);
+  }
+
+  /** Publish applied work and run irreversible cleanup, refs, and lifecycles. */
+  publish(): void {
+    if (this.phase === 'prepared') this.apply();
+    if (this.phase !== 'applied') {
+      throw new Error(
+        '[Askr] Cannot publish a render pass that was not applied.'
+      );
+    }
+    this.phase = 'published';
+    settleJournal(this.journal, 0);
     for (const settle of this.commitSettle) {
       try {
         settle();
       } catch (error) {
-        failures.push(error);
+        this.failures.push(error);
       }
     }
     for (const fn of this.afterCommit) {
       try {
         fn();
       } catch (error) {
-        failures.push(error);
+        this.failures.push(error);
       }
     }
     for (const instance of this.renderedInstances) {
@@ -206,14 +229,38 @@ export class Pass {
         try {
           mount(instance);
         } catch (error) {
-          failures.push(error);
+          this.failures.push(error);
         }
       }
     }
-    if (failures.length === 1) throw failures[0];
-    if (failures.length > 1) {
-      throw new AggregateError(failures, 'Commit failed');
+    if (this.failures.length === 1) throw this.failures[0];
+    if (this.failures.length > 1) {
+      throw new AggregateError(this.failures, 'Commit failed');
     }
+  }
+
+  /** Undo applied operations and discard every provisional render mutation. */
+  rollback(): unknown[] {
+    if (this.phase === 'published' || this.phase === 'discarded') return [];
+    const errors: unknown[] = [];
+    if (this.phase === 'applied') {
+      for (let index = this.commitUndo.length - 1; index >= 0; index--) {
+        try {
+          this.commitUndo[index]!();
+        } catch (error) {
+          errors.push(error);
+        }
+      }
+    }
+    this.phase = 'prepared';
+    errors.push(...this.discard());
+    return errors;
+  }
+
+  /** Apply and publish immediately for a standalone root render. */
+  commit(): void {
+    this.apply();
+    this.publish();
   }
 }
 

@@ -45,8 +45,9 @@ Seven rules. Every internal module has to fit one of them.
 3. **Render, then commit.** Rendering runs components, diffs their output
    against the previous output, and builds new DOM nodes off-document. It
    records operations on live DOM but performs none. Commit applies the
-   operations, installs dependencies, attaches refs, and then runs lifecycle
-   (`task()`, `watch()`, `resource()` starts). A render that throws is
+   reversible operations, then publishes the pass by settling replaced
+   lifetimes, attaching refs, and running lifecycle (`task()`, `watch()`,
+   `resource()` starts). A render that throws is
    discarded; nothing was applied, so nothing is rolled back. An
    `ErrorBoundary` catches during render and renders its fallback instead.
    The public promise stays: a failed render leaves the last committed DOM.
@@ -182,6 +183,12 @@ the host update before the scheduler revisits portal descendants whose inputs
 changed in the same flush, so removed rows are disposed before they can read
 stale props.
 
+Multi-root route updates now apply every root's reversible DOM work before
+publishing any root. A structural failure restores applied roots in reverse
+order before removed owners are disposed, refs are attached, or mount work
+runs. Each pass keeps its own render journal, so settling one prepared root
+cannot clear another root's undo entries.
+
 ## Open audit boundaries
 
 Controlled-select child and bound-option resynchronization are now covered by
@@ -189,6 +196,10 @@ mutate-then-throw failure injection for scalar and multiple values, including
 an error boundary. The comprehensive audit continues across pass journaling,
 reconciliation, hydration, and SSR parity; record additional boundaries here
 only when review establishes a concrete unqualified path.
+
+Multi-root route publication is qualified separately: a structural failure in
+a later root restores earlier roots before any destination refs or cleanup
+callbacks publish, and prepared passes keep independent render journals.
 
 Use a focused regression for each confirmed defect, then run the full required
 gates on the exact PR head. Keep open questions separate from verified

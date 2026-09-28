@@ -20,7 +20,13 @@ import { EVENT_ROOT_CONTAINER, registerEventRoot } from './events';
 import { installRenderUpdates } from './updates';
 
 export interface PreparedRender {
+  /** Apply reversible DOM operations while retaining rollback state. */
+  apply(): void;
+  /** Finalize an applied render and run refs and lifecycle work. */
+  publish(): void;
   commit(): void;
+  /** Undo applied operations and provisional render state. */
+  rollback(): unknown[];
   /** Drop the prepared work; returns cleanup failures of provisional owners. */
   discard(): unknown[];
   /** A failed DOM write undid this commit; the previous content remains. */
@@ -78,67 +84,125 @@ export function createRoot(
       cursor ? { cursor, container } : null
     );
     try {
-      runWithOwner(owner, () => {
-        if (!fresh) {
-          reconcileChildren(ctx, node, value, false);
-          return;
-        }
-        const children = reconcileChildren(ctx, node, value, true);
-        // Hosts that rendered before their portal content was written.
-        for (const deferred of cursor?.deferred ?? []) deferred.render();
-        const adopting = ctx.hydrate !== null;
-        pass.op(() => {
-          const before = node.tail?.parentNode === container ? node.tail : null;
-          const dom = children.flatMap((child) => collectDom(child));
-          if (adopting) {
-            const previous = node.children;
-            pass.onReversibleCommit(() => {
-              node.children = previous;
-            });
-            syncChildren(pass, container, dom, before);
+      pass.run(() =>
+        runWithOwner(owner, () => {
+          if (!fresh) {
+            reconcileChildren(ctx, node, value, false);
+            return;
+          }
+          const children = reconcileChildren(ctx, node, value, true);
+          // Hosts that rendered before their portal content was written.
+          for (const deferred of cursor?.deferred ?? []) deferred.render();
+          const adopting = ctx.hydrate !== null;
+          pass.op(() => {
+            const before =
+              node.tail?.parentNode === container ? node.tail : null;
+            const dom = children.flatMap((child) => collectDom(child));
+            if (adopting) {
+              const previous = node.children;
+              pass.onReversibleCommit(() => {
+                node.children = previous;
+              });
+              syncChildren(pass, container, dom, before);
+              node.children = children;
+              return;
+            }
             node.children = children;
-            return;
-          }
-          node.children = children;
-          if (!before) {
-            // A fresh root owns its container: it replaces what was there
-            // (a loading placeholder, markup it is not hydrating).
-            const replaced = Array.from(container.childNodes);
-            pass.onReversibleCommit(() =>
-              container.replaceChildren(...replaced)
-            );
-            container.replaceChildren(...dom);
-            return;
-          }
-          for (const item of dom) container.insertBefore(item, before);
-        });
-      });
+            if (!before) {
+              // A fresh root owns its container: it replaces what was there
+              // (a loading placeholder, markup it is not hydrating).
+              const replaced = Array.from(container.childNodes);
+              pass.onReversibleCommit(() =>
+                container.replaceChildren(...replaced)
+              );
+              container.replaceChildren(...dom);
+              return;
+            }
+            for (const item of dom) container.insertBefore(item, before);
+          });
+        })
+      );
     } catch (error) {
       for (const failure of pass.discard()) reportUncaughtErrorLater(failure);
       throw clarifyRenderOverflow(error);
     }
     let settled = false;
-    return {
-      commit() {
-        if (settled) return;
-        settled = true;
-        releaseEvents ??= registerEventRoot(container);
-        try {
-          pass.commit();
-        } finally {
-          // An aborted initial pass leaves the root fresh so the caller can
-          // prepare again against the same empty or server-rendered DOM.
-          if (!pass.commitAborted) {
-            mounted = true;
-            hydrate = false;
-          }
+    let phase: 'prepared' | 'applied' | 'published' | 'discarded' = 'prepared';
+    let registeredEventsForPass = false;
+    const apply = () => {
+      if (settled || phase !== 'prepared') return;
+      try {
+        if (!releaseEvents) {
+          releaseEvents = registerEventRoot(container);
+          registeredEventsForPass = true;
         }
-      },
-      discard() {
-        if (settled) return [];
+        pass.apply();
+        phase = 'applied';
+      } catch (error) {
+        phase = 'discarded';
         settled = true;
-        return pass.discard();
+        for (const failure of pass.discard()) {
+          reportUncaughtErrorLater(failure);
+        }
+        if (registeredEventsForPass) {
+          try {
+            releaseEvents?.();
+          } catch (cleanupError) {
+            reportUncaughtErrorLater(cleanupError);
+          }
+          releaseEvents = null;
+          registeredEventsForPass = false;
+        }
+        throw error;
+      }
+    };
+    const publish = () => {
+      if (settled) return;
+      if (phase === 'prepared') apply();
+      if (phase !== 'applied') {
+        throw new Error('[Askr] Cannot publish a render that was not applied.');
+      }
+      settled = true;
+      phase = 'published';
+      try {
+        pass.publish();
+      } finally {
+        mounted = true;
+        hydrate = false;
+      }
+    };
+    const rollback = () => {
+      if (settled || phase === 'discarded') return [];
+      settled = true;
+      phase = 'discarded';
+      const errors = pass.rollback();
+      if (registeredEventsForPass) {
+        try {
+          releaseEvents?.();
+        } catch (error) {
+          errors.push(error);
+        }
+        releaseEvents = null;
+        registeredEventsForPass = false;
+      }
+      return errors;
+    };
+    const discard = () => {
+      if (settled || phase === 'discarded') return [];
+      if (phase === 'applied') return rollback();
+      settled = true;
+      phase = 'discarded';
+      return pass.discard();
+    };
+    return {
+      apply,
+      publish,
+      commit() {
+        apply();
+        publish();
       },
+      rollback,
+      discard,
       get aborted() {
         return pass.commitAborted;
       },

@@ -261,7 +261,7 @@ export function activateHydrationBoundary(
 
   const pass = new Pass();
   try {
-    hydrateDormantHost(pass, host);
+    pass.run(() => hydrateDormantHost(pass, host));
   } catch (error) {
     for (const failure of pass.discard()) reportUncaughtErrorLater(failure);
     throw clarifyRenderOverflow(error);

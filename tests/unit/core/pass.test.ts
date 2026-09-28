@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
+import { ComponentInstance } from '../../../src/core/component/instance';
 import { CommitMutationError, Pass } from '../../../src/core/dom/pass';
 
 describe('render pass reversible callbacks', () => {
@@ -21,5 +22,27 @@ describe('render pass reversible callbacks', () => {
     expect(() => pass.commit()).toThrow(failure);
     expect(settled).toEqual(['kept']);
     expect(undone).toEqual(['kept']);
+  });
+
+  it('should keep prepared root journals independent when another root commits first', () => {
+    const component = () => null;
+    const firstInstance = new ComponentInstance(null, component, {
+      value: 'first before',
+    });
+    const secondInstance = new ComponentInstance(null, component, {
+      value: 'second before',
+    });
+    const first = new Pass();
+    first.run(() => firstInstance.setProps({ value: 'first prepared' }));
+    const second = new Pass();
+    second.run(() => secondInstance.setProps({ value: 'second prepared' }));
+
+    first.commit();
+    second.discard();
+
+    expect(firstInstance.props).toEqual({ value: 'first prepared' });
+    expect(secondInstance.props).toEqual({ value: 'second before' });
+    firstInstance.dispose();
+    secondInstance.dispose();
   });
 });
