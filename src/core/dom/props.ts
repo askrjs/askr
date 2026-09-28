@@ -28,6 +28,7 @@ import {
 import type { Pass } from './pass';
 import { CommitMutationError } from './pass';
 import { getRenderedAttributeName } from './element-attributes';
+import { captureDomPropertyUndo, hasDomPropertyWrite } from './dom-properties';
 import {
   applyScalarPropValue,
   applyStaticScalarPropsToElement,
@@ -123,6 +124,39 @@ function recordAttributeUndo(pass: Pass, el: Element, name: string): void {
     if (before === null) el.removeAttribute(name);
     else el.setAttribute(name, before);
   });
+}
+
+/** Make property-backed scalar writes part of the pass rollback journal. */
+function writePropertyScalar(
+  pass: Pass,
+  node: HostNode,
+  key: string,
+  value: unknown,
+  apply: () => void
+): void {
+  pass.op(() => {
+    try {
+      const undo = captureDomPropertyUndo(node.el, key, value, node.tag);
+      if (undo) pass.onReversibleCommit(undo);
+      apply();
+    } catch (error) {
+      throw new CommitMutationError(error);
+    }
+  });
+}
+
+function queueScalarProp(
+  pass: Pass,
+  node: HostNode,
+  key: string,
+  value: unknown,
+  apply: () => void
+): void {
+  if (hasDomPropertyWrite(node.el, key, value, node.tag)) {
+    writePropertyScalar(pass, node, key, value, apply);
+  } else {
+    pass.op(apply);
+  }
 }
 
 /** Remove a committed binding provisionally and restore it if the pass aborts. */
@@ -283,7 +317,7 @@ export function applyInitialProps(
             applyStaticScalarPropsToElement(node.el, { [key]: value }, node.tag)
           );
         } else {
-          pass.op(() =>
+          queueScalarProp(pass, node, key, value, () =>
             applyStaticScalarPropsToElement(node.el, { [key]: value }, node.tag)
           );
         }
@@ -466,7 +500,7 @@ export function patchProps(
         () => retireBindingForCommit(pass, node, key)
       );
     } else {
-      pass.op(() => {
+      queueScalarProp(pass, node, key, undefined, () => {
         const binding = retireBindingForCommit(pass, node, key);
         const from = isBinding(key, old) ? lastApplied(binding) : old;
         try {
@@ -514,7 +548,7 @@ export function patchProps(
           () => retireBindingForCommit(pass, node, key)
         );
       } else {
-        pass.op(() => {
+        queueScalarProp(pass, node, key, value, () => {
           const current = retireBindingForCommit(pass, node, key);
           applyScalarPropValue(el, key, value, tag, lastApplied(current));
         });
@@ -541,7 +575,7 @@ export function patchProps(
         applyScalarPropValue(el, key, value, tag, old)
       );
     } else {
-      pass.op(() => {
+      queueScalarProp(pass, node, key, value, () => {
         try {
           applyScalarPropValue(el, key, value, tag, old);
         } catch (error) {
@@ -563,12 +597,35 @@ function bind(
 ): void {
   const { el, tag } = node;
   let last = previousValue;
+  let installing = true;
+  let propertyBacked = false;
   const binding: Computation<void> = new Computation<void>(
     node.owner,
     () => {
       try {
         const value = key.startsWith('prop:') ? read() : readValue(read);
-        applyScalarPropValue(el, key, value, tag, last);
+        propertyBacked = hasDomPropertyWrite(el, key, value, tag);
+        const propertyUndo = propertyBacked
+          ? captureDomPropertyUndo(el, key, value, tag)
+          : null;
+        if (propertyUndo && installing && !fresh) {
+          pass.onReversibleCommit(propertyUndo);
+        }
+        try {
+          applyScalarPropValue(el, key, value, tag, last);
+        } catch (error) {
+          if (propertyUndo && (fresh || !installing)) {
+            try {
+              propertyUndo();
+            } catch (rollbackError) {
+              throw new AggregateError(
+                [error, rollbackError],
+                'Bound DOM property write and rollback failed'
+              );
+            }
+          }
+          throw error;
+        }
         const changed = !Object.is(last, value);
         last = value;
         // A bound option value changes the select's matching option.
@@ -610,9 +667,14 @@ function bind(
       binding.run();
       if (binding._hasError) throw binding._error;
     } catch (error) {
-      if (!fresh && (reversibleAttribute || reversibleControl))
+      if (
+        !fresh &&
+        (reversibleAttribute || reversibleControl || propertyBacked)
+      )
         throw new CommitMutationError(error);
       throw error;
+    } finally {
+      installing = false;
     }
   };
   if (fresh) install();

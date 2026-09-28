@@ -35,6 +35,205 @@ describe('no partial DOM (DOM)', () => {
   beforeEach(() => ({ container, cleanup } = createTestContainer()));
   afterEach(() => cleanup());
 
+  it('should restore a property whose setter mutates and then throws', () => {
+    let setValue!: (value: boolean) => void;
+    const next = new Error('property setter failed');
+    const App = () => {
+      const value = state(false);
+      setValue = value.set;
+      return element('input', { indeterminate: value() });
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const input = container.querySelector('input') as HTMLInputElement;
+    let current = input.indeterminate;
+    Object.defineProperty(input, 'indeterminate', {
+      configurable: true,
+      get: () => current,
+      set(value: boolean) {
+        current = value;
+        if (value) throw next;
+      },
+    });
+
+    expect(() => {
+      setValue(true);
+      flushScheduler();
+    }).toThrow(next);
+    expect(input.indeterminate).toBe(false);
+
+    delete (input as { indeterminate?: boolean }).indeterminate;
+    setValue(false);
+    flushScheduler();
+    setValue(true);
+    flushScheduler();
+    expect(input.indeterminate).toBe(true);
+  });
+
+  it('should restore custom-element property and attribute state after a failed write', () => {
+    const tag = 'x-rollback-prop-probe';
+    if (!customElements.get(tag)) {
+      class RollbackPropProbe extends HTMLElement {
+        private value: unknown;
+        throwOn: unknown;
+        get config(): unknown {
+          return this.value;
+        }
+        set config(value: unknown) {
+          this.value = value;
+          if (value === this.throwOn) throw new Error('custom setter failed');
+        }
+      }
+      customElements.define(tag, RollbackPropProbe);
+    }
+
+    const previous = { mode: 'old' };
+    const next = { mode: 'new' };
+    let setStage!: (stage: number) => void;
+    const App = () => {
+      const stage = state(0);
+      setStage = stage.set;
+      return element(tag, {
+        config: stage() === 0 ? 'attribute-value' : next,
+      });
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const probe = container.querySelector(tag) as HTMLElement & {
+      config: unknown;
+      throwOn: unknown;
+    };
+    probe.config = previous;
+    probe.throwOn = next;
+
+    expect(() => {
+      setStage(1);
+      flushScheduler();
+    }).toThrow('custom setter failed');
+    expect(probe.config).toBe(previous);
+    expect(probe.getAttribute('config')).toBe('attribute-value');
+
+    probe.throwOn = undefined;
+    setStage(0);
+    flushScheduler();
+    setStage(1);
+    flushScheduler();
+    expect(probe.config).toBe(next);
+    expect(probe.hasAttribute('config')).toBe(false);
+  });
+
+  it('should restore an earlier property when a later property write aborts', () => {
+    const tag = 'x-later-property-failure';
+    const failure = new Error('later property failed');
+    if (!customElements.get(tag)) {
+      class LaterPropertyFailure extends HTMLElement {
+        configValue: unknown;
+        triggerValue: unknown;
+        shouldThrow = false;
+        get config(): unknown {
+          return this.configValue;
+        }
+        set config(value: unknown) {
+          this.configValue = value;
+        }
+        get trigger(): unknown {
+          return this.triggerValue;
+        }
+        set trigger(value: unknown) {
+          this.triggerValue = value;
+          if (this.shouldThrow && value === 'explode') throw failure;
+        }
+      }
+      customElements.define(tag, LaterPropertyFailure);
+    }
+
+    const before = { mode: 'before' };
+    const after = { mode: 'after' };
+    let setStage!: (stage: number) => void;
+    const App = () => {
+      const stage = state(0);
+      setStage = stage.set;
+      return element(tag, {
+        'prop:config': stage() === 0 ? before : after,
+        'prop:trigger': stage() === 0 ? 'stable' : 'explode',
+      });
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const probe = container.querySelector(tag) as HTMLElement & {
+      config: unknown;
+      trigger: unknown;
+      shouldThrow: boolean;
+    };
+    probe.shouldThrow = true;
+
+    expect(() => {
+      setStage(1);
+      flushScheduler();
+    }).toThrow(failure);
+    expect(probe.config).toBe(before);
+    expect(probe.trigger).toBe('stable');
+
+    probe.shouldThrow = false;
+    setStage(0);
+    flushScheduler();
+    setStage(1);
+    flushScheduler();
+    expect(probe.config).toBe(after);
+    expect(probe.trigger).toBe('explode');
+  });
+
+  it('should restore a bound property when its setter mutates and throws', () => {
+    const tag = 'x-bound-property-failure';
+    if (!customElements.get(tag)) {
+      class BoundPropertyFailure extends HTMLElement {
+        private value: unknown;
+        throwOn: unknown;
+        get config(): unknown {
+          return this.value;
+        }
+        set config(value: unknown) {
+          this.value = value;
+          if (value === this.throwOn) throw new Error('bound setter failed');
+        }
+      }
+      customElements.define(tag, BoundPropertyFailure);
+    }
+
+    const before = { mode: 'before' };
+    const after = { mode: 'after' };
+    let setValue!: (value: { mode: string }) => void;
+    const App = () => {
+      const value = state(before);
+      setValue = value.set;
+      return element(tag, { config: () => value() });
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const probe = container.querySelector(tag) as HTMLElement & {
+      config: unknown;
+      throwOn: unknown;
+    };
+    probe.throwOn = after;
+
+    expect(() => {
+      setValue(after);
+      flushScheduler();
+    }).toThrow('bound setter failed');
+    expect(probe.config).toBe(before);
+
+    probe.throwOn = undefined;
+    setValue(before);
+    flushScheduler();
+    setValue(after);
+    flushScheduler();
+    expect(probe.config).toBe(after);
+  });
+
   it('should complete render fully or not at all', async () => {
     const ok = () => (
       <div>

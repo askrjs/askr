@@ -159,6 +159,11 @@ transitions, and static or bound input value, checkbox checked, and option
 selected state. Adopted root and nested child synchronization also restores
 DOM order and root child state after a failed mutation. Dormant activation
 restores its registry state and removed server attributes when cleanup fails.
+Retained and adopted DOM-property writes restore the prior property value,
+attribute state, and property ownership map when a setter or later commit
+operation fails. A custom setter that also throws while restoring its prior
+value cannot be made transactional by the renderer; rollback continues for
+attributes and ownership metadata, and reports the property restoration error.
 
 Portal channel writes settle when the writer's render commits. This queues
 the host update before the scheduler revisits portal descendants whose inputs
@@ -170,8 +175,8 @@ stale props.
 The following live-DOM paths still need focused failure injection and review
 before the comprehensive architecture audit is complete:
 
-- Property-only props, custom-element properties, `dangerouslySetInnerHTML`,
-  and controlled select value writes need targeted rollback qualification.
+- `dangerouslySetInnerHTML` and controlled select value writes need targeted
+  rollback qualification.
 
 Use a focused regression for each confirmed defect, then run the full required
 gates on the exact PR head. Keep open questions separate from verified
