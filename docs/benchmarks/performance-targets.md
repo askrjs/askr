@@ -50,6 +50,12 @@ After a clean baseline exists, profile these paths before changing code:
 3. Keyed movement density crossover.
 4. Development-only hydration verification.
 
+The tier 1 `append then clear` and `clear then restore` rows measure lifecycle
+cycles, not isolated insertion or teardown. Use the separate sparse keyed
+insert/remove and full keyed replacement rows when attributing those costs.
+Sparse insertion retains the other 1,000 keyed rows; full replacement swaps
+between two 1,000-key sets without an intermediate empty list.
+
 For keyed movement, profile LIS work, DOM key-map construction, range moves,
 and dense replacement separately before changing the movement strategy. Do not
 combine full-clear teardown cost with append or reorder measurements.

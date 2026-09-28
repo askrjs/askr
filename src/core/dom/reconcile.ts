@@ -172,6 +172,25 @@ export function reconcileChildren(
   }
 
   const previous = parent.children;
+  // A committed list has unique keys. Exact positional matches therefore need
+  // no key index, duplicate scan, or placement pass; uncertain lists fall
+  // through to the general matcher and its duplicate-key validation.
+  if (next.length === previous.length) {
+    let samePositions = true;
+    for (let i = 0; i < next.length; i++) {
+      if (next[i].key !== previous[i].key || !matches(previous[i], next[i])) {
+        samePositions = false;
+        break;
+      }
+    }
+    if (samePositions) {
+      const result = previous.slice();
+      for (let i = 0; i < next.length; i++) {
+        ctx.nodes.patch(ctx, previous[i], next[i]);
+      }
+      return result;
+    }
+  }
   const slot = ctx.pass.reserve();
   const index = indexChildren(previous);
   const used = new Uint8Array(previous.length);
@@ -272,7 +291,9 @@ export function reconcileChildren(
       throw new CommitMutationError(error);
     }
     parent.children = result;
-    for (const node of result) node.parent = parent;
+    for (const node of result) {
+      if (node.parent !== parent) node.parent = parent;
+    }
   });
   return result;
 }
