@@ -40,6 +40,7 @@ import {
   resyncSelect,
   attachRef,
   patchProps,
+  restoreElementChildren,
   releaseProps,
 } from './props';
 import {
@@ -284,7 +285,17 @@ function patchHost(ctx: RenderContext, node: HostNode, props: Props): void {
     syncEnclosingSelect(ctx.pass, node.parent);
   }
   if (!wasManaged && isManaged && node.children.length === 0) {
-    ctx.pass.op(() => node.el.replaceChildren());
+    ctx.pass.op(() => {
+      const children = Array.from(node.el.childNodes);
+      ctx.pass.onReversibleCommit(() =>
+        restoreElementChildren(node.el, children)
+      );
+      try {
+        node.el.replaceChildren();
+      } catch (error) {
+        throw new CommitMutationError(error);
+      }
+    });
   }
   if (isManaged) {
     reconcileChildren(
