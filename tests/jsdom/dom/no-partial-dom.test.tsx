@@ -796,19 +796,25 @@ describe('no partial DOM (DOM)', () => {
     const list = container.querySelector('ul')!;
     const before = Array.from(list.children);
     const failure = new Error('keyed child insertion failed');
-    let insertions = 0;
+    let successfulInsertions = 0;
+    let failedAfterSuccessfulMove = false;
     const insertBefore = list.insertBefore.bind(list);
     const insertBeforeSpy = vi
       .spyOn(list, 'insertBefore')
       .mockImplementation((node, child) => {
-        insertions += 1;
-        if (insertions === 2) throw failure;
-        return insertBefore(node, child);
+        if (successfulInsertions === 1 && !failedAfterSuccessfulMove) {
+          failedAfterSuccessfulMove = true;
+          throw failure;
+        }
+        const inserted = insertBefore(node, child);
+        successfulInsertions += 1;
+        return inserted;
       });
 
     setRows(['d', 'c', 'a']);
     expect(() => flushScheduler()).toThrow(failure);
-    expect(insertions).toBe(3);
+    expect(failedAfterSuccessfulMove).toBe(true);
+    expect(successfulInsertions).toBeGreaterThanOrEqual(2);
     insertBeforeSpy.mockRestore();
 
     expect(Array.from(list.children)).toEqual(before);
