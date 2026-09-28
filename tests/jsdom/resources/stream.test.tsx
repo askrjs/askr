@@ -83,6 +83,38 @@ async function settle(): Promise<void> {
 }
 
 describe('stream()', () => {
+  it('should reject calls without a component owner', () => {
+    let inputReads = 0;
+    let starts = 0;
+
+    expect(() =>
+      stream(
+        () => {
+          inputReads += 1;
+          return 'stream-id';
+        },
+        () => {
+          starts += 1;
+          return new ControlledAsyncIterable<string>();
+        }
+      )
+    ).toThrow(
+      '[Askr] stream() must be called during component render inside an app.'
+    );
+    expect(inputReads).toBe(0);
+    expect(starts).toBe(0);
+
+    expect(() =>
+      stream(() => {
+        starts += 1;
+        return new ControlledAsyncIterable<string>();
+      })
+    ).toThrow(
+      '[Askr] stream() must be called during component render inside an app.'
+    );
+    expect(starts).toBe(0);
+  });
+
   it('should restart from a render source after commit and retire the prior iterator', async () => {
     const sources = {
       first: new ControlledAsyncIterable<string>(),

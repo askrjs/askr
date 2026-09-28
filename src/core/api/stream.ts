@@ -343,6 +343,16 @@ function disposeSlot<T>(slot: StreamSlot<T>): void {
   slot.activated = false;
 }
 
+function requireStreamOwner(): ComponentInstance {
+  const instance = currentComponent();
+  if (!instance) {
+    throw new Error(
+      '[Askr] stream() must be called during component render inside an app.'
+    );
+  }
+  return instance;
+}
+
 function commitSlot<T>(instance: ComponentInstance, slot: StreamSlot<T>): void {
   const depsChanged = !depsEqual(slot.deps, slot.pendingDeps);
   const firstCommit = !slot.activated;
@@ -389,28 +399,30 @@ export function stream<T, TSource = unknown>(
       ) => AsyncIterable<T> | PromiseLike<AsyncIterable<T>>),
   drivenOptions?: Omit<StreamOptions<T>, 'deps'>
 ): StreamResult<T> {
+  const instance = requireStreamOwner();
   if (typeof connectOrOptions === 'function') {
     const value = (sourceOrGetter as () => TSource)();
-    return createStream<T>((context) => connectOrOptions(value, context), {
-      ...drivenOptions,
-      deps: [value],
-    });
+    return createStream(
+      instance,
+      (context) => connectOrOptions(value, context),
+      {
+        ...drivenOptions,
+        deps: [value],
+      }
+    );
   }
   return createStream(
+    instance,
     sourceOrGetter as StreamSource<T>,
     connectOrOptions ?? {}
   );
 }
 
 function createStream<T>(
+  instance: ComponentInstance,
   source: StreamSource<T>,
   options: StreamOptions<T>
 ): StreamResult<T> {
-  const instance = currentComponent();
-  if (!instance) {
-    return createSnapshot(options);
-  }
-
   const slot = hookSlot(instance, 'stream', () => createSlot(source, options));
   readSource(slot.readers);
   slot.pendingSource = source;
