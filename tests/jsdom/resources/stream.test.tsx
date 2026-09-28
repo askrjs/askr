@@ -393,6 +393,87 @@ describe('stream()', () => {
     }
   });
 
+  it.each(['completion', 'error'] as const)(
+    'should reconnect after %s when committed source dependencies change',
+    async (terminal) => {
+      const sources = {
+        first: new ControlledAsyncIterable<string>(),
+        second: new ControlledAsyncIterable<string>(),
+      };
+      const started: string[] = [];
+      let currentId!: State<'first' | 'second'>;
+      const { container, cleanup } = createTestContainer();
+
+      try {
+        createIsland({
+          root: container,
+          component: () => {
+            currentId = state<'first' | 'second'>('first');
+            const result = stream(currentId, (id) => {
+              started.push(id);
+              return sources[id];
+            });
+            return <p>{result.status}</p>;
+          },
+        });
+        flushScheduler();
+        expect(started).toEqual(['first']);
+
+        if (terminal === 'completion') sources.first.complete();
+        else sources.first.fail(new Error('offline'));
+        await settle();
+        await settle();
+        expect(container.textContent).toBe(
+          terminal === 'completion' ? 'closed' : 'error'
+        );
+
+        currentId.set('second');
+        flushScheduler();
+        expect(started).toEqual(['first', 'second']);
+        expect(container.textContent).toBe('connecting');
+      } finally {
+        cleanup();
+      }
+    }
+  );
+
+  it('should not reconnect a source change after explicit close until restart', async () => {
+    const sources = {
+      first: new ControlledAsyncIterable<string>(),
+      second: new ControlledAsyncIterable<string>(),
+    };
+    const started: string[] = [];
+    let currentId!: State<'first' | 'second'>;
+    let current!: StreamResult<string>;
+    const { container, cleanup } = createTestContainer();
+
+    try {
+      createIsland({
+        root: container,
+        component: () => {
+          currentId = state<'first' | 'second'>('first');
+          current = stream(currentId, (id) => {
+            started.push(id);
+            return sources[id];
+          });
+          return <p>{current.status}</p>;
+        },
+      });
+      flushScheduler();
+      current.close();
+
+      currentId.set('second');
+      flushScheduler();
+      expect(started).toEqual(['first']);
+      expect(container.textContent).toBe('closed');
+
+      current.restart();
+      expect(started).toEqual(['first', 'second']);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should abort and return an iterator exactly once while ignoring late work', async () => {
     const source = new ControlledAsyncIterable<string>();
     let signal: AbortSignal | undefined;
