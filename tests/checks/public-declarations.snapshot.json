@@ -730,6 +730,9 @@
       "LinkProps": [
         "type LinkProps = LinkBaseProps & ({\n    href: string;\n    to?: never;\n} | {\n    href?: never;\n    to: RouteDestination;\n});"
       ],
+      "matchRoute": [
+        "declare function matchRoute$2(pathname: string, options: {\n    registry: RouteRegistry;\n}): RouteMatch | null;"
+      ],
       "navigate": [
         "declare function navigate(target: string | RouteDestination, options?: NavigateOptions): void;"
       ],
@@ -1757,6 +1760,9 @@
     ],
     "matchRoute": [
       "declare function matchRoute(path: string, options: MatchRouteOptions): RouteMatch | null;"
+    ],
+    "matchRoute$2": [
+      "declare function matchRoute$2(pathname: string, options: {\n    registry: RouteRegistry;\n}): RouteMatch | null;"
     ],
     "MatchRouteOptions": [
       "interface MatchRouteOptions {\n    registry: RouteRegistry;\n}"

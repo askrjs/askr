@@ -222,6 +222,11 @@ declare function resolveRouteRequest(
   target: string,
   options: RouteRequestOptions
 ): RouteRequestResult | Promise<RouteRequestResult>;
+/** Match a path against a route registry without resolving route policies or loading data. */
+declare function matchRoute(
+  pathname: string,
+  options: { registry: RouteRegistry }
+): RouteMatch | null;
 /**
  * Run `definition` to declare routes (via `route`/`page`/`group`/`fallback`)
  * and build a {@link RouteRegistry} to pass to `createSPA`/`hydrateSPA`.
@@ -517,6 +522,7 @@ export {
   isDeferred,
   lazy,
   lazyRouteData,
+  matchRoute,
   navigate,
   notFound,
   onRouteChange,

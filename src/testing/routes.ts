@@ -1,10 +1,9 @@
 import type {
   ParsedSegment,
   RouteRegistry,
-  RouteMatch,
   RouteRecord,
 } from '../common/router';
-import { computeRouteActivityMatches } from '../router/testing';
+export { matchRoute } from '../router/route-matching';
 
 interface MatchRouteOptions {
   registry: RouteRegistry;
@@ -18,22 +17,6 @@ export interface RoutePatternWarning {
   segment: string;
   namespace: string | undefined;
   message: string;
-}
-
-/** Match `path` against a route registry for tests, without mounting the app. */
-export function matchRoute(
-  path: string,
-  options: MatchRouteOptions
-): RouteMatch | null {
-  if (!options?.registry) {
-    throw new TypeError('matchRoute requires options.registry.');
-  }
-
-  return (
-    computeRouteActivityMatches(path, {
-      registry: options.registry,
-    })[0] ?? null
-  );
 }
 
 type RoutePatternRecord = {
