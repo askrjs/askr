@@ -17,6 +17,28 @@ async function settleResourceWork(): Promise<void> {
 }
 
 describe('resource edge cases', () => {
+  it('should reject source-driven calls without evaluating callbacks outside render', () => {
+    let sourceReads = 0;
+    let loaderCalls = 0;
+
+    expect(() =>
+      resource(
+        () => {
+          sourceReads += 1;
+          return 'id';
+        },
+        () => {
+          loaderCalls += 1;
+          return 'value';
+        }
+      )
+    ).toThrow(
+      '[Askr] resource() must be called during component render inside an app. Do not create resources at module scope or outside render.'
+    );
+    expect(sourceReads).toBe(0);
+    expect(loaderCalls).toBe(0);
+  });
+
   it('should ignore the initial queued post-lane start after refresh advances generation', () => {
     const { container, cleanup } = createTestContainer();
     let starts = 0;
