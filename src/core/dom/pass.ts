@@ -40,6 +40,9 @@ export interface PassMark {
   readonly rendered: number;
   readonly journal: number;
   readonly after: number;
+  readonly beforeSettle: number;
+  readonly commitUndo: number;
+  readonly commitSettle: number;
   readonly dormantPortalWriter: boolean;
 }
 
@@ -53,6 +56,8 @@ export class Pass {
   /** Instances rendered by this pass, children before parents. */
   private readonly renderedInstances: ComponentInstance[] = [];
   private readonly afterCommit: Op[] = [];
+  /** Operations that must succeed before the pass publishes its journal. */
+  private readonly beforeSettle: Op[] = [];
   private readonly commitUndo: Op[] = [];
   private readonly commitSettle: Op[] = [];
   private readonly journalStart = journalMark();
@@ -92,6 +97,11 @@ export class Pass {
     this.afterCommit.push(fn);
   }
 
+  /** Run after DOM operations while the pass can still be rolled back. */
+  beforeJournalSettle(fn: Op): void {
+    this.beforeSettle.push(fn);
+  }
+
   /** Restore a reversible write on abort; settle its old lifetime on success. */
   onReversibleCommit(undo: Op, settle: Op = () => {}): void {
     this.commitUndo.push(undo);
@@ -105,6 +115,9 @@ export class Pass {
       rendered: this.renderedInstances.length,
       journal: journalMark(),
       after: this.afterCommit.length,
+      beforeSettle: this.beforeSettle.length,
+      commitUndo: this.commitUndo.length,
+      commitSettle: this.commitSettle.length,
       dormantPortalWriter: this.hasDormantPortalWriter,
     };
   }
@@ -116,6 +129,9 @@ export class Pass {
     this.afterCommit.length = mark.after;
     this.renderedInstances.length = mark.rendered;
     this.hasDormantPortalWriter = mark.dormantPortalWriter;
+    this.beforeSettle.length = mark.beforeSettle;
+    this.commitUndo.length = mark.commitUndo;
+    this.commitSettle.length = mark.commitSettle;
     rewindJournal(mark.journal, errors);
     for (const owner of this.created.splice(mark.created).reverse()) {
       owner.dispose(errors);
@@ -130,31 +146,43 @@ export class Pass {
       rendered: 0,
       journal: this.journalStart,
       after: 0,
+      beforeSettle: 0,
+      commitUndo: 0,
+      commitSettle: 0,
       dormantPortalWriter: false,
     });
   }
 
   commit(): void {
     const failures: unknown[] = [];
+    const abort = (failure: unknown): never => {
+      this.commitAborted = true;
+      for (const undo of this.commitUndo.reverse()) {
+        try {
+          undo();
+        } catch (error) {
+          reportUncaughtErrorLater(error);
+        }
+      }
+      for (const error of this.discard()) reportUncaughtErrorLater(error);
+      throw failure;
+    };
     for (const op of this.ops) {
       if (!op) continue;
       try {
         op();
       } catch (error) {
         if (error instanceof CommitMutationError) {
-          this.commitAborted = true;
-          for (const undo of this.commitUndo.reverse()) {
-            try {
-              undo();
-            } catch (failure) {
-              reportUncaughtErrorLater(failure);
-            }
-          }
-          for (const failure of this.discard()) {
-            reportUncaughtErrorLater(failure);
-          }
-          throw error.failure;
+          abort(error.failure);
         }
+        failures.push(error);
+      }
+    }
+    for (const fn of this.beforeSettle) {
+      try {
+        fn();
+      } catch (error) {
+        if (error instanceof CommitMutationError) abort(error.failure);
         failures.push(error);
       }
     }

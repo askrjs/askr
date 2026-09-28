@@ -171,6 +171,9 @@ restore the exact previous child nodes on commit abort, preserving child
 ownership until the transition settles.
 Deferred portal placement restores the prior host child order and deferred
 renderer state when a live insertion or removal fails during commit.
+Controlled selects now resynchronize after option placement but before pass
+journals settle. If that write fails, the pass restores the option DOM and
+prior selection, including the selected state of detached option nodes.
 
 Portal channel writes settle when the writer's render commits. This queues
 the host update before the scheduler revisits portal descendants whose inputs
@@ -179,10 +182,11 @@ stale props.
 
 ## Open audit boundaries
 
-The following live-DOM paths still need focused failure injection and review
-before the comprehensive architecture audit is complete:
-
-- Controlled select value writes still need targeted rollback qualification.
+Controlled-select child resynchronization is now covered by mutate-then-throw
+failure injection for scalar and multiple values. The comprehensive audit
+continues across pass journaling, reconciliation, hydration, and SSR parity;
+record additional boundaries here only when review establishes a concrete
+unqualified path.
 
 Use a focused regression for each confirmed defect, then run the full required
 gates on the exact PR head. Keep open questions separate from verified

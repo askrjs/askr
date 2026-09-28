@@ -387,7 +387,7 @@ export function applyInitialProps(
 }
 
 /** Write props that must follow the element's children. */
-function recordSelectUndo(pass: Pass, node: HostNode): void {
+export function recordSelectUndo(pass: Pass, node: HostNode): void {
   const select = node.el as HTMLSelectElement;
   const beforeValue = select.getAttribute('value');
   const beforeIndex = select.selectedIndex;
