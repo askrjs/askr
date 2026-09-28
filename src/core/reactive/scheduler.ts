@@ -211,12 +211,37 @@ function kick(): void {
  */
 export function batch<T>(fn: () => T): T {
   batchDepth++;
+  let value: T | undefined;
+  let callbackError: unknown;
+  let callbackFailed = false;
   try {
-    return fn();
-  } finally {
-    batchDepth--;
-    if (batchDepth === 0 && !flushing && queued.size > 0) flushSync();
+    value = fn();
+  } catch (error) {
+    callbackFailed = true;
+    callbackError = error;
   }
+
+  batchDepth--;
+  let flushError: unknown;
+  let flushFailed = false;
+  if (batchDepth === 0 && !flushing && queued.size > 0) {
+    try {
+      flushSync();
+    } catch (error) {
+      flushFailed = true;
+      flushError = error;
+    }
+  }
+
+  if (callbackFailed && flushFailed) {
+    throw new AggregateError(
+      [callbackError, flushError],
+      'Batch callback and scheduler flush failed'
+    );
+  }
+  if (callbackFailed) throw callbackError;
+  if (flushFailed) throw flushError;
+  return value as T;
 }
 
 function takeNext(): Job | null {

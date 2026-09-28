@@ -135,6 +135,10 @@ a disposed computation is skipped.
   `batch()` is active. `batch()` defers scheduling and flushes synchronously
   when the outermost batch exits. Event handlers run inside a batch, so state
   writes in a handler flush once, after the last handler.
+- **Batch failures.** A batch still flushes queued work if its callback throws.
+  If both the callback and flush fail, `batch()` throws an `AggregateError`
+  containing the callback error first and the flush error second. A lone error
+  is rethrown unchanged.
 - **Re-entry.** A flush never re-enters itself; a nested `flushSync()` is a
   no-op.
 - **Runaway work.** A job that runs more than 50 times in one flush

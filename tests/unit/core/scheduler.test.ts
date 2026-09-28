@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { Computation, Signal } from '../../../src/core/reactive/graph';
 import {
   MAX_RUNS_PER_FLUSH,
+  batch,
   clearScheduler,
   effectScheduler,
   flushSync,
@@ -128,6 +129,73 @@ describe('core scheduler', () => {
       queueLength: 0,
       running: false,
     });
+  });
+
+  it('should preserve callback and flush failures from the same batch', () => {
+    const callbackError = new Error('batch callback failed');
+    const flushError = new Error('scheduled job failed');
+    const flushed: string[] = [];
+
+    let thrown: unknown;
+    try {
+      batch(() => {
+        schedule({ run: () => flushed.push('completed') }, 'effect');
+        schedule(
+          {
+            run: () => {
+              throw flushError;
+            },
+          },
+          'post'
+        );
+        throw callbackError;
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(AggregateError);
+    expect((thrown as AggregateError).errors).toEqual([
+      callbackError,
+      flushError,
+    ]);
+    expect(flushed).toEqual(['completed']);
+    expect(getSchedulerState()).toMatchObject({
+      queueLength: 0,
+      running: false,
+    });
+  });
+
+  it('should preserve a lone batch callback error unchanged', () => {
+    const callbackError = new Error('batch callback failed');
+
+    let thrown: unknown;
+    try {
+      batch(() => {
+        throw callbackError;
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBe(callbackError);
+  });
+
+  it('should preserve a lone batch flush error unchanged', () => {
+    const flushError = new Error('scheduled job failed');
+
+    expect(() =>
+      batch(() => {
+        schedule(
+          {
+            run: () => {
+              throw flushError;
+            },
+          },
+          'post'
+        );
+      })
+    ).toThrow(flushError);
   });
 
   it('should preserve user microtask order around a scheduled flush', async () => {
