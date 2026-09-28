@@ -16,6 +16,7 @@ import {
   afterEach,
   vi,
 } from 'vite-plus/test';
+
 import { createIsland } from '@askrjs/askr/boot';
 import { For } from '@askrjs/askr/control';
 import { state, type State } from '../../../src';
@@ -28,6 +29,18 @@ import {
   flushScheduler,
   refAs,
 } from '../../../test-utils/render/test-renderer';
+
+function withoutComments(element: Element): string {
+  const clone = element.cloneNode(true) as Element;
+  const walker = element.ownerDocument.createTreeWalker(
+    clone,
+    NodeFilter.SHOW_COMMENT
+  );
+  while (walker.nextNode()) {
+    walker.currentNode.parentNode?.removeChild(walker.currentNode);
+  }
+  return clone.innerHTML;
+}
 
 describe('evaluation transactions (SPEC 2.1)', () => {
   let { container, cleanup } = createTestContainer();
@@ -725,7 +738,7 @@ describe('evaluation transactions (SPEC 2.1)', () => {
 
       expectDOM(container).text('Loaded');
       // Strip comment placeholders for comparison since they're implementation details
-      const snapshot = container.innerHTML.replace(/<!--.*?-->/g, '');
+      const snapshot = withoutComments(container);
 
       // A resource rejection settles as resource state; it is not a failed
       // renderer transaction. The committed fallback is coherent (no partial
@@ -738,7 +751,7 @@ describe('evaluation transactions (SPEC 2.1)', () => {
       flushScheduler();
 
       // Strip comment placeholders for comparison.
-      const afterFail = container.innerHTML.replace(/<!--.*?-->/g, '');
+      const afterFail = withoutComments(container);
       expect(snapshot).toBe('<div>Loaded</div>');
       expect(afterFail).toBe('<div></div>');
     });
