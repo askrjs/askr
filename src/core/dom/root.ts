@@ -12,7 +12,7 @@ import { clarifyRenderOverflow } from '../../common/render-depth';
 import { reportUncaughtErrorLater } from '../../common/report-error';
 import { Owner, getOwner, runWithOwner } from '../reactive/owner';
 import { createRenderContext, domNodes, namespaceAt } from './nodes';
-import { Pass } from './pass';
+import { CommitMutationError, Pass } from './pass';
 import { reconcileChildren } from './reconcile';
 import { ROOT, collectDom, type RootNode } from './tree';
 import { HydrationCursor, syncChildren } from './hydration';
@@ -107,18 +107,42 @@ export function createRoot(
               node.children = children;
               return;
             }
-            node.children = children;
+            const previousChildren = node.children;
             if (!before) {
               // A fresh root owns its container: it replaces what was there
               // (a loading placeholder, markup it is not hydrating).
               const replaced = Array.from(container.childNodes);
-              pass.onReversibleCommit(() =>
-                container.replaceChildren(...replaced)
-              );
-              container.replaceChildren(...dom);
+              pass.onReversibleCommit(() => {
+                try {
+                  restoreRootChildren(container, replaced);
+                } finally {
+                  node.children = previousChildren;
+                }
+              });
+              try {
+                container.replaceChildren(...dom);
+              } catch (error) {
+                if (error instanceof CommitMutationError) throw error;
+                throw new CommitMutationError(error);
+              }
+              node.children = children;
               return;
             }
-            for (const item of dom) container.insertBefore(item, before);
+            const previous = Array.from(container.childNodes);
+            pass.onReversibleCommit(() => {
+              try {
+                restoreRootChildren(container, previous);
+              } finally {
+                node.children = previousChildren;
+              }
+            });
+            try {
+              for (const item of dom) container.insertBefore(item, before);
+            } catch (error) {
+              if (error instanceof CommitMutationError) throw error;
+              throw new CommitMutationError(error);
+            }
+            node.children = children;
           });
         })
       );
@@ -230,4 +254,19 @@ export function createRoot(
       return errors;
     },
   };
+}
+
+function restoreRootChildren(
+  container: Element,
+  previous: readonly Node[]
+): void {
+  for (let index = 0; index < previous.length; index += 1) {
+    const current = container.childNodes[index] ?? null;
+    if (current !== previous[index]) {
+      container.insertBefore(previous[index], current);
+    }
+  }
+  while (container.childNodes.length > previous.length) {
+    container.removeChild(container.lastChild!);
+  }
 }

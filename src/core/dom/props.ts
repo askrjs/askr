@@ -29,6 +29,7 @@ import type { Pass } from './pass';
 import { CommitMutationError } from './pass';
 import { getRenderedAttributeName } from './element-attributes';
 import { captureDomPropertyUndo, hasDomPropertyWrite } from './dom-properties';
+import { attributeNamespace } from '../../common/attr-names';
 import {
   applyScalarPropValue,
   applyStaticScalarPropsToElement,
@@ -120,10 +121,21 @@ function writeReflectedProp(
 }
 
 function recordAttributeUndo(pass: Pass, el: Element, name: string): void {
-  const before = el.getAttribute(name);
+  const namespace = attributeNamespace(el.namespaceURI, name);
+  const colon = name.indexOf(':');
+  const localName = colon === -1 ? name : name.slice(colon + 1);
+  const before = namespace
+    ? el.getAttributeNS(namespace, localName)
+    : el.getAttribute(name);
   pass.onReversibleCommit(() => {
-    if (before === null) el.removeAttribute(name);
-    else el.setAttribute(name, before);
+    if (before === null) {
+      if (namespace) el.removeAttributeNS(namespace, localName);
+      else el.removeAttribute(name);
+    } else if (namespace) {
+      el.setAttributeNS(namespace, name, before);
+    } else {
+      el.setAttribute(name, before);
+    }
   });
 }
 
@@ -182,6 +194,7 @@ function queueScalarProp(
       try {
         apply();
       } catch (error) {
+        if (error instanceof CommitMutationError) throw error;
         throw new CommitMutationError(error);
       }
     });
@@ -190,7 +203,19 @@ function queueScalarProp(
   if (hasDomPropertyWrite(node.el, key, value, node.tag)) {
     writePropertyScalar(pass, node, key, value, apply);
   } else {
-    pass.op(apply);
+    pass.op(() => {
+      recordAttributeUndo(
+        pass,
+        node.el,
+        getRenderedAttributeName(node.el, key)
+      );
+      try {
+        apply();
+      } catch (error) {
+        if (error instanceof CommitMutationError) throw error;
+        throw new CommitMutationError(error);
+      }
+    });
   }
 }
 
@@ -316,6 +341,23 @@ function setHandler(node: HostNode, key: string, value: unknown): void {
   }
 }
 
+function setHandlerForCommit(
+  pass: Pass,
+  node: HostNode,
+  key: string,
+  value: unknown,
+  previous: unknown
+): void {
+  pass.op(() => {
+    pass.onReversibleCommit(() => setHandler(node, key, previous));
+    try {
+      setHandler(node, key, value);
+    } catch (error) {
+      throw new CommitMutationError(error);
+    }
+  });
+}
+
 /**
  * Write props to an element that has no committed props yet: a new, detached
  * element (written now) or an adopted server element (`adopted`: recorded as
@@ -367,7 +409,7 @@ export function applyInitialProps(
     if (parseEventProp(key)) {
       flushScalars();
       if (adopted) {
-        pass.op(() => setHandler(node, key, value));
+        setHandlerForCommit(pass, node, key, value, undefined);
       } else {
         setHandler(node, key, value);
         // Registering delegates the event type; a discarded or rewound render
@@ -505,7 +547,7 @@ export function patchProps(
     }
     const old = previous[key];
     if (parseEventProp(key)) {
-      pass.op(() => setHandler(node, key, undefined));
+      setHandlerForCommit(pass, node, key, undefined, old);
     } else if (!isBinding(key, old) && isInputValue(tag, key)) {
       writeInputValue(pass, node, undefined, old);
     } else if (!isBinding(key, old) && isBooleanControl(tag, key)) {
@@ -570,7 +612,9 @@ export function patchProps(
     const value = next[key];
     const old = previous[key];
     if (parseEventProp(key)) {
-      if (value !== old) pass.op(() => setHandler(node, key, value));
+      if (value !== old) {
+        setHandlerForCommit(pass, node, key, value, old);
+      }
       continue;
     }
     if (isBinding(key, value)) {
