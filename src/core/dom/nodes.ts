@@ -30,7 +30,7 @@ import {
   type ChildDescriptor,
   type Key,
 } from '../view/children';
-import type { Pass } from './pass';
+import { CommitMutationError, type Pass } from './pass';
 import { HydrationCursor, removeUnrenderedAttributes } from './hydration';
 import { isDangerousInnerHTMLPayload } from './prop-values';
 import {
@@ -155,7 +155,19 @@ function createHost(
   }
   applyInitialProps(ctx.pass, node, adopted !== null);
   if (adopted) {
-    ctx.pass.op(() => removeUnrenderedAttributes(adopted, props));
+    ctx.pass.op(() => {
+      try {
+        removeUnrenderedAttributes(adopted, props, (attributes) => {
+          ctx.pass.onReversibleCommit(() => {
+            for (const attribute of attributes) {
+              adopted.setAttributeNode(attribute);
+            }
+          });
+        });
+      } catch (error) {
+        throw new CommitMutationError(error);
+      }
+    });
   }
   if (!isDangerousInnerHTMLPayload(props.dangerouslySetInnerHTML)) {
     node.children = reconcileChildren(
@@ -841,7 +853,15 @@ export const domNodes: NodeKinds = {
         if (claimed && claimed.data !== child.text) {
           const text = child.text;
           ctx.pass.op(() => {
-            claimed.data = text;
+            const previous = claimed.data;
+            ctx.pass.onReversibleCommit(() => {
+              claimed.data = previous;
+            });
+            try {
+              claimed.data = text;
+            } catch (error) {
+              throw new CommitMutationError(error);
+            }
           });
         }
         return {
