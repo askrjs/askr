@@ -99,16 +99,10 @@ The icon contract that generated icon packages render through.
 - `IconBase` is the `<svg>` wrapper. It accepts `size`, `strokeWidth`, `color`,
   `title`, `class`, `style`, and `iconName`, plus normal SVG props. A `title`
   makes the icon labelled; without one it is `aria-hidden`.
-- `getIconContractProps(props)` computes the shared SVG attributes and inline
-  style that `IconBase` applies.
-- `isIconSizeToken(value)` checks for a named size token: `'sm'`, `'md'`,
-  `'lg'`, or `'xl'`.
-- `resolveIconSizeVariable(size)` and
-  `resolveIconStrokeWidthVariable(strokeWidth, sizeToken)` map sizes and stroke
-  widths to themeable CSS custom-property expressions with literal fallbacks.
-- `normalizeIconSizeValue(size)` turns a number into a `px` string.
-- `serializeIconStyle(style)` serializes a style object to CSS text, and
-  `joinIconStyle(...styles)` joins non-empty declaration fragments with `;`.
+
+  Size-token resolution and SVG attribute construction are implementation
+  details of `IconBase`; generated icon packages should compose through
+  `IconBase` rather than depend on those helpers.
 
 ## Related
 

@@ -140,14 +140,7 @@
     "IconOwnProps",
     "IconProps",
     "IconSizeToken",
-    "IconStyleObject",
-    "getIconContractProps",
-    "isIconSizeToken",
-    "joinIconStyle",
-    "normalizeIconSizeValue",
-    "resolveIconSizeVariable",
-    "resolveIconStrokeWidthVariable",
-    "serializeIconStyle"
+    "IconStyleObject"
   ],
   "./resources": [
     "ActivityPredicate",

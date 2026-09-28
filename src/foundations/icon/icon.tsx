@@ -7,7 +7,7 @@ import type { IconProps, IconSizeToken, IconStyleObject } from './icon.types';
 const ICON_SIZE_TOKENS: readonly IconSizeToken[] = ['sm', 'md', 'lg', 'xl'];
 
 /** Check whether `value` is one of the named icon size tokens ('sm'|'md'|'lg'|'xl'). */
-export function isIconSizeToken(value: unknown): value is IconSizeToken {
+function isIconSizeToken(value: unknown): value is IconSizeToken {
   return (
     typeof value === 'string' &&
     ICON_SIZE_TOKENS.includes(value as IconSizeToken)
@@ -15,13 +15,13 @@ export function isIconSizeToken(value: unknown): value is IconSizeToken {
 }
 
 /** Normalize a numeric icon size to a `px` string; strings pass through unchanged. */
-export function normalizeIconSizeValue(size: number | string): string {
+function normalizeIconSizeValue(size: number | string): string {
   if (typeof size === 'number') return `${size}px`;
   return size;
 }
 
 /** Resolve a size (token or literal) to a CSS `var(--ak-icon-size-*, ...)` expression or literal value. */
-export function resolveIconSizeVariable(size: number | string): string {
+function resolveIconSizeVariable(size: number | string): string {
   if (isIconSizeToken(size)) {
     return `var(--ak-icon-size-${size}, var(--ak-icon-size-md, 1.25rem))`;
   }
@@ -29,7 +29,7 @@ export function resolveIconSizeVariable(size: number | string): string {
 }
 
 /** Resolve a stroke width to a CSS `var(--ak-icon-stroke-width-*, ...)` expression, scoped to `sizeToken` when given. */
-export function resolveIconStrokeWidthVariable(
+function resolveIconStrokeWidthVariable(
   strokeWidth: number,
   sizeToken: IconSizeToken | undefined
 ): string {
@@ -44,7 +44,7 @@ function camelToKebab(key: string): string {
 }
 
 /** Serialize an inline style object (or pass through a string) to a CSS declaration string. */
-export function serializeIconStyle(
+function serializeIconStyle(
   style: string | IconStyleObject | undefined
 ): string {
   if (!style) return '';
@@ -56,7 +56,7 @@ export function serializeIconStyle(
 }
 
 /** Join non-empty CSS declaration fragments with `;`, dropping any that are blank. */
-export function joinIconStyle(
+function joinIconStyle(
   ...styles: Array<string | undefined>
 ): string | undefined {
   const merged = styles.map((style) => style?.trim()).filter(Boolean);
@@ -64,7 +64,7 @@ export function joinIconStyle(
 }
 
 /** Compute the shared SVG attributes and inline style implementing the icon size/stroke/color contract. */
-export function getIconContractProps({
+function getIconContractProps({
   size = 20,
   strokeWidth = 2,
   color = 'currentColor',

@@ -89,12 +89,15 @@ describe('foundations resolution', () => {
 
     const icon = (await import('@askrjs/askr/foundations/icon')) as {
       IconBase: unknown;
-      getIconContractProps: unknown;
-      isIconSizeToken: unknown;
     };
 
     expect(typeof icon.IconBase).toBe('function');
-    expect(typeof icon.getIconContractProps).toBe('function');
-    expect(typeof icon.isIconSizeToken).toBe('function');
+    expect('getIconContractProps' in icon).toBe(false);
+    expect('isIconSizeToken' in icon).toBe(false);
+    expect('joinIconStyle' in icon).toBe(false);
+    expect('normalizeIconSizeValue' in icon).toBe(false);
+    expect('resolveIconSizeVariable' in icon).toBe(false);
+    expect('resolveIconStrokeWidthVariable' in icon).toBe(false);
+    expect('serializeIconStyle' in icon).toBe(false);
   }, 20_000);
 });
