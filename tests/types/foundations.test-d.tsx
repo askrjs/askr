@@ -71,13 +71,6 @@ import {
 } from '@askrjs/askr/foundations/structures';
 import {
   IconBase,
-  getIconContractProps,
-  isIconSizeToken,
-  joinIconStyle,
-  normalizeIconSizeValue,
-  resolveIconSizeVariable,
-  resolveIconStrokeWidthVariable,
-  serializeIconStyle,
   type IconOwnProps,
   type IconProps,
   type IconSizeToken,
@@ -301,15 +294,6 @@ const iconProps: IconProps = {
 };
 expectAssignable<IconProps>(iconProps);
 expectType<JSXElement>(IconBase(iconProps));
-expectType<string | undefined>(getIconContractProps(iconProps).attrs.style);
-declare const possibleSize: unknown;
-if (isIconSizeToken(possibleSize)) expectType<IconSizeToken>(possibleSize);
-expectType<string>(normalizeIconSizeValue(24));
-expectType<string>(resolveIconSizeVariable('md'));
-expectType<string>(resolveIconStrokeWidthVariable(2, 'md'));
-expectType<string>(serializeIconStyle(iconStyleObject));
-expectType<string | undefined>(joinIconStyle('color:red', undefined));
-expectError(normalizeIconSizeValue(false));
 
 // Base values win; an `undefined` base value keeps the injected one.
 const mergedOverride = mergeProps(

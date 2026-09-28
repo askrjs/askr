@@ -348,9 +348,6 @@
       ]
     },
     "./foundations/icon": {
-      "getIconContractProps": [
-        "declare function getIconContractProps({ size, strokeWidth, color, title, style, iconName }: Pick<IconProps, \"color\" | \"iconName\" | \"size\" | \"strokeWidth\" | \"style\" | \"title\">): {\n    sizeToken: IconSizeToken | undefined;\n    decorative: string | undefined;\n    iconStyle: string | undefined;\n    attrs: {\n        xmlns: string;\n        width: string;\n        height: string;\n        fill: string;\n        stroke: string;\n        \"stroke-width\": string;\n        role: string;\n        \"aria-hidden\": string | undefined;\n        style: string | undefined;\n        \"data-slot\": string;\n        \"data-icon\": string | undefined;\n        \"data-size\": IconSizeToken | undefined;\n        \"data-decorative\": string | undefined;\n        \"data-color\": string | undefined;\n    };\n};"
-      ],
       "IconBase": [
         "declare function IconBase({ size, strokeWidth, color, title, class: className, style, iconName, children, ref, ...rest }: IconProps): JSXElement;"
       ],
@@ -363,25 +360,7 @@
       "IconSizeToken": [
         "type IconSizeToken = \"sm\" | \"md\" | \"lg\" | \"xl\";"
       ],
-      "IconStyleObject": ["type IconStyleObject = Record<string, unknown>;"],
-      "isIconSizeToken": [
-        "declare function isIconSizeToken(value: unknown): value is IconSizeToken;"
-      ],
-      "joinIconStyle": [
-        "declare function joinIconStyle(...styles: Array<string | undefined>): string | undefined;"
-      ],
-      "normalizeIconSizeValue": [
-        "declare function normalizeIconSizeValue(size: number | string): string;"
-      ],
-      "resolveIconSizeVariable": [
-        "declare function resolveIconSizeVariable(size: number | string): string;"
-      ],
-      "resolveIconStrokeWidthVariable": [
-        "declare function resolveIconStrokeWidthVariable(strokeWidth: number, sizeToken: IconSizeToken | undefined): string;"
-      ],
-      "serializeIconStyle": [
-        "declare function serializeIconStyle(style: string | IconStyleObject | undefined): string;"
-      ]
+      "IconStyleObject": ["type IconStyleObject = Record<string, unknown>;"]
     },
     "./resources": {
       "ActivityPredicate": ["type ActivityPredicate = () => boolean;"],
@@ -1490,9 +1469,6 @@
     "getDefaultDataRuntime": [
       "declare function getDefaultDataRuntime(): DataRuntime;"
     ],
-    "getIconContractProps": [
-      "declare function getIconContractProps({ size, strokeWidth, color, title, style, iconName }: Pick<IconProps, \"color\" | \"iconName\" | \"size\" | \"strokeWidth\" | \"style\" | \"title\">): {\n    sizeToken: IconSizeToken | undefined;\n    decorative: string | undefined;\n    iconStyle: string | undefined;\n    attrs: {\n        xmlns: string;\n        width: string;\n        height: string;\n        fill: string;\n        stroke: string;\n        \"stroke-width\": string;\n        role: string;\n        \"aria-hidden\": string | undefined;\n        style: string | undefined;\n        \"data-slot\": string;\n        \"data-icon\": string | undefined;\n        \"data-size\": IconSizeToken | undefined;\n        \"data-decorative\": string | undefined;\n        \"data-color\": string | undefined;\n    };\n};"
-    ],
     "getRenderContext": [
       "declare function getRenderContext(): RenderContext | null;"
     ],
@@ -1656,17 +1632,11 @@
     "isElement": [
       "declare function isElement(value: unknown): value is JSXElement;"
     ],
-    "isIconSizeToken": [
-      "declare function isIconSizeToken(value: unknown): value is IconSizeToken;"
-    ],
     "IslandConfig": [
       "type IslandConfig = {\n    root: Element | string;\n    component: ComponentFunction;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    cleanupStrict?: boolean;\n    routes?: never;\n};"
     ],
     "IslandsConfig": [
       "type IslandsConfig = {\n    islands: IslandConfig[];\n    cspNonce?: string;\n};"
-    ],
-    "joinIconStyle": [
-      "declare function joinIconStyle(...styles: Array<string | undefined>): string | undefined;"
     ],
     "jsx": [
       "declare function jsx(type: symbol, props: Props | null, key?: string | number): JSXElement;",
@@ -1857,9 +1827,6 @@
     ],
     "NavigationScrollBehavior": [
       "type NavigationScrollBehavior = \"top\" | \"preserve\";"
-    ],
-    "normalizeIconSizeValue": [
-      "declare function normalizeIconSizeValue(size: number | string): string;"
     ],
     "notFound": ["declare function notFound(): AccessDenyDecision;"],
     "on": [
@@ -2107,12 +2074,6 @@
     "resolveDeferredValues": [
       "declare function resolveDeferredValues<T>(input: T, signal?: AbortSignal): Promise<T>;"
     ],
-    "resolveIconSizeVariable": [
-      "declare function resolveIconSizeVariable(size: number | string): string;"
-    ],
-    "resolveIconStrokeWidthVariable": [
-      "declare function resolveIconStrokeWidthVariable(strokeWidth: number, sizeToken: IconSizeToken | undefined): string;"
-    ],
     "ResolveProps": [
       "interface ResolveProps<T> {\n    value: Deferred<T>;\n    pending?: RenderableChild;\n    rejected?: RenderableChild | ((error: unknown) => RenderableChild);\n    children: (value: T) => RenderableChild;\n}"
     ],
@@ -2322,9 +2283,6 @@
     "Selector": ["interface Selector<T> {\n    (candidate: T): boolean;\n}"],
     "SelectorEquals": [
       "type SelectorEquals<T> = {\n    bivarianceHack(a: T, b: T): boolean;\n}[\"bivarianceHack\"];"
-    ],
-    "serializeIconStyle": [
-      "declare function serializeIconStyle(style: string | IconStyleObject | undefined): string;"
     ],
     "serializeRouteMeta": [
       "declare function serializeRouteMeta(meta: RouteMeta): string;"

@@ -537,16 +537,6 @@ function probeDistExports(): unknown {
               },
               icon: {
                 IconBase: typeof iconModule.IconBase,
-                getIconContractProps: typeof iconModule.getIconContractProps,
-                isIconSizeToken: typeof iconModule.isIconSizeToken,
-                normalizeIconSizeValue:
-                  typeof iconModule.normalizeIconSizeValue,
-                resolveIconSizeVariable:
-                  typeof iconModule.resolveIconSizeVariable,
-                resolveIconStrokeWidthVariable:
-                  typeof iconModule.resolveIconStrokeWidthVariable,
-                serializeIconStyle: typeof iconModule.serializeIconStyle,
-                joinIconStyle: typeof iconModule.joinIconStyle,
               },
               fx: {
                 throttle: typeof fxModule.throttle,
@@ -840,13 +830,6 @@ describe('public docs and examples', () => {
       },
       icon: {
         IconBase: 'function',
-        getIconContractProps: 'function',
-        isIconSizeToken: 'function',
-        normalizeIconSizeValue: 'function',
-        resolveIconSizeVariable: 'function',
-        resolveIconStrokeWidthVariable: 'function',
-        serializeIconStyle: 'function',
-        joinIconStyle: 'function',
       },
       fx: {
         throttle: 'function',
