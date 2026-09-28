@@ -725,7 +725,7 @@ describe('evaluation transactions (SPEC 2.1)', () => {
 
       expectDOM(container).text('Loaded');
       // Strip comment placeholders for comparison since they're implementation details
-      const snapshot = container.innerHTML.replace(/<!--.*?-->/g, '');
+      const snapshot = container.innerHTML.replace(/<!--[\s\S]*?-->/g, '');
 
       // A resource rejection settles as resource state; it is not a failed
       // renderer transaction. The committed fallback is coherent (no partial
@@ -738,7 +738,7 @@ describe('evaluation transactions (SPEC 2.1)', () => {
       flushScheduler();
 
       // Strip comment placeholders for comparison.
-      const afterFail = container.innerHTML.replace(/<!--.*?-->/g, '');
+      const afterFail = container.innerHTML.replace(/<!--[\s\S]*?-->/g, '');
       expect(snapshot).toBe('<div>Loaded</div>');
       expect(afterFail).toBe('<div></div>');
     });

@@ -43,19 +43,19 @@ describe('core architecture', () => {
   it('should keep each layer to its allowed dependencies', () => {
     const violations: string[] = [];
     for (const file of all) {
-      const layer = relative(ROOT, file).split('/')[0];
+      const layer = relative(ROOT, file).split(/[\\/]/)[0];
       const allowed = LAYERS[layer];
       expect(allowed, `unknown core layer: ${layer}`).toBeDefined();
       for (const target of imports(file)) {
         const inCore = relative(ROOT, target);
         if (!inCore.startsWith('..')) {
-          const targetLayer = inCore.split('/')[0];
+          const targetLayer = inCore.split(/[\\/]/)[0];
           if (targetLayer !== layer && !allowed.includes(targetLayer)) {
             violations.push(`${relative(ROOT, file)} -> core/${inCore}`);
           }
           continue;
         }
-        const outside = relative(resolve(ROOT, '..'), target).split('/')[0];
+        const outside = relative(resolve(ROOT, '..'), target).split(/[\\/]/)[0];
         if (!ALLOWED_OUTSIDE.includes(outside)) {
           violations.push(
             `${relative(ROOT, file)} -> src/${relative(resolve(ROOT, '..'), target)}`
