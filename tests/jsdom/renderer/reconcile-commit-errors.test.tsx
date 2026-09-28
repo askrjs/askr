@@ -88,6 +88,57 @@ describe('reconciliation commit errors', () => {
     expect(Array.from(list.childNodes)).toEqual(stableChildren);
   });
 
+  it('should restore earlier placement when a later keyed move mutates then throws', () => {
+    createIsland({ root: container, component: List });
+    flushScheduler();
+    const list = container.querySelector('#list')!;
+    const stableChildren = Array.from(list.children);
+    const error = new Error('keyed move failed after mutation');
+    const insertBefore = list.insertBefore.bind(list);
+    let didFail = false;
+    let insertedNewChild = false;
+    const insertion = vi
+      .spyOn(list, 'insertBefore')
+      .mockImplementation((node, before) => {
+        const inserted = insertBefore(node, before);
+        if ((node as Element).textContent === 'c') insertedNewChild = true;
+        if (node === stableChildren[1] && !didFail) {
+          didFail = true;
+          throw error;
+        }
+        return inserted;
+      });
+
+    expect(() => {
+      flip.set(true);
+      flushScheduler();
+    }).toThrow(error);
+
+    expect(didFail).toBe(true);
+    expect(insertedNewChild).toBe(true);
+    expect(Array.from(list.children)).toEqual(stableChildren);
+    expect(list.children[0]).toBe(stableChildren[0]);
+    expect(list.children[1]).toBe(stableChildren[1]);
+    expect(Array.from(list.children, (child) => child.textContent)).toEqual([
+      'a',
+      'b',
+    ]);
+
+    insertion.mockRestore();
+    flip.set(false);
+    flushScheduler();
+    flip.set(true);
+    flushScheduler();
+
+    expect(Array.from(list.children, (child) => child.textContent)).toEqual([
+      'b',
+      'a',
+      'c',
+    ]);
+    expect(list.children[0]).toBe(stableChildren[1]);
+    expect(list.children[1]).toBe(stableChildren[0]);
+  });
+
   it('should route a commit error to the nearest ErrorBoundary', () => {
     const onError = vi.fn();
     const App = () => (
