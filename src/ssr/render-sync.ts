@@ -13,6 +13,7 @@
  */
 
 import { clarifyRenderOverflow } from '../common/render-depth';
+import { logger } from '../common/logger';
 import { getCurrentRenderData } from '../common/render-context';
 import type { AuthContext } from '@askrjs/auth';
 import { DEFERRED_BOUNDARY } from '../common/deferred-value';
@@ -282,10 +283,14 @@ function renderComponent(
     } catch (caught) {
       const error = clarifyRenderOverflow(caught);
       restorePortals();
-      disposeFailedSubtree(instance);
-      if (!instance.boundary(error)) throw error;
-      const fallback = runComponent(instance);
-      withOwner(instance, () => renderValue(componentOutput(fallback), sink));
+      const cleanupErrors = disposeFailedSubtree(instance);
+      try {
+        if (!instance.boundary(error)) throw error;
+        const fallback = runComponent(instance);
+        withOwner(instance, () => renderValue(componentOutput(fallback), sink));
+      } finally {
+        reportBoundaryCleanupErrors(cleanupErrors);
+      }
       return;
     }
     buffer.publishTo(sink);
@@ -297,12 +302,25 @@ function renderComponent(
  * End the lifetimes a failed boundary subtree started, newest first as in
  * `Owner.dispose()`, keeping the boundary's own render computation.
  */
-export function disposeFailedSubtree(instance: ComponentInstance): void {
+export function disposeFailedSubtree(instance: ComponentInstance): unknown[] {
+  const errors: unknown[] = [];
   const owned = instance.owned ? [...instance.owned] : [];
   for (let index = owned.length - 1; index >= 0; index--) {
     const child = owned[index];
-    if (child && child !== instance.computation) child.dispose();
+    if (child && child !== instance.computation) {
+      errors.push(...child.dispose());
+    }
   }
+  return errors;
+}
+
+function reportBoundaryCleanupErrors(errors: unknown[]): void {
+  if (errors.length === 0) return;
+  const failure =
+    errors.length === 1
+      ? errors[0]
+      : new AggregateError(errors, 'SSR ErrorBoundary cleanup failed');
+  logger.error('[Askr] SSR ErrorBoundary cleanup failed:', failure);
 }
 
 function selfComponentChild(
@@ -684,10 +702,14 @@ function flattenText(value: unknown, element: RawTextElement): string[] {
             const error = clarifyRenderOverflow(caught);
             out.length = start;
             restorePortals();
-            disposeFailedSubtree(instance);
-            if (!instance.boundary(error)) throw error;
-            const fallback = runComponent(instance);
-            withOwner(instance, () => visit(componentOutput(fallback)));
+            const cleanupErrors = disposeFailedSubtree(instance);
+            try {
+              if (!instance.boundary(error)) throw error;
+              const fallback = runComponent(instance);
+              withOwner(instance, () => visit(componentOutput(fallback)));
+            } finally {
+              reportBoundaryCleanupErrors(cleanupErrors);
+            }
           }
           break;
         }
@@ -784,8 +806,15 @@ function withServerRender<T>(ctx: RenderContext, fn: () => T): T {
     result = fn();
   } catch (error) {
     current = previous;
-    owner.dispose();
-    throw clarifyRenderOverflow(error);
+    const cleanupErrors = owner.dispose();
+    const failure = clarifyRenderOverflow(error);
+    if (cleanupErrors.length > 0) {
+      throw new AggregateError(
+        [failure, ...cleanupErrors],
+        'SSR render failed and temporary owner cleanup also failed'
+      );
+    }
+    throw failure;
   }
   current = previous;
   const errors = owner.dispose();

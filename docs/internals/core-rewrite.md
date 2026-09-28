@@ -189,6 +189,11 @@ order before removed owners are disposed, refs are attached, or mount work
 runs. Each pass keeps its own render journal, so settling one prepared root
 cannot clear another root's undo entries.
 
+SSR failures preserve their primary render error while aggregating temporary
+root cleanup failures. Error boundaries still render their fallback when a
+failed subtree cleanup throws, and report those cleanup errors after fallback
+handling, including inside raw-text elements.
+
 ## Open audit boundaries
 
 Controlled-select child and bound-option resynchronization are now covered by
