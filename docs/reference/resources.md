@@ -69,7 +69,8 @@ const res = await fetch('/api/data', { signal: getSignal() });
 
 `stream()` owns an async iterable for the lifetime of its component. The source
 is started after the first committed client mount and receives an
-`AbortSignal`; it is never opened during SSR/SSG.
+`AbortSignal`; it is never opened during SSR/SSG. Call `stream()` during
+component render inside an app; calls without a component owner throw.
 
 ```ts
 import { stream } from '@askrjs/askr/resources';
