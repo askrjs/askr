@@ -346,4 +346,19 @@ describe('dangerouslySetInnerHTML rollback', () => {
     expect(host.firstChild).toBe(serverNode);
     root.dispose();
   });
+
+  it('should preserve normalized MathML descendants during hydration', () => {
+    const container = document.createElement('div');
+    container.innerHTML = '<math><mi></mi>x</math>';
+    const host = container.firstElementChild!;
+    const serverNode = host.firstChild;
+    const root = createRoot(container, { hydrate: true });
+
+    root
+      .prepare(<math dangerouslySetInnerHTML={{ __html: '<mi/>x' }} />)
+      .commit();
+
+    expect(host.firstChild).toBe(serverNode);
+    root.dispose();
+  });
 });

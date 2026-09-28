@@ -65,3 +65,27 @@ test('should preserve equivalent SVG descendants during hydration', async () => 
     container.remove();
   }
 });
+
+test('should preserve equivalent MathML descendants during hydration', async () => {
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  const App = () => <math dangerouslySetInnerHTML={{ __html: '<mi/>x' }} />;
+  const routes = [{ path: '/', handler: App }];
+  window.history.replaceState({}, '', '/');
+  container.innerHTML = renderToStringSync(() => <App />);
+  const host = container.firstElementChild!;
+  const serverNode = host.firstChild;
+
+  try {
+    await hydrateSPA({
+      root: container,
+      registry: routeRegistryFromTable(routes),
+      hydrate: { verifyMarkup: false },
+    });
+
+    expect(host.firstChild).toBe(serverNode);
+  } finally {
+    cleanupApp(container);
+    container.remove();
+  }
+});
