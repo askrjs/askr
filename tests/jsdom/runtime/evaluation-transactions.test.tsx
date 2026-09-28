@@ -17,18 +17,6 @@ import {
   vi,
 } from 'vite-plus/test';
 
-function withoutComments(element: Element): string {
-  const clone = element.cloneNode(true) as Element;
-  const walker = element.ownerDocument.createTreeWalker(
-    clone,
-    NodeFilter.SHOW_COMMENT
-  );
-  while (walker.nextNode()) {
-    walker.currentNode.parentNode?.removeChild(walker.currentNode);
-  }
-  return clone.innerHTML;
-}
-
 import { createIsland } from '@askrjs/askr/boot';
 import { For } from '@askrjs/askr/control';
 import { state, type State } from '../../../src';
@@ -41,6 +29,18 @@ import {
   flushScheduler,
   refAs,
 } from '../../../test-utils/render/test-renderer';
+
+function withoutComments(element: Element): string {
+  const clone = element.cloneNode(true) as Element;
+  const walker = element.ownerDocument.createTreeWalker(
+    clone,
+    NodeFilter.SHOW_COMMENT
+  );
+  while (walker.nextNode()) {
+    walker.currentNode.parentNode?.removeChild(walker.currentNode);
+  }
+  return clone.innerHTML;
+}
 
 describe('evaluation transactions (SPEC 2.1)', () => {
   let { container, cleanup } = createTestContainer();
