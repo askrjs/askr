@@ -56,6 +56,12 @@ insert/remove and full keyed replacement rows when attributing those costs.
 Sparse insertion retains the other 1,000 keyed rows; full replacement swaps
 between two 1,000-key sets without an intermediate empty list.
 
+The tier 1 keyed movement-density matrix uses both contiguous prefix reversals
+and evenly distributed adjacent swaps over the same 1,000-row list. Shared move
+counts across the two shapes separate movement count from spatial distribution.
+Each case verifies the expected DOM move count and retained row identity before
+timing the transition and its inverse.
+
 For keyed movement, profile LIS work, DOM key-map construction, range moves,
 and dense replacement separately before changing the movement strategy. Do not
 combine full-clear teardown cost with append or reorder measurements.
