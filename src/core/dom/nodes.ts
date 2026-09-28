@@ -237,9 +237,23 @@ export function hydrateDormantHost(pass: Pass, node: HostNode): void {
   applyTrailingProps(pass, node, props, true, true);
   attachRef(pass, node, undefined);
   pass.op(() => {
+    pass.onReversibleCommit(() => {
+      node.dormant = dormant;
+      dormantHosts.set(el, node);
+    });
+    try {
+      removeUnrenderedAttributes(el, props, (attributes) => {
+        pass.onReversibleCommit(() => {
+          for (const attribute of attributes) {
+            el.setAttributeNode(attribute);
+          }
+        });
+      });
+    } catch (error) {
+      throw new CommitMutationError(error);
+    }
     node.dormant = null;
     dormantHosts.delete(el);
-    removeUnrenderedAttributes(el, props);
   });
 }
 

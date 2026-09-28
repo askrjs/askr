@@ -157,7 +157,8 @@ and corrections, unrendered server attribute cleanup, ordinary adopted
 attributes, reflected class/style writes, attribute-backed binding
 transitions, and static or bound input value, checkbox checked, and option
 selected state. Adopted root and nested child synchronization also restores
-DOM order and root child state after a failed mutation.
+DOM order and root child state after a failed mutation. Dormant activation
+restores its registry state and removed server attributes when cleanup fails.
 
 Portal channel writes settle when the writer's render commits. This queues
 the host update before the scheduler revisits portal descendants whose inputs
@@ -169,10 +170,6 @@ stale props.
 The following live-DOM paths still need focused failure injection and review
 before the comprehensive architecture audit is complete:
 
-- Dormant-host activation clears `node.dormant`, removes its weak-map entry and
-  marker, and cleans up server attributes. Confirm all lifecycle state and DOM
-  changes roll back if activation cleanup fails, so the boundary remains
-  retryable.
 - Property-only props, custom-element properties, `dangerouslySetInnerHTML`,
   and controlled select value writes need targeted rollback qualification.
 
