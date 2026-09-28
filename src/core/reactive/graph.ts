@@ -42,10 +42,12 @@ function track(source: Source): void {
 }
 
 /** Notify every observer of `source` that its value changed. */
-export function notifySource(source: Source): void {
+export function notifySource(source: Source, except?: Computation): void {
   const observers = source._observers;
   if (!observers) return;
-  for (const observer of observers) observer._mark(DIRTY);
+  for (const observer of observers) {
+    if (observer !== except) observer._mark(DIRTY);
+  }
 }
 
 /** Record a read of `source` by the running computation. */
