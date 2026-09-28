@@ -3,6 +3,9 @@
 ## Unreleased
 
 ## 0.4.0 — 2026-09-28
+- feat(router): expose `matchRoute(path, { registry })` for synchronous route
+  path checks without resolving policies or loading route data. The testing
+  helper uses the same implementation.
 
 - fix(core): a component tree too deep for the call stack fails with a
   `RenderDepthError` (exported from `@askrjs/askr`) that explains the limit,

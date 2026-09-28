@@ -256,6 +256,18 @@ export function computeRouteActivityMatches(
   );
 }
 
+/** Match a path against a route registry without resolving route policies or loading data. */
+export function matchRoute(
+  pathname: string,
+  options: { registry: RouteRegistry }
+): RouteMatch | null {
+  if (!options?.registry) {
+    throw new TypeError('matchRoute requires options.registry.');
+  }
+
+  return computeRouteActivityMatches(pathname, options)[0] ?? null;
+}
+
 export function resolveRoute(pathname: string): ResolvedRoute | null {
   const normalized =
     pathname.endsWith('/') && pathname !== '/'
