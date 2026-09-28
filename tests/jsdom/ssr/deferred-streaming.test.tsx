@@ -365,6 +365,53 @@ describe('deferred route streaming', () => {
     expect((await reader.read()).done).toBe(true);
   });
 
+  it('should ignore deferred boundary settlements after consumer cancellation', async () => {
+    let release!: (value: string) => void;
+    const pending = new Promise<string>((resolve) => {
+      release = resolve;
+    });
+    let boundaryRenders = 0;
+    const registry = createRouteRegistry(() => {
+      route(
+        '/',
+        () => {
+          const data = routeData<DeferredPageData>();
+          return (
+            <Resolve
+              value={data.message}
+              pending={<p>loading</p>}
+              rejected={(error) => {
+                boundaryRenders++;
+                return <p id="rejected">{String(error)}</p>;
+              }}
+            >
+              {(message) => {
+                boundaryRenders++;
+                return <p id="ready">{message}</p>;
+              }}
+            </Resolve>
+          );
+        },
+        { loader: () => ({ message: defer(pending) }) }
+      );
+    });
+    const result = await renderRouteRequest({ url: '/', registry });
+    if (result.kind !== 'render' || !result.stream)
+      throw new Error('expected stream');
+
+    const reader = result.stream.getReader();
+    const shell = await reader.read();
+    expect(new TextDecoder().decode(shell.value)).toContain('loading');
+    await reader.cancel();
+
+    release('ready');
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(boundaryRenders).toBe(0);
+    expect((await reader.read()).done).toBe(true);
+  });
+
   it('should emit each boundary patch as soon as it settles', async () => {
     let first!: (value: string) => void;
     let second!: (value: string) => void;
