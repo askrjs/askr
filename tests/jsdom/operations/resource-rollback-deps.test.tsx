@@ -249,6 +249,54 @@ describe('resource() deps change in a rolled-back render (#471)', () => {
     }
   });
 
+  it('should retain the committed loader after an unchanged-deps render rolls back', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const calls: string[] = [];
+    let loaderValue!: State<string>;
+    let fail!: State<boolean>;
+    let refresh!: () => void;
+
+    const App = (): JSXElement => {
+      loaderValue = state('committed');
+      fail = state(false);
+      const current = loaderValue();
+      const result = resource(() => {
+        calls.push(current);
+        return current;
+      }, []);
+      refresh ??= result.refresh;
+      if (fail()) throw new Error('render failed');
+      return <p>{result.value}</p>;
+    };
+
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      expect(calls).toEqual(['committed']);
+
+      loaderValue.set('aborted');
+      fail.set(true);
+      flushIgnoringRenderFailure();
+      expect(calls).toEqual(['committed']);
+
+      // Refresh before another successful render must keep the last committed
+      // loader, even though the failed render supplied a new function.
+      refresh();
+      flushIgnoringRenderFailure();
+      expect(calls).toEqual(['committed', 'committed']);
+
+      fail.set(false);
+      flushScheduler();
+      refresh();
+      flushScheduler();
+      expect(calls).toEqual(['committed', 'committed', 'aborted']);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should fetch the new deps after an ErrorBoundary reset re-renders the same deps', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
