@@ -533,10 +533,15 @@ expectType<RuntimeJSX.Element>(<KeyedRow key={1} id={1} />);
 expectType<RuntimeJSX.Element>(<KeyedRow key="one" id={1} />);
 expectError(<KeyedRow key={null} id={1} />);
 expectError(<div key={null} />);
+expectError(<div key={Symbol('internal')} />);
 expectError(<KeyedRow key={{}} id={1} />);
 expectError(<KeyedRow key={1} />);
 expectAssignable<RuntimeJSX.IntrinsicAttributes>({ key: 1 });
 expectAssignable<DevRuntimeJSX.IntrinsicAttributes>({ key: 'one' });
+expectError(jsx('div', { key: Symbol('internal') }));
+
+const internalFrameProps: Props = { key: Symbol('internal') };
+expectAssignable<Props>(internalFrameProps);
 
 // MathML elements are intrinsic; their refs are MathMLElement.
 const mathRef = createRef<MathMLElement>();

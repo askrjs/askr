@@ -186,7 +186,8 @@ type CapturedIntrinsicEventProps = {
  */
 export interface IntrinsicProps
   extends IntrinsicEventProps, CapturedIntrinsicEventProps {
-  key?: string | number | symbol;
+  /** JSX keys are string or number; symbol keys stay in the generic Props bag. */
+  key?: string | number;
   children?: unknown;
   /**
    * Leaves descendant DOM ownership to an imperative widget after mount.
