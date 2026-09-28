@@ -537,6 +537,43 @@ describe('stream()', () => {
     expect(current?.value).toBe('live');
   });
 
+  it('should close when an iterator return getter throws', async () => {
+    const iterator: AsyncIterator<string> = {
+      next: () => new Promise<IteratorResult<string>>(() => {}),
+    };
+    Object.defineProperty(iterator, 'return', {
+      get() {
+        throw new Error('return getter failed');
+      },
+    });
+    const source: AsyncIterable<string> = {
+      [Symbol.asyncIterator]: () => iterator,
+    };
+    let current: StreamResult<string> | undefined;
+    const { container, cleanup } = createTestContainer();
+
+    try {
+      createIsland({
+        root: container,
+        component: () => {
+          current = stream(() => source);
+          return <p>{current.status}</p>;
+        },
+      });
+      flushScheduler();
+      await settle();
+
+      expect(() => current?.close()).not.toThrow();
+      expect(current).toMatchObject({
+        status: 'closed',
+        pending: false,
+        error: null,
+      });
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should never execute a source during synchronous SSR', () => {
     let calls = 0;
 
