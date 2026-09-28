@@ -37,6 +37,7 @@ import {
   applyInitialProps,
   applyTrailingProps,
   enclosingSelect,
+  recordSelectUndo,
   resyncSelect,
   attachRef,
   patchProps,
@@ -866,25 +867,33 @@ function release(node: RNode, errors: unknown[]): void {
  * the pass commits, once per select. Each change registers its own sync so
  * an error boundary that rewinds part of the pass drops only its own.
  */
-const syncedSelects = new WeakMap<Pass, Set<HostNode>>();
+const scheduledSelectSyncs = new WeakMap<Pass, Set<HostNode>>();
+const writtenSelectValues = new WeakMap<Pass, Set<HostNode>>();
 
 function syncEnclosingSelect(pass: Pass, parent: Parent | null): void {
   const select = enclosingSelect(parent);
-  if (!select || select.dormant) return;
-  pass.after(() => {
-    let synced = syncedSelects.get(pass);
-    if (!synced) syncedSelects.set(pass, (synced = new Set()));
-    if (synced.has(select)) return;
-    synced.add(select);
-    resyncSelect(select);
+  if (!select || select.dormant || !('value' in select.props)) return;
+  let scheduled = scheduledSelectSyncs.get(pass);
+  if (!scheduled) scheduledSelectSyncs.set(pass, (scheduled = new Set()));
+  if (scheduled.has(select)) return;
+  scheduled.add(select);
+  pass.onDiscard(() => scheduled!.delete(select));
+  recordSelectUndo(pass, select);
+  pass.beforeJournalSettle(() => {
+    if (writtenSelectValues.get(pass)?.has(select)) return;
+    try {
+      resyncSelect(select);
+    } catch (error) {
+      throw new CommitMutationError(error);
+    }
   });
 }
 
 /** The select's own patch applied its value after its options. */
 function markSelectSynced(pass: Pass, select: HostNode): void {
-  let synced = syncedSelects.get(pass);
-  if (!synced) syncedSelects.set(pass, (synced = new Set()));
-  synced.add(select);
+  let written = writtenSelectValues.get(pass);
+  if (!written) writtenSelectValues.set(pass, (written = new Set()));
+  written.add(select);
 }
 
 export const domNodes: NodeKinds = {

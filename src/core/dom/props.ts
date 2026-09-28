@@ -387,8 +387,7 @@ export function applyInitialProps(
 }
 
 /** Write props that must follow the element's children. */
-function recordSelectUndo(pass: Pass, node: HostNode): void {
-  const select = node.el as HTMLSelectElement;
+function captureSelectUndo(select: HTMLSelectElement): () => void {
   const beforeValue = select.getAttribute('value');
   const beforeIndex = select.selectedIndex;
   const beforeOptions = Array.from(select.options, (option) => ({
@@ -396,7 +395,7 @@ function recordSelectUndo(pass: Pass, node: HostNode): void {
     selected: option.selected,
     attribute: option.hasAttribute('selected'),
   }));
-  pass.onReversibleCommit(() => {
+  return () => {
     if (beforeValue === null) select.removeAttribute('value');
     else select.setAttribute('value', beforeValue);
     for (const { option, attribute } of beforeOptions) {
@@ -409,7 +408,11 @@ function recordSelectUndo(pass: Pass, node: HostNode): void {
     } else {
       select.selectedIndex = beforeIndex;
     }
-  });
+  };
+}
+
+export function recordSelectUndo(pass: Pass, node: HostNode): void {
+  pass.onReversibleCommit(captureSelectUndo(node.el as HTMLSelectElement));
 }
 
 export function applyTrailingProps(
@@ -469,11 +472,22 @@ export function enclosingSelect(parent: Parent | null): HostNode | null {
 export function resyncSelect(select: HostNode): void {
   if (select.dormant || !('value' in select.props)) return;
   const value = select.props.value;
-  if (typeof value === 'function') {
-    select.bindings?.get('value')?.run();
-    return;
+  const resolved =
+    typeof value === 'function' ? readValue(value as () => unknown) : value;
+  const undo = captureSelectUndo(select.el as HTMLSelectElement);
+  try {
+    applyScalarPropValue(select.el, 'value', resolved, select.tag, undefined);
+  } catch (error) {
+    try {
+      undo();
+    } catch (rollbackError) {
+      throw new AggregateError(
+        [error, rollbackError],
+        'Controlled select resynchronization and rollback failed'
+      );
+    }
+    throw error;
   }
-  applyScalarPropValue(select.el, 'value', value, select.tag, undefined);
 }
 
 /** Record the writes that turn `previous` into `next` on a committed element. */

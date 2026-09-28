@@ -400,6 +400,7 @@ describe('SSR select value parity', () => {
         root: container,
         registry: routeRegistryFromTable([{ path: '/', handler: App }]),
       });
+      flushScheduler();
       const select = container.querySelector('select') as HTMLSelectElement;
       const before = select.outerHTML;
       const option = select.options[1];
@@ -416,6 +417,137 @@ describe('SSR select value parity', () => {
       expect(select.outerHTML).toBe(before);
       expect(select.value).toBe('a');
     } finally {
+      cleanup();
+    }
+  });
+
+  it('should roll back child options when controlled resync fails after selection mutates', async () => {
+    const { container, cleanup } = createTestContainer();
+    let setShowSecond!: (value: boolean) => void;
+    let shouldFail = false;
+    let didFail = false;
+    let restoreSetAttribute: (() => void) | undefined;
+    function App() {
+      const [showSecond, set] = state(false);
+      setShowSecond = set;
+      return (
+        <select value="b">
+          <option value="a">A</option>
+          {() => (showSecond() ? <option value="b">B</option> : null)}
+        </select>
+      );
+    }
+    try {
+      await createSPA({
+        root: container,
+        registry: routeRegistryFromTable([{ path: '/', handler: App }]),
+      });
+      const select = container.querySelector('select') as HTMLSelectElement;
+      const optionA = select.options[0];
+      const optionPrototype = Object.getPrototypeOf(optionA) as typeof optionA;
+      const setAttribute = optionPrototype.setAttribute;
+      restoreSetAttribute = () => {
+        optionPrototype.setAttribute = setAttribute;
+      };
+      optionPrototype.setAttribute = function (name, value) {
+        setAttribute.call(this, name, value);
+        if (
+          shouldFail &&
+          this.value === 'b' &&
+          name === 'selected' &&
+          !didFail
+        ) {
+          didFail = true;
+          throw new Error('selected attribute write failed');
+        }
+      };
+      shouldFail = true;
+      expect(() => {
+        setShowSecond(true);
+        flushScheduler();
+      }).toThrow('selected attribute write failed');
+
+      expect(didFail).toBe(true);
+      expect(Array.from(select.options)).toEqual([optionA]);
+      expect(select.options[0]).toBe(optionA);
+      expect(select.selectedIndex).toBe(-1);
+      expect(optionA.hasAttribute('selected')).toBe(false);
+      shouldFail = false;
+      setShowSecond(false);
+      flushScheduler();
+      setShowSecond(true);
+      flushScheduler();
+      expect(select.options).toHaveLength(2);
+      expect(select.value).toBe('b');
+    } finally {
+      restoreSetAttribute?.();
+      cleanup();
+    }
+  });
+
+  it('should roll back multiple selection and child options after a partial option write', async () => {
+    const { container, cleanup } = createTestContainer();
+    let setShowSecond!: (value: boolean) => void;
+    let shouldFail = false;
+    let didFail = false;
+    let restoreSetAttribute: (() => void) | undefined;
+    function App() {
+      const [showSecond, set] = state(false);
+      setShowSecond = set;
+      return (
+        <select multiple={true} value={['b']}>
+          <option value="a">A</option>
+          {() => (showSecond() ? <option value="b">B</option> : null)}
+        </select>
+      );
+    }
+    try {
+      await createSPA({
+        root: container,
+        registry: routeRegistryFromTable([{ path: '/', handler: App }]),
+      });
+      const select = container.querySelector('select') as HTMLSelectElement;
+      const optionA = select.options[0];
+      const optionPrototype = HTMLOptionElement.prototype;
+      const setAttribute = optionPrototype.setAttribute;
+      restoreSetAttribute = () => {
+        optionPrototype.setAttribute = setAttribute;
+      };
+      optionPrototype.setAttribute = function (name, value) {
+        setAttribute.call(this, name, value);
+        if (
+          shouldFail &&
+          this.value === 'b' &&
+          name === 'selected' &&
+          !didFail
+        ) {
+          didFail = true;
+          throw new Error('selected option write failed');
+        }
+      };
+      shouldFail = true;
+
+      expect(() => {
+        setShowSecond(true);
+        flushScheduler();
+      }).toThrow('selected option write failed');
+
+      expect(didFail).toBe(true);
+      expect(Array.from(select.options)).toEqual([optionA]);
+      expect(select.options[0]).toBe(optionA);
+      expect(Array.from(select.selectedOptions)).toEqual([]);
+      expect(optionA.hasAttribute('selected')).toBe(false);
+      shouldFail = false;
+      setShowSecond(false);
+      flushScheduler();
+      setShowSecond(true);
+      flushScheduler();
+      expect(select.options).toHaveLength(2);
+      expect(
+        Array.from(select.selectedOptions, (option) => option.value)
+      ).toEqual(['b']);
+    } finally {
+      restoreSetAttribute?.();
       cleanup();
     }
   });
