@@ -86,13 +86,18 @@ export function createRoot(
         for (const deferred of cursor?.deferred ?? []) deferred.render();
         const adopting = ctx.hydrate !== null;
         pass.op(() => {
-          node.children = children;
           const before = node.tail?.parentNode === container ? node.tail : null;
           const dom = children.flatMap((child) => collectDom(child));
           if (adopting) {
-            syncChildren(container, dom, before);
+            const previous = node.children;
+            pass.onReversibleCommit(() => {
+              node.children = previous;
+            });
+            syncChildren(pass, container, dom, before);
+            node.children = children;
             return;
           }
+          node.children = children;
           if (!before) {
             // A fresh root owns its container: it replaces what was there
             // (a loading placeholder, markup it is not hydrating).

@@ -152,11 +152,12 @@ unit/check/jsdom/browser suites, public type tests, and packed-consumer
 validation. Run performance benchmarks when a change affects a measured hot
 path; a green functional suite does not establish a performance result.
 
-Recent commit-rollback qualification covers provisional hydration text claims,
-ordinary adopted attributes, reflected class/style writes, attribute-backed
-binding transitions, and static or bound input value, checkbox checked, and
-option selected state. Structural child placement also has rollback coverage
-for ordinary reconciliation failures.
+Recent commit-rollback qualification covers provisional hydration text claims
+and corrections, unrendered server attribute cleanup, ordinary adopted
+attributes, reflected class/style writes, attribute-backed binding
+transitions, and static or bound input value, checkbox checked, and option
+selected state. Adopted root and nested child synchronization also restores
+DOM order and root child state after a failed mutation.
 
 Portal channel writes settle when the writer's render commits. This queues
 the host update before the scheduler revisits portal descendants whose inputs
@@ -168,11 +169,10 @@ stale props.
 The following live-DOM paths still need focused failure injection and review
 before the comprehensive architecture audit is complete:
 
-- `syncChildren()` reorders, inserts, and removes adopted nodes during
-  hydration. Confirm that partial failure restores the original sibling list.
-- Hydration removes server attributes that rendered props do not claim, and
-  corrects mismatched text nodes. Confirm that a later commit abort restores
-  those mutations too.
+- Dormant-host activation clears `node.dormant`, removes its weak-map entry and
+  marker, and cleans up server attributes. Confirm all lifecycle state and DOM
+  changes roll back if activation cleanup fails, so the boundary remains
+  retryable.
 - Property-only props, custom-element properties, `dangerouslySetInnerHTML`,
   and controlled select value writes need targeted rollback qualification.
 
