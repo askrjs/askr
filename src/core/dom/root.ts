@@ -120,10 +120,17 @@ export function createRoot(
       commit() {
         if (settled) return;
         settled = true;
-        mounted = true;
-        hydrate = false;
         releaseEvents ??= registerEventRoot(container);
-        pass.commit();
+        try {
+          pass.commit();
+        } finally {
+          // An aborted initial pass leaves the root fresh so the caller can
+          // prepare again against the same empty or server-rendered DOM.
+          if (!pass.commitAborted) {
+            mounted = true;
+            hydrate = false;
+          }
+        }
       },
       discard() {
         if (settled) return [];

@@ -164,6 +164,8 @@ attribute state, and property ownership map when a setter or later commit
 operation fails. A custom setter that also throws while restoring its prior
 value cannot be made transactional by the renderer; rollback continues for
 attributes and ownership metadata, and reports the property restoration error.
+An initial root that aborts its first commit stays fresh or hydrating so a
+retry can reuse the original container contents.
 
 Portal channel writes settle when the writer's render commits. This queues
 the host update before the scheduler revisits portal descendants whose inputs
