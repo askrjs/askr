@@ -385,7 +385,7 @@ function createResource<T>(
       // No publish: this is still render.
     }
   } else {
-    cell.setLoader(fn);
+    onCommit(inst, () => cell.setLoader(fn));
     if (h.uncommittedDeps) {
       // A render proposed different deps but was rolled back before commit,
       // and this render is back on the committed deps: drop the loading state
