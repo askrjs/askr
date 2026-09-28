@@ -5,6 +5,7 @@
  */
 
 import { isRouteActivityActive } from '../../common/route-activity';
+import { recordUndo } from '../component/journal';
 import { Computation } from '../reactive/graph';
 import {
   effectScheduler,
@@ -31,7 +32,11 @@ export function task(
   if (!instance) return;
   const slot = hookSlot(instance, 'task', () => ({ started: false, fn }));
   if (slot.started || instance.server) return;
+  const previous = slot.fn;
   slot.fn = fn;
+  recordUndo(() => {
+    slot.fn = previous;
+  });
   onCommit(instance, () => {
     if (slot.started) return;
     slot.started = true;
