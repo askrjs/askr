@@ -1,6 +1,8 @@
 import type { RouteAuthOptions, RouteRegistry } from './router';
 
 export interface AppRenderRuntime {
+  /** Resource values retained for deferred hydration work. */
+  hydrationResources?: Readonly<Record<string, unknown>>;
   framework: Readonly<Record<string, unknown>>;
   route: unknown;
   hasRoute: boolean;
@@ -21,6 +23,7 @@ export function createAppRenderRuntime(
   input: Partial<AppRenderRuntime> = {}
 ): AppRenderRuntime {
   return {
+    hydrationResources: input.hydrationResources,
     framework: Object.freeze({ ...input.framework }),
     route: input.route,
     hasRoute: input.hasRoute ?? false,

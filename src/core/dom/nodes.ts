@@ -444,9 +444,13 @@ let hydratingRender: { ctx: RenderContext; node: ComponentNode } | null = null;
 function renderComponent(ctx: RenderContext, node: ComponentNode): unknown {
   const previous = hydratingRender;
   hydratingRender = ctx.hydrate ? { ctx, node } : null;
+  node.instance.hydrationResourceKeys = ctx.hydrate
+    ? ctx.hydrate.cursor.claimResourceSlots(ctx.hydrate.container)
+    : null;
   try {
     return node.instance.render((undo) => ctx.pass.onDiscard(undo));
   } finally {
+    node.instance.hydrationResourceKeys = null;
     hydratingRender = previous;
   }
 }

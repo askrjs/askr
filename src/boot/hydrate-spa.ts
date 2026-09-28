@@ -102,6 +102,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       registry: config.registry,
       auth: routeAuth,
       runtime: createAppRenderRuntime({
+        hydrationResources: hydrationRenderDataForApp?.resources,
         framework: hydrationRenderDataForApp?.framework,
         route: hydrationRenderData?.route,
         hasRoute: hydrationRenderData !== null,

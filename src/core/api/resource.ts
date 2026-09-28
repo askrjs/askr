@@ -27,6 +27,7 @@ import {
   notify,
   onCommit,
   readSource,
+  currentAppRuntime,
   type ComponentInstance,
   type ReadableSource,
 } from './hooks';
@@ -62,7 +63,9 @@ function resolveResourceRenderData(): {
   renderData: Record<string, unknown> | undefined;
   hasPreloadedData: boolean;
 } {
-  const renderData = getCurrentRenderData()?.resources;
+  const renderData =
+    getCurrentRenderData()?.resources ??
+    currentAppRuntime()?.hydrationResources;
   const hasPreloadedData = Boolean(
     renderData &&
     (getActiveRenderContext()?.resourceDataProvided ||
@@ -174,10 +177,22 @@ function createResource<T>(
   // values must consult the same key so mixed pages stay aligned.
   const { renderData, hasPreloadedData: hasPreloadedResourceData } =
     resolveResourceRenderData();
+  const componentKey =
+    inst.hydrationResourceKeys === null
+      ? undefined
+      : inst.hydrationResourceKeys[inst.hydrationResourceIndex++];
+  if (inst.hydrationResourceKeys !== null && !componentKey) {
+    throwSSRDataMissing();
+  }
   const renderKey =
-    inst.server || hasPreloadedResourceData ? getNextRenderKey() : null;
+    componentKey ??
+    (inst.server || hasPreloadedResourceData ? getNextRenderKey() : null);
+  if (inst.server && renderKey) inst.serverResourceKeys.push(renderKey);
   const verificationSnapshot = renderKey
-    ? getResourceVerificationSnapshot(renderKey)
+    ? getResourceVerificationSnapshot(
+        renderKey,
+        getCurrentRenderData()?.framework ?? currentAppRuntime()?.framework
+      )
     : null;
 
   // A concrete preloaded value is authoritative even if stale framework
