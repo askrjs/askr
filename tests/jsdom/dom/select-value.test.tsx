@@ -139,6 +139,126 @@ describe('select value ownership', () => {
       }
     });
 
+    it('should abort child option changes when a bound select write is caught by an error boundary', () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      let options!: State<string[]>;
+      let chosen!: State<string>;
+      let select!: HTMLSelectElement;
+      let didFail = false;
+      const errors: unknown[] = [];
+      function App() {
+        options = state(['a']);
+        chosen = state('b');
+        return (
+          <ErrorBoundary
+            fallback={<p id="select-fallback">{'fallback'}</p>}
+            onError={(error) => errors.push(error)}
+          >
+            <select
+              value={() => chosen()}
+              ref={(element) => {
+                if (element) select = element as HTMLSelectElement;
+              }}
+            >
+              <For each={options} by={(value) => value}>
+                {(value) => <option value={value}>{value}</option>}
+              </For>
+            </select>
+          </ErrorBoundary>
+        );
+      }
+      const { container, cleanup } = createTestContainer();
+      const originalSetAttribute = HTMLOptionElement.prototype.setAttribute;
+      try {
+        createIsland({ root: container, component: App });
+        flushScheduler();
+        const optionA = select.options[0];
+        const setAttribute = originalSetAttribute;
+        HTMLOptionElement.prototype.setAttribute = function (name, value) {
+          setAttribute.call(this, name, value);
+          if (this.value === 'b' && name === 'selected' && !didFail) {
+            didFail = true;
+            throw new Error('bound select write failed');
+          }
+        };
+
+        options.set(['a', 'b']);
+        flushScheduler();
+
+        expect(didFail).toBe(true);
+        expect(errors).toHaveLength(1);
+        expect(Array.from(select.options)).toEqual([optionA]);
+        expect(select.options[0]).toBe(optionA);
+        expect(optionA.selected).toBe(false);
+      } finally {
+        HTMLOptionElement.prototype.setAttribute = originalSetAttribute;
+        vi.restoreAllMocks();
+        cleanup();
+      }
+    });
+
+    it('should restore selection when a bound option value resync fails', () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      let optionValue!: State<string>;
+      let select!: HTMLSelectElement;
+      let optionB!: HTMLOptionElement;
+      let didFail = false;
+      const errors: unknown[] = [];
+      function App() {
+        optionValue = state('x');
+        return (
+          <ErrorBoundary
+            fallback={<p id="option-fallback">{'fallback'}</p>}
+            onError={(error) => errors.push(error)}
+          >
+            <select
+              value="b"
+              ref={(element) => {
+                if (element) select = element as HTMLSelectElement;
+              }}
+            >
+              <option value="a">A</option>
+              <option
+                value={() => optionValue()}
+                ref={(element) => {
+                  if (element) optionB = element as HTMLOptionElement;
+                }}
+              >
+                B
+              </option>
+            </select>
+          </ErrorBoundary>
+        );
+      }
+      const { container, cleanup } = createTestContainer();
+      const originalSetAttribute = HTMLOptionElement.prototype.setAttribute;
+      try {
+        createIsland({ root: container, component: App });
+        flushScheduler();
+        HTMLOptionElement.prototype.setAttribute = function (name, value) {
+          originalSetAttribute.call(this, name, value);
+          if (this.value === 'b' && name === 'selected' && !didFail) {
+            didFail = true;
+            throw new Error('bound option resync failed');
+          }
+        };
+
+        optionValue.set('b');
+        flushScheduler();
+
+        expect(didFail).toBe(true);
+        expect(errors).toHaveLength(1);
+        expect(select.selectedIndex).toBe(-1);
+        expect(optionB.selected).toBe(false);
+        expect(optionB.hasAttribute('selected')).toBe(false);
+        expect(optionB.value).toBe('b');
+      } finally {
+        HTMLOptionElement.prototype.setAttribute = originalSetAttribute;
+        vi.restoreAllMocks();
+        cleanup();
+      }
+    });
+
     it('should keep the value after a boundary rewinds part of the pass', () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       let options!: State<string[]>;

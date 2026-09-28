@@ -174,6 +174,8 @@ renderer state when a live insertion or removal fails during commit.
 Controlled selects now resynchronize after option placement but before pass
 journals settle. If that write fails, the pass restores the option DOM and
 prior selection, including the selected state of detached option nodes.
+Resynchronization also restores its local selection snapshot before a bound
+option value update can deliver the failure to an error boundary.
 
 Portal channel writes settle when the writer's render commits. This queues
 the host update before the scheduler revisits portal descendants whose inputs
@@ -182,11 +184,11 @@ stale props.
 
 ## Open audit boundaries
 
-Controlled-select child resynchronization is now covered by mutate-then-throw
-failure injection for scalar and multiple values. The comprehensive audit
-continues across pass journaling, reconciliation, hydration, and SSR parity;
-record additional boundaries here only when review establishes a concrete
-unqualified path.
+Controlled-select child and bound-option resynchronization are now covered by
+mutate-then-throw failure injection for scalar and multiple values, including
+an error boundary. The comprehensive audit continues across pass journaling,
+reconciliation, hydration, and SSR parity; record additional boundaries here
+only when review establishes a concrete unqualified path.
 
 Use a focused regression for each confirmed defect, then run the full required
 gates on the exact PR head. Keep open questions separate from verified
