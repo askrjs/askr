@@ -132,6 +132,64 @@ describe('no partial DOM (DOM)', () => {
     expect(probe.hasAttribute('config')).toBe(false);
   });
 
+  it('should restore a custom-element property when its attribute transition fails', () => {
+    const tag = 'x-property-transition-rollback';
+    if (!customElements.get(tag)) {
+      class PropertyTransitionRollback extends HTMLElement {
+        private value: unknown;
+        get config(): unknown {
+          return this.value;
+        }
+        set config(value: unknown) {
+          this.value = value;
+        }
+      }
+      customElements.define(tag, PropertyTransitionRollback);
+    }
+
+    const previous = { mode: 'property' };
+    let setAttributeValue!: (enabled: boolean) => void;
+    const App = () => {
+      const enabled = state(false);
+      setAttributeValue = enabled.set;
+      return element(tag, {
+        config: enabled() ? 'attribute' : previous,
+      });
+    };
+
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const probe = container.querySelector(tag) as HTMLElement & {
+      config: unknown;
+    };
+    expect(probe.config).toBe(previous);
+    const originalSetAttribute = probe.setAttribute.bind(probe);
+    const failure = new Error('attribute transition failed');
+    let shouldThrow = true;
+    vi.spyOn(probe, 'setAttribute').mockImplementation((name, value) => {
+      originalSetAttribute(name, value);
+      if (shouldThrow && name === 'config' && value === 'attribute') {
+        shouldThrow = false;
+        throw failure;
+      }
+    });
+
+    expect(() => {
+      setAttributeValue(true);
+      flushScheduler();
+    }).toThrow(failure);
+    expect(probe.hasAttribute('config')).toBe(false);
+    expect(probe.config).toBe(previous);
+
+    shouldThrow = false;
+    setAttributeValue(false);
+    flushScheduler();
+    setAttributeValue(true);
+    flushScheduler();
+    expect(probe.config).toBeUndefined();
+    expect(probe.getAttribute('config')).toBe('attribute');
+  });
+
   it('should restore an earlier property when a later property write aborts', () => {
     const tag = 'x-later-property-failure';
     const failure = new Error('later property failed');
