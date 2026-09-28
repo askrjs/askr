@@ -67,6 +67,13 @@ describe('hydration prop rollback', () => {
     expect(host.config).toBeUndefined();
     expect(host.getAttribute('config')).toBe('server');
 
+    host.throwOn = undefined;
+    root.prepare(<x-hydrate-prop-rollback config={config} />).commit();
+    expect(container.querySelectorAll(tag)).toHaveLength(1);
+    expect(container.firstElementChild).toBe(host);
+    expect(host.config).toBe(config);
+    expect(host.hasAttribute('config')).toBe(false);
+
     root.dispose();
   });
 
