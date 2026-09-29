@@ -77,6 +77,8 @@ A change is ready when:
 3. Docs reflect user-facing changes.
 4. Diff is scoped and reviewable.
 
+Any change to the `version` field in `package.json`, whether a release, prerelease, or patch bump, must include a matching `## <version>` section in `CHANGELOG.md` in the same commit or pull request. Date the section and list breaking changes (with migration notes), deprecations, additions, and fixes. Move entries from `Unreleased` into the new version section rather than leaving them there. Do not publish or tag a version whose changelog section is missing.
+
 ## When Unsure
 
 Default to the canonical Askr approach:
