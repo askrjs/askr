@@ -578,7 +578,9 @@ remains in the route tree; leaving the layout disposes that work.
 `navigate(path, { state })` stores transient state on the destination browser
 history entry without serializing it into the URL. Push, replace, redirects,
 and Back/Forward preserve entry ownership. The state is browser-only and is
-therefore absent from SSR and SSG snapshots.
+therefore absent from SSR and SSG snapshots, even when server rendering runs
+in a process with a browser-like `window`. Client rendering and hydration read
+the state from the current browser entry.
 
 When no registered app can render the destination, because no route or
 `fallback()` matches it or it is outside every registry's `basePath`, Askr hands

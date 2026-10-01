@@ -98,6 +98,9 @@ export function onRouteChange(
 let serverLocation: string | null = null;
 
 function readLocationState(): { hasState: boolean; state: unknown } {
+  if (getActiveRenderContext()?.mode === 'ssr') {
+    return { hasState: false, state: undefined };
+  }
   const historyState =
     typeof window !== 'undefined' && window.history?.state
       ? window.history.state
