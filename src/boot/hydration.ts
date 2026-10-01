@@ -65,7 +65,10 @@ function hydrationReviver(_key: string, value: unknown): unknown {
 
 function parseHydrationRenderData(raw: string): unknown {
   const value: unknown = JSON.parse(raw);
-  if (!isPageRenderEnvelope(value) || !Object.hasOwn(value, 'deferredPaths')) {
+  if (
+    !isPageRenderEnvelope(value) ||
+    !Object.prototype.hasOwnProperty.call(value, 'deferredPaths')
+  ) {
     // Existing published pages do not carry location metadata.
     return JSON.parse(raw, hydrationReviver);
   }
@@ -90,7 +93,7 @@ function parseHydrationRenderData(raw: string): unknown {
       if (
         !parent ||
         typeof parent !== 'object' ||
-        !Object.hasOwn(parent, key)
+        !Object.prototype.hasOwnProperty.call(parent, key)
       ) {
         throw new TypeError('Missing deferred hydration location.');
       }
@@ -101,7 +104,7 @@ function parseHydrationRenderData(raw: string): unknown {
       path.length === 0 ||
       !parent ||
       typeof parent !== 'object' ||
-      !Object.hasOwn(parent, key)
+      !Object.prototype.hasOwnProperty.call(parent, key)
     ) {
       throw new TypeError('Missing deferred hydration location.');
     }
