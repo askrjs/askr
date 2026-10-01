@@ -14,7 +14,11 @@ import type { RouteContext } from '../common/router';
 import { createRouteRegistry, route as defineRoute } from '../router/route';
 import type { SSRData } from '../common/ssr';
 import { resolveSsgRouteData } from './resolve-ssg-data';
-import { getOutputFilePath, interpolateRoutePath } from './route-utils';
+import {
+  getOutputFilePath,
+  interpolateRoutePath,
+  interpolateRouteUrl,
+} from './route-utils';
 import { resolveDeferredValues } from '../router/deferred';
 import { bindResolvedRouteData } from '../router/resolution';
 import { _preloadRouteHandler } from '../router/lazy';
@@ -69,10 +73,11 @@ export async function batchRenderRoutes(
 
   const renderOne = async (route: RouteConfig): Promise<RouteRenderResult> => {
     const startTime = performance.now();
-    const url = interpolateRoutePath(route.path, route.params);
+    const path = interpolateRoutePath(route.path, route.params);
+    const url = interpolateRouteUrl(route.path, route.params);
     const publicUrl = addRouteBasePath(url, route.basePath ?? '');
     const requestUrl = new URL(url, 'http://localhost');
-    const resolvedData = resolveSsgRouteData(dataMap, route.path, url);
+    const resolvedData = resolveSsgRouteData(dataMap, route.path, path);
     const baseData = resolvedData.hasData ? resolvedData.data : undefined;
     const resourceCount =
       resolvedData.hasData && baseData ? Object.keys(baseData).length : 0;
@@ -175,8 +180,8 @@ export async function batchRenderRoutes(
 
       const duration = performance.now() - startTime;
       return {
-        path: url,
-        filePath: getOutputFilePath(url),
+        path,
+        filePath: getOutputFilePath(path),
         html,
         fileSize: Buffer.byteLength(html, 'utf8'),
         renderDuration: Math.round(duration),
@@ -188,8 +193,8 @@ export async function batchRenderRoutes(
     } catch (error) {
       const duration = performance.now() - startTime;
       return {
-        path: url,
-        filePath: getOutputFilePath(url),
+        path,
+        filePath: getOutputFilePath(path),
         html: '',
         fileSize: 0,
         renderDuration: Math.round(duration),

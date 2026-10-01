@@ -137,6 +137,15 @@ const ssg = createStaticGen({
 Declare a template once: registering the same path twice throws, so every page
 of a template comes from its `entries()`.
 
+Named splats use the parameter name without the leading star in each entry:
+`route('/docs/{*path}', DocsPage, { entries: () => [{ path: 'guide/start' }] })`.
+The render URL encodes entry values with the same rules as `to()`, so a slug
+such as `a#b` stays a parameter rather than becoming a fragment. Generated
+`path`, `filePath`, concrete `dataOverrides` keys, and `changedRoutes` retain
+their existing entry spelling; spaces, Unicode, and literal percent signs in
+filenames are preserved. The document callback receives the encoded render URL.
+Dot segments and backslashes remain invalid in concrete output paths.
+
 `invalidationKeys` on `route()` applies to the template, so every page its
 `entries()` generate shares those keys during incremental generation
 (`generate({ mode: 'incremental', changedKeys })`). To rebuild individual

@@ -1,4 +1,5 @@
 import type { RouteConfig } from './types';
+import { encodePathSegment } from '../router/match';
 
 export interface ResolvedRouteDescriptor {
   route: RouteConfig;
@@ -65,10 +66,34 @@ export function interpolateRoutePath(
   params?: Record<string, string>
 ): string {
   if (!params) return routePath;
-  return routePath.replace(
-    /\{([^}]+)\}/g,
-    (_, key: string) => params[key] ?? ''
-  );
+  return routePath.replace(/\{([^}]+)\}/g, (_, key: string) => {
+    const normalized = key.trim();
+    const name = normalized.startsWith('*')
+      ? normalized.slice(1).trim()
+      : normalized;
+    return params[name] ?? '';
+  });
+}
+
+/** Encode the render URL while retaining the existing concrete output path. */
+export function interpolateRouteUrl(
+  routePath: string,
+  params?: Record<string, string>
+): string {
+  const rawPath = interpolateRoutePath(routePath, params);
+  // Keep the output-path traversal rejection before encoding parameters.
+  // Otherwise encoding could disguise a formerly rejected dot segment.
+  assertSafeRoutePath(rawPath);
+  if (!params) return routePath;
+  return routePath.replace(/\{([^}]+)\}/g, (_, key: string) => {
+    const normalized = key.trim();
+    const splat = normalized.startsWith('*');
+    const name = splat ? normalized.slice(1).trim() : normalized;
+    const value = params[name] ?? '';
+    return splat
+      ? value.split('/').map(encodePathSegment).join('/')
+      : encodePathSegment(value);
+  });
 }
 
 export function resolveRouteDescriptor(
