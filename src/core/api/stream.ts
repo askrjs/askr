@@ -194,6 +194,31 @@ async function consume<T>(
   }
 }
 
+function failGeneration<T>(
+  slot: StreamSlot<T>,
+  generation: StreamGeneration<T>,
+  error: unknown
+): void {
+  if (!isCurrent(slot, generation)) return;
+
+  stopGeneration(generation);
+  // Cleanup invokes user abort listeners and iterator.return(). Either may
+  // make a newer lifecycle decision that this failure must not replace.
+  if (
+    slot.disposed ||
+    slot.current !== generation ||
+    slot.generation !== generation.id
+  ) {
+    return;
+  }
+  slot.current = null;
+  slot.snapshot.status = 'error';
+  slot.snapshot.pending = false;
+  slot.snapshot.stale = slot.hasValue;
+  slot.snapshot.error = toError(error);
+  publish(slot);
+}
+
 function startSlot<T>(slot: StreamSlot<T>): void {
   if (!slot.activated || slot.disposed) {
     return;
@@ -224,31 +249,14 @@ function startSlot<T>(slot: StreamSlot<T>): void {
   try {
     result = slot.source({ signal: generation.controller.signal });
   } catch (error) {
-    if (!isCurrent(slot, generation)) {
-      return;
-    }
-    slot.current = null;
-    slot.snapshot.status = 'error';
-    slot.snapshot.pending = false;
-    slot.snapshot.stale = slot.hasValue;
-    slot.snapshot.error = toError(error);
-    publish(slot);
+    failGeneration(slot, generation, error);
     return;
   }
 
   void Promise.resolve(result)
     .then((iterable) => consume(slot, generation, iterable))
     .catch((error: unknown) => {
-      if (!isCurrent(slot, generation)) {
-        return;
-      }
-
-      slot.current = null;
-      slot.snapshot.status = 'error';
-      slot.snapshot.pending = false;
-      slot.snapshot.stale = slot.hasValue;
-      slot.snapshot.error = toError(error);
-      publish(slot);
+      failGeneration(slot, generation, error);
     });
 }
 

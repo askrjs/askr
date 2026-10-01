@@ -112,7 +112,10 @@ Changing the input or `deps` restarts an active stream; changing only the
 connect function does not. The adapter owns
 cursor resume, deduplication, gap recovery, retry, and backoff policy. On
 completion the status becomes `closed`; non-abort failures become `error` while
-retaining the latest value. Component cleanup aborts the generation, calls the
+retaining the latest value. A failed generation is aborted and its iterator is
+returned before the error is published. A `restart()` or `close()` called by an
+abort listener or iterator cleanup takes precedence over that failure.
+Component cleanup aborts the generation, calls the
 iterator's `return()` at most once, and ignores late yields or rejections.
 
 ### `timer(intervalMs, callback, options?)`
