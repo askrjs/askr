@@ -74,6 +74,11 @@ Their existing bindings keep tracking the committed dependencies, so rejected
 prop values cannot leak into the DOM after rollback. A later successful render
 can still replace those computations normally.
 
+Replacing an element's ref clears the old ref before attaching the new one.
+Both callbacks are attempted even when one throws; errors are reported after
+the committed update, with multiple callback failures grouped in an
+`AggregateError`.
+
 ```tsx
 function Counter() {
   const count = state(1);
