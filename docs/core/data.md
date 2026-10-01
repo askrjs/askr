@@ -223,6 +223,8 @@ publish a new query state: if invalidation already aborted a running request, it
 last snapshot can still report `refreshing` until a later explicit refresh.
 Late results or errors from the aborted request cannot replace that snapshot,
 even if its fetch ignores the abort signal.
+Invalidation retires an in-flight result immediately, including one whose
+promise has settled but whose continuation has not yet published its data.
 
 Manual calls to `refresh()` coalesce while a request is pending. `invalidate()`
 is the distinct operation that replaces stale work; rapid invalidations before

@@ -433,6 +433,7 @@ export class QueryCell<T> {
 
     if (this.pendingRefresh) {
       if (this.pendingRefreshKind === 'invalidation') {
+        this.generation += 1;
         this.controller?.abort();
         this.queueStart(undefined, 'manual', true);
         return this.pendingRefresh ?? Promise.resolve();
@@ -474,6 +475,7 @@ export class QueryCell<T> {
     if (this.pendingRefresh) {
       // Invalidation supersedes stale work. Manual refreshes, by contrast,
       // are equivalent requests and share the in-flight generation.
+      this.generation += 1;
       this.controller?.abort();
       this.queueStart(undefined, 'invalidation', true);
       return this.pendingRefresh ?? Promise.resolve();
