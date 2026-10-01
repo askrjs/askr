@@ -13,30 +13,33 @@
  * Custom elements (a tag name containing `-`) define their own attributes, so
  * they only get this base table and never the SVG table below.
  */
-const PUBLIC_ATTRIBUTE_NAME_MAP: Record<string, string> = {
-  className: 'class',
-  htmlFor: 'for',
-  autoComplete: 'autocomplete',
-  colSpan: 'colspan',
-  contentEditable: 'contenteditable',
-  enterKeyHint: 'enterkeyhint',
-  inputMode: 'inputmode',
-  maxLength: 'maxlength',
-  minLength: 'minlength',
-  noValidate: 'novalidate',
-  readOnly: 'readonly',
-  rowSpan: 'rowspan',
-  spellCheck: 'spellcheck',
-  tabIndex: 'tabindex',
-  writingSuggestions: 'writingsuggestions',
-  strokeWidth: 'stroke-width',
-  strokeLinecap: 'stroke-linecap',
-  strokeLinejoin: 'stroke-linejoin',
-  fillRule: 'fill-rule',
-  clipRule: 'clip-rule',
-};
+const PUBLIC_ATTRIBUTE_NAME_MAP: Record<string, string> = Object.assign(
+  Object.create(null) as Record<string, string>,
+  {
+    className: 'class',
+    htmlFor: 'for',
+    autoComplete: 'autocomplete',
+    colSpan: 'colspan',
+    contentEditable: 'contenteditable',
+    enterKeyHint: 'enterkeyhint',
+    inputMode: 'inputmode',
+    maxLength: 'maxlength',
+    minLength: 'minlength',
+    noValidate: 'novalidate',
+    readOnly: 'readonly',
+    rowSpan: 'rowspan',
+    spellCheck: 'spellcheck',
+    tabIndex: 'tabindex',
+    writingSuggestions: 'writingsuggestions',
+    strokeWidth: 'stroke-width',
+    strokeLinecap: 'stroke-linecap',
+    strokeLinejoin: 'stroke-linejoin',
+    fillRule: 'fill-rule',
+    clipRule: 'clip-rule',
+  }
+);
 
-const SVG_ATTRIBUTE_NAME_MAP: Record<string, string> = {};
+const SVG_ATTRIBUTE_NAME_MAP: Record<string, string> = Object.create(null);
 
 /**
  * SVG presentation attributes are hyphenated, and the XML-namespaced ones use
@@ -72,11 +75,14 @@ export function getPublicAttributeName(
   );
 }
 
-const ATTRIBUTE_PREFIX_NAMESPACES: Record<string, string> = {
-  xlink: 'http://www.w3.org/1999/xlink',
-  xml: 'http://www.w3.org/XML/1998/namespace',
-  xmlns: 'http://www.w3.org/2000/xmlns/',
-};
+const ATTRIBUTE_PREFIX_NAMESPACES: Record<string, string> = Object.assign(
+  Object.create(null) as Record<string, string>,
+  {
+    xlink: 'http://www.w3.org/1999/xlink',
+    xml: 'http://www.w3.org/XML/1998/namespace',
+    xmlns: 'http://www.w3.org/2000/xmlns/',
+  }
+);
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 const MATHML_NAMESPACE = 'http://www.w3.org/1998/Math/MathML';

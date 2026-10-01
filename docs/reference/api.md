@@ -65,6 +65,10 @@ Public types:
   on HTML elements too. Custom elements (tag names containing `-`) skip the SVG mapping and keep
   their prop names. Prefixed names go into the `xlink`/`xml` namespaces only on SVG and MathML
   elements, the same as the HTML parser.
+  Attribute aliases do not inherit object properties: ordinary names such as
+  `constructor` and `toString` remain literal attributes, and unknown namespace
+  prefixes remain unnamespaced. Use `attr:` for names beginning with `_`, which
+  SSR otherwise reserves for internal props.
 
   Values follow the usual JSX conventions on both client and server. A `true` HTML boolean
   attribute renders bare, and `false`, `null`, and `undefined` remove the attribute, except for
