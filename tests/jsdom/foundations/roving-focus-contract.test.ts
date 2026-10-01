@@ -2,6 +2,50 @@ import { describe, expect, it, vi } from 'vite-plus/test';
 import { rovingFocus } from '@askrjs/askr/foundations/interactions';
 
 describe('rovingFocus contract helpers (FOUNDATIONS)', () => {
+  it.each([
+    ['horizontal', 'ArrowRight'],
+    ['horizontal', 'ArrowLeft'],
+    ['vertical', 'ArrowDown'],
+    ['vertical', 'ArrowUp'],
+  ] as const)(
+    'should preserve a captured %s %s cancellation without navigating or stopping propagation',
+    (orientation, key) => {
+      const onNavigate = vi.fn();
+      const onBubble = vi.fn();
+      const parent = document.createElement('div');
+      const host = document.createElement('div');
+      const navigation = rovingFocus({
+        currentIndex: 1,
+        itemCount: 3,
+        orientation,
+        onNavigate,
+      });
+      parent.addEventListener(
+        'keydown',
+        (event) => event.preventDefault(),
+        true
+      );
+      parent.addEventListener('keydown', onBubble);
+      host.addEventListener('keydown', navigation.container.onKeyDown);
+      parent.append(host);
+      document.body.append(parent);
+      try {
+        const event = new KeyboardEvent('keydown', {
+          key,
+          bubbles: true,
+          cancelable: true,
+        });
+        const preventDefault = vi.spyOn(event, 'preventDefault');
+        expect(host.dispatchEvent(event)).toBe(false);
+        expect(onNavigate).not.toHaveBeenCalled();
+        expect(preventDefault).toHaveBeenCalledTimes(1);
+        expect(onBubble).toHaveBeenCalledTimes(1);
+      } finally {
+        parent.remove();
+      }
+    }
+  );
+
   it('should move to the next enabled item and keep a single tab stop', () => {
     const onNavigate = vi.fn();
     const navigation = rovingFocus({

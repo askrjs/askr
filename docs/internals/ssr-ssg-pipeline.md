@@ -64,6 +64,16 @@ flowchart LR
 
 ## SSR Implementation Ownership
 
+Sibling components can supply private reference metadata for accessible IDs
+that are discovered later in the same rendered root. The renderer buffers that
+root and carries string or omitted-value cells for `aria-labelledby`,
+`aria-describedby`, and `aria-controls` through successful boundary buffers.
+It expands portal content before serializing those reference cells, while all
+ordinary props keep their existing evaluation, ownership, and error handling.
+No component or caller attribute function runs again. This internal bridge
+does not add public JSX props; roots without the private marker keep their
+existing serialization order and bytes.
+
 `src/ssr/index.ts` preserves the public entrypoint. The active implementation
 is split between route/document orchestration in `route-render.ts` and
 synchronous serialization in `render-sync.ts`. `index-internal.ts` keeps the

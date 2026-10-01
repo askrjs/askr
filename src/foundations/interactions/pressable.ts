@@ -74,6 +74,7 @@ export function pressable({
         e.stopPropagation?.();
         return;
       }
+      if (e.defaultPrevented) return;
       onPress?.(e);
     },
   };
@@ -95,6 +96,7 @@ export function pressable({
       e.stopPropagation?.();
       return;
     }
+    if (e.defaultPrevented) return;
 
     if (e.key === 'Enter') {
       e.preventDefault?.();
@@ -114,6 +116,7 @@ export function pressable({
       e.stopPropagation?.();
       return;
     }
+    if (e.defaultPrevented) return;
     if (e.key === ' ') {
       e.preventDefault?.();
       onPress?.(e);

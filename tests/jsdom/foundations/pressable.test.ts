@@ -2,6 +2,113 @@ import { describe, it, expect, vi } from 'vite-plus/test';
 import { pressable } from '../../../src/foundations/interactions/pressable';
 
 describe('pressable (FOUNDATIONS)', () => {
+  it.each([false, true])(
+    'should honor a captured click cancellation for native-button mode %s',
+    (isNativeButton) => {
+      const onPress = vi.fn();
+      const onBubble = vi.fn();
+      const parent = document.createElement('div');
+      const host = document.createElement(isNativeButton ? 'button' : 'div');
+      const props = pressable({ isNativeButton, onPress });
+      parent.addEventListener('click', (event) => event.preventDefault(), true);
+      parent.addEventListener('click', onBubble);
+      host.addEventListener('click', props.onClick);
+      parent.append(host);
+      document.body.append(parent);
+
+      try {
+        const event = new MouseEvent('click', {
+          bubbles: true,
+          cancelable: true,
+        });
+        expect(host.dispatchEvent(event)).toBe(false);
+        expect(event.defaultPrevented).toBe(true);
+        expect(onPress).not.toHaveBeenCalled();
+        expect(onBubble).toHaveBeenCalledTimes(1);
+      } finally {
+        parent.remove();
+      }
+    }
+  );
+
+  it.each([
+    ['keydown', 'Enter'],
+    ['keydown', ' '],
+    ['keyup', ' '],
+  ] as const)(
+    'should honor a captured %s cancellation for key %s',
+    (type, key) => {
+      const onPress = vi.fn();
+      const onBubble = vi.fn();
+      const parent = document.createElement('div');
+      const host = document.createElement('div');
+      const props = pressable({ onPress });
+      parent.addEventListener(type, (event) => event.preventDefault(), true);
+      parent.addEventListener(type, onBubble);
+      host.addEventListener(
+        type,
+        type === 'keydown' ? props.onKeyDown! : props.onKeyUp!
+      );
+      parent.append(host);
+      document.body.append(parent);
+
+      try {
+        const event = new KeyboardEvent(type, {
+          key,
+          bubbles: true,
+          cancelable: true,
+        });
+        const preventDefault = vi.spyOn(event, 'preventDefault');
+        expect(host.dispatchEvent(event)).toBe(false);
+        expect(onPress).not.toHaveBeenCalled();
+        expect(preventDefault).toHaveBeenCalledTimes(1);
+        expect(onBubble).toHaveBeenCalledTimes(1);
+      } finally {
+        parent.remove();
+      }
+    }
+  );
+
+  it.each([
+    ['onClick', undefined],
+    ['onKeyDown', 'Enter'],
+    ['onKeyUp', ' '],
+  ] as const)(
+    'should preserve disabled propagation suppression for an already cancelled %s',
+    (handler, key) => {
+      const onPress = vi.fn();
+      const props = pressable({ disabled: true, onPress });
+      const event = {
+        key: key ?? '',
+        defaultPrevented: true,
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+      };
+      props[handler]?.(event);
+      expect(onPress).not.toHaveBeenCalled();
+      expect(event.preventDefault).toHaveBeenCalledTimes(1);
+      expect(event.stopPropagation).toHaveBeenCalledTimes(1);
+    }
+  );
+
+  it.each([
+    ['keydown', 'Enter'],
+    ['keyup', ' '],
+  ] as const)(
+    'should deliver one real keyboard press after its own %s default prevention',
+    (type, key) => {
+      const observed: boolean[] = [];
+      const props = pressable({
+        onPress: (event) => observed.push(event.defaultPrevented === true),
+      });
+      const event = new KeyboardEvent(type, { key, cancelable: true });
+      if (type === 'keydown') props.onKeyDown?.(event);
+      else props.onKeyUp?.(event);
+      expect(observed).toEqual([true]);
+      expect(event.defaultPrevented).toBe(true);
+    }
+  );
+
   it('should suppress press callbacks given pointer cancellation when a press starts on one node and ends elsewhere', () => {
     const onPress = vi.fn();
     const first = document.createElement('div');
