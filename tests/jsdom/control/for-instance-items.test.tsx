@@ -36,7 +36,7 @@ class Account {
 }
 
 describe('For instance items', () => {
-  it('renders native Date methods and keeps positional row identity when the date changes', () => {
+  it('should render native Date methods and keeps positional row identity when the date changes', () => {
     const container = document.createElement('div');
     const initial = new Date('2020-01-01T00:00:00Z');
     const replacement = new Date('2025-01-01T00:00:00Z');
@@ -70,7 +70,7 @@ describe('For instance items', () => {
     expect(received.at(-1)).toBe(replacement);
   });
 
-  it('preserves class identity, private accessors, and method receivers', () => {
+  it('should preserve class identity, private accessors, and method receivers', () => {
     const container = document.createElement('div');
     const account = new Account(1, 'Alpha');
     let received!: Account;
@@ -90,7 +90,7 @@ describe('For instance items', () => {
     expect(received.describe).toBe(account.describe);
   });
 
-  it('keeps keyed row state and current class data through replacement and reorder', () => {
+  it('should keep keyed row state and current class data through replacement and reorder', () => {
     const container = document.createElement('div');
     const first = new Account(1, 'Alpha');
     const second = new Account(2, 'Beta');
@@ -141,7 +141,7 @@ describe('For instance items', () => {
     expect(first.describe()).toBe('1:Alpha');
   });
 
-  it('renders Map methods and updates an instance in a retained positional row', () => {
+  it('should render Map methods and updates an instance in a retained positional row', () => {
     const container = document.createElement('div');
     let maps!: State<Array<Map<string, string>>>;
     const renderMap = (item: Map<string, string>) => (
@@ -168,7 +168,7 @@ describe('For instance items', () => {
     expect(output?.textContent).toBe('Beta');
   });
 
-  it('updates between plain records and class instances under one positional key', () => {
+  it('should update between plain records and class instances under one positional key', () => {
     const container = document.createElement('div');
     let items!: State<Array<{ label: string } | Account>>;
     const renderItem = (item: { label: string } | Account) => (
@@ -198,7 +198,7 @@ describe('For instance items', () => {
     expect(output?.textContent).toBe('plain again');
   });
 
-  it('keeps null-prototype records on the live overlay path', () => {
+  it('should keep null-prototype records on the live overlay path', () => {
     const container = document.createElement('div');
     type RecordItem = { label: string; badge?: string };
     const makeItem = (label: string): RecordItem =>
@@ -237,7 +237,7 @@ describe('For instance items', () => {
     expect(replacement.badge).toBeUndefined();
   });
 
-  it('restores class row data after structural commit abort and accepts a later retry', () => {
+  it('should restore class row data after structural commit abort and accepts a later retry', () => {
     const container = document.createElement('div');
     const initial = new Account(1, 'committed');
     const rejected = new Account(1, 'discarded');

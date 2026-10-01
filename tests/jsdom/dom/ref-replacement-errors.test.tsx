@@ -11,7 +11,7 @@ afterEach(() => {
 });
 
 describe('ref replacement failures', () => {
-  it('attaches the replacement ref even when the previous callback fails during cleanup', () => {
+  it('should attach the replacement ref even when the previous callback fails during cleanup', () => {
     const container = document.createElement('div');
     const failure = new Error('previous ref cleanup failed');
     const calls: Array<Element | null> = [];
@@ -39,7 +39,7 @@ describe('ref replacement failures', () => {
     expect(calls).toEqual([element, null]);
   });
 
-  it('reports both ref failures after attempting old cleanup and replacement attachment', () => {
+  it('should report both ref failures after attempting old cleanup and replacement attachment', () => {
     const container = document.createElement('div');
     const cleanupFailure = new Error('previous ref cleanup failed');
     const attachFailure = new Error('replacement attachment failed');

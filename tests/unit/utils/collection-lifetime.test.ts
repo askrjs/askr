@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vite-plus/test';
 import { createCollection } from '../../../src/foundations/structures/collection';
 
 describe('collection registration lifetimes', () => {
-  it('keeps replacement metadata when the previous registration is cleaned up', () => {
+  it('should keep replacement metadata when the previous registration is cleaned up', () => {
     const collection = createCollection<object, string>();
     const first = {};
     const second = {};
@@ -25,7 +25,7 @@ describe('collection registration lifetimes', () => {
     expect(collection.size()).toBe(1);
   });
 
-  it('keeps a new registration after clearing and cleaning up the old lifetime', () => {
+  it('should keep a new registration after clearing and cleaning up the old lifetime', () => {
     const collection = createCollection<object, string>();
     const node = {};
     const unregisterOld = collection.register(node, 'old');

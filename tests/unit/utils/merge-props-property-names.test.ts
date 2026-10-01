@@ -3,7 +3,7 @@ import { mergeProps } from '../../../src/foundations/utilities/merge-props';
 
 describe('mergeProps special property names', () => {
   it.each([null, 'text', { inherited: true }])(
-    'preserves an own __proto__ base value %j without changing the output prototype',
+    'should preserve an own __proto__ base value %j without changing the output prototype',
     (value) => {
       const base = JSON.parse('{"__proto__":null}') as Record<string, unknown>;
       base.__proto__ = value;
@@ -20,7 +20,7 @@ describe('mergeProps special property names', () => {
     }
   );
 
-  it('keeps undefined base values absent when __proto__ was injected', () => {
+  it('should keep undefined base values absent when __proto__ was injected', () => {
     const injected = JSON.parse('{"__proto__":{"id":"injected"}}') as Record<
       string,
       unknown

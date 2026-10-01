@@ -40,7 +40,7 @@ function abortInsertion(container: Element, prepared: PreparedRender): void {
 }
 
 describe('derived hook structural commit rollback', () => {
-  it('restores a derived closure and its committed dependencies before existing bindings run', () => {
+  it('should restore a derived closure and its committed dependencies before existing bindings run', () => {
     const container = document.createElement('div');
     let left!: State<number>;
     let right!: State<number>;
@@ -99,7 +99,7 @@ describe('derived hook structural commit rollback', () => {
     expect(span.textContent).toBe('accepted:6');
   });
 
-  it('restores a selector source, comparator, cache, and committed dependencies', () => {
+  it('should restore a selector source, comparator, cache, and committed dependencies', () => {
     const container = document.createElement('div');
     let left!: State<number>;
     let right!: State<number>;
@@ -158,7 +158,7 @@ describe('derived hook structural commit rollback', () => {
     expect(span.textContent).toBe('true:true:false');
   });
 
-  it('restores a changed selector comparator when the source function stays the same', () => {
+  it('should restore a changed selector comparator when the source function stays the same', () => {
     const container = document.createElement('div');
     let value!: State<number>;
     let selected!: Selector<number>;
@@ -192,7 +192,7 @@ describe('derived hook structural commit rollback', () => {
     expect(container.textContent).toBe('false:true');
   });
 
-  it('restores comparator behavior for object candidates held by existing bindings', () => {
+  it('should restore comparator behavior for object candidates held by existing bindings', () => {
     const container = document.createElement('div');
     const first = { id: 1 };
     const sameId = { id: 1 };
@@ -223,7 +223,7 @@ describe('derived hook structural commit rollback', () => {
   });
 
   it.each(['derive', 'selector'] as const)(
-    'restores %s after its proposed computation throws during prepare',
+    'should restore %s after its proposed computation throws during prepare',
     (kind) => {
       const container = document.createElement('div');
       let value!: State<number>;
