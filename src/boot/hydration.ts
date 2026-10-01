@@ -109,7 +109,9 @@ function parseHydrationRenderData(raw: string): unknown {
       throw new TypeError('Missing deferred hydration location.');
     }
     const record = parent as Record<string, unknown>;
-    record[key] = hydrationReviver(key, record[key]);
+    Object.defineProperty(record, key, {
+      value: hydrationReviver(key, record[key]),
+    });
   }
   delete (payload as Partial<typeof payload>).deferredPaths;
   return payload;

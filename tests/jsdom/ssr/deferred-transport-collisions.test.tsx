@@ -70,9 +70,47 @@ describe('deferred hydration transport identity', () => {
     expect(Object.hasOwn(result.special, '__proto__')).toBe(true);
     expect(isDeferred(result.special.__proto__)).toBe(true);
     expect(Object.getPrototypeOf(result.special)).toBe(Object.prototype);
+    expect(
+      Object.getOwnPropertyDescriptor(result.special, '__proto__')
+    ).toMatchObject({
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
     expect(isDeferred(result.array[0])).toBe(true);
+    expect(Object.getOwnPropertyDescriptor(result.array, '0')).toMatchObject({
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
     expect(result.array[1]).toEqual(plain);
     expect(isDeferred(result[''])).toBe(true);
+  });
+
+  it.each([
+    { path: ['route', '__proto__', 'polluted'] },
+    { path: ['route', 'constructor', 'prototype', 'polluted'] },
+  ])('should reject inherited deferred locations $path', ({ path }) => {
+    const prototypeKeys = Object.getOwnPropertyNames(Object.prototype);
+    const payload = {
+      ...createPageRenderEnvelope({ route: {} }),
+      deferredPaths: [path],
+    };
+    const container = document.createElement('div');
+    container.innerHTML = `<script type="application/json" data-askr-render-data="true">${JSON.stringify(payload)}</script>`;
+
+    let error: unknown;
+    try {
+      takeHydrationRenderData(container);
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toMatchObject({
+      message:
+        '[Askr] Failed to parse embedded SSR render data during hydration.',
+      cause: { message: 'Missing deferred hydration location.' },
+    });
+    expect(Object.getOwnPropertyNames(Object.prototype)).toEqual(prototypeKeys);
   });
 
   it('should continue hydrating deferred values in previously generated pages', () => {
