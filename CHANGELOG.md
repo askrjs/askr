@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.1 — 2026-10-01
 
 - fix(data): honor defined-query `skipInitialFetch` and `initialData` options,
   retain prefetched/hydrated data precedence, and retire active or queued
@@ -39,8 +39,9 @@
   submission after hydration replaces its controls. Failed idle attempts retain
   interaction and visibility retries, and mixed completion paths release their
   replay and scroll listeners after the final deferred section activates.
-- fix(ssg): normalize named splat entry parameters, encode dynamic render URLs
-  while preserving existing output paths and data override keys, and rebuild
+- fix(ssg): normalize named splat entry parameters while preserving accepted
+  raw token spellings, encode dynamic render URLs while preserving existing
+  output paths and data override keys, and rebuild
   unchanged routes when their generated HTML is missing.
 
 ## 0.4.0 — 2026-09-28
