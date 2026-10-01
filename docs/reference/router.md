@@ -468,7 +468,9 @@ The callback receives the current and previous route snapshots. A returned
 cleanup runs before the next callback and when the component unmounts. Failed or
 superseded navigations do not publish a callback. Each committed change keeps
 its own callback and snapshots when several commits occur before callbacks
-flush. Browser history back/forward
+flush. The destination snapshot includes that destination's entry state while
+the navigation commits, before the browser history write completes.
+Browser history back/forward
 navigations are committed route changes and invoke the callback as well. During
 SSR and SSG there is no client navigation commit, so `onRouteChange` does not
 run; use the render-time route APIs for initial data.

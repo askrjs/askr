@@ -40,6 +40,7 @@ import {
   type PreparedRootUpdate,
 } from '../common/root-update';
 import type { ComponentFunction } from '../common/component';
+import type { AppRenderRouteState } from '../common/app-render-runtime';
 import { loadDocument, reloadDocument } from './document-navigation';
 import {
   commitHistoryIndex,
@@ -224,12 +225,14 @@ function getResolvedRouteHandler(resolved: RouteRequestResult): ResolvedRoute {
 function prepareNavigationRoot(
   target: AppNavigationTarget,
   href: string,
-  replaceLifetime: boolean
+  replaceLifetime: boolean,
+  locationState: AppRenderRouteState
 ): PreparedRootUpdate {
   const resolved = target.resolved;
   return prepareRootUpdate(target.app.instance, {
     handler: bindResolvedRouteHandler(getResolvedRouteHandler(resolved)),
     href,
+    locationState,
     routeData: isRenderResult(resolved)
       ? getRouteRenderData(resolved)
       : undefined,
@@ -371,11 +374,16 @@ export function applyNavigationTargets(
     return;
   }
 
+  const hasState = Object.prototype.hasOwnProperty.call(options, 'state');
   commitNavigationRoots(
     requestId,
     pathname,
     href,
     matchedTargets,
+    {
+      hasState,
+      state: hasState ? options.state : undefined,
+    },
     () => {
       saveScrollPosition(previousHref);
       const historyMode = getNavigationHistoryMode(options);
@@ -443,11 +451,17 @@ export function applyPopStateNavigationTargets(
   }
 
   saveScrollPosition(previousHref);
+  const historyState = state as {
+    askrHasState?: unknown;
+    askrState?: unknown;
+  } | null;
+  const hasState = historyState?.askrHasState === true;
   commitNavigationRoots(
     requestId,
     pathname,
     href,
     matchedTargets,
+    { hasState, state: hasState ? historyState?.askrState : undefined },
     () => commitHistoryIndex(historyIndex),
     () => applyHistoryScroll(href, state),
     () => {
@@ -472,6 +486,7 @@ function commitNavigationRoots(
   pathname: string,
   href: string,
   targets: AppNavigationTarget[],
+  locationState: AppRenderRouteState,
   updateHistory: () => void,
   updateScroll: () => void,
   restoreHistory?: () => void
@@ -484,7 +499,12 @@ function commitNavigationRoots(
     return {
       target,
       replaceLifetime,
-      prepared: prepareNavigationRoot(target, href, replaceLifetime),
+      prepared: prepareNavigationRoot(
+        target,
+        href,
+        replaceLifetime,
+        locationState
+      ),
     };
   });
 

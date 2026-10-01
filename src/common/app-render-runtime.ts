@@ -17,7 +17,15 @@ export interface AppRenderRuntime {
   lifetime?: number;
 }
 
-const stagedRouteLocations = new WeakMap<AppRenderRuntime, string>();
+export interface AppRenderRouteState {
+  readonly hasState: boolean;
+  readonly state: unknown;
+}
+
+const stagedRouteLocations = new WeakMap<
+  AppRenderRuntime,
+  { href: string; state?: AppRenderRouteState }
+>();
 
 export function createAppRenderRuntime(
   input: Partial<AppRenderRuntime> = {}
@@ -36,15 +44,22 @@ export function createAppRenderRuntime(
 
 export function stageAppRenderRouteLocation(
   runtime: AppRenderRuntime,
-  href: string
+  href: string,
+  state?: AppRenderRouteState
 ): void {
-  stagedRouteLocations.set(runtime, href);
+  stagedRouteLocations.set(runtime, { href, state });
 }
 
 export function getStagedAppRenderRouteLocation(
   runtime: AppRenderRuntime | undefined
 ): string | undefined {
-  return runtime ? stagedRouteLocations.get(runtime) : undefined;
+  return runtime ? stagedRouteLocations.get(runtime)?.href : undefined;
+}
+
+export function getStagedAppRenderRouteState(
+  runtime: AppRenderRuntime | undefined
+): AppRenderRouteState | undefined {
+  return runtime ? stagedRouteLocations.get(runtime)?.state : undefined;
 }
 
 export function clearStagedAppRenderRouteLocation(

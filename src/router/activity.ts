@@ -1,5 +1,8 @@
 import type { RouteMatch, RouteParams, RouteSnapshot } from '../common/router';
-import { getStagedAppRenderRouteLocation } from '../common/app-render-runtime';
+import {
+  getStagedAppRenderRouteLocation,
+  getStagedAppRenderRouteState,
+} from '../common/app-render-runtime';
 import { syncRouteActivitySnapshot } from '../common/route-activity';
 import { getActiveRenderContext } from '../common/render-context';
 import {
@@ -79,6 +82,8 @@ function readLocationState(): { hasState: boolean; state: unknown } {
   if (getActiveRenderContext()?.mode === 'ssr') {
     return { hasState: false, state: undefined };
   }
+  const staged = getStagedAppRenderRouteState(getCurrentAppRenderRuntime());
+  if (staged) return staged;
   const historyState =
     typeof window !== 'undefined' && window.history?.state
       ? window.history.state

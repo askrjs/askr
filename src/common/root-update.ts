@@ -1,9 +1,11 @@
 import type { ComponentFunction } from './component';
+import type { AppRenderRouteState } from './app-render-runtime';
 
 /** Router decisions supplied to boot without exposing an execution record. */
 export interface RootUpdateInput {
   handler: ComponentFunction;
   href: string;
+  locationState?: AppRenderRouteState;
   routeData: unknown;
   hasRouteData: boolean;
   replaceLifetime: boolean;

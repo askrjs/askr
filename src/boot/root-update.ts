@@ -52,7 +52,7 @@ function prepare(root: object, input: RootUpdateInput): PreparedRootUpdate {
   return {
     apply() {
       if (prepared || settled) return;
-      stageAppRenderRouteLocation(runtime, input.href);
+      stageAppRenderRouteLocation(runtime, input.href, input.locationState);
       app.appRuntime = runtime;
       if (input.replaceLifetime) {
         app.component = input.handler;
