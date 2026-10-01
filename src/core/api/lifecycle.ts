@@ -266,7 +266,9 @@ export function timer(
     if (slot.id !== null) clearInterval(slot.id);
     slot.intervalMs = intervalMs;
     slot.id = setInterval(() => {
-      if (slot.predicates.every((predicate) => predicate())) slot.callback();
+      withOwner(instance, () => {
+        if (slot.predicates.every((predicate) => predicate())) slot.callback();
+      });
     }, intervalMs);
     if (first) {
       instance.onCleanup(() => {
@@ -321,7 +323,7 @@ export function on(
       handler,
       attached: false,
       listener: ((evt: Event) => {
-        created.handler.call(created.target, evt);
+        withOwner(instance, () => created.handler.call(created.target, evt));
       }) as EventListener,
     };
     return created;

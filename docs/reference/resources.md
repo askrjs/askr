@@ -145,6 +145,9 @@ the tick callback to run. `routeActive()` checks the current route path or match
 
 When the owner rerenders, `timer()` keeps the latest callback and `when` checks. The
 interval is recreated only when `intervalMs` changes.
+The synchronous tick callback and activity checks run in the owning component's
+scope, so implicit query invalidation uses that app's data runtime and nested
+scheduled work is cancelled when the component unmounts.
 
 For query invalidation, `@askrjs/askr/data` also exports `invalidateOnInterval()`,
 which composes `timer()`, `routeActive()`, and visibility/focus checks for the common
@@ -156,6 +159,10 @@ Registers an event listener after the owning component mounts and removes it dur
 The target may be an `EventTarget` or a resolver returning an `EventTarget` (or
 `null` when unavailable). Resolvers run only during client commits, so they are
 safe to use with browser globals in SSR components.
+The synchronous handler runs in the owning component's scope, preserves the
+native target as `this`, and keeps native listener error behavior. Query
+invalidations and nested scheduled work inherit that component's runtime and
+lifetime.
 
 ```ts
 import { on } from '@askrjs/askr/resources';
