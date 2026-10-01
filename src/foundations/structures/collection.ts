@@ -65,7 +65,7 @@ export function createCollection<TNode, TMetadata = unknown>(): Collection<
     registry.set(node, item);
 
     return () => {
-      registry.delete(node);
+      if (registry.get(node) === item) registry.delete(node);
     };
   }
 

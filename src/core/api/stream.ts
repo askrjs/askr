@@ -56,9 +56,7 @@ interface StreamGeneration<T> {
 interface StreamSlot<T> {
   kind: 'stream';
   source: StreamSource<T>;
-  pendingSource: StreamSource<T>;
   deps: readonly unknown[];
-  pendingDeps: readonly unknown[];
   readonly snapshot: StreamResult<T>;
   generation: number;
   current: StreamGeneration<T> | null;
@@ -194,6 +192,31 @@ async function consume<T>(
   }
 }
 
+function failGeneration<T>(
+  slot: StreamSlot<T>,
+  generation: StreamGeneration<T>,
+  error: unknown
+): void {
+  if (!isCurrent(slot, generation)) return;
+
+  stopGeneration(generation);
+  // Cleanup invokes user abort listeners and iterator.return(). Either may
+  // make a newer lifecycle decision that this failure must not replace.
+  if (
+    slot.disposed ||
+    slot.current !== generation ||
+    slot.generation !== generation.id
+  ) {
+    return;
+  }
+  slot.current = null;
+  slot.snapshot.status = 'error';
+  slot.snapshot.pending = false;
+  slot.snapshot.stale = slot.hasValue;
+  slot.snapshot.error = toError(error);
+  publish(slot);
+}
+
 function startSlot<T>(slot: StreamSlot<T>): void {
   if (!slot.activated || slot.disposed) {
     return;
@@ -224,31 +247,14 @@ function startSlot<T>(slot: StreamSlot<T>): void {
   try {
     result = slot.source({ signal: generation.controller.signal });
   } catch (error) {
-    if (!isCurrent(slot, generation)) {
-      return;
-    }
-    slot.current = null;
-    slot.snapshot.status = 'error';
-    slot.snapshot.pending = false;
-    slot.snapshot.stale = slot.hasValue;
-    slot.snapshot.error = toError(error);
-    publish(slot);
+    failGeneration(slot, generation, error);
     return;
   }
 
   void Promise.resolve(result)
     .then((iterable) => consume(slot, generation, iterable))
     .catch((error: unknown) => {
-      if (!isCurrent(slot, generation)) {
-        return;
-      }
-
-      slot.current = null;
-      slot.snapshot.status = 'error';
-      slot.snapshot.pending = false;
-      slot.snapshot.stale = slot.hasValue;
-      slot.snapshot.error = toError(error);
-      publish(slot);
+      failGeneration(slot, generation, error);
     });
 }
 
@@ -313,9 +319,7 @@ function createSlot<T>(
   const slot: StreamSlot<T> = {
     kind: 'stream',
     source,
-    pendingSource: source,
     deps: (options.deps ?? []).slice(),
-    pendingDeps: (options.deps ?? []).slice(),
     snapshot,
     generation: 0,
     current: null,
@@ -366,13 +370,18 @@ function requireStreamOwner(): ComponentInstance {
   return instance;
 }
 
-function commitSlot<T>(instance: ComponentInstance, slot: StreamSlot<T>): void {
-  const depsChanged = !depsEqual(slot.deps, slot.pendingDeps);
+function commitSlot<T>(
+  instance: ComponentInstance,
+  slot: StreamSlot<T>,
+  source: StreamSource<T>,
+  deps: readonly unknown[]
+): void {
+  const depsChanged = !depsEqual(slot.deps, deps);
   const firstCommit = !slot.activated;
 
   slot.owner = instance;
-  slot.source = slot.pendingSource;
-  slot.deps = slot.pendingDeps;
+  slot.source = source;
+  slot.deps = deps;
 
   if (firstCommit) slot.activated = true;
 
@@ -438,11 +447,13 @@ function createStream<T>(
 ): StreamResult<T> {
   const slot = hookSlot(instance, 'stream', () => createSlot(source, options));
   readSource(slot.readers);
-  slot.pendingSource = source;
-  slot.pendingDeps = (options.deps ?? []).slice();
 
   if (!instance.server) {
-    onCommit(instance, () => commitSlot(instance, slot));
+    // A newer prepare can run before this committed lifecycle callback.
+    // Capture this render's definition so discarded inputs cannot leak into
+    // its queued activation.
+    const deps = (options.deps ?? []).slice();
+    onCommit(instance, () => commitSlot(instance, slot, source, deps));
   }
 
   return slot.snapshot;

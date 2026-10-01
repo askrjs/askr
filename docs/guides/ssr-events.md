@@ -49,6 +49,11 @@ in order once the matching server DOM becomes interactive. The original event
 is stopped while it is queued, so an interaction runs once rather than once
 before and once after hydration.
 
+Replayed form submissions retain their original `SubmitEvent.submitter`, so
+handlers can distinguish the submitted button's `name` and `value`. The
+original submitted control remains available if hydration replaces that
+control while retaining the form.
+
 With `deferBelowFold`, a discrete interaction inside a deferred boundary
 activates that boundary immediately and then replays against its committed
 listeners. Scroll and idle activation continue to work as before. Elements

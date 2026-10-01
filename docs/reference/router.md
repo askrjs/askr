@@ -466,7 +466,11 @@ Runs after a persistent component commits a pathname, query, or hash change. The
 initial route is skipped by default; pass `{ immediate: true }` to include it.
 The callback receives the current and previous route snapshots. A returned
 cleanup runs before the next callback and when the component unmounts. Failed or
-superseded navigations do not publish a callback. Browser history back/forward
+superseded navigations do not publish a callback. Each committed change keeps
+its own callback and snapshots when several commits occur before callbacks
+flush. The destination snapshot includes that destination's entry state while
+the navigation commits, before the browser history write completes.
+Browser history back/forward
 navigations are committed route changes and invoke the callback as well. During
 SSR and SSG there is no client navigation commit, so `onRouteChange` does not
 run; use the render-time route APIs for initial data.
@@ -578,7 +582,9 @@ remains in the route tree; leaving the layout disposes that work.
 `navigate(path, { state })` stores transient state on the destination browser
 history entry without serializing it into the URL. Push, replace, redirects,
 and Back/Forward preserve entry ownership. The state is browser-only and is
-therefore absent from SSR and SSG snapshots.
+therefore absent from SSR and SSG snapshots, even when server rendering runs
+in a process with a browser-like `window`. Client rendering and hydration read
+the state from the current browser entry.
 
 When no registered app can render the destination, because no route or
 `fallback()` matches it or it is outside every registry's `basePath`, Askr hands

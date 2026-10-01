@@ -68,6 +68,17 @@ reads. A failed render never leaves it stale: the render's own output rolls
 back to the last commit, while its bindings keep tracking state, including
 changes made in the same flush as the failure.
 
+When a failed commit proposed new props, `derive()` restores its last committed
+computation and `selector()` restores its last committed source and comparator.
+Their existing bindings keep tracking the committed dependencies, so rejected
+prop values cannot leak into the DOM after rollback. A later successful render
+can still replace those computations normally.
+
+Replacing an element's ref clears the old ref before attaching the new one.
+Both callbacks are attempted even when one throws; errors are reported after
+the committed update, with multiple callback failures grouped in an
+`AggregateError`.
+
 ```tsx
 function Counter() {
   const count = state(1);

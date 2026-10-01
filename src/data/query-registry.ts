@@ -249,7 +249,12 @@ export function dehydrateDataRuntime(
   const result: Record<string, unknown> = {};
   for (const [key, value] of runtime.queryData) {
     assertQueryDataTransportSafe(key, value);
-    result[key] = value;
+    Object.defineProperty(result, key, {
+      value,
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
   }
   return result;
 }

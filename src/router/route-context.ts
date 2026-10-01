@@ -60,7 +60,12 @@ export function makeQuery(search: string): RouteQuery {
     toJSON() {
       const output: Record<string, string | string[]> = {};
       for (const [key, values] of mapping.entries()) {
-        output[key] = values.length > 1 ? [...values] : values[0];
+        Object.defineProperty(output, key, {
+          value: values.length > 1 ? [...values] : values[0],
+          enumerable: true,
+          configurable: true,
+          writable: true,
+        });
       }
       return output;
     },

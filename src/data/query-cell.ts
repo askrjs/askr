@@ -163,12 +163,21 @@ export class QueryCell<T> {
         this.destroy();
       } else {
         this.generation += 1;
-        this.controller?.abort();
+        const controller = this.controller;
         this.controller = null;
         this.finishPendingRefresh();
+        // A queued start may not have acquired a controller yet. Retire its
+        // token as well so it cannot fetch through the unmounted reader.
+        this.pendingRefreshToken += 1;
         this.definitionOwner = null;
         this.definitionOwnerHook = -1;
+        if (this.state.refreshing) {
+          this.setState(staleQueryState(this.state.data, 'aborted'));
+        }
         this.gcTimer = setTimeout(() => this.destroy(), gcTime);
+        // Abort listeners may attach a new reader; complete the inactive
+        // transition first so that listener's lifecycle decision survives.
+        controller?.abort();
       }
       return;
     }
@@ -424,6 +433,7 @@ export class QueryCell<T> {
 
     if (this.pendingRefresh) {
       if (this.pendingRefreshKind === 'invalidation') {
+        this.generation += 1;
         this.controller?.abort();
         this.queueStart(undefined, 'manual', true);
         return this.pendingRefresh ?? Promise.resolve();
@@ -465,6 +475,7 @@ export class QueryCell<T> {
     if (this.pendingRefresh) {
       // Invalidation supersedes stale work. Manual refreshes, by contrast,
       // are equivalent requests and share the in-flight generation.
+      this.generation += 1;
       this.controller?.abort();
       this.queueStart(undefined, 'invalidation', true);
       return this.pendingRefresh ?? Promise.resolve();
@@ -734,7 +745,10 @@ function createCell<T>(
   cache: Map<string, QueryCell<unknown>>
 ): QueryCell<T> {
   const cellOptions = options.takeInitialData
-    ? { ...options, initialData: options.takeInitialData() }
+    ? {
+        ...options,
+        initialData: options.takeInitialData() ?? options.initialData,
+      }
     : options;
   const cell = new QueryCell(cellOptions, options.key, cache);
   cache.set(options.key, cell as QueryCell<unknown>);
@@ -824,7 +838,7 @@ export function createDefinedQuery<TInput, TResult extends {}>(
     // Server renders read without consuming so the data can be dehydrated.
     takeInitialData: () =>
       readQueryData(runtimeState, key, !serverRender) as TResult | undefined,
-    skipInitialFetch: serverRender,
+    skipInitialFetch: serverRender || options.skipInitialFetch === true,
     runtime: dataRuntime,
   });
 }

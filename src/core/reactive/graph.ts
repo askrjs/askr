@@ -303,7 +303,7 @@ export class Computation<T = unknown> extends Owner implements Source {
     if (!wasClean && !dropped) return;
     this._dropped = false;
     if (this._schedule) this._schedule(this as Computation);
-    if (!wasClean) return;
+    if (!wasClean && !dropped) return;
     const observers = this._observers;
     if (observers) {
       for (const observer of observers) observer._mark(CHECK);

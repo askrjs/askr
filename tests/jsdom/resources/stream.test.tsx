@@ -350,6 +350,8 @@ describe('stream()', () => {
         stale: true,
       });
       expect(current?.error?.message).toBe('offline');
+      expect(signals[0]?.aborted).toBe(true);
+      expect(sources[0]?.returnCalls).toBe(1);
 
       current?.restart();
       expect(current).toMatchObject({
@@ -377,10 +379,96 @@ describe('stream()', () => {
       expect(starts).toBe(2);
       current?.restart();
       expect(starts).toBe(3);
+      expect(sources[0]?.returnCalls).toBe(1);
     } finally {
       cleanup();
     }
   });
+
+  it.each(['throw', 'reject'] as const)(
+    'should abort a source generation that fails by %s',
+    async (failure) => {
+      const error = new Error('connection failed');
+      let signal: AbortSignal | undefined;
+      let current: StreamResult<string> | undefined;
+      const { container, cleanup } = createTestContainer();
+
+      try {
+        createIsland({
+          root: container,
+          component: () => {
+            current = stream<string>((context) => {
+              signal = context.signal;
+              if (failure === 'throw') throw error;
+              return Promise.reject(error);
+            });
+            return <p>{current.status}</p>;
+          },
+        });
+        flushScheduler();
+        await settle();
+
+        expect(current).toMatchObject({
+          status: 'error',
+          pending: false,
+          error,
+        });
+        expect(signal?.aborted).toBe(true);
+      } finally {
+        cleanup();
+      }
+    }
+  );
+
+  it.each(['restart', 'close'] as const)(
+    'should preserve %s from an abort listener when an iterator fails',
+    async (decision) => {
+      const first = new ControlledAsyncIterable<string>();
+      const second = new ControlledAsyncIterable<string>();
+      const signals: AbortSignal[] = [];
+      let starts = 0;
+      let current: StreamResult<string> | undefined;
+      const { container, cleanup } = createTestContainer();
+
+      try {
+        createIsland({
+          root: container,
+          component: () => {
+            current = stream(({ signal }) => {
+              signals.push(signal);
+              return starts++ === 0 ? first : second;
+            });
+            return <p>{current.value ?? current.status}</p>;
+          },
+        });
+        flushScheduler();
+        await settle();
+        signals[0]!.addEventListener('abort', () => current?.[decision](), {
+          once: true,
+        });
+        first.fail(new Error('offline'));
+        await settle();
+        await settle();
+
+        expect(signals[0]?.aborted).toBe(true);
+        expect(first.returnCalls).toBe(1);
+        expect(current?.error).toBe(null);
+        if (decision === 'restart') {
+          expect(starts).toBe(2);
+          expect(signals[1]?.aborted).toBe(false);
+          second.yield('recovered');
+          await settle();
+          expect(container.textContent).toBe('recovered');
+        } else {
+          expect(starts).toBe(1);
+          expect(current?.status).toBe('closed');
+        }
+      } finally {
+        cleanup();
+      }
+      expect(first.returnCalls).toBe(1);
+    }
+  );
 
   it('should restart active streams for dependency changes but not source identity', async () => {
     const first = new ControlledAsyncIterable<number>();

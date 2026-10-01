@@ -22,6 +22,12 @@ import {
   timer,
 } from '@askrjs/askr/resources';
 import { state } from '../../../src/index';
+import {
+  createDataRuntime,
+  createQuery,
+  getDefaultDataRuntime,
+  invalidate,
+} from '../../../src/data';
 import { navigate } from '../../../src/router/navigate';
 import { group, route } from '../../../src/router/route';
 import {
@@ -66,6 +72,94 @@ describe('component-scoped lifecycle and polling checks', () => {
     resetRouteState();
     vi.useRealTimers();
     window.history.replaceState({}, '', '/');
+  });
+
+  it.each(['listener', 'timer'] as const)(
+    'should invalidate only the owning app runtime from a lifecycle %s',
+    async (kind) => {
+      const dataRuntime = createDataRuntime();
+      const defaultRuntime = getDefaultDataRuntime();
+      const key = `lifecycle-runtime:${kind}`;
+      const target = new EventTarget();
+      const fetch = vi.fn(async () => ({ name: 'Updated' }));
+      const defaultData = { name: 'Other app' };
+      defaultRuntime.queryData.set(key, defaultData);
+
+      function Poller() {
+        const query = createQuery({
+          key,
+          fetch,
+          initialData: { name: 'Seed' },
+        });
+        if (kind === 'listener') on(target, 'ping', () => invalidate(key));
+        else timer(50, () => invalidate(key));
+        return <span>{query.data?.name}</span>;
+      }
+      route('/', Poller);
+
+      try {
+        await createSPA({
+          root: container,
+          registry: currentRouteRegistry(),
+          dataRuntime,
+        });
+        flushScheduler();
+        expect(fetch).not.toHaveBeenCalled();
+        expect(container.querySelector('span')?.textContent).toBe('Seed');
+
+        if (kind === 'listener') target.dispatchEvent(new Event('ping'));
+        else vi.advanceTimersByTime(50);
+        flushScheduler();
+        await Promise.resolve();
+        await Promise.resolve();
+        flushScheduler();
+
+        expect(fetch).toHaveBeenCalledTimes(1);
+        expect(container.querySelector('span')?.textContent).toBe('Updated');
+        expect(defaultRuntime.queryData.get(key)).toBe(defaultData);
+      } finally {
+        defaultRuntime.queryData.delete(key);
+      }
+    }
+  );
+
+  it('should preserve the native listener receiver and thrown error', async () => {
+    const target = new EventTarget();
+    const add = vi.spyOn(target, 'addEventListener');
+    const failure = new Error('listener failed');
+    const receivers: unknown[] = [];
+    route('/', () => {
+      on(target, 'failure', function (this: EventTarget) {
+        receivers.push(this);
+        throw failure;
+      });
+      return <span>{'ready'}</span>;
+    });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
+    flushScheduler();
+    const listener = add.mock.calls.find(([event]) => event === 'failure')?.[1];
+
+    expect(typeof listener).toBe('function');
+    expect(() =>
+      (listener as EventListener).call(target, new Event('failure'))
+    ).toThrow(failure);
+    expect(receivers).toHaveLength(1);
+    expect(receivers[0]).toBe(target);
+    add.mockRestore();
+  });
+
+  it('should preserve native timer callback failures', async () => {
+    const failure = new Error('timer failed');
+    route('/', () => {
+      timer(50, () => {
+        throw failure;
+      });
+      return <span>{'ready'}</span>;
+    });
+    await createSPA({ root: container, registry: currentRouteRegistry() });
+    flushScheduler();
+
+    expect(() => vi.advanceTimersByTime(50)).toThrow(failure);
   });
 
   it('should run and clean up task, timer, and listener work in child components', async () => {

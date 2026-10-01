@@ -50,6 +50,19 @@ describe('route matching (ROUTER)', () => {
       expect(result.params).toEqual({ userId: '123', postId: '456' });
     });
 
+    it.each(['/users/{__proto__}', '/users/{*__proto__}'])(
+      'should retain an own __proto__ capture for %s',
+      (pattern) => {
+        const result = match('/users/book', pattern);
+
+        expect(result.matched).toBe(true);
+        expect(Object.hasOwn(result.params, '__proto__')).toBe(true);
+        expect(result.params['__proto__']).toBe('book');
+        expect(Object.getPrototypeOf(result.params)).toBe(Object.prototype);
+        expect(JSON.stringify(result.params)).toBe('{"__proto__":"book"}');
+      }
+    );
+
     it('should decode URL-encoded parameters', () => {
       const result = match('/posts/hello%20world', '/posts/{slug}');
       expect(result.matched).toBe(true);

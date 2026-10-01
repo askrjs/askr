@@ -1,9 +1,11 @@
 import type { ComponentFunction } from './component';
+import type { AppRenderRouteState } from './app-render-runtime';
 
 /** Router decisions supplied to boot without exposing an execution record. */
 export interface RootUpdateInput {
   handler: ComponentFunction;
   href: string;
+  locationState?: AppRenderRouteState;
   routeData: unknown;
   hasRouteData: boolean;
   replaceLifetime: boolean;
@@ -25,6 +27,8 @@ export interface PreparedRootUpdate {
   publish(): RootPublishResult;
   rollback(): unknown[];
   retire(): unknown[];
+  /** Release the destination snapshot after navigation settlement. */
+  complete(): void;
 }
 
 export interface RootUpdateHost {

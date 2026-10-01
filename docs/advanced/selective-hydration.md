@@ -95,6 +95,9 @@ Current behavior:
 - If `deferUntilIdle` is used by itself, Askr delays the hydration pass until the idle callback fires.
 - `skipSelectors` does not change that timing: permanent skips are marked before the same idle-delayed hydration pass.
 - If it is combined with `deferBelowFold`, Askr hydrates the visible shell first and can activate deferred below-fold regions during the later idle pass.
+- If a deferred boundary fails to activate during that idle pass, it stays
+  dormant and can retry on a later scroll or interaction. Its reveal listeners
+  remain registered until activation succeeds or the root is cleaned up.
 
 ### 3. Skip Static Content
 

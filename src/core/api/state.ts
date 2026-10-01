@@ -27,6 +27,7 @@ import { markReadable } from '../reactive/readable';
 import { isSnapshotSource } from './snapshot';
 import { isProductionEnvironment } from '../../common/env';
 import { logger } from '../../common/logger';
+import { recordUndo } from '../component/journal';
 
 export interface State<T> {
   (): T;
@@ -246,6 +247,15 @@ function createDerived(
     }) as Derived<unknown>),
     setCompute(fn) {
       if (fn === current) return;
+      const previous = current;
+      const sources = new Set(computation._sources ?? []);
+      recordUndo(() => {
+        current = previous;
+        computation.restoreSources(sources);
+        // Recompute on a read or later source change without immediately
+        // retrying the owner whose rejected render may have just failed.
+        computation.deferRetry();
+      });
       current = fn;
       computation.invalidate();
     },
@@ -411,6 +421,17 @@ function createSelector<T>(
   return {
     predicate,
     setSource(nextSource, nextEquals) {
+      if (nextSource === source && nextEquals === equals) return;
+      const previousSource = source;
+      const previousEquals = equals;
+      const sources = new Set(watcher._sources ?? []);
+      recordUndo(() => {
+        source = previousSource;
+        equals = previousEquals;
+        watcher.restoreSources(sources);
+        watcher.invalidate();
+        notifySource(allObjects);
+      });
       const comparatorChanged = equals !== nextEquals;
       equals = nextEquals;
       if (comparatorChanged) {

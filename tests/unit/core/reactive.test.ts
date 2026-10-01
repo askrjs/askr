@@ -298,6 +298,24 @@ describe('reactive graph', () => {
     a.write(2);
     expect(inverse.read()).toBe(0.5);
   });
+
+  it('should wake readers when a deferred lazy computation receives a later source change', () => {
+    const input = new Signal(1);
+    const doubled = computed(() => input.read() * 2);
+    const seen: number[] = [];
+    const observer = effect(() => seen.push(doubled.read()));
+
+    doubled.deferRetry();
+    flushSync();
+    expect(seen).toEqual([2]);
+
+    input.write(2);
+    flushSync();
+
+    expect(seen).toEqual([2, 4]);
+    observer.dispose();
+    doubled.dispose();
+  });
 });
 
 describe('owner tree', () => {

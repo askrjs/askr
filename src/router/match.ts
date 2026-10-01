@@ -242,6 +242,23 @@ export function formatCatchAllCapture(parts: string[]): string {
   return '/' + parts.map(decodePathSegment).join('/');
 }
 
+function setCapturedParameter(
+  params: Record<string, string>,
+  name: string,
+  value: string
+): void {
+  if (name === '__proto__') {
+    Object.defineProperty(params, name, {
+      value,
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+  } else {
+    params[name] = value;
+  }
+}
+
 /**
  * Match pre-split URL parts against pre-parsed route segments.
  *
@@ -296,14 +313,18 @@ export function matchSegments(
       if (!staticSegmentMatches(seg.value, part)) return null;
     } else if (seg.kind === 'splat') {
       if (params === null) params = {};
-      params[seg.value] = normalizeCapturedSplatParts(
-        urlParts.slice(i).map(decodePathSegment)
-      ).join('/');
+      setCapturedParameter(
+        params,
+        seg.value,
+        normalizeCapturedSplatParts(
+          urlParts.slice(i).map(decodePathSegment)
+        ).join('/')
+      );
       return params;
     } else {
       if (params === null) params = {};
       if (seg.kind === 'param') {
-        params[seg.value] = decodePathSegment(part);
+        setCapturedParameter(params, seg.value, decodePathSegment(part));
       } else {
         // wildcard
         params['*'] = decodePathSegment(part);

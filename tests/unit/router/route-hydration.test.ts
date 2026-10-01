@@ -3,6 +3,7 @@ import type { RouteContext } from '../../../src/common/router';
 import { defer, reviveDeferredValue } from '../../../src/router/deferred';
 import {
   prepareRouteHydrationData,
+  guardHydratedRouteData,
   validateRouteHydrationData,
 } from '../../../src/router/route-hydration';
 
@@ -174,4 +175,39 @@ describe('route hydration transport', () => {
       )
     ).toThrow(/dehydrate\(\).*must be synchronous/);
   });
+
+  it('should guard only declared omissions after JSON transport, preserving ordinary object methods', () => {
+    const prepared = prepareRouteHydrationData(
+      { visible: 'kept', secret: 'omitted' },
+      () => ({ visible: 'kept' }),
+      context
+    );
+    const framework = JSON.parse(JSON.stringify({ rh: prepared.metadata }));
+    const data = guardHydratedRouteData(prepared.data, framework) as Record<
+      string,
+      unknown
+    >;
+    expect(data.constructor).toBe(Object);
+    expect(data.toString()).toBe('[object Object]');
+    expect(Object.getPrototypeOf(data)).toBe(Object.prototype);
+    expect(() => data.secret).toThrow(/intentionally omitted/);
+  });
+
+  it.each(['constructor', '__proto__'])(
+    'should still guard an own %s field that was actually omitted',
+    (name) => {
+      const complete = JSON.parse(`{"visible":"kept","${name}":"omitted"}`);
+      const prepared = prepareRouteHydrationData(
+        complete,
+        () => ({ visible: 'kept' }),
+        context
+      );
+      const framework = JSON.parse(JSON.stringify({ rh: prepared.metadata }));
+      const data = guardHydratedRouteData(prepared.data, framework) as Record<
+        string,
+        unknown
+      >;
+      expect(() => data[name]).toThrow(/intentionally omitted/);
+    }
+  );
 });

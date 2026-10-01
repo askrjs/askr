@@ -1,4 +1,5 @@
 import type { RouteConfig } from './types';
+import { encodePathSegment } from '../router/match';
 
 export interface ResolvedRouteDescriptor {
   route: RouteConfig;
@@ -60,15 +61,51 @@ export function getOutputFilePath(pathStr: string): string {
   return `${normalized}/index.html`;
 }
 
+/** Prefer normalized names while accepting legacy raw template keys. */
+export function readRouteParameter(
+  params: Record<string, string>,
+  key: string
+): { name: string; splat: boolean; value: string | undefined } {
+  const normalized = key.trim();
+  const splat = normalized.startsWith('*');
+  const name = splat ? normalized.slice(1).trim() : normalized;
+  const canonical = params[name];
+  const value =
+    key === name ||
+    typeof canonical === 'string' ||
+    Object.prototype.hasOwnProperty.call(params, name)
+      ? canonical
+      : params[key];
+  return { name, splat, value };
+}
+
 export function interpolateRoutePath(
   routePath: string,
   params?: Record<string, string>
 ): string {
   if (!params) return routePath;
-  return routePath.replace(
-    /\{([^}]+)\}/g,
-    (_, key: string) => params[key] ?? ''
-  );
+  return routePath.replace(/\{([^}]+)\}/g, (_, key: string) => {
+    return readRouteParameter(params, key).value ?? '';
+  });
+}
+
+/** Encode the render URL while retaining the existing concrete output path. */
+export function interpolateRouteUrl(
+  routePath: string,
+  params?: Record<string, string>
+): string {
+  const rawPath = interpolateRoutePath(routePath, params);
+  // Keep the output-path traversal rejection before encoding parameters.
+  // Otherwise encoding could disguise a formerly rejected dot segment.
+  assertSafeRoutePath(rawPath);
+  if (!params) return routePath;
+  return routePath.replace(/\{([^}]+)\}/g, (_, key: string) => {
+    const { splat, value: parameterValue } = readRouteParameter(params, key);
+    const value = parameterValue ?? '';
+    return splat
+      ? value.split('/').map(encodePathSegment).join('/')
+      : encodePathSegment(value);
+  });
 }
 
 export function resolveRouteDescriptor(

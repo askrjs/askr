@@ -13,6 +13,7 @@ import {
   replaceOutputDirectory,
 } from '../../../src/ssg/create-static-gen';
 import { writeStaticFiles } from '../../../src/ssg/write-static-files';
+import { batchRenderRoutes } from '../../../src/ssg/batch-render';
 import { SSG_MANIFEST_SCHEMA_VERSION } from '../../../src/ssg/incremental-manifest';
 import type { RouteConfig } from '../../../src/ssg/types';
 import type { JSXElement } from '../../../src/jsx/types';
@@ -25,11 +26,13 @@ import {
 } from '../../../src/foundations/structures/portal';
 import {
   createRouteRegistry,
+  currentRoute,
   fallback,
   group,
   lazy,
   route,
 } from '../../../src/router/route';
+import { to } from '../../../src/router/destination';
 import { requireAnonymous, requireUser } from '@askrjs/auth';
 import { Link } from '../../../src/components/link';
 import type { DocumentRenderArgs } from '../../../src/ssr';
@@ -529,6 +532,134 @@ describe('Static Site Generation', () => {
       ).toBe(true);
       expect(result.routes[0].html).toContain('first-post');
       expect(result.routes[1].html).toContain('second-post');
+    });
+
+    it('should generate named splat entries using the same params as typed destinations', async () => {
+      const paths = ['guide/start', 'guide/a#b', ''];
+      const seen: string[] = [];
+      let destinationPaths: string[] = [];
+      const registry = createRouteRegistry(() => {
+        const docs = route(
+          '/docs/{*path}',
+          ({ path }) => {
+            seen.push(path);
+            return <main>{path || 'index'}</main>;
+          },
+          { entries: () => paths.map((path) => ({ path })) }
+        );
+        destinationPaths = paths.map((path) => to(docs, { path }).href);
+      });
+
+      const result = await createRegistryStaticGen({
+        registry,
+        outputDir: tempDir,
+      }).generate();
+
+      expect(result.failed).toBe(0);
+      expect(result.routes.map((entry) => entry.path)).toEqual(
+        paths.map((path) => `/docs/${path}`)
+      );
+      expect(seen).toEqual(paths);
+      expect(destinationPaths).toEqual([
+        '/docs/guide/start',
+        '/docs/guide/a%23b',
+        '/docs/',
+      ]);
+      expect(
+        fs.readFileSync(
+          path.join(tempDir, 'docs', 'guide', 'start', 'index.html'),
+          'utf8'
+        )
+      ).toContain('guide/start');
+      expect(
+        fs.readFileSync(path.join(tempDir, 'docs', 'index.html'), 'utf8')
+      ).toContain('index');
+    });
+
+    it('should encode dynamic entry values before matching or writing the generated page', async () => {
+      const slugs = ['a#b', '100%25', 'caf\u00e9 a', 'a%2Fb'];
+      const seen: Array<{
+        slug: string;
+        query: string | null;
+        hash: string | null;
+      }> = [];
+      const loaded: string[] = [];
+      const documentUrls: string[] = [];
+      const documentData: unknown[] = [];
+      let destinationPaths: string[] = [];
+      const registry = createRouteRegistry(() => {
+        const posts = route(
+          '/posts/{slug}',
+          ({ slug }) => {
+            const location = currentRoute();
+            seen.push({
+              slug,
+              query: location.query.get('b'),
+              hash: location.hash,
+            });
+            return <main>{slug}</main>;
+          },
+          {
+            entries: () => slugs.map((slug) => ({ slug })),
+            loader: ({ params }) => {
+              loaded.push(params.slug);
+              return null;
+            },
+          }
+        );
+        destinationPaths = slugs.map((slug) => to(posts, { slug }).href);
+      });
+
+      const result = await createRegistryStaticGen({
+        registry,
+        outputDir: tempDir,
+        dataOverrides: Object.fromEntries(
+          slugs.map((slug) => [`/posts/${slug}`, { entry: slug }])
+        ),
+        document: ({ appHtml, context }) => {
+          documentUrls.push(context.url);
+          documentData.push(context.data?.entry);
+          return appHtml;
+        },
+      }).generate();
+
+      expect(result.failed).toBe(0);
+      expect(result.routes.map((entry) => entry.path)).toEqual(
+        slugs.map((slug) => `/posts/${slug}`)
+      );
+      expect(documentUrls).toEqual(destinationPaths);
+      expect(documentData).toEqual(slugs);
+      expect(loaded).toEqual(slugs);
+      expect(seen).toEqual(
+        slugs.map((slug) => ({ slug, query: null, hash: null }))
+      );
+      for (const [index, slug] of slugs.entries()) {
+        expect(
+          fs.readFileSync(
+            path.join(tempDir, 'posts', slug, 'index.html'),
+            'utf8'
+          )
+        ).toContain(slugs[index]);
+      }
+    });
+
+    it('should render a question mark entry as a parameter without adding a query', async () => {
+      const seen: Array<{ slug: string; query: string | null }> = [];
+      const result = await batchRenderRoutes([
+        {
+          path: '/posts/{slug}',
+          params: { slug: 'a?b' },
+          handler: ({ slug }) => {
+            seen.push({ slug, query: currentRoute().query.get('b') });
+            return <main>{slug}</main>;
+          },
+        },
+      ]);
+
+      expect(result[0].status).toBe('success');
+      expect(result[0].path).toBe('/posts/a?b');
+      expect(result[0].html).toContain('<main>a?b</main>');
+      expect(seen).toEqual([{ slug: 'a?b', query: null }]);
     });
 
     it('should reject route params that escape the output directory', async () => {
