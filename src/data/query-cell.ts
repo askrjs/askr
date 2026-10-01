@@ -734,7 +734,10 @@ function createCell<T>(
   cache: Map<string, QueryCell<unknown>>
 ): QueryCell<T> {
   const cellOptions = options.takeInitialData
-    ? { ...options, initialData: options.takeInitialData() }
+    ? {
+        ...options,
+        initialData: options.takeInitialData() ?? options.initialData,
+      }
     : options;
   const cell = new QueryCell(cellOptions, options.key, cache);
   cache.set(options.key, cell as QueryCell<unknown>);

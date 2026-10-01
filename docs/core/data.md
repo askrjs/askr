@@ -203,6 +203,9 @@ Pass `skipInitialFetch: true` to either `createQuery()` overload to defer a new
 client query's first fetch until `refresh()` or invalidation requests it.
 Defined queries never fetch during server rendering, including when this
 option is explicitly `false`.
+An `initialData` value seeds a new query as fresh without an initial fetch.
+For defined queries, hydrated or prefetched data takes precedence over that
+caller-supplied fallback. `refresh()` can replace either seed on demand.
 
 Query state is shared by key through a simple in-memory cache. `refresh()` returns a promise,
 preserves the last value while refreshing, and surfaces `fresh`, `stale`, `refreshing`, and

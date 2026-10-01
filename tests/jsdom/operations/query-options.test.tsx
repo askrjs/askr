@@ -18,6 +18,53 @@ async function settle(): Promise<void> {
 }
 
 describe('defined query options', () => {
+  it.each([false, true])(
+    'should use initialData with prefetched data present: %s',
+    async (prefetched) => {
+      const runtime = createDataRuntime();
+      const fetch = vi.fn(async () => ({ name: 'Updated' }));
+      const definition = defineQuery({ key: () => 'options:seed', fetch });
+      const initialData = { name: 'Caller' };
+      const prefetchedData = { name: 'Prefetched' };
+      if (prefetched) runtime.queryData.set('options:seed', prefetchedData);
+      let query!: Query<{ name: string }>;
+      const { container, cleanup } = createTestContainer();
+
+      try {
+        createIsland({
+          root: container,
+          component: () => {
+            query = createQuery(definition, undefined, {
+              runtime,
+              initialData,
+            });
+            return <div>{query.data?.name ?? 'waiting'}</div>;
+          },
+        });
+        flushScheduler();
+        await settle();
+
+        expect(fetch).not.toHaveBeenCalled();
+        expect(query.data).toBe(prefetched ? prefetchedData : initialData);
+        expect(query.consistency).toBe('fresh');
+        expect(container.textContent).toBe(
+          prefetched ? 'Prefetched' : 'Caller'
+        );
+        expect(runtime.queryData.has('options:seed')).toBe(false);
+
+        const refreshed = query.refresh();
+        flushScheduler();
+        await refreshed;
+        await settle();
+
+        expect(fetch).toHaveBeenCalledTimes(1);
+        expect(container.textContent).toBe('Updated');
+      } finally {
+        cleanup();
+      }
+    }
+  );
+
   it('should skip the initial client fetch and support explicit refresh', async () => {
     const runtime = createDataRuntime();
     const fetch = vi.fn(async () => ({ name: 'Ada' }));
