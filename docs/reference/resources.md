@@ -109,7 +109,9 @@ The result object has stable identity and exposes:
 
 Inputs and legacy dependency entries use shallow `Object.is` comparison.
 Changing the input or `deps` restarts an active stream; changing only the
-connect function does not. The adapter owns
+connect function does not. Activation uses the source and dependencies from
+the committed render; preparing or aborting a newer render cannot start its
+source. The adapter owns
 cursor resume, deduplication, gap recovery, retry, and backoff policy. On
 completion the status becomes `closed`; non-abort failures become `error` while
 retaining the latest value. A failed generation is aborted and its iterator is
