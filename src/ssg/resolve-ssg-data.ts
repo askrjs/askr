@@ -227,7 +227,7 @@ export function validateRoutes(routes: RouteConfig[]): void {
         );
       }
       for (const name of paramNames) {
-        if (!Object.prototype.hasOwnProperty.call(route.params, name)) {
+        if (typeof route.params[name] !== 'string') {
           throw new Error(
             `route "${route.path}" missing required param "${name}"`
           );
