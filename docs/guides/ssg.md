@@ -248,6 +248,7 @@ route on a case-insensitive deployment filesystem.
 
 Incremental route updates use a temporary file and rename it into place, so a
 failed route write also preserves that route's previously published HTML.
+An unchanged route is regenerated if its published HTML file is missing.
 When incremental mode is requested without a compatible manifest, `mode` in the
 result is `full`. If that fallback full build fails, successfully rendered
 routes report `written: false` because the atomic output was not published.

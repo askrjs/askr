@@ -349,6 +349,12 @@ export function createStaticGen(options: SSGOptions) {
             changedKeys,
             changedRoutes
           );
+          if (
+            entry.reason === 'unchanged' &&
+            !outputFileExists(options.outputDir, descriptor.filePath)
+          ) {
+            entry.reason = 'new-route';
+          }
           selected.push(entry);
           if (entry.reason !== 'unchanged') {
             routesToRender.push(entry);
