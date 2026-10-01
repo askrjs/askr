@@ -37,9 +37,7 @@ describe('scoped query array keys', () => {
   it('should serialize array positions independently of a custom iterator', () => {
     const scope = queryScope('arrays');
     const parts: QueryKeyPart[] = ['alpha', 'beta'];
-    parts[Symbol.iterator] = function* () {
-      yield 'alpha';
-    };
+    parts[Symbol.iterator] = () => ['alpha'].values();
 
     expect(scope.key(parts)).toBe('s=arrays:a[s=alpha,s=beta]:');
     expect(scope.prefix(parts)).toBe(scope.key(['alpha', 'beta']));
