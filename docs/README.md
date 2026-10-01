@@ -114,19 +114,20 @@ Guides live in [guides](./guides/), and benchmark workflow in
 
 ### Development
 
-| Page                                                              | Description                                                       |
-| ----------------------------------------------------------------- | ----------------------------------------------------------------- |
-| [Platform charter](./development/platform-charter.md)             | Package roles and operating model                                 |
-| [Repo structure](./development/repo-structure.md)                 | Repository layout                                                 |
-| [Contributing](../CONTRIBUTING.md)                                | Setup, build, test, lint                                          |
-| [Release](./development/release.md)                               | Versioning and publish process                                    |
-| [Quality contracts](./development/quality-contracts.md)           | Runtime invariants and test gates                                 |
-| [Compatibility boundary](./development/compatibility-boundary.md) | Published contracts and consumer validation                       |
-| [Core source layout](./development/core-layout.md)                | Core layers and DOM renderer modules                              |
-| [Integration boundaries](./development/integration-boundaries.md) | Root transactions, data attachments, and server request isolation |
-| [Platform versioning](./development/platform-versioning.md)       | Release coordination policy                                       |
-| [Docs style guide](./contributing/docs-style-guide.md)            | Writing conventions                                               |
-| [Testing guide](./contributing/testing.md)                        | Test patterns                                                     |
+| Page                                                                          | Description                                                       |
+| ----------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| [Platform charter](./development/platform-charter.md)                         | Package roles and operating model                                 |
+| [Repo structure](./development/repo-structure.md)                             | Repository layout                                                 |
+| [Contributing](../CONTRIBUTING.md)                                            | Setup, build, test, lint                                          |
+| [Release](./development/release.md)                                           | Versioning and publish process                                    |
+| [0.4.0 core rewrite migration map](./development/0.4.0-core-rewrite-readiness.md) | Historical cross-package migration snapshot                       |
+| [Quality contracts](./development/quality-contracts.md)                       | Runtime invariants and test gates                                 |
+| [Compatibility boundary](./development/compatibility-boundary.md)             | Published contracts and consumer validation                       |
+| [Core source layout](./development/core-layout.md)                            | Core layers and DOM renderer modules                              |
+| [Integration boundaries](./development/integration-boundaries.md)             | Root transactions, data attachments, and server request isolation |
+| [Platform versioning](./development/platform-versioning.md)                   | Release coordination policy                                       |
+| [Docs style guide](./contributing/docs-style-guide.md)                        | Writing conventions                                               |
+| [Testing guide](./contributing/testing.md)                                    | Test patterns                                                     |
 
 ### Additional Reading
 
