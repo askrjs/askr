@@ -2,6 +2,47 @@
 
 ## Unreleased
 
+- fix(data): honor defined-query `skipInitialFetch` and `initialData` options,
+  retain prefetched/hydrated data precedence, and retire active or queued
+  refreshes when the last reader leaves a query retained by `gcTime` (#724).
+- fix(data): retire obsolete requests immediately when invalidation supersedes
+  them, preserve every string query key during dehydration, and keep sparse
+  query-key arrays from colliding with empty arrays. Dense-array keys are unchanged.
+- fix(resources): abort and close failed stream generations, capture stream
+  definitions from the committed render, and preserve component ownership in
+  listener and timer callbacks so nested FX and invalidation use the owning app.
+- fix(core): restore `derive()`/`selector()` definitions and subscriptions after
+  a rejected render, and run replacement refs even when previous ref cleanup
+  throws.
+- fix(core): retain the following server element when hydration adopts merged
+  adjacent text nodes, including text claimed through reserved cursors.
+- fix(control): preserve native and class instance receivers in `For` rows while
+  retaining reactive overlays for plain records and stable keyed row lifetimes.
+- fix(foundations): prevent stale collection cleanup from removing a newer
+  registration for the same node, and preserve own `__proto__` props in
+  `mergeProps()` without changing the output record's prototype.
+- fix(router): preserve prototype-named path parameters and query fields without
+  changing the prototype of the returned plain records. Server snapshots omit
+  browser history state, and hydration omission guards apply only to declared
+  omissions rather than inherited object properties.
+- fix(router): capture each committed `onRouteChange()` callback and snapshot,
+  preserving ordered changes and cleanup when several commits precede a flush.
+  Destination snapshots read the matching navigation state before browser
+  history is written, and navigation state getters run once per destination.
+- fix(ssr): distinguish actual deferred hydration values from ordinary records
+  with the same marker keys. Existing generated pages retain their original
+  deferred decoding, unambiguous pages retain their existing envelope bytes,
+  and the hydration envelope remains version 1.
+- fix(rendering): keep attribute names such as `constructor` and `toString`
+  literal rather than interpreting them as inherited alias or namespace entries.
+- fix(hydration): retain the clicked submit button when replaying a form
+  submission after hydration replaces its controls. Failed idle attempts retain
+  interaction and visibility retries, and mixed completion paths release their
+  replay and scroll listeners after the final deferred section activates.
+- fix(ssg): normalize named splat entry parameters, encode dynamic render URLs
+  while preserving existing output paths and data override keys, and rebuild
+  unchanged routes when their generated HTML is missing.
+
 ## 0.4.0 — 2026-09-28
 
 - feat(router): expose `matchRoute(path, { registry })` for synchronous route
