@@ -466,7 +466,9 @@ Runs after a persistent component commits a pathname, query, or hash change. The
 initial route is skipped by default; pass `{ immediate: true }` to include it.
 The callback receives the current and previous route snapshots. A returned
 cleanup runs before the next callback and when the component unmounts. Failed or
-superseded navigations do not publish a callback. Browser history back/forward
+superseded navigations do not publish a callback. Each committed change keeps
+its own callback and snapshots when several commits occur before callbacks
+flush. Browser history back/forward
 navigations are committed route changes and invoke the callback as well. During
 SSR and SSG there is no client navigation commit, so `onRouteChange` does not
 run; use the render-time route APIs for initial data.
