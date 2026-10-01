@@ -245,7 +245,10 @@ By default, the last reader's unmount evicts the query immediately. Set
 `gcTime` to a finite, non-negative number of milliseconds to retain a settled
 value in that data runtime's cache. A new reader before the deadline sees the
 cached value and supplies the next fetch definition; the timer restarts after
-its last unmount. An in-flight refresh is aborted when the last reader leaves.
+its last unmount. An in-flight refresh is aborted when the last reader leaves,
+and queued starts are cancelled before they can call that reader's fetcher.
+Retained data from an aborted refresh becomes settled stale data with
+`staleReason: 'aborted'`; a new reader can refresh it on demand.
 Invalidating an inactive retained key evicts it instead of fetching through an
 unmounted reader's callback.
 Outside a component, a query handle remains usable after its cache lookup
