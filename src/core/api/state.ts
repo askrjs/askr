@@ -252,7 +252,9 @@ function createDerived(
       recordUndo(() => {
         current = previous;
         computation.restoreSources(sources);
-        computation.invalidate();
+        // Recompute on a read or later source change without immediately
+        // retrying the owner whose rejected render may have just failed.
+        computation.deferRetry();
       });
       current = fn;
       computation.invalidate();
