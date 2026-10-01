@@ -203,6 +203,12 @@ function createRow(index: number, item: unknown): RowRecord {
       if (typeof item !== 'object' || item === null || Array.isArray(item)) {
         return item;
       }
+      const prototype = Object.getPrototypeOf(item);
+      if (prototype !== Object.prototype && prototype !== null) {
+        // Native and class methods need the original receiver. Track the
+        // whole item so replacing an instance still updates its retained row.
+        return source.read();
+      }
       if (proxy) return proxy;
       proxy = new Proxy(
         {},

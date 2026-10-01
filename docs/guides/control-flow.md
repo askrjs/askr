@@ -102,6 +102,11 @@ rerun them.
 Keys still need to be stable; use `byIndex` only when positional identity is
 intentional.
 
+Plain record items use a live row proxy, so their properties follow replacement
+items with the same key. Native objects and class instances, such as `Date` and
+`Map`, reach the row as the original object so their methods and private fields
+work normally. Replacing one updates the row while preserving its keyed lifetime.
+
 ## Testing the contract
 
 This repository's Vitest/jsdom test harness can mount this component. Keep the
