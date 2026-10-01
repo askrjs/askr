@@ -99,6 +99,15 @@ arrays, plain objects, and Askr deferred-value encoding are supported. Values
 whose JSON representation is lossy or ambiguous are rejected with the concrete
 route and property path.
 
+Plain records may use any string property names, including
+`__askr_deferred__`. Hydration records the locations of actual deferred values
+separately, so records that resemble the deferred encoding remain ordinary
+data. Previously generated pages without this location metadata continue to
+use their original deferred decoding.
+Omission diagnostics apply only to fields explicitly omitted by `dehydrate()`;
+ordinary inherited methods such as `toString()` remain available on plain
+hydrated records.
+
 Query data follows the same transport rules. `dehydrateDataRuntime()` (and
 therefore every SSR/SSG render that embeds a data runtime) throws a
 `TypeError` naming the query key and property path when a cached value is not
@@ -106,6 +115,8 @@ JSON-shaped, for example a `Date`, `Map`, `Set`, class instance, bigint,
 non-finite number, `undefined`, or cyclic reference. It never silently drops
 or coerces an entry; map such values to JSON-compatible data in the query
 `fetch` or server handler (for example an ISO string instead of a `Date`).
+Every string query key survives dehydration and hydration unchanged,
+including keys such as `__proto__` that also name object properties.
 An SSR-mode `prefetchQuery()` applies the same check as each value arrives,
 and `renderRouteRequest()` checks the whole data runtime before returning a
 streamed result, so query data from any source (a seeded `dataRuntime` or a

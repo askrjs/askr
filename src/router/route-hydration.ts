@@ -166,7 +166,12 @@ function guardOmissions(
   const guarded = new Proxy(value, {
     get(target, property, receiver) {
       if (typeof property === 'string') {
-        const omitted = omissions[property];
+        const omitted = Object.prototype.hasOwnProperty.call(
+          omissions,
+          property
+        )
+          ? omissions[property]
+          : undefined;
         if (
           omitted &&
           !Object.prototype.hasOwnProperty.call(target, property)

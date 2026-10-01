@@ -31,14 +31,24 @@ export class HydrationCursor {
   /** Renders to run after the root's hydrating render (portal hosts). */
   readonly deferred: DeferredHydration[] = [];
 
-  constructor(private readonly stopAt: Node | null = null) {}
+  constructor(
+    private readonly stopAt: Node | null = null,
+    private readonly successors = new WeakMap<Node, Node | null>()
+  ) {}
+
+  /** Detached text suffixes retain the server sibling that follows them. */
+  private followingSibling(node: Node): Node | null {
+    return this.successors.has(node)
+      ? this.successors.get(node)!
+      : node.nextSibling;
+  }
 
   /** Consume private SSR metadata emitted immediately before a component output. */
   claimResourceSlots(container: Node): string[] | null {
     let node = this.next.has(container)
       ? this.next.get(container)!
       : container.firstChild;
-    for (; node && node !== this.stopAt; node = node.nextSibling) {
+    for (; node && node !== this.stopAt; node = this.followingSibling(node)) {
       if (node.nodeType === 3 && isInsignificantWhitespace(node as Text)) {
         continue;
       }
@@ -71,7 +81,7 @@ export class HydrationCursor {
       : container.firstChild;
     while (node && node !== this.stopAt) {
       if (node.nodeType !== 8) nodes.push(node);
-      node = node.nextSibling;
+      node = this.followingSibling(node);
     }
     return nodes;
   }
@@ -92,23 +102,23 @@ export class HydrationCursor {
       node.nodeType === 3 &&
       isInsignificantWhitespace(node as Text)
     ) {
-      node = node.nextSibling;
+      node = this.followingSibling(node);
     }
     if (node && isRangeMarker(node, 'askr-range-start')) {
       let depth = 0;
       let end: Node | null = node;
-      for (; end && end !== this.stopAt; end = end.nextSibling) {
+      for (; end && end !== this.stopAt; end = this.followingSibling(end)) {
         if (isRangeMarker(end, 'askr-range-start')) depth++;
         else if (isRangeMarker(end, 'askr-range-end') && --depth === 0) break;
       }
       if (end && end !== this.stopAt) {
-        this.next.set(container, end.nextSibling);
-        const inner = new HydrationCursor(end);
-        inner.next.set(container, node.nextSibling);
+        this.next.set(container, this.followingSibling(end));
+        const inner = new HydrationCursor(end, this.successors);
+        inner.next.set(container, this.followingSibling(node));
         return inner;
       }
     }
-    const later = new HydrationCursor(this.stopAt);
+    const later = new HydrationCursor(this.stopAt, this.successors);
     later.next.set(container, node);
     return later;
   }
@@ -124,13 +134,13 @@ export class HydrationCursor {
       (node.nodeType === 8 ||
         (node.nodeType === 3 && isInsignificantWhitespace(node as Text)))
     ) {
-      node = node.nextSibling;
+      node = this.followingSibling(node);
     }
     return node === this.stopAt ? null : node;
   }
 
   private advance(container: Node, node: Node): void {
-    this.next.set(container, node.nextSibling);
+    this.next.set(container, this.followingSibling(node));
   }
 
   claimElement(
@@ -172,6 +182,7 @@ export class HydrationCursor {
       const remainder = document.createTextNode(
         textNode.data.slice(text.length)
       );
+      this.successors.set(remainder, this.followingSibling(textNode));
       this.next.set(container, remainder);
       return textNode;
     }

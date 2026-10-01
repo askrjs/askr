@@ -29,6 +29,22 @@ describe('attribute name and value serialization', () => {
     flushScheduler();
   }
 
+  it('should render attributes named after object properties in SSR and the DOM', async () => {
+    const props = JSON.parse(
+      '{"constructor":"ctor","toString":"text","attr:__proto__":"proto"}'
+    ) as Record<string, string>;
+    const Names = () => <div {...props} />;
+    const html = await captureSSRSnapshot(Names);
+    expect(html).toContain('constructor="ctor"');
+    expect(html).toContain('toString="text"');
+    expect(html).toContain('__proto__="proto"');
+    renderDOM(Names);
+    const element = container.querySelector('div')!;
+    expect(element.getAttribute('constructor')).toBe('ctor');
+    expect(element.getAttribute('tostring')).toBe('text');
+    expect(element.getAttribute('__proto__')).toBe('proto');
+  });
+
   describe('camelCase SVG attributes', () => {
     const SvgShapes = () => (
       <svg viewBox="0 0 10 10" xmlnsXlink="http://www.w3.org/1999/xlink">

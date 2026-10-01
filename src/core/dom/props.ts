@@ -19,6 +19,7 @@ import { deliverToBoundary } from '../component/errors';
 import { recordUndo } from '../component/journal';
 import { readValue } from '../reactive/readable';
 import { effectScheduler } from '../reactive/scheduler';
+import { throwCollected } from '../reactive/owner';
 import {
   parseEventProp,
   removeAllListeners,
@@ -780,8 +781,18 @@ export function attachRef(pass: Pass, node: HostNode, previous: unknown): void {
   if (ref === previous) return;
   const el = node.el;
   pass.after(() => {
-    if (previous) setRef(previous, null);
-    if (ref) setRef(ref, el);
+    const errors: unknown[] = [];
+    try {
+      if (previous) setRef(previous, null);
+    } catch (error) {
+      errors.push(error);
+    }
+    try {
+      if (ref) setRef(ref, el);
+    } catch (error) {
+      errors.push(error);
+    }
+    throwCollected(errors, 'Ref replacement callbacks failed');
   });
 }
 

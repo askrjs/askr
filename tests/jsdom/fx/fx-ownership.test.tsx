@@ -9,7 +9,7 @@ import {
 import { cleanupApp, createIsland } from '@askrjs/askr/boot';
 import { state, type State } from '@askrjs/askr';
 import { Show } from '@askrjs/askr/control';
-import { task, watch } from '@askrjs/askr/resources';
+import { on, task, timer, watch } from '@askrjs/askr/resources';
 import {
   debounceEvent,
   rafEvent,
@@ -46,6 +46,43 @@ function settle(ms: number): void {
 }
 
 describe('fx scheduled work ownership', () => {
+  it.each(['listener', 'timer'] as const)(
+    'should cancel work scheduled by a lifecycle %s callback on unmount',
+    (kind) => {
+      const { container, cleanup } = createTestContainer();
+      const target = new EventTarget();
+      const fired = vi.fn();
+      let callbacks = 0;
+
+      try {
+        createIsland({
+          root: container,
+          component: () => {
+            const callback = () => {
+              callbacks += 1;
+              scheduleTimeout(100, fired);
+            };
+            if (kind === 'listener') on(target, 'ping', callback);
+            else timer(50, callback);
+            return <div>{'mounted'}</div>;
+          },
+        });
+        flushScheduler();
+        if (kind === 'listener') target.dispatchEvent(new Event('ping'));
+        else settle(50);
+        expect(callbacks).toBe(1);
+
+        cleanupApp(container);
+        settle(200);
+
+        expect(fired).not.toHaveBeenCalled();
+        expect(callbacks).toBe(1);
+      } finally {
+        cleanup();
+      }
+    }
+  );
+
   it('should cancel scheduleTimeout from a task when the component unmounts', () => {
     const { container, cleanup } = createTestContainer();
     const fired = vi.fn();

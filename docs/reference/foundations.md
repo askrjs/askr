@@ -11,7 +11,8 @@ Prop composition and accessibility helpers. All of them are pure.
 
 - `mergeProps(base, injected)` merges props: base values win unless
   `undefined`, and `on*` event handlers compose. Refs do not compose; use
-  `composeRefs()` for that.
+  `composeRefs()` for that. Own string prop names, including `__proto__`, are
+  preserved as data properties.
 - `composeHandlers(first, second, options?)` returns one handler that runs
   `first` then `second`. It skips `second` when `first` called
   `preventDefault()`, unless `options.checkDefaultPrevented` is `false`.
@@ -82,7 +83,10 @@ Controlled/uncontrolled value helpers.
 ## `@askrjs/askr/foundations/structures`
 
 - `createCollection()` returns an insertion-ordered registry of items that
-  components register into.
+  components register into. Registering the same node replaces its metadata
+  without changing its order. Each unregister callback removes only its own
+  registration, so cleanup from an earlier registration cannot remove a newer
+  one, including after `clear()`.
 - `createLayer()` returns a `LayerManager` that tracks stacked overlays, so only
   the top layer handles Escape and outside-pointer dismissal.
 - `isElement(value)` checks for a JSX element, and

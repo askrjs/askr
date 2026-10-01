@@ -1,5 +1,8 @@
 import type { RouteMatch, RouteParams, RouteSnapshot } from '../common/router';
-import { getStagedAppRenderRouteLocation } from '../common/app-render-runtime';
+import {
+  getStagedAppRenderRouteLocation,
+  getStagedAppRenderRouteState,
+} from '../common/app-render-runtime';
 import { syncRouteActivitySnapshot } from '../common/route-activity';
 import { getActiveRenderContext } from '../common/render-context';
 import {
@@ -23,14 +26,8 @@ export type RouteChangeCleanup = void | (() => void);
 type RouteChangeSlot = {
   kind: 'route-change';
   previous: RouteSnapshot | null;
-  pending: RouteSnapshot | null;
   cleanup: (() => void) | null;
   cleanupRegistered: boolean;
-  callback: (
-    current: RouteSnapshot,
-    previous: RouteSnapshot | null
-  ) => RouteChangeCleanup;
-  immediate: boolean;
 };
 function routeSignature(route: RouteSnapshot): string {
   return `${route.path}\u0000${JSON.stringify(route.query.toJSON())}\u0000${route.hash ?? ''}`;
@@ -54,15 +51,10 @@ export function onRouteChange(
   const slot = hookSlot<RouteChangeSlot>(instance, 'onRouteChange', () => ({
     kind: 'route-change',
     previous: null,
-    pending: null,
     cleanup: null,
     cleanupRegistered: false,
-    callback: fn,
-    immediate: options.immediate === true,
   }));
-  slot.pending = route;
-  slot.callback = fn;
-  slot.immediate = options.immediate === true;
+  const immediate = options.immediate === true;
   if (!slot.cleanupRegistered) {
     instance.onCleanup(() => {
       slot.cleanup?.();
@@ -70,34 +62,28 @@ export function onRouteChange(
     });
     slot.cleanupRegistered = true;
   }
-  if (!slot.previous) {
-    onCommit(instance, () => {
-      const committed = slot.pending;
-      if (!committed) return;
-      if (slot.immediate) slot.cleanup = slot.callback(committed, null) ?? null;
-      slot.previous = committed;
-    });
-    return;
-  }
-  if (routeSignature(slot.previous) === routeSignature(route)) return;
   onCommit(instance, () => {
     const previous = slot.previous;
-    const committed = slot.pending;
-    if (
-      !previous ||
-      !committed ||
-      routeSignature(previous) === routeSignature(committed)
-    )
+    if (!previous) {
+      if (immediate) slot.cleanup = fn(route, null) ?? null;
+      slot.previous = route;
       return;
+    }
+    if (routeSignature(previous) === routeSignature(route)) return;
     slot.cleanup?.();
-    slot.cleanup = slot.callback(committed, previous) ?? null;
-    slot.previous = committed;
+    slot.cleanup = fn(route, previous) ?? null;
+    slot.previous = route;
   });
 }
 
 let serverLocation: string | null = null;
 
 function readLocationState(): { hasState: boolean; state: unknown } {
+  if (getActiveRenderContext()?.mode === 'ssr') {
+    return { hasState: false, state: undefined };
+  }
+  const staged = getStagedAppRenderRouteState(getCurrentAppRenderRuntime());
+  if (staged) return staged;
   const historyState =
     typeof window !== 'undefined' && window.history?.state
       ? window.history.state

@@ -40,6 +40,7 @@ import {
   type PreparedRootUpdate,
 } from '../common/root-update';
 import type { ComponentFunction } from '../common/component';
+import type { AppRenderRouteState } from '../common/app-render-runtime';
 import { loadDocument, reloadDocument } from './document-navigation';
 import {
   commitHistoryIndex,
@@ -224,12 +225,14 @@ function getResolvedRouteHandler(resolved: RouteRequestResult): ResolvedRoute {
 function prepareNavigationRoot(
   target: AppNavigationTarget,
   href: string,
-  replaceLifetime: boolean
+  replaceLifetime: boolean,
+  locationState: AppRenderRouteState
 ): PreparedRootUpdate {
   const resolved = target.resolved;
   return prepareRootUpdate(target.app.instance, {
     handler: bindResolvedRouteHandler(getResolvedRouteHandler(resolved)),
     href,
+    locationState,
     routeData: isRenderResult(resolved)
       ? getRouteRenderData(resolved)
       : undefined,
@@ -371,11 +374,17 @@ export function applyNavigationTargets(
     return;
   }
 
+  const hasState = Object.prototype.hasOwnProperty.call(options, 'state');
+  const locationState = {
+    hasState,
+    state: hasState ? options.state : undefined,
+  };
   commitNavigationRoots(
     requestId,
     pathname,
     href,
     matchedTargets,
+    locationState,
     () => {
       saveScrollPosition(previousHref);
       const historyMode = getNavigationHistoryMode(options);
@@ -383,8 +392,8 @@ export function applyNavigationTargets(
       window.history[historyMode === 'replace' ? 'replaceState' : 'pushState'](
         {
           path: href,
-          askrHasState: Object.prototype.hasOwnProperty.call(options, 'state'),
-          askrState: options.state,
+          askrHasState: locationState.hasState,
+          askrState: locationState.state,
           askrIndex: historyIndex,
         },
         '',
@@ -443,11 +452,17 @@ export function applyPopStateNavigationTargets(
   }
 
   saveScrollPosition(previousHref);
+  const historyState = state as {
+    askrHasState?: unknown;
+    askrState?: unknown;
+  } | null;
+  const hasState = historyState?.askrHasState === true;
   commitNavigationRoots(
     requestId,
     pathname,
     href,
     matchedTargets,
+    { hasState, state: hasState ? historyState?.askrState : undefined },
     () => commitHistoryIndex(historyIndex),
     () => applyHistoryScroll(href, state),
     () => {
@@ -472,6 +487,7 @@ function commitNavigationRoots(
   pathname: string,
   href: string,
   targets: AppNavigationTarget[],
+  locationState: AppRenderRouteState,
   updateHistory: () => void,
   updateScroll: () => void,
   restoreHistory?: () => void
@@ -484,78 +500,87 @@ function commitNavigationRoots(
     return {
       target,
       replaceLifetime,
-      prepared: prepareNavigationRoot(target, href, replaceLifetime),
+      prepared: prepareNavigationRoot(
+        target,
+        href,
+        replaceLifetime,
+        locationState
+      ),
     };
   });
 
-  const rollback = () => {
-    const errors: unknown[] = [];
-    for (let index = roots.length - 1; index >= 0; index--) {
-      errors.push(...roots[index]!.prepared.rollback());
-    }
-    setCurrentRouteLocation(previousPathname, previousHref);
-    try {
-      restoreHistory?.();
-    } catch (error) {
-      errors.push(error);
-    }
-    reportRouteCleanupErrors(errors);
-  };
-
   try {
-    // Replacement lifetimes render before refreshed ones.
-    for (const replaceLifetime of [true, false]) {
-      for (const root of roots) {
-        if (root.replaceLifetime === replaceLifetime) root.prepared.apply();
+    const rollback = () => {
+      const errors: unknown[] = [];
+      for (let index = roots.length - 1; index >= 0; index--) {
+        errors.push(...roots[index]!.prepared.rollback());
       }
-    }
-  } catch (error) {
-    rollback();
-    logger.error('[Askr] navigation failed:', error);
-    throw error;
-  }
-  if (isStaleRouteRequest(requestId)) {
-    rollback();
-    return;
-  }
+      setCurrentRouteLocation(previousPathname, previousHref);
+      try {
+        restoreHistory?.();
+      } catch (error) {
+        errors.push(error);
+      }
+      reportRouteCleanupErrors(errors);
+    };
 
-  // Publish every root. A commit undone by a failed DOM write aborts the
-  // navigation: roots not yet published are rolled back and the location
-  // stays. Failures after a commit applied (a throwing ref) are reported, and
-  // the navigation completes because the page did change.
-  const committedFailures: unknown[] = [];
-  for (const root of roots) {
-    const result = root.prepared.publish();
-    if (result.aborted) {
+    try {
+      // Replacement lifetimes render before refreshed ones.
+      for (const replaceLifetime of [true, false]) {
+        for (const root of roots) {
+          if (root.replaceLifetime === replaceLifetime) root.prepared.apply();
+        }
+      }
+    } catch (error) {
       rollback();
-      const failure = result.errors[0];
-      logger.error('[Askr] navigation failed:', failure);
-      throw failure;
+      logger.error('[Askr] navigation failed:', error);
+      throw error;
     }
-    committedFailures.push(...result.errors);
-    syncAppRegistrationLocation(root.target.app, pathname, href);
-  }
-  for (const failure of committedFailures) reportUncaughtErrorLater(failure);
-  const retired: unknown[] = [];
-  for (const root of roots) retired.push(...root.prepared.retire());
-  if (retired.length) {
-    reportUncaughtErrorLater(
-      retired.length === 1
-        ? retired[0]
-        : new AggregateError(retired, 'Route cleanup failed')
-    );
-  }
+    if (isStaleRouteRequest(requestId)) {
+      rollback();
+      return;
+    }
 
-  flushSync();
-  if (isStaleRouteRequest(requestId)) return;
-  try {
-    updateHistory();
-    setCurrentRouteLocation(pathname, href);
-    syncRegisteredRouteSnapshot();
-    reconcileNavigationMetadata(targets);
-    updateScroll();
-  } catch (error) {
-    logger.error('[Askr] navigation failed:', error);
-    throw error;
+    // Publish every root. A commit undone by a failed DOM write aborts the
+    // navigation: roots not yet published are rolled back and the location
+    // stays. Failures after a commit applied (a throwing ref) are reported, and
+    // the navigation completes because the page did change.
+    const committedFailures: unknown[] = [];
+    for (const root of roots) {
+      const result = root.prepared.publish();
+      if (result.aborted) {
+        rollback();
+        const failure = result.errors[0];
+        logger.error('[Askr] navigation failed:', failure);
+        throw failure;
+      }
+      committedFailures.push(...result.errors);
+      syncAppRegistrationLocation(root.target.app, pathname, href);
+    }
+    for (const failure of committedFailures) reportUncaughtErrorLater(failure);
+    const retired: unknown[] = [];
+    for (const root of roots) retired.push(...root.prepared.retire());
+    if (retired.length) {
+      reportUncaughtErrorLater(
+        retired.length === 1
+          ? retired[0]
+          : new AggregateError(retired, 'Route cleanup failed')
+      );
+    }
+
+    flushSync();
+    if (isStaleRouteRequest(requestId)) return;
+    try {
+      updateHistory();
+      setCurrentRouteLocation(pathname, href);
+      syncRegisteredRouteSnapshot();
+      reconcileNavigationMetadata(targets);
+      updateScroll();
+    } catch (error) {
+      logger.error('[Askr] navigation failed:', error);
+      throw error;
+    }
+  } finally {
+    for (const root of roots) root.prepared.complete();
   }
 }

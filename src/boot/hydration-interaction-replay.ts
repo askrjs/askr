@@ -56,6 +56,7 @@ function cloneInteractionEvent(event: Event): Event {
     isPrimary: eventWithDetails.isPrimary,
     data: eventWithDetails.data,
     inputType: eventWithDetails.inputType,
+    submitter: eventWithDetails.submitter,
   };
 
   try {
@@ -138,6 +139,14 @@ export function beginHydrationInteractionReplay(
   }
 
   function notifyIfDeferredBoundariesDrained(): void {
+    for (const boundary of deferredBoundaries) {
+      if (
+        !boundary.hasAttribute('data-skip-hydrate') ||
+        !root.contains(boundary)
+      ) {
+        deferredBoundaries.delete(boundary);
+      }
+    }
     if (hadDeferredBoundaries && deferredBoundaries.size === 0) {
       onDeferredBoundariesDrained?.();
     }

@@ -11,6 +11,51 @@ afterEach(() => {
 });
 
 describe('query work admission', () => {
+  it.each(['resolve', 'reject'] as const)(
+    'should ignore a queued %s as soon as invalidation supersedes it',
+    async (outcome) => {
+      const runtime = createDataRuntime();
+      let resolve!: (value: { value: number }) => void;
+      let reject!: (reason: Error) => void;
+      const fetch = vi.fn(() => {
+        if (fetch.mock.calls.length > 1) {
+          return new Promise<{ value: number }>(() => {});
+        }
+        return new Promise<{ value: number }>((res, rej) => {
+          resolve = res;
+          reject = rej;
+        });
+      });
+      const query = createQuery({
+        key: 'queued-settlement',
+        runtime,
+        initialData: { value: 1 },
+        fetch,
+        gcTime: 0,
+      });
+      const refresh = query.refresh();
+      flushSync();
+      await Promise.resolve();
+
+      // Queue the old promise continuation ahead of the scheduler's
+      // replacement start. Cancellation must revoke it synchronously.
+      if (outcome === 'resolve') resolve({ value: 99 });
+      else reject(new Error('obsolete failure'));
+      invalidate('queued-settlement', { runtime });
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(query.data).toEqual({ value: 1 });
+      expect(query.error).toBeNull();
+      expect(fetch).toHaveBeenCalledTimes(2);
+      clearScheduler();
+      // A final cleared replacement settles the shared refresh handle.
+      invalidate('queued-settlement', { runtime });
+      clearScheduler();
+      await refresh;
+    }
+  );
+
   it.each(['initial', 'manual', 'invalidation'] as const)(
     'should settle cleared %s work and admit a later refresh',
     async (kind) => {

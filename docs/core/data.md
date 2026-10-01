@@ -199,6 +199,14 @@ if (user.staleReason === 'error') {
 invalidate('user:');
 ```
 
+Pass `skipInitialFetch: true` to either `createQuery()` overload to defer a new
+client query's first fetch until `refresh()` or invalidation requests it.
+Defined queries never fetch during server rendering, including when this
+option is explicitly `false`.
+An `initialData` value seeds a new query as fresh without an initial fetch.
+For defined queries, hydrated or prefetched data takes precedence over that
+caller-supplied fallback. `refresh()` can replace either seed on demand.
+
 Query state is shared by key through a simple in-memory cache. `refresh()` returns a promise,
 preserves the last value while refreshing, and surfaces `fresh`, `stale`, `refreshing`, and
 `pending-write` explicitly through `consistency`. `loading` represents the first unresolved
@@ -215,6 +223,8 @@ publish a new query state: if invalidation already aborted a running request, it
 last snapshot can still report `refreshing` until a later explicit refresh.
 Late results or errors from the aborted request cannot replace that snapshot,
 even if its fetch ignores the abort signal.
+Invalidation retires an in-flight result immediately, including one whose
+promise has settled but whose continuation has not yet published its data.
 
 Manual calls to `refresh()` coalesce while a request is pending. `invalidate()`
 is the distinct operation that replaces stale work; rapid invalidations before
@@ -237,7 +247,10 @@ By default, the last reader's unmount evicts the query immediately. Set
 `gcTime` to a finite, non-negative number of milliseconds to retain a settled
 value in that data runtime's cache. A new reader before the deadline sees the
 cached value and supplies the next fetch definition; the timer restarts after
-its last unmount. An in-flight refresh is aborted when the last reader leaves.
+its last unmount. An in-flight refresh is aborted when the last reader leaves,
+and queued starts are cancelled before they can call that reader's fetcher.
+Retained data from an aborted refresh becomes settled stale data with
+`staleReason: 'aborted'`; a new reader can refresh it on demand.
 Invalidating an inactive retained key evicts it instead of fetching through an
 unmounted reader's callback.
 Outside a component, a query handle remains usable after its cache lookup
@@ -439,6 +452,9 @@ invalidate('user:', { markPendingWrite: true });
 
 For feature-local query prefixes, use `queryScope(namespace)` to build canonical keys.
 The namespace must be non-empty after trimming:
+Array parts include every position: a missing element in a sparse array is
+encoded like an explicit `undefined` at that index. Empty arrays remain
+distinct, and existing dense-array key strings are unchanged.
 
 ```ts
 import { queryScope } from '@askrjs/askr/data';

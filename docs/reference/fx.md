@@ -48,7 +48,8 @@ unmounts.
 `scheduleTimeout`, `scheduleIdle`, and `scheduleRetry` throw when called during
 render. Call them from a mounted component's `task()`, `watch()` callback, or
 event handler: the pending work is then cancelled automatically when that
-component unmounts. Handlers inside a portal belong to the component that
+component unmounts. The synchronous callbacks of `on()` and `timer()` also
+own the work they schedule. Handlers inside a portal belong to the component that
 wrote the portal content. Handlers wrapped by `debounceEvent`, `throttleEvent`,
 `rafEvent`, or `scheduleEventHandler` keep the owner of the event (or of the
 component that created the wrapper) when they run later. Only the synchronous

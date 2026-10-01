@@ -137,6 +137,18 @@ const ssg = createStaticGen({
 Declare a template once: registering the same path twice throws, so every page
 of a template comes from its `entries()`.
 
+Named splats use the parameter name without the leading star in each entry:
+`route('/docs/{*path}', DocsPage, { entries: () => [{ path: 'guide/start' }] })`.
+Widened string templates also retain legacy raw entry keys such as `'*path'`
+or `' slug '` for `{ slug }`. The normalized key takes precedence when provided,
+including an empty string.
+The render URL encodes entry values with the same rules as `to()`, so a slug
+such as `a#b` stays a parameter rather than becoming a fragment. Generated
+`path`, `filePath`, concrete `dataOverrides` keys, and `changedRoutes` retain
+their existing entry spelling; spaces, Unicode, and literal percent signs in
+filenames are preserved. The document callback receives the encoded render URL.
+Dot segments and backslashes remain invalid in concrete output paths.
+
 `invalidationKeys` on `route()` applies to the template, so every page its
 `entries()` generate shares those keys during incremental generation
 (`generate({ mode: 'incremental', changedKeys })`). To rebuild individual
@@ -239,6 +251,7 @@ route on a case-insensitive deployment filesystem.
 
 Incremental route updates use a temporary file and rename it into place, so a
 failed route write also preserves that route's previously published HTML.
+An unchanged route is regenerated if its published HTML file is missing.
 When incremental mode is requested without a compatible manifest, `mode` in the
 result is `full`. If that fallback full build fails, successfully rendered
 routes report `written: false` because the atomic output was not published.
