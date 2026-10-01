@@ -99,9 +99,25 @@ export function serializeHydrationRenderData(
   // them apart from ordinary loader/resource values with the same keys.
   const deferredPaths: string[][] = [];
   const paths = new WeakMap<object, string[]>();
+  let hasDeferredMarker = false;
   return `<script type="application/json" ${SSR_RENDER_DATA_ATTR}="true">${JSON.stringify(
-    { ...payload, deferredPaths },
+    {
+      ...payload,
+      // Read last, after the payload walk. Preserve existing bytes when the
+      // page has neither a deferred value nor a marker-shaped user record.
+      get deferredPaths() {
+        return deferredPaths.length > 0 || hasDeferredMarker
+          ? deferredPaths
+          : undefined;
+      },
+    },
     function (this: object, key: string, value: unknown): unknown {
+      if (
+        key === DEFERRED_PAYLOAD &&
+        (value === 'fulfilled' || value === 'rejected')
+      ) {
+        hasDeferredMarker = true;
+      }
       const parentPath = paths.get(this);
       const path = parentPath ? [...parentPath, key] : [];
       if (isDeferred(value)) deferredPaths.push(path);
