@@ -5,12 +5,31 @@ import {
   defineQuery,
   defineServerQueries,
   dehydrateDataRuntime,
+  hydrateDataRuntime,
   prefetchQuery,
   serveQuery,
 } from '../../../src/data/query-registry';
 import { invalidate } from '../../../src/data/invalidation';
 
 describe('dehydrateDataRuntime', () => {
+  it.each(['__proto__', 'constructor', 'toString'])(
+    'should preserve the query key %s through JSON hydration',
+    (key) => {
+      const runtime = createDataRuntime();
+      const value = { name: 'Ada' };
+      runtime.queryData.set(key, value);
+
+      const snapshot = dehydrateDataRuntime(runtime);
+
+      expect(Object.getPrototypeOf(snapshot)).toBe(Object.prototype);
+      expect(Object.hasOwn(snapshot, key)).toBe(true);
+      expect(snapshot[key]).toBe(value);
+      const restored = createDataRuntime();
+      hydrateDataRuntime(restored, JSON.parse(JSON.stringify(snapshot)));
+      expect(restored.queryData.get(key)).toEqual(value);
+    }
+  );
+
   it('should keep JSON-compatible query data unchanged', () => {
     const runtime = createDataRuntime();
     const user = {

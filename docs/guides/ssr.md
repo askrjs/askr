@@ -106,6 +106,8 @@ JSON-shaped, for example a `Date`, `Map`, `Set`, class instance, bigint,
 non-finite number, `undefined`, or cyclic reference. It never silently drops
 or coerces an entry; map such values to JSON-compatible data in the query
 `fetch` or server handler (for example an ISO string instead of a `Date`).
+Every string query key survives dehydration and hydration unchanged,
+including keys such as `__proto__` that also name object properties.
 An SSR-mode `prefetchQuery()` applies the same check as each value arrives,
 and `renderRouteRequest()` checks the whole data runtime before returning a
 streamed result, so query data from any source (a seeded `dataRuntime` or a
