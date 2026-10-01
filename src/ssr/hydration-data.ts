@@ -35,7 +35,7 @@ function exposedDeferredError(error: unknown): string {
     : REDACTED_DEFERRED_ERROR;
 }
 
-function hydrationReplacer(_key: string, value: unknown): unknown {
+function hydrationReplacer(value: unknown): unknown {
   if (!isDeferred(value)) return value;
   if (value.state === 'fulfilled') {
     return { [DEFERRED_PAYLOAD]: 'fulfilled', value: value.value };
@@ -94,9 +94,21 @@ export function serializeHydrationRenderData(
     validateRouteHydrationData(payload.route, routeHydration.r);
   }
   if (isEmptyPageRenderEnvelope(payload)) return '';
+  // Tag actual deferred locations outside user data. The marker-shaped
+  // records remain readable by older clients, while new clients can tell
+  // them apart from ordinary loader/resource values with the same keys.
+  const deferredPaths: string[][] = [];
+  const paths = new WeakMap<object, string[]>();
   return `<script type="application/json" ${SSR_RENDER_DATA_ATTR}="true">${JSON.stringify(
-    payload,
-    hydrationReplacer
+    { ...payload, deferredPaths },
+    function (this: object, key: string, value: unknown): unknown {
+      const parentPath = paths.get(this);
+      const path = parentPath ? [...parentPath, key] : [];
+      if (isDeferred(value)) deferredPaths.push(path);
+      const encoded = hydrationReplacer(value);
+      if (encoded && typeof encoded === 'object') paths.set(encoded, path);
+      return encoded;
+    }
   )
     .replace(/</g, '\\u003C')
     .replace(/\u2028/g, '\\u2028')

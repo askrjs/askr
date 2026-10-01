@@ -2,6 +2,7 @@ import { isProductionEnvironment } from '../common/env';
 import { SSR_RENDER_DATA_ATTR } from '../common/ssr';
 import {
   pageRenderEnvelope,
+  isPageRenderEnvelope,
   type PageRenderEnvelope,
 } from '../common/page-render-envelope';
 import type { ResolvedRoute } from '../common/router';
@@ -60,6 +61,55 @@ function hydrationReviver(_key: string, value: unknown): unknown {
     return reviveDeferredValue('rejected', undefined, payload.error);
   }
   return value;
+}
+
+function parseHydrationRenderData(raw: string): unknown {
+  const value: unknown = JSON.parse(raw);
+  if (!isPageRenderEnvelope(value) || !Object.hasOwn(value, 'deferredPaths')) {
+    // Existing published pages do not carry location metadata.
+    return JSON.parse(raw, hydrationReviver);
+  }
+  const payload = value as PageRenderEnvelope & { deferredPaths: unknown };
+  const paths = payload.deferredPaths;
+  if (
+    !Array.isArray(paths) ||
+    paths.some(
+      (path: unknown) =>
+        !Array.isArray(path) ||
+        path.some((key: unknown) => typeof key !== 'string')
+    )
+  ) {
+    throw new TypeError('Invalid deferred hydration locations.');
+  }
+  // Children are serialized after their parents, so revive deepest values
+  // first, before a parent is wrapped in its immutable Deferred value.
+  for (let index = paths.length - 1; index >= 0; index--) {
+    const path = paths[index] as string[];
+    let parent: unknown = value;
+    for (const key of path.slice(0, -1)) {
+      if (
+        !parent ||
+        typeof parent !== 'object' ||
+        !Object.hasOwn(parent, key)
+      ) {
+        throw new TypeError('Missing deferred hydration location.');
+      }
+      parent = (parent as Record<string, unknown>)[key];
+    }
+    const key = path[path.length - 1];
+    if (
+      path.length === 0 ||
+      !parent ||
+      typeof parent !== 'object' ||
+      !Object.hasOwn(parent, key)
+    ) {
+      throw new TypeError('Missing deferred hydration location.');
+    }
+    const record = parent as Record<string, unknown>;
+    record[key] = hydrationReviver(key, record[key]);
+  }
+  delete (payload as Partial<typeof payload>).deferredPaths;
+  return payload;
 }
 
 type MountOrUpdateRoot = (
@@ -126,7 +176,7 @@ export function takeHydrationRenderData(
       }
 
       try {
-        return pageRenderEnvelope(JSON.parse(raw, hydrationReviver));
+        return pageRenderEnvelope(parseHydrationRenderData(raw));
       } catch (err) {
         const error = new Error(
           '[Askr] Failed to parse embedded SSR render data during hydration.'

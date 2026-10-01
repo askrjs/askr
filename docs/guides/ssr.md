@@ -99,6 +99,12 @@ arrays, plain objects, and Askr deferred-value encoding are supported. Values
 whose JSON representation is lossy or ambiguous are rejected with the concrete
 route and property path.
 
+Plain records may use any string property names, including
+`__askr_deferred__`. Hydration records the locations of actual deferred values
+separately, so records that resemble the deferred encoding remain ordinary
+data. Previously generated pages without this location metadata continue to
+use their original deferred decoding.
+
 Query data follows the same transport rules. `dehydrateDataRuntime()` (and
 therefore every SSR/SSG render that embeds a data runtime) throws a
 `TypeError` naming the query key and property path when a cached value is not
