@@ -19,7 +19,7 @@ describe('ref replacement failures', () => {
       calls.push(element);
       if (element === null) throw failure;
     };
-    const replacement = { current: null as Element | null };
+    const replacement = { current: null as HTMLSpanElement | null };
     root = createRoot(container);
     root.render(<span ref={previous}>initial</span>);
     const element = container.firstElementChild;
