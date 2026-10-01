@@ -44,7 +44,13 @@ import {
 import { DefaultPortal, Portal } from '../core/api/portal';
 import { CspNonceScope, validateCspNonce } from '../csp-nonce';
 import { ELEMENT_TYPE, Fragment } from '../jsx';
-import { renderAttrsDirect, resolveReactiveAttributeProps } from './attrs';
+import {
+  readReferenceAttributeCell,
+  renderAttrsDirect,
+  renderReferenceAttributeCell,
+  resolveReactiveAttributeProps,
+  type ReferenceAttributeCell,
+} from './attrs';
 import {
   createRenderContext,
   throwSSRDataMissing,
@@ -75,11 +81,18 @@ import type { VNode } from './types';
 type SinkTarget = {
   write(html: string): void;
   writePortalHost?: (token: string) => void;
+  writeReferenceAttribute?: (
+    name: string,
+    cell: ReferenceAttributeCell
+  ) => void;
+  beginAttributeRoot?: () => void;
 };
 
 // Private sibling-package bridge for ancestor attributes derived from rendered
 // descendants. Ordinary hosts keep their existing attribute-first ordering.
 const CHILDREN_BEFORE_ATTRS = Symbol.for('askr.ssr.children-before-attrs');
+const ATTRIBUTE_ROOT = Symbol.for('askr.ssr.attribute-root');
+const ATTRIBUTE_CELLS = Symbol.for('askr.ssr.attribute-cells');
 
 /**
  * Collects writes so they can be published or dropped. An ErrorBoundary's
@@ -87,29 +100,48 @@ const CHILDREN_BEFORE_ATTRS = Symbol.for('askr.ssr.children-before-attrs');
  * never reaches the response.
  */
 class BufferedSink {
-  private readonly operations: Array<{ portalHost: boolean; text: string }> =
-    [];
+  private readonly operations: Array<
+    | { kind: 'text' | 'portal'; text: string }
+    | { kind: 'reference'; name: string; cell: ReferenceAttributeCell }
+    | { kind: 'root' }
+  > = [];
 
   write(html: string): void {
-    if (html) this.operations.push({ portalHost: false, text: html });
+    if (html) this.operations.push({ kind: 'text', text: html });
   }
 
   writePortalHost(token: string): void {
-    this.operations.push({ portalHost: true, text: token });
+    this.operations.push({ kind: 'portal', text: token });
+  }
+
+  writeReferenceAttribute(name: string, cell: ReferenceAttributeCell): void {
+    this.operations.push({ kind: 'reference', name, cell });
+  }
+
+  beginAttributeRoot(): void {
+    this.operations.push({ kind: 'root' });
   }
 
   /** The buffered markup, without portal host tokens. */
   html(): string {
     let html = '';
     for (const operation of this.operations) {
-      if (!operation.portalHost) html += operation.text;
+      if (operation.kind === 'text') html += operation.text;
     }
     return html;
   }
 
   publishTo(sink: SinkTarget): void {
     for (const operation of this.operations) {
-      if (operation.portalHost && sink.writePortalHost) {
+      if (operation.kind === 'root') {
+        sink.beginAttributeRoot?.();
+      } else if (operation.kind === 'reference') {
+        if (sink.writeReferenceAttribute) {
+          sink.writeReferenceAttribute(operation.name, operation.cell);
+        } else {
+          sink.write(referenceAttributeToken(operation.name, operation.cell));
+        }
+      } else if (operation.kind === 'portal' && sink.writePortalHost) {
         sink.writePortalHost(operation.text);
       } else {
         sink.write(operation.text);
@@ -134,9 +166,19 @@ class PortalSink {
     (this.buffered ??= []).push(token);
   }
 
+  beginAttributeRoot(): void {
+    this.buffered ??= [];
+  }
+
+  writeReferenceAttribute(name: string, cell: ReferenceAttributeCell): void {
+    (this.buffered ??= []).push(referenceAttributeToken(name, cell));
+  }
+
   flush(ctx: RenderContext): void {
     if (this.buffered)
-      this.sink.write(resolvePortals(this.buffered.join(''), ctx));
+      this.sink.write(
+        resolveReferenceAttributes(resolvePortals(this.buffered.join(''), ctx))
+      );
   }
 }
 
@@ -149,6 +191,13 @@ interface ServerRender {
   namespace: SSRNamespace;
   portalNamespaces: Map<string, SSRNamespace>;
   selectSelections: SelectSelection[];
+  attributeRoots: WeakSet<Owner>;
+  referenceAttributes: Map<
+    string,
+    { name: string; cell: ReferenceAttributeCell }
+  >;
+  referenceAttributeNonce: string | null;
+  nextReferenceAttribute: number;
 }
 
 interface SelectSelection {
@@ -242,11 +291,21 @@ function renderComponent(
   sink: SinkTarget
 ): void {
   const render = state();
+  const destination = sink;
+  const attributeRoot =
+    (props as Record<PropertyKey, unknown>)[ATTRIBUTE_ROOT] === true
+      ? new BufferedSink()
+      : null;
+  if (attributeRoot) {
+    attributeRoot.beginAttributeRoot();
+    sink = attributeRoot;
+  }
   let owner = render.owner;
   for (;;) {
     const instance = new ComponentInstance(owner, fn, props);
     instance.server = true;
     instance.serverContext = render.ctx;
+    if (attributeRoot) render.attributeRoots.add(instance);
     const output = runComponent(instance);
     const resources = getCurrentRenderData()?.resources;
     if (
@@ -275,6 +334,7 @@ function renderComponent(
     }
     if (!instance.boundary) {
       withOwner(instance, () => renderValue(componentOutput(output), sink));
+      attributeRoot?.publishTo(destination);
       return;
     }
 
@@ -295,9 +355,11 @@ function renderComponent(
       } finally {
         reportBoundaryCleanupErrors(cleanupErrors);
       }
+      attributeRoot?.publishTo(destination);
       return;
     }
     buffer.publishTo(sink);
+    attributeRoot?.publishTo(destination);
     return;
   }
 }
@@ -476,7 +538,7 @@ function renderElement(tag: string, props: Props, sink: SinkTarget): void {
   assertElementName(tag);
   if (VOID_ELEMENTS.has(tag)) {
     sink.write('<' + tag);
-    renderAttrsDirect(props, sink, tag);
+    renderHostAttrs(props, sink, tag);
     sink.write(' />');
     return;
   }
@@ -505,7 +567,8 @@ function renderElement(tag: string, props: Props, sink: SinkTarget): void {
                 ? ['value', 'multiple']
                 : ['value']
           )
-        : (resolveReactiveAttributeProps(props) ?? props)
+        : (resolveReactiveAttributeProps(props, referenceCellsFor(props)) ??
+          props)
       : props;
   const selection = render.selectSelections[render.selectSelections.length - 1];
   // A value-less option's value is its rendered text, so its children render
@@ -553,7 +616,7 @@ function renderElement(tag: string, props: Props, sink: SinkTarget): void {
       return;
     }
     sink.write('<' + tag);
-    renderAttrsDirect(elementProps, sink, tag);
+    renderHostAttrs(elementProps, sink, tag);
     sink.write('>');
     renderedChildren.publishTo(sink);
     sink.write('</' + tag + '>');
@@ -687,7 +750,7 @@ function writeBufferedElement(
   // late attribute has resolved successfully.
   const opening = new BufferedSink();
   opening.write('<' + tag);
-  renderAttrsDirect(props, opening, rawText === null ? tag : undefined);
+  renderHostAttrs(props, opening, rawText === null ? tag : undefined);
   opening.write('>');
   opening.publishTo(sink);
   children.publishTo(sink);
@@ -708,7 +771,7 @@ function writeElement(
     return;
   }
   sink.write('<' + tag);
-  renderAttrsDirect(props, sink, rawText === null ? tag : undefined);
+  renderHostAttrs(props, sink, rawText === null ? tag : undefined);
   sink.write('>');
   writeContent(props, rawText, sink);
   sink.write('</' + tag + '>');
@@ -815,6 +878,68 @@ function flattenText(value: unknown, element: RawTextElement): string[] {
 // ---------------------------------------------------------------------------
 // Portals
 
+function referenceCellsFor(props: Props) {
+  const cells = (props as Record<PropertyKey, unknown>)[ATTRIBUTE_CELLS];
+  if (!cells || typeof cells !== 'object') return undefined;
+  const render = state();
+  for (let owner: Owner | null = render.owner; owner; owner = owner.parent) {
+    if (render.attributeRoots.has(owner)) {
+      return cells as Record<string, ReferenceAttributeCell>;
+    }
+  }
+  return undefined;
+}
+
+function renderHostAttrs(props: Props, sink: SinkTarget, tag?: string) {
+  const cells = referenceCellsFor(props);
+  if (!cells) {
+    renderAttrsDirect(props, sink, tag);
+    return;
+  }
+  // Even a plain string sink retains cells until the complete root and its
+  // portals have rendered. Ordinary properties still resolve right here.
+  renderAttrsDirect(
+    props,
+    {
+      write: (html) => sink.write(html),
+      writeReferenceAttribute: (name, cell) => {
+        if (sink.writeReferenceAttribute)
+          sink.writeReferenceAttribute(name, cell);
+        else sink.write(referenceAttributeToken(name, cell));
+      },
+    },
+    tag,
+    cells
+  );
+}
+
+function referenceAttributeToken(name: string, cell: ReferenceAttributeCell) {
+  const render = state();
+  readReferenceAttributeCell(cell);
+  // Portal transport currently retains buffered operations as strings. A
+  // request-private nonce prevents caller HTML from impersonating an operation.
+  // Generate it lazily so ordinary renders retain their existing execution path.
+  if (render.referenceAttributeNonce === null) {
+    const nonce = globalThis.crypto.getRandomValues(new Uint32Array(4));
+    render.referenceAttributeNonce = Array.from(nonce, (part) =>
+      part.toString(16).padStart(8, '0')
+    ).join('');
+  }
+  const token = `<!--askr-attribute:${render.referenceAttributeNonce}:${render.nextReferenceAttribute++}-->`;
+  render.referenceAttributes.set(token, { name, cell });
+  return token;
+}
+
+function resolveReferenceAttributes(html: string) {
+  let resolved = html;
+  for (const [token, { name, cell }] of state().referenceAttributes) {
+    const sink = new StringSink();
+    renderReferenceAttributeCell(name, cell, sink);
+    resolved = resolved.replace(token, () => sink.toString());
+  }
+  return resolved;
+}
+
 function renderToString(value: unknown, namespace: SSRNamespace): string {
   const sink = new StringSink();
   withNamespace(namespace, () => renderValue(value, sink));
@@ -884,6 +1009,10 @@ function withServerRender<T>(ctx: RenderContext, fn: () => T): T {
     namespace: 'html',
     portalNamespaces: new Map(),
     selectSelections: [],
+    attributeRoots: new WeakSet(),
+    referenceAttributes: new Map(),
+    referenceAttributeNonce: null,
+    nextReferenceAttribute: 0,
   };
   let result: T;
   try {
@@ -993,7 +1122,9 @@ export function renderToStringSync(
           sink
         );
         sink.end();
-        const html = resolvePortals(sink.toString(), ctx);
+        const html = resolveReferenceAttributes(
+          resolvePortals(sink.toString(), ctx)
+        );
         options?.onContext?.(ctx);
         return (
           html +

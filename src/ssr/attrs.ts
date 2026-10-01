@@ -25,6 +25,39 @@ import { readValue } from '../core/reactive/readable';
 const ESCAPED_ATTR_VALUE_CACHE_LIMIT = 512;
 const escapedAttrValueCache = new Map<string, string>();
 
+/** Private sibling-package cells contain already-resolved reference IDs only. */
+export type ReferenceAttributeCell = { value: string | undefined };
+type AttributeSink = Pick<RenderSink, 'write'> & {
+  writeReferenceAttribute?: (
+    name: string,
+    cell: ReferenceAttributeCell
+  ) => void;
+};
+
+export function readReferenceAttributeCell(cell: ReferenceAttributeCell) {
+  const descriptor = cell && Object.getOwnPropertyDescriptor(cell, 'value');
+  if (
+    !descriptor ||
+    !('value' in descriptor) ||
+    (descriptor.value !== undefined && typeof descriptor.value !== 'string')
+  ) {
+    throw new TypeError(
+      'SSR reference attribute cells require a string or undefined data value.'
+    );
+  }
+  return descriptor.value as string | undefined;
+}
+
+export function renderReferenceAttributeCell(
+  name: string,
+  cell: ReferenceAttributeCell,
+  sink: Pick<RenderSink, 'write'>
+) {
+  const value = readReferenceAttributeCell(cell);
+  if (value === undefined) return;
+  sink.write(' ' + name + '="' + getEscapedAttrValue(value) + '"');
+}
+
 function isEventHandler(key: string): boolean {
   return key.length >= 2 && key.slice(0, 2).toLowerCase() === 'on';
 }
@@ -46,7 +79,8 @@ function resolvePropValue(value: unknown): unknown {
  * `props` itself when nothing needs reading.
  */
 export function resolveReactiveAttributeProps(
-  props: Props | undefined
+  props: Props | undefined,
+  referenceCells?: Record<string, ReferenceAttributeCell>
 ): Props | undefined {
   if (!props || typeof props !== 'object') return props;
   let resolved: Record<string, unknown> | null = null;
@@ -56,7 +90,9 @@ export function resolveReactiveAttributeProps(
     if (
       typeof value !== 'function' ||
       isSkippedProp(key) ||
-      isEventHandler(key)
+      isEventHandler(key) ||
+      (referenceCells &&
+        Object.prototype.hasOwnProperty.call(referenceCells, key))
     ) {
       continue;
     }
@@ -103,8 +139,9 @@ function getEscapedAttrValue(value: string): string {
  */
 export function renderAttrsDirect(
   props: Props | undefined,
-  sink: Pick<RenderSink, 'write'>,
-  tagName = ''
+  sink: AttributeSink,
+  tagName = '',
+  referenceCells?: Record<string, ReferenceAttributeCell>
 ): void {
   if (!props || typeof props !== 'object') return;
   const customElement = isCustomElementName(tagName);
@@ -119,6 +156,27 @@ export function renderAttrsDirect(
 
     // Skip internal props
     if (key.charCodeAt(0) === 95) continue; // '_'
+
+    if (
+      referenceCells &&
+      Object.prototype.hasOwnProperty.call(referenceCells, key)
+    ) {
+      if (
+        key !== 'aria-labelledby' &&
+        key !== 'aria-describedby' &&
+        key !== 'aria-controls'
+      ) {
+        throw new TypeError(
+          'SSR reference attribute cells only support derived ARIA references.'
+        );
+      }
+      const cell = referenceCells[key];
+      // Validate metadata in the original boundary; no caller function is late.
+      readReferenceAttributeCell(cell);
+      if (sink.writeReferenceAttribute) sink.writeReferenceAttribute(key, cell);
+      else renderReferenceAttributeCell(key, cell, sink);
+      continue;
+    }
 
     const value = resolvePropValue(propsObj[key]);
     if (isPropertyOnlyProp(tagName, key, value)) continue;

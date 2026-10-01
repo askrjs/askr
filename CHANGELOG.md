@@ -8,6 +8,9 @@
 - fix(ssr): support private sibling component opt-in to render descendants once
   before ancestor attributes, preserving legacy attribute order and output for
   ordinary hosts, scoped lifetimes, namespaces, portals, and streaming transport.
+- fix(ssr): finalize private component reference metadata after the rendered
+  root and its portals, preserving ordinary attribute evaluation and error
+  boundaries without repeating components or caller ID functions.
 
 ## 0.4.1 — 2026-10-01
 
