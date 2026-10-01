@@ -82,7 +82,10 @@ Controlled/uncontrolled value helpers.
 ## `@askrjs/askr/foundations/structures`
 
 - `createCollection()` returns an insertion-ordered registry of items that
-  components register into.
+  components register into. Registering the same node replaces its metadata
+  without changing its order. Each unregister callback removes only its own
+  registration, so cleanup from an earlier registration cannot remove a newer
+  one, including after `clear()`.
 - `createLayer()` returns a `LayerManager` that tracks stacked overlays, so only
   the top layer handles Escape and outside-pointer dismissal.
 - `isElement(value)` checks for a JSX element, and
