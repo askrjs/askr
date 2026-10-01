@@ -62,9 +62,12 @@ describe('SSG route parameter spelling compatibility', () => {
     }
   );
 
-  it.each(['preferred#entry', ''])(
-    'should prefer canonical path %j over its legacy spelling',
-    (path) => {
+  it.each([
+    { path: 'preferred#entry', url: '/docs/preferred%23entry' },
+    { path: '', url: '/docs/' },
+  ])(
+    'should prefer canonical path $path over its legacy spelling',
+    ({ path, url }) => {
       const params = { path, '*path': 'legacy/value' };
 
       expect(() =>
@@ -73,9 +76,7 @@ describe('SSG route parameter spelling compatibility', () => {
       expect(interpolateRoutePath('/docs/{*path}', params)).toBe(
         `/docs/${path}`
       );
-      expect(interpolateRouteUrl('/docs/{*path}', params)).toBe(
-        `/docs/${path.replace('#', '%23')}`
-      );
+      expect(interpolateRouteUrl('/docs/{*path}', params)).toBe(url);
     }
   );
 
