@@ -11,7 +11,8 @@ Prop composition and accessibility helpers. All of them are pure.
 
 - `mergeProps(base, injected)` merges props: base values win unless
   `undefined`, and `on*` event handlers compose. Refs do not compose; use
-  `composeRefs()` for that.
+  `composeRefs()` for that. Own string prop names, including `__proto__`, are
+  preserved as data properties.
 - `composeHandlers(first, second, options?)` returns one handler that runs
   `first` then `second`. It skips `second` when `first` called
   `preventDefault()`, unless `options.checkDefaultPrevented` is `false`.

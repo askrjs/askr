@@ -127,7 +127,16 @@ export function mergeProps<TBase extends object, TInjected extends object>(
       continue;
     }
 
-    (out as Record<string, unknown>)[key] = baseValue;
+    if (key === '__proto__') {
+      Object.defineProperty(out, key, {
+        value: baseValue,
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      });
+    } else {
+      (out as Record<string, unknown>)[key] = baseValue;
+    }
   }
 
   return out as MergedProps<TBase, TInjected>;
