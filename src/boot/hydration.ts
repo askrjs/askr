@@ -342,17 +342,13 @@ export async function applySelectiveHydration(
     let unregisterRootCleanupCallback = () => {};
 
     function handleScroll() {
-      const { activated, remaining } = activateVisibleDeferredBoundaries(
+      const { remaining } = activateVisibleDeferredBoundaries(
         rootElement,
         deferredBoundaries,
         foldY,
         hooks.activateHydrationBoundary,
         reportedDepthErrors
       );
-
-      if (!activated) {
-        return;
-      }
 
       if (remaining === 0) {
         releaseSelectiveHydrationResources();
@@ -418,15 +414,17 @@ export async function applySelectiveHydration(
   if (hydrateOptions.deferUntilIdle && deferredBoundaries.length > 0) {
     await queueIdleWork(() => {
       try {
-        activateVisibleDeferredBoundaries(
+        const { remaining } = activateVisibleDeferredBoundaries(
           rootElement,
           deferredBoundaries,
           Number.POSITIVE_INFINITY,
           hooks.activateHydrationBoundary,
           reportedDepthErrors
         );
-      } finally {
+        if (remaining === 0) releaseSelectiveHydrationResources();
+      } catch (error) {
         releaseSelectiveHydrationResources();
+        throw error;
       }
     });
   }
