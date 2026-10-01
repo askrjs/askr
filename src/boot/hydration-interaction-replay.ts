@@ -56,6 +56,7 @@ function cloneInteractionEvent(event: Event): Event {
     isPrimary: eventWithDetails.isPrimary,
     data: eventWithDetails.data,
     inputType: eventWithDetails.inputType,
+    submitter: eventWithDetails.submitter,
   };
 
   try {

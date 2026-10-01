@@ -150,6 +150,65 @@ describe('hydration interaction replay', () => {
     }
   });
 
+  it.each([false, true])(
+    'should retain the submitted control when replaying a form submission (control replaced: %s)',
+    async (replaceControl) => {
+      const { container, cleanup } = createTestContainer();
+      let client = false;
+      const submissions: Array<HTMLElement | null> = [];
+      const Component = () => (
+        <form
+          onSubmit={(event: SubmitEvent) => {
+            event.preventDefault();
+            submissions.push(event.submitter);
+          }}
+        >
+          {client && replaceControl ? (
+            <input type="submit" name="intent" value="delete" />
+          ) : (
+            <button type="submit" name="intent" value="save">
+              Save
+            </button>
+          )}
+        </form>
+      );
+      const registry = routeRegistryFromTable([
+        { path: '/', handler: Component },
+      ]);
+      container.innerHTML = renderToString({ url: '/', registry });
+      const form = container.querySelector('form')!;
+      const submitter = container.querySelector('button')!;
+      client = true;
+
+      try {
+        const hydration = hydrateSPA({
+          root: container,
+          registry,
+          hydrate: { verifyMarkup: false },
+        });
+        const original = new SubmitEvent('submit', {
+          bubbles: true,
+          cancelable: true,
+          submitter,
+        });
+        form.dispatchEvent(original);
+        expect(original.defaultPrevented).toBe(true);
+        expect(submissions).toEqual([]);
+
+        await hydration;
+        flushScheduler();
+
+        expect(container.querySelector('form')).toBe(form);
+        expect(submissions).toEqual([submitter]);
+        expect(submitter.name).toBe('intent');
+        expect(submitter.value).toBe('save');
+        expect(submitter.isConnected).toBe(!replaceControl);
+      } finally {
+        cleanup();
+      }
+    }
+  );
+
   it('should not intercept native events inside permanently skipped content', async () => {
     const { container, cleanup } = createTestContainer();
     let nativeClicks = 0;
