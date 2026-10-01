@@ -824,7 +824,7 @@ export function createDefinedQuery<TInput, TResult extends {}>(
     // Server renders read without consuming so the data can be dehydrated.
     takeInitialData: () =>
       readQueryData(runtimeState, key, !serverRender) as TResult | undefined,
-    skipInitialFetch: serverRender,
+    skipInitialFetch: serverRender || options.skipInitialFetch === true,
     runtime: dataRuntime,
   });
 }

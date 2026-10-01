@@ -199,6 +199,11 @@ if (user.staleReason === 'error') {
 invalidate('user:');
 ```
 
+Pass `skipInitialFetch: true` to either `createQuery()` overload to defer a new
+client query's first fetch until `refresh()` or invalidation requests it.
+Defined queries never fetch during server rendering, including when this
+option is explicitly `false`.
+
 Query state is shared by key through a simple in-memory cache. `refresh()` returns a promise,
 preserves the last value while refreshing, and surfaces `fresh`, `stale`, `refreshing`, and
 `pending-write` explicitly through `consistency`. `loading` represents the first unresolved
