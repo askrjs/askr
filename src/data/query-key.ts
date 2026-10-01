@@ -47,7 +47,7 @@ function serializeQueryKeyPart(part: QueryKeyPart): string {
       return `b=${part ? '1' : '0'}`;
     case 'object':
       if (Array.isArray(part)) {
-        return `a[${part.map((item) => serializeQueryKeyPart(item)).join(',')}]`;
+        return `a[${Array.from(part, (item) => serializeQueryKeyPart(item)).join(',')}]`;
       }
 
       const objectPart = part as { readonly [key: string]: QueryKeyPart };

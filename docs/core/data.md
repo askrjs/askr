@@ -452,6 +452,9 @@ invalidate('user:', { markPendingWrite: true });
 
 For feature-local query prefixes, use `queryScope(namespace)` to build canonical keys.
 The namespace must be non-empty after trimming:
+Array parts include every position: a missing element in a sparse array is
+encoded like an explicit `undefined` at that index. Empty arrays remain
+distinct, and existing dense-array key strings are unchanged.
 
 ```ts
 import { queryScope } from '@askrjs/askr/data';
