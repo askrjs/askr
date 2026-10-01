@@ -104,6 +104,9 @@ Plain records may use any string property names, including
 separately, so records that resemble the deferred encoding remain ordinary
 data. Previously generated pages without this location metadata continue to
 use their original deferred decoding.
+Omission diagnostics apply only to fields explicitly omitted by `dehydrate()`;
+ordinary inherited methods such as `toString()` remain available on plain
+hydrated records.
 
 Query data follows the same transport rules. `dehydrateDataRuntime()` (and
 therefore every SSR/SSG render that embeds a data runtime) throws a
