@@ -509,74 +509,78 @@ function commitNavigationRoots(
     };
   });
 
-  const rollback = () => {
-    const errors: unknown[] = [];
-    for (let index = roots.length - 1; index >= 0; index--) {
-      errors.push(...roots[index]!.prepared.rollback());
-    }
-    setCurrentRouteLocation(previousPathname, previousHref);
-    try {
-      restoreHistory?.();
-    } catch (error) {
-      errors.push(error);
-    }
-    reportRouteCleanupErrors(errors);
-  };
-
   try {
-    // Replacement lifetimes render before refreshed ones.
-    for (const replaceLifetime of [true, false]) {
-      for (const root of roots) {
-        if (root.replaceLifetime === replaceLifetime) root.prepared.apply();
+    const rollback = () => {
+      const errors: unknown[] = [];
+      for (let index = roots.length - 1; index >= 0; index--) {
+        errors.push(...roots[index]!.prepared.rollback());
       }
-    }
-  } catch (error) {
-    rollback();
-    logger.error('[Askr] navigation failed:', error);
-    throw error;
-  }
-  if (isStaleRouteRequest(requestId)) {
-    rollback();
-    return;
-  }
+      setCurrentRouteLocation(previousPathname, previousHref);
+      try {
+        restoreHistory?.();
+      } catch (error) {
+        errors.push(error);
+      }
+      reportRouteCleanupErrors(errors);
+    };
 
-  // Publish every root. A commit undone by a failed DOM write aborts the
-  // navigation: roots not yet published are rolled back and the location
-  // stays. Failures after a commit applied (a throwing ref) are reported, and
-  // the navigation completes because the page did change.
-  const committedFailures: unknown[] = [];
-  for (const root of roots) {
-    const result = root.prepared.publish();
-    if (result.aborted) {
+    try {
+      // Replacement lifetimes render before refreshed ones.
+      for (const replaceLifetime of [true, false]) {
+        for (const root of roots) {
+          if (root.replaceLifetime === replaceLifetime) root.prepared.apply();
+        }
+      }
+    } catch (error) {
       rollback();
-      const failure = result.errors[0];
-      logger.error('[Askr] navigation failed:', failure);
-      throw failure;
+      logger.error('[Askr] navigation failed:', error);
+      throw error;
     }
-    committedFailures.push(...result.errors);
-    syncAppRegistrationLocation(root.target.app, pathname, href);
-  }
-  for (const failure of committedFailures) reportUncaughtErrorLater(failure);
-  const retired: unknown[] = [];
-  for (const root of roots) retired.push(...root.prepared.retire());
-  if (retired.length) {
-    reportUncaughtErrorLater(
-      retired.length === 1
-        ? retired[0]
-        : new AggregateError(retired, 'Route cleanup failed')
-    );
-  }
+    if (isStaleRouteRequest(requestId)) {
+      rollback();
+      return;
+    }
 
-  flushSync();
-  if (isStaleRouteRequest(requestId)) return;
-  try {
-    updateHistory();
-    setCurrentRouteLocation(pathname, href);
-    syncRegisteredRouteSnapshot();
-    reconcileNavigationMetadata(targets);
-    updateScroll();
-  } catch (error) {
-    logger.error('[Askr] navigation failed:', error);
-    throw error;
+    // Publish every root. A commit undone by a failed DOM write aborts the
+    // navigation: roots not yet published are rolled back and the location
+    // stays. Failures after a commit applied (a throwing ref) are reported, and
+    // the navigation completes because the page did change.
+    const committedFailures: unknown[] = [];
+    for (const root of roots) {
+      const result = root.prepared.publish();
+      if (result.aborted) {
+        rollback();
+        const failure = result.errors[0];
+        logger.error('[Askr] navigation failed:', failure);
+        throw failure;
+      }
+      committedFailures.push(...result.errors);
+      syncAppRegistrationLocation(root.target.app, pathname, href);
+    }
+    for (const failure of committedFailures) reportUncaughtErrorLater(failure);
+    const retired: unknown[] = [];
+    for (const root of roots) retired.push(...root.prepared.retire());
+    if (retired.length) {
+      reportUncaughtErrorLater(
+        retired.length === 1
+          ? retired[0]
+          : new AggregateError(retired, 'Route cleanup failed')
+      );
+    }
+
+    flushSync();
+    if (isStaleRouteRequest(requestId)) return;
+    try {
+      updateHistory();
+      setCurrentRouteLocation(pathname, href);
+      syncRegisteredRouteSnapshot();
+      reconcileNavigationMetadata(targets);
+      updateScroll();
+    } catch (error) {
+      logger.error('[Askr] navigation failed:', error);
+      throw error;
+    }
+  } finally {
+    for (const root of roots) root.prepared.complete();
   }
 }

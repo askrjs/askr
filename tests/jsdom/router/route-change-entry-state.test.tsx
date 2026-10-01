@@ -7,6 +7,7 @@ import {
   vi,
 } from 'vite-plus/test';
 import { createSPA } from '../../../src/boot';
+import { state } from '../../../src/core/api/state';
 import {
   createRouteRegistry,
   currentRoute,
@@ -56,9 +57,13 @@ describe('committed route snapshots and owning browser entry state', () => {
     }
   }
 
-  async function mount(onChange?: (entry: EntryObservation) => void) {
+  async function mount(
+    onChange?: (entry: EntryObservation) => void,
+    rerenderOnChange = false
+  ) {
     const observations: EntryObservation[] = [];
     const Shell = ({ children }: { children?: unknown }) => {
+      const changes = state(0);
       const snapshot = currentRoute();
       onRouteChange(
         (current, previous) => {
@@ -70,12 +75,14 @@ describe('committed route snapshots and owning browser entry state', () => {
             previousState: previous?.state,
           };
           observations.push(entry);
+          if (rerenderOnChange) changes.set((value) => value + 1);
           onChange?.(entry);
         },
         { immediate: true }
       );
       return (
         <section
+          data-changes={changes()}
           data-state={JSON.stringify({
             hasState: snapshot.hasState,
             state: snapshot.state,
@@ -143,6 +150,52 @@ describe('committed route snapshots and owning browser entry state', () => {
       previousState: { entry: 'first' },
     });
     expect(window.history.state.askrState).toEqual({ entry: 'refreshed' });
+  });
+
+  it('should retain destination snapshots through callback-driven layout rerenders before history updates', async () => {
+    const { container, observations } = await mount(undefined, true);
+
+    navigate('/second', { state: { entry: 'second' } });
+    await settle();
+
+    expect(observations.map(({ path, state }) => ({ path, state }))).toEqual([
+      { path: '/first', state: { entry: 'first' } },
+      { path: '/second', state: { entry: 'second' } },
+    ]);
+    expect(
+      container.querySelector('section')?.getAttribute('data-changes')
+    ).toBe('2');
+  });
+
+  it('should retain callback-driven destination work if the subsequent history write throws', async () => {
+    const { observations } = await mount(undefined, true);
+    const failure = new DOMException(
+      'Cannot clone history state',
+      'DataCloneError'
+    );
+    vi.spyOn(window.history, 'pushState').mockImplementationOnce(() => {
+      throw failure;
+    });
+
+    expect(() =>
+      navigate('/second', { state: { entry: 'published' } })
+    ).toThrow(failure);
+    await settle();
+
+    expect(observations.map(({ path, state }) => ({ path, state }))).toEqual([
+      { path: '/first', state: { entry: 'first' } },
+      { path: '/second', state: { entry: 'published' } },
+    ]);
+    expect(window.location.pathname).toBe('/first');
+
+    navigate('/second?retry=1', { state: { entry: 'retry' } });
+    await settle();
+
+    expect(observations.at(-1)).toMatchObject({
+      path: '/second',
+      state: { entry: 'retry' },
+    });
+    expect(window.location.pathname).toBe('/second');
   });
 
   it('should read a supplied state getter once and retain that value in snapshots and history', async () => {
@@ -249,8 +302,8 @@ describe('committed route snapshots and owning browser entry state', () => {
         historyAtCallback = window.location.pathname;
         navigate('/last', { state: { entry: 'last' } });
       }
-    });
-    const second = await mount();
+    }, true);
+    const second = await mount(undefined, true);
 
     navigate('/second', { state: { entry: 'superseded' } });
     await settle();
@@ -267,6 +320,11 @@ describe('committed route snapshots and owning browser entry state', () => {
         hasState: true,
         state: { entry: 'last' },
       });
+      expect(app.observations.map((entry) => entry.path)).toEqual([
+        '/first',
+        '/second',
+        '/last',
+      ]);
       expect(app.container.textContent).toBe('last');
     }
   });

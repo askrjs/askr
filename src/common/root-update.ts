@@ -27,6 +27,8 @@ export interface PreparedRootUpdate {
   publish(): RootPublishResult;
   rollback(): unknown[];
   retire(): unknown[];
+  /** Release the destination snapshot after navigation settlement. */
+  complete(): void;
 }
 
 export interface RootUpdateHost {

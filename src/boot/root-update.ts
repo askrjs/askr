@@ -4,6 +4,8 @@
  * `apply()` renders the destination (render phase only); `publish()` commits
  * it; `rollback()` discards it and restores the root's previous route state.
  * A navigation applies every root first and publishes only if all succeeded.
+ * The destination stays staged through lifecycle-driven rerenders until
+ * `complete()` releases it after the navigation settles browser history.
  */
 
 import {
@@ -79,8 +81,6 @@ function prepare(root: object, input: RootUpdateInput): PreparedRootUpdate {
         const aborted = prepared?.aborted === true;
         if (aborted) restore();
         return { aborted, errors: [error] };
-      } finally {
-        clearStagedAppRenderRouteLocation(runtime);
       }
     },
     rollback() {
@@ -93,6 +93,9 @@ function prepare(root: object, input: RootUpdateInput): PreparedRootUpdate {
     },
     retire() {
       return [];
+    },
+    complete() {
+      clearStagedAppRenderRouteLocation(runtime);
     },
   };
 }
