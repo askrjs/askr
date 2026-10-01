@@ -139,6 +139,9 @@ of a template comes from its `entries()`.
 
 Named splats use the parameter name without the leading star in each entry:
 `route('/docs/{*path}', DocsPage, { entries: () => [{ path: 'guide/start' }] })`.
+Widened string templates also retain legacy raw entry keys such as `'*path'`
+or `' slug '` for `{ slug }`. The normalized key takes precedence when provided,
+including an empty string.
 The render URL encodes entry values with the same rules as `to()`, so a slug
 such as `a#b` stays a parameter rather than becoming a fragment. Generated
 `path`, `filePath`, concrete `dataOverrides` keys, and `changedRoutes` retain

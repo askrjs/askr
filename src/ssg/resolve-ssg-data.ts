@@ -7,8 +7,7 @@
 
 import type { SSRData } from '../common/ssr';
 import type { RouteConfig } from './types';
-import { interpolateRoutePath } from './route-utils';
-import { parseSegments } from '../router/match';
+import { interpolateRoutePath, readRouteParameter } from './route-utils';
 
 interface DataResolutionOptions {
   /** User-supplied data overrides per route path */
@@ -216,18 +215,18 @@ export function validateRoutes(routes: RouteConfig[]): void {
     seen.add(key);
 
     if (route.path.includes('{')) {
-      const paramNames = parseSegments(route.path)
-        .filter(
-          (segment) => segment.kind === 'param' || segment.kind === 'splat'
-        )
-        .map((segment) => segment.value);
+      const paramKeys = route.path
+        .split('/')
+        .filter((segment) => segment.startsWith('{') && segment.endsWith('}'))
+        .map((segment) => segment.slice(1, -1));
       if (!route.params) {
         throw new Error(
           `route "${route.path}" uses path parameters and requires params`
         );
       }
-      for (const name of paramNames) {
-        if (typeof route.params[name] !== 'string') {
+      for (const paramKey of paramKeys) {
+        const { name, value } = readRouteParameter(route.params, paramKey);
+        if (typeof value !== 'string') {
           throw new Error(
             `route "${route.path}" missing required param "${name}"`
           );
