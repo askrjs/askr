@@ -375,15 +375,16 @@ export function applyNavigationTargets(
   }
 
   const hasState = Object.prototype.hasOwnProperty.call(options, 'state');
+  const locationState = {
+    hasState,
+    state: hasState ? options.state : undefined,
+  };
   commitNavigationRoots(
     requestId,
     pathname,
     href,
     matchedTargets,
-    {
-      hasState,
-      state: hasState ? options.state : undefined,
-    },
+    locationState,
     () => {
       saveScrollPosition(previousHref);
       const historyMode = getNavigationHistoryMode(options);
@@ -391,8 +392,8 @@ export function applyNavigationTargets(
       window.history[historyMode === 'replace' ? 'replaceState' : 'pushState'](
         {
           path: href,
-          askrHasState: Object.prototype.hasOwnProperty.call(options, 'state'),
-          askrState: options.state,
+          askrHasState: locationState.hasState,
+          askrState: locationState.state,
           askrIndex: historyIndex,
         },
         '',

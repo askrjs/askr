@@ -145,6 +145,23 @@ describe('committed route snapshots and owning browser entry state', () => {
     expect(window.history.state.askrState).toEqual({ entry: 'refreshed' });
   });
 
+  it('should read a supplied state getter once and retain that value in snapshots and history', async () => {
+    const { observations } = await mount();
+    let reads = 0;
+    const options = {
+      get state() {
+        return { entry: 'getter', read: ++reads };
+      },
+    };
+
+    navigate('/second', options);
+    await settle();
+
+    expect(reads).toBe(1);
+    expect(observations.at(-1)?.state).toEqual({ entry: 'getter', read: 1 });
+    expect(window.history.state.askrState).toEqual(observations.at(-1)?.state);
+  });
+
   it('should read the landed history entry for popstate snapshots', async () => {
     const { observations } = await mount();
     const landed = {
