@@ -142,6 +142,7 @@ export function rovingFocus(options: RovingFocusOptions): RovingFocusResult {
   }
 
   function handleKeyDown(e: KeyboardLikeEvent) {
+    if (e.defaultPrevented) return;
     const { key } = e;
 
     let direction: 1 | -1 | undefined;

@@ -77,6 +77,10 @@ type SinkTarget = {
   writePortalHost?: (token: string) => void;
 };
 
+// Private sibling-package bridge for ancestor attributes derived from rendered
+// descendants. Ordinary hosts keep their existing attribute-first ordering.
+const CHILDREN_BEFORE_ATTRS = Symbol.for('askr.ssr.children-before-attrs');
+
 /**
  * Collects writes so they can be published or dropped. An ErrorBoundary's
  * subtree renders into one first, so markup from a subtree that then throws
@@ -444,6 +448,30 @@ function assertElementName(name: string): void {
   }
 }
 
+/** Resolve only inputs needed to choose the child's parsing/selection context. */
+function resolveEarlyContextProps(
+  props: Props,
+  names: readonly string[]
+): Props {
+  // Copy descriptors so unrelated getters and attribute functions stay late,
+  // with their original enumeration order. This path is private and opt-in.
+  const descriptors = Object.getOwnPropertyDescriptors(props);
+  for (const name of names) {
+    if (!(name in props)) continue;
+    const value = props[name];
+    descriptors[name] = {
+      value:
+        typeof value === 'function'
+          ? untrack(() => readValue(value as () => unknown))
+          : value,
+      enumerable: descriptors[name]?.enumerable ?? true,
+      configurable: true,
+      writable: true,
+    };
+  }
+  return Object.create(Object.getPrototypeOf(props), descriptors) as Props;
+}
+
 function renderElement(tag: string, props: Props, sink: SinkTarget): void {
   assertElementName(tag);
   if (VOID_ELEMENTS.has(tag)) {
@@ -454,6 +482,10 @@ function renderElement(tag: string, props: Props, sink: SinkTarget): void {
   }
 
   const render = state();
+  const childrenBeforeAttrs =
+    (props as Props & { [CHILDREN_BEFORE_ATTRS]?: unknown })[
+      CHILDREN_BEFORE_ATTRS
+    ] === true;
   const parentNamespace = render.namespace;
   const lower = tag.toLowerCase();
   const namespace = getElementNamespace(parentNamespace, lower);
@@ -464,7 +496,16 @@ function renderElement(tag: string, props: Props, sink: SinkTarget): void {
     (namespace === 'html' &&
       (lower === 'select' ||
         (lower === 'option' && parentNamespace === 'select')))
-      ? (resolveReactiveAttributeProps(props) ?? props)
+      ? childrenBeforeAttrs
+        ? resolveEarlyContextProps(
+            props,
+            lower === 'annotation-xml'
+              ? ['encoding']
+              : lower === 'select'
+                ? ['value', 'multiple']
+                : ['value']
+          )
+        : (resolveReactiveAttributeProps(props) ?? props)
       : props;
   const selection = render.selectSelections[render.selectSelections.length - 1];
   // A value-less option's value is its rendered text, so its children render
@@ -490,9 +531,27 @@ function renderElement(tag: string, props: Props, sink: SinkTarget): void {
     const selected =
       selection.values.has(value) && (selection.multiple || !selection.matched);
     if (selected) selection.matched = true;
-    elementProps = { ...elementProps, selected };
+    if (childrenBeforeAttrs) {
+      const descriptors = Object.getOwnPropertyDescriptors(elementProps);
+      descriptors.selected = {
+        value: selected,
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      };
+      elementProps = Object.create(
+        Object.getPrototypeOf(elementProps),
+        descriptors
+      ) as Props;
+    } else {
+      elementProps = { ...elementProps, selected };
+    }
   }
   if (renderedChildren) {
+    if (childrenBeforeAttrs) {
+      writeBufferedElement(tag, elementProps, null, sink, renderedChildren);
+      return;
+    }
     sink.write('<' + tag);
     renderAttrsDirect(elementProps, sink, tag);
     sink.write('>');
@@ -521,7 +580,7 @@ function renderElement(tag: string, props: Props, sink: SinkTarget): void {
   try {
     withNamespace(
       getChildNamespace(parentNamespace, namespace, lower, elementProps),
-      () => writeElement(tag, elementProps, rawText, sink)
+      () => writeElement(tag, elementProps, rawText, sink, childrenBeforeAttrs)
     );
   } finally {
     if (nextSelection) render.selectSelections.pop();
@@ -617,12 +676,37 @@ function optionTextValue(html: string): string {
   return text;
 }
 
+function writeBufferedElement(
+  tag: string,
+  props: Props,
+  rawText: RawTextElement | null,
+  sink: SinkTarget,
+  children: BufferedSink
+): void {
+  // Attribute getters can throw as well. Publish no host prefix until every
+  // late attribute has resolved successfully.
+  const opening = new BufferedSink();
+  opening.write('<' + tag);
+  renderAttrsDirect(props, opening, rawText === null ? tag : undefined);
+  opening.write('>');
+  opening.publishTo(sink);
+  children.publishTo(sink);
+  sink.write('</' + tag + '>');
+}
+
 function writeElement(
   tag: string,
   props: Props,
   rawText: RawTextElement | null,
-  sink: SinkTarget
+  sink: SinkTarget,
+  childrenBeforeAttrs: boolean
 ): void {
+  if (childrenBeforeAttrs) {
+    const children = new BufferedSink();
+    writeContent(props, rawText, children);
+    writeBufferedElement(tag, props, rawText, sink, children);
+    return;
+  }
   sink.write('<' + tag);
   renderAttrsDirect(props, sink, rawText === null ? tag : undefined);
   sink.write('>');

@@ -53,14 +53,18 @@ instead of implementing press, focus, or hover handling themselves.
   and user props; the policy owns `disabled`, and handlers run policy, then
   user, then child.
 - `pressable({ disabled?, onPress?, isNativeButton? })` returns click and
-  keyboard props implementing press semantics.
+  keyboard props implementing press semantics. Enabled handlers honor an
+  earlier `preventDefault()` before invoking `onPress`. Non-native Enter and
+  Space presses still prevent their own keyboard defaults before delivery.
+  Disabled handlers also stop propagation, including already cancelled events.
 - `focusable({ disabled?, tabIndex? })` returns `tabIndex` and `aria-disabled`
   for a focusable host.
 - `hoverable({ disabled?, onEnter?, onLeave? })` returns pointer enter and leave
   handlers, or none when disabled.
 - `rovingFocus({ currentIndex, itemCount, orientation?, loop?, onNavigate?,
 isDisabled? })` implements arrow-key roving `tabindex`. It returns
-  `container` props and an `item(index)` function for each item's props.
+  `container` props and an `item(index)` function for each item's props. An
+  already cancelled keyboard event leaves navigation and propagation unchanged.
 - `dismissable(options)` handles Escape and outside-pointer dismissal.
 
 ## `@askrjs/askr/foundations/state`

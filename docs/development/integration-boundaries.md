@@ -39,6 +39,17 @@ component, and portal scope even when a nested render throws. Hydration
 verification uses the authentication attached to the resolved route, and
 stream cancellation continues to forward the request's abort signal.
 
+Sibling UI composition has one private server bridge: an intrinsic host may
+carry `Symbol.for('askr.ssr.children-before-attrs')` with the exact value `true`.
+SSR buffers that host's children once within its existing owner, scopes, native
+select state, and parsing namespace, resolves its attributes, then publishes
+the buffered markup and portal host operations. Encoding and select inputs
+needed to establish the children's context are read first; other attribute
+functions remain late. Void hosts still ignore children, and raw text uses the
+same escaping and element validation. This symbol is not a public prop or
+export. The client and older runtimes ignore it. Ordinary server hosts retain
+their attribute-first evaluation order and output bytes.
+
 Validation includes coordinated root rollback, shared layouts, query-only
 refresh, lifecycle-triggered navigation, enclosing transaction discard,
 request/cache isolation, resolved-auth hydration, stream cancellation, and

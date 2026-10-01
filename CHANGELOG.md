@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.2 — 2026-10-01
+
+- fix(foundations): honor previously cancelled click and keyboard events in
+  `pressable()` and `rovingFocus()` while preserving disabled propagation
+  suppression and native keyboard activation timing.
+- fix(ssr): support private sibling component opt-in to render descendants once
+  before ancestor attributes, preserving legacy attribute order and output for
+  ordinary hosts, scoped lifetimes, namespaces, portals, and streaming transport.
+
 ## 0.4.1 — 2026-10-01
 
 - fix(data): honor defined-query `skipInitialFetch` and `initialData` options,
