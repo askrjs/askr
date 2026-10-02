@@ -1,5 +1,9 @@
-import { bench, describe, expect } from 'vite-plus/test';
-import { createHydrationFixture, tier2BenchOptions } from '../shared/_shared';
+import { describe, expect, test } from 'vite-plus/test';
+import {
+  createHydrationFixture,
+  tier2BenchOptions,
+  runBench,
+} from '../shared/_shared';
 import { hydrateSPA } from '../../src/boot';
 
 const mismatchRoutes = [
@@ -66,59 +70,67 @@ describe('tier2 subsystem hydration structural mismatch', () => {
     null;
   let attributeFixture: ReturnType<typeof createHydrationFixture> | null = null;
 
-  bench(
-    'reject hydration on one extra nested child',
-    async () => {
-      await hydrateSPA({
-        root: extraChildFixture!.container,
-        registry: extraChildFixture!.registry,
-        hydrate: { verifyMarkup: true },
-      }).catch(() => undefined);
-    },
-    {
-      ...tier2BenchOptions,
-      setup() {
-        extraChildFixture = createHydrationFixture({
-          routes: mismatchRoutes,
-          mutateServerHtml(container) {
-            const extraNode = document.createElement('span');
-            extraNode.textContent = 'Unexpected child';
-            container.querySelector('.mismatch-body')?.appendChild(extraNode);
-          },
-        });
+  test('reject hydration on one extra nested child', async ({ bench }) => {
+    await runBench(
+      bench,
+      'reject hydration on one extra nested child',
+      async () => {
+        await hydrateSPA({
+          root: extraChildFixture!.container,
+          registry: extraChildFixture!.registry,
+          hydrate: { verifyMarkup: true },
+        }).catch(() => undefined);
       },
-      teardown() {
-        extraChildFixture?.cleanup();
-        extraChildFixture = null;
-      },
-    }
-  );
+      {
+        ...tier2BenchOptions,
+        setup() {
+          extraChildFixture = createHydrationFixture({
+            routes: mismatchRoutes,
+            mutateServerHtml(container) {
+              const extraNode = document.createElement('span');
+              extraNode.textContent = 'Unexpected child';
+              container.querySelector('.mismatch-body')?.appendChild(extraNode);
+            },
+          });
+        },
+        teardown() {
+          extraChildFixture?.cleanup();
+          extraChildFixture = null;
+        },
+      }
+    );
+  });
 
-  bench(
-    'reject hydration on attribute drift in a nested control',
-    async () => {
-      await hydrateSPA({
-        root: attributeFixture!.container,
-        registry: attributeFixture!.registry,
-        hydrate: { verifyMarkup: true },
-      }).catch(() => undefined);
-    },
-    {
-      ...tier2BenchOptions,
-      setup() {
-        attributeFixture = createHydrationFixture({
-          routes: mismatchRoutes,
-          mutateServerHtml(container) {
-            container
-              .querySelector('#mismatch-control')
-              ?.setAttribute('data-mode', 'drifted');
-          },
-        });
+  test('reject hydration on attribute drift in a nested control', async ({
+    bench,
+  }) => {
+    await runBench(
+      bench,
+      'reject hydration on attribute drift in a nested control',
+      async () => {
+        await hydrateSPA({
+          root: attributeFixture!.container,
+          registry: attributeFixture!.registry,
+          hydrate: { verifyMarkup: true },
+        }).catch(() => undefined);
       },
-      teardown() {
-        attributeFixture?.cleanup();
-        attributeFixture = null;
-      },
-    }
-  );
+      {
+        ...tier2BenchOptions,
+        setup() {
+          attributeFixture = createHydrationFixture({
+            routes: mismatchRoutes,
+            mutateServerHtml(container) {
+              container
+                .querySelector('#mismatch-control')
+                ?.setAttribute('data-mode', 'drifted');
+            },
+          });
+        },
+        teardown() {
+          attributeFixture?.cleanup();
+          attributeFixture = null;
+        },
+      }
+    );
+  });
 });

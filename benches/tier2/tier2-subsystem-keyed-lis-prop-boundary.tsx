@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { BenchmarkRow } from '../../src/bench/components/benchmark-row';
 import { createIsland } from '../../src/boot';
 import { For } from '../../src/control';
@@ -16,6 +16,7 @@ import {
   tier2BenchOptions,
   type BenchToggle,
   type RowData,
+  runBench,
 } from '../shared/_shared';
 
 const initialRows = buildRows(2_000);
@@ -126,23 +127,28 @@ describe('tier2 subsystem keyed lis prop boundary', () => {
   let mounted: ReturnType<typeof createKeyedLisHarness> | null = null;
   let toggle: BenchToggle<readonly RowData[]> | null = null;
 
-  bench(
-    'reorder 2,000 keyed rows through a component boundary',
-    () => {
-      mounted!.rowsState.set(toggle!.next());
-      flushScheduler();
-    },
-    {
-      ...keyedLisBenchOptions,
-      setup() {
-        mounted = createKeyedLisHarness(initialRows);
-        toggle = createRowToggle(initialRows, interleavedRows, 'initial');
+  test('reorder 2,000 keyed rows through a component boundary', async ({
+    bench,
+  }) => {
+    await runBench(
+      bench,
+      'reorder 2,000 keyed rows through a component boundary',
+      () => {
+        mounted!.rowsState.set(toggle!.next());
+        flushScheduler();
       },
-      teardown() {
-        mounted?.cleanup();
-        mounted = null;
-        toggle = null;
-      },
-    }
-  );
+      {
+        ...keyedLisBenchOptions,
+        setup() {
+          mounted = createKeyedLisHarness(initialRows);
+          toggle = createRowToggle(initialRows, interleavedRows, 'initial');
+        },
+        teardown() {
+          mounted?.cleanup();
+          mounted = null;
+          toggle = null;
+        },
+      }
+    );
+  });
 });

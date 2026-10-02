@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import type { BenchToggle, RowData } from '../shared/_shared';
 import {
   assertOrderTransition,
@@ -7,6 +7,7 @@ import {
   mountTableBenchmark,
   tier1BenchOptions,
   verifyTier1Invariant,
+  runBench,
 } from '../shared/_shared';
 import { trackDOMMutations } from '../../test-utils/render/test-renderer';
 
@@ -91,22 +92,25 @@ describe('tier1 keyed movement density', () => {
     let mounted: ReturnType<typeof mountTableBenchmark> | null = null;
     let toggle: BenchToggle<readonly RowData[]> | null = null;
 
-    bench(
-      movementCase.label,
-      () => mounted!.benchmark.setRows(toggle!.next() as RowData[]),
-      {
-        ...tier1BenchOptions,
-        iterations: 100,
-        setup() {
-          mounted = mountTableBenchmark(initialRows);
-          toggle = createRowToggle(initialRows, movementCase.rows);
-        },
-        teardown() {
-          mounted?.cleanup();
-          mounted = null;
-          toggle = null;
-        },
-      }
-    );
+    test(movementCase.label, async ({ bench }) => {
+      await runBench(
+        bench,
+        movementCase.label,
+        () => mounted!.benchmark.setRows(toggle!.next() as RowData[]),
+        {
+          ...tier1BenchOptions,
+          iterations: 100,
+          setup() {
+            mounted = mountTableBenchmark(initialRows);
+            toggle = createRowToggle(initialRows, movementCase.rows);
+          },
+          teardown() {
+            mounted?.cleanup();
+            mounted = null;
+            toggle = null;
+          },
+        }
+      );
+    });
   }
 });

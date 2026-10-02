@@ -1,10 +1,11 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { hydrateSPA } from '../../src/boot';
 import {
   buildRows,
   buildTableHydrationRoutes,
   createHydrationFixture,
   tier2BenchOptions,
+  runBench,
 } from '../shared/_shared';
 
 const routes = buildTableHydrationRoutes(buildRows(1000));
@@ -36,32 +37,35 @@ await (async () => {
 describe('tier2 subsystem hydration mismatch', () => {
   let fixture: ReturnType<typeof createHydrationFixture> | null = null;
 
-  bench(
-    'reject hydration when one server cell differs',
-    async () => {
-      await hydrateSPA({
-        root: fixture!.container,
-        registry: fixture!.registry,
-        hydrate: { verifyMarkup: true },
-      }).catch(() => undefined);
-    },
-    {
-      ...tier2BenchOptions,
-      setup() {
-        fixture = createHydrationFixture({
-          routes,
-          mutateServerHtml(container) {
-            const labelCell = container.querySelector('.col-label');
-            if (labelCell) {
-              labelCell.textContent = 'Mismatch row';
-            }
-          },
-        });
+  test('reject hydration when one server cell differs', async ({ bench }) => {
+    await runBench(
+      bench,
+      'reject hydration when one server cell differs',
+      async () => {
+        await hydrateSPA({
+          root: fixture!.container,
+          registry: fixture!.registry,
+          hydrate: { verifyMarkup: true },
+        }).catch(() => undefined);
       },
-      teardown() {
-        fixture?.cleanup();
-        fixture = null;
-      },
-    }
-  );
+      {
+        ...tier2BenchOptions,
+        setup() {
+          fixture = createHydrationFixture({
+            routes,
+            mutateServerHtml(container) {
+              const labelCell = container.querySelector('.col-label');
+              if (labelCell) {
+                labelCell.textContent = 'Mismatch row';
+              }
+            },
+          });
+        },
+        teardown() {
+          fixture?.cleanup();
+          fixture = null;
+        },
+      }
+    );
+  });
 });

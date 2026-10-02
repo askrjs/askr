@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { state } from '../../src';
 import { createIsland } from '../../src/boot';
 import {
@@ -9,7 +9,11 @@ import {
   createTestContainer,
   flushScheduler,
 } from '../../test-utils/render/test-renderer';
-import { tier1BenchOptions, verifyTier1Invariant } from '../shared/_shared';
+import {
+  tier1BenchOptions,
+  verifyTier1Invariant,
+  runBench,
+} from '../shared/_shared';
 
 verifyTier1Invariant('tier1 hotpath scheduler coalesced state', () => {
   const { container, cleanup } = createTestContainer();
@@ -54,43 +58,48 @@ describe('tier1 hotpath scheduler coalesced state', () => {
   let cleanup: (() => void) | null = null;
   let countState: ReturnType<typeof state<number>> | null = null;
 
-  bench(
-    'coalesce 100 synchronous state writes before one flush',
-    () => {
-      for (let value = 1; value <= 100; value += 1) {
-        countState!.set(value);
-      }
-      flushScheduler();
-    },
-    {
-      ...tier1BenchOptions,
-      setup() {
-        const result = createTestContainer();
-        cleanup = result.cleanup;
-
-        const Component = () => {
-          countState = state(0);
-
-          return (
-            <div>
-              {Array.from({ length: 200 }, (_, index) => (
-                <span class="subscriber" data-i={index}>
-                  {countState!()}-{index}
-                </span>
-              ))}
-            </div>
-          );
-        };
-
-        createIsland({ root: result.container, component: Component });
+  test('coalesce 100 synchronous state writes before one flush', async ({
+    bench,
+  }) => {
+    await runBench(
+      bench,
+      'coalesce 100 synchronous state writes before one flush',
+      () => {
+        for (let value = 1; value <= 100; value += 1) {
+          countState!.set(value);
+        }
         flushScheduler();
       },
-      teardown() {
-        cleanup?.();
-        cleanup = null;
-        countState = null;
-        clearScheduler();
-      },
-    }
-  );
+      {
+        ...tier1BenchOptions,
+        setup() {
+          const result = createTestContainer();
+          cleanup = result.cleanup;
+
+          const Component = () => {
+            countState = state(0);
+
+            return (
+              <div>
+                {Array.from({ length: 200 }, (_, index) => (
+                  <span class="subscriber" data-i={index}>
+                    {countState!()}-{index}
+                  </span>
+                ))}
+              </div>
+            );
+          };
+
+          createIsland({ root: result.container, component: Component });
+          flushScheduler();
+        },
+        teardown() {
+          cleanup?.();
+          cleanup = null;
+          countState = null;
+          clearScheduler();
+        },
+      }
+    );
+  });
 });

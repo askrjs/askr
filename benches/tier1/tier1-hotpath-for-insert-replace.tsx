@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import type { RowData } from '../shared/_shared';
 import {
   assertRowCountTransition,
@@ -12,6 +12,7 @@ import {
   replaceAllRows,
   tier1BenchOptions,
   verifyTier1Invariant,
+  runBench,
 } from '../shared/_shared';
 
 const initialRows = buildRows(1000);
@@ -108,67 +109,83 @@ describe('tier1 keyed insert and replacement', () => {
   let replacementCycle: ReturnType<typeof createDirectionalBenchCycle> | null =
     null;
 
-  bench(
-    'insert or remove one keyed row in a 1,000-row list',
-    () => insertionCycle!.runForward(),
-    {
-      ...tier1BenchOptions,
-      setup() {
-        mounted = mountTableBenchmark(initialRows);
-        const originalRows = Array.from(
-          mounted.container.querySelectorAll('tr')
-        );
-        const toggle = createRowToggle(initialRows, insertedRows, 'initial');
-        insertionCycle = createDirectionalBenchCycle({
-          label: 'tier1 sparse keyed insertion',
-          forward: () => mounted!.benchmark.setRows(toggle.next() as RowData[]),
-          reset: () => mounted!.benchmark.setRows(toggle.next() as RowData[]),
-          verifyInitial: () => {
-            assertRowCountTransition(mounted!.container, 1000);
-            const rows = Array.from(mounted!.container.querySelectorAll('tr'));
-            expect(
-              originalRows.every((row, index) => rows[index] === row)
-            ).toBe(true);
-          },
-        });
-      },
-      teardown() {
-        insertionCycle?.teardown();
-        mounted?.cleanup();
-        mounted = null;
-        insertionCycle = null;
-      },
-    }
-  );
+  test('insert or remove one keyed row in a 1,000-row list', async ({
+    bench,
+  }) => {
+    await runBench(
+      bench,
+      'insert or remove one keyed row in a 1,000-row list',
+      () => insertionCycle!.runForward(),
+      {
+        ...tier1BenchOptions,
+        setup() {
+          mounted = mountTableBenchmark(initialRows);
+          const originalRows = Array.from(
+            mounted.container.querySelectorAll('tr')
+          );
+          const toggle = createRowToggle(initialRows, insertedRows, 'initial');
+          insertionCycle = createDirectionalBenchCycle({
+            label: 'tier1 sparse keyed insertion',
+            forward: () =>
+              mounted!.benchmark.setRows(toggle.next() as RowData[]),
+            reset: () => mounted!.benchmark.setRows(toggle.next() as RowData[]),
+            verifyInitial: () => {
+              assertRowCountTransition(mounted!.container, 1000);
+              const rows = Array.from(
+                mounted!.container.querySelectorAll('tr')
+              );
+              expect(
+                originalRows.every((row, index) => rows[index] === row)
+              ).toBe(true);
+            },
+          });
+        },
+        teardown() {
+          insertionCycle?.teardown();
+          mounted?.cleanup();
+          mounted = null;
+          insertionCycle = null;
+        },
+      }
+    );
+  });
 
-  bench(
-    'replace all keys in a 1,000-row list',
-    () => replacementCycle!.runForward(),
-    {
-      ...replacementBenchOptions,
-      setup() {
-        mounted = mountTableBenchmark(initialRows);
-        const toggle = createRowToggle(initialRows, replacementRows, 'initial');
-        replacementCycle = createDirectionalBenchCycle({
-          label: 'tier1 full keyed replacement',
-          forward: () => mounted!.benchmark.setRows(toggle.next() as RowData[]),
-          reset: () => mounted!.benchmark.setRows(toggle.next() as RowData[]),
-          verifyInitial: () => {
-            assertRowCountTransition(mounted!.container, 1000);
-            const ids = Array.from(
-              mounted!.container.querySelectorAll('tbody tr td:first-child'),
-              (cell) => cell.textContent
-            );
-            expect(ids).toEqual(initialRows.map((row) => String(row.id)));
-          },
-        });
-      },
-      teardown() {
-        replacementCycle?.teardown();
-        mounted?.cleanup();
-        mounted = null;
-        replacementCycle = null;
-      },
-    }
-  );
+  test('replace all keys in a 1,000-row list', async ({ bench }) => {
+    await runBench(
+      bench,
+      'replace all keys in a 1,000-row list',
+      () => replacementCycle!.runForward(),
+      {
+        ...replacementBenchOptions,
+        setup() {
+          mounted = mountTableBenchmark(initialRows);
+          const toggle = createRowToggle(
+            initialRows,
+            replacementRows,
+            'initial'
+          );
+          replacementCycle = createDirectionalBenchCycle({
+            label: 'tier1 full keyed replacement',
+            forward: () =>
+              mounted!.benchmark.setRows(toggle.next() as RowData[]),
+            reset: () => mounted!.benchmark.setRows(toggle.next() as RowData[]),
+            verifyInitial: () => {
+              assertRowCountTransition(mounted!.container, 1000);
+              const ids = Array.from(
+                mounted!.container.querySelectorAll('tbody tr td:first-child'),
+                (cell) => cell.textContent
+              );
+              expect(ids).toEqual(initialRows.map((row) => String(row.id)));
+            },
+          });
+        },
+        teardown() {
+          replacementCycle?.teardown();
+          mounted?.cleanup();
+          mounted = null;
+          replacementCycle = null;
+        },
+      }
+    );
+  });
 });

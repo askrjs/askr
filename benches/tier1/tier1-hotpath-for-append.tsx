@@ -1,4 +1,4 @@
-import { bench, describe } from 'vite-plus/test';
+import { describe, test } from 'vite-plus/test';
 import type { RowData } from '../shared/_shared';
 import {
   assertRowCountTransition,
@@ -11,6 +11,7 @@ import {
   replaceAllRows,
   tier1BenchOptions,
   verifyTier1Invariant,
+  runBench,
 } from '../shared/_shared';
 
 const rows = buildRows(1000);
@@ -94,21 +95,24 @@ verifyTier1Invariant('tier1 hotpath for replace all', () => {
 describe('tier1 hotpath for append', () => {
   let mounted: ReturnType<typeof mountTableBenchmark> | null = null;
 
-  bench(
-    'append then clear 1,000 keyed rows',
-    () => {
-      mounted!.benchmark.setRows(rows);
-      mounted!.benchmark.setRows(emptyRows);
-    },
-    {
-      ...lifecycleBenchOptions,
-      setup() {
-        mounted = mountTableBenchmark();
+  test('append then clear 1,000 keyed rows', async ({ bench }) => {
+    await runBench(
+      bench,
+      'append then clear 1,000 keyed rows',
+      () => {
+        mounted!.benchmark.setRows(rows);
+        mounted!.benchmark.setRows(emptyRows);
       },
-      teardown() {
-        mounted?.cleanup();
-        mounted = null;
-      },
-    }
-  );
+      {
+        ...lifecycleBenchOptions,
+        setup() {
+          mounted = mountTableBenchmark();
+        },
+        teardown() {
+          mounted?.cleanup();
+          mounted = null;
+        },
+      }
+    );
+  });
 });

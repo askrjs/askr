@@ -29,12 +29,14 @@ test.describe('account settings form workflow', () => {
     await page
       .getByRole('checkbox', { name: 'Receive product updates' })
       .click();
-    await page.getByLabelText('Account role').selectOptions('admin');
+    await page
+      .getByLabelText('Account role', { exact: false })
+      .selectOptions('admin');
     await page.getByRole('radio', { name: 'Phone' }).click();
 
     await expect
       .element(page.getByLabelText('Settings preview'))
-      .toHaveTextContent(
+      .toMatchTextContent(
         'Ada Lovelace will be saved as admin with phone contact.'
       );
 
@@ -46,7 +48,7 @@ test.describe('account settings form workflow', () => {
     await completeSave();
     await expect
       .element(page.getByRole('status'))
-      .toHaveTextContent('Saved account settings for Ada Lovelace.');
+      .toMatchTextContent('Saved account settings for Ada Lovelace.');
 
     await page.getByRole('button', { name: 'Reset' }).click();
 
@@ -56,7 +58,7 @@ test.describe('account settings form workflow', () => {
       .element(page.getByLabelText('Receive product updates'))
       .not.toBeChecked();
     await expect
-      .element(page.getByLabelText('Account role'))
+      .element(page.getByLabelText('Account role', { exact: false }))
       .toHaveValue('viewer');
     await expect
       .element(page.getByRole('radio', { name: 'Email' }))
@@ -67,14 +69,14 @@ test.describe('account settings form workflow', () => {
     await page.getByRole('button', { name: 'Save changes' }).click();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent('Name is required.');
+      .toMatchTextContent('Name is required.');
 
     await page.getByLabelText('Full name').fill('Grace Hopper');
     await page.getByLabelText('Email address').fill('not-an-email');
     await page.getByRole('button', { name: 'Save changes' }).click();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent('Enter a valid email address.');
+      .toMatchTextContent('Enter a valid email address.');
 
     await page.getByLabelText('Email address').fill('grace@example.com');
     await page.getByRole('button', { name: 'Save changes' }).click();
@@ -83,7 +85,7 @@ test.describe('account settings form workflow', () => {
     await completeSave();
     await expect
       .element(page.getByRole('status'))
-      .toHaveTextContent('Saved account settings for Grace Hopper.');
+      .toMatchTextContent('Saved account settings for Grace Hopper.');
   });
 
   test('should preserve focus and typed value while previews update', async () => {
@@ -97,7 +99,7 @@ test.describe('account settings form workflow', () => {
     await expect.element(name).toHaveValue('Katherine Johnson');
     await expect
       .element(page.getByLabelText('Settings preview'))
-      .toHaveTextContent(
+      .toMatchTextContent(
         'Katherine Johnson will be saved as viewer with email contact.'
       );
   });

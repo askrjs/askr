@@ -1,11 +1,11 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { createIsland } from '../../src/boot';
 import { state } from '../../src';
 import {
   createTestContainer,
   flushScheduler,
 } from '../../test-utils/render/test-renderer';
-import { tier2BenchOptions } from '../shared/_shared';
+import { tier2BenchOptions, runBench } from '../shared/_shared';
 
 const rowIds = Array.from({ length: 100 }, (_, index) => index);
 const changedRowIds = [...rowIds.slice(10), ...rowIds.slice(0, 10)];
@@ -38,55 +38,64 @@ function mountRows() {
 }
 
 describe('tier2 stateful keyed rows', () => {
-  bench(
-    'mount and clean up 100 stateful rows',
-    () => {
-      const mounted = mountRows();
-      mounted.cleanup();
-    },
-    tier2BenchOptions
-  );
+  test('mount and clean up 100 stateful rows', async ({ bench }) => {
+    await runBench(
+      bench,
+      'mount and clean up 100 stateful rows',
+      () => {
+        const mounted = mountRows();
+        mounted.cleanup();
+      },
+      tier2BenchOptions
+    );
+  });
 
   let mounted: ReturnType<typeof mountRows> | null = null;
   let tick = 0;
-  bench(
-    'update parent around 100 keyed rows',
-    () => {
-      mounted!.setTick(++tick);
-      flushScheduler();
-    },
-    {
-      ...tier2BenchOptions,
-      setup() {
-        tick = 0;
-        mounted = mountRows();
+  test('update parent around 100 keyed rows', async ({ bench }) => {
+    await runBench(
+      bench,
+      'update parent around 100 keyed rows',
+      () => {
+        mounted!.setTick(++tick);
+        flushScheduler();
       },
-      teardown() {
-        mounted?.cleanup();
-        mounted = null;
-      },
-    }
-  );
+      {
+        ...tier2BenchOptions,
+        setup() {
+          tick = 0;
+          mounted = mountRows();
+        },
+        teardown() {
+          mounted?.cleanup();
+          mounted = null;
+        },
+      }
+    );
+  });
 
   let listMounted: ReturnType<typeof mountRows> | null = null;
   let reordered = false;
-  bench(
-    'reorder 100 keyed rows',
-    () => {
-      reordered = !reordered;
-      listMounted!.setIds(reordered ? changedRowIds : rowIds);
-      flushScheduler();
-    },
-    {
-      ...tier2BenchOptions,
-      setup() {
-        reordered = false;
-        listMounted = mountRows();
+  test('reorder 100 keyed rows', async ({ bench }) => {
+    await runBench(
+      bench,
+      'reorder 100 keyed rows',
+      () => {
+        reordered = !reordered;
+        listMounted!.setIds(reordered ? changedRowIds : rowIds);
+        flushScheduler();
       },
-      teardown() {
-        listMounted?.cleanup();
-        listMounted = null;
-      },
-    }
-  );
+      {
+        ...tier2BenchOptions,
+        setup() {
+          reordered = false;
+          listMounted = mountRows();
+        },
+        teardown() {
+          listMounted?.cleanup();
+          listMounted = null;
+        },
+      }
+    );
+  });
 });

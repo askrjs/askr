@@ -1,4 +1,4 @@
-import { bench, describe } from 'vite-plus/test';
+import { describe, test } from 'vite-plus/test';
 import type { RowData } from '../shared/_shared';
 import {
   assertRowCountTransition,
@@ -9,6 +9,7 @@ import {
   mountTableBenchmark,
   tier1BenchOptions,
   verifyTier1Invariant,
+  runBench,
 } from '../shared/_shared';
 
 const initialRows = buildRows(1000);
@@ -45,21 +46,24 @@ verifyTier1Invariant('tier1 hotpath for truncate', () => {
 describe('tier1 hotpath for truncate', () => {
   let mounted: ReturnType<typeof mountTableBenchmark> | null = null;
 
-  bench(
-    'clear then restore 1,000 keyed rows',
-    () => {
-      mounted!.benchmark.setRows(emptyRows);
-      mounted!.benchmark.setRows(initialRows);
-    },
-    {
-      ...lifecycleBenchOptions,
-      setup() {
-        mounted = mountTableBenchmark(initialRows);
+  test('clear then restore 1,000 keyed rows', async ({ bench }) => {
+    await runBench(
+      bench,
+      'clear then restore 1,000 keyed rows',
+      () => {
+        mounted!.benchmark.setRows(emptyRows);
+        mounted!.benchmark.setRows(initialRows);
       },
-      teardown() {
-        mounted?.cleanup();
-        mounted = null;
-      },
-    }
-  );
+      {
+        ...lifecycleBenchOptions,
+        setup() {
+          mounted = mountTableBenchmark(initialRows);
+        },
+        teardown() {
+          mounted?.cleanup();
+          mounted = null;
+        },
+      }
+    );
+  });
 });

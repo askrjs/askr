@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { createSPA } from '../../src/boot';
 import { createRouteRegistry, group, route } from '../../src/router';
 import { navigate } from '../../src/router/navigate';
@@ -10,6 +10,7 @@ import {
   resetRouterState,
   setLocationPath,
   tier2BenchOptions,
+  runBench,
 } from '../shared/_shared';
 
 const Layout = ({ children }: { children?: unknown }) => (
@@ -52,29 +53,34 @@ describe('tier2 router navigation', () => {
   let cleanup: (() => void) | null = null;
   let nextPath = '/beta';
 
-  bench(
-    'navigate between sibling routes with shared layout shape',
-    async () => {
-      await navigate(nextPath);
-      flushScheduler();
-      nextPath = nextPath === '/beta' ? '/alpha' : '/beta';
-    },
-    {
-      ...tier2BenchOptions,
-      async setup() {
-        nextPath = '/beta';
-        const result = createTestContainer();
-        cleanup = result.cleanup;
-        setLocationPath('/alpha');
-        const registry = createNavigationRegistry();
-        await createSPA({ root: result.container, registry });
+  test('navigate between sibling routes with shared layout shape', async ({
+    bench,
+  }) => {
+    await runBench(
+      bench,
+      'navigate between sibling routes with shared layout shape',
+      async () => {
+        await navigate(nextPath);
         flushScheduler();
+        nextPath = nextPath === '/beta' ? '/alpha' : '/beta';
       },
-      teardown() {
-        cleanup?.();
-        cleanup = null;
-        resetRouterState();
-      },
-    }
-  );
+      {
+        ...tier2BenchOptions,
+        async setup() {
+          nextPath = '/beta';
+          const result = createTestContainer();
+          cleanup = result.cleanup;
+          setLocationPath('/alpha');
+          const registry = createNavigationRegistry();
+          await createSPA({ root: result.container, registry });
+          flushScheduler();
+        },
+        teardown() {
+          cleanup?.();
+          cleanup = null;
+          resetRouterState();
+        },
+      }
+    );
+  });
 });

@@ -1,4 +1,4 @@
-import { bench, describe } from 'vite-plus/test';
+import { describe, test } from 'vite-plus/test';
 import { state } from '../../src';
 import { createIsland } from '../../src/boot';
 import {
@@ -11,6 +11,7 @@ import {
   assertToggleMutationGuard,
   createSelectionToggle,
   tier2BenchOptions,
+  runBench,
 } from '../shared/_shared';
 
 {
@@ -67,41 +68,44 @@ describe('tier2 runtime large tree', () => {
   let tickState: ReturnType<typeof state<number>> | null = null;
   let toggle: BenchToggle<number> | null = null;
 
-  bench(
-    'update a 1,000-node reactive span tree',
-    () => {
-      tickState!.set(toggle!.next());
-      flushScheduler();
-    },
-    {
-      ...tier2BenchOptions,
-      setup() {
-        const result = createTestContainer();
-        cleanup = result.cleanup;
-
-        const Component = () => {
-          tickState = state(0);
-          return (
-            <div>
-              {Array.from({ length: 1000 }, (_, index) => (
-                <span data-i={index}>
-                  {index}:{tickState!()}
-                </span>
-              ))}
-            </div>
-          );
-        };
-
-        createIsland({ root: result.container, component: Component });
+  test('update a 1,000-node reactive span tree', async ({ bench }) => {
+    await runBench(
+      bench,
+      'update a 1,000-node reactive span tree',
+      () => {
+        tickState!.set(toggle!.next());
         flushScheduler();
-        toggle = createSelectionToggle(0, 1, 'first');
       },
-      teardown() {
-        cleanup?.();
-        cleanup = null;
-        tickState = null;
-        toggle = null;
-      },
-    }
-  );
+      {
+        ...tier2BenchOptions,
+        setup() {
+          const result = createTestContainer();
+          cleanup = result.cleanup;
+
+          const Component = () => {
+            tickState = state(0);
+            return (
+              <div>
+                {Array.from({ length: 1000 }, (_, index) => (
+                  <span data-i={index}>
+                    {index}:{tickState!()}
+                  </span>
+                ))}
+              </div>
+            );
+          };
+
+          createIsland({ root: result.container, component: Component });
+          flushScheduler();
+          toggle = createSelectionToggle(0, 1, 'first');
+        },
+        teardown() {
+          cleanup?.();
+          cleanup = null;
+          tickState = null;
+          toggle = null;
+        },
+      }
+    );
+  });
 });

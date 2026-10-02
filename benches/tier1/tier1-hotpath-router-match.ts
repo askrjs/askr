@@ -1,6 +1,10 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { match } from '../../src/router/match';
-import { tier1BenchOptions, verifyTier1Invariant } from '../shared/_shared';
+import {
+  tier1BenchOptions,
+  verifyTier1Invariant,
+  runBench,
+} from '../shared/_shared';
 
 const literalPath = '/products/details';
 const literalPattern = '/products/details';
@@ -25,30 +29,39 @@ verifyTier1Invariant('tier1 hotpath router match', () => {
 });
 
 describe('tier1 router match', () => {
-  bench(
-    'match literal route segments (128 calls)',
-    () => {
-      for (let index = 0; index < matchesPerSample; index++)
-        match(literalPath, literalPattern);
-    },
-    tier1BenchOptions
-  );
+  test('match literal route segments (128 calls)', async ({ bench }) => {
+    await runBench(
+      bench,
+      'match literal route segments (128 calls)',
+      () => {
+        for (let index = 0; index < matchesPerSample; index++)
+          match(literalPath, literalPattern);
+      },
+      tier1BenchOptions
+    );
+  });
 
-  bench(
-    'match parameterized route segments (128 calls)',
-    () => {
-      for (let index = 0; index < matchesPerSample; index++)
-        match(paramPath, paramPattern);
-    },
-    tier1BenchOptions
-  );
+  test('match parameterized route segments (128 calls)', async ({ bench }) => {
+    await runBench(
+      bench,
+      'match parameterized route segments (128 calls)',
+      () => {
+        for (let index = 0; index < matchesPerSample; index++)
+          match(paramPath, paramPattern);
+      },
+      tier1BenchOptions
+    );
+  });
 
-  bench(
-    'match wildcard route segments (128 calls)',
-    () => {
-      for (let index = 0; index < matchesPerSample; index++)
-        match(wildcardPath, wildcardPattern);
-    },
-    tier1BenchOptions
-  );
+  test('match wildcard route segments (128 calls)', async ({ bench }) => {
+    await runBench(
+      bench,
+      'match wildcard route segments (128 calls)',
+      () => {
+        for (let index = 0; index < matchesPerSample; index++)
+          match(wildcardPath, wildcardPattern);
+      },
+      tier1BenchOptions
+    );
+  });
 });

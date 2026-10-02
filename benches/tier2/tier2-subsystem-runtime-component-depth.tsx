@@ -1,7 +1,7 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { createIsland } from '../../src/boot';
 import { createTestContainer } from '../../test-utils/render/test-renderer';
-import { tier2BenchOptions } from '../shared/_shared';
+import { tier2BenchOptions, runBench } from '../shared/_shared';
 
 const regressionDepth = 10_000;
 const benchmarkDepth = 1_000;
@@ -32,12 +32,17 @@ function mountComponentChain(depth: number): () => void {
 }
 
 describe('tier2 runtime component depth', () => {
-  bench(
-    'mount and clean up a 1,000-component wrapper chain',
-    () => {
-      const cleanup = mountComponentChain(benchmarkDepth);
-      cleanup();
-    },
-    tier2BenchOptions
-  );
+  test('mount and clean up a 1,000-component wrapper chain', async ({
+    bench,
+  }) => {
+    await runBench(
+      bench,
+      'mount and clean up a 1,000-component wrapper chain',
+      () => {
+        const cleanup = mountComponentChain(benchmarkDepth);
+        cleanup();
+      },
+      tier2BenchOptions
+    );
+  });
 });

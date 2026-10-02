@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { requireRole } from '@askrjs/auth';
 import {
   createRouteRegistry,
@@ -9,6 +9,7 @@ import {
   tier2BenchOptions,
   createSelectionToggle,
   type BenchToggle,
+  runBench,
 } from '../shared/_shared';
 
 type GuardMode = 'admin' | 'member';
@@ -46,36 +47,39 @@ describe('tier2 subsystem router guard execution', () => {
   const resolveGuardedRoute = () =>
     resolveRouteRequest('/admin/123', { registry, mode: 'ssr' });
 
-  bench(
-    'evaluate a role-guarded route request',
-    async () => {
-      guardModeState.current = guardToggle!.next();
-      await resolveGuardedRoute();
-    },
-    {
-      ...tier2BenchOptions,
-      async setup() {
-        guardToggle = createSelectionToggle('admin', 'member', 'first');
-
-        const allowed = await resolveGuardedRoute();
-        expect(allowed).toMatchObject({
-          kind: 'render',
-          params: { id: '123' },
-        });
-
-        guardModeState.current = 'member';
-        const denied = await resolveGuardedRoute();
-        expect(denied).toMatchObject({
-          kind: 'deny',
-          status: 403,
-        });
-
-        guardModeState.current = 'admin';
+  test('evaluate a role-guarded route request', async ({ bench }) => {
+    await runBench(
+      bench,
+      'evaluate a role-guarded route request',
+      async () => {
+        guardModeState.current = guardToggle!.next();
+        await resolveGuardedRoute();
       },
-      teardown() {
-        guardToggle = null;
-        guardModeState.current = 'admin';
-      },
-    }
-  );
+      {
+        ...tier2BenchOptions,
+        async setup() {
+          guardToggle = createSelectionToggle('admin', 'member', 'first');
+
+          const allowed = await resolveGuardedRoute();
+          expect(allowed).toMatchObject({
+            kind: 'render',
+            params: { id: '123' },
+          });
+
+          guardModeState.current = 'member';
+          const denied = await resolveGuardedRoute();
+          expect(denied).toMatchObject({
+            kind: 'deny',
+            status: 403,
+          });
+
+          guardModeState.current = 'admin';
+        },
+        teardown() {
+          guardToggle = null;
+          guardModeState.current = 'admin';
+        },
+      }
+    );
+  });
 });

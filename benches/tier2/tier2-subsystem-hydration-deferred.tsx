@@ -1,9 +1,10 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import {
   createHydrationFixture,
   extendBenchOptions,
   stubBelowFoldGeometry,
   tier2BenchOptions,
+  runBench,
 } from '../shared/_shared';
 import { hydrateSPA } from '../../src/boot';
 import {
@@ -106,34 +107,39 @@ describe('tier2 subsystem hydration deferred', () => {
   let harness: ReturnType<typeof createDeferredHydrationHarness> | null = null;
   let fixture: ReturnType<typeof createHydrationFixture> | null = null;
 
-  bench(
-    'hydrate visible shell then activate a deferred below-fold subtree',
-    async () => {
-      fixture!.reset();
-      await hydrateSPA({
-        root: fixture!.container,
-        registry: fixture!.registry,
-        hydrate: { deferBelowFold: true, foldThreshold: 100 },
-      });
-      flushScheduler();
-      controller!.revealAll();
-      window.dispatchEvent(new Event('scroll'));
-      flushScheduler();
-    },
-    {
-      ...hydrationDeferredBenchOptions,
-      setup() {
-        controller = stubBelowFoldGeometry();
-        harness = createDeferredHydrationHarness();
-        fixture = createHydrationFixture({ routes: harness.routes });
+  test('hydrate visible shell then activate a deferred below-fold subtree', async ({
+    bench,
+  }) => {
+    await runBench(
+      bench,
+      'hydrate visible shell then activate a deferred below-fold subtree',
+      async () => {
+        fixture!.reset();
+        await hydrateSPA({
+          root: fixture!.container,
+          registry: fixture!.registry,
+          hydrate: { deferBelowFold: true, foldThreshold: 100 },
+        });
+        flushScheduler();
+        controller!.revealAll();
+        window.dispatchEvent(new Event('scroll'));
+        flushScheduler();
       },
-      teardown() {
-        controller?.restore();
-        controller = null;
-        fixture?.cleanup();
-        fixture = null;
-        harness = null;
-      },
-    }
-  );
+      {
+        ...hydrationDeferredBenchOptions,
+        setup() {
+          controller = stubBelowFoldGeometry();
+          harness = createDeferredHydrationHarness();
+          fixture = createHydrationFixture({ routes: harness.routes });
+        },
+        teardown() {
+          controller?.restore();
+          controller = null;
+          fixture?.cleanup();
+          fixture = null;
+          harness = null;
+        },
+      }
+    );
+  });
 });

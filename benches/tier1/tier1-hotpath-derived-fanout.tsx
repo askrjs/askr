@@ -1,4 +1,4 @@
-import { bench, describe } from 'vite-plus/test';
+import { describe, test } from 'vite-plus/test';
 import { derive, state } from '../../src';
 import { createIsland } from '../../src/boot';
 import {
@@ -12,6 +12,7 @@ import {
   createSelectionToggle,
   tier1BenchOptions,
   verifyTier1Invariant,
+  runBench,
 } from '../shared/_shared';
 
 verifyTier1Invariant('tier1 hotpath derived fanout', () => {
@@ -73,45 +74,50 @@ describe('tier1 hotpath derived fanout', () => {
   let countState: ReturnType<typeof state<number>> | null = null;
   let toggle: BenchToggle<number> | null = null;
 
-  bench(
-    'propagate one state write through 1,000 derived spans',
-    () => {
-      countState!.set(toggle!.next());
-      flushScheduler();
-    },
-    {
-      ...tier1BenchOptions,
-      setup() {
-        const result = createTestContainer();
-        cleanup = result.cleanup;
-
-        const Component = () => {
-          countState = state(0);
-
-          return (
-            <div>
-              {Array.from({ length: 1_000 }, (_, index) => {
-                const derivedLabel = derive(
-                  countState!,
-                  (value) => `${value}-${index}`
-                );
-
-                return <span data-i={index}>{derivedLabel()}</span>;
-              })}
-            </div>
-          );
-        };
-
-        createIsland({ root: result.container, component: Component });
+  test('propagate one state write through 1,000 derived spans', async ({
+    bench,
+  }) => {
+    await runBench(
+      bench,
+      'propagate one state write through 1,000 derived spans',
+      () => {
+        countState!.set(toggle!.next());
         flushScheduler();
-        toggle = createSelectionToggle(0, 1, 'first');
       },
-      teardown() {
-        cleanup?.();
-        cleanup = null;
-        countState = null;
-        toggle = null;
-      },
-    }
-  );
+      {
+        ...tier1BenchOptions,
+        setup() {
+          const result = createTestContainer();
+          cleanup = result.cleanup;
+
+          const Component = () => {
+            countState = state(0);
+
+            return (
+              <div>
+                {Array.from({ length: 1_000 }, (_, index) => {
+                  const derivedLabel = derive(
+                    countState!,
+                    (value) => `${value}-${index}`
+                  );
+
+                  return <span data-i={index}>{derivedLabel()}</span>;
+                })}
+              </div>
+            );
+          };
+
+          createIsland({ root: result.container, component: Component });
+          flushScheduler();
+          toggle = createSelectionToggle(0, 1, 'first');
+        },
+        teardown() {
+          cleanup?.();
+          cleanup = null;
+          countState = null;
+          toggle = null;
+        },
+      }
+    );
+  });
 });
