@@ -49,6 +49,21 @@ in order once the matching server DOM becomes interactive. The original event
 is stopped while it is queued, so an interaction runs once rather than once
 before and once after hydration.
 
+Queued `input` and `change` events retain the input or textarea value from each
+event, including checkbox and radio checked state. Hydration restores that
+state before each handler runs, so ordered edits followed by a queued submit
+observe the latest edit even if hydration wrote the initial value. Events for
+controls removed during hydration are discarded. File input values are not
+restored.
+
+Unmodified printable keys, Backspace, and Delete retain their native editing
+behavior in editable text inputs and textareas before handlers exist. Their
+resulting input events are replayed after hydration; a later handler cannot
+retroactively cancel an edit already made. Enter, modified shortcuts, and
+other activation keys keep their normal temporary cancellation while queued.
+For an immediately activated deferred boundary, a replayed key handler can
+still cancel that native edit.
+
 Replayed form submissions retain their original `SubmitEvent.submitter`, so
 handlers can distinguish the submitted button's `name` and `value`. The
 original submitted control remains available if hydration replaces that

@@ -13,6 +13,7 @@ const HYDRATION_INTERACTION_TYPES = [
 type QueuedHydrationInteraction = {
   target: EventTarget;
   event: Event;
+  controlState?: { value: string } | { checked: boolean };
 };
 
 /** @internal Root-scoped interaction replay used only during hydration. */
@@ -68,6 +69,72 @@ function cloneInteractionEvent(event: Event): Event {
       composed: event.composed,
     });
   }
+}
+
+function captureControlState(
+  event: Event,
+  target: EventTarget
+): QueuedHydrationInteraction['controlState'] {
+  if (event.type !== 'input' && event.type !== 'change') return undefined;
+  if (target instanceof HTMLInputElement) {
+    if (target.type === 'checkbox' || target.type === 'radio') {
+      return { checked: target.checked };
+    }
+    // File values cannot be assigned and their FileList cannot be recreated.
+    if (target.type !== 'file') return { value: target.value };
+  }
+  if (target instanceof HTMLTextAreaElement) return { value: target.value };
+  return undefined;
+}
+
+function restoreControlState(interaction: QueuedHydrationInteraction): void {
+  const { target, controlState } = interaction;
+  if (!controlState) return;
+  if ('checked' in controlState) {
+    if (
+      target instanceof HTMLInputElement &&
+      (target.type === 'checkbox' || target.type === 'radio')
+    ) {
+      target.checked = controlState.checked;
+    }
+  } else if (
+    target instanceof HTMLTextAreaElement ||
+    (target instanceof HTMLInputElement && target.type !== 'file')
+  ) {
+    target.value = controlState.value;
+  }
+}
+
+function allowsNativeTextInput(event: Event, target: EventTarget): boolean {
+  if (
+    !(event instanceof KeyboardEvent) ||
+    event.type !== 'keydown' ||
+    (event.key.length !== 1 &&
+      event.key !== 'Backspace' &&
+      event.key !== 'Delete') ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.altKey
+  ) {
+    return false;
+  }
+  // Preserve ordinary native text edits while handlers are unavailable. Submit,
+  // shortcuts and activation keys retain the normal replay cancellation.
+  return (
+    (target instanceof HTMLTextAreaElement ||
+      (target instanceof HTMLInputElement &&
+        [
+          'text',
+          'search',
+          'email',
+          'url',
+          'tel',
+          'password',
+          'number',
+        ].includes(target.type))) &&
+    !target.readOnly &&
+    !target.disabled
+  );
 }
 
 /**
@@ -173,8 +240,15 @@ export function beginHydrationInteractionReplay(
       notifyIfDeferredBoundariesDrained();
     }
 
+    // Activating a boundary may replace or retire the original control.
+    if (!root.contains(interaction.target)) {
+      releaseIfFinished();
+      return;
+    }
+
     replaying = true;
     try {
+      restoreControlState(interaction);
       interaction.target.dispatchEvent(interaction.event);
     } finally {
       replaying = false;
@@ -197,11 +271,12 @@ export function beginHydrationInteractionReplay(
       return;
     }
 
-    event.preventDefault();
+    if (!allowsNativeTextInput(event, target)) event.preventDefault();
     event.stopImmediatePropagation();
     const interaction = {
       target,
       event: cloneInteractionEvent(event),
+      controlState: captureControlState(event, target),
     };
 
     if (hydratingRoot) {
@@ -209,6 +284,8 @@ export function beginHydrationInteractionReplay(
       return;
     }
     replayInteraction(interaction);
+    // An immediately activated boundary can still cancel the native edit.
+    if (interaction.event.defaultPrevented) event.preventDefault();
   }
 
   const installedTypes: string[] = [];
