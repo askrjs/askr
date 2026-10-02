@@ -158,7 +158,7 @@
     "publint": "^0.3.24",
     "tsd": "^0.33.0",
     "typescript": "^7.0.2",
-    "vite-plus": "^0.3.1"
+    "vite-plus": "^1.0.0"
   },
   "peerDependencies": {
     "@askrjs/auth": ">=0.4.0 <0.5.0",
