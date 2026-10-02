@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.4.3 — 2026-10-02
+
+### Breaking changes
+
+- None.
+
+### Deprecations
+
+- None.
+
+### Additions
+
+- None.
+
+### Fixes
+
+- Retain each queued input or textarea edit and checkbox/radio change during
+  hydration, so replayed handlers and a following submit observe the captured
+  values even when hydration writes the initial control state. File input
+  values remain untouched.
+- Preserve native printable typing, Backspace, and Delete in editable text
+  controls before hydration. Enter, modified shortcuts, and activation retain
+  their existing cancellation; immediately activated deferred key handlers
+  can still cancel the native edit.
+- Discard events whose target is replaced during deferred activation and
+  release root capture listeners when the final deferred boundary completes.
+
 ## 0.4.2 — 2026-10-01
 
 - fix(foundations): honor previously cancelled click and keyboard events in
