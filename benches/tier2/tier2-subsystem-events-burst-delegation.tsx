@@ -1,11 +1,11 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { createIsland } from '../../src/boot';
 import {
   createTestContainer,
   fireEvent,
   flushScheduler,
 } from '../../test-utils/render/test-renderer';
-import { tier2BenchOptions } from '../shared/_shared';
+import { tier2BenchOptions, runBench } from '../shared/_shared';
 
 const targetIndexes = Array.from({ length: 1000 }, (_, index) => index % 500);
 
@@ -53,45 +53,50 @@ describe('tier2 subsystem events burst delegation', () => {
   let cleanup: (() => void) | null = null;
   let targetButtons: HTMLElement[] = [];
 
-  bench(
-    'dispatch 1,000 delegated clicks across a 500-button tree',
-    () => {
-      for (const button of targetButtons) {
-        fireEvent.click(button);
-      }
-      flushScheduler();
-    },
-    {
-      ...tier2BenchOptions,
-      setup() {
-        const result = createTestContainer();
-        cleanup = result.cleanup;
-
-        const Component = () => (
-          <div>
-            {Array.from({ length: 500 }, (_, index) => (
-              <button id={`btn-${index}`} onClick={() => undefined}>
-                Button {index}
-              </button>
-            ))}
-          </div>
-        );
-
-        createIsland({ root: result.container, component: Component });
+  test('dispatch 1,000 delegated clicks across a 500-button tree', async ({
+    bench,
+  }) => {
+    await runBench(
+      bench,
+      'dispatch 1,000 delegated clicks across a 500-button tree',
+      () => {
+        for (const button of targetButtons) {
+          fireEvent.click(button);
+        }
         flushScheduler();
-        targetButtons = targetIndexes.map((index) => {
-          const button = result.container.querySelector(`#btn-${index}`);
-          if (!(button instanceof HTMLElement)) {
-            throw new Error(`missing delegated target button: ${index}`);
-          }
-          return button;
-        });
       },
-      teardown() {
-        cleanup?.();
-        cleanup = null;
-        targetButtons = [];
-      },
-    }
-  );
+      {
+        ...tier2BenchOptions,
+        setup() {
+          const result = createTestContainer();
+          cleanup = result.cleanup;
+
+          const Component = () => (
+            <div>
+              {Array.from({ length: 500 }, (_, index) => (
+                <button id={`btn-${index}`} onClick={() => undefined}>
+                  Button {index}
+                </button>
+              ))}
+            </div>
+          );
+
+          createIsland({ root: result.container, component: Component });
+          flushScheduler();
+          targetButtons = targetIndexes.map((index) => {
+            const button = result.container.querySelector(`#btn-${index}`);
+            if (!(button instanceof HTMLElement)) {
+              throw new Error(`missing delegated target button: ${index}`);
+            }
+            return button;
+          });
+        },
+        teardown() {
+          cleanup?.();
+          cleanup = null;
+          targetButtons = [];
+        },
+      }
+    );
+  });
 });

@@ -1,10 +1,11 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import {
   buildRows,
   buildTableHydrationRoutes,
   createHydrationFixture,
   extendBenchOptions,
   tier2BenchOptions,
+  runBench,
 } from '../shared/_shared';
 
 const routes = buildTableHydrationRoutes(buildRows(1000));
@@ -44,35 +45,40 @@ describe('tier2 subsystem hydration marker lookup', () => {
   let fixture: ReturnType<typeof createHydrationFixture> | null = null;
   let marked = false;
 
-  bench(
-    'toggle skipped hydration markers on a 1,000-row fixture',
-    () => {
-      const skipped = fixture!.container.querySelectorAll(
-        '.static-footer, .marketing-slot'
-      );
+  test('toggle skipped hydration markers on a 1,000-row fixture', async ({
+    bench,
+  }) => {
+    await runBench(
+      bench,
+      'toggle skipped hydration markers on a 1,000-row fixture',
+      () => {
+        const skipped = fixture!.container.querySelectorAll(
+          '.static-footer, .marketing-slot'
+        );
 
-      marked = !marked;
-      skipped.forEach((element) =>
-        marked
-          ? element.setAttribute('data-skip-hydrate', 'true')
-          : element.removeAttribute('data-skip-hydrate')
-      );
-    },
-    {
-      ...markerLookupBenchOptions,
-      setup() {
-        fixture = createHydrationFixture({
-          routes,
-          mutateServerHtml(container) {
-            appendSkippedIslands(container);
-          },
-        });
-        marked = false;
+        marked = !marked;
+        skipped.forEach((element) =>
+          marked
+            ? element.setAttribute('data-skip-hydrate', 'true')
+            : element.removeAttribute('data-skip-hydrate')
+        );
       },
-      teardown() {
-        fixture?.cleanup();
-        fixture = null;
-      },
-    }
-  );
+      {
+        ...markerLookupBenchOptions,
+        setup() {
+          fixture = createHydrationFixture({
+            routes,
+            mutateServerHtml(container) {
+              appendSkippedIslands(container);
+            },
+          });
+          marked = false;
+        },
+        teardown() {
+          fixture?.cleanup();
+          fixture = null;
+        },
+      }
+    );
+  });
 });

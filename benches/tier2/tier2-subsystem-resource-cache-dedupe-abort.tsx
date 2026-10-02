@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { state } from '../../src';
 import { cleanupApp, createIsland } from '../../src/boot';
 import { createQuery } from '../../src/data';
@@ -6,6 +6,7 @@ import {
   createSelectionToggle,
   tier2BenchOptions,
   type BenchToggle,
+  runBench,
 } from '../shared/_shared';
 import { flushScheduler } from '../../test-utils/render/test-renderer';
 
@@ -100,42 +101,47 @@ describe('tier2 subsystem resource cache dedupe abort', () => {
   let cleanup: (() => void) | null = null;
   let queryToggle: BenchToggle<QueryName> | null = null;
 
-  bench(
-    'switch a deduped query key and abort the stale fetch',
-    () => {
-      queryState!.set(queryToggle!.next());
-      flushScheduler();
-    },
-    {
-      ...tier2BenchOptions,
-      setup() {
-        queryStats.starts = 0;
-        queryStats.aborts = 0;
-
-        const result = createResourceContainer();
-        cleanup = result.cleanup;
-        createIsland({ root: result.container, component: ResourceCacheApp });
+  test('switch a deduped query key and abort the stale fetch', async ({
+    bench,
+  }) => {
+    await runBench(
+      bench,
+      'switch a deduped query key and abort the stale fetch',
+      () => {
+        queryState!.set(queryToggle!.next());
         flushScheduler();
-
-        queryToggle = createSelectionToggle('acme', 'umbrella', 'first');
-
-        expect(queryStats.starts).toBe(1);
-        expect(queryStats.aborts).toBe(0);
-        expect(
-          result.container.querySelector('[data-testid="primary-query"]')
-            ?.textContent
-        ).toBe('acme');
-        expect(
-          result.container.querySelector('[data-testid="secondary-query"]')
-            ?.textContent
-        ).toBe('acme');
       },
-      teardown() {
-        cleanup?.();
-        cleanup = null;
-        queryState = null;
-        queryToggle = null;
-      },
-    }
-  );
+      {
+        ...tier2BenchOptions,
+        setup() {
+          queryStats.starts = 0;
+          queryStats.aborts = 0;
+
+          const result = createResourceContainer();
+          cleanup = result.cleanup;
+          createIsland({ root: result.container, component: ResourceCacheApp });
+          flushScheduler();
+
+          queryToggle = createSelectionToggle('acme', 'umbrella', 'first');
+
+          expect(queryStats.starts).toBe(1);
+          expect(queryStats.aborts).toBe(0);
+          expect(
+            result.container.querySelector('[data-testid="primary-query"]')
+              ?.textContent
+          ).toBe('acme');
+          expect(
+            result.container.querySelector('[data-testid="secondary-query"]')
+              ?.textContent
+          ).toBe('acme');
+        },
+        teardown() {
+          cleanup?.();
+          cleanup = null;
+          queryState = null;
+          queryToggle = null;
+        },
+      }
+    );
+  });
 });

@@ -1,9 +1,10 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { renderToStringSync } from '../../src/ssr';
 import {
   buildDeepSsrTree,
   tier1BenchOptions,
   verifyTier1Invariant,
+  runBench,
 } from '../shared/_shared';
 
 const deepTree = buildDeepSsrTree(300);
@@ -14,11 +15,14 @@ verifyTier1Invariant('tier1 hotpath ssr deep tree', () => {
 });
 
 describe('tier1 ssr deep tree', () => {
-  bench(
-    'render a 300-level nested sync tree',
-    () => {
-      renderToStringSync(() => deepTree);
-    },
-    tier1BenchOptions
-  );
+  test('render a 300-level nested sync tree', async ({ bench }) => {
+    await runBench(
+      bench,
+      'render a 300-level nested sync tree',
+      () => {
+        renderToStringSync(() => deepTree);
+      },
+      tier1BenchOptions
+    );
+  });
 });

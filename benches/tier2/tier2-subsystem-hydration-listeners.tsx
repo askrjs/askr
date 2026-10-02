@@ -1,9 +1,10 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { hydrateSPA } from '../../src/boot';
 import {
   extendBenchOptions,
   createHydrationFixture,
   tier2BenchOptions,
+  runBench,
 } from '../shared/_shared';
 import {
   fireEvent,
@@ -116,27 +117,30 @@ describe('tier2 subsystem hydration listeners', () => {
   let harness: ReturnType<typeof createListenerHarness> | null = null;
   let fixture: ReturnType<typeof createHydrationFixture> | null = null;
 
-  bench(
-    'hydrate a listener-heavy interactive tree',
-    async () => {
-      fixture!.reset();
-      await hydrateSPA({
-        root: fixture!.container,
-        registry: fixture!.registry,
-      });
-      flushScheduler();
-    },
-    {
-      ...hydrationListenerBenchOptions,
-      setup() {
-        harness = createListenerHarness();
-        fixture = createHydrationFixture({ routes: harness.routes });
+  test('hydrate a listener-heavy interactive tree', async ({ bench }) => {
+    await runBench(
+      bench,
+      'hydrate a listener-heavy interactive tree',
+      async () => {
+        fixture!.reset();
+        await hydrateSPA({
+          root: fixture!.container,
+          registry: fixture!.registry,
+        });
+        flushScheduler();
       },
-      teardown() {
-        fixture?.cleanup();
-        fixture = null;
-        harness = null;
-      },
-    }
-  );
+      {
+        ...hydrationListenerBenchOptions,
+        setup() {
+          harness = createListenerHarness();
+          fixture = createHydrationFixture({ routes: harness.routes });
+        },
+        teardown() {
+          fixture?.cleanup();
+          fixture = null;
+          harness = null;
+        },
+      }
+    );
+  });
 });

@@ -26,6 +26,6 @@ test.describe('benchmark browser behavior', () => {
 
     await expect(page.getByText('Alpha')).toBeVisible();
     await expect(page.getByText('Beta')).toBeVisible();
-    await expect.element(page.getByRole('row').nth(0)).toHaveTextContent('7');
+    await expect.element(page.getByRole('row').nth(0)).toMatchTextContent('7');
   });
 });

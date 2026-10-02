@@ -1,7 +1,7 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { cleanupApp, createIsland } from '../../src/boot';
 import { stream } from '../../src/resources';
-import { tier2BenchOptions } from '../shared/_shared';
+import { tier2BenchOptions, runBench } from '../shared/_shared';
 import { flushScheduler } from '../../test-utils/render/test-renderer';
 
 class BenchStream implements AsyncIterable<number> {
@@ -33,38 +33,41 @@ describe('tier2 subsystem stream latest value', () => {
   let source: BenchStream | null = null;
   let cleanup: (() => void) | null = null;
 
-  bench(
-    'emit one stream item and commit its DOM update',
-    async () => {
-      source!.emit();
-      await Promise.resolve();
-      flushScheduler();
-    },
-    {
-      ...tier2BenchOptions,
-      setup() {
-        source = new BenchStream();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
-        cleanup = () => {
-          cleanupApp(container);
-          container.remove();
-        };
-        createIsland({
-          root: container,
-          component: () => {
-            const result = stream(() => source!);
-            return <output>{result.value ?? 0}</output>;
-          },
-        });
+  test('emit one stream item and commit its DOM update', async ({ bench }) => {
+    await runBench(
+      bench,
+      'emit one stream item and commit its DOM update',
+      async () => {
+        source!.emit();
+        await Promise.resolve();
         flushScheduler();
-        expect(container.textContent).toBe('0');
       },
-      teardown() {
-        cleanup?.();
-        cleanup = null;
-        source = null;
-      },
-    }
-  );
+      {
+        ...tier2BenchOptions,
+        setup() {
+          source = new BenchStream();
+          const container = document.createElement('div');
+          document.body.appendChild(container);
+          cleanup = () => {
+            cleanupApp(container);
+            container.remove();
+          };
+          createIsland({
+            root: container,
+            component: () => {
+              const result = stream(() => source!);
+              return <output>{result.value ?? 0}</output>;
+            },
+          });
+          flushScheduler();
+          expect(container.textContent).toBe('0');
+        },
+        teardown() {
+          cleanup?.();
+          cleanup = null;
+          source = null;
+        },
+      }
+    );
+  });
 });

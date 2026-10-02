@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import type { BenchToggle, RowData } from '../shared/_shared';
 import {
   assertTextTransition,
@@ -9,6 +9,7 @@ import {
   replaceRowLabelById,
   tier1BenchOptions,
   verifyTier1Invariant,
+  runBench,
 } from '../shared/_shared';
 
 const initialRows = buildRows(1000);
@@ -61,22 +62,25 @@ describe('tier1 hotpath for single text update', () => {
   let mounted: ReturnType<typeof mountTableBenchmark> | null = null;
   let toggle: BenchToggle<readonly RowData[]> | null = null;
 
-  bench(
-    'update one keyed row label in a 1,000-row table',
-    () => {
-      mounted!.benchmark.setRows(toggle!.next() as RowData[]);
-    },
-    {
-      ...tier1BenchOptions,
-      setup() {
-        mounted = mountTableBenchmark(initialRows);
-        toggle = createRowToggle(initialRows, updatedRows, 'initial');
+  test('update one keyed row label in a 1,000-row table', async ({ bench }) => {
+    await runBench(
+      bench,
+      'update one keyed row label in a 1,000-row table',
+      () => {
+        mounted!.benchmark.setRows(toggle!.next() as RowData[]);
       },
-      teardown() {
-        mounted?.cleanup();
-        mounted = null;
-        toggle = null;
-      },
-    }
-  );
+      {
+        ...tier1BenchOptions,
+        setup() {
+          mounted = mountTableBenchmark(initialRows);
+          toggle = createRowToggle(initialRows, updatedRows, 'initial');
+        },
+        teardown() {
+          mounted?.cleanup();
+          mounted = null;
+          toggle = null;
+        },
+      }
+    );
+  });
 });

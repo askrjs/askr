@@ -48,7 +48,7 @@ test('should load a dynamic schema collection with bounded browser work', async 
   releases.get('warehouse')?.();
   await expect
     .element(page.getByTestId('collection-status'))
-    .toHaveTextContent('Settled');
+    .toMatchTextContent('Settled');
   await expect.element(page.getByText('warehouse:9')).toBeVisible();
 
   await page.getByRole('button', { name: 'Add archive database' }).click();
@@ -59,5 +59,5 @@ test('should load a dynamic schema collection with bounded browser work', async 
   await expect.element(page.getByText('archive:7')).toBeVisible();
   await expect
     .element(page.getByTestId('collection-status'))
-    .toHaveTextContent('Settled');
+    .toMatchTextContent('Settled');
 });

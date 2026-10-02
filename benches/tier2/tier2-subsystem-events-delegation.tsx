@@ -1,11 +1,11 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { createIsland } from '../../src/boot';
 import {
   createTestContainer,
   fireEvent,
   flushScheduler,
 } from '../../test-utils/render/test-renderer';
-import { tier2BenchOptions } from '../shared/_shared';
+import { tier2BenchOptions, runBench } from '../shared/_shared';
 
 {
   const { container, cleanup } = createTestContainer();
@@ -41,37 +41,42 @@ describe('tier2 events delegation', () => {
   let cleanup: (() => void) | null = null;
   let container: HTMLDivElement | null = null;
 
-  bench(
-    'dispatch one delegated click in a 500-button tree',
-    () => {
-      fireEvent.click(container!.querySelector('#btn-250') as HTMLElement);
-      flushScheduler();
-    },
-    {
-      ...tier2BenchOptions,
-      setup() {
-        const result = createTestContainer();
-        cleanup = result.cleanup;
-        container = result.container;
-
-        const Component = () => (
-          <div>
-            {Array.from({ length: 500 }, (_, index) => (
-              <button id={`btn-${index}`} onClick={() => undefined}>
-                Button {index}
-              </button>
-            ))}
-          </div>
-        );
-
-        createIsland({ root: result.container, component: Component });
+  test('dispatch one delegated click in a 500-button tree', async ({
+    bench,
+  }) => {
+    await runBench(
+      bench,
+      'dispatch one delegated click in a 500-button tree',
+      () => {
+        fireEvent.click(container!.querySelector('#btn-250') as HTMLElement);
         flushScheduler();
       },
-      teardown() {
-        cleanup?.();
-        cleanup = null;
-        container = null;
-      },
-    }
-  );
+      {
+        ...tier2BenchOptions,
+        setup() {
+          const result = createTestContainer();
+          cleanup = result.cleanup;
+          container = result.container;
+
+          const Component = () => (
+            <div>
+              {Array.from({ length: 500 }, (_, index) => (
+                <button id={`btn-${index}`} onClick={() => undefined}>
+                  Button {index}
+                </button>
+              ))}
+            </div>
+          );
+
+          createIsland({ root: result.container, component: Component });
+          flushScheduler();
+        },
+        teardown() {
+          cleanup?.();
+          cleanup = null;
+          container = null;
+        },
+      }
+    );
+  });
 });

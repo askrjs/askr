@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { createIsland } from '../../src/boot';
 import { state } from '../../src';
 import { Owner } from '../../src/core/reactive/owner';
@@ -12,7 +12,7 @@ import {
   createTestContainer,
   flushScheduler,
 } from '../../test-utils/render/test-renderer';
-import { tier2BenchOptions } from '../shared/_shared';
+import { tier2BenchOptions, runBench } from '../shared/_shared';
 
 // Scaling checks for the owner tree, scheduler lanes, and component patching
 // (#612). Each bench is linear after the fix and quadratic before it.
@@ -87,44 +87,56 @@ function mountChain(depth: number) {
 }
 
 describe('tier2 core scaling', () => {
-  bench(
-    'dispose 10,000 sibling owners front to back',
-    () => detachSiblingsFrontToBack(siblingCount),
-    tier2BenchOptions
-  );
+  test('dispose 10,000 sibling owners front to back', async ({ bench }) => {
+    await runBench(
+      bench,
+      'dispose 10,000 sibling owners front to back',
+      () => detachSiblingsFrontToBack(siblingCount),
+      tier2BenchOptions
+    );
+  });
 
-  bench(
-    'flush 5,000 render jobs at mixed depths',
-    () => {
-      flushJobs(renderJobCount, 'render');
-    },
-    { ...tier2BenchOptions, teardown: () => clearScheduler() }
-  );
+  test('flush 5,000 render jobs at mixed depths', async ({ bench }) => {
+    await runBench(
+      bench,
+      'flush 5,000 render jobs at mixed depths',
+      () => {
+        flushJobs(renderJobCount, 'render');
+      },
+      { ...tier2BenchOptions, teardown: () => clearScheduler() }
+    );
+  });
 
-  bench(
-    'flush 20,000 effect jobs',
-    () => {
-      flushJobs(effectJobCount, 'effect');
-    },
-    { ...tier2BenchOptions, teardown: () => clearScheduler() }
-  );
+  test('flush 20,000 effect jobs', async ({ bench }) => {
+    await runBench(
+      bench,
+      'flush 20,000 effect jobs',
+      () => {
+        flushJobs(effectJobCount, 'effect');
+      },
+      { ...tier2BenchOptions, teardown: () => clearScheduler() }
+    );
+  });
 
   let chain: ReturnType<typeof mountChain> | null = null;
   let next = 0;
-  bench(
-    'patch every component in a 2,000-deep chain',
-    () => {
-      chain!.update(`v${++next}`);
-    },
-    {
-      ...tier2BenchOptions,
-      setup() {
-        chain = mountChain(chainDepth);
+  test('patch every component in a 2,000-deep chain', async ({ bench }) => {
+    await runBench(
+      bench,
+      'patch every component in a 2,000-deep chain',
+      () => {
+        chain!.update(`v${++next}`);
       },
-      teardown() {
-        chain?.cleanup();
-        chain = null;
-      },
-    }
-  );
+      {
+        ...tier2BenchOptions,
+        setup() {
+          chain = mountChain(chainDepth);
+        },
+        teardown() {
+          chain?.cleanup();
+          chain = null;
+        },
+      }
+    );
+  });
 });

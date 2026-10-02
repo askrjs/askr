@@ -1,9 +1,10 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { renderToStringSync } from '../../src/ssr';
 import {
   buildAttrHeavySsrTree,
   tier1BenchOptions,
   verifyTier1Invariant,
+  runBench,
 } from '../shared/_shared';
 
 const attrHeavyTree = buildAttrHeavySsrTree(400);
@@ -17,11 +18,16 @@ verifyTier1Invariant('tier1 hotpath ssr attr heavy', () => {
 });
 
 describe('tier1 ssr attr heavy', () => {
-  bench(
-    'render 400 attr-heavy nodes with escaped attributes',
-    () => {
-      renderToStringSync(() => attrHeavyTree);
-    },
-    tier1BenchOptions
-  );
+  test('render 400 attr-heavy nodes with escaped attributes', async ({
+    bench,
+  }) => {
+    await runBench(
+      bench,
+      'render 400 attr-heavy nodes with escaped attributes',
+      () => {
+        renderToStringSync(() => attrHeavyTree);
+      },
+      tier1BenchOptions
+    );
+  });
 });

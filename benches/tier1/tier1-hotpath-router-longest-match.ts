@@ -1,9 +1,10 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { resolveRouteFromRoutes } from '../../src/router/route-matching';
 import {
   buildDenseRouteTable,
   tier1BenchOptions,
   verifyTier1Invariant,
+  runBench,
 } from '../shared/_shared';
 
 const fixture = buildDenseRouteTable(512);
@@ -16,14 +17,22 @@ verifyTier1Invariant('tier1 hotpath router longest match', () => {
 });
 
 describe('tier1 hotpath router longest match', () => {
-  bench(
-    'resolve the most specific route from a 512-route dense table',
-    () => {
-      const match = resolveRouteFromRoutes(fixture.targetPath, fixture.routes);
-      if (!match) {
-        throw new Error('expected dense route table to resolve a match');
-      }
-    },
-    tier1BenchOptions
-  );
+  test('resolve the most specific route from a 512-route dense table', async ({
+    bench,
+  }) => {
+    await runBench(
+      bench,
+      'resolve the most specific route from a 512-route dense table',
+      () => {
+        const match = resolveRouteFromRoutes(
+          fixture.targetPath,
+          fixture.routes
+        );
+        if (!match) {
+          throw new Error('expected dense route table to resolve a match');
+        }
+      },
+      tier1BenchOptions
+    );
+  });
 });

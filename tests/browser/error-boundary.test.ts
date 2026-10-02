@@ -12,7 +12,7 @@ test.describe('ErrorBoundary browser behavior', () => {
     await expect(page.getByTestId('boundary-fallback')).toBeVisible();
     await expect
       .element(page.getByTestId('boundary-message'))
-      .toHaveTextContent('fixture crash');
+      .toMatchTextContent('fixture crash');
 
     await page.getByTestId('retry').click();
     await expect(page.getByTestId('safe-content')).toBeVisible();

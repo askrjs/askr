@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { state } from '../../src';
 import { createIsland } from '../../src/boot';
 import {
@@ -12,6 +12,7 @@ import {
   createRowToggle,
   tier1BenchOptions,
   verifyTier1Invariant,
+  runBench,
 } from '../shared/_shared';
 
 const initialItems = buildRows(200);
@@ -76,42 +77,45 @@ describe('tier1 renderer keyed fastpath', () => {
   let itemsState: ReturnType<typeof state<typeof initialItems>> | null = null;
   let toggle: BenchToggle<readonly RowData[]> | null = null;
 
-  bench(
-    'reorder a large keyed div list',
-    () => {
-      itemsState!.set(toggle!.next() as RowData[]);
-      flushScheduler();
-    },
-    {
-      ...tier1BenchOptions,
-      iterations: 100,
-      setup() {
-        const result = createTestContainer();
-        cleanup = result.cleanup;
-
-        const Component = () => {
-          itemsState = state(initialItems);
-          return (
-            <div>
-              {itemsState().map((item) => (
-                <div key={item.id} data-key={String(item.id)}>
-                  {item.label}
-                </div>
-              ))}
-            </div>
-          );
-        };
-
-        createIsland({ root: result.container, component: Component });
+  test('reorder a large keyed div list', async ({ bench }) => {
+    await runBench(
+      bench,
+      'reorder a large keyed div list',
+      () => {
+        itemsState!.set(toggle!.next() as RowData[]);
         flushScheduler();
-        toggle = createRowToggle(initialItems, reversedItems, 'initial');
       },
-      teardown() {
-        cleanup?.();
-        cleanup = null;
-        itemsState = null;
-        toggle = null;
-      },
-    }
-  );
+      {
+        ...tier1BenchOptions,
+        iterations: 100,
+        setup() {
+          const result = createTestContainer();
+          cleanup = result.cleanup;
+
+          const Component = () => {
+            itemsState = state(initialItems);
+            return (
+              <div>
+                {itemsState().map((item) => (
+                  <div key={item.id} data-key={String(item.id)}>
+                    {item.label}
+                  </div>
+                ))}
+              </div>
+            );
+          };
+
+          createIsland({ root: result.container, component: Component });
+          flushScheduler();
+          toggle = createRowToggle(initialItems, reversedItems, 'initial');
+        },
+        teardown() {
+          cleanup?.();
+          cleanup = null;
+          itemsState = null;
+          toggle = null;
+        },
+      }
+    );
+  });
 });

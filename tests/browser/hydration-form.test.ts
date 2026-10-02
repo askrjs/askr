@@ -67,7 +67,7 @@ test.describe('hydrated signup form workflow', () => {
     releaseSignup();
     await expect
       .element(page.getByRole('status'))
-      .toHaveTextContent('Welcome, reader@example.com.');
+      .toMatchTextContent('Welcome, reader@example.com.');
     expect(submissions).toEqual([
       { email: 'reader@example.com', acceptedTerms: true },
     ]);
@@ -98,7 +98,7 @@ test.describe('hydrated signup form workflow', () => {
     releaseSignup();
     await expect
       .element(page.getByRole('status'))
-      .toHaveTextContent('Welcome, once@example.com.');
+      .toMatchTextContent('Welcome, once@example.com.');
     expect(submissions).toEqual([
       { email: 'once@example.com', acceptedTerms: true },
     ]);
@@ -111,7 +111,7 @@ test.describe('hydrated signup form workflow', () => {
 
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent('Enter an email address and accept the terms.');
+      .toMatchTextContent('Enter an email address and accept the terms.');
     expect(submissions).toHaveLength(0);
   });
 
@@ -125,7 +125,7 @@ test.describe('hydrated signup form workflow', () => {
 
     await expect
       .element(page.getByRole('status'))
-      .toHaveTextContent('Welcome, keyboard@example.com.');
+      .toMatchTextContent('Welcome, keyboard@example.com.');
     expect(submissions).toEqual([
       { email: 'keyboard@example.com', acceptedTerms: true },
     ]);

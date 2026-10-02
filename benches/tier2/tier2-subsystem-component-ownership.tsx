@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { state, type State } from '../../src';
 import { createIsland } from '../../src/boot';
 import { defineSetupComponent } from '../../src/core/component/setup';
@@ -6,7 +6,7 @@ import {
   createTestContainer,
   flushScheduler,
 } from '../../test-utils/render/test-renderer';
-import { tier2BenchOptions } from '../shared/_shared';
+import { tier2BenchOptions, runBench } from '../shared/_shared';
 
 const ownershipBenchOptions = {
   ...tier2BenchOptions,
@@ -74,35 +74,43 @@ function mountRows(mode: 'positional' | 'setup') {
 
 for (const mode of ['positional', 'setup'] as const) {
   describe(`tier2 component ownership: ${mode}`, () => {
-    bench(
-      'mount and dispose 100 stateful keyed rows',
-      () => {
-        const mounted = mountRows(mode);
-        mounted.cleanup();
-      },
-      ownershipBenchOptions
-    );
+    test('mount and dispose 100 stateful keyed rows', async ({ bench }) => {
+      await runBench(
+        bench,
+        'mount and dispose 100 stateful keyed rows',
+        () => {
+          const mounted = mountRows(mode);
+          mounted.cleanup();
+        },
+        ownershipBenchOptions
+      );
+    });
 
     let mounted: ReturnType<typeof mountRows> | null = null;
     let next = false;
-    bench(
-      'update props and reverse 100 stateful keyed rows',
-      () => {
-        mounted!.update(next ? firstRows : nextRows);
-        next = !next;
-      },
-      {
-        ...ownershipBenchOptions,
-        setup() {
-          mounted = mountRows(mode);
-          next = false;
+    test('update props and reverse 100 stateful keyed rows', async ({
+      bench,
+    }) => {
+      await runBench(
+        bench,
+        'update props and reverse 100 stateful keyed rows',
+        () => {
+          mounted!.update(next ? firstRows : nextRows);
+          next = !next;
         },
-        teardown() {
-          mounted?.cleanup();
-          mounted = null;
-        },
-      }
-    );
+        {
+          ...ownershipBenchOptions,
+          setup() {
+            mounted = mountRows(mode);
+            next = false;
+          },
+          teardown() {
+            mounted?.cleanup();
+            mounted = null;
+          },
+        }
+      );
+    });
   });
 }
 

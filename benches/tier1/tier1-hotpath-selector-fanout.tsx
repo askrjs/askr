@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { selector, state } from '../../src';
 import { createIsland } from '../../src/boot';
 import {
@@ -12,6 +12,7 @@ import {
   extendBenchOptions,
   tier1BenchOptions,
   verifyTier1Invariant,
+  runBench,
 } from '../shared/_shared';
 
 type RowId = number;
@@ -92,41 +93,46 @@ describe('tier1 hotpath selector fanout', () => {
     warmupIterations: 3,
   });
 
-  bench(
-    'move selection across 1,000 selector-backed rows',
-    () => {
-      selectedState!.set(toggle!.next());
-      flushScheduler();
-    },
-    {
-      ...selectorFanoutBenchOptions,
-      setup() {
-        const result = createTestContainer();
-        cleanup = result.cleanup;
-
-        const Component = () => {
-          selectedState = state<number | null>(0);
-
-          return (
-            <table>
-              <tbody>
-                {Array.from({ length: 1_000 }, (_, id) => (
-                  <Row key={id} id={id} />
-                ))}
-              </tbody>
-            </table>
-          );
-        };
-
-        createIsland({ root: result.container, component: Component });
+  test('move selection across 1,000 selector-backed rows', async ({
+    bench,
+  }) => {
+    await runBench(
+      bench,
+      'move selection across 1,000 selector-backed rows',
+      () => {
+        selectedState!.set(toggle!.next());
         flushScheduler();
-        toggle = createSelectionToggle(0, 1, 'first');
       },
-      teardown() {
-        cleanup?.();
-        cleanup = null;
-        toggle = null;
-      },
-    }
-  );
+      {
+        ...selectorFanoutBenchOptions,
+        setup() {
+          const result = createTestContainer();
+          cleanup = result.cleanup;
+
+          const Component = () => {
+            selectedState = state<number | null>(0);
+
+            return (
+              <table>
+                <tbody>
+                  {Array.from({ length: 1_000 }, (_, id) => (
+                    <Row key={id} id={id} />
+                  ))}
+                </tbody>
+              </table>
+            );
+          };
+
+          createIsland({ root: result.container, component: Component });
+          flushScheduler();
+          toggle = createSelectionToggle(0, 1, 'first');
+        },
+        teardown() {
+          cleanup?.();
+          cleanup = null;
+          toggle = null;
+        },
+      }
+    );
+  });
 });

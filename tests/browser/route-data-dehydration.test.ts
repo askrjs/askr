@@ -13,7 +13,7 @@ test.describe('route data dehydration', () => {
 
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent(
+      .toMatchTextContent(
         /routeData\(\).*\$\.secret.*initial hydration.*client navigation/
       );
   });

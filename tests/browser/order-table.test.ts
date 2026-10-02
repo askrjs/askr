@@ -30,7 +30,7 @@ test.describe('order management table workflow', () => {
       .poll(() => page.getByText('Northwind Traders').elements().length)
       .toBe(0);
 
-    await page.getByLabelText('Status').selectOptions('Open');
+    await page.getByLabelText('Status', { exact: false }).selectOptions('Open');
     await expect(page.getByText('No orders found.')).toBeVisible();
 
     await page.getByLabelText('Filter orders').fill('');

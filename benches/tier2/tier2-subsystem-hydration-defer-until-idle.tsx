@@ -1,10 +1,11 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { hydrateSPA } from '../../src/boot';
 import {
   buildWideSsrTree,
   createHydrationFixture,
   extendBenchOptions,
   tier2BenchOptions,
+  runBench,
 } from '../shared/_shared';
 import {
   fireEvent,
@@ -78,28 +79,31 @@ describe('tier2 subsystem hydration defer until idle', () => {
     null;
   let fixture: ReturnType<typeof createHydrationFixture> | null = null;
 
-  bench(
-    'defer hydration of a wide page until idle',
-    async () => {
-      fixture!.reset();
-      await hydrateSPA({
-        root: fixture!.container,
-        registry: fixture!.registry,
-        hydrate: { deferUntilIdle: true },
-      });
-      flushScheduler();
-    },
-    {
-      ...deferredIdleHydrationBenchOptions,
-      setup() {
-        harness = createDeferredIdleHydrationHarness();
-        fixture = createHydrationFixture({ routes: harness.routes });
+  test('defer hydration of a wide page until idle', async ({ bench }) => {
+    await runBench(
+      bench,
+      'defer hydration of a wide page until idle',
+      async () => {
+        fixture!.reset();
+        await hydrateSPA({
+          root: fixture!.container,
+          registry: fixture!.registry,
+          hydrate: { deferUntilIdle: true },
+        });
+        flushScheduler();
       },
-      teardown() {
-        fixture?.cleanup();
-        fixture = null;
-        harness = null;
-      },
-    }
-  );
+      {
+        ...deferredIdleHydrationBenchOptions,
+        setup() {
+          harness = createDeferredIdleHydrationHarness();
+          fixture = createHydrationFixture({ routes: harness.routes });
+        },
+        teardown() {
+          fixture?.cleanup();
+          fixture = null;
+          harness = null;
+        },
+      }
+    );
+  });
 });

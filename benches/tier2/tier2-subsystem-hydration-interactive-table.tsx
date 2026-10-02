@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { BenchmarkTable } from '../../src/bench/components/benchmark-table';
 import { hydrateSPA } from '../../src/boot';
 import { selector, state, type State } from '../../src';
@@ -9,6 +9,7 @@ import {
   tier2BenchOptions,
   type CachedElementQuery,
   type RowData,
+  runBench,
 } from '../shared/_shared';
 import {
   fireEvent,
@@ -128,41 +129,46 @@ describe('tier2 subsystem hydration interactive table', () => {
   let rowLinks: CachedElementQuery<HTMLElement> | null = null;
   let selectedRowCursor = 0;
 
-  bench(
-    'interact with an already hydrated 250-row interactive table',
-    async () => {
-      const updateSelected = fixture!.container.querySelector(
-        '#update-selected'
-      ) as HTMLElement;
+  test('interact with an already hydrated 250-row interactive table', async ({
+    bench,
+  }) => {
+    await runBench(
+      bench,
+      'interact with an already hydrated 250-row interactive table',
+      async () => {
+        const updateSelected = fixture!.container.querySelector(
+          '#update-selected'
+        ) as HTMLElement;
 
-      fireEvent.click(rowLinks!.getAt(selectedRowIndices[selectedRowCursor]));
-      flushScheduler();
-      fireEvent.click(updateSelected);
-      flushScheduler();
-
-      selectedRowCursor = selectedRowCursor === 0 ? 1 : 0;
-    },
-    {
-      ...tier2BenchOptions,
-      async setup() {
-        const harness = createInteractiveTableHarness();
-        fixture = createHydrationFixture({ routes: harness.routes });
-
-        await hydrateSPA({
-          root: fixture.container,
-          registry: fixture!.registry,
-        });
+        fireEvent.click(rowLinks!.getAt(selectedRowIndices[selectedRowCursor]));
         flushScheduler();
-        await waitForNextEvaluation();
-        rowLinks = createRowLinkQuery(fixture.container);
-        selectedRowCursor = 0;
+        fireEvent.click(updateSelected);
+        flushScheduler();
+
+        selectedRowCursor = selectedRowCursor === 0 ? 1 : 0;
       },
-      teardown() {
-        fixture?.cleanup();
-        fixture = null;
-        rowLinks = null;
-        selectedRowCursor = 0;
-      },
-    }
-  );
+      {
+        ...tier2BenchOptions,
+        async setup() {
+          const harness = createInteractiveTableHarness();
+          fixture = createHydrationFixture({ routes: harness.routes });
+
+          await hydrateSPA({
+            root: fixture.container,
+            registry: fixture!.registry,
+          });
+          flushScheduler();
+          await waitForNextEvaluation();
+          rowLinks = createRowLinkQuery(fixture.container);
+          selectedRowCursor = 0;
+        },
+        teardown() {
+          fixture?.cleanup();
+          fixture = null;
+          rowLinks = null;
+          selectedRowCursor = 0;
+        },
+      }
+    );
+  });
 });
