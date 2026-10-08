@@ -1,9 +1,10 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { renderToStringSync } from '../../src/ssr';
 import {
   buildTextHeavySsrTree,
   tier1BenchOptions,
   verifyTier1Invariant,
+  runBench,
 } from '../shared/_shared';
 
 const textHeavyTree = buildTextHeavySsrTree(400);
@@ -24,11 +25,14 @@ verifyTier1Invariant('tier1 hotpath ssr text heavy', () => {
 });
 
 describe('tier1 ssr text heavy', () => {
-  bench(
-    'render 400 mixed text-boundary nodes',
-    () => {
-      renderToStringSync(() => textHeavyTree);
-    },
-    tier1BenchOptions
-  );
+  test('render 400 mixed text-boundary nodes', async ({ bench }) => {
+    await runBench(
+      bench,
+      'render 400 mixed text-boundary nodes',
+      () => {
+        renderToStringSync(() => textHeavyTree);
+      },
+      tier1BenchOptions
+    );
+  });
 });

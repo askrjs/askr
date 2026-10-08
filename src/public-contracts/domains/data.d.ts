@@ -116,6 +116,19 @@ interface InvalidateOnIntervalOptions extends InvalidateOptions {
   focusedOnly?: boolean;
 }
 
+/** Component-owned refresh policy for browser focus/visibility and reconnect. */
+interface RefreshOnActivityOptions {
+  /** Age since successful completion (or initial data). Zero refreshes on every event. */
+  staleTimeMs: number | 'always';
+  /** Listen to window focus and visible document transitions. Defaults to true. */
+  focus?: boolean;
+  /** Listen to the window online hint. Defaults to true. */
+  online?: boolean;
+  /** Disable listeners without changing hook order. Defaults to true. */
+  enabled?: boolean;
+  runtime?: DataRuntime;
+}
+
 /** A JSON-serializable value usable as part of a query key or invalidation prefix. */
 type QueryKeyPart =
   | string
@@ -353,6 +366,12 @@ declare function invalidateOnInterval(
   options: InvalidateOnIntervalOptions
 ): void;
 
+/** Refresh live queries on browser activity, with an explicit freshness age. */
+declare function refreshOnActivity(
+  prefix: string,
+  options: RefreshOnActivityOptions
+): void;
+
 /**
  * Create one lifecycle-owned collection of dynamically keyed readers for a
  * reusable query definition, with bounded collection-started fetches.
@@ -440,6 +459,7 @@ export {
   ServerQueryHandler,
   InvalidateOptions,
   InvalidateOnIntervalOptions,
+  RefreshOnActivityOptions,
   QueryKeyPart,
   QueryScope,
   QueryControls,
@@ -466,6 +486,7 @@ export {
   invalidate,
   queryScope,
   invalidateOnInterval,
+  refreshOnActivity,
   createQueryCollection,
   ServerQueryRegistry,
   ServerQueryEntry,

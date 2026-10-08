@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import type { BenchToggle, RowData } from '../shared/_shared';
 import {
   assertOrderTransition,
@@ -11,6 +11,7 @@ import {
   shuffleRows,
   tier1BenchOptions,
   verifyTier1Invariant,
+  runBench,
 } from '../shared/_shared';
 
 const initialRows = buildRows(1000);
@@ -71,22 +72,27 @@ describe('tier1 hotpath for random shuffle', () => {
   let mounted: ReturnType<typeof mountTableBenchmark> | null = null;
   let toggle: BenchToggle<readonly RowData[]> | null = null;
 
-  bench(
-    'shuffle 1,000 keyed rows with a fixed permutation',
-    () => {
-      mounted!.benchmark.setRows(toggle!.next() as RowData[]);
-    },
-    {
-      ...shuffleBenchOptions,
-      setup() {
-        mounted = mountTableBenchmark(initialRows);
-        toggle = createRowToggle(initialRows, shuffledRows, 'initial');
+  test('shuffle 1,000 keyed rows with a fixed permutation', async ({
+    bench,
+  }) => {
+    await runBench(
+      bench,
+      'shuffle 1,000 keyed rows with a fixed permutation',
+      () => {
+        mounted!.benchmark.setRows(toggle!.next() as RowData[]);
       },
-      teardown() {
-        mounted?.cleanup();
-        mounted = null;
-        toggle = null;
-      },
-    }
-  );
+      {
+        ...shuffleBenchOptions,
+        setup() {
+          mounted = mountTableBenchmark(initialRows);
+          toggle = createRowToggle(initialRows, shuffledRows, 'initial');
+        },
+        teardown() {
+          mounted?.cleanup();
+          mounted = null;
+          toggle = null;
+        },
+      }
+    );
+  });
 });

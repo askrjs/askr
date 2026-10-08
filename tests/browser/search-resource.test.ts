@@ -123,7 +123,7 @@ test.describe('customer search with route-driven resources', () => {
     await expect(page.getByLabelText('Search customers')).toHaveValue('');
     await expect
       .element(page.getByRole('status'))
-      .toHaveTextContent('Searching customers...');
+      .toMatchTextContent('Searching customers...');
     releaseFeaturedSearch();
     await expect
       .poll(() => page.getByText('Featured Customer').elements().length)
@@ -144,7 +144,7 @@ test.describe('customer search with route-driven resources', () => {
     );
     await expect
       .element(page.getByRole('status'))
-      .toHaveTextContent('Searching customers...');
+      .toMatchTextContent('Searching customers...');
     await expect
       .poll(() => page.getByText('No customers found.').elements().length)
       .toBe(1);
@@ -239,7 +239,7 @@ test.describe('customer search with route-driven resources', () => {
     await app.mountCustomerSearchScenario();
     await expect
       .element(page.getByRole('status'))
-      .toHaveTextContent('Searching customers...');
+      .toMatchTextContent('Searching customers...');
 
     await page.getByLabelText('Search customers').fill('acme');
     releaseSlowSearch();
@@ -314,7 +314,7 @@ test.describe('customer search with route-driven resources', () => {
 
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent('Customer search failed.');
+      .toMatchTextContent('Customer search failed.');
     await page.getByRole('button', { name: 'Retry search' }).click();
 
     await expect(page.getByText('Recovered Customer')).toBeVisible();
@@ -360,7 +360,7 @@ test.describe('customer search with route-driven resources', () => {
     await app.mountCustomerSearchScenario();
     await expect
       .element(page.getByRole('status'))
-      .toHaveTextContent('Searching customers...');
+      .toMatchTextContent('Searching customers...');
 
     await page.getByLabelText('Search customers').fill('acme');
 

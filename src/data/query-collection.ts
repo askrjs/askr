@@ -131,6 +131,11 @@ class QueryCollectionCell<
     void this.schedule(ownedCell, 'invalidation');
   }
 
+  hasPendingCell(cell: object): boolean {
+    const state = this.tasks.get(cell as QueryCell<TResult>)?.state;
+    return state === 'queued' || state === 'active';
+  }
+
   get entries(): readonly QueryCollectionEntry<TInput, TResult, TKey>[] {
     return this.ordered;
   }

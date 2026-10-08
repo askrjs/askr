@@ -1,5 +1,9 @@
-import { bench, describe, expect } from 'vite-plus/test';
-import { createHydrationFixture, tier2BenchOptions } from '../shared/_shared';
+import { describe, expect, test } from 'vite-plus/test';
+import {
+  createHydrationFixture,
+  tier2BenchOptions,
+  runBench,
+} from '../shared/_shared';
 import { hydrateSPA } from '../../src/boot';
 import { navigate } from '../../src/router/navigate';
 import { createRouteRegistry, group, route } from '../../src/router';
@@ -65,33 +69,38 @@ describe('tier2 subsystem hydration to navigation', () => {
     null;
   let fixture: ReturnType<typeof createHydrationFixture> | null = null;
 
-  bench(
-    'hydrate and immediately navigate to a sibling route',
-    async () => {
-      fixture!.reset();
-      await hydrateSPA({
-        root: fixture!.container,
-        registry: fixture!.registry,
-      });
-      flushScheduler();
-      await navigate('/reports/42');
-      flushScheduler();
-    },
-    {
-      ...tier2BenchOptions,
-      setup() {
-        harness = createHydrationNavigationHarness();
-        fixture = createHydrationFixture({
-          routes: harness.routes,
-          registry: harness.registry,
-          url: '/dashboard',
+  test('hydrate and immediately navigate to a sibling route', async ({
+    bench,
+  }) => {
+    await runBench(
+      bench,
+      'hydrate and immediately navigate to a sibling route',
+      async () => {
+        fixture!.reset();
+        await hydrateSPA({
+          root: fixture!.container,
+          registry: fixture!.registry,
         });
+        flushScheduler();
+        await navigate('/reports/42');
+        flushScheduler();
       },
-      teardown() {
-        fixture?.cleanup();
-        fixture = null;
-        harness = null;
-      },
-    }
-  );
+      {
+        ...tier2BenchOptions,
+        setup() {
+          harness = createHydrationNavigationHarness();
+          fixture = createHydrationFixture({
+            routes: harness.routes,
+            registry: harness.registry,
+            url: '/dashboard',
+          });
+        },
+        teardown() {
+          fixture?.cleanup();
+          fixture = null;
+          harness = null;
+        },
+      }
+    );
+  });
 });

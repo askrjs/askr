@@ -1,9 +1,10 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { renderToStringSync } from '../../src/ssr';
 import {
   buildWideSsrTree,
   tier1BenchOptions,
   verifyTier1Invariant,
+  runBench,
 } from '../shared/_shared';
 
 const wideTree = buildWideSsrTree(1500);
@@ -14,11 +15,14 @@ verifyTier1Invariant('tier1 hotpath ssr wide tree', () => {
 });
 
 describe('tier1 ssr wide tree', () => {
-  bench(
-    'render a 1,500-sibling sync tree',
-    () => {
-      renderToStringSync(() => wideTree);
-    },
-    tier1BenchOptions
-  );
+  test('render a 1,500-sibling sync tree', async ({ bench }) => {
+    await runBench(
+      bench,
+      'render a 1,500-sibling sync tree',
+      () => {
+        renderToStringSync(() => wideTree);
+      },
+      tier1BenchOptions
+    );
+  });
 });

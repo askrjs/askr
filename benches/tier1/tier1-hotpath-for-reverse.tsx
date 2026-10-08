@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import type { BenchToggle, RowData } from '../shared/_shared';
 import {
   assertOrderTransition,
@@ -11,6 +11,7 @@ import {
   reverseRows,
   tier1BenchOptions,
   verifyTier1Invariant,
+  runBench,
 } from '../shared/_shared';
 
 const initialRows = buildRows(1000);
@@ -70,22 +71,25 @@ describe('tier1 hotpath for reverse', () => {
   let mounted: ReturnType<typeof mountTableBenchmark> | null = null;
   let toggle: BenchToggle<readonly RowData[]> | null = null;
 
-  bench(
-    'reverse 1,000 keyed rows',
-    () => {
-      mounted!.benchmark.setRows(toggle!.next() as RowData[]);
-    },
-    {
-      ...reverseBenchOptions,
-      setup() {
-        mounted = mountTableBenchmark(initialRows);
-        toggle = createRowToggle(initialRows, reversedRows, 'initial');
+  test('reverse 1,000 keyed rows', async ({ bench }) => {
+    await runBench(
+      bench,
+      'reverse 1,000 keyed rows',
+      () => {
+        mounted!.benchmark.setRows(toggle!.next() as RowData[]);
       },
-      teardown() {
-        mounted?.cleanup();
-        mounted = null;
-        toggle = null;
-      },
-    }
-  );
+      {
+        ...reverseBenchOptions,
+        setup() {
+          mounted = mountTableBenchmark(initialRows);
+          toggle = createRowToggle(initialRows, reversedRows, 'initial');
+        },
+        teardown() {
+          mounted?.cleanup();
+          mounted = null;
+          toggle = null;
+        },
+      }
+    );
+  });
 });

@@ -1,7 +1,7 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { renderToStream, renderToString } from '../../src/ssr';
 import { createRouteRegistry, route } from '../../src/router';
-import { tier2BenchOptions } from '../shared/_shared';
+import { tier2BenchOptions, runBench } from '../shared/_shared';
 
 const routes = [
   {
@@ -37,17 +37,20 @@ const registry = createRouteRegistry(() => {
 }
 
 describe('tier2 ssr streaming', () => {
-  bench(
-    'stream a 250-item article route',
-    () => {
-      const chunks: string[] = [];
-      renderToStream({
-        url: '/',
-        registry,
-        onChunk: (chunk) => chunks.push(chunk),
-        onComplete: () => undefined,
-      });
-    },
-    tier2BenchOptions
-  );
+  test('stream a 250-item article route', async ({ bench }) => {
+    await runBench(
+      bench,
+      'stream a 250-item article route',
+      () => {
+        const chunks: string[] = [];
+        renderToStream({
+          url: '/',
+          registry,
+          onChunk: (chunk) => chunks.push(chunk),
+          onComplete: () => undefined,
+        });
+      },
+      tier2BenchOptions
+    );
+  });
 });

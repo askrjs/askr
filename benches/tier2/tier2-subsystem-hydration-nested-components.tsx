@@ -1,5 +1,9 @@
-import { bench, describe, expect } from 'vite-plus/test';
-import { createHydrationFixture, tier2BenchOptions } from '../shared/_shared';
+import { describe, expect, test } from 'vite-plus/test';
+import {
+  createHydrationFixture,
+  tier2BenchOptions,
+  runBench,
+} from '../shared/_shared';
 import { hydrateSPA } from '../../src/boot';
 import { state } from '../../src';
 import {
@@ -112,27 +116,30 @@ describe('tier2 subsystem hydration nested components', () => {
   let harness: ReturnType<typeof createNestedHydrationHarness> | null = null;
   let fixture: ReturnType<typeof createHydrationFixture> | null = null;
 
-  bench(
-    'hydrate a nested dashboard component tree',
-    async () => {
-      fixture!.reset();
-      await hydrateSPA({
-        root: fixture!.container,
-        registry: fixture!.registry,
-      });
-      flushScheduler();
-    },
-    {
-      ...tier2BenchOptions,
-      setup() {
-        harness = createNestedHydrationHarness();
-        fixture = createHydrationFixture({ routes: harness.routes });
+  test('hydrate a nested dashboard component tree', async ({ bench }) => {
+    await runBench(
+      bench,
+      'hydrate a nested dashboard component tree',
+      async () => {
+        fixture!.reset();
+        await hydrateSPA({
+          root: fixture!.container,
+          registry: fixture!.registry,
+        });
+        flushScheduler();
       },
-      teardown() {
-        fixture?.cleanup();
-        fixture = null;
-        harness = null;
-      },
-    }
-  );
+      {
+        ...tier2BenchOptions,
+        setup() {
+          harness = createNestedHydrationHarness();
+          fixture = createHydrationFixture({ routes: harness.routes });
+        },
+        teardown() {
+          fixture?.cleanup();
+          fixture = null;
+          harness = null;
+        },
+      }
+    );
+  });
 });

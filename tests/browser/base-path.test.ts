@@ -20,7 +20,7 @@ test.describe('route base paths', () => {
       .toBeVisible();
     await expect
       .element(page.getByTestId('logical-path'))
-      .toHaveTextContent('/reviews/browser');
+      .toMatchTextContent('/reviews/browser');
     expect(window.location.pathname).toBe('/website/reviews/browser');
 
     await page.getByRole('button', { name: 'Compact view' }).click();

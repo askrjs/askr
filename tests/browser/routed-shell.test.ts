@@ -83,7 +83,7 @@ test.describe('real routed app shell workflow', () => {
     await page.getByLabelText('Full name').fill('Route User');
     await expect
       .element(page.getByLabelText('Settings preview'))
-      .toHaveTextContent(
+      .toMatchTextContent(
         'Route User will be saved as viewer with email contact.'
       );
 
@@ -97,7 +97,7 @@ test.describe('real routed app shell workflow', () => {
     await expect(page.getByLabelText('Full name')).toHaveValue('');
     await expect
       .element(page.getByLabelText('Settings preview'))
-      .toHaveTextContent('Enter account details to preview changes.');
+      .toMatchTextContent('Enter account details to preview changes.');
   });
 
   test('should support browser back and forward across app pages', async () => {

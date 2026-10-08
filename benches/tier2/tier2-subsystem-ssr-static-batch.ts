@@ -1,8 +1,12 @@
 import fs from 'node:fs';
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { createStaticGen } from '../../src/ssg/create-static-gen';
 import { createRouteRegistry, route } from '../../src/router';
-import { buildStaticBatchRoutes, tier2BenchOptions } from '../shared/_shared';
+import {
+  buildStaticBatchRoutes,
+  tier2BenchOptions,
+  runBench,
+} from '../shared/_shared';
 import { createBenchTempDir, removeBenchTempDir } from '../shared/node';
 
 const staticRoutes = buildStaticBatchRoutes(64);
@@ -36,28 +40,31 @@ describe('tier2 ssr static batch', () => {
   let tempDir: Awaited<ReturnType<typeof createBenchTempDir>> | null = null;
   let ssg: ReturnType<typeof createStaticGen> | null = null;
 
-  bench(
-    'generate 64 static routes with metadata',
-    async () => {
-      await ssg!.generate();
-    },
-    {
-      ...tier2BenchOptions,
-      async setup() {
-        tempDir = await createBenchTempDir('askr-bench-ssg');
-        ssg = createStaticGen({
-          registry,
-          outputDir: tempDir.dir,
-          concurrency: 8,
-        });
+  test('generate 64 static routes with metadata', async ({ bench }) => {
+    await runBench(
+      bench,
+      'generate 64 static routes with metadata',
+      async () => {
+        await ssg!.generate();
       },
-      async teardown() {
-        if (tempDir) {
-          await removeBenchTempDir(tempDir.dir);
-        }
-        tempDir = null;
-        ssg = null;
-      },
-    }
-  );
+      {
+        ...tier2BenchOptions,
+        async setup() {
+          tempDir = await createBenchTempDir('askr-bench-ssg');
+          ssg = createStaticGen({
+            registry,
+            outputDir: tempDir.dir,
+            concurrency: 8,
+          });
+        },
+        async teardown() {
+          if (tempDir) {
+            await removeBenchTempDir(tempDir.dir);
+          }
+          tempDir = null;
+          ssg = null;
+        },
+      }
+    );
+  });
 });

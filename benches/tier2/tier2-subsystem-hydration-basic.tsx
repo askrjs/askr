@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { hydrateSPA } from '../../src/boot';
 import { flushScheduler } from '../../test-utils/render/test-renderer';
 import {
@@ -7,6 +7,7 @@ import {
   createHydrationFixture,
   extendBenchOptions,
   tier2BenchOptions,
+  runBench,
 } from '../shared/_shared';
 
 const routes = buildTableHydrationRoutes(buildRows(1000));
@@ -33,25 +34,28 @@ await (async () => {
 describe('tier2 subsystem hydration basic', () => {
   let fixture: ReturnType<typeof createHydrationFixture> | null = null;
 
-  bench(
-    'hydrate a 1,000-row server-rendered table',
-    async () => {
-      fixture!.reset();
-      await hydrateSPA({
-        root: fixture!.container,
-        registry: fixture!.registry,
-      });
-      flushScheduler();
-    },
-    {
-      ...hydrationBasicBenchOptions,
-      setup() {
-        fixture = createHydrationFixture({ routes });
+  test('hydrate a 1,000-row server-rendered table', async ({ bench }) => {
+    await runBench(
+      bench,
+      'hydrate a 1,000-row server-rendered table',
+      async () => {
+        fixture!.reset();
+        await hydrateSPA({
+          root: fixture!.container,
+          registry: fixture!.registry,
+        });
+        flushScheduler();
       },
-      teardown() {
-        fixture?.cleanup();
-        fixture = null;
-      },
-    }
-  );
+      {
+        ...hydrationBasicBenchOptions,
+        setup() {
+          fixture = createHydrationFixture({ routes });
+        },
+        teardown() {
+          fixture?.cleanup();
+          fixture = null;
+        },
+      }
+    );
+  });
 });

@@ -1,6 +1,10 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { renderToStringSync } from '../../src/ssr';
-import { tier1BenchOptions, verifyTier1Invariant } from '../shared/_shared';
+import {
+  tier1BenchOptions,
+  verifyTier1Invariant,
+  runBench,
+} from '../shared/_shared';
 
 function renderHotTree() {
   return renderToStringSync(() => (
@@ -20,11 +24,14 @@ verifyTier1Invariant('tier1 hotpath ssr render', () => {
 });
 
 describe('tier1 ssr render', () => {
-  bench(
-    'render a 250-row sync SSR tree to string',
-    () => {
-      renderHotTree();
-    },
-    tier1BenchOptions
-  );
+  test('render a 250-row sync SSR tree to string', async ({ bench }) => {
+    await runBench(
+      bench,
+      'render a 250-row sync SSR tree to string',
+      () => {
+        renderHotTree();
+      },
+      tier1BenchOptions
+    );
+  });
 });

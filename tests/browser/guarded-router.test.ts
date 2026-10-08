@@ -13,7 +13,7 @@ test.describe('guarded browser routing', () => {
     ).toBeVisible();
     await expect
       .element(page.getByTestId('auth-status'))
-      .toHaveTextContent('Signed out');
+      .toMatchTextContent('Signed out');
 
     await page.getByTestId('private-link').click();
 
@@ -23,7 +23,7 @@ test.describe('guarded browser routing', () => {
     await expect(page.getByRole('heading', { name: 'Login' })).toBeVisible();
     await expect
       .element(page.getByTestId('login-next-target'))
-      .toHaveTextContent('/private');
+      .toMatchTextContent('/private');
 
     await page.getByTestId('sign-in-viewer').click();
 
@@ -35,7 +35,7 @@ test.describe('guarded browser routing', () => {
     ).toBeVisible();
     await expect
       .element(page.getByTestId('auth-status'))
-      .toHaveTextContent('Signed in as Viewer');
+      .toMatchTextContent('Signed in as Viewer');
   });
 
   test('should redirect authenticated users away from guest-only routes', async () => {

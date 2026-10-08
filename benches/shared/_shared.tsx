@@ -1,4 +1,4 @@
-import type { Options } from 'tinybench';
+import type { Bench } from 'vite-plus/test';
 import type { JSXElement } from '../../src/jsx/types';
 import { cleanupApp } from '../../src/boot';
 import { mountBenchmark } from '../../src/bench/benchmark-entry';
@@ -108,28 +108,62 @@ export interface DirectionalBenchCycle {
   teardown(): void;
 }
 
+/**
+ * Run and per-iteration options for one benchmark. `time`, `iterations`, and
+ * the warmup fields tune the run; `setup` and `teardown` wrap the whole run.
+ */
+export interface BenchOptions {
+  time?: number;
+  iterations?: number;
+  warmupTime?: number;
+  warmupIterations?: number;
+  setup?: () => void | Promise<void>;
+  teardown?: () => void | Promise<void>;
+}
+
 export const tier1BenchOptions = {
   time: 400,
   iterations: 5,
   warmupTime: 100,
   warmupIterations: 1,
-} satisfies Options;
+} satisfies BenchOptions;
 
 export const tier2BenchOptions = {
   time: 600,
   iterations: 10,
   warmupTime: 150,
   warmupIterations: 1,
-} satisfies Options;
+} satisfies BenchOptions;
 
 export function extendBenchOptions(
-  base: Options,
-  overrides: Partial<Options>
-): Options {
+  base: BenchOptions,
+  overrides: Partial<BenchOptions>
+): BenchOptions {
   return {
     ...base,
     ...overrides,
   };
+}
+
+/**
+ * Registers and runs one benchmark through the `bench` fixture of a Vitest
+ * benchmark test, keeping the `(name, fn, options)` shape the benches use.
+ */
+export async function runBench(
+  bench: Bench,
+  name: string,
+  fn: () => unknown,
+  options: BenchOptions = {}
+): Promise<void> {
+  const { setup, teardown, ...runOptions } = options;
+  await bench(
+    name,
+    {
+      ...(setup ? { beforeAll: setup } : {}),
+      ...(teardown ? { afterAll: teardown } : {}),
+    },
+    fn
+  ).run(runOptions);
 }
 
 /**

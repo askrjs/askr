@@ -1,11 +1,11 @@
-import { bench, describe } from 'vite-plus/test';
+import { describe, test } from 'vite-plus/test';
 import { state } from '../../src';
 import { createIsland } from '../../src/boot';
 import {
   createTestContainer,
   flushScheduler,
 } from '../../test-utils/render/test-renderer';
-import { tier2BenchOptions } from '../shared/_shared';
+import { tier2BenchOptions, runBench } from '../shared/_shared';
 
 /** Components whose result is text, which the client anchors as a range. */
 const COUNT = 200;
@@ -41,60 +41,73 @@ function Toggled() {
 describe('tier2 text-result components', () => {
   let cleanup: (() => void) | null = null;
 
-  bench(
-    'update 200 text-result components from one parent render',
-    () => {
-      tickState!.set(tickState!() + 1);
-      flushScheduler();
-    },
-    {
-      ...tier2BenchOptions,
-      setup() {
+  test('update 200 text-result components from one parent render', async ({
+    bench,
+  }) => {
+    await runBench(
+      bench,
+      'update 200 text-result components from one parent render',
+      () => {
+        tickState!.set(tickState!() + 1);
+        flushScheduler();
+      },
+      {
+        ...tier2BenchOptions,
+        setup() {
+          const result = createTestContainer();
+          cleanup = result.cleanup;
+          createIsland({ root: result.container, component: App });
+          flushScheduler();
+        },
+        teardown() {
+          cleanup?.();
+          cleanup = null;
+          tickState = null;
+        },
+      }
+    );
+  });
+
+  test('mount then clean up 200 text-result components', async ({ bench }) => {
+    await runBench(
+      bench,
+      'mount then clean up 200 text-result components',
+      () => {
         const result = createTestContainer();
-        cleanup = result.cleanup;
         createIsland({ root: result.container, component: App });
         flushScheduler();
+        result.cleanup();
       },
-      teardown() {
-        cleanup?.();
-        cleanup = null;
-        tickState = null;
-      },
-    }
-  );
+      tier2BenchOptions
+    );
+  });
 
-  bench(
-    'mount then clean up 200 text-result components',
-    () => {
-      const result = createTestContainer();
-      createIsland({ root: result.container, component: App });
-      flushScheduler();
-      result.cleanup();
-    },
-    tier2BenchOptions
-  );
-
-  bench(
-    'toggle 200 text-result components between empty and text',
-    () => {
-      visibleState!.set(!visibleState!());
-      flushScheduler();
-    },
-    {
-      ...tier2BenchOptions,
-      setup() {
-        const result = createTestContainer();
-        cleanup = result.cleanup;
-        createIsland({ root: result.container, component: Toggled });
+  test('toggle 200 text-result components between empty and text', async ({
+    bench,
+  }) => {
+    await runBench(
+      bench,
+      'toggle 200 text-result components between empty and text',
+      () => {
+        visibleState!.set(!visibleState!());
         flushScheduler();
       },
-      teardown() {
-        cleanup?.();
-        cleanup = null;
-        visibleState = null;
-      },
-    }
-  );
+      {
+        ...tier2BenchOptions,
+        setup() {
+          const result = createTestContainer();
+          cleanup = result.cleanup;
+          createIsland({ root: result.container, component: Toggled });
+          flushScheduler();
+        },
+        teardown() {
+          cleanup?.();
+          cleanup = null;
+          visibleState = null;
+        },
+      }
+    );
+  });
 });
 
 let tickState: ReturnType<typeof state<number>> | null = null;

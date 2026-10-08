@@ -1,4 +1,4 @@
-import { bench, describe } from 'vite-plus/test';
+import { describe, test } from 'vite-plus/test';
 import { state } from '../../src';
 import { createIsland } from '../../src/boot';
 import {
@@ -12,6 +12,7 @@ import {
   createSelectionToggle,
   tier1BenchOptions,
   verifyTier1Invariant,
+  runBench,
 } from '../shared/_shared';
 
 verifyTier1Invariant('tier1 hotpath state fanout', () => {
@@ -68,41 +69,46 @@ describe('tier1 state fanout', () => {
   let valueState: ReturnType<typeof state<number>> | null = null;
   let toggle: BenchToggle<number> | null = null;
 
-  bench(
-    'propagate one state write to 1,000 sibling spans',
-    () => {
-      valueState!.set(toggle!.next());
-      flushScheduler();
-    },
-    {
-      ...tier1BenchOptions,
-      setup() {
-        const result = createTestContainer();
-        cleanup = result.cleanup;
-
-        const Component = () => {
-          valueState = state(0);
-          return (
-            <div>
-              {Array.from({ length: 1000 }, (_, index) => (
-                <span data-i={index}>
-                  {valueState!()}-{index}
-                </span>
-              ))}
-            </div>
-          );
-        };
-
-        createIsland({ root: result.container, component: Component });
+  test('propagate one state write to 1,000 sibling spans', async ({
+    bench,
+  }) => {
+    await runBench(
+      bench,
+      'propagate one state write to 1,000 sibling spans',
+      () => {
+        valueState!.set(toggle!.next());
         flushScheduler();
-        toggle = createSelectionToggle(0, 1, 'first');
       },
-      teardown() {
-        cleanup?.();
-        cleanup = null;
-        valueState = null;
-        toggle = null;
-      },
-    }
-  );
+      {
+        ...tier1BenchOptions,
+        setup() {
+          const result = createTestContainer();
+          cleanup = result.cleanup;
+
+          const Component = () => {
+            valueState = state(0);
+            return (
+              <div>
+                {Array.from({ length: 1000 }, (_, index) => (
+                  <span data-i={index}>
+                    {valueState!()}-{index}
+                  </span>
+                ))}
+              </div>
+            );
+          };
+
+          createIsland({ root: result.container, component: Component });
+          flushScheduler();
+          toggle = createSelectionToggle(0, 1, 'first');
+        },
+        teardown() {
+          cleanup?.();
+          cleanup = null;
+          valueState = null;
+          toggle = null;
+        },
+      }
+    );
+  });
 });

@@ -1,5 +1,9 @@
-import { bench, describe, expect } from 'vite-plus/test';
-import { createHydrationFixture, tier2BenchOptions } from '../shared/_shared';
+import { describe, expect, test } from 'vite-plus/test';
+import {
+  createHydrationFixture,
+  tier2BenchOptions,
+  runBench,
+} from '../shared/_shared';
 import { hydrateSPA } from '../../src/boot';
 import {
   fireEvent,
@@ -99,30 +103,33 @@ describe('tier2 subsystem hydration skip selectors', () => {
   let harness: ReturnType<typeof createSkipSelectorHarness> | null = null;
   let fixture: ReturnType<typeof createHydrationFixture> | null = null;
 
-  bench(
-    'hydrate around skipped static islands',
-    async () => {
-      fixture!.reset();
-      await hydrateSPA({
-        root: fixture!.container,
-        registry: fixture!.registry,
-        hydrate: {
-          skipSelectors: ['.static-footer', '.marketing-slot'],
+  test('hydrate around skipped static islands', async ({ bench }) => {
+    await runBench(
+      bench,
+      'hydrate around skipped static islands',
+      async () => {
+        fixture!.reset();
+        await hydrateSPA({
+          root: fixture!.container,
+          registry: fixture!.registry,
+          hydrate: {
+            skipSelectors: ['.static-footer', '.marketing-slot'],
+          },
+        });
+        flushScheduler();
+      },
+      {
+        ...tier2BenchOptions,
+        setup() {
+          harness = createSkipSelectorHarness();
+          fixture = createHydrationFixture({ routes: harness.routes });
         },
-      });
-      flushScheduler();
-    },
-    {
-      ...tier2BenchOptions,
-      setup() {
-        harness = createSkipSelectorHarness();
-        fixture = createHydrationFixture({ routes: harness.routes });
-      },
-      teardown() {
-        fixture?.cleanup();
-        fixture = null;
-        harness = null;
-      },
-    }
-  );
+        teardown() {
+          fixture?.cleanup();
+          fixture = null;
+          harness = null;
+        },
+      }
+    );
+  });
 });

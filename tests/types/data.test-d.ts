@@ -11,6 +11,7 @@ import {
   getDefaultDataRuntime,
   invalidate,
   invalidateOnInterval,
+  refreshOnActivity,
   hydrateDataRuntime,
   prefetchQuery,
   queryScope,
@@ -20,6 +21,7 @@ import {
   type DataRuntime,
   type DataRuntimeOptions,
   type InvalidateOnIntervalOptions,
+  type RefreshOnActivityOptions,
   type InvalidateOptions,
   type Mutation,
   type MutationOptions,
@@ -38,6 +40,17 @@ import {
 } from '@askrjs/askr/data';
 
 const dataRuntime = createDataRuntime();
+const activityOptions: RefreshOnActivityOptions = {
+  staleTimeMs: 30_000,
+  runtime: dataRuntime,
+  enabled: true,
+  focus: true,
+  online: false,
+};
+expectType<void>(refreshOnActivity('user:', activityOptions));
+expectType<void>(refreshOnActivity('user:1', { staleTimeMs: 'always' }));
+expectError(refreshOnActivity('user:'));
+expectError(refreshOnActivity('user:', { staleTimeMs: 'sometimes' }));
 expectType<DataRuntime>(dataRuntime);
 expectType<Map<string, unknown>>(dataRuntime.queryCache);
 expectType<Map<string, unknown>>(dataRuntime.queryData);

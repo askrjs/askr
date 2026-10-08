@@ -1,9 +1,21 @@
 export interface CollectionInvalidator {
   readonly invalidationConcurrency: number;
   invalidateCell(cell: object): void;
+  hasPendingCell(cell: object): boolean;
 }
 
 const owners = new WeakMap<object, Set<CollectionInvalidator>>();
+
+export function hasCollectionReaders(cell: object): boolean {
+  return (owners.get(cell)?.size ?? 0) > 0;
+}
+
+export function hasCollectionWork(cell: object): boolean {
+  for (const owner of owners.get(cell) ?? []) {
+    if (owner.hasPendingCell(cell)) return true;
+  }
+  return false;
+}
 
 export function registerCollectionCell(
   cell: object,

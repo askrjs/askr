@@ -1,4 +1,4 @@
-import { bench, describe, expect } from 'vite-plus/test';
+import { describe, expect, test } from 'vite-plus/test';
 import { verifyHydrationSyncForUrl } from '../../src/ssr/verify-hydration';
 import { resolveRouteFromRoutes } from '../../src/router/route-matching';
 import {
@@ -7,6 +7,7 @@ import {
   createHydrationFixture,
   extendBenchOptions,
   tier2BenchOptions,
+  runBench,
 } from '../shared/_shared';
 
 const routes = buildTableHydrationRoutes(buildRows(1000));
@@ -43,31 +44,36 @@ await (async () => {
 describe('tier2 subsystem hydration verify markup', () => {
   let fixture: ReturnType<typeof createHydrationFixture> | null = null;
 
-  bench(
-    'verify markup for a 1,000-row server-rendered table',
-    () => {
-      const resolved = resolveRouteFromRoutes('/', fixture!.routes);
-      if (!resolved) {
-        throw new Error(
-          'verifyHydrationSyncForUrl benchmark: no route resolved for /'
-        );
+  test('verify markup for a 1,000-row server-rendered table', async ({
+    bench,
+  }) => {
+    await runBench(
+      bench,
+      'verify markup for a 1,000-row server-rendered table',
+      () => {
+        const resolved = resolveRouteFromRoutes('/', fixture!.routes);
+        if (!resolved) {
+          throw new Error(
+            'verifyHydrationSyncForUrl benchmark: no route resolved for /'
+          );
+        }
+        verifyHydrationSyncForUrl({
+          root: fixture!.container,
+          url: '/',
+          registry: fixture!.registry,
+          resolved,
+        });
+      },
+      {
+        ...verifyMarkupBenchOptions,
+        setup() {
+          fixture = createHydrationFixture({ routes });
+        },
+        teardown() {
+          fixture?.cleanup();
+          fixture = null;
+        },
       }
-      verifyHydrationSyncForUrl({
-        root: fixture!.container,
-        url: '/',
-        registry: fixture!.registry,
-        resolved,
-      });
-    },
-    {
-      ...verifyMarkupBenchOptions,
-      setup() {
-        fixture = createHydrationFixture({ routes });
-      },
-      teardown() {
-        fixture?.cleanup();
-        fixture = null;
-      },
-    }
-  );
+    );
+  });
 });
