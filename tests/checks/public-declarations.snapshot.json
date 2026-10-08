@@ -529,6 +529,12 @@
       ],
       "ServerQueryRegistry": [
         "interface ServerQueryRegistry {\n    readonly entries: readonly ServerQueryEntry<unknown, {}>[];\n    get<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>): ServerQueryHandler<TInput, TResult> | undefined;\n}"
+      ],
+      "refreshOnActivity": [
+        "declare function refreshOnActivity(prefix: string, options: RefreshOnActivityOptions): void;"
+      ],
+      "RefreshOnActivityOptions": [
+        "interface RefreshOnActivityOptions {\n    staleTimeMs: number | \"always\";\n    focus?: boolean;\n    online?: boolean;\n    enabled?: boolean;\n    runtime?: DataRuntime;\n}"
       ]
     },
     "./testing": {
@@ -2529,6 +2535,12 @@
     ],
     "withRenderContextAsync": [
       "declare function withRenderContextAsync<T>(ctx: RenderContext, fn: () => T | PromiseLike<T>): Promise<T>;"
+    ],
+    "RefreshOnActivityOptions": [
+      "interface RefreshOnActivityOptions {\n    staleTimeMs: number | \"always\";\n    focus?: boolean;\n    online?: boolean;\n    enabled?: boolean;\n    runtime?: DataRuntime;\n}"
+    ],
+    "refreshOnActivity": [
+      "declare function refreshOnActivity(prefix: string, options: RefreshOnActivityOptions): void;"
     ]
   }
 }

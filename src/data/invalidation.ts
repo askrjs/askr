@@ -1,4 +1,5 @@
 import {
+  on,
   routeActive,
   timer,
   type ActivityPredicate,
@@ -6,6 +7,7 @@ import {
 import { documentVisible, windowFocused } from '../resources/browser-activity';
 import {
   invalidateQueriesForRuntime,
+  refreshQueriesOnActivity,
   resolveDataRuntimeState,
 } from './data-runtime';
 import { createQueryScope } from './query-key';
@@ -13,6 +15,7 @@ import type {
   InvalidateOnIntervalOptions,
   InvalidateOptions,
   QueryScope,
+  RefreshOnActivityOptions,
 } from './types';
 
 /**
@@ -45,6 +48,50 @@ export function queryScope(
 
 const INVALIDATE_ON_INTERVAL_OPTIONS_ERROR =
   '[Askr] invalidateOnInterval() requires an options object with a finite numeric intervalMs.';
+
+/** Refresh live queries on browser activity, with an explicit freshness age. */
+export function refreshOnActivity(
+  prefix: string,
+  options: RefreshOnActivityOptions
+): void {
+  if (
+    !options ||
+    (options.staleTimeMs !== 'always' &&
+      (typeof options.staleTimeMs !== 'number' ||
+        !Number.isFinite(options.staleTimeMs) ||
+        options.staleTimeMs < 0))
+  ) {
+    throw new RangeError(
+      'refreshOnActivity() requires a finite non-negative staleTimeMs or "always".'
+    );
+  }
+  const runtime = resolveDataRuntimeState(options.runtime);
+  const enabled = options.enabled !== false;
+  const focus = enabled && options.focus !== false;
+  const online = enabled && options.online !== false;
+  const refresh = () =>
+    refreshQueriesOnActivity(runtime, prefix, options.staleTimeMs);
+  const refreshVisible = () => {
+    if (documentVisible()()) refresh();
+  };
+
+  // Targets resolve after commit; imports and server rendering never touch DOM.
+  on(
+    () => (focus && typeof window !== 'undefined' ? window : null),
+    'focus',
+    refreshVisible
+  );
+  on(
+    () => (focus && typeof document !== 'undefined' ? document : null),
+    'visibilitychange',
+    refreshVisible
+  );
+  on(
+    () => (online && typeof window !== 'undefined' ? window : null),
+    'online',
+    refresh
+  );
+}
 
 /**
  * Periodically invalidate queries matching `prefix` on a fixed interval,

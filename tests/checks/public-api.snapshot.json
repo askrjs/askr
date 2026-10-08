@@ -183,6 +183,7 @@
     "QueryPrefetchContext",
     "QueryScope",
     "QueryStaleReason",
+    "RefreshOnActivityOptions",
     "ServerQueryEntry",
     "ServerQueryHandler",
     "ServerQueryRegistry",
@@ -200,6 +201,7 @@
     "invalidateOnInterval",
     "prefetchQuery",
     "queryScope",
+    "refreshOnActivity",
     "serveQuery"
   ],
   "./testing": [

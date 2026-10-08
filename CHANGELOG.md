@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Add lifecycle-owned `refreshOnActivity()` for focus, visible-document return,
+  and reconnect hints with an explicit freshness age and shared query ownership.
+
 ## 0.4.3 — 2026-10-02
 
 ### Breaking changes

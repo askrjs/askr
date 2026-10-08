@@ -514,6 +514,46 @@ function DashboardPage() {
 }
 ```
 
+### Refresh when returning to a view or reconnecting
+
+Call `refreshOnActivity(prefix, options)` in a component to refresh its runtime's
+live queries on browser activity. Prefix matching follows `invalidate()`.
+
+```tsx
+import { refreshOnActivity } from '@askrjs/askr/data';
+
+function DashboardPage() {
+  refreshOnActivity('dashboard:', { staleTimeMs: 30_000 });
+  return <main>Dashboard</main>;
+}
+```
+
+`staleTimeMs` is required. A number measures age since the last successful,
+consistent fetch completed, or since initial/hydrated data entered the query
+cache. Existing stale/error data is eligible immediately. Use `0` or `'always'`
+to request refresh on every event. This age policy does not change the public
+query `stale` flag. Hydration has no server timestamp, so its age begins locally.
+
+By default, the helper listens to window `focus`, document `visibilitychange`
+when the document is visible, and window `online`. Hidden focus events are
+ignored. Set `focus: false` to disable both focus and visibility listeners, or
+`online: false` to disable reconnect hints. `enabled: false` disables all three
+without changing hook order. `online` is only a connectivity hint; the service
+may still be unreachable and normal query error handling applies.
+
+Listeners attach after component commit and are removed on disposal. Each
+registration uses the owning app's data runtime unless `runtime` is explicit.
+SSR and Node setup access no browser globals. Ownerless cached cells and queries
+with `skipInitialFetch: true` stay inactive; use their explicit `refresh()` when
+needed. Multiple readers and overlapping events share existing work, including
+an initial load or queued collection refresh, and preserve collection concurrency.
+
+`invalidateOnInterval()` retains its existing behavior: its timer invalidates
+and can supersede a running request. Activity refresh respects work already
+started by that timer. Both update the same query cache; a successful interval
+fetch resets the age used by activity refresh. Neither helper creates a second
+fetch pipeline.
+
 ### Server queries and hydration
 
 `serveQuery(query, handler)` pairs a `defineQuery()` definition with the server

@@ -3,6 +3,7 @@ export type {
   DataRuntimeOptions,
   InvalidateOnIntervalOptions,
   InvalidateOptions,
+  RefreshOnActivityOptions,
   Mutation,
   MutationOptions,
   Query,
@@ -20,7 +21,12 @@ export type {
 } from './types';
 
 export { createDataRuntime, getDefaultDataRuntime } from './data-runtime';
-export { invalidate, invalidateOnInterval, queryScope } from './invalidation';
+export {
+  invalidate,
+  invalidateOnInterval,
+  refreshOnActivity,
+  queryScope,
+} from './invalidation';
 export { createMutation } from './mutation-cell';
 export { createQuery } from './query-cell';
 export { createQueryCollection } from './query-collection';
