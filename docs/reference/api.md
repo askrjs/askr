@@ -94,7 +94,7 @@ Neither is re-exported from the root.
     latest row callback when the parent rerenders, and a reactive read inside
     the callback subscribes the row that made it.
 
-- `@askrjs/askr/data` - `createDataRuntime()`, `getDefaultDataRuntime()`, `createQuery()`, `createQueryCollection()`, `createMutation()`, `invalidate()`, and `invalidateOnInterval()`
+- `@askrjs/askr/data` - `createDataRuntime()`, `getDefaultDataRuntime()`, `createQuery()`, `createQueryCollection()`, `createMutation()`, `invalidate()`, `invalidateOnInterval()`, and `refreshOnActivity()`
 - `@askrjs/askr/testing` - component harness helpers such as `render`, `mount`, `renderRoute`, `dispatch`, `flush`, and `cleanup`, plus query and router fixtures
 - `@askrjs/askr/resources` - async resource helpers such as `resource`, `watch`, `stream`, `on`, `timer`, `task`, `capture`, `routeActive`, `documentVisible`, and `windowFocused`
 - `@askrjs/askr/router` - typed `RouteRef` declarations and destinations, `matchRoute()` for synchronous registry path matching, metadata, critical `routeData`, and deferred `Resolve` boundaries

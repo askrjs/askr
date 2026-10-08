@@ -348,3 +348,21 @@ export function invalidateQueriesForRuntime(
     if (!invalidateCollectionCell(query)) query.invalidate();
   }
 }
+
+/** Refresh eligible live cells without evicting prefetches or cancelling work. */
+export function refreshQueriesOnActivity(
+  runtimeState: DataRuntimeState,
+  prefix: string,
+  staleTimeMs: number | 'always'
+): void {
+  const now = Date.now();
+  for (const [key, query] of runtimeState.queryCache) {
+    if (
+      matchesInvalidationPrefix(key, prefix) &&
+      query.needsActivityRefresh(staleTimeMs, now)
+    ) {
+      // Preserve the concurrency budget of collection readers too.
+      if (!invalidateCollectionCell(query)) void query.refresh();
+    }
+  }
+}

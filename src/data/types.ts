@@ -109,6 +109,19 @@ export interface InvalidateOnIntervalOptions extends InvalidateOptions {
   focusedOnly?: boolean;
 }
 
+/** Component-owned refresh policy for browser focus/visibility and reconnect. */
+export interface RefreshOnActivityOptions {
+  /** Age since successful completion (or initial data). Zero refreshes on every event. */
+  staleTimeMs: number | 'always';
+  /** Listen to window focus and visible document transitions. Defaults to true. */
+  focus?: boolean;
+  /** Listen to the window online hint. Defaults to true. */
+  online?: boolean;
+  /** Disable listeners without changing hook order. Defaults to true. */
+  enabled?: boolean;
+  runtime?: DataRuntime;
+}
+
 /** A JSON-serializable value usable as part of a query key or invalidation prefix. */
 export type QueryKeyPart =
   | string

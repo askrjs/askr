@@ -22,6 +22,10 @@ import {
 } from './data-runtime';
 import { getDefaultDataRuntime } from './data-runtime';
 import {
+  hasCollectionReaders,
+  hasCollectionWork,
+} from './collection-invalidation';
+import {
   createReadableSource,
   isAbortError,
   isCurrentAsyncOperation,
@@ -108,6 +112,7 @@ export class QueryCell<T> {
   private conflictCheck: Job | null = null;
 
   private state: QueryState<T> = loadingQueryState<T>();
+  private freshAt: number | null = null;
 
   constructor(
     options: QueryCellOptions<T>,
@@ -120,6 +125,7 @@ export class QueryCell<T> {
     this.cache = cache;
     if (options.initialData !== undefined) {
       this.state = freshQueryState(options.initialData);
+      if (!isServerRender()) this.freshAt = Date.now();
     }
   }
 
@@ -446,6 +452,26 @@ export class QueryCell<T> {
     return this.pendingRefresh ?? Promise.resolve();
   }
 
+  /** @internal Activity never wakes ownerless/skipped cells or supersedes work. */
+  needsActivityRefresh(staleTimeMs: number | 'always', now: number): boolean {
+    if (
+      this.destroyed ||
+      this.ownerCount === 0 ||
+      (this.options.skipInitialFetch && !hasCollectionReaders(this)) ||
+      this.pendingRefresh ||
+      this.state.refreshing ||
+      hasCollectionWork(this)
+    ) {
+      return false;
+    }
+    return (
+      staleTimeMs === 'always' ||
+      this.state.stale ||
+      this.freshAt === null ||
+      now - this.freshAt >= staleTimeMs
+    );
+  }
+
   /** @internal Show an invalidation while a collection waits for a fetch slot. */
   markQueuedInvalidation(): void {
     if (this.destroyed) return;
@@ -676,6 +702,7 @@ export class QueryCell<T> {
     }
 
     this.reconcileAttemptCount = 0;
+    this.freshAt = Date.now();
     this.setState(freshQueryState(nextData));
   }
 
