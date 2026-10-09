@@ -120,6 +120,9 @@ Ownership rules:
 Hooks keep their positional contract (`state()` and friends claim slots by
 call order in a component body). That is public API and stays.
 
+See [DOM node implementation ownership](./dom-node-ownership.md) for the
+private dispatch, node-kind, hydration, select and release boundaries.
+
 ## What is kept
 
 The DOM prop, attribute, property, URL-guard, and event-delegation semantics
