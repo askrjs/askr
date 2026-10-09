@@ -136,7 +136,7 @@
     "test:types": "vp pack && tsd --files \"tests/types/**/*.test-d.ts\" --files \"tests/types/**/*.test-d.tsx\"",
     "test:installed": "node tests/installed-types.js",
     "test:publint": "publint",
-    "release:verify": "npm run lint && npm run build && npm run test:publint && npm run test:checks && npm run test:types && npm run test:installed && npm run test:unit && npm run test:jsdom && npm run test:browser && npm run build",
+    "release:verify": "npm run lint && npm run build && npm run test:publint && npm run test:checks && npm run test:types && npm run test:installed && npm run test:unit && npm run test:jsdom && npm run test:browser && npm run test:coverage && npm run build",
     "pack:check": "node tests/package-artifacts.js",
     "check": "npm run release:verify && npm run pack:check",
     "test:unit": "vp test run -c vitest.test.unit.config.ts",
@@ -144,7 +144,8 @@
     "bench:tier1": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier1.config.ts",
     "bench:tier2": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier2.config.ts",
     "prepack": "npm run build",
-    "prepublishOnly": "npm run check"
+    "prepublishOnly": "npm run check",
+    "test:coverage": "vp test run -c vitest.coverage.config.ts"
   },
   "devDependencies": {
     "@askrjs/auth": ">=0.4.0 <0.5.0",
@@ -152,6 +153,7 @@
     "@types/node": "^26.6.2",
     "@typescript/typescript6": "^6.0.2",
     "@vitest/browser-playwright": "5.0.1",
+    "@vitest/coverage-v8": "5.0.1",
     "cross-env": "^10.1.0",
     "jsdom": "^30.1.1",
     "playwright": "^1.63.0",

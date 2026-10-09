@@ -9,7 +9,7 @@ import {
   vi,
 } from 'vite-plus/test';
 import type { JSXElement } from '../../../src/jsx/types';
-import { hydrateSPA } from '../../../src/boot';
+import { hasApp, hydrateSPA } from '../../../src/boot';
 import { applySelectiveHydration } from '../../../src/boot/hydration';
 import type { HydrationInteractionReplay } from '../../../src/boot/hydration-interaction-replay';
 import { renderToStringSync, renderToString } from '../../../src/ssr';
@@ -80,6 +80,49 @@ describe('hydration (SSR)', () => {
           registry: routeRegistryFromTable([{ path: '/', handler: Component }]),
         })
       ).rejects.toThrow(/Hydration mismatch/i);
+    });
+
+    it('should reject a missing server node before mounting and adopt the restored node on retry', async () => {
+      let clicks = 0;
+      const Component = () => (
+        <main>
+          <button onClick={() => (clicks += 1)}>ready</button>
+          <span>tail</span>
+        </main>
+      );
+      const registry = routeRegistryFromTable([
+        { path: '/', handler: Component },
+      ]);
+      container.innerHTML = renderToStringSync(Component);
+      const parent = container.querySelector('main')!;
+      const button = container.querySelector('button')!;
+      const tail = container.querySelector('span')!;
+      button.remove();
+      const incomplete = container.innerHTML;
+      await expect(
+        hydrateSPA({
+          root: container,
+          registry,
+          hydrate: { verifyMarkup: true },
+        })
+      ).rejects.toThrow(/Hydration mismatch/i);
+      expect(container.innerHTML).toBe(incomplete);
+      expect(container.querySelector('main')).toBe(parent);
+      expect(container.querySelector('span')).toBe(tail);
+      expect(hasApp(container)).toBe(false);
+      button.click();
+      expect(clicks).toBe(0);
+      parent.insertBefore(button, tail);
+      await hydrateSPA({
+        root: container,
+        registry,
+        hydrate: { verifyMarkup: true },
+      });
+      expect(container.querySelector('main')).toBe(parent);
+      expect(container.querySelector('button')).toBe(button);
+      expect(container.querySelector('span')).toBe(tail);
+      button.click();
+      expect(clicks).toBe(1);
     });
   });
 
