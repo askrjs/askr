@@ -4,6 +4,9 @@
 
 ### Fixes
 
+- Preserve newer navigation ownership when an abort listener starts or cancels
+  a request, and stop the interrupted request before starting obsolete work.
+
 - Enforce startup locks and component-function checks for index and fallback
   routes, retain a page's index slot after failed registration, and normalize
   root-page fallback paths to `/*`.

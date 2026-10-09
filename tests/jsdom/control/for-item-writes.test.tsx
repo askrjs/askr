@@ -1,6 +1,13 @@
-import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vite-plus/test';
 import { For } from '@askrjs/askr/control';
-import { state } from '../../../src';
+import { configureRenderDiagnostics, state } from '../../../src';
 import { logger } from '../../../src/common/logger';
 import {
   createTestContainer,
@@ -33,7 +40,15 @@ function renderRows(write: (row: Row) => void) {
 }
 
 describe('For item writes', () => {
+  let restoreDiagnostics = () => {};
+  beforeEach(() => {
+    // These assertions count item-shadow warnings, independent of render time.
+    restoreDiagnostics = configureRenderDiagnostics({
+      slowRenderWarnings: false,
+    });
+  });
   afterEach(() => {
+    restoreDiagnostics();
     vi.restoreAllMocks();
   });
 

@@ -35,7 +35,11 @@ export const registry = createRouteRegistry(() => {
 Internally, `src/router/route.ts` is a compatibility facade. Ownership is split
 across focused modules:
 
-- `authoring.ts` owns route declaration helpers and path/access validation.
+- `authoring.ts` owns public declaration signatures and typed route references.
+- `path-policy.ts` owns path validation and normalization; `registration-scope.ts`
+  resolves paths and captures inherited group/page behavior.
+- `route-registration.ts` validates and publishes records with their inherited
+  auth, policies, metadata and layout/page chains.
 - `store.ts` owns module-level route records, flat routes, namespaces, auth
   defaults, and registration locking.
 - `manifest.ts` creates registries and applies manifests into the store.
@@ -48,8 +52,11 @@ across focused modules:
 - `navigate.ts` owns browser history and popstate orchestration.
 - `navigation-registry.ts` owns app registration and route snapshot
   synchronization.
-- `navigation-targets.ts` owns route request cancellation, target resolution,
-  and target application.
+- `navigation-request.ts` owns the single request ID/controller pair.
+- `navigation-resolution.ts` resolves registered app targets and metadata without
+  publication. `navigation-targets.ts` selects redirect/history/popstate policy.
+- `navigation-commit.ts` owns root application, rollback and publication, then
+  settles location/metadata/history/scroll through the selected callbacks.
 - `route-query.ts` owns URL query update helpers.
 - `history-index.ts` tracks the position Askr stamps into the history entries
   it writes, so a failed popstate can traverse back to the rendered entry.
@@ -80,6 +87,9 @@ behavior used by the pipeline.
 flowchart TB
   facade[route.ts facade]
   authoring[authoring.ts declarations]
+  paths[path-policy.ts path rules]
+  scopes[registration-scope.ts inheritance]
+  records[route-registration.ts record publication]
   store[store.ts records and flat routes]
   manifest[manifest.ts registries]
   rendering[rendering.ts layout composition]
@@ -91,6 +101,9 @@ flowchart TB
   navigate[navigate.ts history and popstate]
   registry[navigation-registry.ts app registration]
   targets[navigation-targets.ts target application]
+  request[navigation-request.ts request ownership]
+  navResolution[navigation-resolution.ts target resolution]
+  commit[navigation-commit.ts root publication]
   routeQuery[route-query.ts query updates]
   scroll[navigation-scroll.ts scroll state]
 
@@ -102,9 +115,17 @@ flowchart TB
   facade --> resolution
   facade --> activity
   facade --> lazy
-  authoring --> access
+  authoring --> scopes
+  authoring --> records
   authoring --> store
-  authoring --> rendering
+  scopes --> paths
+  scopes --> access
+  scopes --> store
+  records --> paths
+  records --> scopes
+  records --> access
+  records --> store
+  records --> rendering
   manifest --> store
   manifest --> lazy
   matching --> store
@@ -112,11 +133,19 @@ flowchart TB
   resolution --> store
   resolution --> rendering
   activity --> resolution
-  navigate --> facade
+  navigate --> request
+  navigate --> navResolution
   navigate --> registry
   navigate --> targets
   navigate --> routeQuery
   navigate --> scroll
+  navResolution --> registry
+  navResolution --> resolution
+  targets --> request
+  targets --> commit
+  targets --> scroll
+  commit --> request
+  commit --> registry
 ```
 
 ## RouteRecord structure
@@ -176,8 +205,9 @@ captured as written and never throw.
 The registry's manifest and route records remain private implementation data
 used by request resolution, metadata, layouts, and navigation.
 
-When `navigate(path)` fires, `navigation-targets.ts` starts a route request,
-uses `resolveRouteRequest(path, { registry })` to find the best record, and returns
+When `navigate(path)` fires, `navigate.ts` starts a request through the single
+owner in `navigation-request.ts`. `navigation-resolution.ts` uses
+`resolveRouteRequest(path, { registry })` to find the best record, and returns
 its renderer handler. The renderer handler has the layout chain baked in, but defers matched
 page-shell and leaf component execution until their layout context is active.
 `navigate.ts` does not need to know about layouts.
