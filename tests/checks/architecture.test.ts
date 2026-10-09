@@ -264,6 +264,37 @@ function violatesRouteAuthoringBoundary(edge: Edge): boolean {
   );
 }
 
+function violatesNavigationBoundary(edge: Edge): boolean {
+  if (edge.typeOnly) return false;
+  const from = relative(edge.from);
+  const to = relative(edge.to);
+  if (from === 'src/router/navigation-request.ts') return true;
+  if (from === 'src/router/navigation-resolution.ts') {
+    return (
+      to.startsWith('src/boot/') ||
+      to.startsWith('src/core/') ||
+      [
+        'src/common/root-update.ts',
+        'src/router/navigation-commit.ts',
+        'src/router/navigation-targets.ts',
+        'src/router/navigate.ts',
+        'src/router/navigation-request.ts',
+        'src/router/navigation-scroll.ts',
+        'src/router/history-index.ts',
+        'src/router/document-navigation.ts',
+      ].includes(to)
+    );
+  }
+  return (
+    from === 'src/router/navigation-commit.ts' &&
+    [
+      'src/router/navigation-resolution.ts',
+      'src/router/navigation-targets.ts',
+      'src/router/navigate.ts',
+    ].includes(to)
+  );
+}
+
 function findCycles(): string[] {
   const graph = new Map<string, Set<string>>();
   for (const edge of edges.filter((edge) => !edge.typeOnly)) {
@@ -335,6 +366,65 @@ function findModuleCycles(): string[][] {
 }
 
 describe('architecture boundaries', () => {
+  it('should isolate navigation resolution and commit from the single request owner', () => {
+    expect(edges.filter(violatesNavigationBoundary).map(format)).toEqual([]);
+    expect(
+      edges.some(
+        (edge) =>
+          relative(edge.from) === 'src/router/navigate.ts' &&
+          relative(edge.to) === 'src/router/navigation-request.ts' &&
+          !edge.typeOnly
+      )
+    ).toBe(true);
+    expect(
+      edges.some(
+        (edge) =>
+          relative(edge.from) === 'src/router/navigate.ts' &&
+          relative(edge.to) === 'src/router/navigation-resolution.ts' &&
+          !edge.typeOnly
+      )
+    ).toBe(true);
+    expect(
+      edges.some(
+        (edge) =>
+          relative(edge.from) === 'src/router/navigation-targets.ts' &&
+          relative(edge.to) === 'src/router/navigation-commit.ts' &&
+          !edge.typeOnly
+      )
+    ).toBe(true);
+  });
+
+  it('should reject navigation resolution imports of commit capabilities and request-owner back imports', () => {
+    const parse = (module: string, text: string) => {
+      const file = path.join(srcDir, 'router', module + '.ts');
+      return collectEdges(
+        file,
+        ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true)
+      );
+    };
+    const synthetic = [
+      ...parse(
+        'navigation-request',
+        `import './navigate'; import type { NavigateOptions } from './navigation-types';`
+      ),
+      ...parse(
+        'navigation-resolution',
+        `import './navigation-commit'; export * from '../common/root-update'; const browser = import('./history-index'); import './resolution'; import type { AppNavigationTarget } from './navigation-types';`
+      ),
+      ...parse(
+        'navigation-commit',
+        `import './navigation-targets'; import './navigation-request';`
+      ),
+    ];
+    expect(synthetic.filter(violatesNavigationBoundary).map(format)).toEqual([
+      'src/router/navigation-request.ts -> src/router/navigate.ts',
+      'src/router/navigation-resolution.ts -> src/router/navigation-commit.ts',
+      'src/router/navigation-resolution.ts -> src/common/root-update.ts',
+      'src/router/navigation-resolution.ts -> src/router/history-index.ts',
+      'src/router/navigation-commit.ts -> src/router/navigation-targets.ts',
+    ]);
+  });
+
   it('should keep path policy and scope capture below record registration and public authoring', () => {
     expect(edges.filter(violatesRouteAuthoringBoundary).map(format)).toEqual(
       []
@@ -731,7 +821,7 @@ describe('architecture boundaries', () => {
     // callers that supply no signal; anything else is a second, silent
     // cancellation channel.
     const expected = {
-      'src/router/navigation-targets.ts': 1,
+      'src/router/navigation-request.ts': 1,
       'src/router/resolution.ts': 1,
     };
     const found: Record<string, number> = {};
