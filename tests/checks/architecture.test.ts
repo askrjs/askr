@@ -228,6 +228,18 @@ function violatesPropImplementationBoundary(edge: Edge): boolean {
   );
 }
 
+function violatesQueryLifetimeBoundary(edge: Edge): boolean {
+  return (
+    relative(edge.from) === 'src/data/query-lifetime.ts' &&
+    !edge.typeOnly &&
+    [
+      'src/data/query-cell.ts',
+      'src/data/query-state.ts',
+      'src/data/shared.ts',
+    ].includes(relative(edge.to))
+  );
+}
+
 function findCycles(): string[] {
   const graph = new Map<string, Set<string>>();
   for (const edge of edges.filter((edge) => !edge.typeOnly)) {
@@ -299,6 +311,43 @@ function findModuleCycles(): string[][] {
 }
 
 describe('architecture boundaries', () => {
+  it('should keep query reader and cache lifetime independent of async publication', () => {
+    expect(edges.filter(violatesQueryLifetimeBoundary).map(format)).toEqual([]);
+    expect(
+      edges.some(
+        (edge) =>
+          relative(edge.from) === 'src/data/query-cell.ts' &&
+          relative(edge.to) === 'src/data/query-lifetime.ts' &&
+          !edge.typeOnly
+      )
+    ).toBe(true);
+  });
+
+  it('should reject reader lifetime imports of async state while allowing snapshot types and scheduling', () => {
+    const file = path.join(srcDir, 'data', 'query-lifetime.ts');
+    const source = ts.createSourceFile(
+      file,
+      `
+      import './query-cell';
+      export * from './query-state';
+      const publication = import('./shared');
+      import type { QueryState } from './types';
+      import '../core/reactive/scheduler';
+    `,
+      ts.ScriptTarget.Latest,
+      true
+    );
+    expect(
+      collectEdges(file, source)
+        .filter(violatesQueryLifetimeBoundary)
+        .map(format)
+    ).toEqual([
+      'src/data/query-lifetime.ts -> src/data/query-cell.ts',
+      'src/data/query-lifetime.ts -> src/data/query-state.ts',
+      'src/data/query-lifetime.ts -> src/data/shared.ts',
+    ]);
+  });
+
   it('should keep prop implementations below orchestration and value writers independent of lifetimes and transactions', () => {
     expect(
       edges.filter(violatesPropImplementationBoundary).map(format)

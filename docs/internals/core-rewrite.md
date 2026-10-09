@@ -97,6 +97,10 @@ Host prop implementation ownership is documented in
 order, lifetimes own installation/retirement, and private value writers retain
 the existing scalar DOM semantics and `Pass` rollback contract.
 
+Query reader/cache and async publication ownership is described in
+[Query lifetime transitions](./query-lifetime-transitions.md), including refresh,
+invalidation, reconciliation, cancellation, reader handoff and cache eviction.
+
 Ownership rules:
 
 - **Lifetimes belong to the owner tree.** Whoever renders content creates its
