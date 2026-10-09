@@ -33,6 +33,11 @@ The release flow is split across dedicated workflows:
   perf lanes. It captures three repetitions on one pinned host, raw tier JSON,
   and commit/OS/architecture/CPU/Node context. The tracked tier benchmark files
   and `docs/benchmarks/performance-targets.md` define the maintained contract.
+  With Vitest 5, capture JSON with `--reporter=json --outputFile.json=<path>`
+  alongside the default reporter. Measurements live under
+  `testResults[].assertionResults[].benchmarks[].tasks[]`; latency statistics
+  include `mean`, `p50`, and `samplesCount`. The removed `--outputJson` flag
+  and the Vitest 4 report shape are no longer supported.
 - `prepack`: always rebuilds package artifacts before npm creates a tarball.
 - `prepublishOnly`: runs `npm run release:verify`; manual npm publishing cannot
   skip lint, build, checks, public types, test suites, or the packed consumer
