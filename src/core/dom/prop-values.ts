@@ -1,38 +1,36 @@
-/**
- * How a scalar prop value is written to an element: class tokens, owned style
- * properties, form state, DOM properties, URL-guarded attributes, and the
- * `attr:`/`prop:` escape hatches. Shared semantics with SSR attribute
- * serialization; the renderer decides when these run.
- */
-
-import { sanitizeCssValue } from '../../common/css';
+/** Scalar dispatch chooses private value writers; the renderer owns write timing. */
 import {
   booleanAttributeValue,
   isSkippedProp,
   keepsFalseValue,
-  normalizeStylePropertyName,
-  styleValueText,
 } from '../../common/prop-classification';
 import { rejectUnsafeUrlAttribute } from '../../common/url';
 import { ATTRIBUTE_PROP_PREFIX } from '../../common/dom-properties';
-import { isDevelopmentEnvironment } from '../../common/env';
-import { logger } from '../../common/logger';
 import {
   getRenderedAttributeName,
-  isSVGDomElement,
-  readElementClassName,
   removeRenderedAttribute,
   setRenderedAttribute,
-  tagNamesEqualIgnoreCase,
   writeAttribute,
   writeElementClassName,
 } from './element-attributes';
 import { applyDomPropertyProp } from './dom-properties';
+import { applyFormControlProp, isFormControlProp } from './prop-value-form';
+import {
+  applyDangerousInnerHTMLValue,
+  isDangerousInnerHTMLPayload,
+} from './prop-value-html';
+import { applyStylePropValue } from './prop-value-style';
+import {
+  applyClassPropValue,
+  previousClassTokens,
+  dropEmptySvgClass,
+  type ClassTokenDescriptor,
+} from './prop-value-class';
 
-/** Props whose live DOM property must be synced alongside the attribute. */
-export function isFormControlProp(key: string): boolean {
-  return key === 'value' || key === 'checked' || key === 'selected';
-}
+export { applyFormControlProp, isFormControlProp } from './prop-value-form';
+export { isDangerousInnerHTMLPayload } from './prop-value-html';
+export { applyStylePropValue } from './prop-value-style';
+export { applyClassPropValue } from './prop-value-class';
 
 /** Attribute text for a scalar prop, rendering HTML booleans bare. */
 function renderedScalarValue(el: Element, key: string, value: unknown): string {
@@ -66,303 +64,6 @@ function renderableAttributeText(
   }
   const text = renderedScalarValue(el, key, value);
   return rejectUnsafeUrlAttribute(name, text) ? null : text;
-}
-
-export function isDangerousInnerHTMLPayload(
-  value: unknown
-): value is { __html: unknown } {
-  return (
-    value !== null && typeof value === 'object' && '__html' in (value as object)
-  );
-}
-
-function applyDangerousInnerHTMLValue(el: Element, value: unknown): void {
-  if (!isDangerousInnerHTMLPayload(value)) {
-    return;
-  }
-
-  if (isDevelopmentEnvironment()) {
-    logger.warn(
-      '[Askr] dangerouslySetInnerHTML is being used, which bypasses the ' +
-        "framework's normal rendering and can introduce XSS vulnerabilities " +
-        'if the HTML is derived from untrusted input. Make sure the value is ' +
-        'sanitized.'
-    );
-  }
-
-  const html = value.__html;
-  const nextHtml = html === null || html === undefined ? '' : String(html);
-  if (hasMatchingInnerHTML(el, nextHtml)) return;
-  el.innerHTML = nextHtml;
-}
-
-/** Compare parsed HTML without replacing the live descendants. */
-function hasMatchingInnerHTML(el: Element, html: string): boolean {
-  try {
-    if (el.innerHTML === html) return true;
-    if (el.childNodes.length === 0 || !el.namespaceURI) return false;
-    const template = el.ownerDocument.createElement('template');
-    const probe = template.content.ownerDocument.createElementNS(
-      el.namespaceURI,
-      el.localName
-    );
-    probe.innerHTML = html;
-    return probe.innerHTML === el.innerHTML;
-  } catch {
-    // This comparison is an optimization; fall back to the normal live write.
-    return false;
-  }
-}
-
-type ClassTokenDescriptor = {
-  lastClassTokens: string[] | null;
-};
-
-type StyleEntries = Map<string, string>;
-
-export function applyFormControlProp(
-  el: Element,
-  key: string,
-  value: unknown,
-  tagName: string
-): void {
-  if (key === 'value') {
-    const stringValue = String(value);
-    if (tagNamesEqualIgnoreCase(tagName, 'select')) {
-      const select = el as HTMLSelectElement;
-      const selectedValues = new Set(
-        select.multiple && Array.isArray(value)
-          ? value.map(String)
-          : [stringValue]
-      );
-      let firstMatch = -1;
-      for (let index = 0; index < select.options.length; index++) {
-        const option = select.options[index];
-        const selected =
-          selectedValues.has(option.value) &&
-          (select.multiple || firstMatch < 0);
-        if (selected && firstMatch < 0) firstMatch = index;
-        if (option.hasAttribute('selected') !== selected) {
-          if (selected) option.setAttribute('selected', '');
-          else option.removeAttribute('selected');
-        }
-        if (select.multiple && option.selected !== selected) {
-          option.selected = selected;
-        }
-      }
-      if (!select.multiple && select.selectedIndex !== firstMatch) {
-        select.selectedIndex = firstMatch;
-      }
-    } else if (
-      tagNamesEqualIgnoreCase(tagName, 'input') ||
-      tagNamesEqualIgnoreCase(tagName, 'textarea')
-    ) {
-      const control = el as HTMLInputElement | HTMLTextAreaElement;
-      if (control.value !== stringValue) {
-        control.value = stringValue;
-      }
-    }
-
-    if (el.getAttribute('value') !== stringValue) {
-      el.setAttribute('value', stringValue);
-    }
-    return;
-  }
-
-  if (key === 'selected') {
-    // Mirrors `checked`: the property is the live selection state, the
-    // attribute is what SSR emits and what hydration compares against.
-    const selected = Boolean(value);
-    if (tagNamesEqualIgnoreCase(tagName, 'option')) {
-      const option = el as HTMLOptionElement;
-      if (option.selected !== selected) {
-        option.selected = selected;
-      }
-    }
-    if (selected) {
-      if (!el.hasAttribute('selected')) {
-        el.setAttribute('selected', '');
-      }
-    } else if (el.hasAttribute('selected')) {
-      el.removeAttribute('selected');
-    }
-    return;
-  }
-
-  if (key === 'checked') {
-    if (tagNamesEqualIgnoreCase(tagName, 'input')) {
-      const checked = Boolean(value);
-      const input = el as HTMLInputElement;
-      if (input.checked !== checked) {
-        input.checked = checked;
-      }
-      if (checked) {
-        if (!el.hasAttribute('checked')) {
-          el.setAttribute('checked', '');
-        }
-      } else {
-        if (el.hasAttribute('checked')) {
-          el.removeAttribute('checked');
-        }
-      }
-    } else if (value) {
-      if (!el.hasAttribute('checked')) {
-        el.setAttribute('checked', '');
-      }
-    } else {
-      if (el.hasAttribute('checked')) {
-        el.removeAttribute('checked');
-      }
-    }
-  }
-}
-
-const IMPORTANT_SUFFIX = ' !important';
-
-function readStyleEntry(
-  style: CSSStyleDeclaration,
-  propertyName: string
-): string {
-  return (
-    style.getPropertyValue(propertyName) +
-    (style.getPropertyPriority(propertyName) ? IMPORTANT_SUFFIX : '')
-  );
-}
-
-function collectStyleEntries(style: CSSStyleDeclaration): StyleEntries {
-  const entries: StyleEntries = new Map();
-  for (let index = 0; index < style.length; index += 1) {
-    const propertyName = style.item(index);
-    entries.set(propertyName, readStyleEntry(style, propertyName));
-  }
-  return entries;
-}
-
-function normalizeStyleEntries(value: unknown): StyleEntries | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
-  }
-
-  const entries: StyleEntries = new Map();
-  for (const [key, entryValue] of Object.entries(
-    value as Record<string, unknown>
-  )) {
-    if (
-      entryValue === undefined ||
-      entryValue === null ||
-      entryValue === false
-    ) {
-      continue;
-    }
-
-    const propertyName = normalizeStylePropertyName(key);
-    const safeValue = sanitizeCssValue(
-      styleValueText(propertyName, entryValue)
-    );
-    if (safeValue) {
-      entries.set(propertyName, safeValue);
-    }
-  }
-
-  return entries;
-}
-
-let scratchStyle: CSSStyleDeclaration | null = null;
-
-/** Style entries a prop value renders; `null` when it is not expressible. */
-function readStyleEntries(el: Element, value: unknown): StyleEntries | null {
-  if (value === null || value === undefined || value === false) {
-    return new Map();
-  }
-  if (typeof value !== 'string') {
-    return normalizeStyleEntries(value);
-  }
-
-  // Parse on a detached declaration so the target element is not touched.
-  scratchStyle ??= el.ownerDocument.createElement('div').style;
-  scratchStyle.cssText = value;
-  const entries = collectStyleEntries(scratchStyle);
-  scratchStyle.cssText = '';
-  return entries;
-}
-
-/**
- * Apply a `style` prop. `previousValue` is the value Askr last applied
- * (`null` when none): only the properties it owns are removed or rewritten, so
- * properties set by other code survive. When `previousValue` is `undefined`
- * the element's whole style is treated as Askr-owned.
- */
-export function applyStylePropValue(
-  el: Element,
-  value: unknown,
-  previousValue?: unknown
-): void {
-  const style = (el as HTMLElement | SVGElement).style;
-  const isEmpty = value === null || value === undefined || value === false;
-  if (!style) {
-    if (isEmpty) {
-      el.removeAttribute('style');
-      return;
-    }
-
-    el.setAttribute('style', String(value));
-    return;
-  }
-
-  if (
-    (el.getAttribute('style') ?? '') === (isEmpty ? '' : value) ||
-    (isEmpty && previousValue === null)
-  ) {
-    return;
-  }
-
-  if (previousValue === undefined && (isEmpty || typeof value === 'string')) {
-    style.cssText = isEmpty ? '' : (value as string);
-    if (isEmpty) el.removeAttribute('style');
-    return;
-  }
-
-  const nextEntries = readStyleEntries(el, value);
-  if (!nextEntries) {
-    style.cssText = String(value);
-    return;
-  }
-  // An unknown or unparseable baseline treats the whole style as Askr-owned.
-  const previousEntries =
-    (previousValue === undefined
-      ? null
-      : previousValue === value
-        ? nextEntries
-        : readStyleEntries(el, previousValue)) ?? collectStyleEntries(style);
-
-  let didWrite = false;
-  for (const [propertyName] of previousEntries) {
-    if (nextEntries.has(propertyName) || !style.getPropertyValue(propertyName))
-      continue;
-    style.removeProperty(propertyName);
-    didWrite = true;
-  }
-
-  for (const [propertyName, propertyValue] of nextEntries) {
-    if (readStyleEntry(style, propertyName) === propertyValue) continue;
-    const important = propertyValue.endsWith(IMPORTANT_SUFFIX);
-    style.setProperty(
-      propertyName,
-      important
-        ? propertyValue.slice(0, -IMPORTANT_SUFFIX.length)
-        : propertyValue,
-      important ? 'important' : ''
-    );
-    didWrite = true;
-  }
-
-  if (isEmpty && style.length === 0) {
-    el.removeAttribute('style');
-    didWrite = true;
-  }
-
-  if (!didWrite) {
-  }
 }
 
 export function applyStaticScalarPropsToElement(
@@ -400,134 +101,6 @@ export function applyStaticScalarPropsToElement(
       if (text === null) removeRenderedAttribute(el, key);
       else setRenderedAttribute(el, key, text);
     }
-  }
-}
-
-const EMPTY_CLASS_TOKENS: string[] = [];
-
-/** Class tokens Askr last applied; `null` means unknown. */
-function previousClassTokens(previousValue: unknown): string[] | null {
-  return previousValue === null || previousValue === false
-    ? EMPTY_CLASS_TOKENS
-    : tokenizeClassValue(previousValue);
-}
-
-function tokenizeClassValue(value: unknown): string[] | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    return [];
-  }
-
-  return trimmed.split(/\s+/);
-}
-
-function patchClassList(
-  el: Element,
-  previousTokens: string[],
-  nextTokens: string[]
-): void {
-  if (previousTokens.length === nextTokens.length) {
-    let identical = true;
-    for (let index = 0; index < previousTokens.length; index += 1) {
-      if (previousTokens[index] !== nextTokens[index]) {
-        identical = false;
-        break;
-      }
-    }
-    if (identical) {
-      // Nothing changed since the last apply; restore any owned token that
-      // other code removed without touching tokens it added.
-      for (const token of nextTokens) {
-        if (!el.classList.contains(token)) {
-          el.classList.add(token);
-        }
-      }
-      return;
-    }
-  }
-
-  if (previousTokens.length === 0) {
-    if (nextTokens.length === 0) {
-      return;
-    }
-    el.classList.add(...nextTokens);
-    return;
-  }
-
-  if (nextTokens.length === 0) {
-    el.classList.remove(...previousTokens);
-    return;
-  }
-
-  if (previousTokens.length === 1 && nextTokens.length === 1) {
-    el.classList.remove(previousTokens[0]);
-    el.classList.add(nextTokens[0]);
-    return;
-  }
-
-  const nextSet = new Set(nextTokens);
-  const previousSet = new Set(previousTokens);
-
-  for (const token of previousTokens) {
-    if (!nextSet.has(token)) {
-      el.classList.remove(token);
-    }
-  }
-
-  for (const token of nextTokens) {
-    if (!previousSet.has(token)) {
-      el.classList.add(token);
-    }
-  }
-}
-
-export function applyClassPropValue(
-  el: Element,
-  value: unknown,
-  previousValue: unknown,
-  descriptor?: ClassTokenDescriptor
-): void {
-  const nextString = String(value);
-  if (
-    !descriptor &&
-    nextString.length > 0 &&
-    readElementClassName(el) === nextString
-  ) {
-    return;
-  }
-  const nextTokens = tokenizeClassValue(nextString);
-  const previousTokens =
-    descriptor?.lastClassTokens ?? previousClassTokens(previousValue);
-
-  if (nextTokens && previousTokens) {
-    if (Object.is(value, previousValue)) {
-      for (const token of nextTokens) {
-        if (!el.classList.contains(token)) el.classList.add(token);
-      }
-      return;
-    }
-    patchClassList(el, previousTokens, nextTokens);
-    dropEmptySvgClass(el);
-    if (descriptor) {
-      descriptor.lastClassTokens = nextTokens;
-    }
-    return;
-  }
-
-  writeElementClassName(el, nextString);
-  if (descriptor) {
-    descriptor.lastClassTokens = nextTokens;
-  }
-}
-
-/** An SVG element renders no `class` attribute for an empty class list. */
-function dropEmptySvgClass(el: Element): void {
-  if (isSVGDomElement(el) && el.getAttribute('class') === '') {
-    el.removeAttribute('class');
   }
 }
 

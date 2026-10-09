@@ -198,6 +198,36 @@ function violatesNodeImplementationBoundary(edge: Edge): boolean {
   );
 }
 
+function violatesPropImplementationBoundary(edge: Edge): boolean {
+  if (edge.typeOnly) return false;
+  const from = relative(edge.from);
+  const to = relative(edge.to);
+  if (from.startsWith('src/core/dom/prop-value-')) {
+    return (
+      to.startsWith('src/core/') &&
+      ![
+        'src/core/dom/element-attributes.ts',
+        'src/core/dom/dom-properties.ts',
+      ].includes(to)
+    );
+  }
+  return (
+    [
+      'src/core/dom/prop-lifecycle.ts',
+      'src/core/dom/prop-policy.ts',
+      'src/core/dom/prop-select.ts',
+      'src/core/dom/prop-transaction.ts',
+    ].includes(from) &&
+    [
+      'src/core/dom/props.ts',
+      'src/core/dom/root.ts',
+      'src/core/dom/updates.ts',
+      'src/core/dom/nodes.ts',
+      'src/core/dom/reconcile.ts',
+    ].includes(to)
+  );
+}
+
 function findCycles(): string[] {
   const graph = new Map<string, Set<string>>();
   for (const edge of edges.filter((edge) => !edge.typeOnly)) {
@@ -269,6 +299,68 @@ function findModuleCycles(): string[][] {
 }
 
 describe('architecture boundaries', () => {
+  it('should keep prop implementations below orchestration and value writers independent of lifetimes and transactions', () => {
+    expect(
+      edges.filter(violatesPropImplementationBoundary).map(format)
+    ).toEqual([]);
+  });
+
+  it('should reject value writer dependencies on pass, orchestration and lifetimes while allowing DOM helpers and context types', () => {
+    const file = path.join(srcDir, 'core', 'dom', 'prop-value-style.ts');
+    const source = ts.createSourceFile(
+      file,
+      `
+      import './pass';
+      export * from './props';
+      const lifetime = import('./prop-lifecycle');
+      import type { Pass } from './pass';
+      import './dom-properties';
+      import './element-attributes';
+    `,
+      ts.ScriptTarget.Latest,
+      true
+    );
+    expect(
+      collectEdges(file, source)
+        .filter(violatesPropImplementationBoundary)
+        .map(format)
+    ).toEqual([
+      'src/core/dom/prop-value-style.ts -> src/core/dom/pass.ts',
+      'src/core/dom/prop-value-style.ts -> src/core/dom/props.ts',
+      'src/core/dom/prop-value-style.ts -> src/core/dom/prop-lifecycle.ts',
+    ]);
+  });
+
+  it('should delegate host lifetimes and scalar value kinds to private implementations', () => {
+    expect(
+      edges.some(
+        (edge) =>
+          relative(edge.from) === 'src/core/dom/props.ts' &&
+          relative(edge.to) === 'src/core/dom/prop-lifecycle.ts' &&
+          !edge.typeOnly
+      )
+    ).toBe(true);
+    expect(
+      new Set(
+        edges
+          .filter(
+            (edge) =>
+              relative(edge.from) === 'src/core/dom/prop-values.ts' &&
+              relative(edge.to).startsWith('src/core/dom/prop-value-') &&
+              !edge.typeOnly
+          )
+          .map((edge) => relative(edge.to))
+      )
+    ).toEqual(
+      new Set([
+        'src/core/dom/prop-value-class.ts',
+        'src/core/dom/prop-value-form.ts',
+        'src/core/dom/prop-value-html.ts',
+        'src/core/dom/prop-value-style.ts',
+      ])
+    );
+  });
+
   it('should keep node implementations independent of dispatch and standalone update orchestration', () => {
     expect(
       edges.filter(violatesNodeImplementationBoundary).map(format)
