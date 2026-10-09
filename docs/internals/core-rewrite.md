@@ -92,6 +92,11 @@ written), `events` (bubbling events delegated at app roots, one batch per
 dispatch), `refs`, `teardown`, `updates` (standalone re-renders and error
 routing), and `root`.
 
+Host prop implementation ownership is documented in
+[Host prop ownership](./host-prop-ownership.md): orchestration selects the write
+order, lifetimes own installation/retirement, and private value writers retain
+the existing scalar DOM semantics and `Pass` rollback contract.
+
 Ownership rules:
 
 - **Lifetimes belong to the owner tree.** Whoever renders content creates its
