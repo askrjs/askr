@@ -4,6 +4,12 @@
 
 ### Fixes
 
+- Ignore query results and consistency errors superseded by their own callbacks;
+  preserve newer invalidation work created by start or reconciliation abort
+  listeners instead of starting obsolete transport or suppressing retries.
+- Retire a destroyed query's cache entry before abort listeners run, so a reader
+  mounted by that listener acquires a live replacement for the same key.
+
 - Restore hydration render context when claiming SSR resource metadata throws,
   so a failed claim leaves server nodes and the following hydration retry intact.
 
