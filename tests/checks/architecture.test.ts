@@ -240,6 +240,30 @@ function violatesQueryLifetimeBoundary(edge: Edge): boolean {
   );
 }
 
+function violatesRouteAuthoringBoundary(edge: Edge): boolean {
+  if (edge.typeOnly) return false;
+  const from = relative(edge.from);
+  const to = relative(edge.to);
+  if (from === 'src/router/path-policy.ts') {
+    return to !== 'src/router/match.ts';
+  }
+  if (from === 'src/router/registration-scope.ts') {
+    return ![
+      'src/router/store.ts',
+      'src/router/access.ts',
+      'src/router/path-policy.ts',
+    ].includes(to);
+  }
+  return (
+    from === 'src/router/route-registration.ts' &&
+    [
+      'src/router/authoring.ts',
+      'src/router/route.ts',
+      'src/router/index.ts',
+    ].includes(to)
+  );
+}
+
 function findCycles(): string[] {
   const graph = new Map<string, Set<string>>();
   for (const edge of edges.filter((edge) => !edge.typeOnly)) {
@@ -311,6 +335,54 @@ function findModuleCycles(): string[][] {
 }
 
 describe('architecture boundaries', () => {
+  it('should keep path policy and scope capture below record registration and public authoring', () => {
+    expect(edges.filter(violatesRouteAuthoringBoundary).map(format)).toEqual(
+      []
+    );
+    for (const module of ['registration-scope', 'route-registration']) {
+      expect(
+        edges.some(
+          (edge) =>
+            relative(edge.from) === 'src/router/authoring.ts' &&
+            relative(edge.to) === `src/router/${module}.ts` &&
+            !edge.typeOnly
+        )
+      ).toBe(true);
+    }
+  });
+
+  it('should reject path and scope dependencies on registration through imports, reexports and dynamic imports', () => {
+    const pathFile = path.join(srcDir, 'router', 'path-policy.ts');
+    const scopeFile = path.join(srcDir, 'router', 'registration-scope.ts');
+    const parse = (file: string, source: string) =>
+      collectEdges(
+        file,
+        ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true)
+      );
+    const synthetic = [
+      ...parse(
+        pathFile,
+        `import './store'; export * from './authoring'; import './match'; import type { RouteParams } from '../common/router';`
+      ),
+      ...parse(
+        scopeFile,
+        `const registration = import('./route-registration'); import './path-policy'; import './store';`
+      ),
+      ...parse(
+        path.join(srcDir, 'router', 'route-registration.ts'),
+        `import './authoring'; import './registration-scope';`
+      ),
+    ];
+    expect(
+      synthetic.filter(violatesRouteAuthoringBoundary).map(format)
+    ).toEqual([
+      'src/router/path-policy.ts -> src/router/store.ts',
+      'src/router/path-policy.ts -> src/router/authoring.ts',
+      'src/router/registration-scope.ts -> src/router/route-registration.ts',
+      'src/router/route-registration.ts -> src/router/authoring.ts',
+    ]);
+  });
+
   it('should keep query reader and cache lifetime independent of async publication', () => {
     expect(edges.filter(violatesQueryLifetimeBoundary).map(format)).toEqual([]);
     expect(

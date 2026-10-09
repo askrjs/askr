@@ -4,6 +4,10 @@
 
 ### Fixes
 
+- Enforce startup locks and component-function checks for index and fallback
+  routes, retain a page's index slot after failed registration, and normalize
+  root-page fallback paths to `/*`.
+
 - Ignore query results and consistency errors superseded by their own callbacks;
   preserve newer invalidation work created by start or reconciliation abort
   listeners instead of starting obsolete transport or suppressing retries.

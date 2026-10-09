@@ -1,6 +1,5 @@
 import type {
   GroupHelperOptions,
-  ParsedSegment,
   PageHelperOptions,
   RouteComponent,
   RouteDefinition,
@@ -10,36 +9,24 @@ import type {
   RouteRef,
   RouteRefSearch,
 } from '../common/router';
-import type { AuthDecision, AuthRequirement } from '@askrjs/auth';
 import type { ObjectSchema } from '@askrjs/schema';
 import { currentComponent as getCurrentComponentInstance } from '../core/api/hooks';
 import { getExecutionModel } from '../common/execution-model';
+import type { AnyRouteComponent } from './internal-types';
 import {
-  computeRank,
-  normalizeRouteSegmentName,
-  parseSegments,
-  routeMatchKey,
-} from './match';
-import { compileNodePolicies } from './access';
-import type { AnyRouteComponent, InternalRouteRecord } from './internal-types';
-import { createRouteHandler } from './rendering';
-import {
-  addRouteToStores,
   assertRouteRegistrationUnlocked,
-  getCurrentInheritedAuthRequirements,
-  getCurrentInheritedMeta,
-  getCurrentInheritedPolicies,
-  getCurrentLayoutChain,
-  getCurrentPageChain,
-  getCurrentPageScope,
-  getCurrentPathPrefix,
-  getCurrentScopeKind,
   getDefaultRouteBasePath,
-  getRouteRecords,
-  hasActivePageScope,
-  insertRecordSorted,
-  pushRegistrationScope,
 } from './store';
+import {
+  pushGroupScope,
+  pushPageScope,
+  resolveRouteRegistrationPath,
+} from './registration-scope';
+import {
+  registerRouteAtResolvedPath,
+  registerIndexRoute,
+  registerFallbackRoute,
+} from './route-registration';
 
 type RouteComponentParam<TComponent extends AnyRouteComponent> =
   Parameters<TComponent> extends [] ? unknown : Parameters<TComponent>[0];
@@ -106,351 +93,6 @@ type RouteOptionsForComponent<
           TDehydratedData
         >;
 
-function validateRoutePath(path: string): void {
-  if (!path.startsWith('/')) {
-    throw new Error(`Route path must begin with "/". Got: "${path}"`);
-  }
-  if (/\/{2,}/.test(path)) {
-    throw new Error('Route path cannot contain consecutive slashes.');
-  }
-  if (/:([^/{}]+)/.test(path)) {
-    const suggested = path.replace(/:([^/{}]+)/g, '{$1}');
-    throw new Error(
-      `Route parameter syntax uses {name} interpolation, not :name. ` +
-        `Use "${suggested}" instead of "${path}".`
-    );
-  }
-
-  const segments = path.split('/').filter(Boolean);
-  const seenParamNames = new Set<string>();
-
-  for (let index = 0; index < segments.length; index++) {
-    const segment = segments[index];
-    if (segment === '*') {
-      continue;
-    }
-
-    const hasOpenBrace = segment.includes('{');
-    const hasCloseBrace = segment.includes('}');
-
-    if (!hasOpenBrace && !hasCloseBrace) {
-      continue;
-    }
-
-    if (!(segment.startsWith('{') && segment.endsWith('}'))) {
-      throw new Error(
-        'Route parameter segments must use complete {name} interpolation.'
-      );
-    }
-
-    const rawParamName = normalizeRouteSegmentName(segment.slice(1, -1));
-    const isSplat = rawParamName.startsWith('*');
-    const paramName = isSplat
-      ? normalizeRouteSegmentName(rawParamName.slice(1))
-      : rawParamName;
-
-    if (!paramName) {
-      throw new Error(
-        isSplat
-          ? 'Route splat parameter name cannot be empty.'
-          : 'Route parameter name cannot be empty.'
-      );
-    }
-
-    if (isSplat && paramName === '*') {
-      throw new Error('Route named splat parameter name cannot be "*".');
-    }
-
-    if (isSplat && index !== segments.length - 1) {
-      throw new Error(
-        'Route named splat parameters must be the final segment.'
-      );
-    }
-
-    if (seenParamNames.has(paramName)) {
-      throw new Error(
-        `Route path cannot reuse duplicate parameter name "${paramName}".`
-      );
-    }
-
-    seenParamNames.add(paramName);
-  }
-}
-
-function normalizeAbsoluteRoutePath(path: string): string {
-  if (!path || path === '/') {
-    return '/';
-  }
-
-  const normalized = path.endsWith('/') ? path.slice(0, -1) : path;
-  return normalized || '/';
-}
-
-function joinRoutePaths(prefix: string, path: string): string {
-  const normalizedPrefix = normalizeAbsoluteRoutePath(prefix || '/');
-  let start = 0;
-  let end = path.length;
-  while (start < end && path[start] === '/') start++;
-  while (end > start && path[end - 1] === '/') end--;
-  const normalizedPath = path.slice(start, end);
-
-  if (!normalizedPath) {
-    return normalizedPrefix;
-  }
-
-  return normalizedPrefix === '/'
-    ? `/${normalizedPath}`
-    : `${normalizedPrefix}/${normalizedPath}`;
-}
-
-function resolvePageScopePath(path: string): string {
-  if (!path) {
-    throw new Error('page(path, Component, fn) requires a non-empty path.');
-  }
-
-  if (path.startsWith('/')) {
-    validateRoutePath(path);
-    return normalizeAbsoluteRoutePath(path);
-  }
-
-  return joinRoutePaths(getCurrentPathPrefix(), path);
-}
-
-function resolveIndexPath(): string {
-  return normalizeAbsoluteRoutePath(getCurrentPathPrefix() || '/');
-}
-
-function resolveRouteRegistrationPath(path: string): string {
-  if (path.startsWith('/')) {
-    if (hasActivePageScope()) {
-      throw new Error(
-        'Child route paths inside page() must be relative. ' +
-          `Use "${path.slice(1)}" instead of "${path}".`
-      );
-    }
-
-    validateRoutePath(path);
-    return normalizeAbsoluteRoutePath(path);
-  }
-
-  const prefix = getCurrentPathPrefix();
-
-  if (!prefix) {
-    throw new Error(`Route path must begin with "/". Got: "${path}"`);
-  }
-
-  return joinRoutePaths(prefix, path);
-}
-
-function pushGroupScope(
-  options: GroupHelperOptions,
-  fn: RouteDefinition
-): void {
-  const policies = compileNodePolicies(options);
-
-  pushRegistrationScope(
-    {
-      kind: 'group',
-      pathPrefix: getCurrentPathPrefix(),
-      layout: options.layout,
-      auth: options.auth,
-      policies,
-      meta: options.meta,
-    },
-    fn
-  );
-}
-
-function pushPageScope(
-  path: string,
-  Component: RouteComponent,
-  options: PageHelperOptions,
-  fn: RouteDefinition
-): void {
-  if (hasActivePageScope()) {
-    throw new Error(
-      'page() cannot be nested inside another page(). ' +
-        'Use route() for child leaves or group() for inherited behavior inside the existing page scope.'
-    );
-  }
-
-  const policies = compileNodePolicies(options);
-
-  pushRegistrationScope(
-    {
-      kind: 'page',
-      pathPrefix: resolvePageScopePath(path),
-      page: Component,
-      hasIndex: false,
-      auth: options.auth,
-      policies,
-      meta: options.meta,
-    },
-    fn
-  );
-}
-
-function normalizeRouteOptions(
-  options: RouteOptions | undefined
-): RouteOptions | undefined {
-  if (!options) {
-    return undefined;
-  }
-
-  const loader = options.loader;
-  const dehydrate = options.dehydrate;
-  const preload = options.preload;
-  const policies = compileNodePolicies(options);
-
-  if (
-    !loader &&
-    !dehydrate &&
-    !preload &&
-    !options.entries &&
-    !options.invalidationKeys &&
-    policies.length === 0 &&
-    !options.title &&
-    !options.namespace &&
-    !options.search &&
-    !options.meta &&
-    !options.actions &&
-    options.auth === undefined
-  ) {
-    return undefined;
-  }
-
-  return {
-    ...(loader ? { loader } : {}),
-    ...(dehydrate ? { dehydrate } : {}),
-    ...(preload ? { preload } : {}),
-    ...(options.entries ? { entries: options.entries } : {}),
-    ...(options.invalidationKeys
-      ? { invalidationKeys: options.invalidationKeys }
-      : {}),
-    ...(options.auth !== undefined ? { auth: options.auth } : {}),
-    ...(policies.length > 0 ? { policies } : {}),
-    ...(options.title ? { title: options.title } : {}),
-    ...(options.namespace ? { namespace: options.namespace } : {}),
-    ...(options.search ? { search: options.search } : {}),
-    ...(options.meta ? { meta: options.meta } : {}),
-    ...(options.actions ? { actions: options.actions } : {}),
-  };
-}
-
-function assertRouteNotDuplicated(
-  path: string,
-  segments: ParsedSegment[],
-  fallbackPrefix: string | undefined
-): void {
-  const key = routeMatchKey(segments, fallbackPrefix);
-  const existing = getRouteRecords().find(
-    (record) => routeMatchKey(record.segments, record.fallbackPrefix) === key
-  );
-  if (existing) {
-    const hint =
-      existing.path === path
-        ? " To generate several pages from one route template, declare it once and return each page's params from entries()."
-        : '';
-    throw new Error(
-      `Duplicate route path "${path}": it matches the same URLs as "${existing.path}", which is already registered.${hint}`
-    );
-  }
-}
-
-const authAllowed: AuthDecision = Object.freeze({ allowed: true });
-
-// Inherited and route requirements must all allow, evaluated in declaration
-// order; the first denial wins. Kept local so @askrjs/auth stays type-only.
-function requireAll(requirements: AuthRequirement[]): AuthRequirement {
-  return async (context) => {
-    for (const requirement of requirements) {
-      const decision = await requirement(context);
-      if (!decision.allowed) return decision;
-    }
-    return authAllowed;
-  };
-}
-
-function registerRouteAtResolvedPath(
-  path: string,
-  Component: RouteComponent,
-  options?: RouteOptions,
-  metadata?: {
-    isFallback?: boolean;
-    fallbackPrefix?: string;
-  }
-): void {
-  validateRoutePath(path);
-
-  const segments = parseSegments(path);
-  assertRouteNotDuplicated(path, segments, metadata?.fallbackPrefix);
-
-  const chain = getCurrentLayoutChain();
-  const pageChain = getCurrentPageChain();
-  const rank = computeRank(segments);
-  const isFallback = metadata?.isFallback ?? path === '/*';
-  const comp = Component;
-  const normalizedOptions = normalizeRouteOptions(options);
-  const policies = [
-    ...getCurrentInheritedPolicies(),
-    ...(normalizedOptions?.policies ?? []),
-  ];
-  const authRequirements = [
-    ...getCurrentInheritedAuthRequirements(),
-    ...(normalizedOptions?.auth ? [normalizedOptions.auth] : []),
-  ];
-  const auth: AuthRequirement | undefined =
-    authRequirements.length === 0
-      ? undefined
-      : authRequirements.length === 1
-        ? authRequirements[0]
-        : requireAll(authRequirements);
-  const metaChain = [
-    ...getCurrentInheritedMeta(),
-    ...(normalizedOptions?.meta ? [normalizedOptions.meta] : []),
-  ];
-
-  const handler = createRouteHandler(comp, pageChain, chain);
-  const renderHandler = createRouteHandler(comp, pageChain, chain, true);
-
-  const record: InternalRouteRecord = {
-    path,
-    component: comp,
-    segments,
-    rank,
-    layoutChain: chain,
-    pageChain,
-    options: normalizedOptions
-      ? {
-          ...normalizedOptions,
-          ...(auth ? { auth } : {}),
-          ...(policies.length > 0 ? { policies } : {}),
-        }
-      : policies.length > 0
-        ? { policies, ...(auth ? { auth } : {}) }
-        : auth
-          ? { auth }
-          : {},
-    ...(metaChain.length > 0 ? { metaChain } : {}),
-    isFallback,
-    handler,
-    renderHandler,
-    ...(metadata?.fallbackPrefix
-      ? { fallbackPrefix: metadata.fallbackPrefix }
-      : {}),
-  };
-
-  insertRecordSorted(record);
-  addRouteToStores({
-    path,
-    handler,
-    namespace: normalizedOptions?.namespace ?? options?.namespace,
-    ...(metadata?.fallbackPrefix
-      ? { fallbackPrefix: metadata.fallbackPrefix }
-      : {}),
-  });
-}
-
 /** Declare a group of routes sharing `options` (auth, policies, layout, meta). */
 export function group(options: GroupHelperOptions, fn: RouteDefinition): void;
 export function group(options: GroupHelperOptions, fn: RouteDefinition): void {
@@ -516,51 +158,12 @@ export function page(
 
 /** Declare the index route for the enclosing `page()` scope. */
 export function index(Component: RouteComponent, options?: RouteOptions): void {
-  const pageScope = getCurrentPageScope();
-  if (pageScope?.hasIndex) {
-    throw new Error('page() cannot declare multiple index routes.');
-  }
-
-  if (pageScope) {
-    pageScope.hasIndex = true;
-  }
-
-  registerRouteAtResolvedPath(resolveIndexPath(), Component, options);
+  registerIndexRoute(Component, options);
 }
 
 /** Declare the catch-all `/*` fallback route for the enclosing scope. */
 export function fallback(Component: RouteComponent): void {
-  if (hasActivePageScope()) {
-    if (getCurrentScopeKind() !== 'page') {
-      throw new Error(
-        'fallback() inside page() must be declared directly in the page scope, not inside nested group().'
-      );
-    }
-
-    registerRouteAtResolvedPath(
-      `${getCurrentPathPrefix()}/*`,
-      Component,
-      undefined,
-      { isFallback: true, fallbackPrefix: getCurrentPathPrefix() }
-    );
-    return;
-  }
-
-  const allowsRootFallback =
-    getCurrentInheritedPolicies().length === 0 &&
-    getCurrentInheritedAuthRequirements().length === 0;
-
-  if (!allowsRootFallback) {
-    throw new Error(
-      'fallback() can only be registered at the root scope. ' +
-        'Use route("/*", Component) if you need compatibility behavior.'
-    );
-  }
-
-  registerRouteAtResolvedPath('/*', Component, undefined, {
-    isFallback: true,
-    fallbackPrefix: '/',
-  });
+  registerFallbackRoute(Component);
 }
 
 /** Declare a route at `path` rendering `Component`, returning a typed {@link RouteRef} for building destinations. */
