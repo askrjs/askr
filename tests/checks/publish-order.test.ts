@@ -90,6 +90,16 @@ describe('coordinated package publish order', () => {
     expect(result.stderr).toContain('review-two');
   });
 
+  it('should prefer the canonical checkout even after two earlier duplicate names', () => {
+    const root = checkoutRoot();
+    manifest(root, 'a-review-one', { name: '@askrjs/cli' });
+    manifest(root, 'a-review-two', { name: '@askrjs/cli' });
+    manifest(root, 'askr-cli', { name: '@askrjs/cli' });
+    const result = order(root);
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toBe('wave 1: askr-cli\n');
+  });
+
   it('should reject a runtime dependency cycle without printing a partial publication order', () => {
     const root = checkoutRoot();
     manifest(root, 'askr-auth', {

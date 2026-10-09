@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 const repositoryRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const root = resolve(process.argv[2] ?? dirname(repositoryRoot));
 
-const manifests = new Map();
+const candidates = new Map();
 for (const entry of readdirSync(root, { withFileTypes: true })) {
   if (!entry.isDirectory()) continue;
   const manifestPath = join(root, entry.name, 'package.json');
@@ -38,22 +38,24 @@ for (const entry of readdirSync(root, { withFileTypes: true })) {
   )
     continue;
 
-  const previous = manifests.get(manifest.name);
-  if (previous) {
-    const canonicalDirectory =
-      manifest.name === '@askrjs/askr'
-        ? 'askr'
-        : `askr-${manifest.name.slice('@askrjs/'.length)}`;
-    if (previous.dir === canonicalDirectory) continue;
-    if (entry.name !== canonicalDirectory) {
-      console.error(
-        `Duplicate package ${manifest.name} in ${previous.dir} and ${entry.name}; ` +
-          'use the canonical checkout or a root with one checkout per package.'
-      );
-      process.exit(1);
-    }
+  const checkouts = candidates.get(manifest.name) ?? [];
+  checkouts.push({ dir: entry.name, manifest });
+  candidates.set(manifest.name, checkouts);
+}
+
+const manifests = new Map();
+for (const [name, checkouts] of candidates) {
+  const canonicalDirectory =
+    name === '@askrjs/askr' ? 'askr' : `askr-${name.slice('@askrjs/'.length)}`;
+  const canonical = checkouts.find(({ dir }) => dir === canonicalDirectory);
+  if (!canonical && checkouts.length > 1) {
+    console.error(
+      `Duplicate package ${name} in ${checkouts.map(({ dir }) => dir).join(' and ')}; ` +
+        'use the canonical checkout or a root with one checkout per package.'
+    );
+    process.exit(1);
   }
-  manifests.set(manifest.name, { dir: entry.name, manifest });
+  manifests.set(name, canonical ?? checkouts[0]);
 }
 
 if (manifests.size === 0) {
