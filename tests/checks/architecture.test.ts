@@ -186,6 +186,18 @@ function violatesSSROutputBoundary(edge: Edge): boolean {
   );
 }
 
+function violatesNodeImplementationBoundary(edge: Edge): boolean {
+  return (
+    relative(edge.from).startsWith('src/core/dom/node-') &&
+    !edge.typeOnly &&
+    [
+      'src/core/dom/nodes.ts',
+      'src/core/dom/root.ts',
+      'src/core/dom/updates.ts',
+    ].includes(relative(edge.to))
+  );
+}
+
 function findCycles(): string[] {
   const graph = new Map<string, Set<string>>();
   for (const edge of edges.filter((edge) => !edge.typeOnly)) {
@@ -257,6 +269,45 @@ function findModuleCycles(): string[][] {
 }
 
 describe('architecture boundaries', () => {
+  it('should keep node implementations independent of dispatch and standalone update orchestration', () => {
+    expect(
+      edges.filter(violatesNodeImplementationBoundary).map(format)
+    ).toEqual([]);
+    expect(
+      edges.some(
+        (edge) =>
+          relative(edge.from) === 'src/core/dom/nodes.ts' &&
+          relative(edge.to).startsWith('src/core/dom/node-') &&
+          !edge.typeOnly
+      )
+    ).toBe(true);
+  });
+
+  it('should reject node implementation imports of coordinators while allowing context types and sibling implementations', () => {
+    const file = path.join(srcDir, 'core', 'dom', 'node-hydration.ts');
+    const source = ts.createSourceFile(
+      file,
+      `
+      import './nodes';
+      export * from './updates';
+      const root = import('./root');
+      import type { RenderContext } from './reconcile';
+      import './node-context';
+    `,
+      ts.ScriptTarget.Latest,
+      true
+    );
+    expect(
+      collectEdges(file, source)
+        .filter(violatesNodeImplementationBoundary)
+        .map(format)
+    ).toEqual([
+      'src/core/dom/node-hydration.ts -> src/core/dom/nodes.ts',
+      'src/core/dom/node-hydration.ts -> src/core/dom/updates.ts',
+      'src/core/dom/node-hydration.ts -> src/core/dom/root.ts',
+    ]);
+  });
+
   it('should keep SSR output infrastructure independent of traversal and route orchestration', () => {
     expect(edges.filter(violatesSSROutputBoundary).map(format)).toEqual([]);
     expect(

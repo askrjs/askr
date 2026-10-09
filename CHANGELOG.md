@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- Restore hydration render context when claiming SSR resource metadata throws,
+  so a failed claim leaves server nodes and the following hydration retry intact.
+
 ## 0.4.4 - 2026-10-08
 
 ### Breaking changes
