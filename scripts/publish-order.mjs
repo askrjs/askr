@@ -19,22 +19,47 @@ import { fileURLToPath } from 'node:url';
 const repositoryRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const root = resolve(process.argv[2] ?? dirname(repositoryRoot));
 
-const manifests = new Map();
+const candidates = new Map();
 for (const entry of readdirSync(root, { withFileTypes: true })) {
   if (!entry.isDirectory()) continue;
   const manifestPath = join(root, entry.name, 'package.json');
   if (!existsSync(manifestPath)) continue;
+  let manifest;
   try {
-    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-    if (manifest.name)
-      manifests.set(manifest.name, { dir: entry.name, manifest });
+    manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   } catch {
     // A checkout without a readable manifest is not part of the release set.
+    continue;
   }
+  if (
+    typeof manifest?.name !== 'string' ||
+    !manifest.name.startsWith('@askrjs/') ||
+    manifest.private === true
+  )
+    continue;
+
+  const checkouts = candidates.get(manifest.name) ?? [];
+  checkouts.push({ dir: entry.name, manifest });
+  candidates.set(manifest.name, checkouts);
+}
+
+const manifests = new Map();
+for (const [name, checkouts] of candidates) {
+  const canonicalDirectory =
+    name === '@askrjs/askr' ? 'askr' : `askr-${name.slice('@askrjs/'.length)}`;
+  const canonical = checkouts.find(({ dir }) => dir === canonicalDirectory);
+  if (!canonical && checkouts.length > 1) {
+    console.error(
+      `Duplicate package ${name} in ${checkouts.map(({ dir }) => dir).join(' and ')}; ` +
+        'use the canonical checkout or a root with one checkout per package.'
+    );
+    process.exit(1);
+  }
+  manifests.set(name, canonical ?? checkouts[0]);
 }
 
 if (manifests.size === 0) {
-  console.error(`No package manifests found under ${root}`);
+  console.error(`No publishable @askrjs package manifests found under ${root}`);
   process.exit(1);
 }
 

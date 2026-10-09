@@ -120,6 +120,7 @@ Guides live in [guides](./guides/), and benchmark workflow in
 | [Repo structure](./development/repo-structure.md)                                 | Repository layout                                                 |
 | [Contributing](../CONTRIBUTING.md)                                                | Setup, build, test, lint                                          |
 | [Release](./development/release.md)                                               | Versioning and publish process                                    |
+| [0.5.0 readiness review](./development/0.5.0-readiness.md)                        | Current issue scope, package gates, and qualification sequence    |
 | [0.4.0 core rewrite migration map](./development/0.4.0-core-rewrite-readiness.md) | Historical cross-package migration snapshot                       |
 | [Quality contracts](./development/quality-contracts.md)                           | Runtime invariants and test gates                                 |
 | [Compatibility boundary](./development/compatibility-boundary.md)                 | Published contracts and consumer validation                       |
