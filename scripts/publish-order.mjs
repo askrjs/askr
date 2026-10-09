@@ -24,17 +24,40 @@ for (const entry of readdirSync(root, { withFileTypes: true })) {
   if (!entry.isDirectory()) continue;
   const manifestPath = join(root, entry.name, 'package.json');
   if (!existsSync(manifestPath)) continue;
+  let manifest;
   try {
-    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-    if (manifest.name)
-      manifests.set(manifest.name, { dir: entry.name, manifest });
+    manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   } catch {
     // A checkout without a readable manifest is not part of the release set.
+    continue;
   }
+  if (
+    typeof manifest?.name !== 'string' ||
+    !manifest.name.startsWith('@askrjs/') ||
+    manifest.private === true
+  )
+    continue;
+
+  const previous = manifests.get(manifest.name);
+  if (previous) {
+    const canonicalDirectory =
+      manifest.name === '@askrjs/askr'
+        ? 'askr'
+        : `askr-${manifest.name.slice('@askrjs/'.length)}`;
+    if (previous.dir === canonicalDirectory) continue;
+    if (entry.name !== canonicalDirectory) {
+      console.error(
+        `Duplicate package ${manifest.name} in ${previous.dir} and ${entry.name}; ` +
+          'use the canonical checkout or a root with one checkout per package.'
+      );
+      process.exit(1);
+    }
+  }
+  manifests.set(manifest.name, { dir: entry.name, manifest });
 }
 
 if (manifests.size === 0) {
-  console.error(`No package manifests found under ${root}`);
+  console.error(`No publishable @askrjs package manifests found under ${root}`);
   process.exit(1);
 }
 
