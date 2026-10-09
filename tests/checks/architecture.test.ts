@@ -171,6 +171,21 @@ function violatesPublicationBoundary(edge: Edge): boolean {
   );
 }
 
+function violatesSSROutputBoundary(edge: Edge): boolean {
+  const target = relative(edge.to);
+  return (
+    relative(edge.from).startsWith('src/ssr/output-') &&
+    !edge.typeOnly &&
+    !target.startsWith('src/ssr/output-') &&
+    ![
+      'src/ssr/attrs.ts',
+      'src/ssr/escape.ts',
+      'src/ssr/sink.ts',
+      'src/common/portal.ts',
+    ].includes(target)
+  );
+}
+
 function findCycles(): string[] {
   const graph = new Map<string, Set<string>>();
   for (const edge of edges.filter((edge) => !edge.typeOnly)) {
@@ -242,6 +257,44 @@ function findModuleCycles(): string[][] {
 }
 
 describe('architecture boundaries', () => {
+  it('should keep SSR output infrastructure independent of traversal and route orchestration', () => {
+    expect(edges.filter(violatesSSROutputBoundary).map(format)).toEqual([]);
+    expect(
+      edges.some(
+        (edge) =>
+          relative(edge.from) === 'src/ssr/render-sync.ts' &&
+          relative(edge.to).startsWith('src/ssr/output-') &&
+          !edge.typeOnly
+      )
+    ).toBe(true);
+  });
+
+  it('should reject SSR output rendering edges while allowing type-only context dependencies', () => {
+    const file = path.join(srcDir, 'ssr', 'output-portals.ts');
+    const source = ts.createSourceFile(
+      file,
+      `
+      import './render-sync';
+      export * from './route-render';
+      import '../boot/hydrate-spa';
+      import '../core/component/instance';
+      import type { RenderContext } from './context';
+      import '../common/portal';
+      import './sink';
+    `,
+      ts.ScriptTarget.Latest,
+      true
+    );
+    expect(
+      collectEdges(file, source).filter(violatesSSROutputBoundary).map(format)
+    ).toEqual([
+      'src/ssr/output-portals.ts -> src/ssr/render-sync.ts',
+      'src/ssr/output-portals.ts -> src/ssr/route-render.ts',
+      'src/ssr/output-portals.ts -> src/boot/hydrate-spa.ts',
+      'src/ssr/output-portals.ts -> src/core/component/instance.ts',
+    ]);
+  });
+
   it('should keep SSG publication infrastructure independent of route rendering', () => {
     expect(edges.filter(violatesPublicationBoundary).map(format)).toEqual([]);
   });

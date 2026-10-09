@@ -18,11 +18,7 @@ import { getCurrentRenderData } from '../common/render-context';
 import type { AuthContext } from '@askrjs/auth';
 import { DEFERRED_BOUNDARY } from '../common/deferred-value';
 import type { JSXElement } from '../common/jsx';
-import {
-  comparePortalWriterOrder,
-  createSSRPortalAnchorToken,
-  SSR_PORTAL_HOST,
-} from '../common/portal';
+import { createSSRPortalAnchorToken, SSR_PORTAL_HOST } from '../common/portal';
 import { isPromiseLike } from '../common/promise';
 import type { Props } from '../common/props';
 import type { ComponentFunction } from '../common/component';
@@ -45,9 +41,7 @@ import { DefaultPortal, Portal } from '../core/api/portal';
 import { CspNonceScope, validateCspNonce } from '../csp-nonce';
 import { ELEMENT_TYPE, Fragment } from '../jsx';
 import {
-  readReferenceAttributeCell,
   renderAttrsDirect,
-  renderReferenceAttributeCell,
   resolveReactiveAttributeProps,
   type ReferenceAttributeCell,
 } from './attrs';
@@ -75,112 +69,16 @@ import {
 import { startRenderPhase, stopRenderPhase } from './render-keys';
 import type { RouteAppRenderInput } from './route-render';
 import { StringSink } from './sink';
+import { BufferedSink, PortalSink, type SinkTarget } from './output-buffer';
+import { ReferenceAttributes } from './output-reference';
+import { capturePortalWrites, resolvePortals } from './output-portals';
 import type { VNode } from './types';
-
-/** The streaming target: `write` plus optional portal host tokens. */
-type SinkTarget = {
-  write(html: string): void;
-  writePortalHost?: (token: string) => void;
-  writeReferenceAttribute?: (
-    name: string,
-    cell: ReferenceAttributeCell
-  ) => void;
-  beginAttributeRoot?: () => void;
-};
 
 // Private sibling-package bridge for ancestor attributes derived from rendered
 // descendants. Ordinary hosts keep their existing attribute-first ordering.
 const CHILDREN_BEFORE_ATTRS = Symbol.for('askr.ssr.children-before-attrs');
 const ATTRIBUTE_ROOT = Symbol.for('askr.ssr.attribute-root');
 const ATTRIBUTE_CELLS = Symbol.for('askr.ssr.attribute-cells');
-
-/**
- * Collects writes so they can be published or dropped. An ErrorBoundary's
- * subtree renders into one first, so markup from a subtree that then throws
- * never reaches the response.
- */
-class BufferedSink {
-  private readonly operations: Array<
-    | { kind: 'text' | 'portal'; text: string }
-    | { kind: 'reference'; name: string; cell: ReferenceAttributeCell }
-    | { kind: 'root' }
-  > = [];
-
-  write(html: string): void {
-    if (html) this.operations.push({ kind: 'text', text: html });
-  }
-
-  writePortalHost(token: string): void {
-    this.operations.push({ kind: 'portal', text: token });
-  }
-
-  writeReferenceAttribute(name: string, cell: ReferenceAttributeCell): void {
-    this.operations.push({ kind: 'reference', name, cell });
-  }
-
-  beginAttributeRoot(): void {
-    this.operations.push({ kind: 'root' });
-  }
-
-  /** The buffered markup, without portal host tokens. */
-  html(): string {
-    let html = '';
-    for (const operation of this.operations) {
-      if (operation.kind === 'text') html += operation.text;
-    }
-    return html;
-  }
-
-  publishTo(sink: SinkTarget): void {
-    for (const operation of this.operations) {
-      if (operation.kind === 'root') {
-        sink.beginAttributeRoot?.();
-      } else if (operation.kind === 'reference') {
-        if (sink.writeReferenceAttribute) {
-          sink.writeReferenceAttribute(operation.name, operation.cell);
-        } else {
-          sink.write(referenceAttributeToken(operation.name, operation.cell));
-        }
-      } else if (operation.kind === 'portal' && sink.writePortalHost) {
-        sink.writePortalHost(operation.text);
-      } else {
-        sink.write(operation.text);
-      }
-    }
-  }
-}
-
-/** Buffers output once a portal host appears so tokens can be resolved. */
-class PortalSink {
-  private buffered: string[] | null = null;
-
-  constructor(private readonly sink: { write(html: string): void }) {}
-
-  write(html: string): void {
-    if (!html) return;
-    if (this.buffered) this.buffered.push(html);
-    else this.sink.write(html);
-  }
-
-  writePortalHost(token: string): void {
-    (this.buffered ??= []).push(token);
-  }
-
-  beginAttributeRoot(): void {
-    this.buffered ??= [];
-  }
-
-  writeReferenceAttribute(name: string, cell: ReferenceAttributeCell): void {
-    (this.buffered ??= []).push(referenceAttributeToken(name, cell));
-  }
-
-  flush(ctx: RenderContext): void {
-    if (this.buffered)
-      this.sink.write(
-        resolveReferenceAttributes(resolvePortals(this.buffered.join(''), ctx))
-      );
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Render state (SSR is synchronous: one cursor per nested render)
@@ -192,12 +90,7 @@ interface ServerRender {
   portalNamespaces: Map<string, SSRNamespace>;
   selectSelections: SelectSelection[];
   attributeRoots: WeakSet<Owner>;
-  referenceAttributes: Map<
-    string,
-    { name: string; cell: ReferenceAttributeCell }
-  >;
-  referenceAttributeNonce: string | null;
-  nextReferenceAttribute: number;
+  referenceAttributes: ReferenceAttributes;
 }
 
 interface SelectSelection {
@@ -294,7 +187,7 @@ function renderComponent(
   const destination = sink;
   const attributeRoot =
     (props as Record<PropertyKey, unknown>)[ATTRIBUTE_ROOT] === true
-      ? new BufferedSink()
+      ? new BufferedSink(state().referenceAttributes)
       : null;
   if (attributeRoot) {
     attributeRoot.beginAttributeRoot();
@@ -340,7 +233,7 @@ function renderComponent(
 
     // An error boundary: render the protected subtree into a buffer and drop
     // it (and any portal content it wrote) if it throws.
-    const buffer = new BufferedSink();
+    const buffer = new BufferedSink(state().referenceAttributes);
     const restorePortals = capturePortalWrites(render.ctx);
     try {
       withOwner(instance, () => renderValue(componentOutput(output), buffer));
@@ -405,33 +298,6 @@ function selfComponentChild(
   return children.length === 1 && children[0].kind === COMPONENT
     ? children[0]
     : null;
-}
-
-function capturePortalWrites(ctx: RenderContext): () => void {
-  const saved = new Map<
-    object,
-    Map<unknown, import('../common/render-context').SSRPortalWrite>
-  >();
-  for (const [key, slot] of ctx.ssrPortals.slots) {
-    saved.set(key, new Map(slot.writers));
-  }
-  return () => {
-    for (const [key, slot] of ctx.ssrPortals.slots) {
-      slot.writers = new Map(saved.get(key) ?? []);
-      const ordered = [...slot.writers.values()].sort((left, right) =>
-        comparePortalWriterOrder(
-          left.owner as Owner | null,
-          right.owner as Owner | null,
-          left.order,
-          right.order
-        )
-      );
-      const latest = ordered[ordered.length - 1];
-      slot.hasValue = latest !== undefined;
-      slot.value = latest?.value;
-      slot.owner = latest?.owner;
-    }
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -580,7 +446,7 @@ function renderElement(tag: string, props: Props, sink: SinkTarget): void {
     // An omitted value attribute (`null`, `undefined`, `false`) falls back to
     // the option's text, as it does in the browser.
     if (own === undefined || own === null || own === false) {
-      const buffer = new BufferedSink();
+      const buffer = new BufferedSink(state().referenceAttributes);
       const props = elementProps;
       withNamespace(
         getChildNamespace(parentNamespace, namespace, lower, props),
@@ -748,7 +614,7 @@ function writeBufferedElement(
 ): void {
   // Attribute getters can throw as well. Publish no host prefix until every
   // late attribute has resolved successfully.
-  const opening = new BufferedSink();
+  const opening = new BufferedSink(state().referenceAttributes);
   opening.write('<' + tag);
   renderHostAttrs(props, opening, rawText === null ? tag : undefined);
   opening.write('>');
@@ -765,7 +631,7 @@ function writeElement(
   childrenBeforeAttrs: boolean
 ): void {
   if (childrenBeforeAttrs) {
-    const children = new BufferedSink();
+    const children = new BufferedSink(state().referenceAttributes);
     writeContent(props, rawText, children);
     writeBufferedElement(tag, props, rawText, sink, children);
     return;
@@ -905,39 +771,12 @@ function renderHostAttrs(props: Props, sink: SinkTarget, tag?: string) {
       writeReferenceAttribute: (name, cell) => {
         if (sink.writeReferenceAttribute)
           sink.writeReferenceAttribute(name, cell);
-        else sink.write(referenceAttributeToken(name, cell));
+        else sink.write(state().referenceAttributes.token(name, cell));
       },
     },
     tag,
     cells
   );
-}
-
-function referenceAttributeToken(name: string, cell: ReferenceAttributeCell) {
-  const render = state();
-  readReferenceAttributeCell(cell);
-  // Portal transport currently retains buffered operations as strings. A
-  // request-private nonce prevents caller HTML from impersonating an operation.
-  // Generate it lazily so ordinary renders retain their existing execution path.
-  if (render.referenceAttributeNonce === null) {
-    const nonce = globalThis.crypto.getRandomValues(new Uint32Array(4));
-    render.referenceAttributeNonce = Array.from(nonce, (part) =>
-      part.toString(16).padStart(8, '0')
-    ).join('');
-  }
-  const token = `<!--askr-attribute:${render.referenceAttributeNonce}:${render.nextReferenceAttribute++}-->`;
-  render.referenceAttributes.set(token, { name, cell });
-  return token;
-}
-
-function resolveReferenceAttributes(html: string) {
-  let resolved = html;
-  for (const [token, { name, cell }] of state().referenceAttributes) {
-    const sink = new StringSink();
-    renderReferenceAttributeCell(name, cell, sink);
-    resolved = resolved.replace(token, () => sink.toString());
-  }
-  return resolved;
 }
 
 function renderToString(value: unknown, namespace: SSRNamespace): string {
@@ -947,54 +786,19 @@ function renderToString(value: unknown, namespace: SSRNamespace): string {
   return sink.toString();
 }
 
-/** Replace portal host tokens with their portal's final content. */
-function resolvePortals(html: string, ctx: RenderContext): string {
-  let resolved = html;
-  const rendered = new Set<string>();
-  for (;;) {
-    let found = false;
-    for (const slot of ctx.ssrPortals.slots.values()) {
-      const explicit = slot.hosts.filter((host) => !host.automatic);
-      for (const host of slot.hosts) {
-        if (rendered.has(host.token)) continue;
-        found = true;
-        rendered.add(host.token);
-        const active = host.automatic ? explicit.length === 0 : true;
-        const content = active
-          ? [...slot.writers.values()]
-              .sort((left, right) =>
-                comparePortalWriterOrder(
-                  left.owner as Owner | null,
-                  right.owner as Owner | null,
-                  left.order,
-                  right.order
-                )
-              )
-              .map((write) =>
-                withOwner((write.owner as Owner | null) ?? state().owner, () =>
-                  renderToString(
-                    write.value,
-                    state().portalNamespaces.get(host.token) ?? 'html'
-                  )
-                )
-              )
-              .join('')
-          : '';
-        // An unused automatic host renders nothing; a used one whose content
-        // is empty keeps its token as the hydration anchor.
-        const hostContent =
-          host.automatic && (!active || !slot.hasValue)
-            ? ''
-            : host.automatic && content === ''
-              ? host.token
-              : host.defaultPortal && active && slot.hasValue
-                ? `<!--askr-range-start-->${content}<!--askr-range-end-->`
-                : content;
-        resolved = resolved.replace(host.token, () => hostContent);
-      }
-    }
-    if (!found) return resolved;
-  }
+/** Portal traversal stays with the renderer; output modules own finalization. */
+function finalizeOutput(html: string, ctx: RenderContext): string {
+  const render = state();
+  return render.referenceAttributes.resolve(
+    resolvePortals(html, ctx, (write, host) =>
+      withOwner((write.owner as Owner | null) ?? render.owner, () =>
+        renderToString(
+          write.value,
+          render.portalNamespaces.get(host.token) ?? 'html'
+        )
+      )
+    )
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -1010,9 +814,7 @@ function withServerRender<T>(ctx: RenderContext, fn: () => T): T {
     portalNamespaces: new Map(),
     selectSelections: [],
     attributeRoots: new WeakSet(),
-    referenceAttributes: new Map(),
-    referenceAttributeNonce: null,
-    nextReferenceAttribute: 0,
+    referenceAttributes: new ReferenceAttributes(),
   };
   let result: T;
   try {
@@ -1122,9 +924,7 @@ export function renderToStringSync(
           sink
         );
         sink.end();
-        const html = resolveReferenceAttributes(
-          resolvePortals(sink.toString(), ctx)
-        );
+        const html = finalizeOutput(sink.toString(), ctx);
         options?.onContext?.(ctx);
         return (
           html +
@@ -1147,7 +947,11 @@ export function renderSSRRouteAppToSink(input: RouteAppRenderInput): void {
     startRenderPhase(ctx.renderData);
     try {
       withServerRender(ctx, () => {
-        const appSink = new PortalSink(sink);
+        const appSink = new PortalSink(
+          sink,
+          state().referenceAttributes,
+          (html) => finalizeOutput(html, ctx)
+        );
         renderValue(
           rootElement(
             ((routeParams: Props) =>
@@ -1157,7 +961,7 @@ export function renderSSRRouteAppToSink(input: RouteAppRenderInput): void {
           ),
           appSink
         );
-        appSink.flush(ctx);
+        appSink.flush();
       });
       if (ctx.deferredBoundaries.length === 0) {
         sink.write(
