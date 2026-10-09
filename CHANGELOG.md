@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Additions
+
+- Add aggregate critical-runtime coverage with independent DOM, SSR, data and
+  router regression floors, CI source reports, and cleanup/hydration failure
+  and recovery probes.
+
 ### Fixes
 
 - Preserve newer navigation ownership when an abort listener starts or cancels

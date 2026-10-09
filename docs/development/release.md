@@ -78,6 +78,9 @@ The intended happy path is:
 ## Pre-release checklist
 
 - Full release gate passes: `npm run release:verify`
+- Critical runtime coverage passes: `npm run test:coverage` (also included in
+  the release gate). See [runtime coverage and hardening](./runtime-coverage.md)
+  for measured directory floors, supported environments and source reports.
 - Tarball inspection passes: `npm pack --dry-run --json` contains no `.map`
   files and includes JavaScript plus declaration artifacts for every export.
 - CHANGELOG updated when the release needs notes
