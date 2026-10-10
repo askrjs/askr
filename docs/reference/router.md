@@ -433,11 +433,11 @@ use the same helpers:
 
 ## Route testing helpers
 
-`@askrjs/askr/testing` matches routes without mounting an app:
+Use these helpers without mounting an app:
 
-- `matchRoute(path, { registry })` returns the matched route and params, or
+- `matchRoute(path, { registry })` from `@askrjs/askr/router` returns the matched route and params, or
   `null`.
-- `getRouteWarnings({ registry })` reports named-splat routes whose segments
+- `getRouteWarnings({ registry })` from `@askrjs/askr/testing` reports named-splat routes whose segments
   collide with sibling static routes.
 
 ## `fallback(Component)`

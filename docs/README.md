@@ -121,6 +121,8 @@ Guides live in [guides](./guides/), and benchmark workflow in
 | [Contributing](../CONTRIBUTING.md)                                                | Setup, build, test, lint                                          |
 | [Release](./development/release.md)                                               | Versioning and publish process                                    |
 | [0.5.0 readiness review](./development/0.5.0-readiness.md)                        | Current issue scope, package gates, and qualification sequence    |
+| [0.5.0 Core API review](./development/0.5.0-public-api.md)                        | Every public name and export-key decision                         |
+| [0.5.0 Core migration](./migration/0.5.0.md)                                      | Removed names, canonical owners, and behavior differences         |
 | [0.4.0 core rewrite migration map](./development/0.4.0-core-rewrite-readiness.md) | Historical cross-package migration snapshot                       |
 | [Quality contracts](./development/quality-contracts.md)                           | Runtime invariants and test gates                                 |
 | [Compatibility boundary](./development/compatibility-boundary.md)                 | Published contracts and consumer validation                       |

@@ -248,7 +248,10 @@ rendered. Lazy components that have already loaded add no import step.
 
 The SSG pipeline walks `RouteManifest.records`. Records with `options.entries` are expanded:
 `entries()` returns one param map per page. Each map is interpolated into the path template
-(`/posts/{slug}` + `{ slug: 'hello' }` -> `/posts/hello`) to produce a concrete `RouteConfig`.
+(`/posts/{slug}` + `{ slug: 'hello' }` -> `/posts/hello`) to produce a concrete
+internal `RouteConfig` normalization record. Consumers author a `RouteRegistry`
+through `route()` and pass it to non-generic `SSGOptions`; the normalization
+record is not a public generator input or named export.
 
 ## Invariants
 

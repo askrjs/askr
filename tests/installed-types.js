@@ -172,14 +172,17 @@ try {
         encoding: 'utf8',
       }).trim()
     );
-    execFileSync(
-      process.execPath,
-      [compiler, '-p', join(consumerRoot, 'tsconfig.json')],
-      {
-        cwd: consumerRoot,
-        stdio: 'inherit',
-      }
-    );
+    for (const jsx of ['react-jsx', 'react-jsxdev']) {
+      console.log(`Typechecking packed consumer with ${jsx}`);
+      execFileSync(
+        process.execPath,
+        [compiler, '-p', join(consumerRoot, 'tsconfig.json'), '--jsx', jsx],
+        {
+          cwd: consumerRoot,
+          stdio: 'inherit',
+        }
+      );
+    }
   }
   writeFileSync(
     join(consumerRoot, 'vitest.config.ts'),

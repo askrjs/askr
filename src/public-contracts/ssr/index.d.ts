@@ -244,7 +244,6 @@ export {
   SSRAccessDecisionError,
   type SSRComponent,
   SSRDataMissingError,
-  type SSRRoute,
   type SSRStyleRegistration,
   type SSRStyleRegistrationValidation,
   type VNode,

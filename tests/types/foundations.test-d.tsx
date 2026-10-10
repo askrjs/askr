@@ -13,9 +13,6 @@ import {
   type SlotProps,
 } from '@askrjs/askr/foundations';
 import {
-  ariaDisabled,
-  ariaExpanded,
-  ariaSelected,
   composeHandlers,
   composeRefs,
   formatId,
@@ -23,12 +20,7 @@ import {
   type MergedProps,
   setRef,
   type ComposeHandlersOptions,
-  type DefaultPreventable,
-  type FocusLikeEvent,
   type FormatIdOptions,
-  type KeyboardLikeEvent,
-  type PointerLikeEvent,
-  type PropagationStoppable,
   type Ref,
 } from '@askrjs/askr/foundations/utilities';
 import {
@@ -53,21 +45,14 @@ import {
 } from '@askrjs/askr/foundations/interactions';
 import {
   controllableState,
-  isControlled,
-  makeControllable,
-  resolveControllable,
   type ControllableState,
 } from '@askrjs/askr/foundations/state';
 import {
   cloneElement,
   createCollection,
-  createLayer,
   isElement,
   type Collection,
   type CollectionItem,
-  type Layer,
-  type LayerManager,
-  type LayerOptions,
 } from '@askrjs/askr/foundations/structures';
 import {
   IconBase,
@@ -140,17 +125,6 @@ expectType<ReadonlyArray<CollectionItem<HTMLElement, { disabled: boolean }>>>(
   collection.items()
 );
 
-const layerManager = createLayer();
-expectType<LayerManager>(layerManager);
-const layerOptions: LayerOptions = {
-  node: document.body,
-  onEscape: () => {},
-};
-expectAssignable<LayerOptions>(layerOptions);
-const layer = layerManager.register(layerOptions);
-expectAssignable<Layer>(layer);
-layerManager.handleEscape();
-
 const composeHandlersOptions: ComposeHandlersOptions = {
   checkDefaultPrevented: false,
 };
@@ -162,33 +136,6 @@ const objectRef: Ref<HTMLElement> = { current: document.body };
 const unknownRef: Ref<unknown> = (_value) => {};
 const formatIdOptions: FormatIdOptions = { id: 'demo', prefix: 'scope' };
 expectAssignable<FormatIdOptions>(formatIdOptions);
-const defaultPreventable: DefaultPreventable = {
-  defaultPrevented: false,
-  preventDefault: () => {},
-};
-const focusLikeEvent: FocusLikeEvent = {
-  relatedTarget: document.body,
-  stopPropagation: () => {},
-};
-const keyboardLikeEvent: KeyboardLikeEvent = {
-  key: 'Enter',
-  preventDefault: () => {},
-  stopPropagation: () => {},
-};
-const pointerLikeEvent: PointerLikeEvent = {
-  target: document.body,
-  preventDefault: () => {},
-};
-const propagationStoppable: PropagationStoppable = {
-  stopPropagation: () => {},
-};
-
-expectAssignable<DefaultPreventable>(defaultPreventable);
-expectAssignable<FocusLikeEvent>(focusLikeEvent);
-expectAssignable<KeyboardLikeEvent>(keyboardLikeEvent);
-expectAssignable<PointerLikeEvent>(pointerLikeEvent);
-expectAssignable<PropagationStoppable>(propagationStoppable);
-
 expectType<(event: MouseEvent) => void>(
   composeHandlers(
     (event: MouseEvent) => {
@@ -208,9 +155,6 @@ expectType<(value: HTMLElement | null) => void>(
 );
 expectType<void>(setRef<HTMLElement>(objectRef, null));
 expectType<string>(formatId(formatIdOptions));
-expectType<{ 'aria-disabled'?: 'true' }>(ariaDisabled(true));
-expectType<{ 'aria-expanded'?: 'true' | 'false' }>(ariaExpanded(false));
-expectType<{ 'aria-selected'?: 'true' | 'false' }>(ariaSelected(true));
 expectError(formatId({ id: {} }));
 expectError(setRef<HTMLElement>(objectRef, 'element'));
 
@@ -261,16 +205,6 @@ hoverable(hoverableOptions);
 applyInteractionPolicy(interactionPolicyInput);
 mergeInteractionProps({}, {}, {});
 
-expectType<boolean>(isControlled<string>('value'));
-expectType<{ value: string; isControlled: boolean }>(
-  resolveControllable<string>(undefined, 'fallback')
-);
-const setControllable = makeControllable<string>({
-  value: undefined,
-  defaultValue: 'fallback',
-});
-expectType<void>(setControllable.set('next'));
-expectError(setControllable.set(42));
 const controllable = controllableState<string>({
   value: undefined,
   defaultValue: 'fallback',

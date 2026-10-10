@@ -4,8 +4,6 @@ import {
   type DocumentRenderArgs,
   type DocumentRenderContext,
   type DocumentRenderer,
-  type DiscoveredResources,
-  type RouteConfig,
   type RouteRenderReason,
   type RouteRenderResult,
   type RouteRenderStatus,
@@ -15,28 +13,18 @@ import {
   type SSGMode,
   type SSGOptions,
   type SSGResult,
-  type SSRStyleRegistrationValidation,
 } from '@askrjs/askr/ssg';
-import type { RouteHandler, RouteRegistry } from '@askrjs/askr/router';
+import { createRouteRegistry, route } from '@askrjs/askr/router';
+import type { RouteHandler, RouteOptions } from '@askrjs/askr/router';
+import type { SSRStyleRegistrationValidation } from '@askrjs/askr/ssr';
 
 const handler: RouteHandler = (params) => params.slug ?? 'home';
-declare const registry: RouteRegistry;
-
-const routeConfig: RouteConfig = {
-  path: '/posts/{slug}',
-  handler,
-  params: { slug: 'first-post' },
-  entries: async () => [{ slug: 'first-post' }],
-  invalidationKeys: ['posts'],
-};
-expectAssignable<RouteConfig>(routeConfig);
-
-const generatedRouteConfig: RouteConfig<'/posts/{slug}'> = {
-  path: '/posts/{slug}',
-  handler,
-  entries: async () => [{ slug: 'generated-post' }],
-};
-expectAssignable<RouteConfig<'/posts/{slug}'>>(generatedRouteConfig);
+const registry = createRouteRegistry(() => {
+  route('/posts/{slug}', handler, {
+    entries: async () => [{ slug: 'generated-post' }],
+    invalidationKeys: ['posts'],
+  });
+});
 
 const documentRenderer: DocumentRenderer = ({ appHtml, context }) => {
   expectType<string>(appHtml);
@@ -145,26 +133,10 @@ const metadata: SSGMetadata = {
 };
 expectAssignable<SSGMetadata>(metadata);
 
-const discoveredResources: DiscoveredResources = {
-  posts: {
-    count: 1,
-    dependencies: ['slug'],
-  },
-};
-expectAssignable<DiscoveredResources>(discoveredResources);
-
-void ({
-  path: '/posts/{slug}',
-  handler,
-  // @ts-expect-error params key must match route path placeholders
-  params: { id: 'wrong-key' },
-} satisfies RouteConfig<'/posts/{slug}'>);
-
-void ({
-  path: '/posts/{slug}',
-  handler,
-  // @ts-expect-error entries key must match route path placeholders
+const invalidPostOptions: RouteOptions<{ slug: string }> = {
+  // @ts-expect-error entries keys must match the declared route placeholders
   entries: async () => [{ id: 'wrong-key' }],
-} satisfies RouteConfig<'/posts/{slug}'>);
+};
+void invalidPostOptions;
 
 expectError(createStaticGen({ routes: [], outputDir: './dist' }));
