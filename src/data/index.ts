@@ -20,7 +20,11 @@ export type {
   ServerQueryHandler,
 } from './types';
 
-export { createDataRuntime, getDefaultDataRuntime } from './data-runtime';
+export {
+  createDataRuntime,
+  disposeDataRuntime,
+  getDefaultDataRuntime,
+} from './data-runtime';
 export {
   invalidate,
   invalidateOnInterval,

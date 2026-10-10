@@ -415,6 +415,9 @@
       "dehydrateDataRuntime": [
         "declare function dehydrateDataRuntime(runtime: DataRuntime): Record<string, unknown>;"
       ],
+      "disposeDataRuntime": [
+        "declare function disposeDataRuntime(runtime: DataRuntime): void;"
+      ],
       "getDefaultDataRuntime": [
         "declare function getDefaultDataRuntime(): DataRuntime;"
       ],
@@ -1261,6 +1264,9 @@
     ],
     "DispatchEventInit": [
       "type DispatchEventInit = EventInit | UIEventInit | FocusEventInit | MouseEventInit | WheelEventInit | KeyboardEventInit | InputEventInit | CompositionEventInit | PointerEventInit | TouchEventInit | DragEventInit;"
+    ],
+    "disposeDataRuntime": [
+      "declare function disposeDataRuntime(runtime: DataRuntime): void;"
     ],
     "DocumentRenderArgs": [
       "interface DocumentRenderArgs {\n    appHtml: string;\n    context: DocumentRenderContext;\n}"

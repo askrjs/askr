@@ -80,6 +80,7 @@ export interface QueryCollection<
 export interface QueryPrefetchContext {
   readonly runtime: DataRuntime;
   readonly request?: Request;
+  /** Effective fetch signal; native runtimes compose caller cancellation and retirement. */
   readonly signal: AbortSignal;
   readonly mode: 'ssr' | 'spa';
   prefetch<TInput, TResult extends {}>(

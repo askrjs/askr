@@ -178,6 +178,7 @@
     "defineQuery",
     "defineServerQueries",
     "dehydrateDataRuntime",
+    "disposeDataRuntime",
     "getDefaultDataRuntime",
     "hydrateDataRuntime",
     "invalidate",

@@ -172,6 +172,7 @@ test('should expose the contracted @askrjs/askr/data runtime surface', async () 
   const surface = await import('@askrjs/askr/data');
   for (const name of [
     'createDataRuntime',
+    'disposeDataRuntime',
     'createMutation',
     'createQuery',
     'createQueryCollection',
