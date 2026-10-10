@@ -13,9 +13,10 @@ import { dirname, join, resolve } from 'node:path';
 
 const repositoryRoot = resolve(import.meta.dirname, '..');
 const optionalPeers = ['@askrjs/auth', '@askrjs/schema'];
-const peerRanges =
-  JSON.parse(readFileSync(join(repositoryRoot, 'package.json'), 'utf8'))
-    .peerDependencies ?? {};
+const manifest = JSON.parse(
+  readFileSync(join(repositoryRoot, 'package.json'), 'utf8')
+);
+const peerRanges = manifest.peerDependencies ?? {};
 // Windows runners expose TEMP through a DOS short path. Use the same canonical
 // path for npm, TypeScript, and Vite's jsdom module resolver.
 const consumerRoot = realpathSync.native(
@@ -90,7 +91,15 @@ try {
   // Install Askr without its optional type-only peers first: an app that never
   // uses route auth or schema-backed search/actions must install, typecheck,
   // and run without @askrjs/auth or @askrjs/schema.
-  install([tarball, 'vitest@4.1.10', 'jsdom@29.1.1', 'tsd@0.33.0']);
+  install([
+    tarball,
+    'vitest@4.1.10',
+    'jsdom@29.1.1',
+    'tsd@0.33.0',
+    ...['@testing-library/dom', '@testing-library/user-event'].map(
+      (name) => `${name}@${manifest.devDependencies[name]}`
+    ),
+  ]);
   // TypeScript and Node search every ancestor node_modules, so a peer
   // installed above the consumer would silently mask a missing one.
   for (const peer of optionalPeers) {
@@ -166,6 +175,23 @@ try {
     'node_modules/@typescript/typescript6/bin/tsc6',
     'node_modules/typescript/bin/tsc',
   ].map((entry) => resolve(repositoryRoot, entry));
+  writeFileSync(
+    join(consumerRoot, 'tsconfig-accessible-node-next.json'),
+    JSON.stringify({
+      compilerOptions: {
+        target: 'ES2022',
+        lib: ['ES2022', 'DOM'],
+        module: 'NodeNext',
+        moduleResolution: 'NodeNext',
+        jsxImportSource: '@askrjs/askr',
+        strict: true,
+        skipLibCheck: false,
+        noEmit: true,
+        types: [],
+      },
+      files: ['contracts/accessible-testing.tsx'],
+    })
+  );
   for (const compiler of compilers) {
     console.log(
       execFileSync(process.execPath, [compiler, '--version'], {
@@ -181,6 +207,18 @@ try {
           cwd: consumerRoot,
           stdio: 'inherit',
         }
+      );
+      console.log(`Typechecking accessible recipe with NodeNext and ${jsx}`);
+      execFileSync(
+        process.execPath,
+        [
+          compiler,
+          '-p',
+          join(consumerRoot, 'tsconfig-accessible-node-next.json'),
+          '--jsx',
+          jsx,
+        ],
+        { cwd: consumerRoot, stdio: 'inherit' }
       );
     }
   }
