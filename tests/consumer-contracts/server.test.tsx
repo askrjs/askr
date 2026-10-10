@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { expect, test } from 'vitest';
+import { expect, test } from 'vite-plus/test';
 import { state } from '@askrjs/askr';
 import { watch } from '@askrjs/askr/resources';
 import {

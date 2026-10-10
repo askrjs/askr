@@ -6,7 +6,7 @@ tables, and other styled compositions remain package-owned recipes.
 
 ## Prerequisites and version contract
 
-The examples are verified against `@askrjs/askr@0.4.4`. Use one locked
+The examples are verified against `@askrjs/askr@0.5.0`. Use one locked
 `@askrjs/askr` version for the root entry point and every subpath; do not resolve
 subpaths independently.
 
@@ -339,7 +339,7 @@ router context. Dispatch bubbling events, flush scheduled updates, and clean up
 every owned result.
 
 ```tsx
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, expect, test } from 'vite-plus/test';
 import { dispatch, render, type RenderResult } from '@askrjs/askr/testing';
 
 let view: RenderResult | undefined;

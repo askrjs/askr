@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { expect, test } from 'vite-plus/test';
 
 // Exercise the installed JavaScript independently of its handwritten types.
 test('should expose the contracted @askrjs/askr runtime surface', async () => {

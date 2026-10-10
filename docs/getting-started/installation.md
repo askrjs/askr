@@ -44,7 +44,7 @@ Use Askr's JSX runtime in `tsconfig.json`:
 If you use Vite, add the Askr plugin:
 
 ```ts
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vite-plus';
 import { askr } from '@askrjs/vite';
 
 export default defineConfig({

@@ -10,6 +10,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const repositoryRoot = resolve(import.meta.dirname, '..');
 const optionalPeers = ['@askrjs/auth', '@askrjs/schema'];
@@ -78,14 +79,7 @@ try {
   );
   const install = (packages) =>
     runNpm(
-      [
-        'install',
-        '--ignore-scripts',
-        '--no-package-lock',
-        '--no-audit',
-        '--no-fund',
-        ...packages,
-      ],
+      ['install', '--no-package-lock', '--no-audit', '--no-fund', ...packages],
       { cwd: consumerRoot, stdio: 'pipe' }
     );
   // Install Askr without its optional type-only peers first: an app that never
@@ -93,7 +87,8 @@ try {
   // and run without @askrjs/auth or @askrjs/schema.
   install([
     tarball,
-    'vitest@4.1.10',
+    // This consumer retains the Vitest 4 cohort; the producer uses Vite+ 1.0.
+    'vite-plus@0.3.3',
     'jsdom@29.1.1',
     'tsd@0.33.0',
     ...['@testing-library/dom', '@testing-library/user-event'].map(
@@ -223,19 +218,29 @@ try {
     }
   }
   writeFileSync(
-    join(consumerRoot, 'vitest.config.ts'),
+    join(consumerRoot, 'vite.config.ts'),
     [
-      'import { defineConfig } from "vitest/config";',
+      'import { defineConfig } from "vite-plus";',
       'export default defineConfig({',
       '  oxc: { jsx: { runtime: "automatic", importSource: "@askrjs/askr" } },',
       '  test: { environment: "jsdom" },',
       '});',
     ].join('\n')
   );
+  // The installed config must also load in native Node, outside the test runner.
+  execFileSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      `const { default: config } = await import(${JSON.stringify(pathToFileURL(join(consumerRoot, 'vite.config.ts')).href)}); if (config.test?.environment !== 'jsdom') throw new Error('Installed Vite+ config did not load');`,
+    ],
+    { cwd: consumerRoot, stdio: 'inherit' }
+  );
   writeFileSync(
     join(consumerRoot, 'harness.test.tsx'),
     [
-      'import { expect, test } from "vitest";',
+      'import { expect, test } from "vite-plus/test";',
       'import { state } from "@askrjs/askr";',
       'import { dispatch, render } from "@askrjs/askr/testing";',
       'import { route } from "@askrjs/askr/router";',
@@ -263,7 +268,7 @@ try {
       '});',
     ].join('\n')
   );
-  runNpm(['exec', '--', 'vitest', 'run', '-c', 'vitest.config.ts'], {
+  runNpm(['exec', '--', 'vp', 'test', 'run', '-c', 'vite.config.ts'], {
     cwd: consumerRoot,
     stdio: 'inherit',
   });

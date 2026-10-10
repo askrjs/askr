@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.5.0 - 2026-10-10
+
+### Changed
+
+- Refresh the locked jsdom development dependency to 30.1.2 with its matching
+  dependency resolutions. Preserve the existing manifest range, runtime
+  dependencies and Vite+/Vitest toolchain.
+
 - Document the application-owned stable ID pattern for label and description associations, with installed SSR/hydration, keyed reordering, independent roots and native browser qualification.
 - Document and execute an optional DOM Testing Library/user-event recipe for
   native component and router harnesses, with scoped accessible queries, input
@@ -78,6 +86,15 @@
 
 - Restore hydration render context when claiming SSR resource metadata throws,
   so a failed claim leaves server nodes and the following hydration retry intact.
+
+### Deprecations
+
+- None.
+
+### Development
+
+- First-party development workflows use Vite+; specialized compiler, runtime,
+  browser, and package checks remain part of validation.
 
 ## 0.4.4 - 2026-10-08
 
