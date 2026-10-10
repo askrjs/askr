@@ -32,5 +32,6 @@ export { RenderDepthError } from './common/render-depth';
 
 // Public types
 export type { Props } from './common/props';
+export type { RenderableChild } from './common/vnode';
 export { createRef } from './ref';
 export type { Ref } from './ref';

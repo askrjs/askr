@@ -43,6 +43,9 @@ Public types:
 - `Derived`
 - `Selector`
 - `Scope`
+- `RenderableChild` is the value-child contract for component presentation props
+  and layout slots. See [presentation children](../core/rendering.md#presentation-children)
+  for accepted values and the distinction from child factories.
 - `Props`
   The shared runtime props bag stays intentionally generic. Intrinsic JSX elements layer
   common DOM-style contracts such as `class`, `style`, `ref`, and high-use event handlers on top

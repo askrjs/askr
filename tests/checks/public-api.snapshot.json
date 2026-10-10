@@ -7,6 +7,7 @@
     "Ref",
     "RenderDepthError",
     "RenderDiagnosticsOptions",
+    "RenderableChild",
     "Scope",
     "Selector",
     "State",

@@ -22,6 +22,12 @@
 
 ### Additions
 
+- Export the existing `RenderableChild` type from `@askrjs/askr` for component
+  presentation props and layout slots, including nested readonly arrays.
+  This adds one type to the contracted surface for 343 named/entrypoint pairs.
+  Value children exclude factories; `Scope` retains its explicit factory-child
+  contract. See `docs/core/rendering.md#presentation-children`.
+
 - Add aggregate critical-runtime coverage with independent DOM, SSR, data and
   router regression floors, CI source reports, and cleanup/hydration failure
   and recovery probes.
