@@ -126,8 +126,10 @@ function buildRenderResult(
   request: Request | undefined,
   telemetry: CoreTelemetry | undefined,
   load: boolean,
-  dataRuntime: DataRuntime | undefined
+  dataRuntime: DataRuntime | undefined,
+  assertCurrent?: () => void
 ): RouteRequestResult | Promise<RouteRequestResult> {
+  assertCurrent?.();
   const lazyImport = _preloadRouteRecord(record);
   if (lazyImport) {
     return lazyImport.then(() =>
@@ -138,7 +140,8 @@ function buildRenderResult(
         request,
         telemetry,
         load,
-        dataRuntime
+        dataRuntime,
+        assertCurrent
       )
     );
   }
@@ -149,7 +152,8 @@ function buildRenderResult(
     request,
     telemetry,
     load,
-    dataRuntime
+    dataRuntime,
+    assertCurrent
   );
 }
 
@@ -160,8 +164,10 @@ function buildLoadedRenderResult(
   request: Request | undefined,
   telemetry: CoreTelemetry | undefined,
   load: boolean,
-  dataRuntime: DataRuntime | undefined
+  dataRuntime: DataRuntime | undefined,
+  assertCurrent?: () => void
 ): RouteRequestResult | Promise<RouteRequestResult> {
+  assertCurrent?.();
   const renderHandler = getRenderHandler(record);
   const loader =
     context.mode !== 'ssg' && load ? record.options?.loader : undefined;
@@ -182,10 +188,12 @@ function buildLoadedRenderResult(
       ).then(() => undefined)
     : undefined;
   if (loader) {
-    const load = () =>
-      withTelemetry(telemetry?.loader, { route: record.path }, () =>
+    const load = () => {
+      assertCurrent?.();
+      return withTelemetry(telemetry?.loader, { route: record.path }, () =>
         loader({ ...context, params, request })
       );
+    };
     const loaded = runPreload ? runPreload.then(load) : load();
     const finalize = (data: unknown): RouteRenderResult => {
       const hydration =
@@ -227,9 +235,11 @@ function runPolicies(
   telemetry: CoreTelemetry | undefined,
   load: boolean,
   dataRuntime: DataRuntime | undefined,
+  assertCurrent: (() => void) | undefined,
   start = 0
 ): RouteRequestResult | Promise<RouteRequestResult> {
   for (let index = start; index < policies.length; index += 1) {
+    assertCurrent?.();
     const result = policies[index](context);
     if (isPromiseLike(result)) {
       return Promise.resolve(result).then((decision) =>
@@ -243,6 +253,7 @@ function runPolicies(
               telemetry,
               load,
               dataRuntime,
+              assertCurrent,
               index + 1
             )
           : checkAccessDecision(decision)
@@ -257,7 +268,8 @@ function runPolicies(
     request,
     telemetry,
     load,
-    dataRuntime
+    dataRuntime,
+    assertCurrent
   );
 }
 
@@ -321,9 +333,11 @@ function resolveMatchedRoute(
   request: Request | undefined,
   telemetry: CoreTelemetry | undefined,
   load: boolean,
-  dataRuntime: DataRuntime | undefined
+  dataRuntime: DataRuntime | undefined,
+  assertCurrent?: () => void
 ): RouteRequestResult | Promise<RouteRequestResult> {
   const continueResolution = (decision?: AuthDecision) => {
+    assertCurrent?.();
     if (decision) {
       const access = mapAuthDecision(decision, context, authOptions);
       if (isPromiseLike(access)) {
@@ -337,7 +351,8 @@ function resolveMatchedRoute(
                 request,
                 telemetry,
                 load,
-                dataRuntime
+                dataRuntime,
+                assertCurrent
               )
             : next
         );
@@ -352,7 +367,8 @@ function resolveMatchedRoute(
       request,
       telemetry,
       load,
-      dataRuntime
+      dataRuntime,
+      assertCurrent
     );
   };
   if (!record.options.auth) return continueResolution();
@@ -376,6 +392,23 @@ export function resolveRouteRequest(
   target: string,
   options: RouteRequestOptions
 ): RouteRequestResult | Promise<RouteRequestResult> {
+  return resolveRouteRequestInternal(target, options);
+}
+
+/** @internal Navigation retains the exact app owner through deferred resolution. */
+export function resolveOwnedRouteRequest(
+  target: string,
+  options: RouteRequestOptions,
+  assertCurrent: () => void
+): RouteRequestResult | Promise<RouteRequestResult> {
+  return resolveRouteRequestInternal(target, options, assertCurrent);
+}
+
+function resolveRouteRequestInternal(
+  target: string,
+  options: RouteRequestOptions,
+  assertCurrent?: () => void
+): RouteRequestResult | Promise<RouteRequestResult> {
   if (!options?.registry) {
     throw new TypeError('resolveRouteRequest requires options.registry.');
   }
@@ -386,6 +419,7 @@ export function resolveRouteRequest(
     const records = options.registry.manifest.records;
     const match = getMatchingRouteRecord(logicalTarget, records);
     if (!match) return null;
+    assertCurrent?.();
     const mode = options.mode ?? getDefaultRouteMode();
     const signal =
       options.signal ?? getActiveRenderContext()?.signal ?? NEVER_ABORTED;
@@ -401,6 +435,7 @@ export function resolveRouteRequest(
         ? exposeRedirectDecision(result, basePath)
         : result;
     const finalize = (authContext: AuthContext) => {
+      assertCurrent?.();
       if (!signal.aborted) setCurrentAuth(authContext, mode);
       const result = resolveMatchedRoute(
         match.record,
@@ -414,7 +449,8 @@ export function resolveRouteRequest(
         options.request,
         options.telemetry,
         options.load !== false,
-        options.dataRuntime
+        options.dataRuntime,
+        assertCurrent
       );
       if (!basePath) return result;
       return isPromiseLike(result)

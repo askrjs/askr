@@ -1,6 +1,7 @@
 import { getActiveRenderContext } from '../common/render-context';
 import {
   claimHookIndex,
+  onRenderDiscard,
   currentComponent as getCurrentComponentInstance,
 } from '../core/api/hooks';
 import {
@@ -460,11 +461,8 @@ export function createQueryCollection<
     );
   }
 
-  if (slot && slot.runtimeState !== runtimeState) {
-    slot.collection.dispose();
-    store.delete(hookIndex);
-    slot = undefined;
-  }
+  const previousSlot = slot;
+  if (slot?.runtimeState !== runtimeState) slot = undefined;
 
   if (!slot) {
     const collection = new QueryCollectionCell(runtimeState);
@@ -477,6 +475,16 @@ export function createQueryCollection<
       >,
     };
     store.set(hookIndex, slot);
+    const createdSlot = slot;
+    onRenderDiscard(() => {
+      collection.dispose();
+      if (store.get(hookIndex) !== createdSlot) return;
+      if (previousSlot) store.set(hookIndex, previousSlot);
+      else store.delete(hookIndex);
+    });
+    if (previousSlot) {
+      instance.onCommitSync(() => previousSlot.collection.dispose());
+    }
     instance.onCleanup(() => {
       const current = store.get(hookIndex);
       try {

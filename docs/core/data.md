@@ -196,6 +196,58 @@ The process-wide `getDefaultDataRuntime()` singleton cannot be disposed: create 
 isolated runtime when explicit retirement is required. Structural, hand-built
 runtime containers are also rejected by this operation.
 
+#### Replacing an application's data owner
+
+Use `replaceDataRuntime(root, next)` from `@askrjs/askr/boot` when a mounted
+`createSPA`, `hydrateSPA`, or island changes identity. The root is the container
+element or its element ID (with an optional leading `#`), as with `cleanupApp`.
+The replacement must be a live runtime returned by `createDataRuntime()`.
+
+```ts
+import { replaceDataRuntime } from '@askrjs/askr/boot';
+import { createDataRuntime, disposeDataRuntime } from '@askrjs/askr/data';
+
+// previousRuntime is exclusively owned by this application.
+function changeIdentity(previousRuntime: ReturnType<typeof createDataRuntime>) {
+  const next = createDataRuntime();
+  replaceDataRuntime('app', next);
+  disposeDataRuntime(previousRuntime);
+  return next;
+}
+```
+
+Replacement synchronously renders the existing tree with its new data owner.
+Implicit query, mutation and collection hooks bind to it, as do subsequent
+navigation loaders and prefetch contexts. Current route data, registry, auth,
+framework/hydration resources, DOM identity and component state remain in place;
+local state is not an identity-data erasure mechanism. Pending navigation resolved
+under an earlier app owner cannot publish a route, redirect, metadata or history.
+After a deferred auth, policy or preload settles, an obsolete navigation cannot
+publish auth or start further policies, preloads or loaders.
+This remains true when switching A to B and back to A. Replacing an app with its
+current live runtime is a no-op. Other roots and server request runtimes remain
+independent; replacement never falls back to the shared default.
+
+Replacement does not dispose its previous runtime, which may have other owners.
+Retained query and mutation handles stay bound to that runtime. A component-owned
+collection detaches and clears its entries when its replacement commits; a failed
+render preserves the old collection. Dispose an exclusively owned old runtime in
+the same synchronous identity-change operation to clear its data and cancel its
+work using the terminal rules above. Explicit `runtime` options
+continue to use their explicitly supplied owner.
+
+Invalid roots, structural runtimes and disposed replacements fail before changing
+the app. A render or reversible DOM-write failure restores the previous app owner
+and DOM; neither runtime is disposed. Provisional initial-data reads or fetches may
+have touched the next runtime's cache; rollback does not restore a cache snapshot.
+Replacement does not yield while preparing
+or applying the transaction, so a pending old navigation that settles during a
+failed render can continue after rollback. Lifecycle failures after a successful
+commit are reported by throwing to the caller and leave the committed replacement
+in place, following the existing root commit contract. Call this operation from
+application/event code, rather than reentering it during component rendering or
+an active navigation commit.
+
 ### Queries
 
 ```ts

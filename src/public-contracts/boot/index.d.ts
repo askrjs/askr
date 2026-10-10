@@ -61,6 +61,11 @@ type HydrateSPAConfig = BootRouteSource & {
 declare function cleanupApp(root: Element | string): void;
 /** Check whether an app instance is currently mounted at `root`. */
 declare function hasApp(root: Element | string): boolean;
+/** Replace the data owner of a live app without remounting or disposing the previous runtime. */
+declare function replaceDataRuntime(
+  root: Element | string,
+  next: DataRuntime
+): void;
 /**
  * createIsland: Enhances existing DOM (no router, mounts once)
  */
@@ -95,4 +100,5 @@ export {
   createSPA,
   hasApp,
   hydrateSPA,
+  replaceDataRuntime,
 };

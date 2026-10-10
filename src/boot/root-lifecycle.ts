@@ -9,7 +9,10 @@
  */
 
 import { clarifyRenderOverflow } from '../common/render-depth';
-import type { AppRenderRuntime } from '../common/app-render-runtime';
+import {
+  createAppRenderRuntime,
+  type AppRenderRuntime,
+} from '../common/app-render-runtime';
 import type { AppRootHandle } from '../common/app-root';
 import type { ComponentFunction } from '../common/component';
 import { ELEMENT_TYPE, type JSXElement } from '../common/jsx';
@@ -22,6 +25,11 @@ import { createRoot, type Root } from '../core/dom/root';
 import { ROOT, type Parent } from '../core/dom/tree';
 import { flushSync } from '../core/reactive/scheduler';
 import { validateCspNonce } from '../csp-nonce';
+import {
+  assertDataRuntimeActive,
+  findDataRuntimeState,
+} from '../data/data-runtime';
+import type { DataRuntime } from '../data/types';
 import {
   initializeNavigation,
   registerAppInstance,
@@ -280,6 +288,43 @@ export function cleanupApp(root: Element | string): void {
   if (!rootElement) return;
   const app = appRoots.get(rootElement);
   if (app) disposeAppRoot(app);
+}
+
+/** Replace a mounted app's data owner without replacing its component lifetime. */
+export function replaceDataRuntime(
+  root: Element | string,
+  next: DataRuntime
+): void {
+  const rootElement = resolveRootElement(root);
+  const app = rootElement ? appRoots.get(rootElement) : undefined;
+  if (!app)
+    throw new Error('[Askr] replaceDataRuntime requires a mounted app root.');
+  const state = findDataRuntimeState(next);
+  if (!state)
+    throw new Error(
+      '[Askr] data runtime was not created by createDataRuntime().'
+    );
+  assertDataRuntimeActive(state);
+  const previous = app.appRuntime;
+  if (previous?.dataRuntime === next) return;
+  app.appRuntime = previous
+    ? { ...previous, dataRuntime: next }
+    : createAppRenderRuntime({ dataRuntime: next });
+  let prepared: ReturnType<Root['prepare']> | undefined;
+  try {
+    prepared = app.root.prepare(app.view());
+    prepared.apply();
+  } catch (error) {
+    app.appRuntime = previous;
+    throw error;
+  }
+  try {
+    prepared.publish();
+  } catch (error) {
+    if (prepared.aborted) app.appRuntime = previous;
+    throw error;
+  }
+  flushSync();
 }
 
 /** Check whether an app is currently mounted at `root`. */
