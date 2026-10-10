@@ -3,6 +3,11 @@
 ## Unreleased
 
 - Document the application-owned stable ID pattern for label and description associations, with installed SSR/hydration, keyed reordering, independent roots and native browser qualification.
+- Document and execute an optional DOM Testing Library/user-event recipe for
+  native component and router harnesses, with scoped accessible queries, input
+  and keyboard interactions, async retry, isolated runtime retirement and
+  cleanup; qualify browser defaults separately. The integrations are dev-only
+  and add no runtime dependency or public export (#755).
 
 ### Breaking changes
 
