@@ -4,11 +4,15 @@ import {
   cspNonce,
   defineScope,
   readScope,
+  type RenderableChild,
   type Scope,
 } from '@askrjs/askr';
 import type { JSXElement } from '@askrjs/askr/foundations';
 
 const ThemeScope = defineScope('light');
+expectAssignable<RenderableChild>(
+  Object.freeze(['text', 0, true, false, null, undefined, [<span />] as const])
+);
 expectType<Scope<string>>(ThemeScope);
 expectType<string>(readScope(ThemeScope));
 expectType<Scope<string | undefined>>(CspNonceScope);
@@ -44,6 +48,10 @@ expectError(
 
 expectError(
   <ColorScope value="dark">{() => document.createElement('div')}</ColorScope>
+);
+
+expectError(
+  ColorScope({ value: 'dark', children: (required: string) => required })
 );
 
 const NumberScope = defineScope(123);
