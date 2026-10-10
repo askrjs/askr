@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+### Breaking changes
+
+- Reduce the Core surface from 373 to 342 named/entrypoint pairs while keeping
+  all 22 export-map keys. Remove testing `mount`/`queryState` aliases; move
+  testing `matchRoute` to its router owner. Remove utilities `ariaDisabled`,
+  `ariaExpanded`, `ariaSelected`, `DefaultPreventable`, `FocusLikeEvent`,
+  `KeyboardLikeEvent`, `PointerLikeEvent`, and `PropagationStoppable`.
+- Retire stateless `isControlled`, `resolveControllable`, and `makeControllable`
+  exports and manual `createLayer`, `Layer`, `LayerOptions`, and `LayerManager`
+  exports. Remove router `ParsedSegment`, `PageScopeRecord`, and
+  `LayoutScopeRecord`; import `AuthContext`/`AuthRequirement` from `@askrjs/auth`.
+- Remove SSR `SSRRoute` and SSG `RouteConfig`/`DiscoveredResources`; make
+  registry-based `SSGOptions` non-generic. Import `SSRStyleRegistrationValidation`
+  from SSR. Import `jsxDEV` from `jsx-dev-runtime` and manual `JSXComponent`,
+  `JSXElement`, and `JSXElementType` from `jsx-runtime`.
+  See `docs/migration/0.5.0.md` for every replacement and behavior difference,
+  and `docs/development/0.5.0-public-api.md` for the complete API decisions.
+
 ### Additions
 
 - Add aggregate critical-runtime coverage with independent DOM, SSR, data and

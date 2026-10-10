@@ -7,12 +7,12 @@ import {
   vi,
 } from 'vite-plus/test';
 import { createIsland } from '@askrjs/askr/boot';
+import { controllableState } from '@askrjs/askr/foundations/state';
 import {
-  controllableState,
   isControlled,
   makeControllable,
   resolveControllable,
-} from '@askrjs/askr/foundations/state';
+} from '../../../src/foundations/state/controllable';
 import { state } from '../../../src/index';
 import {
   createTestContainer,

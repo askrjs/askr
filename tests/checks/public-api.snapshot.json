@@ -69,17 +69,9 @@
   ],
   "./foundations/utilities": [
     "ComposeHandlersOptions",
-    "DefaultPreventable",
-    "FocusLikeEvent",
     "FormatIdOptions",
-    "KeyboardLikeEvent",
     "MergedProps",
-    "PointerLikeEvent",
-    "PropagationStoppable",
     "Ref",
-    "ariaDisabled",
-    "ariaExpanded",
-    "ariaSelected",
     "composeHandlers",
     "composeRefs",
     "formatId",
@@ -106,21 +98,12 @@
     "pressable",
     "rovingFocus"
   ],
-  "./foundations/state": [
-    "ControllableState",
-    "controllableState",
-    "isControlled",
-    "makeControllable",
-    "resolveControllable"
-  ],
+  "./foundations/state": ["ControllableState", "controllableState"],
   "./foundations/structures": [
     "Collection",
     "CollectionItem",
     "DefaultPortal",
     "JSXElement",
-    "Layer",
-    "LayerManager",
-    "LayerOptions",
     "LayoutComponent",
     "Portal",
     "PortalProps",
@@ -130,7 +113,6 @@
     "SlotProps",
     "cloneElement",
     "createCollection",
-    "createLayer",
     "definePortal",
     "isElement",
     "layout"
@@ -225,11 +207,8 @@
     "dispatch",
     "flush",
     "getRouteWarnings",
-    "matchRoute",
     "mockQuery",
-    "mount",
     "mutationState",
-    "queryState",
     "render",
     "renderRoute",
     "submit",
@@ -257,13 +236,10 @@
     "AccessDecision",
     "AccessDenyDecision",
     "AccessRedirectDecision",
-    "AuthContext",
-    "AuthRequirement",
     "Deferred",
     "DeferredState",
     "GroupHelperOptions",
     "HistoryScrollBehavior",
-    "LayoutScopeRecord",
     "LazyRouteComponent",
     "LazyRouteDataLoader",
     "Link",
@@ -272,8 +248,6 @@
     "NavigationScrollBehavior",
     "Outlet",
     "PageHelperOptions",
-    "PageScopeRecord",
-    "ParsedSegment",
     "Resolve",
     "ResolveProps",
     "Route",
@@ -361,7 +335,6 @@
     "SSRAccessDecisionError",
     "SSRComponent",
     "SSRDataMissingError",
-    "SSRRoute",
     "SSRStyleRegistration",
     "SSRStyleRegistrationValidation",
     "VNode",
@@ -377,11 +350,9 @@
     "withRenderContextAsync"
   ],
   "./ssg": [
-    "DiscoveredResources",
     "DocumentRenderArgs",
     "DocumentRenderContext",
     "DocumentRenderer",
-    "RouteConfig",
     "RouteRenderReason",
     "RouteRenderResult",
     "RouteRenderStatus",
@@ -391,7 +362,6 @@
     "SSGMode",
     "SSGOptions",
     "SSGResult",
-    "SSRStyleRegistrationValidation",
     "createStaticGen"
   ],
   "./jsx-runtime": [
@@ -401,15 +371,7 @@
     "JSXElement",
     "JSXElementType",
     "jsx",
-    "jsxDEV",
     "jsxs"
   ],
-  "./jsx-dev-runtime": [
-    "Fragment",
-    "JSX",
-    "JSXComponent",
-    "JSXElement",
-    "JSXElementType",
-    "jsxDEV"
-  ]
+  "./jsx-dev-runtime": ["Fragment", "JSX", "jsxDEV"]
 }

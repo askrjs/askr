@@ -14,6 +14,3 @@ export type { PortalProps } from './portal';
 
 export { createCollection } from './collection';
 export type { Collection, CollectionItem } from './collection';
-
-export { createLayer } from './layer';
-export type { Layer, LayerManager, LayerOptions } from './layer';

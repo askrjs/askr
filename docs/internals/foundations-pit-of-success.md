@@ -317,34 +317,15 @@ const tabs = createCollection(); // Explicit, scoped, controlled
 
 ---
 
-## 6. createLayer - Stacking Coordination
+## 6. Overlay Coordination
 
-### OK CORRECT: Explicit layer management
-
-```typescript
-import { createLayer } from '@askrjs/askr/foundations/structures';
-
-const layerManager = createLayer();
-
-function Modal({ onClose }) {
-  const modalRef = ref<HTMLDivElement>();
-
-  const layer = layerManager.register({
-    node: modalRef.current,
-    onEscape: onClose,
-    onOutsidePointer: onClose,
-  });
-
-  onUnmount(() => layer.unregister());
-
-  return (
-    <div ref={modalRef}>
-      {layer.isTop() && <div>Top layer indicator</div>}
-      Modal content
-    </div>
-  );
-}
-```
+Use the supported `@askrjs/ui` Dialog, Popover, or DismissableLayer composition
+for their respective overlay behavior. Core 0.5.0 no longer publishes
+`createLayer`, `Layer`, `LayerOptions`, or `LayerManager`. UI overlay composition
+is not a drop-in replacement for the old manual stack's register/dispatch API.
+An application with bespoke stack requirements owns registration, cleanup,
+inside-root detection, and event dispatch explicitly. See the
+[0.5.0 migration](../migration/0.5.0.md) for the boundary and migration details.
 
 ---
 

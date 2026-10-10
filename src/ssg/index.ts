@@ -26,10 +26,8 @@ export type {
   DocumentRenderArgs,
   DocumentRenderContext,
   DocumentRenderer,
-  SSRStyleRegistrationValidation,
 } from '../common/ssr';
 export type {
-  RouteConfig,
   RouteRenderReason,
   SSGOptions,
   SSGGenerateOptions,
@@ -38,6 +36,5 @@ export type {
   SSGMetadata,
   RouteRenderResult,
   RouteRenderStatus,
-  DiscoveredResources,
   SSGAssetSource,
 } from './types';

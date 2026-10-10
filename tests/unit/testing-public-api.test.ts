@@ -3,11 +3,10 @@ import { invalidate } from '@askrjs/askr/data';
 import {
   createInvalidationRecorder,
   getRouteWarnings,
-  matchRoute,
   mockQuery,
-  queryState,
 } from '@askrjs/askr/testing';
-import { createRouteRegistry, route } from '@askrjs/askr/router';
+import { createRouteRegistry, matchRoute, route } from '@askrjs/askr/router';
+import { queryState } from '../../src/testing/query-fixtures';
 
 describe('testing public API', () => {
   it('should expose public route matching helpers', () => {
@@ -132,7 +131,7 @@ describe('testing public API', () => {
     });
   });
 
-  it('should expose queryState helpers as a friendly query fixture alias', () => {
+  it('should keep internal legacy query builders equivalent to mockQuery', () => {
     const error = new Error('boom');
     const stateOnly = <T extends { refresh: unknown }>(query: T) => {
       const { refresh: _refresh, ...state } = query;

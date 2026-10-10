@@ -91,7 +91,7 @@ test('increments the counter', () => {
 });
 ```
 
-Pass `container` to `render` or `mount` to retain an existing container after
+Pass `container` to `render` to retain an existing container after
 cleanup. Without one, the harness creates and removes a managed container.
 `renderRoute({ registry, url })` uses the production SPA router and restores the
 previous URL during cleanup.
@@ -108,7 +108,7 @@ Each result owns its cleanup, so sibling renders can be torn down independently.
 Test files remain isolated by the test runner's jsdom realm. The harness fails
 with a configuration hint when no DOM environment exists.
 
-Ordinary `render` and `mount` results can coexist in one realm. Because
+Ordinary `render` results can coexist in one realm. Because
 `renderRoute` uses the production SPA router and browser history, keep only one
 routed render active per jsdom realm and clean it up before starting another.
 

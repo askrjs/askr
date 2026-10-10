@@ -165,15 +165,6 @@
       ]
     },
     "./foundations/utilities": {
-      "ariaDisabled": [
-        "declare function ariaDisabled(disabled?: boolean): {\n    \"aria-disabled\"?: \"true\";\n};"
-      ],
-      "ariaExpanded": [
-        "declare function ariaExpanded(expanded?: boolean): {\n    \"aria-expanded\"?: \"true\" | \"false\";\n};"
-      ],
-      "ariaSelected": [
-        "declare function ariaSelected(selected?: boolean): {\n    \"aria-selected\"?: \"true\" | \"false\";\n};"
-      ],
       "composeHandlers": [
         "declare function composeHandlers<A extends readonly unknown[]>(first?: (...args: A) => void, second?: (...args: A) => void, options?: ComposeHandlersOptions): (...args: A) => void;"
       ],
@@ -183,32 +174,17 @@
       "composeRefs": [
         "declare function composeRefs<T>(...refs: Array<Ref$2<T>>): (value: T | null) => void;"
       ],
-      "DefaultPreventable": [
-        "interface DefaultPreventable {\n    defaultPrevented?: boolean;\n    preventDefault?: () => void;\n}"
-      ],
-      "FocusLikeEvent": [
-        "interface FocusLikeEvent extends DefaultPreventable, PropagationStoppable {\n    relatedTarget?: unknown;\n}"
-      ],
       "formatId": [
         "declare function formatId(options: FormatIdOptions): string;"
       ],
       "FormatIdOptions": [
         "interface FormatIdOptions {\n    prefix?: string;\n    id: string | number;\n}"
       ],
-      "KeyboardLikeEvent": [
-        "interface KeyboardLikeEvent extends DefaultPreventable, PropagationStoppable {\n    key: string;\n    currentTarget?: unknown;\n    target?: unknown;\n}"
-      ],
       "MergedProps": [
         "type MergedProps<TBase extends object, TInjected extends object> = HasIndexSignature<TBase> extends true ? TInjected & TBase : HasIndexSignature<TInjected> extends true ? TInjected & TBase : Omit<TInjected, keyof TBase> & {\n    [K in keyof TBase as K extends RequiredKeys<TInjected> ? K : never]-?: MergedValue<TBase[K], TInjected[K & keyof TInjected]>;\n} & {\n    [K in keyof TBase as K extends RequiredKeys<TInjected> ? never : K]: MergedValue<TBase[K], K extends keyof TInjected ? TInjected[K] : undefined>;\n};"
       ],
       "mergeProps": [
         "declare function mergeProps<TBase extends object, TInjected extends object>(base: TBase, injected: TInjected): MergedProps<TBase, TInjected>;"
-      ],
-      "PointerLikeEvent": [
-        "interface PointerLikeEvent extends DefaultPreventable, PropagationStoppable {\n    target?: unknown;\n}"
-      ],
-      "PropagationStoppable": [
-        "interface PropagationStoppable {\n    stopPropagation?: () => void;\n}"
       ],
       "Ref": [
         "type Ref$2<T> = ((value: T | null) => void) | {\n    current: T | null;\n} | null | undefined;"
@@ -279,15 +255,6 @@
       ],
       "ControllableState": [
         "type ControllableState<T> = StateTuple<T> & {\n    isControlled: boolean;\n};"
-      ],
-      "isControlled": [
-        "declare function isControlled<T>(value: T | undefined): value is T;"
-      ],
-      "makeControllable": [
-        "declare function makeControllable<T>(options: {\n    value: T | undefined;\n    defaultValue: T;\n    onChange?: (next: T) => void;\n    setInternal?: (next: T) => void;\n}): {\n    set: (next: T) => void;\n    isControlled: boolean;\n};"
-      ],
-      "resolveControllable": [
-        "declare function resolveControllable<T>(value: T | undefined, defaultValue: T): {\n    value: T;\n    isControlled: boolean;\n};"
       ]
     },
     "./foundations/structures": {
@@ -303,7 +270,6 @@
       "createCollection": [
         "declare function createCollection<TNode, TMetadata = unknown>(): Collection<TNode, TMetadata>;"
       ],
-      "createLayer": ["declare function createLayer(): LayerManager;"],
       "DefaultPortal": ["DefaultPortal: Portal<RenderableChild>"],
       "definePortal": [
         "declare function definePortal<T extends RenderableChild = RenderableChild>(): Portal<T>;"
@@ -313,15 +279,6 @@
       ],
       "JSXElement": [
         "interface JSXElement {\n    $$typeof: symbol;\n    type: JSXElementType;\n    props: Props;\n    key?: string | number | null;\n}"
-      ],
-      "Layer": [
-        "interface Layer {\n    id: number;\n    isTop(): boolean;\n    unregister(): void;\n}"
-      ],
-      "LayerManager": [
-        "interface LayerManager {\n    register(options: LayerOptions): Layer;\n    layers(): ReadonlyArray<Layer>;\n    handleEscape(): void;\n    handleOutsidePointer(e: PointerEvent): void;\n}"
-      ],
-      "LayerOptions": [
-        "interface LayerOptions {\n    onEscape?: () => void;\n    onOutsidePointer?: (e: PointerEvent) => void;\n    node?: Node | null;\n}"
       ],
       "layout": [
         "declare function layout<P = object>(Layout: LayoutComponent<P>): (children?: RenderableChild, props?: P) => unknown;"
@@ -518,6 +475,12 @@
       "QueryStaleReason": [
         "type QueryStaleReason = \"aborted\" | \"error\" | \"inconsistent\";"
       ],
+      "refreshOnActivity": [
+        "declare function refreshOnActivity(prefix: string, options: RefreshOnActivityOptions): void;"
+      ],
+      "RefreshOnActivityOptions": [
+        "interface RefreshOnActivityOptions {\n    staleTimeMs: number | \"always\";\n    focus?: boolean;\n    online?: boolean;\n    enabled?: boolean;\n    runtime?: DataRuntime;\n}"
+      ],
       "serveQuery": [
         "declare function serveQuery<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>, handler: ServerQueryHandler<TInput, TResult>): ServerQueryEntry<TInput, TResult>;"
       ],
@@ -529,12 +492,6 @@
       ],
       "ServerQueryRegistry": [
         "interface ServerQueryRegistry {\n    readonly entries: readonly ServerQueryEntry<unknown, {}>[];\n    get<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>): ServerQueryHandler<TInput, TResult> | undefined;\n}"
-      ],
-      "refreshOnActivity": [
-        "declare function refreshOnActivity(prefix: string, options: RefreshOnActivityOptions): void;"
-      ],
-      "RefreshOnActivityOptions": [
-        "interface RefreshOnActivityOptions {\n    staleTimeMs: number | \"always\";\n    focus?: boolean;\n    online?: boolean;\n    enabled?: boolean;\n    runtime?: DataRuntime;\n}"
       ]
     },
     "./testing": {
@@ -564,9 +521,6 @@
       "InvalidationRecorder": [
         "interface InvalidationRecorder {\n    readonly calls: readonly InvalidationRecord[];\n    readonly prefixes: readonly string[];\n    clear(): void;\n    stop(): void;\n}"
       ],
-      "matchRoute": [
-        "declare function matchRoute(path: string, options: MatchRouteOptions): RouteMatch | null;"
-      ],
       "mockQuery": [
         "mockQuery: typeof createFreshQuery & {\n    loading<T extends {} = {}>(options?: MockQueryOptions): Query<T>;\n    error<T extends {} = {}>(error: {}, previousData?: T, options?: MockQueryOptions): Query<T>;\n    refreshing<T extends {}>(data: T, options?: MockQueryOptions): Query<T>;\n    stale<T extends {}>(data: T, reason?: StaleValueReason, options?: MockQueryOptions): Query<T>;\n    pendingWrite<T extends {}>(data: T, options?: MockQueryOptions): Query<T>;\n}"
       ],
@@ -574,9 +528,6 @@
         "interface MockQueryOptions {\n    refresh?: MockRefresh;\n}"
       ],
       "MockRefresh": ["type MockRefresh = () => void | Promise<void>;"],
-      "mount": [
-        "declare function mount(component: ComponentFunction, options?: RenderOptions): RenderResult;"
-      ],
       "MutationFixture": [
         "type MutationFixture<TInput, TResult> = Mutation<TInput, TResult> & {\n    readonly inputs: readonly TInput[];\n    setPending(): void;\n    succeed(result: TResult): void;\n    fail(error: {}): void;\n};"
       ],
@@ -588,9 +539,6 @@
       ],
       "MutationTestRegistry": [
         "interface MutationTestRegistry {\n    readonly runtime: DataRuntime;\n    set<TInput, TResult>(key: string, mutation: Mutation<TInput, TResult>): void;\n    delete(key: string): void;\n    clear(): void;\n}"
-      ],
-      "queryState": [
-        "queryState: {\n    fresh: typeof createFreshQuery;\n    loading: <T extends {} = {}>(options?: MockQueryOptions) => Query<T>;\n    error: <T extends {} = {}>(error: {}, previousData?: T, options?: MockQueryOptions) => Query<T>;\n    refreshing: <T extends {}>(data: T, options?: MockQueryOptions) => Query<T>;\n    stale: <T extends {}>(data: T, reason?: StaleValueReason, options?: MockQueryOptions) => Query<T>;\n    pendingWrite: <T extends {}>(data: T, options?: MockQueryOptions) => Query<T>;\n}"
       ],
       "QueryTestRegistry": [
         "interface QueryTestRegistry {\n    readonly runtime: DataRuntime;\n    set<T extends {}>(key: string, query: Query<T>): void;\n    delete(key: string): void;\n    clear(): void;\n}"
@@ -675,8 +623,6 @@
         "interface AccessRedirectDecision {\n    kind: \"redirect\";\n    to: string;\n    status?: AccessRedirectStatus;\n    replace?: boolean;\n}"
       ],
       "allow": ["declare function allow(): AccessAllowDecision;"],
-      "AuthContext": [],
-      "AuthRequirement": [],
       "createRouteRegistry": [
         "declare function createRouteRegistry(definition: RouteDefinition, options?: RouteRegistryOptions): RouteRegistry;"
       ],
@@ -715,9 +661,6 @@
       "isDeferred": [
         "declare function isDeferred<T = unknown>(value: unknown): value is Deferred<T>;"
       ],
-      "LayoutScopeRecord": [
-        "interface LayoutScopeRecord {\n    component: (props: {\n        children?: RenderableChild;\n    }) => RenderableChild;\n}"
-      ],
       "lazy": [
         "declare function lazy<TComponent extends AnyRouteComponent>(factory: () => Promise<{\n    default: TComponent;\n} | TComponent>): LazyRouteComponent<TComponent>;"
       ],
@@ -737,7 +680,7 @@
         "type LinkProps = LinkBaseProps & ({\n    href: string;\n    to?: never;\n} | {\n    href?: never;\n    to: RouteDestination;\n});"
       ],
       "matchRoute": [
-        "declare function matchRoute$2(pathname: string, options: {\n    registry: RouteRegistry;\n}): RouteMatch | null;"
+        "declare function matchRoute(pathname: string, options: {\n    registry: RouteRegistry;\n}): RouteMatch | null;"
       ],
       "navigate": [
         "declare function navigate(target: string | RouteDestination, options?: NavigateOptions): void;"
@@ -761,12 +704,6 @@
       ],
       "PageHelperOptions": [
         "interface PageHelperOptions extends CommonAccessOptions {\n    preload?: (context: RouteContext & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    meta?: RouteMetaSource;\n}"
-      ],
-      "PageScopeRecord": [
-        "interface PageScopeRecord {\n    component: RouteComponent;\n}"
-      ],
-      "ParsedSegment": [
-        "interface ParsedSegment {\n    kind: \"static\" | \"param\" | \"wildcard\" | \"splat\" | \"catchall\";\n    value: string;\n}"
       ],
       "reconcileRouteMeta": [
         "declare function reconcileRouteMeta(meta: Readonly<RouteMeta>, target?: Document): void;"
@@ -977,9 +914,6 @@
       "SSRDataMissingError": [
         "declare class SSRDataMissingError extends Error {\n    readonly code = \"SSR_DATA_MISSING\";\n    constructor(message?: string);\n}"
       ],
-      "SSRRoute": [
-        "type SSRRoute = {\n    path: string;\n    handler: RouteHandler;\n    namespace?: string;\n};"
-      ],
       "SSRStyleRegistration": [
         "interface SSRStyleRegistration {\n    id: string;\n    cssText: string;\n}"
       ],
@@ -1000,9 +934,6 @@
       "createStaticGen": [
         "declare function createStaticGen(options: SSGOptions): {\n    generate(generateOptions?: SSGGenerateOptions): Promise<SSGResult>;\n    getConfig(): {\n        routeCount: number;\n        outputDir: string;\n        seed: number;\n        concurrency: number;\n        parallelism: number;\n        hasDataOverrides: boolean;\n        assetCount: number;\n    };\n    getResult(): SSGResult | null;\n};"
       ],
-      "DiscoveredResources": [
-        "interface DiscoveredResources {\n    [key: string]: {\n        count: number;\n        dependencies: string[];\n    };\n}"
-      ],
       "DocumentRenderArgs": [
         "interface DocumentRenderArgs {\n    appHtml: string;\n    context: DocumentRenderContext;\n}"
       ],
@@ -1011,9 +942,6 @@
       ],
       "DocumentRenderer": [
         "type DocumentRenderer = (args: DocumentRenderArgs) => string;"
-      ],
-      "RouteConfig": [
-        "interface RouteConfig<Path extends string = string> {\n    path: Path;\n    handler: RouteHandler;\n    props?: Record<string, unknown>;\n    namespace?: string;\n    auth?: AuthRequirement;\n    policies?: readonly RoutePolicy[];\n    params?: RouteConfigParams<Path>;\n    invalidationKeys?: string[];\n    loader?: RouteOptions[\"loader\"];\n    dehydrate?: RouteOptions[\"dehydrate\"];\n    basePath?: string;\n    entries?: () => Array<RouteConfigParams<Path>> | Promise<Array<RouteConfigParams<Path>>>;\n}"
       ],
       "RouteRenderReason": [
         "type RouteRenderReason = \"full\" | \"changed-key\" | \"changed-route\" | \"new-route\" | \"no-keys\" | \"unchanged\" | \"deleted\" | \"runtime-only\";"
@@ -1035,13 +963,10 @@
       ],
       "SSGMode": ["type SSGMode = \"full\" | \"incremental\";"],
       "SSGOptions": [
-        "type SSGOptions<_TRoutes extends readonly RouteConfig[] = RouteConfig[]> = SSGBaseOptions & {\n    registry: RouteRegistry;\n};"
+        "type SSGOptions = SSGBaseOptions & {\n    registry: RouteRegistry;\n};"
       ],
       "SSGResult": [
         "interface SSGResult {\n    generatedAt: string;\n    totalRoutes: number;\n    successful: number;\n    failed: number;\n    totalDuration: number;\n    mode: SSGMode;\n    rebuilt: number;\n    skipped: number;\n    removed: number;\n    cacheHits: number;\n    invalidatedKeys: string[];\n    invalidatedRoutes: string[];\n    routes: RouteRenderResult$2[];\n}"
-      ],
-      "SSRStyleRegistrationValidation": [
-        "type SSRStyleRegistrationValidation = \"warn\" | \"error\" | \"off\";"
       ]
     },
     "./jsx-runtime": {
@@ -1057,12 +982,6 @@
       ],
       "JSXComponent": [
         "type JSXComponent<TProps extends object = Props> = {\n    bivarianceHack(props: TProps): unknown;\n}[\"bivarianceHack\"];"
-      ],
-      "jsxDEV": [
-        "declare function jsxDEV<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[NoInfer<TTag>] | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
-        "declare function jsxDEV<TTag extends OtherIntrinsicTag>(type: TTag, props: OtherIntrinsicProps<TTag> | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
-        "declare function jsxDEV<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
-        "declare function jsxDEV(type: symbol, props: Props | null, key?: string | number, isStaticChildren?: boolean): JSXElement;"
       ],
       "JSXElement": [
         "interface JSXElement {\n    $$typeof: symbol;\n    type: JSXElementType;\n    props: Props;\n    key?: string | number | null;\n}"
@@ -1082,20 +1001,11 @@
       "JSX": [
         "declare namespace JSX$2 {\n    type ElementType$2 = string | symbol | ((props: never) => unknown);\n    interface Element$2 extends JSXElement {\n        readonly __askrJsxElementBrand?: never;\n    }\n    interface KnownIntrinsicElements$2 extends KnownIntrinsicElementProps {\n    }\n    interface IntrinsicElements$2 extends KnownIntrinsicElements$2, OtherIntrinsicElements$2 {\n        [elem: `${string}-${string}`]: IntrinsicFallbackProps;\n    }\n    type OtherIntrinsicElements$2 = {\n        [Tag in Exclude<keyof HTMLElementTagNameMap | keyof SVGElementTagNameMap | Exclude<keyof MathMLElementTagNameMap, `${string}-${string}`> | MathMLExtraTag, keyof KnownIntrinsicElementProps>]: OtherIntrinsicProps$2<Tag>;\n    };\n    interface ElementChildrenAttribute$2 {\n        children: unknown;\n    }\n    interface IntrinsicAttributes$2 {\n        key?: string | number;\n    }\n}"
       ],
-      "JSXComponent": [
-        "type JSXComponent<TProps extends object = Props> = {\n    bivarianceHack(props: TProps): unknown;\n}[\"bivarianceHack\"];"
-      ],
       "jsxDEV": [
-        "declare function jsxDEV$2<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[NoInfer<TTag>] | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
-        "declare function jsxDEV$2<TTag extends OtherIntrinsicTag$2>(type: TTag, props: OtherIntrinsicProps$2<TTag> | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
-        "declare function jsxDEV$2<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
-        "declare function jsxDEV$2(type: symbol, props: Props | null, key?: string | number, isStaticChildren?: boolean): JSXElement;"
-      ],
-      "JSXElement": [
-        "interface JSXElement {\n    $$typeof: symbol;\n    type: JSXElementType;\n    props: Props;\n    key?: string | number | null;\n}"
-      ],
-      "JSXElementType": [
-        "type JSXElementType = string | JSXComponent | symbol;"
+        "declare function jsxDEV<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[NoInfer<TTag>] | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
+        "declare function jsxDEV<TTag extends OtherIntrinsicTag$2>(type: TTag, props: OtherIntrinsicProps$2<TTag> | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
+        "declare function jsxDEV<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
+        "declare function jsxDEV(type: symbol, props: Props | null, key?: string | number, isStaticChildren?: boolean): JSXElement;"
       ]
     }
   },
@@ -1142,15 +1052,6 @@
     ],
     "applyInteractionPolicy": [
       "declare function applyInteractionPolicy({ isNative, disabled, onPress, ref }: InteractionPolicyInput): {\n    disabled: true | undefined;\n    onClick: (e: Event) => void;\n    ref: Ref$2<unknown>;\n} | {\n    tabIndex: number;\n    ref: Ref$2<unknown>;\n    \"aria-disabled\"?: \"true\";\n    onClick: (e: DefaultPreventable & PropagationStoppable) => void;\n    disabled?: true;\n    role?: \"button\";\n    onKeyDown?: (e: KeyboardLikeEvent) => void;\n    onKeyUp?: (e: KeyboardLikeEvent) => void;\n};"
-    ],
-    "ariaDisabled": [
-      "declare function ariaDisabled(disabled?: boolean): {\n    \"aria-disabled\"?: \"true\";\n};"
-    ],
-    "ariaExpanded": [
-      "declare function ariaExpanded(expanded?: boolean): {\n    \"aria-expanded\"?: \"true\" | \"false\";\n};"
-    ],
-    "ariaSelected": [
-      "declare function ariaSelected(selected?: boolean): {\n    \"aria-selected\"?: \"true\" | \"false\";\n};"
     ],
     "BivariantHandler": [
       "type BivariantHandler<T> = {\n    bivarianceHack(value: T): void;\n}[\"bivarianceHack\"];"
@@ -1251,7 +1152,6 @@
     "createIslands": [
       "declare function createIslands(config: IslandsConfig): void;"
     ],
-    "createLayer": ["declare function createLayer(): LayerManager;"],
     "createMutation": [
       "declare function createMutation<TInput, TResult>(options: MutationOptions<TInput, TResult>): Mutation<TInput, TResult>;"
     ],
@@ -1347,9 +1247,6 @@
       "declare function derive<TOut>(fn: () => TOut): Derived<TOut>;"
     ],
     "Derived": ["interface Derived<T> {\n    (): T;\n}"],
-    "DiscoveredResources": [
-      "interface DiscoveredResources {\n    [key: string]: {\n        count: number;\n        dependencies: string[];\n    };\n}"
-    ],
     "dismissable": [
       "declare function dismissable({ node, additionalInsideNodes, disabled, onDismiss }: DismissableOptions): {\n    onKeyDown: (e: KeyboardLikeEvent) => void;\n    onPointerDownCapture: (e: PointerLikeEvent) => void;\n};"
     ],
@@ -1433,9 +1330,6 @@
     ],
     "FocusableResult": [
       "interface FocusableResult {\n    tabIndex?: number;\n    \"aria-disabled\"?: \"true\";\n}"
-    ],
-    "FocusLikeEvent": [
-      "interface FocusLikeEvent extends DefaultPreventable, PropagationStoppable {\n    relatedTarget?: unknown;\n}"
     ],
     "For": [
       "For: {\n    <T, K extends string | number = string | number>(props: ForGetterProps<T, K>): JSXElement;\n    <T, K extends string | number = string | number>(props: ForProps<T, K>): JSXElement;\n}"
@@ -1632,9 +1526,6 @@
       "interface InvalidationRecorder {\n    readonly calls: readonly InvalidationRecord[];\n    readonly prefixes: readonly string[];\n    clear(): void;\n    stop(): void;\n}"
     ],
     "IsAny": ["type IsAny<T> = 0 extends 1 & T ? true : false;"],
-    "isControlled": [
-      "declare function isControlled<T>(value: T | undefined): value is T;"
-    ],
     "isDeferred": [
       "declare function isDeferred<T = unknown>(value: unknown): value is Deferred<T>;"
     ],
@@ -1665,14 +1556,8 @@
     "jsxDEV": [
       "declare function jsxDEV(type: symbol, props: Props | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
       "declare function jsxDEV<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
-      "declare function jsxDEV<TTag extends OtherIntrinsicTag>(type: TTag, props: OtherIntrinsicProps<TTag> | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
+      "declare function jsxDEV<TTag extends OtherIntrinsicTag$2>(type: TTag, props: OtherIntrinsicProps$2<TTag> | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
       "declare function jsxDEV<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[NoInfer<TTag>] | null, key?: string | number, isStaticChildren?: boolean): JSXElement;"
-    ],
-    "jsxDEV$2": [
-      "declare function jsxDEV$2(type: symbol, props: Props | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
-      "declare function jsxDEV$2<TProps extends object>(type: (props: TProps) => unknown, props: TProps | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
-      "declare function jsxDEV$2<TTag extends OtherIntrinsicTag$2>(type: TTag, props: OtherIntrinsicProps$2<TTag> | null, key?: string | number, isStaticChildren?: boolean): JSXElement;",
-      "declare function jsxDEV$2<TTag extends keyof KnownIntrinsicElementProps>(type: TTag, props: KnownIntrinsicElementProps[NoInfer<TTag>] | null, key?: string | number, isStaticChildren?: boolean): JSXElement;"
     ],
     "JSXElement": [
       "interface JSXElement {\n    $$typeof: symbol;\n    type: JSXElementType;\n    props: Props;\n    key?: string | number | null;\n}"
@@ -1704,15 +1589,6 @@
     ],
     "LabelIntrinsicProps": [
       "interface LabelIntrinsicProps extends IntrinsicProps {\n    htmlFor?: ReactiveProp<IntrinsicTextValue>;\n}"
-    ],
-    "Layer": [
-      "interface Layer {\n    id: number;\n    isTop(): boolean;\n    unregister(): void;\n}"
-    ],
-    "LayerManager": [
-      "interface LayerManager {\n    register(options: LayerOptions): Layer;\n    layers(): ReadonlyArray<Layer>;\n    handleEscape(): void;\n    handleOutsidePointer(e: PointerEvent): void;\n}"
-    ],
-    "LayerOptions": [
-      "interface LayerOptions {\n    onEscape?: () => void;\n    onOutsidePointer?: (e: PointerEvent) => void;\n    node?: Node | null;\n}"
     ],
     "layout": [
       "declare function layout<P = object>(Layout: LayoutComponent<P>): (children?: RenderableChild, props?: P) => unknown;"
@@ -1756,19 +1632,13 @@
     "ListItemIntrinsicProps": [
       "type ListItemIntrinsicProps = StructuredContentIntrinsicProps<{\n    value?: ReactiveProp<IntrinsicNumberValue>;\n}>;"
     ],
-    "makeControllable": [
-      "declare function makeControllable<T>(options: {\n    value: T | undefined;\n    defaultValue: T;\n    onChange?: (next: T) => void;\n    setInternal?: (next: T) => void;\n}): {\n    set: (next: T) => void;\n    isControlled: boolean;\n};"
-    ],
     "Match": ["declare function Match(_props: MatchProps): null;"],
     "MatchChild": ["type MatchChild = BoundaryChild | (() => BoundaryChild);"],
     "MatchProps": [
       "type MatchProps = {\n    key?: string | number | null;\n    when: unknown;\n    children: MatchChild;\n};"
     ],
     "matchRoute": [
-      "declare function matchRoute(path: string, options: MatchRouteOptions): RouteMatch | null;"
-    ],
-    "matchRoute$2": [
-      "declare function matchRoute$2(pathname: string, options: {\n    registry: RouteRegistry;\n}): RouteMatch | null;"
+      "declare function matchRoute(pathname: string, options: {\n    registry: RouteRegistry;\n}): RouteMatch | null;"
     ],
     "MatchRouteOptions": [
       "interface MatchRouteOptions {\n    registry: RouteRegistry;\n}"
@@ -1795,9 +1665,6 @@
       "interface MockQueryOptions {\n    refresh?: MockRefresh;\n}"
     ],
     "MockRefresh": ["type MockRefresh = () => void | Promise<void>;"],
-    "mount": [
-      "declare function mount(component: ComponentFunction, options?: RenderOptions): RenderResult;"
-    ],
     "Mutation": [
       "type Mutation<TInput, TResult> = MutationControls<TInput, TResult> & (MutationIdle | MutationPending | MutationSuccess<TResult> | MutationError);"
     ],
@@ -1998,9 +1865,6 @@
     "QueryStaleValue": [
       "type QueryStaleValue<T> = {\n    data: T;\n    error: null;\n    loading: false;\n    refreshing: false;\n    stale: true;\n    consistency: \"stale\";\n    staleReason: \"aborted\" | \"inconsistent\";\n};"
     ],
-    "queryState": [
-      "queryState: {\n    fresh: typeof createFreshQuery;\n    loading: <T extends {} = {}>(options?: MockQueryOptions) => Query<T>;\n    error: <T extends {} = {}>(error: {}, previousData?: T, options?: MockQueryOptions) => Query<T>;\n    refreshing: <T extends {}>(data: T, options?: MockQueryOptions) => Query<T>;\n    stale: <T extends {}>(data: T, reason?: StaleValueReason, options?: MockQueryOptions) => Query<T>;\n    pendingWrite: <T extends {}>(data: T, options?: MockQueryOptions) => Query<T>;\n}"
-    ],
     "QueryTestRegistry": [
       "interface QueryTestRegistry {\n    readonly runtime: DataRuntime;\n    set<T extends {}>(key: string, query: Query<T>): void;\n    delete(key: string): void;\n    clear(): void;\n}"
     ],
@@ -2023,6 +1887,12 @@
     ],
     "Ref$2": [
       "type Ref$2<T> = ((value: T | null) => void) | {\n    current: T | null;\n} | null | undefined;"
+    ],
+    "refreshOnActivity": [
+      "declare function refreshOnActivity(prefix: string, options: RefreshOnActivityOptions): void;"
+    ],
+    "RefreshOnActivityOptions": [
+      "interface RefreshOnActivityOptions {\n    staleTimeMs: number | \"always\";\n    focus?: boolean;\n    online?: boolean;\n    enabled?: boolean;\n    runtime?: DataRuntime;\n}"
     ],
     "registerSSRStyle": [
       "declare function registerSSRStyle(id: string, cssText: string): void;"
@@ -2080,9 +1950,6 @@
     "Resolve": [
       "declare function Resolve<T>(props: ResolveProps<T>): JSXElement;"
     ],
-    "resolveControllable": [
-      "declare function resolveControllable<T>(value: T | undefined, defaultValue: T): {\n    value: T;\n    isControlled: boolean;\n};"
-    ],
     "resolveDeferredValues": [
       "declare function resolveDeferredValues<T>(input: T, signal?: AbortSignal): Promise<T>;"
     ],
@@ -2137,12 +2004,6 @@
     ],
     "RouteComponentParam": [
       "type RouteComponentParam<TComponent extends AnyRouteComponent> = Parameters<TComponent> extends [\n] ? unknown : Parameters<TComponent>[0];"
-    ],
-    "RouteConfig": [
-      "interface RouteConfig<Path extends string = string> {\n    path: Path;\n    handler: RouteHandler;\n    props?: Record<string, unknown>;\n    namespace?: string;\n    auth?: AuthRequirement;\n    policies?: readonly RoutePolicy[];\n    params?: RouteConfigParams<Path>;\n    invalidationKeys?: string[];\n    loader?: RouteOptions[\"loader\"];\n    dehydrate?: RouteOptions[\"dehydrate\"];\n    basePath?: string;\n    entries?: () => Array<RouteConfigParams<Path>> | Promise<Array<RouteConfigParams<Path>>>;\n}"
-    ],
-    "RouteConfigParams": [
-      "type RouteConfigParams<Path extends string> = string extends Path ? Record<string, string> : RoutePathParams<Path>;"
     ],
     "RouteContext": [
       "interface RouteContext<TParams extends RouteParams = RouteParams> {\n    mode: RouteMode;\n    params: TParams;\n    pathname: string;\n    search: string;\n    hash: string;\n    href: string;\n    auth: AuthContext;\n    signal: AbortSignal;\n}"
@@ -2347,7 +2208,7 @@
     ],
     "SSGMode": ["type SSGMode = \"full\" | \"incremental\";"],
     "SSGOptions": [
-      "type SSGOptions<_TRoutes extends readonly RouteConfig[] = RouteConfig[]> = SSGBaseOptions & {\n    registry: RouteRegistry;\n};"
+      "type SSGOptions = SSGBaseOptions & {\n    registry: RouteRegistry;\n};"
     ],
     "SSGResult": [
       "interface SSGResult {\n    generatedAt: string;\n    totalRoutes: number;\n    successful: number;\n    failed: number;\n    totalDuration: number;\n    mode: SSGMode;\n    rebuilt: number;\n    skipped: number;\n    removed: number;\n    cacheHits: number;\n    invalidatedKeys: string[];\n    invalidatedRoutes: string[];\n    routes: RouteRenderResult$2[];\n}"
@@ -2373,9 +2234,6 @@
     ],
     "SSRPortalState": [
       "interface SSRPortalState {\n    slots: Map<object, SSRPortalSlot>;\n    nextHostId: number;\n    nextWriteOrder: number;\n}"
-    ],
-    "SSRRoute": [
-      "type SSRRoute = {\n    path: string;\n    handler: RouteHandler;\n    namespace?: string;\n};"
     ],
     "SSRRouteSource": [
       "type SSRRouteSource = {\n    registry: RouteRegistry;\n};"
@@ -2535,12 +2393,6 @@
     ],
     "withRenderContextAsync": [
       "declare function withRenderContextAsync<T>(ctx: RenderContext, fn: () => T | PromiseLike<T>): Promise<T>;"
-    ],
-    "RefreshOnActivityOptions": [
-      "interface RefreshOnActivityOptions {\n    staleTimeMs: number | \"always\";\n    focus?: boolean;\n    online?: boolean;\n    enabled?: boolean;\n    runtime?: DataRuntime;\n}"
-    ],
-    "refreshOnActivity": [
-      "declare function refreshOnActivity(prefix: string, options: RefreshOnActivityOptions): void;"
     ]
   }
 }

@@ -573,18 +573,19 @@ for a complete server-query setup.
 Use `@askrjs/askr/testing` for query-shaped test fixtures in page and component tests:
 
 ```ts
-import { queryState } from '@askrjs/askr/testing';
+import { mockQuery } from '@askrjs/askr/testing';
 
-const freshUser = queryState.fresh({ id: '123', name: 'Ada' });
-const loadingUser = queryState.loading();
-const refreshingUser = queryState.refreshing({ id: '123', name: 'Ada' });
-const failedUser = queryState.error(new Error('boom'), {
+const freshUser = mockQuery({ id: '123', name: 'Ada' });
+const loadingUser = mockQuery.loading();
+const refreshingUser = mockQuery.refreshing({ id: '123', name: 'Ada' });
+const failedUser = mockQuery.error(new Error('boom'), {
   id: '123',
   name: 'Ada',
 });
 ```
 
-`mockQuery(data)` remains available as the original fresh-query shortcut.
+Call `mockQuery(data, options?)` for a fresh fixture. Use its state builders
+for loading, refreshing, stale, pending-write, and error fixtures.
 
 ### Mutations
 
@@ -668,11 +669,11 @@ Fixtures expose `setPending()`, `succeed(result)`, `fail(error)`, `abort()`,
 and `reset()` for deterministic state changes. Registry `delete()` and
 `clear()` reset removed mutations. Each registry creates an isolated data
 runtime by default. Pass that runtime as `dataRuntime` to `renderRoute()`, or to plain
-`render()`/`mount()` calls when the component does not need a router:
+`render()` calls when the component does not need a router:
 
 ```tsx
 const queries = createQueryTestRegistry();
-queries.set('user:123', queryState.fresh({ name: 'Ada' }));
+queries.set('user:123', mockQuery({ name: 'Ada' }));
 
 const rendered = render(AccountSummary, {
   dataRuntime: queries.runtime,

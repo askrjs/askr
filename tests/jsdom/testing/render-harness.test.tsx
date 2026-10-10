@@ -9,9 +9,8 @@ import {
   createQueryTestRegistry,
   dispatch,
   flush,
-  mount,
+  mockQuery,
   mutationState,
-  queryState,
   render,
   type RenderResult,
 } from '@askrjs/askr/testing';
@@ -50,7 +49,7 @@ describe('testing render harness', () => {
   it('should mount into a provided container and keep cleanup idempotent', () => {
     const container = document.createElement('section');
     document.body.appendChild(container);
-    const result = mount(() => <p>{'provided'}</p>, { container });
+    const result = render(() => <p>{'provided'}</p>, { container });
     mounted.push(result);
 
     expect(result.root).toBe(container);
@@ -110,11 +109,11 @@ describe('testing render harness', () => {
     const second = createMutationTestRegistry();
     createQueryTestRegistry(first.runtime).set(
       scope.key('value'),
-      queryState.fresh({ label: 'first' })
+      mockQuery({ label: 'first' })
     );
     createQueryTestRegistry(second.runtime).set(
       scope.key('value'),
-      queryState.fresh({ label: 'second' })
+      mockQuery({ label: 'second' })
     );
     first.set('plain/save', mutationState.success(true));
     second.set('plain/save', mutationState.error(new Error('second failed')));
@@ -132,7 +131,7 @@ describe('testing render harness', () => {
     };
 
     const firstRender = render(App, { dataRuntime: first.runtime });
-    const secondRender = mount(App, { dataRuntime: second.runtime });
+    const secondRender = render(App, { dataRuntime: second.runtime });
     mounted.push(firstRender, secondRender);
 
     expect(firstRender.container.textContent).toBe('first:success');

@@ -19,7 +19,6 @@ export type {
   SSRStyleRegistrationValidation,
   SSRStyleRegistration,
 } from '../common/ssr';
-export type { SSRRoute } from './route-render';
 export type { VNode, SSRComponent } from './types';
 export {
   renderRouteRequest,
