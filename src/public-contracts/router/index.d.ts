@@ -218,10 +218,10 @@ declare function resolveRouteRequest(
   options: RouteRequestOptions
 ): RouteRequestResult | Promise<RouteRequestResult>;
 /** Match a path against a route registry without resolving route policies or loading data. */
-declare function matchRoute(
+declare function matchRoute<TAppMeta = unknown>(
   pathname: string,
   options: { registry: RouteRegistry }
-): RouteMatch | null;
+): RouteMatch<RouteParams, TAppMeta> | null;
 /**
  * Run `definition` to declare routes (via `route`/`page`/`group`/`fallback`)
  * and build a {@link RouteRegistry} to pass to `createSPA`/`hydrateSPA`.

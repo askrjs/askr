@@ -14,6 +14,7 @@ import type {
   InternalRoute,
   InternalRouteRecord,
   RegistrationScope,
+  AppMetaDeclaration,
 } from './internal-types';
 import { compareRouteSpecificity } from './match';
 
@@ -263,6 +264,21 @@ export function getCurrentInheritedAuthRequirements(): AuthRequirement[] {
 export function getCurrentInheritedMeta(): RouteMetaSource[] {
   return activeTable.registrationScopeStack.flatMap((scope) =>
     scope.meta ? [scope.meta] : []
+  );
+}
+
+export function getCurrentInheritedAppMeta(): readonly AppMetaDeclaration[] {
+  return Object.freeze(
+    activeTable.registrationScopeStack.flatMap((scope) =>
+      scope.appMeta !== undefined
+        ? [
+            Object.freeze({
+              path: scope.pathPrefix || '/',
+              appMeta: scope.appMeta,
+            }),
+          ]
+        : []
+    )
   );
 }
 

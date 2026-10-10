@@ -3,6 +3,7 @@ import type {
   RouteMatch,
   RouteRecord,
   RouteRegistry,
+  RouteParams,
   ResolvedRoute,
 } from '../common/router';
 import { normalizeRouteBasePath, removeRouteBasePath } from './base-path';
@@ -206,20 +207,40 @@ export function computeMatchesFromRoutes(
     return [];
   }
 
-  return [
-    {
-      path: 'route' in bestMatch ? bestMatch.route.path : bestMatch.record.path,
-      params: deepFreeze({ ...bestMatch.params }),
-      name:
-        'route' in bestMatch
-          ? (bestMatch.route as { name?: string }).name
-          : undefined,
-      namespace:
-        'route' in bestMatch
-          ? bestMatch.route.namespace
-          : bestMatch.record.options.namespace,
-    },
-  ];
+  const owner =
+    'route' in bestMatch
+      ? (bestMatch.route as InternalRoute)
+      : (bestMatch.record as InternalRouteRecord);
+  return withAppMetaMatches(owner, {
+    path: 'route' in bestMatch ? bestMatch.route.path : bestMatch.record.path,
+    params: deepFreeze({ ...bestMatch.params }),
+    name:
+      'route' in bestMatch
+        ? (bestMatch.route as { name?: string }).name
+        : undefined,
+    namespace:
+      'route' in bestMatch
+        ? bestMatch.route.namespace
+        : bestMatch.record.options.namespace,
+  });
+}
+
+function withAppMetaMatches(
+  owner: InternalRoute | InternalRouteRecord,
+  leaf: RouteMatch
+): RouteMatch[] {
+  const chain = owner.appMetaChain;
+  if (!chain?.length) return [leaf];
+  const appMeta = chain[chain.length - 1].appMeta;
+  const metadataLeaf = appMeta === undefined ? leaf : { ...leaf, appMeta };
+  const ancestors = chain.slice(0, -1).map((entry) =>
+    Object.freeze({
+      path: entry.path,
+      params: leaf.params,
+      appMeta: entry.appMeta,
+    })
+  );
+  return [...ancestors, Object.freeze(metadataLeaf)];
 }
 
 export function computeMatchesFromRouteRecords(
@@ -232,13 +253,11 @@ export function computeMatchesFromRouteRecords(
     return [];
   }
 
-  return [
-    {
-      path: bestMatch.record.path,
-      params: deepFreeze({ ...bestMatch.params }),
-      namespace: bestMatch.record.options.namespace,
-    },
-  ];
+  return withAppMetaMatches(bestMatch.record as InternalRouteRecord, {
+    path: bestMatch.record.path,
+    params: deepFreeze({ ...bestMatch.params }),
+    namespace: bestMatch.record.options.namespace,
+  });
 }
 
 export function computeRouteActivityMatches(
@@ -253,19 +272,20 @@ export function computeRouteActivityMatches(
   return computeMatchesFromRouteRecords(
     logicalPath,
     options.registry.manifest.records
-  );
+  ).slice(-1);
 }
 
 /** Match a path against a route registry without resolving route policies or loading data. */
-export function matchRoute(
+export function matchRoute<TAppMeta = unknown>(
   pathname: string,
   options: { registry: RouteRegistry }
-): RouteMatch | null {
+): RouteMatch<RouteParams, TAppMeta> | null {
   if (!options?.registry) {
     throw new TypeError('matchRoute requires options.registry.');
   }
 
-  return computeRouteActivityMatches(pathname, options)[0] ?? null;
+  return (computeRouteActivityMatches(pathname, options)[0] ??
+    null) as RouteMatch<RouteParams, TAppMeta> | null;
 }
 
 export function resolveRoute(pathname: string): ResolvedRoute | null {

@@ -244,6 +244,7 @@ function violatesRouteAuthoringBoundary(edge: Edge): boolean {
   if (edge.typeOnly) return false;
   const from = relative(edge.from);
   const to = relative(edge.to);
+  if (from === 'src/router/app-meta.ts') return true;
   if (from === 'src/router/path-policy.ts') {
     return to !== 'src/router/match.ts';
   }
@@ -252,6 +253,7 @@ function violatesRouteAuthoringBoundary(edge: Edge): boolean {
       'src/router/store.ts',
       'src/router/access.ts',
       'src/router/path-policy.ts',
+      'src/router/app-meta.ts',
     ].includes(to);
   }
   return (
@@ -462,6 +464,10 @@ describe('architecture boundaries', () => {
         path.join(srcDir, 'router', 'route-registration.ts'),
         `import './authoring'; import './registration-scope';`
       ),
+      ...parse(
+        path.join(srcDir, 'router', 'app-meta.ts'),
+        `import './store'; import './authoring';`
+      ),
     ];
     expect(
       synthetic.filter(violatesRouteAuthoringBoundary).map(format)
@@ -470,6 +476,8 @@ describe('architecture boundaries', () => {
       'src/router/path-policy.ts -> src/router/authoring.ts',
       'src/router/registration-scope.ts -> src/router/route-registration.ts',
       'src/router/route-registration.ts -> src/router/authoring.ts',
+      'src/router/app-meta.ts -> src/router/store.ts',
+      'src/router/app-meta.ts -> src/router/authoring.ts',
     ]);
   });
 

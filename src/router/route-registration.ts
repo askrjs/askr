@@ -7,6 +7,7 @@ import type { AuthDecision, AuthRequirement } from '@askrjs/auth';
 import type { InternalRouteRecord } from './internal-types';
 import { computeRank, parseSegments, routeMatchKey } from './match';
 import { compileNodePolicies } from './access';
+import { snapshotAppMeta } from './app-meta';
 import { createRouteHandler } from './rendering';
 import { joinRoutePaths, validateRoutePath } from './path-policy';
 import { resolveIndexPath } from './registration-scope';
@@ -15,6 +16,7 @@ import {
   assertRouteRegistrationUnlocked,
   getCurrentInheritedAuthRequirements,
   getCurrentInheritedMeta,
+  getCurrentInheritedAppMeta,
   getCurrentInheritedPolicies,
   getCurrentLayoutChain,
   getCurrentPageChain,
@@ -50,6 +52,7 @@ function normalizeRouteOptions(
     !options.search &&
     !options.meta &&
     !options.actions &&
+    options.appMeta === undefined &&
     options.auth === undefined
   ) {
     return undefined;
@@ -70,6 +73,9 @@ function normalizeRouteOptions(
     ...(options.search ? { search: options.search } : {}),
     ...(options.meta ? { meta: options.meta } : {}),
     ...(options.actions ? { actions: options.actions } : {}),
+    ...(options.appMeta !== undefined
+      ? { appMeta: snapshotAppMeta(options.appMeta) }
+      : {}),
   };
 }
 
@@ -149,6 +155,14 @@ export function registerRouteAtResolvedPath(
     ...getCurrentInheritedMeta(),
     ...(normalizedOptions?.meta ? [normalizedOptions.meta] : []),
   ];
+  const inheritedAppMeta = getCurrentInheritedAppMeta();
+  const appMetaChain =
+    inheritedAppMeta.length > 0 || normalizedOptions?.appMeta !== undefined
+      ? Object.freeze([
+          ...inheritedAppMeta,
+          Object.freeze({ path, appMeta: normalizedOptions?.appMeta }),
+        ])
+      : undefined;
 
   const handler = createRouteHandler(comp, pageChain, chain);
   const renderHandler = createRouteHandler(comp, pageChain, chain, true);
@@ -172,6 +186,7 @@ export function registerRouteAtResolvedPath(
           ? { auth }
           : {},
     ...(metaChain.length > 0 ? { metaChain } : {}),
+    ...(appMetaChain ? { appMetaChain } : {}),
     isFallback,
     handler,
     renderHandler,
@@ -185,6 +200,7 @@ export function registerRouteAtResolvedPath(
     path,
     handler,
     namespace: normalizedOptions?.namespace ?? options?.namespace,
+    ...(appMetaChain ? { appMetaChain } : {}),
     ...(metadata?.fallbackPrefix
       ? { fallbackPrefix: metadata.fallbackPrefix }
       : {}),

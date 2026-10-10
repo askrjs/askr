@@ -277,7 +277,10 @@ try {
     join(consumerRoot, 'absence-tsconfig.json'),
     JSON.stringify({
       extends: './tsconfig.json',
-      include: ['types/public-entrypoints.test-d.ts'],
+      include: [
+        'types/public-entrypoints.test-d.ts',
+        'types/app-meta-schema.test-d.ts',
+      ],
     })
   );
   for (const compiler of compilers) {
