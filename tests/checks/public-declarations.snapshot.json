@@ -97,6 +97,9 @@
       "IslandsConfig": [
         "type IslandsConfig = {\n    islands: IslandConfig[];\n    cspNonce?: string;\n};"
       ],
+      "replaceDataRuntime": [
+        "declare function replaceDataRuntime(root: Element | string, next: DataRuntime): void;"
+      ],
       "SPAConfig": [
         "type SPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    cleanupStrict?: boolean;\n    component?: never;\n};"
       ]
@@ -1952,6 +1955,9 @@
     ],
     "renderToStringSync": [
       "declare function renderToStringSync(component: (props?: Record<string, unknown>) => VNode$2 | JSXElement | string | number | boolean | null | undefined, props?: Record<string, unknown>, options?: {\n    seed?: number;\n    data?: SSRData;\n    envelope?: PageRenderEnvelope;\n    cspNonce?: string;\n    authContext?: AuthContext;\n    onContext?: (ctx: RenderContext) => void;\n}): string;"
+    ],
+    "replaceDataRuntime": [
+      "declare function replaceDataRuntime(root: Element | string, next: DataRuntime): void;"
     ],
     "RequiredKeys": [
       "type RequiredKeys<T> = {\n    [K in keyof T]-?: {} extends Pick<T, K> ? never : K;\n}[keyof T];"

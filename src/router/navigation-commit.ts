@@ -18,7 +18,11 @@ import {
 import { getRouteRenderData, hasRouteRenderData } from './resolution';
 import { reconcileRouteMeta } from './metadata';
 import { isStaleRouteRequest } from './navigation-request';
-import { isRenderResult, type AppNavigationTarget } from './navigation-types';
+import {
+  hasCurrentNavigationOwners,
+  isRenderResult,
+  type AppNavigationTarget,
+} from './navigation-types';
 
 function reconcileNavigationMetadata(
   targets: readonly AppNavigationTarget[]
@@ -121,6 +125,7 @@ export function commitNavigationRoots(
   updateScroll: () => void,
   restoreHistory?: () => void
 ): void {
+  if (!hasCurrentNavigationOwners(targets)) return;
   const previousPathname = getCurrentPathname();
   const previousHref = getCurrentHref();
   const roots = targets.map((target) => {

@@ -35,6 +35,7 @@ test('should expose the contracted @askrjs/askr/boot runtime surface', async () 
     'createSPA',
     'hasApp',
     'hydrateSPA',
+    'replaceDataRuntime',
   ]) {
     expect(surface).toHaveProperty(name);
     expect((surface as Record<string, unknown>)[name]).not.toBeUndefined();

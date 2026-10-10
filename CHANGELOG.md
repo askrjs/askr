@@ -31,8 +31,8 @@
 
 - Export the existing `RenderableChild` type from `@askrjs/askr` for component
   presentation props and layout slots, including nested readonly arrays.
-  Together with isolated runtime retirement, the contracted surface has
-  344 named/entrypoint pairs.
+  Together with isolated runtime retirement and app runtime replacement, the
+  contracted surface has 345 named/entrypoint pairs.
   Value children exclude factories; `Scope` retains its explicit factory-child
   contract. See `docs/core/rendering.md#presentation-children`.
 - Add `disposeDataRuntime()` at `@askrjs/askr/data` for terminal, idempotent
@@ -42,6 +42,12 @@
   Native prefetch uses the effective `context.signal` combining caller cancellation
   and retirement, rather than preserving the caller signal's object identity;
   disposing the runtime does not abort the caller's own signal.
+- Add `replaceDataRuntime(root, next)` at `@askrjs/askr/boot` to switch a live
+  routed app or island to another native runtime without remounting its shell.
+  Future implicit data hooks and route preloads use the replacement; pending
+  navigation from an earlier owner cannot publish. The operation preserves
+  component state and does not dispose the previous runtime. Explicitly retire
+  an exclusively owned old runtime when changing identity.
 
 - Add aggregate critical-runtime coverage with independent DOM, SSR, data and
   router regression floors, CI source reports, and cleanup/hydration failure

@@ -37,7 +37,8 @@
     "createIslands",
     "createSPA",
     "hasApp",
-    "hydrateSPA"
+    "hydrateSPA",
+    "replaceDataRuntime"
   ],
   "./components": [
     "ErrorBoundary",

@@ -22,6 +22,7 @@ import {
 } from './history-index';
 import { isStaleRouteRequest } from './navigation-request';
 import { commitNavigationRoots } from './navigation-commit';
+import { hasCurrentNavigationOwners } from './navigation-types';
 import type {
   NavigateOptions,
   NavigationRedirectState,
@@ -75,6 +76,7 @@ export function applyNavigationTargets(
   if (isStaleRouteRequest(requestId)) {
     return;
   }
+  if (!hasCurrentNavigationOwners(targets)) return;
   const previousPathname = getCurrentPathname();
   const previousHref = getCurrentHref();
 
@@ -184,6 +186,10 @@ export function applyPopStateNavigationTargets(
   navigate: (path: string, options: NavigateOptions) => void
 ): void {
   if (isStaleRouteRequest(requestId)) {
+    return;
+  }
+  if (!hasCurrentNavigationOwners(targets)) {
+    if (!returnToRenderedHistoryEntry()) reloadDocument();
     return;
   }
 

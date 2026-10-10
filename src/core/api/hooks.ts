@@ -18,6 +18,7 @@ import {
 } from '../component/instance';
 import { Owner, getOwner, runWithOwner, type Cleanup } from '../reactive/owner';
 import { notifySource, trackSource, type Source } from '../reactive/graph';
+import { recordUndo } from '../component/journal';
 
 export type { ComponentInstance, Cleanup };
 
@@ -45,6 +46,11 @@ export function claimHookIndex(
   kind: string
 ): number {
   return claimHook(instance, kind);
+}
+
+/** Undo a primitive's provisional ownership change if its render is discarded. */
+export function onRenderDiscard(undo: () => void): void {
+  recordUndo(undo);
 }
 
 /** Run `fn` after the current render of `instance` commits. */

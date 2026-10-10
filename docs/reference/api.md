@@ -88,7 +88,7 @@ Neither is re-exported from the root.
 
 ## Feature subpaths
 
-- `@askrjs/askr/boot` - app startup and lifecycle helpers such as `createIsland()`, `createIslands()`, `createSPA()`, `hydrateSPA()`, `cleanupApp()`, and `hasApp()`
+- `@askrjs/askr/boot` - app startup and lifecycle helpers such as `createIsland()`, `createIslands()`, `createSPA()`, `hydrateSPA()`, `cleanupApp()`, `hasApp()`, and `replaceDataRuntime()`
 - `@askrjs/askr/components` - `ErrorBoundary`
 - `@askrjs/askr/actions` - browser-safe `defineAction`, reactive `action`, and native-first `ActionForm`
 - `@askrjs/askr/control` - JSX control-flow helpers

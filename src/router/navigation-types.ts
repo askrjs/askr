@@ -5,6 +5,7 @@ import type {
 } from '../common/router';
 import type { AppRegistration } from './navigation-registry';
 import type { NavigationScrollBehavior } from './navigation-scroll';
+import type { AppRenderRuntime } from '../common/app-render-runtime';
 
 /** Options for {@link navigate}. */
 export type NavigateOptions = {
@@ -22,9 +23,21 @@ export type NavigationRedirectState = {
 
 export type AppNavigationTarget = {
   app: AppRegistration;
+  /** Exact app owner at resolution start; replacement invalidates pending targets. */
+  runtime: AppRenderRuntime | undefined;
   resolved: RouteRequestResult;
   metadata?: Readonly<RouteMeta>;
 };
+
+export function hasCurrentNavigationOwners(
+  targets: readonly AppNavigationTarget[]
+): boolean {
+  return targets.every(
+    (target) =>
+      target.resolved === null ||
+      target.app.instance.appRuntime === target.runtime
+  );
+}
 
 export function isRenderResult(
   result: RouteRequestResult
