@@ -12,13 +12,17 @@ import type { RenderableChild } from '../common/vnode';
 
 export type AnyRouteComponent = (...args: any[]) => RenderableChild;
 
+export type AppMetaDeclaration = Readonly<{ path: string; appMeta: unknown }>;
+
 export type InternalRoute = Route & {
   fallbackPrefix?: string;
+  appMetaChain?: readonly AppMetaDeclaration[];
 };
 
 export type InternalRouteRecord = RouteRecord & {
   fallbackPrefix?: string;
   renderHandler?: RouteHandler;
+  appMetaChain?: readonly AppMetaDeclaration[];
 };
 
 export type RegistrationScope = {
@@ -30,4 +34,5 @@ export type RegistrationScope = {
   auth?: AuthRequirement;
   policies: readonly RoutePolicy[];
   meta?: RouteMetaSource;
+  appMeta?: unknown;
 };

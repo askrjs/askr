@@ -119,7 +119,9 @@ export function setServerLocation(url: string | null): void {
     syncRouteActivitySnapshot(
       location.pathname,
       location.withinBasePath
-        ? computeMatchesFromRoutes(location.pathname, getActiveRoutes())
+        ? computeMatchesFromRoutes(location.pathname, getActiveRoutes()).slice(
+            -1
+          )
         : []
     );
     return;
@@ -127,7 +129,7 @@ export function setServerLocation(url: string | null): void {
 
   syncRouteActivitySnapshot(
     currentRouteSnapshot.path,
-    currentRouteSnapshot.matches
+    currentRouteSnapshot.matches.slice(-1)
   );
 }
 
@@ -146,7 +148,7 @@ function buildRouteSnapshot(
 
   return Object.freeze({
     path: pathname,
-    params: deepFreeze({ ...matches[0]?.params }),
+    params: deepFreeze({ ...matches[matches.length - 1]?.params }),
     query,
     hash: hash || null,
     ...locationState,
@@ -163,7 +165,7 @@ function setCurrentRouteSnapshot(
   currentRouteSnapshot = buildRouteSnapshot(pathname, search, hash);
   syncRouteActivitySnapshot(
     currentRouteSnapshot.path,
-    activityMatches ?? currentRouteSnapshot.matches
+    activityMatches ?? currentRouteSnapshot.matches.slice(-1)
   );
 
   notify(currentRouteSource);
@@ -249,15 +251,16 @@ export function isRoutePathActive(
   }
 
   const matches = computeMatchesFromRoutes(activePath, getActiveRoutes());
-  return matches.some((match) =>
-    candidates.has(normalizeRouteActivityPath(match.path))
-  );
+  return matches
+    .slice(-1)
+    .some((match) => candidates.has(normalizeRouteActivityPath(match.path)));
 }
 
 function readCurrentRouteSnapshot<
   TParams extends RouteParams = RouteParams,
   TState = unknown,
->(): RouteSnapshot<TParams, TState> {
+  TAppMeta = unknown,
+>(): RouteSnapshot<TParams, TState, TAppMeta> {
   const instance = getCurrentComponentInstance();
   if (!instance) {
     throw new Error(
@@ -274,7 +277,7 @@ function readCurrentRouteSnapshot<
     : [];
   const routeParams =
     (withinBasePath ? getActiveRenderContext()?.params : undefined) ??
-    matches[0]?.params ??
+    matches[matches.length - 1]?.params ??
     {};
   const params = deepFreeze({
     ...routeParams,
@@ -288,14 +291,15 @@ function readCurrentRouteSnapshot<
     hash: hash || null,
     ...locationState,
     matches: Object.freeze(matches),
-  }) as RouteSnapshot<TParams, TState>;
+  }) as RouteSnapshot<TParams, TState, TAppMeta>;
 }
 
 /** Read the currently active route's {@link RouteSnapshot}; reactive during component render. */
 export function currentRoute<
   TParams extends RouteParams = RouteParams,
   TState = unknown,
->(): RouteSnapshot<TParams, TState> {
+  TAppMeta = unknown,
+>(): RouteSnapshot<TParams, TState, TAppMeta> {
   const instance = getCurrentComponentInstance();
   if (!instance) {
     throw new Error(
@@ -305,11 +309,11 @@ export function currentRoute<
   }
 
   if (typeof window === 'undefined' || instance.server) {
-    return readCurrentRouteSnapshot<TParams, TState>();
+    return readCurrentRouteSnapshot<TParams, TState, TAppMeta>();
   }
 
   readSource(currentRouteSource);
-  return readCurrentRouteSnapshot<TParams, TState>();
+  return readCurrentRouteSnapshot<TParams, TState, TAppMeta>();
 }
 
 export function syncCurrentRouteSnapshot(

@@ -8,6 +8,10 @@
   and keyboard interactions, async retry, isolated runtime retirement and
   cleanup; qualify browser defaults separately. The integrations are dev-only
   and add no runtime dependency or public export (#755).
+- Add typed `appMeta` declaration data to routes, groups and pages, with immutable
+  parent-to-leaf `currentRoute().matches` reads and leaf-only `matchRoute()` reads.
+  Application metadata is separate from head metadata and is not automatically
+  transported in SSR hydration data. See the application route metadata guide.
 
 ### Breaking changes
 

@@ -39,6 +39,9 @@ export function _applyManifest(manifest: RouteManifest): void {
       path: record.path,
       handler: record.handler,
       namespace: record.options.namespace,
+      ...((record as InternalRouteRecord).appMetaChain
+        ? { appMetaChain: (record as InternalRouteRecord).appMetaChain }
+        : {}),
       ...('fallbackPrefix' in record &&
       typeof (record as InternalRouteRecord).fallbackPrefix === 'string'
         ? {

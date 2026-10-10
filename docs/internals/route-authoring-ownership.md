@@ -2,11 +2,12 @@
 
 `router/authoring.ts` retains the public overloads, component/path type inference,
 execution-model restrictions and typed route references. Its implementations
-delegate to three private modules; none is a package entrypoint.
+delegate to private modules; none is a package entrypoint.
 
 | Owner                   | Responsibility                                                                                                                                                    |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `path-policy.ts`        | Validate parameter syntax and normalize/join paths without consulting a registration table.                                                                       |
+| `app-meta.ts`           | Copy/freeze supported application declaration data without a registration table or public authoring dependency.                                                   |
 | `registration-scope.ts` | Resolve paths against the active scope and capture group/page inheritance. Scope push/pop remains owned by the table in `store.ts`.                               |
 | `route-registration.ts` | Validate record eligibility, compose inherited auth/policies/metadata, reject duplicate match keys, construct handlers and publish records into the active table. |
 
@@ -27,5 +28,7 @@ order are unchanged.
 
 The architecture tests enforce the dependency direction: path policy cannot
 read the table; scope capture cannot publish records; record registration cannot
-import the public facade. Unit probes exercise these seams alongside the
+import the public facade; application declaration snapshots cannot import runtime
+owners. Captured metadata ancestry is retained on each owning record/render route,
+including identical paths in independent registries. Unit probes exercise these seams alongside the
 existing manifest, matching, auth, metadata and jsdom navigation suites.

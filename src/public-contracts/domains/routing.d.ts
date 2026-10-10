@@ -192,6 +192,7 @@ interface RouteOptions<
     | undefined,
   TLoaderData = unknown,
   TDehydratedData = TLoaderData,
+  TAppMeta = unknown,
 > extends CommonAccessOptions {
   loader?: (
     context: RouteContext<TParams> & {
@@ -224,6 +225,8 @@ interface RouteOptions<
   namespace?: string;
   search?: TSearchSchema;
   meta?: RouteMetaSource<TParams>;
+  /** Immutable application declaration data; never automatically serialized for hydration. */
+  appMeta?: TAppMeta;
   actions?: readonly ActionDescriptor[];
 }
 
@@ -292,7 +295,7 @@ interface RouteDestination {
 }
 
 /** Options accepted by the `page()` route-declaration helper. */
-interface PageHelperOptions extends CommonAccessOptions {
+interface PageHelperOptions<TAppMeta = unknown> extends CommonAccessOptions {
   preload?: (
     context: RouteContext & {
       request?: Request;
@@ -300,6 +303,7 @@ interface PageHelperOptions extends CommonAccessOptions {
     }
   ) => unknown;
   meta?: RouteMetaSource;
+  appMeta?: TAppMeta;
 }
 
 /**
@@ -367,9 +371,10 @@ type RouteRequestResult<TParams extends RouteParams = RouteParams> =
   | null;
 
 /** Options accepted by the `group()` route-declaration helper. */
-interface GroupHelperOptions extends CommonAccessOptions {
+interface GroupHelperOptions<TAppMeta = unknown> extends CommonAccessOptions {
   layout?: (props: { children?: RenderableChild }) => RenderableChild;
   meta?: RouteMetaSource;
+  appMeta?: TAppMeta;
 }
 
 /**
@@ -453,11 +458,15 @@ interface RouteRegistry {
 }
 
 /** A single matched route, as reported by {@link currentRoute} and activity predicates. */
-interface RouteMatch<TParams extends RouteParams = RouteParams> {
+interface RouteMatch<
+  TParams extends RouteParams = RouteParams,
+  TAppMeta = unknown,
+> {
   path: string;
   params: Readonly<TParams>;
   name?: string;
   namespace?: string;
+  readonly appMeta?: TAppMeta;
 }
 
 /** Read-only accessor for the current route's query-string parameters. */
@@ -472,6 +481,7 @@ interface RouteQuery {
 interface RouteSnapshot<
   TParams extends RouteParams = RouteParams,
   TState = unknown,
+  TAppMeta = unknown,
 > {
   path: string;
   params: Readonly<TParams>;
@@ -483,7 +493,7 @@ interface RouteSnapshot<
   state: TState | undefined;
   name?: string;
   namespace?: string;
-  matches: readonly RouteMatch<TParams>[];
+  matches: readonly RouteMatch<TParams, TAppMeta>[];
 }
 export {
   RouteParams,

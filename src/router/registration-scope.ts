@@ -5,6 +5,7 @@ import type {
   RouteDefinition,
 } from '../common/router';
 import { compileNodePolicies } from './access';
+import { snapshotAppMeta } from './app-meta';
 import {
   hasActivePageScope,
   getCurrentPathPrefix,
@@ -69,6 +70,7 @@ export function pushGroupScope(
       auth: options.auth,
       policies,
       meta: options.meta,
+      appMeta: snapshotAppMeta(options.appMeta),
     },
     fn
   );
@@ -98,6 +100,7 @@ export function pushPageScope(
       auth: options.auth,
       policies,
       meta: options.meta,
+      appMeta: snapshotAppMeta(options.appMeta),
     },
     fn
   );
