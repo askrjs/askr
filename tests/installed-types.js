@@ -121,8 +121,10 @@ try {
       'import { defineAction } from "@askrjs/askr/actions";',
       'const [count] = state(1);',
       'const view = <><span>{count()}</span></>;',
+      'const spread = { title: "spread props" };',
+      'const keyed = <span {...spread} key="after-spread">keyed</span>;',
       'route("/", () => view);',
-      'void [Fragment, jsx, jsxs, view, createRouteRegistry, renderToString, createStaticGen, defineAction];',
+      'void [Fragment, jsx, jsxs, view, keyed, createRouteRegistry, renderToString, createStaticGen, defineAction];',
     ].join('\n')
   );
   // Without the peers, their own types degrade to `any`, but Askr's types
@@ -160,18 +162,25 @@ try {
       ],
     })
   );
-  const typescriptCli = resolve(
-    repositoryRoot,
-    'node_modules/typescript/bin/tsc'
-  );
-  execFileSync(
-    process.execPath,
-    [typescriptCli, '-p', join(consumerRoot, 'tsconfig.json')],
-    {
-      cwd: consumerRoot,
-      stdio: 'inherit',
-    }
-  );
+  const compilers = [
+    'node_modules/@typescript/typescript6/bin/tsc6',
+    'node_modules/typescript/bin/tsc',
+  ].map((entry) => resolve(repositoryRoot, entry));
+  for (const compiler of compilers) {
+    console.log(
+      execFileSync(process.execPath, [compiler, '--version'], {
+        encoding: 'utf8',
+      }).trim()
+    );
+    execFileSync(
+      process.execPath,
+      [compiler, '-p', join(consumerRoot, 'tsconfig.json')],
+      {
+        cwd: consumerRoot,
+        stdio: 'inherit',
+      }
+    );
+  }
   writeFileSync(
     join(consumerRoot, 'vitest.config.ts'),
     [
@@ -205,6 +214,12 @@ try {
       '  view.cleanup();',
       '  expect(document.body.contains(view.root)).toBe(false);',
       '});',
+      'test("should render JSX with a key after a spread through the classic factory", () => {',
+      '  const props = { title: "spread props" };',
+      '  const markup = renderToString(() => <span {...props} key="after-spread">keyed</span>);',
+      `  expect(markup).toContain('title="spread props"');`,
+      '  expect(markup).toContain(">keyed</span>");',
+      '});',
     ].join('\n')
   );
   runNpm(['exec', '--', 'vitest', 'run', '-c', 'vitest.config.ts'], {
@@ -217,6 +232,20 @@ try {
   cpSync(join(repositoryRoot, 'tests/types'), join(consumerRoot, 'types'), {
     recursive: true,
   });
+  writeFileSync(
+    join(consumerRoot, 'absence-tsconfig.json'),
+    JSON.stringify({
+      extends: './tsconfig.json',
+      include: ['types/public-entrypoints.test-d.ts'],
+    })
+  );
+  for (const compiler of compilers) {
+    execFileSync(
+      process.execPath,
+      [compiler, '-p', join(consumerRoot, 'absence-tsconfig.json')],
+      { cwd: consumerRoot, stdio: 'inherit' }
+    );
+  }
   runNpm(
     [
       'exec',

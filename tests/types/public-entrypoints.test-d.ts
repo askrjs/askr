@@ -6,7 +6,8 @@ import * as routerSurface from '@askrjs/askr/router';
 import * as foundationsSurface from '@askrjs/askr/foundations';
 
 // @ts-expect-error root package does not expose JSXElement
-expectType<never>(null as unknown as import('@askrjs/askr').JSXElement);
+type HiddenRootJSXElement = import('@askrjs/askr').JSXElement;
+expectAssignable<unknown>({} as HiddenRootJSXElement);
 
 declare const renderFailure: unknown;
 if (renderFailure instanceof RenderDepthError) {
@@ -25,70 +26,75 @@ expectType<() => void>(
   rootSurface.configureRenderDiagnostics({ slowRenderWarnings: false })
 );
 // @ts-expect-error runtime construction is no longer published
-expectType<never>(rootSurface.createRuntime);
+void rootSurface.createRuntime;
 // @ts-expect-error renderer host construction is no longer published
-expectType<never>(rootSurface.createDOMRendererHost);
+void rootSurface.createDOMRendererHost;
 // @ts-expect-error jsx runtime entrypoint no longer exposes element brand
 void ({} as typeof import('@askrjs/askr/jsx-runtime')).ELEMENT_TYPE;
 // @ts-expect-error jsx dev runtime entrypoint no longer exposes element brand
 void ({} as typeof import('@askrjs/askr/jsx-dev-runtime')).ELEMENT_TYPE;
 
 // @ts-expect-error root package does not expose startup helpers
-expectType<never>(rootSurface.createIsland);
+void rootSurface.createIsland;
 // @ts-expect-error root package does not expose router helpers
-expectType<never>(rootSurface.route);
+void rootSurface.route;
 // @ts-expect-error root package does not expose resource helpers
-expectType<never>(rootSurface.resource);
+void rootSurface.resource;
 // @ts-expect-error root package does not expose component helpers
-expectType<never>(rootSurface.ErrorBoundary);
+void rootSurface.ErrorBoundary;
 // @ts-expect-error data helpers are published from @askrjs/askr/data only
-expectType<never>(rootSurface.createQuery);
+void rootSurface.createQuery;
 // @ts-expect-error root package does not expose data helpers
-expectType<never>(rootSurface.queryScope);
+void rootSurface.queryScope;
 // @ts-expect-error root package does not expose foundations helpers
-expectType<never>(rootSurface.Portal);
+void rootSurface.Portal;
 // @ts-expect-error root package does not expose testing helpers
-expectType<never>(rootSurface.mockQuery);
+void rootSurface.mockQuery;
 // @ts-expect-error root package does not expose testing helpers
-expectType<never>(rootSurface.matchRoute);
+void rootSurface.matchRoute;
 // @ts-expect-error root package does not expose testing helpers
-expectType<never>(rootSurface.render);
+void rootSurface.render;
 
 // @ts-expect-error resources subpath no longer re-exports data helpers
-expectType<never>(resourcesSurface.createQuery);
+void resourcesSurface.createQuery;
 // @ts-expect-error resources subpath no longer re-exports data helpers
-expectType<never>(resourcesSurface.createMutation);
+void resourcesSurface.createMutation;
 // @ts-expect-error resources subpath no longer re-exports data helpers
-expectType<never>(resourcesSurface.invalidate);
+void resourcesSurface.invalidate;
 // @ts-expect-error resources subpath no longer re-exports removed aliases
-expectType<never>(resourcesSurface.DataResult);
+type RemovedDataResult = import('@askrjs/askr/resources').DataResult;
+expectAssignable<unknown>({} as RemovedDataResult);
 
 // @ts-expect-error slim foundations entrypoint no longer exposes utilities
-expectType<never>(foundationsSurface.composeHandlers);
+void foundationsSurface.composeHandlers;
 // @ts-expect-error slim foundations entrypoint no longer exposes interactions
-expectType<never>(foundationsSurface.pressable);
+void foundationsSurface.pressable;
 // @ts-expect-error slim foundations entrypoint no longer exposes state helpers
-expectType<never>(foundationsSurface.isControlled);
+void foundationsSurface.isControlled;
 // @ts-expect-error slim foundations entrypoint no longer exposes icon helpers
-expectType<never>(foundationsSurface.IconBase);
+void foundationsSurface.IconBase;
 // @ts-expect-error slim foundations entrypoint no longer exposes structural registries
-expectType<never>(foundationsSurface.createCollection);
+void foundationsSurface.createCollection;
 // @ts-expect-error slim foundations entrypoint no longer exposes structural registries
-expectType<never>(foundationsSurface.createLayer);
+void foundationsSurface.createLayer;
 
 // @ts-expect-error internal router helpers are not part of the public barrel
-expectType<never>(routerSurface._applyManifest);
+void routerSurface._applyManifest;
 // @ts-expect-error internal router helpers are not part of the public barrel
-expectType<never>(routerSurface._drainLazy);
+void routerSurface._drainLazy;
 // @ts-expect-error internal router helpers are not part of the public barrel
-expectType<never>(routerSurface.getNamespaceRoutes);
+void routerSurface.getNamespaceRoutes;
 // @ts-expect-error internal router helpers are not part of the public barrel
-expectType<never>(routerSurface.unloadNamespace);
+void routerSurface.unloadNamespace;
 // @ts-expect-error internal router helpers are not part of the public barrel
-expectType<never>(routerSurface.getLoadedNamespaces);
+void routerSurface.getLoadedNamespaces;
 // @ts-expect-error internal router helpers are not part of the public barrel
-expectType<never>(routerSurface.resolveRouteRequest);
-// @ts-expect-error internal router helpers are not part of the public barrel
-expectType<never>(routerSurface.setServerLocation);
-// @ts-expect-error route test helpers live in @askrjs/askr/testing
-expectType<never>(routerSurface.matchRoute);
+void routerSurface.setServerLocation;
+// Server adapters and application tests share the canonical router owner.
+const registry = routerSurface.createRouteRegistry(() => {});
+expectType<routerSurface.RouteMatch | null>(
+  routerSurface.matchRoute('/', { registry })
+);
+expectAssignable<
+  routerSurface.RouteRequestResult | Promise<routerSurface.RouteRequestResult>
+>(routerSurface.resolveRouteRequest('/', { registry }));
