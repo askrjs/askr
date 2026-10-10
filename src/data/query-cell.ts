@@ -14,10 +14,13 @@ import {
 } from '../core/api/hooks';
 import { schedule, type Job } from '../core/reactive/scheduler';
 import {
+  assertDataRuntimeActive,
+  registerDataRuntimeOwner,
   ensureQueryCleanup,
   getQuerySlotStore,
   readQueryData,
   resolveDataRuntimeState,
+  type DataRuntimeState,
 } from './data-runtime';
 import { getDefaultDataRuntime } from './data-runtime';
 import {
@@ -84,9 +87,11 @@ export class QueryCell<T> {
   constructor(
     options: QueryCellOptions<T>,
     key: string,
-    cache: Map<string, QueryCell<unknown>>
+    cache: Map<string, QueryCell<unknown>>,
+    private readonly runtimeState?: DataRuntimeState
   ) {
     this.key = key;
+    if (runtimeState) registerDataRuntimeOwner(runtimeState, this);
     this.lifetime = new QueryLifetime(options, key, cache, this, {
       snapshot: () => this.state,
       retireInactiveFetch: () => this.retireInactiveFetch(),
@@ -109,7 +114,21 @@ export class QueryCell<T> {
     return this.lifetime.currentOptions;
   }
   private get destroyed(): boolean {
-    return this.lifetime.isDestroyed;
+    return this.runtimeState?.retired === true || this.lifetime.isDestroyed;
+  }
+
+  /** @internal Runtime retirement also erases snapshots of evicted handles. */
+  retire(): void {
+    this.generation += 1;
+    this.finishPendingRefresh();
+    this.pendingRefreshToken += 1;
+    this.state = errorQueryState<T>(
+      null,
+      this.runtimeState!.retirement.signal.reason
+    );
+    this.freshAt = null;
+    this.lifetime.destroy();
+    notifySource(this.source);
   }
   private get ownerCount(): number {
     return this.lifetime.readerCount;
@@ -149,37 +168,39 @@ export class QueryCell<T> {
 
   get data(): T | null {
     recordReadableRead(this.source);
-    return this.state.data;
+    return this.runtimeState?.retired ? null : this.state.data;
   }
 
   get error(): {} | null {
     recordReadableRead(this.source);
-    return this.state.error;
+    return this.runtimeState?.retired
+      ? this.runtimeState.retirement.signal.reason
+      : this.state.error;
   }
 
   get loading(): boolean {
     recordReadableRead(this.source);
-    return this.state.loading;
+    return !this.runtimeState?.retired && this.state.loading;
   }
 
   get refreshing(): boolean {
     recordReadableRead(this.source);
-    return this.state.refreshing;
+    return !this.runtimeState?.retired && this.state.refreshing;
   }
 
   get stale(): boolean {
     recordReadableRead(this.source);
-    return this.state.stale;
+    return this.runtimeState?.retired || this.state.stale;
   }
 
   get consistency(): QueryState<T>['consistency'] {
     recordReadableRead(this.source);
-    return this.state.consistency;
+    return this.runtimeState?.retired ? 'stale' : this.state.consistency;
   }
 
   get staleReason(): QueryState<T>['staleReason'] {
     recordReadableRead(this.source);
-    return this.state.staleReason;
+    return this.runtimeState?.retired ? 'error' : this.state.staleReason;
   }
 
   /** @internal Whether a collection should schedule this cell's first load. */
@@ -206,6 +227,7 @@ export class QueryCell<T> {
   }
 
   refresh(): Promise<void> {
+    if (this.runtimeState) assertDataRuntimeActive(this.runtimeState);
     if (this.destroyed) {
       return Promise.resolve();
     }
@@ -267,6 +289,7 @@ export class QueryCell<T> {
   }
 
   invalidate(): Promise<void> {
+    if (this.runtimeState) assertDataRuntimeActive(this.runtimeState);
     if (this.destroyed) {
       return Promise.resolve();
     }
@@ -484,6 +507,7 @@ export class QueryCell<T> {
     operation: QueryOperation,
     reconcileSequence: number
   ): Promise<void> {
+    if (!this.isCurrent(operation)) return;
     const shouldRetry = await (reconcile?.(data, { key: this.key }) ?? false);
 
     if (
@@ -503,9 +527,17 @@ export class QueryCell<T> {
       return;
     }
 
-    await new Promise<void>((resolve) =>
-      setTimeout(resolve, RECONCILE_RETRY_DELAY_MS)
-    );
+    await new Promise<void>((resolve) => {
+      const signal = this.runtimeState?.retirement.signal;
+      const finish = () => {
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', finish);
+        resolve();
+      };
+      const timer = setTimeout(finish, RECONCILE_RETRY_DELAY_MS);
+      signal?.addEventListener('abort', finish, { once: true });
+      if (signal?.aborted) finish();
+    });
     if (
       reconcileSequence !== this.reconcileSequence ||
       this.state.consistency === 'fresh' ||
@@ -525,15 +557,16 @@ export class QueryCell<T> {
 
 function createCell<T>(
   options: QueryCellOptions<T>,
-  cache: Map<string, QueryCell<unknown>>
+  runtimeState: DataRuntimeState
 ): QueryCell<T> {
+  const cache = runtimeState.queryCache;
   const cellOptions = options.takeInitialData
     ? {
         ...options,
         initialData: options.takeInitialData() ?? options.initialData,
       }
     : options;
-  const cell = new QueryCell(cellOptions, options.key, cache);
+  const cell = new QueryCell(cellOptions, options.key, cache, runtimeState);
   cache.set(options.key, cell as QueryCell<unknown>);
   cell.ensureStarted();
   return cell;
@@ -544,7 +577,15 @@ function createLegacyQuery<T extends {}>(
 ): Query<T> {
   validateGcTime(options.gcTime);
   const instance = getCurrentComponentInstance();
-  const runtimeState = resolveDataRuntimeState(options.runtime);
+  const runtimeState = resolveDataRuntimeState(options.runtime, true);
+  if (runtimeState.retired) {
+    if (instance) {
+      const hookIndex = claimHookIndex(instance, 'createQuery');
+      const slot = getQuerySlotStore(runtimeState, instance).get(hookIndex);
+      if (slot?.key === options.key) return slot.cell as unknown as Query<T>;
+    }
+    assertDataRuntimeActive(runtimeState);
+  }
   const cache = runtimeState.queryCache;
   const override = runtimeState.queryTestOverrides.get(options.key) as
     | Query<T>
@@ -554,7 +595,7 @@ function createLegacyQuery<T extends {}>(
     let cell = cache.get(options.key) as QueryCell<T> | undefined;
     if (cell?.retireInactiveReaderCacheEntry()) cell = undefined;
     if (!cell) {
-      cell = createCell(options, cache);
+      cell = createCell(options, runtimeState);
     } else {
       cell.warnOnConflictingDefinition(options);
     }
@@ -583,7 +624,7 @@ function createLegacyQuery<T extends {}>(
 
   const cell =
     (cache.get(options.key) as QueryCell<T> | undefined) ??
-    createCell(options, cache);
+    createCell(options, runtimeState);
 
   slotStore.set(hookIndex, {
     key: options.key,
@@ -610,7 +651,7 @@ export function createDefinedQuery<TInput, TResult extends {}>(
     getCurrentAppRenderRuntime()?.dataRuntime ??
     getDefaultDataRuntime();
   const serverRender = isServerQueryRender();
-  const runtimeState = resolveDataRuntimeState(dataRuntime);
+  const runtimeState = resolveDataRuntimeState(dataRuntime, true);
   return createLegacyQuery({
     ...options,
     key,

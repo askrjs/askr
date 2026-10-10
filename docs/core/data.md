@@ -141,6 +141,61 @@ seeds it from the server payload, `createQuery()` calls in route components
 read it without an explicit `runtime` option, and route `preload` hooks
 prefetch into it on the initial route and on every client navigation.
 
+#### Retiring an isolated runtime
+
+`disposeDataRuntime(runtime)` synchronously and permanently retires a runtime
+created by `createDataRuntime()`. Use one runtime per request, test, or isolated
+application owner and retire it when that owner no longer needs its data:
+
+```ts
+import { createDataRuntime, disposeDataRuntime } from '@askrjs/askr/data';
+
+const runtime = createDataRuntime();
+try {
+  // Pass runtime to the request's prefetch and rendering operations.
+} finally {
+  disposeDataRuntime(runtime);
+}
+```
+
+Retirement aborts query, mutation, and prefetch signals, stops collection queues,
+and clears cached, hydrated, and prefetched data. Retained query handles, including
+ones evicted from the cache, expose `data: null`, an `AbortError`, and the existing
+settled stale/error state. Existing mounted hooks can read those terminal handles
+again so cleared content can render; they cannot redefine or restart work.
+Collections become empty and settled. Mutations clear their result/error to idle
+and run each active optimistic rollback once.
+
+Pending query `refresh()` promises complete promptly, following the existing
+void/abort completion contract. Pending mutation `execute()` and prefetch callers
+reject promptly with `AbortError`, even if application work ignores its signal.
+For a native runtime, prefetch `context.signal` is the effective signal composed
+from caller cancellation and runtime retirement, and is the signal passed to the
+fetcher/server handler. Disposing the runtime does not abort the caller's own
+signal. Code that needs to inspect the signal used by a prefetch should read
+`context.signal` rather than assume it is the original caller signal.
+Late success, failure, consistency/reconciliation, and mutation `affects` callbacks
+cannot publish data or start new work. Disposal cannot undo an already committed
+remote write; ordinary mutation `abort()` retains its existing write-invalidation
+semantics.
+
+New query/mutation/collection handles, new prefetch contexts or calls, hydration,
+explicit invalidation, and old-handle refresh/retry/execute calls reject with a
+corrective error. Dehydration returns an empty object. Direct writes to the public
+maps after retirement are outside this contract and do not revive readers.
+Create a new isolated runtime for later work; disposal is not a reset operation.
+
+Old activity and interval callbacks become inert. Their DOM listeners and timers
+remain component-owned until normal component cleanup; disposing data does not
+unmount an application. Repeated disposal and later component cleanup are safe.
+If a rollback throws, disposal still drains the other owners and clears the maps
+before rethrowing that failure (or an `AggregateError` for multiple failures).
+Another isolated runtime remains independent.
+
+The process-wide `getDefaultDataRuntime()` singleton cannot be disposed: create an
+isolated runtime when explicit retirement is required. Structural, hand-built
+runtime containers are also rejected by this operation.
+
 ### Queries
 
 ```ts

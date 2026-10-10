@@ -184,5 +184,6 @@ await createSPA({ root: document.body, registry });
 - `createQuery()` exposes `consistency` plus `staleReason` so settled stale states can be narrowed into `inconsistent`, `aborted`, or `error` without guessing from broad booleans alone.
 - `createQueryCollection()` owns a dynamic keyed set of one query definition, bounds collection-started loads and retries, and exposes aggregate results and per-key errors without introducing another cache.
 - `createDataRuntime()` creates isolated query and mutation state for tests, embedded apps, and multi-root shells; pass it through data operation options with `runtime`.
+- `disposeDataRuntime(runtime)` terminally retires an isolated runtime, clears retained data, and cancels its work. Create a new runtime for later work; the shared default cannot be disposed. See [runtime retirement](../core/data.md#retiring-an-isolated-runtime).
 - `resource()` is available from `@askrjs/askr/resources`.
 - `renderToString()`, `renderToStream()`, `renderRouteRequestToString()`, and `createStaticGen()` accept route registries captured with `createRouteRegistry()`.

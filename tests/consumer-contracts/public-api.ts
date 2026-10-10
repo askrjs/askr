@@ -166,6 +166,7 @@ import {
 
 import {
   createDataRuntime as Entry11_createDataRuntime,
+  disposeDataRuntime as Entry11_disposeDataRuntime,
   createMutation as Entry11_createMutation,
   createQuery as Entry11_createQuery,
   createQueryCollection as Entry11_createQueryCollection,
@@ -472,6 +473,7 @@ export const retainedValues = [
   Entry10_watch,
   Entry10_windowFocused,
   Entry11_createDataRuntime,
+  Entry11_disposeDataRuntime,
   Entry11_createMutation,
   Entry11_createQuery,
   Entry11_createQueryCollection,
