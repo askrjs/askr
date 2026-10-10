@@ -108,9 +108,10 @@ Guides live in [guides](./guides/), and benchmark workflow in
 
 ### Recipes
 
-| Page                                                      | Description                                      |
-| --------------------------------------------------------- | ------------------------------------------------ |
-| [Verified platform recipes](./guides/platform-recipes.md) | Routing, browser lifecycle, data, errors, search |
+| Page                                                      | Description                                                               |
+| --------------------------------------------------------- | ------------------------------------------------------------------------- |
+| [Verified platform recipes](./guides/platform-recipes.md) | Routing, browser lifecycle, data, errors, search                          |
+| [Stable IDs](./guides/stable-ids.md)                      | Application-owned label and description identity across SSR and hydration |
 
 ### Development
 

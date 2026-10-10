@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Document the application-owned stable ID pattern for label and description associations, with installed SSR/hydration, keyed reordering, independent roots and native browser qualification.
+
 ### Breaking changes
 
 - Reduce the Core surface from 373 to 342 named/entrypoint pairs while keeping
