@@ -5,6 +5,10 @@ Patterns for building forms in Askr with `state()` and headless UI primitives.
 Use local state for draft values, validate before submit, and keep API calls at
 the route or feature-container boundary.
 
+For reusable or server-rendered fields, pass a stable application-owned ID and
+derive label/description associations from it. See [Stable IDs](./stable-ids.md)
+for instance namespaces, keyed lists and verified hydration.
+
 ## Typical Form Structure
 
 ```tsx
