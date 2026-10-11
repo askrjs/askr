@@ -2,16 +2,23 @@ import type { RenderableChild } from '../common/vnode';
 import type { JSXElement } from '../common/jsx';
 import type { ObjectSchema } from '@askrjs/schema';
 import { getSignal, state } from '../core/api/state';
+import { currentComponent, onRenderDiscard } from '../core/api/hooks';
 import { getCurrentRenderData } from '../common/render-context';
 import {
+  assertDataRuntimeActive,
   invalidateQueriesForRuntime,
   resolveDataRuntimeState,
+  type DataRuntimeState,
 } from '../data/data-runtime';
 import { readActionFramework } from './runtime';
 import { isCurrentAsyncGeneration, raceAbort } from '../data/shared';
 import { resolveNavigationUrl } from '../common/url';
 
 const actionSubmissionGenerations = new WeakMap<object, number>();
+const actionRuntimeBindings = new WeakMap<
+  object,
+  { readonly runtime: DataRuntimeState; readonly actionId: string }
+>();
 
 function csrfToken(): string | undefined {
   const value =
@@ -169,13 +176,40 @@ export function action<
     throw new TypeError('action csrfToken requires an explicit resolver.');
   }
   const token = csrfToken();
-  const runtime = resolveDataRuntimeState();
+  const runtime = resolveDataRuntimeState(undefined, true);
+  if (runtime.retired) {
+    const instance = currentComponent();
+    const existing =
+      instance?.hookKinds[instance.hookIndex] === 'state'
+        ? instance.hooks[instance.hookIndex]
+        : undefined;
+    const binding =
+      typeof existing === 'function'
+        ? actionRuntimeBindings.get(existing)
+        : undefined;
+    // Disposal permits an existing mounted reader, never a new action owner.
+    if (binding?.runtime !== runtime || binding?.actionId !== descriptor.id)
+      assertDataRuntimeActive(runtime);
+  }
   const signal = options
     ? AbortSignal.any([getSignal(), runtime.retirement.signal])
     : undefined;
   const value = state<ActionStatus<TResult>>(
     initialStatus<TResult>(descriptor.id)
   );
+  const previousBinding = actionRuntimeBindings.get(value);
+  if (
+    previousBinding?.runtime !== runtime ||
+    previousBinding?.actionId !== descriptor.id
+  ) {
+    const binding = { runtime, actionId: descriptor.id };
+    actionRuntimeBindings.set(value, binding);
+    onRenderDiscard(() => {
+      if (actionRuntimeBindings.get(value) !== binding) return;
+      if (previousBinding) actionRuntimeBindings.set(value, previousBinding);
+      else actionRuntimeBindings.delete(value);
+    });
+  }
   const setValue = value.set;
   return {
     state: value,
