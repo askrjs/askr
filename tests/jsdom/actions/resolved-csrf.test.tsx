@@ -128,7 +128,7 @@ it('should not invoke the resolver during SSR or fall back when it returns undef
     });
     return (
       <ActionForm action={save}>
-        <button>save</button>
+        <button disabled={command.state().pending}>save</button>
       </ActionForm>
     );
   };
