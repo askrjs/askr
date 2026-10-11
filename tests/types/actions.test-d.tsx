@@ -26,3 +26,20 @@ expectAssignable<JSX.Element>(
 const command = action<{ name: string }, { id: string }>(rename);
 expectType<ActionStatus<{ id: string }>>(command.state());
 expectType<Promise<{ id: string }>>(command.submit({ name: 'Askr' }));
+
+const explicitCsrf = action<{ name: string }, { id: string }>(rename, {
+  csrfToken: async (signal) => {
+    expectType<AbortSignal>(signal);
+    return 'current-session-token';
+  },
+});
+expectType<Promise<{ id: string }>>(explicitCsrf.submit({ name: 'Askr' }));
+expectAssignable<ReturnType<typeof action<{ name: string }>>>(
+  action(rename, { csrfToken: async () => undefined })
+);
+expectError(action(rename, { csrfToken: 'static-token' }));
+expectError(action(rename, { csrfToken: async () => 42 }));
+expectError(action(rename, { csrfToken: () => 'sync-token' }));
+expectError(action(rename, { csrfToken: async (_signal: string) => 'token' }));
+expectError(action(rename, {}));
+expectError(action(rename, { csrfToken: async () => 'token', transport: fetch }));
