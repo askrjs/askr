@@ -73,7 +73,7 @@ afterEach(() => {
   resetRouterState();
 });
 
-it('resolves a fresh token for each submission and forwards the owned signal', async () => {
+it('should resolve a fresh token for each submission and forward the owned signal', async () => {
   const request = post();
   const resolver = vi
     .fn<Resolver>()
@@ -91,7 +91,7 @@ it('resolves a fresh token for each submission and forwards the owned signal', a
   }
 });
 
-it('keeps token selection and successful invalidation isolated between roots', async () => {
+it('should keep token selection and successful invalidation isolated between roots', async () => {
   const request = post();
   const first = mount(async () => 'first-root');
   const second = mount(async () => 'second-root');
@@ -108,7 +108,7 @@ it('keeps token selection and successful invalidation isolated between roots', a
   ).toEqual(['first-root', 'second-root']);
 });
 
-it('does not invoke the resolver during SSR and never falls back when it returns undefined', async () => {
+it('should not invoke the resolver during SSR or fall back when it returns undefined', async () => {
   const request = post();
   const resolver = vi.fn<Resolver>().mockResolvedValue(undefined);
   const view = createTestContainer();
@@ -147,7 +147,7 @@ it('does not invoke the resolver during SSR and never falls back when it returns
   ).toBe(false);
 });
 
-it('rejects a resolver failure without sending a mutation or retrying', async () => {
+it('should reject a resolver failure without sending a mutation or retrying', async () => {
   const request = post();
   const failure = new Error('bootstrap failed');
   const resolver = vi.fn<Resolver>().mockRejectedValue(failure);
@@ -159,7 +159,7 @@ it('rejects a resolver failure without sending a mutation or retrying', async ()
 });
 
 it.each([null, 42, {}, '', 'with space', 'line\r\nbreak'])(
-  'rejects invalid resolved token %j before POST',
+  'should reject invalid resolved token %j before POST',
   async (token) => {
     const request = post();
     const view = mount(async () => token as unknown as string | undefined);
@@ -171,7 +171,7 @@ it.each([null, 42, {}, '', 'with space', 'line\r\nbreak'])(
 );
 
 it.each(['unmount', 'retire'] as const)(
-  'fences an abort-ignoring resolver after %s',
+  'should fence an abort-ignoring resolver after %s',
   async (kind) => {
     const request = post();
     const pending = deferred<string>();
@@ -193,7 +193,7 @@ it.each(['unmount', 'retire'] as const)(
   }
 );
 
-it('settles on retirement while an old POST ignores abort and cannot publish its late response', async () => {
+it('should settle on retirement while an old POST ignores abort and prevent its late response', async () => {
   const pending = deferred<Response>();
   const request = vi.fn(
     (_input: RequestInfo | URL, _init?: RequestInit) => pending.promise
@@ -214,7 +214,7 @@ it('settles on retirement while an old POST ignores abort and cannot publish its
   expect(command.state().result).toBeUndefined();
 });
 
-it('preserves last-started-wins status while both requested mutations settle', async () => {
+it('should preserve last-started-wins status while both requested mutations settle', async () => {
   const request = post();
   const first = deferred<string>();
   const second = deferred<string>();
@@ -235,7 +235,7 @@ it('preserves last-started-wins status while both requested mutations settle', a
   expect(resolver.mock.calls.every(([signal]) => !signal.aborted)).toBe(true);
 });
 
-it('preserves a decoded interaction problem as the action error cause', async () => {
+it('should preserve a decoded interaction problem as the action error cause', async () => {
   const problem = {
     code: 'interaction-required',
     reason: 'consent',
@@ -260,7 +260,7 @@ it.each([
   { csrfToken: 'static' },
   { csrfToken: async () => 'token', fetch },
 ])(
-  'rejects malformed resolver options %j before creating a hook',
+  'should reject malformed resolver options %j before creating a hook',
   (options) => {
     const view = createTestContainer();
     views.push(view);
