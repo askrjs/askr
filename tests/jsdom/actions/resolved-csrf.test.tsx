@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test';
 import { schema } from '@askrjs/schema';
+import { state } from '../../../src';
 import { action, ActionForm, defineAction } from '../../../src/actions';
-import { cleanupApp, createIsland, hydrateSPA } from '../../../src/boot';
+import {
+  cleanupApp,
+  createIsland,
+  hydrateSPA,
+  replaceDataRuntime,
+} from '../../../src/boot';
 import { createDataRuntime, disposeDataRuntime } from '../../../src/data';
 import { createRouteRegistry, route } from '../../../src/router';
 import { resetRouterState } from '../../../src/router/reset';
@@ -60,6 +66,7 @@ function post() {
   return request;
 }
 beforeEach(() => {
+  Reflect.deleteProperty(globalThis, Symbol.for('__ASKR_EXECUTION_MODEL__'));
   resetRouterState();
   window.history.replaceState({}, '', '/');
 });
@@ -71,6 +78,7 @@ afterEach(() => {
   for (const runtime of runtimes.splice(0)) disposeDataRuntime(runtime);
   vi.unstubAllGlobals();
   resetRouterState();
+  Reflect.deleteProperty(globalThis, Symbol.for('__ASKR_EXECUTION_MODEL__'));
 });
 
 it('should resolve a fresh token for each submission and forward the owned signal', async () => {
@@ -180,11 +188,28 @@ it.each(['unmount', 'retire'] as const)(
       signal = value;
       return pending.promise;
     });
+    const originalCommand = view.command;
+    const originalState = originalCommand.state;
     const submission = view.command.submit({ name: 'private' });
     const outcome = submission.catch((error: unknown) => error);
     if (kind === 'unmount') cleanupApp(view.container);
     else disposeDataRuntime(view.runtime);
+    expect(() => flushScheduler()).not.toThrow();
+    expect(view.command.state).toBe(originalState);
     expect(signal.aborted).toBe(true);
+    if (kind === 'retire') {
+      expect(view.command).not.toBe(originalCommand);
+      await expect(
+        view.command.submit({ name: 'new handle' })
+      ).rejects.toMatchObject({
+        name: 'AbortError',
+      });
+      await expect(
+        originalCommand.submit({ name: 'retained handle' })
+      ).rejects.toMatchObject({
+        name: 'AbortError',
+      });
+    }
     expect(await outcome).toMatchObject({ name: 'AbortError' });
     pending.resolve('late-private-token');
     await Promise.resolve();
@@ -275,3 +300,149 @@ it.each([
     ).toThrow('csrfToken');
   }
 );
+
+it('should reject a new component action on an already retired data owner', () => {
+  const request = post();
+  const resolver = vi.fn<Resolver>().mockResolvedValue('unreachable');
+  const view = createTestContainer();
+  const runtime = createDataRuntime();
+  views.push(view);
+  runtimes.push(runtime);
+  disposeDataRuntime(runtime);
+  expect(() =>
+    createIsland({
+      root: view.container,
+      dataRuntime: runtime,
+      component: () => {
+        const command = action(save, { csrfToken: resolver });
+        return <p>{command.state().pending ? 'pending' : 'ready'}</p>;
+      },
+    })
+  ).toThrow('data runtime was disposed');
+  expect(resolver).not.toHaveBeenCalled();
+  expect(request).not.toHaveBeenCalled();
+});
+
+it('should reject a new action in an existing state slot after retirement', () => {
+  const request = post();
+  const resolver = vi.fn<Resolver>().mockResolvedValue('unreachable');
+  const view = createTestContainer();
+  const runtime = createDataRuntime();
+  views.push(view);
+  runtimes.push(runtime);
+  let useAction = false;
+  const Page = () => {
+    const status = useAction
+      ? action(save, { csrfToken: resolver }).state
+      : state({ pending: false });
+    return <p>{status().pending ? 'pending' : 'ready'}</p>;
+  };
+  createIsland({ root: view.container, dataRuntime: runtime, component: Page });
+  disposeDataRuntime(runtime);
+  useAction = true;
+  expect(() =>
+    createIsland({
+      root: view.container,
+      dataRuntime: runtime,
+      component: Page,
+    })
+  ).toThrow('data runtime was disposed');
+  expect(resolver).not.toHaveBeenCalled();
+  expect(request).not.toHaveBeenCalled();
+});
+
+it('should reject a changed action id on the same retired component owner', () => {
+  const request = post();
+  const resolver = vi.fn<Resolver>().mockResolvedValue('unreachable');
+  const view = createTestContainer();
+  const runtime = createDataRuntime();
+  views.push(view);
+  runtimes.push(runtime);
+  let descriptor = save;
+  const Page = () => {
+    const command = action(descriptor, { csrfToken: resolver });
+    return <p>{command.state().pending ? 'pending' : 'ready'}</p>;
+  };
+  createIsland({ root: view.container, dataRuntime: runtime, component: Page });
+  disposeDataRuntime(runtime);
+  descriptor = defineAction({
+    id: 'different-retired-action',
+    input: save.input,
+  });
+  expect(() =>
+    createIsland({
+      root: view.container,
+      dataRuntime: runtime,
+      component: Page,
+    })
+  ).toThrow('data runtime was disposed');
+  expect(resolver).not.toHaveBeenCalled();
+  expect(request).not.toHaveBeenCalled();
+});
+
+it('should reject another retired runtime despite a retained action state and id', () => {
+  const request = post();
+  const resolver = vi.fn<Resolver>().mockResolvedValue('unreachable');
+  const view = createTestContainer();
+  const original = createDataRuntime();
+  const next = createDataRuntime();
+  views.push(view);
+  runtimes.push(original, next);
+  const Page = () => {
+    const command = action(save, { csrfToken: resolver });
+    return <p>{command.state().pending ? 'pending' : 'ready'}</p>;
+  };
+  createIsland({
+    root: view.container,
+    dataRuntime: original,
+    component: Page,
+  });
+  disposeDataRuntime(next);
+  expect(() =>
+    createIsland({ root: view.container, dataRuntime: next, component: Page })
+  ).toThrow('data runtime was disposed');
+  expect(resolver).not.toHaveBeenCalled();
+  expect(request).not.toHaveBeenCalled();
+});
+
+it('should restore the retained action binding when an active runtime rebind is discarded', () => {
+  const request = post();
+  const resolver = vi.fn<Resolver>().mockResolvedValue('unreachable');
+  const view = createTestContainer();
+  const original = createDataRuntime();
+  const next = createDataRuntime();
+  views.push(view);
+  runtimes.push(original, next);
+  let fail = false;
+  let command!: Command;
+  const Page = () => {
+    command = action<{ name: string }, { saved: string }>(save, {
+      csrfToken: resolver,
+    });
+    const pending = command.state().pending;
+    if (fail) throw new Error('discard action runtime rebind');
+    return <p>{pending ? 'pending' : 'ready'}</p>;
+  };
+  createIsland({
+    root: view.container,
+    dataRuntime: original,
+    component: Page,
+  });
+  const originalState = command.state;
+  fail = true;
+  expect(() => replaceDataRuntime(view.container, next)).toThrow(
+    'discard action runtime rebind'
+  );
+  fail = false;
+  disposeDataRuntime(original);
+  expect(() =>
+    createIsland({
+      root: view.container,
+      dataRuntime: original,
+      component: Page,
+    })
+  ).not.toThrow();
+  expect(command.state).toBe(originalState);
+  expect(resolver).not.toHaveBeenCalled();
+  expect(request).not.toHaveBeenCalled();
+});
