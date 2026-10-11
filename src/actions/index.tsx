@@ -1,14 +1,14 @@
 import type { RenderableChild } from '../common/vnode';
 import type { JSXElement } from '../common/jsx';
 import type { ObjectSchema } from '@askrjs/schema';
-import { state } from '../core/api/state';
+import { getSignal, state } from '../core/api/state';
 import { getCurrentRenderData } from '../common/render-context';
 import {
   invalidateQueriesForRuntime,
   resolveDataRuntimeState,
 } from '../data/data-runtime';
 import { readActionFramework } from './runtime';
-import { isCurrentAsyncGeneration } from '../data/shared';
+import { isCurrentAsyncGeneration, raceAbort } from '../data/shared';
 import { resolveNavigationUrl } from '../common/url';
 
 const actionSubmissionGenerations = new WeakMap<object, number>();
@@ -145,14 +145,34 @@ function actionFailure(status: number, cause?: unknown): Error {
  * `{ state, submit }` handle. `action()` allocates its status with `state()`,
  * so it follows the same rule: call it during component render, at the top
  * level and in the same order on every render. `submit()` itself may be
- * called from event handlers or other async work.
+ * called from event handlers or other async work. An explicit csrfToken
+ * resolver runs fresh for every submission under the component/data lifetime.
+ * Its undefined result omits the token instead of falling back to SSR data.
  */
 export function action<
   TInput extends Record<string, unknown>,
   TResult = unknown,
->(descriptor: ActionDescriptor<TInput>) {
+>(
+  descriptor: ActionDescriptor<TInput>,
+  options?: {
+    readonly csrfToken: (signal: AbortSignal) => Promise<string | undefined>;
+  }
+) {
+  if (
+    options !== undefined &&
+    (options === null ||
+      typeof options !== 'object' ||
+      Array.isArray(options) ||
+      typeof options.csrfToken !== 'function' ||
+      Object.keys(options).some((key) => key !== 'csrfToken'))
+  ) {
+    throw new TypeError('action csrfToken requires an explicit resolver.');
+  }
   const token = csrfToken();
   const runtime = resolveDataRuntimeState();
+  const signal = options
+    ? AbortSignal.any([getSignal(), runtime.retirement.signal])
+    : undefined;
   const value = state<ActionStatus<TResult>>(
     initialStatus<TResult>(descriptor.id)
   );
@@ -160,6 +180,7 @@ export function action<
   return {
     state: value,
     async submit(input: TInput): Promise<TResult> {
+      signal?.throwIfAborted();
       const generation = (actionSubmissionGenerations.get(value) ?? 0) + 1;
       actionSubmissionGenerations.set(value, generation);
       // Keep the last settled result visible while a replacement submission
@@ -167,23 +188,51 @@ export function action<
       // submit again before the first request settles.
       setValue((previous) => ({ pending: true, result: previous.result }));
       try {
-        const response = await fetch(location.href, {
+        const submissionToken = options
+          ? await raceAbort(Promise.resolve(options.csrfToken(signal!)), [
+              signal!,
+            ])
+          : token;
+        signal?.throwIfAborted();
+        if (
+          options &&
+          submissionToken !== undefined &&
+          (typeof submissionToken !== 'string' ||
+            !/^[\x21-\x7e]+$/.test(submissionToken))
+        ) {
+          throw new TypeError(
+            'action csrfToken must resolve to a non-empty ASCII token or undefined.'
+          );
+        }
+        const responsePromise = fetch(location.href, {
           method: 'POST',
           headers: {
             'content-type': 'application/json',
             accept: 'application/vnd.askr.action+json;v=1',
             'x-askr-action': descriptor.id,
-            ...(token ? { 'x-askr-csrf-token': token } : {}),
+            ...(submissionToken
+              ? { 'x-askr-csrf-token': submissionToken }
+              : {}),
           },
           body: JSON.stringify(input),
+          ...(signal ? { signal } : {}),
         });
+        const response = await (signal
+          ? raceAbort(responsePromise, [signal])
+          : responsePromise);
+        signal?.throwIfAborted();
         let parsed: unknown;
         try {
-          const body = await response.text();
+          const bodyPromise = response.text();
+          const body = await (signal
+            ? raceAbort(bodyPromise, [signal])
+            : bodyPromise);
+          signal?.throwIfAborted();
           // A bodiless success (204/205 or an empty 2xx) is a completed
           // mutation with no result; it still runs declared invalidations.
           parsed = response.ok && body === '' ? undefined : JSON.parse(body);
         } catch (cause) {
+          signal?.throwIfAborted();
           // A proxy or crashed server can answer with HTML or plain text;
           // keep the HTTP status visible rather than a JSON parse error.
           throw actionFailure(response.status, cause);
@@ -218,10 +267,12 @@ export function action<
               (prefix): prefix is string => typeof prefix === 'string'
             )
           : descriptor.invalidates;
+        signal?.throwIfAborted();
         // Every successful server mutation invalidates its confirmed prefixes,
         // even when a newer submission owns the visible action state.
         for (const prefix of invalidates)
           invalidateQueriesForRuntime(runtime, prefix, true);
+        signal?.throwIfAborted();
         if (
           isCurrentAsyncGeneration(
             actionSubmissionGenerations.get(value) ?? 0,
@@ -229,11 +280,13 @@ export function action<
           )
         ) {
           setValue({ pending: false, result: envelope.result });
+          signal?.throwIfAborted();
           if (redirect) location.assign(redirect);
         }
         return envelope.result as TResult;
       } catch (error) {
         if (
+          !signal?.aborted &&
           isCurrentAsyncGeneration(
             actionSubmissionGenerations.get(value) ?? 0,
             generation

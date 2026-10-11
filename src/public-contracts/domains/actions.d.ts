@@ -54,13 +54,18 @@ interface ActionStatus<TResult = unknown> {
  * `{ state, submit }` handle. `action()` allocates its status with `state()`,
  * so it follows the same rule: call it during component render, at the top
  * level and in the same order on every render. `submit()` itself may be
- * called from event handlers or other async work.
+ * called from event handlers or other async work. An explicit csrfToken
+ * resolver runs fresh for every submission under the component/data lifetime.
+ * Its undefined result omits the token instead of falling back to SSR data.
  */
 declare function action<
   TInput extends Record<string, unknown>,
   TResult = unknown,
 >(
-  descriptor: ActionDescriptor<TInput>
+  descriptor: ActionDescriptor<TInput>,
+  options?: {
+    readonly csrfToken: (signal: AbortSignal) => Promise<string | undefined>;
+  }
 ): {
   state: StateTuple<ActionStatus<TResult>>;
   submit(input: TInput): Promise<TResult>;
