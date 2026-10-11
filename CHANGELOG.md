@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.5.0 - 2026-10-11
+
 - Document the application-owned stable ID pattern for label and description associations, with installed SSR/hydration, keyed reordering, independent roots and native browser qualification.
 - Document and execute an optional DOM Testing Library/user-event recipe for
   native component and router harnesses, with scoped accessible queries, input
