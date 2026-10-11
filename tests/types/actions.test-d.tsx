@@ -42,4 +42,6 @@ expectError(action(rename, { csrfToken: async () => 42 }));
 expectError(action(rename, { csrfToken: () => 'sync-token' }));
 expectError(action(rename, { csrfToken: async (_signal: string) => 'token' }));
 expectError(action(rename, {}));
-expectError(action(rename, { csrfToken: async () => 'token', transport: fetch }));
+expectError(
+  action(rename, { csrfToken: async () => 'token', transport: fetch })
+);
