@@ -42,7 +42,12 @@ describe('tier2 runtime component depth', () => {
         const cleanup = mountComponentChain(benchmarkDepth);
         cleanup();
       },
-      tier2BenchOptions
+      {
+        ...tier2BenchOptions,
+        time: 3_000,
+        warmupTime: 1_000,
+        warmupIterations: 3,
+      }
     );
   });
 });
