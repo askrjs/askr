@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { cloneElement, isElement } from '../../../src/foundations/structures';
 import { jsx } from '../../../src/jsx-runtime';
 

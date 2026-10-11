@@ -7,7 +7,12 @@ import type {
   RouteRegistry,
 } from '../common/router';
 import { resolveRouteRequest } from '../router/route';
-import { reconcileRouteMeta, resolveRouteMeta } from '../router/metadata';
+import { resolveOwnedRouteRequest } from '../router/resolution';
+import {
+  reconcileRouteMeta,
+  resolveRouteMeta,
+  resolveOwnedRouteMeta,
+} from '../router/metadata';
 import { getRouteRenderContext } from '../router/resolution';
 import { readHistoryIndex } from '../router/history-index';
 import { loadDocument } from '../router/document-navigation';
@@ -43,7 +48,8 @@ export function bindDeniedRouteHandler(status: number): RouteHandler {
 }
 
 export async function reconcileInitialRouteMetadata(
-  resolved: RouteRequestResult
+  resolved: RouteRequestResult,
+  assertCurrent?: () => void
 ): Promise<void> {
   if (resolved?.kind !== 'render' || !resolved.record) return;
   if (
@@ -54,7 +60,11 @@ export async function reconcileInitialRouteMetadata(
     return;
   const context = getRouteRenderContext(resolved);
   if (!context) return;
-  reconcileRouteMeta(await resolveRouteMeta(resolved.record, context));
+  const metadata = await (assertCurrent
+    ? resolveOwnedRouteMeta(resolved.record, context, assertCurrent)
+    : resolveRouteMeta(resolved.record, context));
+  assertCurrent?.();
+  reconcileRouteMeta(metadata);
 }
 
 /** An initial route outcome: redirects are always followed, never returned. */
@@ -73,6 +83,8 @@ export async function resolveInitialRoute(
     load?: boolean;
     authContext?: AuthContext;
     dataRuntime?: DataRuntime;
+    assertCurrent?: () => void;
+    signal?: AbortSignal;
   }
 ): Promise<{
   path: string;
@@ -99,13 +111,19 @@ export async function resolveInitialRoute(
     if (!source?.registry) {
       throw new TypeError('resolveInitialRoute requires a route registry.');
     }
-    const resolved = await resolveRouteRequest(href, {
+    source.assertCurrent?.();
+    const routeOptions = {
       registry: source.registry,
       auth,
       load: source.load,
       authContext: source.authContext,
       dataRuntime: source.dataRuntime,
-    });
+      signal: source.signal,
+    };
+    const resolved = await (source.assertCurrent
+      ? resolveOwnedRouteRequest(href, routeOptions, source.assertCurrent)
+      : resolveRouteRequest(href, routeOptions));
+    source.assertCurrent?.();
     if (!resolved || resolved.kind !== 'redirect') {
       return { path, href, resolved };
     }

@@ -6,7 +6,7 @@ import {
   type AppRegistration,
 } from './navigation-registry';
 import { resolveOwnedRouteRequest, getRouteRenderContext } from './resolution';
-import { resolveRouteMeta } from './metadata';
+import { resolveOwnedRouteMeta } from './metadata';
 import { isRenderResult, type AppNavigationTarget } from './navigation-types';
 
 function createNavigationTarget(
@@ -28,12 +28,14 @@ function createNavigationTarget(
   if (!hasMetadata) return { app, resolved, runtime };
   const context = getRouteRenderContext(resolved);
   if (!context) return { app, resolved, runtime };
-  return resolveRouteMeta(resolved.record, context).then((metadata) => ({
-    app,
-    runtime,
-    resolved,
-    metadata,
-  }));
+  return resolveOwnedRouteMeta(resolved.record, context, () => {
+    if (app.instance.appRuntime !== runtime) {
+      throw new DOMException(
+        'The app runtime no longer owns this metadata.',
+        'AbortError'
+      );
+    }
+  }).then((metadata) => ({ app, runtime, resolved, metadata }));
 }
 
 function resolveAppRouteRequest(

@@ -192,3 +192,33 @@ expectAssignable<unknown>({} as Gone19);
 // @ts-expect-error SSGOptions accepts a registry, without a route-array generic
 type RemovedSSGGeneric = import('@askrjs/askr/ssg').SSGOptions<[]>;
 expectAssignable<unknown>({} as RemovedSSGGeneric);
+
+// Provider sessions have one canonical router owner and decoded interaction recovery.
+const sessionOptions: routerSurface.SessionAuthOptions = {
+  loginPath: '/login',
+  fetch: globalThis.fetch,
+};
+const sessionAuth: routerSurface.SessionAuth =
+  routerSurface.createSessionAuth(sessionOptions);
+expectAssignable<routerSurface.RouteAuthOptions>(sessionAuth);
+expectType<string>(
+  sessionAuth.loginHref('microsoft', { returnTo: '/private', scopes: ['read'] })
+);
+expectType<Promise<void>>(sessionAuth.logout());
+expectType<boolean>(sessionAuth.handleAuthFailure({} as unknown));
+// @ts-expect-error API response bodies stay owned by the application transport
+void sessionAuth.fetch;
+const loginOptions: routerSurface.SessionLoginOptions = {
+  returnTo: '/private',
+  resource: 'graph',
+  scopes: ['read'],
+};
+expectType<string>(sessionAuth.loginHref('microsoft', loginOptions));
+// @ts-expect-error provider login requires a deliberate local return target
+sessionAuth.loginHref('microsoft', {});
+// @ts-expect-error token acquisition remains on the server request context
+sessionAuth.token('microsoft', { scopes: ['read'] });
+// @ts-expect-error provider-session binding is published only at /router
+void rootSurface.createSessionAuth;
+// @ts-expect-error private binding bridge is not a public contract
+void routerSurface.getSessionAuthState;

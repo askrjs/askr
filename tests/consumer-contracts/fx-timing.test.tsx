@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { expect, test } from 'vite-plus/test';
 import { throttle, raf } from '@askrjs/askr/fx';
 
 test('should type installed timing calls as void', () => {

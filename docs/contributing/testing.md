@@ -50,7 +50,7 @@ Configure Vitest with jsdom and Askr's automatic JSX runtime:
 
 ```ts
 // vitest.config.ts
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from 'vite-plus';
 
 export default defineConfig({
   oxc: {
@@ -69,7 +69,7 @@ Render a component, dispatch a bubbling event, flush pending work, and clean up
 the owned root after each test:
 
 ```tsx
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, expect, test } from 'vite-plus/test';
 import { state } from '@askrjs/askr';
 import { dispatch, render, type RenderResult } from '@askrjs/askr/testing';
 
@@ -131,7 +131,7 @@ re-export them or require them at runtime. The qualified recipe uses DOM Testing
 Library 10.4.2 and user-event 14.6.7 with jsdom; it requires no React.
 
 ```tsx
-import { expect, test } from 'vitest';
+import { expect, test } from 'vite-plus/test';
 import { within, waitFor } from '@testing-library/dom';
 import { userEvent } from '@testing-library/user-event';
 import { createDataRuntime, disposeDataRuntime } from '@askrjs/askr/data';

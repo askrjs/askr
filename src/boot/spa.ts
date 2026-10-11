@@ -13,7 +13,12 @@ import { clearRouteState } from '../router/store';
 import { assertExecutionModel } from '../common/execution-model';
 import { getRouteRenderData, hasRouteRenderData } from '../router/resolution';
 import { createAppRenderRuntime } from '../common/app-render-runtime';
-import { mountOrUpdate, registerAppNavigation } from './root-lifecycle';
+import {
+  mountOrUpdate,
+  registerAppNavigation,
+  cleanupApp,
+  getAppRoot,
+} from './root-lifecycle';
 import {
   bindDeniedStatus,
   bindResolvedRouteHandler,
@@ -24,6 +29,13 @@ import type { SPAConfig } from './types';
 import { getDefaultDataRuntime } from '../data/data-runtime';
 import { resolveRootElement } from './root-element';
 import { validateCspNonce } from '../csp-nonce';
+import {
+  sessionDataRuntime,
+  releaseSessionDataRuntime,
+  beginSessionAuthBoot,
+  detachSessionAuthRoot,
+} from './session-auth-runtime';
+import { getSessionAuthState } from '../router/session-auth-state';
 
 /**
  * createSPA: Initializes the router and mounts the app with an explicit route registry.
@@ -55,13 +67,16 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   const rootElement = resolveRootElement(config.root);
   if (!rootElement) throw new Error(`Root element not found: ${config.root}`);
 
+  const routeAuth = config.auth ?? manifest.auth;
+  const dataRuntime =
+    sessionDataRuntime(routeAuth, config.dataRuntime) ??
+    getDefaultDataRuntime();
+
   configureScrollRestoration(config.scrollRestoration);
 
   clearRouteState();
   _applyManifest(manifest);
 
-  const routeAuth = config.auth ?? manifest.auth;
-  const dataRuntime = config.dataRuntime ?? getDefaultDataRuntime();
   const appRouteSource = {
     registry: config.registry,
     auth: routeAuth,
@@ -71,60 +86,89 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   // Lock registration in production to prevent late registration surprises
   if (isProductionEnvironment()) lockRouteRegistration();
 
-  // Mount the currently-resolved route handler (if any)
-  const initialRoute = await resolveInitialRoute(routeAuth, {
-    registry: config.registry,
-    dataRuntime,
-  });
-  // A redirect left the origin; the browser is loading that document.
-  if (!initialRoute) return;
-  const { path, href: currentUrl, resolved } = initialRoute;
-  setServerLocation(currentUrl);
-  const appRuntime = createAppRenderRuntime({
-    ...(resolved?.kind === 'render' && hasRouteRenderData(resolved)
-      ? {
-          route: getRouteRenderData(resolved),
-          hasRoute: true,
-        }
-      : {}),
-    dataRuntime,
-    routeRegistry: config.registry,
-    routeAuth,
-  });
-
-  if (!resolved) {
-    mountOrUpdate(rootElement, () => ({ type: 'div', children: [] }), {
-      cleanupStrict: config.cleanupStrict,
-      appRuntime,
-      cspNonce: config.cspNonce,
+  // The initial route owns an epoch before any asynchronous auth/loader work.
+  const boot = beginSessionAuthBoot(routeAuth, dataRuntime);
+  let restart = false;
+  try {
+    const initialRoute = await boot.wait(
+      resolveInitialRoute(routeAuth, {
+        registry: config.registry,
+        dataRuntime,
+        assertCurrent: boot.assertCurrent,
+        signal: boot.signal,
+      })
+    );
+    // A redirect left the origin; the browser is loading that document.
+    if (!initialRoute) {
+      releaseSessionDataRuntime(dataRuntime);
+      return;
+    }
+    const { path, href: currentUrl, resolved } = initialRoute;
+    const appRuntime = createAppRenderRuntime({
+      ...(resolved?.kind === 'render' && hasRouteRenderData(resolved)
+        ? { route: getRouteRenderData(resolved), hasRoute: true }
+        : {}),
+      dataRuntime,
+      routeRegistry: config.registry,
+      routeAuth,
     });
-
+    if (resolved)
+      await boot.wait(
+        reconcileInitialRouteMetadata(resolved, boot.assertCurrent)
+      );
+    boot.assertCurrent();
+    setServerLocation(currentUrl);
+    mountOrUpdate(
+      rootElement,
+      !resolved
+        ? () => ({ type: 'div', children: [] })
+        : resolved.kind === 'deny'
+          ? bindDeniedStatus(resolved.status)
+          : bindResolvedRouteHandler({
+              handler: resolved.handler,
+              params: resolved.params,
+            }),
+      {
+        cleanupStrict: config.cleanupStrict,
+        appRuntime,
+        cspNonce: config.cspNonce,
+      }
+    );
+    boot.assertCurrent();
     await registerAppNavigation(rootElement, path, {
       ...appRouteSource,
       runtime: appRuntime,
     });
-    return;
-  }
-
-  await reconcileInitialRouteMetadata(resolved);
-
-  mountOrUpdate(
-    rootElement,
-    resolved.kind === 'deny'
-      ? bindDeniedStatus(resolved.status)
-      : bindResolvedRouteHandler({
-          handler: resolved.handler,
-          params: resolved.params,
-        }),
-    {
-      cleanupStrict: config.cleanupStrict,
-      appRuntime,
-      cspNonce: config.cspNonce,
+    boot.assertCurrent();
+  } catch (error) {
+    const failures: unknown[] = [error];
+    const failedApp = getAppRoot(rootElement);
+    if (
+      getSessionAuthState(routeAuth) &&
+      failedApp?.appRuntime?.dataRuntime === dataRuntime
+    ) {
+      try {
+        cleanupApp(rootElement);
+      } catch (cleanup) {
+        failures.push(cleanup);
+      }
+      try {
+        detachSessionAuthRoot(failedApp);
+      } catch (cleanup) {
+        failures.push(cleanup);
+      }
     }
-  );
-
-  await registerAppNavigation(rootElement, path, {
-    ...appRouteSource,
-    runtime: appRuntime,
-  });
+    try {
+      releaseSessionDataRuntime(dataRuntime);
+    } catch (cleanup) {
+      failures.push(cleanup);
+    }
+    if (failures.length > 1)
+      throw new AggregateError(failures, '[Askr] Session boot cleanup failed.');
+    if (!boot.stale()) throw error;
+    restart = boot.restart();
+  } finally {
+    boot.detach();
+  }
+  if (restart) await createSPA(config);
 }

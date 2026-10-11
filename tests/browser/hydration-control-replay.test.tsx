@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vite-plus/test';
-import { userEvent } from 'vitest/browser';
+import { userEvent } from 'vite-plus/test/browser';
 import { hydrateSPA } from '@askrjs/askr/boot';
 import { renderToStringSync } from '@askrjs/askr/ssr';
 import type { JSXElement } from '@askrjs/askr/jsx-runtime';

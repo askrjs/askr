@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { expect, test } from 'vite-plus/test';
 import { state } from '@askrjs/askr';
 import { cleanupApp, createSPA, replaceDataRuntime } from '@askrjs/askr/boot';
 import {

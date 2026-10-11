@@ -86,19 +86,20 @@ Guides live in [guides](./guides/), and benchmark workflow in
 
 ### Package Boundaries
 
-| Page                                                                 | Description                                        |
-| -------------------------------------------------------------------- | -------------------------------------------------- |
-| [Package map](./reference/package-map.md)                            | Public packages and their responsibilities         |
-| [Project structure](./reference/project-structure.md)                | Application layout                                 |
-| [Conventions](./reference/conventions.md)                            | Naming and composition rules                       |
-| [Glossary](./reference/glossary.md)                                  | Platform terminology                               |
-| [API reference](./reference/api.md)                                  | Entry points and examples                          |
-| [Router reference](./reference/router.md)                            | Router API details                                 |
-| [Application route metadata](./guides/application-route-metadata.md) | Immutable declarations and reactive display grants |
-| [Resources reference](./reference/resources.md)                      | Resource API details                               |
-| [FX reference](./reference/fx.md)                                    | Timing utilities                                   |
-| [Foundations reference](./reference/foundations.md)                  | Low-level UI building blocks                       |
-| [Behavioral contracts](./reference/spec-guarantees.md)               | Runtime behaviors backed by tests                  |
+| Page                                                                 | Description                                                      |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| [Package map](./reference/package-map.md)                            | Public packages and their responsibilities                       |
+| [Project structure](./reference/project-structure.md)                | Application layout                                               |
+| [Conventions](./reference/conventions.md)                            | Naming and composition rules                                     |
+| [Glossary](./reference/glossary.md)                                  | Platform terminology                                             |
+| [API reference](./reference/api.md)                                  | Entry points and examples                                        |
+| [Router reference](./reference/router.md)                            | Router API details                                               |
+| [Application route metadata](./guides/application-route-metadata.md) | Immutable declarations and reactive display grants               |
+| [Provider sessions](./guides/provider-sessions.md)                   | Server-owned auth, reactive identity and private data retirement |
+| [Resources reference](./reference/resources.md)                      | Resource API details                                             |
+| [FX reference](./reference/fx.md)                                    | Timing utilities                                                 |
+| [Foundations reference](./reference/foundations.md)                  | Low-level UI building blocks                                     |
+| [Behavioral contracts](./reference/spec-guarantees.md)               | Runtime behaviors backed by tests                                |
 
 ### Concepts
 

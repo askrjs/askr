@@ -57,6 +57,30 @@ import {
   AuthRequirement as AuthRequirement$1,
   ObjectSchema,
 } from '../peer-types.js';
+/** Client binding for the same-origin askr-server provider-session routes. */
+interface SessionAuthOptions {
+  /** App-owned login page, default `/login`. */
+  readonly loginPath?: string;
+  /** Native transport for session resolution and logout. */
+  readonly fetch?: typeof globalThis.fetch;
+}
+interface SessionLoginOptions {
+  readonly returnTo: string;
+  readonly resource?: string;
+  readonly scopes?: readonly string[];
+}
+/** Pass this exact object as the registry or boot `auth` configuration. */
+interface SessionAuth extends RouteAuthOptions {
+  readonly resolve: RouteAuthResolver;
+  readonly dehydrate: NonNullable<RouteAuthOptions['dehydrate']>;
+  loginHref(provider: string, options: SessionLoginOptions): string;
+  /** Local logout; provider logout/revocation remains an explicit server action. */
+  logout(): Promise<void>;
+  /** Handle a decoded 401 problem or an @askrjs/fetch result/error. */
+  handleAuthFailure(failure: unknown): boolean;
+}
+/** Bind server provider sessions to router auth in SSR and the browser. */
+declare function createSessionAuth(options?: SessionAuthOptions): SessionAuth;
 /** A single query-string value accepted by {@link updateRouteQuery}. */
 type RouteQueryParamValue = string | number | boolean | null | undefined;
 /** A query-string value, or an array of them for a repeated param. */
@@ -501,6 +525,10 @@ export {
   type UpdateRouteQueryOptions,
   allow,
   createRouteRegistry,
+  createSessionAuth,
+  type SessionAuth,
+  type SessionAuthOptions,
+  type SessionLoginOptions,
   currentAuth,
   currentRoute,
   defer,

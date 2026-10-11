@@ -38,6 +38,9 @@ import {
 } from './policy';
 import { formatNavigationUrl, resolveNavigationUrl } from '../common/url';
 import { normalizeRouteBasePath, removeRouteBasePath } from './base-path';
+import { getSessionAuthState } from './session-auth-state';
+import { RouteDataLoadError } from './route-data-loader';
+import { loadDocument } from './document-navigation';
 
 export { resolveRoute } from './route-matching';
 
@@ -457,11 +460,50 @@ function resolveRouteRequestInternal(
         ? Promise.resolve(result).then(exposeRedirect)
         : exposeRedirect(result);
     };
-    if (options.authContext) return finalize(options.authContext);
-    if (!authOptions?.resolve) return finalize(unresolvedAuth(mode));
-    const resolved = authOptions.resolve(base);
-    return isPromiseLike(resolved)
-      ? Promise.resolve(resolved).then(finalize)
-      : finalize(resolved);
+    const recover = (error: unknown): RouteRequestResult => {
+      assertCurrent?.();
+      if (mode !== 'spa' || signal.aborted) throw error;
+      const state = getSessionAuthState(authOptions);
+      const recovery = state?.recover(
+        error instanceof RouteDataLoadError ? error.cause : error,
+        targetHref()
+      );
+      if (!recovery) throw error;
+      if (recovery.document) {
+        if (!state!.hasMountedRoots())
+          loadDocument(
+            new URL(recovery.href, window.location.href).href,
+            'replace'
+          );
+        return null;
+      }
+      return { kind: 'redirect', to: recovery.href, replace: true };
+    };
+    const targetHref = () => {
+      const url = resolveNavigationUrl(
+        target,
+        typeof window === 'undefined' ? undefined : window.location.href
+      );
+      return `${url.pathname}${url.search}${url.hash}`;
+    };
+    try {
+      const result = options.authContext
+        ? finalize(options.authContext)
+        : !authOptions?.resolve
+          ? finalize(unresolvedAuth(mode))
+          : (() => {
+              const resolved = authOptions.resolve(base);
+              return isPromiseLike(resolved)
+                ? Promise.resolve(resolved).then(finalize)
+                : finalize(resolved);
+            })();
+      return mode === 'spa' &&
+        getSessionAuthState(authOptions) &&
+        isPromiseLike(result)
+        ? Promise.resolve(result).catch(recover)
+        : result;
+    } catch (error) {
+      return recover(error);
+    }
   });
 }

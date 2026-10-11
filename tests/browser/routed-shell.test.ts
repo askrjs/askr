@@ -1,6 +1,6 @@
 import { expect, test } from 'vite-plus/test';
 import { page } from 'vite-plus/test/browser/context';
-import { userEvent } from 'vitest/browser';
+import { userEvent } from 'vite-plus/test/browser';
 import { loadBrowserHarness, setBrowserLocation } from './_helpers';
 import { vi } from 'vite-plus/test';
 

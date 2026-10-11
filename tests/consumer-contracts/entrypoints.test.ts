@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { expect, test } from 'vite-plus/test';
 import * as root from '@askrjs/askr';
 import * as control from '@askrjs/askr/control';
 import * as data from '@askrjs/askr/data';

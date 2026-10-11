@@ -699,3 +699,13 @@ import { NavLink } from '@askrjs/themes/components';
 | `RouteRef`         | Typed path/search declaration returned by `route()` |
 | `RouteDestination` | Immutable destination returned by `to()`            |
 | `RouteMeta`        | Normalized document metadata contract               |
+
+## `createSessionAuth(options)`
+
+Creates the client binding for same-origin server provider sessions.
+Pass its exact result as registry/boot auth; it owns the root's private data
+runtime, adopts a minimal SSR identity, dedupes session GETs and retires private
+state before logout or identity revalidation. `loginHref`, `logout` and decoded
+`handleAuthFailure` compose with the same router owner. See the
+[provider-session guide](../guides/provider-sessions.md) for transport, ownership
+and recovery contracts.

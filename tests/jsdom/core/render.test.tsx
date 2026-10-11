@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { createRoot } from '../../../src/core/dom/root';
 import { state, derive } from '../../../src/core/api/state';
 import { flushSync } from '../../../src/core/reactive/scheduler';

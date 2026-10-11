@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { expect, test } from 'vite-plus/test';
 import { within } from '@testing-library/dom';
 import { userEvent } from '@testing-library/user-event';
 import { createRouteRegistry, route } from '@askrjs/askr/router';

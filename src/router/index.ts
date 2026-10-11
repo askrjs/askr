@@ -16,6 +16,12 @@ export {
   createRouteRegistry,
 } from './route';
 export { onRouteChange } from './activity';
+export { createSessionAuth } from './session-auth';
+export type {
+  SessionAuth,
+  SessionAuthOptions,
+  SessionLoginOptions,
+} from './session-auth';
 export type { RouteChangeCleanup, RouteChangeOptions } from './activity';
 export {
   allow,

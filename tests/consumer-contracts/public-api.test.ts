@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { expect, test } from 'vite-plus/test';
 
 // Exercise the installed JavaScript independently of its handwritten types.
 test('should expose the contracted @askrjs/askr runtime surface', async () => {
@@ -24,6 +24,7 @@ test('should expose the contracted @askrjs/askr runtime surface', async () => {
     expect(surface).toHaveProperty(name);
     expect((surface as Record<string, unknown>)[name]).not.toBeUndefined();
   }
+  expect(surface).not.toHaveProperty('createSessionAuth');
 });
 
 test('should expose the contracted @askrjs/askr/boot runtime surface', async () => {
@@ -248,6 +249,7 @@ test('should expose the contracted @askrjs/askr/router runtime surface', async (
   for (const name of [
     'allow',
     'createRouteRegistry',
+    'createSessionAuth',
     'currentAuth',
     'currentRoute',
     'defer',
