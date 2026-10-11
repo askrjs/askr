@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { Computation, Signal, untrack } from '../../../src/core/reactive/graph';
 import { Owner } from '../../../src/core/reactive/owner';
 import {

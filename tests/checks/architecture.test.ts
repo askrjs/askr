@@ -823,14 +823,17 @@ describe('architecture boundaries', () => {
     expect(violations).toEqual([]);
   });
 
-  it('should own router request cancellation in one module', () => {
+  it('should keep navigation and shared session cancellation in their owning modules', () => {
     // Navigation cancellation belongs to the module owning the request
     // lifetime. resolution.ts keeps one documented never-aborting stand-in for
-    // callers that supply no signal; anything else is a second, silent
-    // cancellation channel.
+    // callers that supply no signal. session-auth.ts owns one shared session
+    // GET: an individual route caller may cancel only its waiter, whereas
+    // identity invalidation retires the shared request. Any other controller
+    // would introduce a second cancellation channel for these lifetimes.
     const expected = {
       'src/router/navigation-request.ts': 1,
       'src/router/resolution.ts': 1,
+      'src/router/session-auth.ts': 1,
     };
     const found: Record<string, number> = {};
     for (const { file, relative, source } of sources) {

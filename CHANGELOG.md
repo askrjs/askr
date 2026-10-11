@@ -33,10 +33,18 @@
 
 ### Additions
 
+- Add `createSessionAuth()` and its three option/binding types at the router
+  owner for same-origin server provider sessions. Adopt a minimal SSR identity,
+  dedupe session GETs, construct safe provider links and retire private routed
+  data before logout or identity changes. Decoded typed interaction failures
+  trigger login or consent recovery without wrapping API transports.
+  Session-bound roots own dedicated isolated runtimes; manual auth remains
+  independently supported. See `docs/guides/provider-sessions.md` (#777).
+
 - Export the existing `RenderableChild` type from `@askrjs/askr` for component
   presentation props and layout slots, including nested readonly arrays.
   Together with isolated runtime retirement and app runtime replacement, the
-  contracted surface has 345 named/entrypoint pairs.
+  surface before the provider-session binding has 345 named/entrypoint pairs.
   Value children exclude factories; `Scope` retains its explicit factory-child
   contract. See `docs/core/rendering.md#presentation-children`.
 - Add `disposeDataRuntime()` at `@askrjs/askr/data` for terminal, idempotent

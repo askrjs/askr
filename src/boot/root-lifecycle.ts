@@ -40,6 +40,11 @@ import { ensureBrowserRuntime } from './composition';
 import { resolveRootElement } from './root-element';
 import { wrapRootRouteHandler } from './root-handler';
 import type { BootAppRouteSource } from './types';
+import {
+  attachSessionAuthRoot,
+  isSessionDataRuntime,
+} from './session-auth-runtime';
+import { getSessionAuthState } from '../router/session-auth-state';
 
 export class AppRoot implements AppRootHandle {
   readonly element: Element;
@@ -208,6 +213,7 @@ export function mountOrUpdate(
   app.handler = wrapRootRouteHandler(component, nonce);
   app.cspNonce = nonce;
   app.appRuntime = options?.appRuntime;
+  attachSessionAuthRoot(app, () => disposeAppRoot(app!));
   if (typeof options?.cleanupStrict === 'boolean') {
     app.cleanupStrict = options.cleanupStrict;
   }
@@ -299,6 +305,12 @@ export function replaceDataRuntime(
   const app = rootElement ? appRoots.get(rootElement) : undefined;
   if (!app)
     throw new Error('[Askr] replaceDataRuntime requires a mounted app root.');
+  if (
+    getSessionAuthState(app.appRuntime?.routeAuth) &&
+    !isSessionDataRuntime(next)
+  ) {
+    throw new TypeError('[Askr] Session auth owns its data runtime.');
+  }
   const state = findDataRuntimeState(next);
   if (!state)
     throw new Error(

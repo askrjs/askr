@@ -1,4 +1,4 @@
-import { expect, test, vi } from 'vitest';
+import { expect, test, vi } from 'vite-plus/test';
 import { ErrorBoundary } from '@askrjs/askr/components';
 import { derive, state, type State } from '@askrjs/askr';
 import '@askrjs/askr/boot';

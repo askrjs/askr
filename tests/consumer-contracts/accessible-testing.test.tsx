@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { expect, test } from 'vite-plus/test';
 import { within, waitFor } from '@testing-library/dom';
 import { userEvent } from '@testing-library/user-event';
 import { createDataRuntime, disposeDataRuntime } from '@askrjs/askr/data';

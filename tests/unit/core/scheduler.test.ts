@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { Computation, Signal } from '../../../src/core/reactive/graph';
 import {
   MAX_RUNS_PER_FLUSH,

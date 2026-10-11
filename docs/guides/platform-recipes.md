@@ -339,7 +339,7 @@ router context. Dispatch bubbling events, flush scheduled updates, and clean up
 every owned result.
 
 ```tsx
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, expect, test } from 'vite-plus/test';
 import { dispatch, render, type RenderResult } from '@askrjs/askr/testing';
 
 let view: RenderResult | undefined;

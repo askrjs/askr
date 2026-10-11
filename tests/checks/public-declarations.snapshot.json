@@ -44,14 +44,14 @@
       "registerSSRStyle": [
         "declare function registerSSRStyle(id: string, cssText: string): void;"
       ],
+      "RenderableChild": [
+        "type RenderableChild = VNode | JSXElement | readonly RenderableChild[];"
+      ],
       "RenderDepthError": [
         "declare class RenderDepthError extends Error {\n    readonly cause: unknown;\n    constructor(cause: unknown);\n}"
       ],
       "RenderDiagnosticsOptions": [
         "interface RenderDiagnosticsOptions {\n    slowRenderWarnings?: boolean;\n    slowRenderThresholdMs?: number;\n}"
-      ],
-      "RenderableChild": [
-        "type RenderableChild = VNode | JSXElement | readonly RenderableChild[];"
       ],
       "Scope": [
         "interface Scope<T> {\n    (props: {\n        value: T;\n        children?: ContextScopeChildren;\n    }): JSXElement;\n    readonly key: ContextKey;\n    readonly defaultValue: T;\n}"
@@ -635,6 +635,9 @@
       "createRouteRegistry": [
         "declare function createRouteRegistry(definition: RouteDefinition, options?: RouteRegistryOptions): RouteRegistry;"
       ],
+      "createSessionAuth": [
+        "declare function createSessionAuth(options?: SessionAuthOptions): SessionAuth;"
+      ],
       "currentAuth": ["declare function currentAuth(): AuthContext$1;"],
       "currentRoute": [
         "declare function currentRoute<TParams extends RouteParams = RouteParams, TState = unknown, TAppMeta = unknown>(): RouteSnapshot<TParams, TState, TAppMeta>;"
@@ -843,6 +846,15 @@
       ],
       "serializeRouteMeta": [
         "declare function serializeRouteMeta(meta: RouteMeta): string;"
+      ],
+      "SessionAuth": [
+        "interface SessionAuth extends RouteAuthOptions {\n    readonly resolve: RouteAuthResolver;\n    readonly dehydrate: NonNullable<RouteAuthOptions[\"dehydrate\"]>;\n    loginHref(provider: string, options: SessionLoginOptions): string;\n    logout(): Promise<void>;\n    handleAuthFailure(failure: unknown): boolean;\n}"
+      ],
+      "SessionAuthOptions": [
+        "interface SessionAuthOptions {\n    readonly loginPath?: string;\n    readonly fetch?: typeof globalThis.fetch;\n}"
+      ],
+      "SessionLoginOptions": [
+        "interface SessionLoginOptions {\n    readonly returnTo: string;\n    readonly resource?: string;\n    readonly scopes?: readonly string[];\n}"
       ],
       "to": [
         "declare function to$1<TParams extends RouteParams, TSearch extends RouteSearch = RouteSearch>(route: RouteRef<TParams, TSearch>, params: TParams, search?: TSearch): RouteDestination;"
@@ -1191,6 +1203,9 @@
     ],
     "createRouteRegistry": [
       "declare function createRouteRegistry(definition: RouteDefinition, options?: RouteRegistryOptions): RouteRegistry;"
+    ],
+    "createSessionAuth": [
+      "declare function createSessionAuth(options?: SessionAuthOptions): SessionAuth;"
     ],
     "createSPA": [
       "declare function createSPA(config: SPAConfig): Promise<void>;"
@@ -2186,6 +2201,15 @@
     ],
     "ServerQueryRegistry": [
       "interface ServerQueryRegistry {\n    readonly entries: readonly ServerQueryEntry<unknown, {}>[];\n    get<TInput, TResult extends {}>(query: QueryDefinition<TInput, TResult>): ServerQueryHandler<TInput, TResult> | undefined;\n}"
+    ],
+    "SessionAuth": [
+      "interface SessionAuth extends RouteAuthOptions {\n    readonly resolve: RouteAuthResolver;\n    readonly dehydrate: NonNullable<RouteAuthOptions[\"dehydrate\"]>;\n    loginHref(provider: string, options: SessionLoginOptions): string;\n    logout(): Promise<void>;\n    handleAuthFailure(failure: unknown): boolean;\n}"
+    ],
+    "SessionAuthOptions": [
+      "interface SessionAuthOptions {\n    readonly loginPath?: string;\n    readonly fetch?: typeof globalThis.fetch;\n}"
+    ],
+    "SessionLoginOptions": [
+      "interface SessionLoginOptions {\n    readonly returnTo: string;\n    readonly resource?: string;\n    readonly scopes?: readonly string[];\n}"
     ],
     "setRef": [
       "declare function setRef<T>(ref: Ref$2<T>, value: T | null): void;"

@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { expect, test } from 'vite-plus/test';
 import { cleanupApp, hydrateSPA } from '@askrjs/askr/boot';
 import { createRouteRegistry, route } from '@askrjs/askr/router';
 import { renderRouteRequestToString, renderToString } from '@askrjs/askr/ssr';
