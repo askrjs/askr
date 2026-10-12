@@ -1,0 +1,2095 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS_BOUNDED_EXACT_SOURCE_SEARCH",
+  "compiler": "6.0.3",
+  "sources": [
+    {
+      "repo": "askrjs/askr",
+      "commit": "20afdef717fda056cec61ba076682cc5b2c2f782"
+    },
+    {
+      "repo": "askrjs/askr-auth",
+      "commit": "f1a0463e62614434a51abff22e58da54ba0af0d4"
+    },
+    {
+      "repo": "askrjs/askr-charts",
+      "commit": "9b0473ea31b233e80e8889250502297ea739faad"
+    },
+    {
+      "repo": "askrjs/askr-cli",
+      "commit": "556ca581221e342b809d4aa8ec7768a66e16cf1e"
+    },
+    {
+      "repo": "askrjs/askr-fetch",
+      "commit": "5dcce6c708651759be903b3220ea178651b9526c"
+    },
+    {
+      "repo": "askrjs/askr-i18n",
+      "commit": "c2a7f4d54298674cce93372e02341380dc1511fb"
+    },
+    {
+      "repo": "askrjs/askr-logos",
+      "commit": "5dade0f3361f69e6fc7895e738f456102fd9269d"
+    },
+    {
+      "repo": "askrjs/askr-lucide",
+      "commit": "11dbe9b06e42ee67e2ba872a16e03b27fc2fa702"
+    },
+    {
+      "repo": "askrjs/askr-monaco",
+      "commit": "e43f12b6f4c446c6636a41ee3b02699782bb7363"
+    },
+    {
+      "repo": "askrjs/askr-node",
+      "commit": "1855c07e8e2212c9dc0705462433a03e2d51df13"
+    },
+    {
+      "repo": "askrjs/askr-orm",
+      "commit": "818b013da4adf451f34a438026da18bb2f603026"
+    },
+    {
+      "repo": "askrjs/askr-otel",
+      "commit": "2a75e8fa83e913fa116779caf5e416312662a6bc"
+    },
+    {
+      "repo": "askrjs/askr-schema",
+      "commit": "374cd26695e7358303b23bc384a4d1a120bdc0ca"
+    },
+    {
+      "repo": "askrjs/askr-server",
+      "commit": "9007a271243046ea8239c399f088c618877cabac"
+    },
+    {
+      "repo": "askrjs/askr-testing",
+      "commit": "c164674d3c47a430913fe9a3e0eb5d868fed2de0"
+    },
+    {
+      "repo": "askrjs/askr-themes",
+      "commit": "2ad3374808cf310f444a69c302e6fafc76d25ae5"
+    },
+    {
+      "repo": "askrjs/askr-ui",
+      "commit": "35968646f01e2400f10cf199452b5da91c153c49"
+    },
+    {
+      "repo": "askrjs/askr-vite",
+      "commit": "d3ff7d2b810f14388021098d4df2b7d123071c50"
+    },
+    {
+      "repo": "askrjs/askr-examples",
+      "commit": "a10fe69f56357c1891711aa2b51d6593e8db74d0"
+    },
+    {
+      "repo": "askrjs/website",
+      "commit": "c7b17435665293d510742529fe2797cba5c6d280"
+    }
+  ],
+  "files": 3169,
+  "importReferenceChecks": 13173,
+  "executableStaleCallersFound": 0,
+  "deliberateNegativeReferences": 219,
+  "searchToolSha256": "8dbafc79bc976ed0816d046ef244da3fc1132e7c7321b3e4a2c889d52484ee0f",
+  "command": "node /tmp/askr-api-caller-sweep-20261012.cjs",
+  "boundary": "Exact frozen package sources plus stated Examples and Website commits; source and Markdown-fenced-code import/export/dynamic and namespace-member search, plus generated import/export strings. Markdown prose and computed module/name expressions are excluded. Tests and negative fixtures are included. This is not current integrated graph or runtime/type acceptance.",
+  "negativeReferences": [
+    {
+      "source": 0,
+      "path": "tests/types/public-entrypoints.test-d.ts",
+      "line": 110,
+      "module": "@askrjs/askr/foundations/utilities",
+      "name": "ariaDisabled",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 0,
+      "path": "tests/types/public-entrypoints.test-d.ts",
+      "line": 112,
+      "module": "@askrjs/askr/foundations/utilities",
+      "name": "ariaExpanded",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 0,
+      "path": "tests/types/public-entrypoints.test-d.ts",
+      "line": 114,
+      "module": "@askrjs/askr/foundations/utilities",
+      "name": "ariaSelected",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 0,
+      "path": "tests/types/public-entrypoints.test-d.ts",
+      "line": 131,
+      "module": "@askrjs/askr/foundations/state",
+      "name": "isControlled",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 0,
+      "path": "tests/types/public-entrypoints.test-d.ts",
+      "line": 133,
+      "module": "@askrjs/askr/foundations/state",
+      "name": "resolveControllable",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 0,
+      "path": "tests/types/public-entrypoints.test-d.ts",
+      "line": 135,
+      "module": "@askrjs/askr/foundations/state",
+      "name": "makeControllable",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 0,
+      "path": "tests/types/public-entrypoints.test-d.ts",
+      "line": 137,
+      "module": "@askrjs/askr/foundations/structures",
+      "name": "createLayer",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 0,
+      "path": "tests/types/public-entrypoints.test-d.ts",
+      "line": 148,
+      "module": "@askrjs/askr/testing",
+      "name": "mount",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 0,
+      "path": "tests/types/public-entrypoints.test-d.ts",
+      "line": 150,
+      "module": "@askrjs/askr/testing",
+      "name": "queryState",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 0,
+      "path": "tests/types/public-entrypoints.test-d.ts",
+      "line": 152,
+      "module": "@askrjs/askr/testing",
+      "name": "matchRoute",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 0,
+      "path": "tests/types/public-entrypoints.test-d.ts",
+      "line": 181,
+      "module": "@askrjs/askr/jsx-runtime",
+      "name": "jsxDEV",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 3,
+      "path": "tests/types/public-contract.ts",
+      "line": 35,
+      "module": "@askrjs/cli/ssg",
+      "name": "SitemapChangeFrequency",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 3,
+      "path": "tests/types/public-contract.ts",
+      "line": 37,
+      "module": "@askrjs/cli/ssg",
+      "name": "SitemapRouteConfig",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 3,
+      "path": "tests/types/public-contract.ts",
+      "line": 39,
+      "module": "@askrjs/cli/ssg",
+      "name": "SitemapRouteContext",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 3,
+      "path": "tests/types/public-contract.ts",
+      "line": 41,
+      "module": "@askrjs/cli/ssg",
+      "name": "SsgByteBudget",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 3,
+      "path": "tests/types/public-contract.ts",
+      "line": 43,
+      "module": "@askrjs/cli/ssg",
+      "name": "SsgOutputAsset",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 3,
+      "path": "tests/types/public-contract.ts",
+      "line": 45,
+      "module": "@askrjs/cli/ssg",
+      "name": "SsgOutputBudgets",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 3,
+      "path": "tests/types/public-contract.ts",
+      "line": 47,
+      "module": "@askrjs/cli/ssg",
+      "name": "SsgOutputReport",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 3,
+      "path": "tests/types/public-contract.ts",
+      "line": 49,
+      "module": "@askrjs/cli/ssg",
+      "name": "SsgOutputRoute",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 3,
+      "path": "tests/types/public-contract.ts",
+      "line": 51,
+      "module": "@askrjs/cli/ssg",
+      "name": "SsgOutputSize",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 6,
+      "path": "tests/package-surface.js",
+      "line": 66,
+      "module": "@askrjs/logos",
+      "name": "createLogo",
+      "kind": "generated-named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 6,
+      "path": "tests/package-surface.js",
+      "line": 68,
+      "module": "@askrjs/logos",
+      "name": "LogoAttribute",
+      "kind": "generated-named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 6,
+      "path": "tests/package-surface.js",
+      "line": 68,
+      "module": "@askrjs/logos",
+      "name": "LogoAttributes",
+      "kind": "generated-named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 6,
+      "path": "tests/package-surface.js",
+      "line": 68,
+      "module": "@askrjs/logos",
+      "name": "LogoNode",
+      "kind": "generated-named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 6,
+      "path": "tests/package-surface.js",
+      "line": 68,
+      "module": "@askrjs/logos",
+      "name": "LogoProps",
+      "kind": "generated-named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 6,
+      "path": "tests/package-surface.js",
+      "line": 68,
+      "module": "@askrjs/logos",
+      "name": "LogoTag",
+      "kind": "generated-named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 6,
+      "path": "tests/package-surface.js",
+      "line": 70,
+      "module": "@askrjs/logos/logos/github",
+      "name": null,
+      "kind": "generated-module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 6,
+      "path": "tests/package-surface.js",
+      "line": 70,
+      "module": "@askrjs/logos/logos/github",
+      "name": "GitHubLogo",
+      "kind": "generated-named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 7,
+      "path": "tests/installed-smoke.js",
+      "line": 98,
+      "module": "@askrjs/lucide",
+      "name": "createIcon",
+      "kind": "generated-named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 7,
+      "path": "tests/installed-smoke.js",
+      "line": 100,
+      "module": "@askrjs/lucide",
+      "name": "IconNode",
+      "kind": "generated-named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 7,
+      "path": "tests/installed-smoke.js",
+      "line": 102,
+      "module": "@askrjs/lucide",
+      "name": "IconProps",
+      "kind": "generated-named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 7,
+      "path": "tests/installed-smoke.js",
+      "line": 104,
+      "module": "@askrjs/lucide",
+      "name": "IconSizeToken",
+      "kind": "generated-named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 8,
+      "path": "tests/package-surface.js",
+      "line": 93,
+      "module": "@askrjs/monaco/monaco-editor",
+      "name": null,
+      "kind": "generated-module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 8,
+      "path": "tests/package-surface.js",
+      "line": 93,
+      "module": "@askrjs/monaco/monaco-editor",
+      "name": "MonacoEditor",
+      "kind": "generated-named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 8,
+      "path": "tests/package-surface.js",
+      "line": 95,
+      "module": "@askrjs/monaco/testing",
+      "name": null,
+      "kind": "generated-module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 8,
+      "path": "tests/package-surface.js",
+      "line": 95,
+      "module": "@askrjs/monaco/testing",
+      "name": "createMonacoEditorTestDriver",
+      "kind": "generated-named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 9,
+      "path": "tests/types/public-contract.ts",
+      "line": 34,
+      "module": "@askrjs/node",
+      "name": "normalizeClientAddress",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 9,
+      "path": "tests/types/public-contract.ts",
+      "line": 36,
+      "module": "@askrjs/node",
+      "name": "ConnectNext",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 9,
+      "path": "tests/types/public-contract.ts",
+      "line": 38,
+      "module": "@askrjs/node",
+      "name": "NodeWebSocketOptions",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 14,
+      "path": "tests/types/public-contract.ts",
+      "line": 42,
+      "module": "@askrjs/testing",
+      "name": "BodyRequestOptions",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 14,
+      "path": "tests/types/public-contract.ts",
+      "line": 45,
+      "module": "@askrjs/testing",
+      "name": "FormValue",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 14,
+      "path": "tests/types/public-contract.ts",
+      "line": 48,
+      "module": "@askrjs/testing",
+      "name": "GetHeadOptions",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 14,
+      "path": "tests/types/public-contract.ts",
+      "line": 51,
+      "module": "@askrjs/testing",
+      "name": "QueryValue",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 14,
+      "path": "tests/types/public-contract.ts",
+      "line": 54,
+      "module": "@askrjs/testing",
+      "name": "RequestHandler",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 14,
+      "path": "tests/types/public-contract.ts",
+      "line": 57,
+      "module": "@askrjs/testing",
+      "name": "RequestTarget",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 14,
+      "path": "tests/types/public-contract.ts",
+      "line": 60,
+      "module": "@askrjs/testing",
+      "name": "createTestRequest",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 292,
+      "module": "@askrjs/themes/components",
+      "name": "Drawer",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 294,
+      "module": "@askrjs/themes/components",
+      "name": "DrawerClose",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 296,
+      "module": "@askrjs/themes/components",
+      "name": "DrawerContent",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 298,
+      "module": "@askrjs/themes/components",
+      "name": "DrawerDescription",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 300,
+      "module": "@askrjs/themes/components",
+      "name": "DrawerOverlay",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 302,
+      "module": "@askrjs/themes/components",
+      "name": "DrawerPortal",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 304,
+      "module": "@askrjs/themes/components",
+      "name": "DrawerTitle",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 306,
+      "module": "@askrjs/themes/components",
+      "name": "DrawerTrigger",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 710,
+      "module": "@askrjs/themes/components",
+      "name": "Sonner",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 885,
+      "module": "@askrjs/themes/ssr",
+      "name": "DocumentRenderArgsLike",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 891,
+      "module": "@askrjs/themes/accordion",
+      "name": "ACCORDION_A11Y_CONTRACT",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 893,
+      "module": "@askrjs/themes/accordion",
+      "name": "AccordionA11yContract",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 916,
+      "module": "@askrjs/themes/alert-dialog",
+      "name": "ALERT_DIALOG_A11Y_CONTRACT",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 920,
+      "module": "@askrjs/themes/alert-dialog",
+      "name": "AlertDialogA11yContract",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 968,
+      "module": "@askrjs/themes/avatar",
+      "name": "AVATAR_A11Y_CONTRACT",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 970,
+      "module": "@askrjs/themes/avatar",
+      "name": "AvatarA11yContract",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1032,
+      "module": "@askrjs/themes/button",
+      "name": "BUTTON_A11Y_CONTRACT",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1034,
+      "module": "@askrjs/themes/button",
+      "name": "ButtonA11yContract",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1106,
+      "module": "@askrjs/themes/checkbox",
+      "name": "CHECKBOX_A11Y_CONTRACT",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1108,
+      "module": "@askrjs/themes/checkbox",
+      "name": "CheckboxA11yContract",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1119,
+      "module": "@askrjs/themes/collapsible",
+      "name": "COLLAPSIBLE_A11Y_CONTRACT",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1203,
+      "module": "@askrjs/themes/dialog",
+      "name": "DIALOG_A11Y_CONTRACT",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1205,
+      "module": "@askrjs/themes/dialog",
+      "name": "DialogA11yContract",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1240,
+      "module": "@askrjs/themes/drawer",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1240,
+      "module": "@askrjs/themes/drawer",
+      "name": "Drawer",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1242,
+      "module": "@askrjs/themes/drawer",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1242,
+      "module": "@askrjs/themes/drawer",
+      "name": "DrawerClose",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1244,
+      "module": "@askrjs/themes/drawer",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1244,
+      "module": "@askrjs/themes/drawer",
+      "name": "DrawerContent",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1246,
+      "module": "@askrjs/themes/drawer",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1246,
+      "module": "@askrjs/themes/drawer",
+      "name": "DrawerDescription",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1248,
+      "module": "@askrjs/themes/drawer",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1248,
+      "module": "@askrjs/themes/drawer",
+      "name": "DrawerOverlay",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1250,
+      "module": "@askrjs/themes/drawer",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1250,
+      "module": "@askrjs/themes/drawer",
+      "name": "DrawerPortal",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1252,
+      "module": "@askrjs/themes/drawer",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1252,
+      "module": "@askrjs/themes/drawer",
+      "name": "DrawerTitle",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1254,
+      "module": "@askrjs/themes/drawer",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1254,
+      "module": "@askrjs/themes/drawer",
+      "name": "DrawerTrigger",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1345,
+      "module": "@askrjs/themes/input",
+      "name": "INPUT_A11Y_CONTRACT",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1347,
+      "module": "@askrjs/themes/input",
+      "name": "InputA11yContract",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1376,
+      "module": "@askrjs/themes/label",
+      "name": "LABEL_A11Y_CONTRACT",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1378,
+      "module": "@askrjs/themes/label",
+      "name": "LabelA11yContract",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1386,
+      "module": "@askrjs/themes/menubar",
+      "name": "MENUBAR_A11Y_CONTRACT",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1388,
+      "module": "@askrjs/themes/menubar",
+      "name": "MenubarA11yContract",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1474,
+      "module": "@askrjs/themes/popover",
+      "name": "POPOVER_A11Y_CONTRACT",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1476,
+      "module": "@askrjs/themes/popover",
+      "name": "PopoverA11yContract",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1499,
+      "module": "@askrjs/themes/progress",
+      "name": "PROGRESS_A11Y_CONTRACT",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1501,
+      "module": "@askrjs/themes/progress",
+      "name": "ProgressA11yContract",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1509,
+      "module": "@askrjs/themes/radio-group",
+      "name": "RADIO_GROUP_A11Y_CONTRACT",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1513,
+      "module": "@askrjs/themes/radio-group",
+      "name": "RadioGroupA11yContract",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1551,
+      "module": "@askrjs/themes/select",
+      "name": "SELECT_A11Y_CONTRACT",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1553,
+      "module": "@askrjs/themes/select",
+      "name": "SelectA11yContract",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1670,
+      "module": "@askrjs/themes/slider",
+      "name": "SLIDER_A11Y_CONTRACT",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1672,
+      "module": "@askrjs/themes/slider",
+      "name": "SliderA11yContract",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1689,
+      "module": "@askrjs/themes/sonner",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1689,
+      "module": "@askrjs/themes/sonner",
+      "name": "Sonner",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1691,
+      "module": "@askrjs/themes/sonner",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1691,
+      "module": "@askrjs/themes/sonner",
+      "name": "Toaster",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1703,
+      "module": "@askrjs/themes/switch",
+      "name": "SWITCH_A11Y_CONTRACT",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1705,
+      "module": "@askrjs/themes/switch",
+      "name": "SwitchA11yContract",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1769,
+      "module": "@askrjs/themes/textarea",
+      "name": "TEXTAREA_A11Y_CONTRACT",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1771,
+      "module": "@askrjs/themes/textarea",
+      "name": "TextareaA11yContract",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1779,
+      "module": "@askrjs/themes/toast",
+      "name": "TOAST_A11Y_CONTRACT",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1781,
+      "module": "@askrjs/themes/toast",
+      "name": "ToastA11yContract",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1809,
+      "module": "@askrjs/themes/toggle-group",
+      "name": "TOGGLE_GROUP_A11Y_CONTRACT",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1813,
+      "module": "@askrjs/themes/toggle-group",
+      "name": "ToggleGroupA11yContract",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1827,
+      "module": "@askrjs/themes/toggle",
+      "name": "TOGGLE_A11Y_CONTRACT",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1829,
+      "module": "@askrjs/themes/toggle",
+      "name": "ToggleA11yContract",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1837,
+      "module": "@askrjs/themes/tooltip",
+      "name": "TOOLTIP_A11Y_CONTRACT",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1839,
+      "module": "@askrjs/themes/tooltip",
+      "name": "TooltipA11yContract",
+      "kind": "named",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1875,
+      "module": "@askrjs/themes/drawer",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 15,
+      "path": "tests/types/public-surface.fixture.tsx",
+      "line": 1877,
+      "module": "@askrjs/themes/sonner",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 2,
+      "module": "@askrjs/ui/components",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 5,
+      "module": "@askrjs/ui/_internal",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 8,
+      "module": "@askrjs/ui/components/_internal/typeahead",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 11,
+      "module": "@askrjs/ui/accordion/accordion.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 14,
+      "module": "@askrjs/ui/alert-dialog/alert-dialog.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 17,
+      "module": "@askrjs/ui/avatar/avatar.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 20,
+      "module": "@askrjs/ui/button/button.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 23,
+      "module": "@askrjs/ui/checkbox/checkbox.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 26,
+      "module": "@askrjs/ui/collapsible/collapsible.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 29,
+      "module": "@askrjs/ui/dialog/dialog.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 32,
+      "module": "@askrjs/ui/dismissable-layer/dismissable-layer.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 35,
+      "module": "@askrjs/ui/dropdown/dropdown.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 38,
+      "module": "@askrjs/ui/focus-scope/focus-scope.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 41,
+      "module": "@askrjs/ui/input/input.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 44,
+      "module": "@askrjs/ui/label/label.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 47,
+      "module": "@askrjs/ui/menu/menu.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 50,
+      "module": "@askrjs/ui/menubar/menubar.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 53,
+      "module": "@askrjs/ui/popover/popover.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 56,
+      "module": "@askrjs/ui/progress/progress.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 59,
+      "module": "@askrjs/ui/progress-circle/progress-circle.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 62,
+      "module": "@askrjs/ui/radio-group/radio-group.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 65,
+      "module": "@askrjs/ui/select/select.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 68,
+      "module": "@askrjs/ui/slider/slider.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 71,
+      "module": "@askrjs/ui/switch/switch.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 74,
+      "module": "@askrjs/ui/textarea/textarea.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 77,
+      "module": "@askrjs/ui/toast/toast.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 80,
+      "module": "@askrjs/ui/toggle/toggle.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 83,
+      "module": "@askrjs/ui/toggle-group/toggle-group.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 86,
+      "module": "@askrjs/ui/tooltip/tooltip.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/fixtures/0.5.0-private-paths.type-test.ts",
+      "line": 89,
+      "module": "@askrjs/ui/visually-hidden/visually-hidden.a11y",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 32,
+      "module": "@askrjs/ui",
+      "name": "ACCORDION_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 36,
+      "module": "@askrjs/ui",
+      "name": "ALERT_DIALOG_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 40,
+      "module": "@askrjs/ui",
+      "name": "AVATAR_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 44,
+      "module": "@askrjs/ui",
+      "name": "BUTTON_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 48,
+      "module": "@askrjs/ui",
+      "name": "CHECKBOX_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 52,
+      "module": "@askrjs/ui",
+      "name": "COLLAPSIBLE_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 54,
+      "module": "@askrjs/ui",
+      "name": "DIALOG_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 58,
+      "module": "@askrjs/ui",
+      "name": "DISMISSABLE_LAYER_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 62,
+      "module": "@askrjs/ui",
+      "name": "DROPDOWN_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 66,
+      "module": "@askrjs/ui",
+      "name": "FOCUS_SCOPE_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 70,
+      "module": "@askrjs/ui",
+      "name": "INPUT_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 74,
+      "module": "@askrjs/ui",
+      "name": "LABEL_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 78,
+      "module": "@askrjs/ui",
+      "name": "MENU_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 82,
+      "module": "@askrjs/ui",
+      "name": "MENUBAR_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 86,
+      "module": "@askrjs/ui",
+      "name": "POPOVER_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 90,
+      "module": "@askrjs/ui",
+      "name": "PROGRESS_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 92,
+      "module": "@askrjs/ui",
+      "name": "PROGRESS_CIRCLE_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 98,
+      "module": "@askrjs/ui",
+      "name": "RADIO_GROUP_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 102,
+      "module": "@askrjs/ui",
+      "name": "SELECT_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 106,
+      "module": "@askrjs/ui",
+      "name": "SLIDER_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 110,
+      "module": "@askrjs/ui",
+      "name": "SWITCH_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 114,
+      "module": "@askrjs/ui",
+      "name": "TEXTAREA_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 118,
+      "module": "@askrjs/ui",
+      "name": "TOAST_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 122,
+      "module": "@askrjs/ui",
+      "name": "TOGGLE_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 124,
+      "module": "@askrjs/ui",
+      "name": "TOGGLE_GROUP_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 130,
+      "module": "@askrjs/ui",
+      "name": "TOOLTIP_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 134,
+      "module": "@askrjs/ui",
+      "name": "VISUALLY_HIDDEN_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 138,
+      "module": "@askrjs/ui/avatar",
+      "name": "AVATAR_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 142,
+      "module": "@askrjs/ui/button",
+      "name": "BUTTON_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 146,
+      "module": "@askrjs/ui/checkbox",
+      "name": "CHECKBOX_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 150,
+      "module": "@askrjs/ui/input",
+      "name": "INPUT_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 154,
+      "module": "@askrjs/ui/label",
+      "name": "LABEL_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 158,
+      "module": "@askrjs/ui/progress",
+      "name": "PROGRESS_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 162,
+      "module": "@askrjs/ui/progress-circle",
+      "name": "PROGRESS_CIRCLE_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 166,
+      "module": "@askrjs/ui/radio-group",
+      "name": "RADIO_GROUP_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 170,
+      "module": "@askrjs/ui/select",
+      "name": "SELECT_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 174,
+      "module": "@askrjs/ui/slider",
+      "name": "SLIDER_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 178,
+      "module": "@askrjs/ui/switch",
+      "name": "SWITCH_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 182,
+      "module": "@askrjs/ui/textarea",
+      "name": "TEXTAREA_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 186,
+      "module": "@askrjs/ui/toggle",
+      "name": "TOGGLE_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 190,
+      "module": "@askrjs/ui/toggle-group",
+      "name": "TOGGLE_GROUP_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 194,
+      "module": "@askrjs/ui/visually-hidden",
+      "name": "VISUALLY_HIDDEN_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 198,
+      "module": "@askrjs/ui/accordion",
+      "name": "ACCORDION_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 202,
+      "module": "@askrjs/ui/alert-dialog",
+      "name": "ALERT_DIALOG_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 206,
+      "module": "@askrjs/ui/collapsible",
+      "name": "COLLAPSIBLE_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 208,
+      "module": "@askrjs/ui/dialog",
+      "name": "DIALOG_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 212,
+      "module": "@askrjs/ui/dismissable-layer",
+      "name": "DISMISSABLE_LAYER_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 216,
+      "module": "@askrjs/ui/dropdown",
+      "name": "DROPDOWN_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 220,
+      "module": "@askrjs/ui/focus-scope",
+      "name": "FOCUS_SCOPE_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 224,
+      "module": "@askrjs/ui/menu",
+      "name": "MENU_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 228,
+      "module": "@askrjs/ui/menubar",
+      "name": "MENUBAR_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 232,
+      "module": "@askrjs/ui/popover",
+      "name": "POPOVER_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 236,
+      "module": "@askrjs/ui/toast",
+      "name": "TOAST_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 16,
+      "path": "tests/unit/types/0.5.0-removed.type-test.ts",
+      "line": 240,
+      "module": "@askrjs/ui/tooltip",
+      "name": "TOOLTIP_A11Y_CONTRACT",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 17,
+      "path": "tests/fixtures/surface-negative.ts",
+      "line": 35,
+      "module": "@askrjs/vite/src/index.ts",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 17,
+      "path": "tests/fixtures/surface-negative.ts",
+      "line": 37,
+      "module": "@askrjs/vite/dist/index.js",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 17,
+      "path": "tests/fixtures/surface-negative.ts",
+      "line": 39,
+      "module": "@askrjs/vite/dist/image-node.js",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 17,
+      "path": "tests/fixtures/surface-negative.ts",
+      "line": 41,
+      "module": "@askrjs/vite/dist/server.js",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 17,
+      "path": "tests/fixtures/surface-negative.ts",
+      "line": 43,
+      "module": "@askrjs/vite/src/image-pipeline.ts",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 17,
+      "path": "tests/fixtures/surface-negative.ts",
+      "line": 45,
+      "module": "@askrjs/vite/src/server/document.ts",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 17,
+      "path": "tests/fixtures/surface-negative.ts",
+      "line": 47,
+      "module": "@askrjs/vite/server/document",
+      "name": null,
+      "kind": "module",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 17,
+      "path": "tests/fixtures/surface-negative.ts",
+      "line": 3,
+      "module": "@askrjs/vite",
+      "name": "askrVitePlugin",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 17,
+      "path": "tests/fixtures/surface-negative.ts",
+      "line": 6,
+      "module": "@askrjs/vite",
+      "name": "default",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 17,
+      "path": "tests/fixtures/surface-negative.ts",
+      "line": 9,
+      "module": "@askrjs/vite/server",
+      "name": "ASKR_APP_MARKER",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 17,
+      "path": "tests/fixtures/surface-negative.ts",
+      "line": 12,
+      "module": "@askrjs/vite/server",
+      "name": "ASKR_HEAD_MARKER",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 17,
+      "path": "tests/fixtures/surface-negative.ts",
+      "line": 15,
+      "module": "@askrjs/vite/server",
+      "name": "ASKR_SERVER_MODULE_ID",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 17,
+      "path": "tests/fixtures/surface-negative.ts",
+      "line": 18,
+      "module": "@askrjs/vite/server",
+      "name": "composeAskrDocumentResponse",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 17,
+      "path": "tests/fixtures/surface-negative.ts",
+      "line": 21,
+      "module": "@askrjs/vite/server",
+      "name": "composeAskrHead",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 17,
+      "path": "tests/fixtures/surface-negative.ts",
+      "line": 24,
+      "module": "@askrjs/vite/server",
+      "name": "insertAskrFragment",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    },
+    {
+      "source": 17,
+      "path": "tests/fixtures/surface-negative.ts",
+      "line": 27,
+      "module": "@askrjs/vite/server",
+      "name": "isAskrFragment",
+      "kind": "namespace-member",
+      "disposition": "Immediately associated @ts-expect-error asserts deliberate removed import rejection."
+    }
+  ],
+  "computedReferences": [
+    {
+      "repo": "askrjs/askr-cli",
+      "path": "src/bin/add.ts",
+      "line": 692,
+      "disposition": "Driver selection rejects every value except postgres/sqlite before driverImport is assigned. Both export paths and names are present in the exact ORM inventory.",
+      "sourceLines": "640-645,690-693"
+    },
+    {
+      "repo": "askrjs/askr-cli",
+      "path": "src/generate/auth.ts",
+      "line": 153,
+      "disposition": "Provider is restricted to auth0/microsoft/google/apple and providerNames maps each to its exact factory prefix. All four paths and factory names are in the exact Auth inventory.",
+      "sourceLines": "6-15,123-154"
+    },
+    {
+      "repo": "askrjs/askr-lucide",
+      "path": "tests/installed-smoke.js",
+      "line": 90,
+      "disposition": "Positive packed test builds deep imports from the icon catalog; the exact compiler inventory covers all 2031 advertised deep glyph paths. This is test generation, not a retired caller."
+    },
+    {
+      "repo": "askrjs/askr-themes",
+      "path": "tests/installed-types.js",
+      "line": 152,
+      "disposition": "Positive packed type test maps reviewed granularEntries to explicit retained family paths; exact export-map and declaration inventory covers the finite supported set. This is test generation, not a retired caller."
+    }
+  ]
+}

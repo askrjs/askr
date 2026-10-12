@@ -117,23 +117,25 @@ Guides live in [guides](./guides/), and benchmark workflow in
 
 ### Development
 
-| Page                                                                              | Description                                                       |
-| --------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| [Platform charter](./development/platform-charter.md)                             | Package roles and operating model                                 |
-| [Repo structure](./development/repo-structure.md)                                 | Repository layout                                                 |
-| [Contributing](../CONTRIBUTING.md)                                                | Setup, build, test, lint                                          |
-| [Release](./development/release.md)                                               | Versioning and publish process                                    |
-| [0.5.0 readiness review](./development/0.5.0-readiness.md)                        | Current issue scope, package gates, and qualification sequence    |
-| [0.5.0 Core API review](./development/0.5.0-public-api.md)                        | Every public name and export-key decision                         |
-| [0.5.0 Core migration](./migration/0.5.0.md)                                      | Removed names, canonical owners, and behavior differences         |
-| [0.4.0 core rewrite migration map](./development/0.4.0-core-rewrite-readiness.md) | Historical cross-package migration snapshot                       |
-| [Quality contracts](./development/quality-contracts.md)                           | Runtime invariants and test gates                                 |
-| [Compatibility boundary](./development/compatibility-boundary.md)                 | Published contracts and consumer validation                       |
-| [Core source layout](./development/core-layout.md)                                | Core layers and DOM renderer modules                              |
-| [Integration boundaries](./development/integration-boundaries.md)                 | Root transactions, data attachments, and server request isolation |
-| [Platform versioning](./development/platform-versioning.md)                       | Release coordination policy                                       |
-| [Docs style guide](./contributing/docs-style-guide.md)                            | Writing conventions                                               |
-| [Testing guide](./contributing/testing.md)                                        | Test patterns                                                     |
+| Page                                                                              | Description                                                         |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| [Platform charter](./development/platform-charter.md)                             | Package roles and operating model                                   |
+| [Repo structure](./development/repo-structure.md)                                 | Repository layout                                                   |
+| [Contributing](../CONTRIBUTING.md)                                                | Setup, build, test, lint                                            |
+| [Release](./development/release.md)                                               | Versioning and publish process                                      |
+| [0.5.0 readiness review](./development/0.5.0-readiness.md)                        | Current issue scope, package gates, and qualification sequence      |
+| [0.5.0 cross-package API acceptance](./development/0.5.0-api-acceptance.md)       | Frozen symbol/path inventory, source identities and remaining gates |
+| [0.5.0 package migration index](./migration/0.5.0-packages.md)                    | Breaking changes and canonical sibling package migration guides     |
+| [0.5.0 Core API review](./development/0.5.0-public-api.md)                        | Every public name and export-key decision                           |
+| [0.5.0 Core migration](./migration/0.5.0.md)                                      | Removed names, canonical owners, and behavior differences           |
+| [0.4.0 core rewrite migration map](./development/0.4.0-core-rewrite-readiness.md) | Historical cross-package migration snapshot                         |
+| [Quality contracts](./development/quality-contracts.md)                           | Runtime invariants and test gates                                   |
+| [Compatibility boundary](./development/compatibility-boundary.md)                 | Published contracts and consumer validation                         |
+| [Core source layout](./development/core-layout.md)                                | Core layers and DOM renderer modules                                |
+| [Integration boundaries](./development/integration-boundaries.md)                 | Root transactions, data attachments, and server request isolation   |
+| [Platform versioning](./development/platform-versioning.md)                       | Release coordination policy                                         |
+| [Docs style guide](./contributing/docs-style-guide.md)                            | Writing conventions                                                 |
+| [Testing guide](./contributing/testing.md)                                        | Test patterns                                                       |
 
 ### Additional Reading
 

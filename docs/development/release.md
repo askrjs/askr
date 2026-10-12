@@ -81,6 +81,12 @@ The intended happy path is:
 - Critical runtime coverage passes: `npm run test:coverage` (also included in
   the release gate). See [runtime coverage and hardening](./runtime-coverage.md)
   for measured directory floors, supported environments and source reports.
+- Before every package release, inspect current assertions and probe a deeper
+  adjacent public or internal contract boundary than the previous release.
+  Record the scenarios, exact commands and outcomes, including focused no-defect
+  results. Keep a minimal reproducer and regression test for each confirmed
+  defect; fix it or record an explicit, evidence-backed release deferral in the
+  [release-wide hardening gate](https://github.com/askrjs/askr/issues/747).
 - Tarball inspection passes: `npm pack --dry-run --json` contains no `.map`
   files and includes JavaScript plus declaration artifacts for every export.
 - CHANGELOG updated when the release needs notes
