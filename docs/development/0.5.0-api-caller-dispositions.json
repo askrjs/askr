@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "consumerSources": [
+    {
+      "repo": "askrjs/askr-examples",
+      "commit": "a10fe69f56357c1891711aa2b51d6593e8db74d0"
+    },
+    {
+      "repo": "askrjs/website",
+      "commit": "c7b17435665293d510742529fe2797cba5c6d280"
+    }
+  ],
+  "computedReferences": [
+    {
+      "repo": "askrjs/askr-cli",
+      "path": "src/bin/add.ts",
+      "line": 692,
+      "disposition": "Driver selection rejects every value except postgres/sqlite before driverImport is assigned. Both export paths and names are present in the exact ORM inventory.",
+      "sourceLines": "640-645,690-693",
+      "sourceSha256": "d14cd1ed469338e2b68cf9a66fd34ad4f0356b4928d6ebacf24c3aa12b8537d1",
+      "expectedHits": [
+        {
+          "module": "@askrjs/orm/__ASKR_EXPRESSION__",
+          "name": null,
+          "kind": "generated-module",
+          "reason": "removed-path"
+        },
+        {
+          "module": "@askrjs/orm/__ASKR_EXPRESSION__",
+          "name": "__ASKR_EXPRESSION__",
+          "kind": "generated-named",
+          "reason": "removed-path"
+        }
+      ]
+    },
+    {
+      "repo": "askrjs/askr-cli",
+      "path": "src/generate/auth.ts",
+      "line": 153,
+      "disposition": "Provider is restricted to auth0/microsoft/google/apple and providerNames maps each to its exact factory prefix. All four paths and factory names are in the exact Auth inventory.",
+      "sourceLines": "6-15,123-154",
+      "sourceSha256": "c519b5a29584f27d4ac0d1bbaca01683227d027846e3e4762c43ff7fc9516c8f",
+      "expectedHits": [
+        {
+          "module": "@askrjs/auth/providers/__ASKR_EXPRESSION__",
+          "name": null,
+          "kind": "generated-module",
+          "reason": "removed-path"
+        },
+        {
+          "module": "@askrjs/auth/providers/__ASKR_EXPRESSION__",
+          "name": "create__ASKR_EXPRESSION__Provider",
+          "kind": "generated-named",
+          "reason": "removed-path"
+        }
+      ]
+    },
+    {
+      "repo": "askrjs/askr-lucide",
+      "path": "tests/installed-smoke.js",
+      "line": 90,
+      "disposition": "Positive packed test builds deep imports from the icon catalog; the exact compiler inventory covers all 2031 advertised deep glyph paths. This is test generation, not a retired caller.",
+      "sourceSha256": "7ec1eaadfdbc4c36c872277167a9733841db21e999729fb6131e8f4bddd25018",
+      "expectedHits": [
+        {
+          "module": "@askrjs/lucide/__ASKR_EXPRESSION__",
+          "name": null,
+          "kind": "generated-module",
+          "reason": "removed-path"
+        },
+        {
+          "module": "@askrjs/lucide/__ASKR_EXPRESSION__",
+          "name": "__ASKR_EXPRESSION__",
+          "kind": "generated-named",
+          "reason": "removed-path"
+        }
+      ]
+    },
+    {
+      "repo": "askrjs/askr-themes",
+      "path": "tests/installed-types.js",
+      "line": 152,
+      "disposition": "Positive packed type test maps reviewed granularEntries to explicit retained family paths; exact export-map and declaration inventory covers the finite supported set. This is test generation, not a retired caller.",
+      "sourceSha256": "64268fd13761a2849652a9061f319dcc94accff79b7db9a225c4d0e213973d66",
+      "expectedHits": [
+        {
+          "module": "@askrjs/themes/__ASKR_EXPRESSION__",
+          "name": null,
+          "kind": "generated-module",
+          "reason": "removed-path"
+        }
+      ]
+    }
+  ]
+}

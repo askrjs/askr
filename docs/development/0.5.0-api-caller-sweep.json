@@ -1,95 +1,181 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "status": "PASS_BOUNDED_EXACT_SOURCE_SEARCH",
   "compiler": "6.0.3",
+  "compilerPackage": {
+    "name": "@typescript/typescript6",
+    "version": "6.0.2",
+    "entrySha256": "d3f3cd2b04b7f466f4484df921b744223f7bd1f3e353ec9110bdf52695b983d5"
+  },
+  "compilerSha256": "569177652966bd528c319171c7dd22860dbf72bde116cbc4f644f1d02bb12e39",
+  "packageLockSha256": "cd8aab72a2691201447abcd7f01ad3236f511192923b93ae4c7a59e6674dc902",
+  "inventorySha256": "373c7abaae38edb29831abc6c723967a990dc9ed3aa4b640a51ba9fcc3201c2c",
+  "dispositionsSha256": "5dbef7143c3a86ef6ff16416e897ce99bef1ac9f9a5e13ef793188e393cba323",
+  "searchTools": [
+    {
+      "path": "tests/checks/api-acceptance/scanner.ts",
+      "sha256": "df41ac3b003b54386234fd5f7e80771355f5d87ab7f64ed78eb8412a6b1ce7b4"
+    },
+    {
+      "path": "tests/checks/api-acceptance/sources.ts",
+      "sha256": "2be7ef4c8bbc69d760148a80898fe53dc4387d63782190b7cece278d51d877ea"
+    },
+    {
+      "path": "tests/checks/api-acceptance/sweep.ts",
+      "sha256": "b52bfd6d2e687c9b6866ecd126d14df43584c7ea48ea1ece9ff0e8984ab40351"
+    }
+  ],
+  "searchToolSha256": "4014dda376a40bff5e96c397e9e9c7597c3fc1b7185bb4a3cad9268244812650",
+  "finalSymbolPairs": 6835,
   "sources": [
     {
       "repo": "askrjs/askr",
-      "commit": "20afdef717fda056cec61ba076682cc5b2c2f782"
+      "commit": "20afdef717fda056cec61ba076682cc5b2c2f782",
+      "tree": "be0d1221519c963fceea448efece646f0f883c42",
+      "files": 1043,
+      "filesSha256": "8d769ef9990fb7a4a890a76f8435478c9909d22887681b087d2b9c7f7f8c5e7d"
     },
     {
       "repo": "askrjs/askr-auth",
-      "commit": "f1a0463e62614434a51abff22e58da54ba0af0d4"
+      "commit": "f1a0463e62614434a51abff22e58da54ba0af0d4",
+      "tree": "3610863e7ec482fc67ddcc694a8abb930155f634",
+      "files": 97,
+      "filesSha256": "96e88594d85fe4e7473201ffb7acf5f268181076ec3d8fe551e1dc28717ab65f"
     },
     {
       "repo": "askrjs/askr-charts",
-      "commit": "9b0473ea31b233e80e8889250502297ea739faad"
+      "commit": "9b0473ea31b233e80e8889250502297ea739faad",
+      "tree": "22497c54cf53c8f4dd98476ae575e8ab78895e81",
+      "files": 106,
+      "filesSha256": "f34acabd16e0f0b37ead7ca3282ec85ba7530b0eaf85037455a82444f3d1d45c"
     },
     {
       "repo": "askrjs/askr-cli",
-      "commit": "556ca581221e342b809d4aa8ec7768a66e16cf1e"
+      "commit": "556ca581221e342b809d4aa8ec7768a66e16cf1e",
+      "tree": "6128cdaecc1b200ee41aea2d5141f06a081be89e",
+      "files": 277,
+      "filesSha256": "7af49d1bfb8e59e01ec52e2a11546a0b6288fb82e691a7e7bf0bca612ce9919a"
     },
     {
       "repo": "askrjs/askr-fetch",
-      "commit": "5dcce6c708651759be903b3220ea178651b9526c"
+      "commit": "5dcce6c708651759be903b3220ea178651b9526c",
+      "tree": "c1c0de7134f8b59538f8c7048c6523bd0f331944",
+      "files": 18,
+      "filesSha256": "9851b0b8553d2f003deb7a5c192f2aa4c34db7047e2b81232e8d7638e4f49800"
     },
     {
       "repo": "askrjs/askr-i18n",
-      "commit": "c2a7f4d54298674cce93372e02341380dc1511fb"
+      "commit": "c2a7f4d54298674cce93372e02341380dc1511fb",
+      "tree": "798795c61ce5f7de9f058a78b0c5fb061465e68d",
+      "files": 16,
+      "filesSha256": "fe5c21f3954c0dab1574a0bb00fdeb3924c2bc1068c8b025b58a8f3709cbc39d"
     },
     {
       "repo": "askrjs/askr-logos",
-      "commit": "5dade0f3361f69e6fc7895e738f456102fd9269d"
+      "commit": "5dade0f3361f69e6fc7895e738f456102fd9269d",
+      "tree": "4943c3ea19d3cd32631f71dd761e87487f36b44e",
+      "files": 28,
+      "filesSha256": "58bc272709ab7e858ef4582e633f573f846fa3d8538b92ac75f65652fadaf144"
     },
     {
       "repo": "askrjs/askr-lucide",
-      "commit": "11dbe9b06e42ee67e2ba872a16e03b27fc2fa702"
+      "commit": "11dbe9b06e42ee67e2ba872a16e03b27fc2fa702",
+      "tree": "0cc4540bad3c1af0fc6e0e3e688541c6ef796877",
+      "files": 15,
+      "filesSha256": "5309d45415f511a47a4c372c0e2723efa5cb505fa132bbf52e6584deeac0cd36"
     },
     {
       "repo": "askrjs/askr-monaco",
-      "commit": "e43f12b6f4c446c6636a41ee3b02699782bb7363"
+      "commit": "e43f12b6f4c446c6636a41ee3b02699782bb7363",
+      "tree": "53c44fad6393224032b6f369f02de323d068d7b6",
+      "files": 48,
+      "filesSha256": "54801caab1c00cacf8971b580360613fa5ffa4e814c1f7db88b1b7d453c4a07c"
     },
     {
       "repo": "askrjs/askr-node",
-      "commit": "1855c07e8e2212c9dc0705462433a03e2d51df13"
+      "commit": "1855c07e8e2212c9dc0705462433a03e2d51df13",
+      "tree": "6899912b09dfc3ce5f2322764d5fcd1f6a5c63eb",
+      "files": 41,
+      "filesSha256": "8f8248962f37f6115de5ef08a88ec3a08f801fcaf6e7a44507162a6bc9e2bd44"
     },
     {
       "repo": "askrjs/askr-orm",
-      "commit": "818b013da4adf451f34a438026da18bb2f603026"
+      "commit": "818b013da4adf451f34a438026da18bb2f603026",
+      "tree": "29057f37ef770b46b65c0705b17d682c407d5f06",
+      "files": 50,
+      "filesSha256": "f7119c775ec3920b998db31fd0cd50418594de9a4003c0d0590ad4ecd0a09cd0"
     },
     {
       "repo": "askrjs/askr-otel",
-      "commit": "2a75e8fa83e913fa116779caf5e416312662a6bc"
+      "commit": "2a75e8fa83e913fa116779caf5e416312662a6bc",
+      "tree": "5ff91ef54badbe1edb33d3dab301183e230af039",
+      "files": 11,
+      "filesSha256": "03658ad71092eb70c202f631c53cbf10d323df5136be821d3ea51104748cba7d"
     },
     {
       "repo": "askrjs/askr-schema",
-      "commit": "374cd26695e7358303b23bc384a4d1a120bdc0ca"
+      "commit": "374cd26695e7358303b23bc384a4d1a120bdc0ca",
+      "tree": "f9b92bfa3a7b76e5ef7fbda998cabe5f699d53df",
+      "files": 16,
+      "filesSha256": "f32031fb8b162ef986ce64276535124062cd48f427fabdf7980585d24dc9a548"
     },
     {
       "repo": "askrjs/askr-server",
-      "commit": "9007a271243046ea8239c399f088c618877cabac"
+      "commit": "9007a271243046ea8239c399f088c618877cabac",
+      "tree": "412c7a18154e1c03584ac444f16a21aafb57befc",
+      "files": 126,
+      "filesSha256": "fcae21b4d91de6cde093bbb0e2349d67c65d3aeef818e3490d6ba78cc9825246"
     },
     {
       "repo": "askrjs/askr-testing",
-      "commit": "c164674d3c47a430913fe9a3e0eb5d868fed2de0"
+      "commit": "c164674d3c47a430913fe9a3e0eb5d868fed2de0",
+      "tree": "00fcd4c4bbe439020f8526964e4e58d83c24312b",
+      "files": 20,
+      "filesSha256": "18ef748aff979fc06dc02e59cd81067ed75df9dbbb0c44c5e91e4752ce4dc314"
     },
     {
       "repo": "askrjs/askr-themes",
-      "commit": "2ad3374808cf310f444a69c302e6fafc76d25ae5"
+      "commit": "2ad3374808cf310f444a69c302e6fafc76d25ae5",
+      "tree": "8ebc68d734f507c1b0b2581380273c7801b82df9",
+      "files": 351,
+      "filesSha256": "ca6983c2cefc634f7f549b4eb470a84d0b1f24098aec81aabd3089b45c77faaf"
     },
     {
       "repo": "askrjs/askr-ui",
-      "commit": "35968646f01e2400f10cf199452b5da91c153c49"
+      "commit": "35968646f01e2400f10cf199452b5da91c153c49",
+      "tree": "d2151bbb2f80fcc75bdba937ab8b5683d78b5d67",
+      "files": 599,
+      "filesSha256": "cf57253ac8e5c6d9507bc3dbb72b6c57c0913571c555f33aaaa6e4e098a8060c"
     },
     {
       "repo": "askrjs/askr-vite",
-      "commit": "d3ff7d2b810f14388021098d4df2b7d123071c50"
+      "commit": "d3ff7d2b810f14388021098d4df2b7d123071c50",
+      "tree": "b075eb7b12c7ae2e30993e96cb3e9e3c6cab6195",
+      "files": 58,
+      "filesSha256": "8c6055af27081b7cda42b7db9e45e2066a4502d0394b7bd85f132f64dfb88851"
     },
     {
       "repo": "askrjs/askr-examples",
-      "commit": "a10fe69f56357c1891711aa2b51d6593e8db74d0"
+      "commit": "a10fe69f56357c1891711aa2b51d6593e8db74d0",
+      "tree": "6c9f66ef7dd27c616628071218a98fc78c547288",
+      "files": 153,
+      "filesSha256": "fe30d7be733f7ef7bf4323e94bdec80964b280447fa7160916189de2ce287b54"
     },
     {
       "repo": "askrjs/website",
-      "commit": "c7b17435665293d510742529fe2797cba5c6d280"
+      "commit": "c7b17435665293d510742529fe2797cba5c6d280",
+      "tree": "be29135f90982acd3429a97fc32898327629ea4b",
+      "files": 96,
+      "filesSha256": "9da5a5f24a9075b0537922f8d7748d18740033c5e38d48f7375ea91eb3d81ee4"
     }
   ],
   "files": 3169,
   "importReferenceChecks": 13173,
   "executableStaleCallersFound": 0,
   "deliberateNegativeReferences": 219,
-  "searchToolSha256": "8dbafc79bc976ed0816d046ef244da3fc1132e7c7321b3e4a2c889d52484ee0f",
-  "command": "node /tmp/askr-api-caller-sweep-20261012.cjs",
+  "computedReferenceChecks": 7,
+  "unresolvedAcceptance": "Auth grows from 93 published baseline pairs to 101 candidate pairs. Independent surface-policy review and explicit #745 coordinator disposition remain required; this sweep does not close #745, #747 or #744.",
+  "command": "npm run check:api-acceptance -- --workspace-root <sibling-checkouts> --archives-root <candidate-artifacts>",
   "boundary": "Exact frozen package sources plus stated Examples and Website commits; source and Markdown-fenced-code import/export/dynamic and namespace-member search, plus generated import/export strings. Markdown prose and computed module/name expressions are excluded. Tests and negative fixtures are included. This is not current integrated graph or runtime/type acceptance.",
   "negativeReferences": [
     {
@@ -2070,26 +2156,80 @@
       "path": "src/bin/add.ts",
       "line": 692,
       "disposition": "Driver selection rejects every value except postgres/sqlite before driverImport is assigned. Both export paths and names are present in the exact ORM inventory.",
-      "sourceLines": "640-645,690-693"
+      "sourceLines": "640-645,690-693",
+      "sourceSha256": "d14cd1ed469338e2b68cf9a66fd34ad4f0356b4928d6ebacf24c3aa12b8537d1",
+      "expectedHits": [
+        {
+          "module": "@askrjs/orm/__ASKR_EXPRESSION__",
+          "name": null,
+          "kind": "generated-module",
+          "reason": "removed-path"
+        },
+        {
+          "module": "@askrjs/orm/__ASKR_EXPRESSION__",
+          "name": "__ASKR_EXPRESSION__",
+          "kind": "generated-named",
+          "reason": "removed-path"
+        }
+      ]
     },
     {
       "repo": "askrjs/askr-cli",
       "path": "src/generate/auth.ts",
       "line": 153,
       "disposition": "Provider is restricted to auth0/microsoft/google/apple and providerNames maps each to its exact factory prefix. All four paths and factory names are in the exact Auth inventory.",
-      "sourceLines": "6-15,123-154"
+      "sourceLines": "6-15,123-154",
+      "sourceSha256": "c519b5a29584f27d4ac0d1bbaca01683227d027846e3e4762c43ff7fc9516c8f",
+      "expectedHits": [
+        {
+          "module": "@askrjs/auth/providers/__ASKR_EXPRESSION__",
+          "name": null,
+          "kind": "generated-module",
+          "reason": "removed-path"
+        },
+        {
+          "module": "@askrjs/auth/providers/__ASKR_EXPRESSION__",
+          "name": "create__ASKR_EXPRESSION__Provider",
+          "kind": "generated-named",
+          "reason": "removed-path"
+        }
+      ]
     },
     {
       "repo": "askrjs/askr-lucide",
       "path": "tests/installed-smoke.js",
       "line": 90,
-      "disposition": "Positive packed test builds deep imports from the icon catalog; the exact compiler inventory covers all 2031 advertised deep glyph paths. This is test generation, not a retired caller."
+      "disposition": "Positive packed test builds deep imports from the icon catalog; the exact compiler inventory covers all 2031 advertised deep glyph paths. This is test generation, not a retired caller.",
+      "sourceSha256": "7ec1eaadfdbc4c36c872277167a9733841db21e999729fb6131e8f4bddd25018",
+      "expectedHits": [
+        {
+          "module": "@askrjs/lucide/__ASKR_EXPRESSION__",
+          "name": null,
+          "kind": "generated-module",
+          "reason": "removed-path"
+        },
+        {
+          "module": "@askrjs/lucide/__ASKR_EXPRESSION__",
+          "name": "__ASKR_EXPRESSION__",
+          "kind": "generated-named",
+          "reason": "removed-path"
+        }
+      ]
     },
     {
       "repo": "askrjs/askr-themes",
       "path": "tests/installed-types.js",
       "line": 152,
-      "disposition": "Positive packed type test maps reviewed granularEntries to explicit retained family paths; exact export-map and declaration inventory covers the finite supported set. This is test generation, not a retired caller."
+      "disposition": "Positive packed type test maps reviewed granularEntries to explicit retained family paths; exact export-map and declaration inventory covers the finite supported set. This is test generation, not a retired caller.",
+      "sourceSha256": "64268fd13761a2849652a9061f319dcc94accff79b7db9a225c4d0e213973d66",
+      "expectedHits": [
+        {
+          "module": "@askrjs/themes/__ASKR_EXPRESSION__",
+          "name": null,
+          "kind": "generated-module",
+          "reason": "removed-path"
+        }
+      ]
     }
   ]
 }
