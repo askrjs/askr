@@ -145,7 +145,8 @@
     "bench:tier2": "cross-env NODE_ENV=production vp test bench --run --reporter=default --config vitest.bench.tier2.config.ts",
     "prepack": "npm run build",
     "prepublishOnly": "npm run check",
-    "test:coverage": "vp test run -c vitest.coverage.config.ts"
+    "test:coverage": "vp test run -c vitest.coverage.config.ts",
+    "check:api-acceptance": "node tests/checks/api-acceptance/sweep.ts"
   },
   "devDependencies": {
     "@askrjs/auth": ">=0.4.0 <0.5.0",
