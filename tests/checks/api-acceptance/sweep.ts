@@ -187,6 +187,8 @@ export function createReceipt(workspace: string, archivesRoot?: string) {
     status: 'PASS_BOUNDED_EXACT_SOURCE_SEARCH',
     ...receiptInputs(),
     finalSymbolPairs: inventory.symbols.length,
+    withdrawnCandidateSymbolPairs:
+      inventory.withdrawnCandidateSymbols?.length ?? 0,
     sources: sourceIdentities,
     files,
     importReferenceChecks: checks,
@@ -194,11 +196,11 @@ export function createReceipt(workspace: string, archivesRoot?: string) {
     deliberateNegativeReferences: classified.negativeReferences.length,
     computedReferenceChecks: classified.computedReferenceChecks,
     unresolvedAcceptance:
-      'Auth grows from 93 published baseline pairs to 101 candidate pairs. Independent surface-policy review and explicit #745 coordinator disposition remain required; this sweep does not close #745, #747 or #744.',
+      'Merged Auth #82 contracts 93 published baseline pairs to 92 (33 values/59 types), preserving 77 baseline pairs plus 15 additions and withdrawing nine develop-only type names. Complete18 source reconciliation (including shipped Schema/Server fixes), refreshed manifest/archive fingerprints, final integrated consumer qualification and explicit #745 coordinator disposition remain required; this sweep does not close #745, #747 or #744.',
     command:
       'npm run check:api-acceptance -- --workspace-root <sibling-checkouts> --archives-root <candidate-artifacts>',
     boundary:
-      'Exact frozen package sources plus stated Examples and Website commits; source and Markdown-fenced-code import/export/dynamic and namespace-member search, plus generated import/export strings. Markdown prose and computed module/name expressions are excluded. Tests and negative fixtures are included. This is not current integrated graph or runtime/type acceptance.',
+      'Frozen complete18 sources with the explicitly recorded merged Auth #82 supersession, plus stated Examples and Website commits; source and Markdown-fenced-code import/export/dynamic and namespace-member search, plus generated import/export strings. Markdown prose and computed module/name expressions are excluded. Tests and negative fixtures are included. This is not final integrated graph or runtime/type acceptance.',
     negativeReferences: classified.negativeReferences.map(
       ({ source, path: file, line, module, name, kind }) => ({
         source,

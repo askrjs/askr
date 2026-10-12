@@ -5,8 +5,8 @@
   "manifestSha256": "0d7556eadee7caec4630a4ebd1ea8f99a434e7a413412dcec2b933cee94977ca",
   "sourceProposalSha256": "719476394aa54f7251c4c0de5c114d641b3e319e97e9b65245cfbbf4fc51c1f0",
   "compilerVersion": "6.0.3",
-  "scope": "Every final18 export-map key and compiler-enumerated named/type export, plus every absent reviewed baseline named/path pair. Wildcard declaration paths are expanded; map keys are recorded separately.",
-  "boundary": "Frozen complete18 local producer inventory only. Independent surface-policy signoff, current integrated source/consumer acceptance and hosted checks remain required. This inventory does not close #745, #747 or #744.",
+  "scope": "Every complete18 export-map key and compiler-enumerated named/type export, with the explicit merged Auth #82 supersession, plus every absent reviewed baseline pair and nine withdrawn develop-only candidate type names. Wildcard declaration paths are expanded; map keys are separate.",
+  "boundary": "Historical complete18 manifest/proposal plus explicit merged Auth supersession only. Other shipped source reconciliation (including Schema/Server), refreshed manifest/archive fingerprints, final integrated consumers and coordinator acceptance remain required. This inventory does not close #745, #747 or #744.",
   "tupleSchema": {
     "symbolsAndAbsentBaselineSymbols": [
       "package index",
@@ -20,11 +20,18 @@
       "resolved export path",
       "archive declaration path",
       "SHA256"
+    ],
+    "withdrawnCandidateSymbols": [
+      "package index",
+      "resolved export path",
+      "exported name",
+      "KEEP/REMOVE/MOVE",
+      "evidence indexes"
     ]
   },
   "counts": {
     "packages": 18,
-    "finalSymbolPairs": 6835,
+    "finalSymbolPairs": 6826,
     "absentBaselineSymbolPairs": 550,
     "exportMap": {
       "baseline": 131,
@@ -35,7 +42,8 @@
       "MOVE": 0,
       "newCandidateKeys": 192,
       "unresolved": 0
-    }
+    },
+    "withdrawnCandidateSymbolPairs": 9
   },
   "packages": [
     {
@@ -77,17 +85,17 @@
         "packageJsonSha256": "f3797585ee26af868e34d15eb60811bfdfeefc40e06334735d027abd54aed545"
       },
       "candidate": {
-        "commit": "f1a0463e62614434a51abff22e58da54ba0af0d4",
-        "tree": "3610863e7ec482fc67ddcc694a8abb930155f634",
-        "archiveSha512": "69e17f597b6a9b599fbb06abd3ea24767599d61e801443938b830c5cd04f20ce8f41a861a00a105fc8055596fd61853d243f0e1f6bb4daa39adbbfda40c53e5b",
+        "commit": "9f1ea8139e20387adde693922aa6feb1ec19d735",
+        "tree": "8a5881c17f535f21c0a8751b15a873376f3ca4aa",
+        "archiveSha512": "f2c22294fab542ec9dc38e9a53cbee93d4f9d8efec603bcbdc8e7a5b77ab6f0fce5babb32d3752540b6f968f031c6c4e66d174af83b5f8b268d88844e762c594",
         "packageJsonSha256": "3c7b8ca5cde7555cbc31e45ffcdf8b496782517425cf88105579a4fc0f47403f",
         "lockSha256": "32c9dd45cda7500064cda199d11667b9c73d0a506746dc3d05cc6258d6feb9e4"
       },
       "docs": [
         {
           "path": "docs/0.5.0-api.md",
-          "sha256": "536b8d4c52b5f930be9928dde771aeb72b66ade61bfffabe39a2dd5ae8a41f72",
-          "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/docs/0.5.0-api.md"
+          "sha256": "183abfd890b7d7da4ab24fae396c0b0c97e8f9c97a6d1fd838441d5a7682f22e",
+          "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/docs/0.5.0-api.md"
         }
       ]
     },
@@ -2293,198 +2301,198 @@
     {
       "reason": "Applications configure a branded generic OIDC provider definition accepted by the shared engine.",
       "line": 153,
-      "reasonStatus": "Independent source-backed proposed justification; original explicit ADD decision retained.",
+      "reasonStatus": "Retained application contract reviewed with Auth #82; exact merged source and migration linked.",
       "implementationEvidence": {
         "path": "src/provider-definition.ts",
         "sha256": "119484a7996bdac57549af59bf13eb090f82a31e0da5aee095277670399aca48",
-        "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/src/provider-definition.ts"
+        "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/src/provider-definition.ts"
       },
       "source": 2
     },
     {
       "reason": "Applications compose the server-owned login, callback, resolution, token, logout and close lifecycle.",
       "line": 154,
-      "reasonStatus": "Independent source-backed proposed justification; original explicit ADD decision retained.",
+      "reasonStatus": "Retained application contract reviewed with Auth #82; exact merged source and migration linked.",
       "implementationEvidence": {
         "path": "src/provider-session.ts",
-        "sha256": "8fce07d41666fcc6994e486883f73d79d4256d10d0e5e506f3008724484eb570",
-        "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/src/provider-session.ts"
+        "sha256": "f753bcda3fe52891e36fdd05fbd61c1445f2fef7b3f2ed7ce260df5a8ed668cc",
+        "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/src/provider-session.ts"
       },
       "source": 2
     },
     {
       "reason": "Applications handle static safe operational errors without exposing raw provider token or callback details.",
       "line": 152,
-      "reasonStatus": "Independent source-backed proposed justification; original explicit ADD decision retained.",
+      "reasonStatus": "Retained application contract reviewed with Auth #82; exact merged source and migration linked.",
       "implementationEvidence": {
         "path": "src/provider-session-error.ts",
         "sha256": "8ae601b6b2a25ba01712f9ae6765a302c07ef3f00154ea35302a0bfc6f2dc05c",
-        "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/src/provider-session-error.ts"
+        "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/src/provider-session-error.ts"
       },
       "source": 2
     },
     {
       "reason": "Applications distinguish login or consent interaction from operational failure when server token acquisition cannot continue.",
       "line": 151,
-      "reasonStatus": "Independent source-backed proposed justification; original explicit ADD decision retained.",
+      "reasonStatus": "Retained application contract reviewed with Auth #82; exact merged source and migration linked.",
       "implementationEvidence": {
         "path": "src/provider-session-error.ts",
         "sha256": "8ae601b6b2a25ba01712f9ae6765a302c07ef3f00154ea35302a0bfc6f2dc05c",
-        "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/src/provider-session-error.ts"
+        "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/src/provider-session-error.ts"
       },
       "source": 2
     },
     {
       "reason": "Applications type their explicit issuer, client authentication, scopes, capabilities and trusted endpoint configuration.",
       "line": 155,
-      "reasonStatus": "Independent source-backed proposed justification; original explicit ADD decision retained.",
+      "reasonStatus": "Retained application contract reviewed with Auth #82; exact merged source and migration linked.",
       "implementationEvidence": {
         "path": "src/provider-session-types.ts",
         "sha256": "b68a97a0c3d61f33e0cc17c3b9bc46c835f7be2486429d03b4e37056c4886b44",
-        "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/src/provider-session-types.ts"
+        "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/src/provider-session-types.ts"
       },
       "source": 2
     },
     {
-      "reason": "Applications and presets declare renewal, consent, logout, revocation and resource policy accepted by the shared engine.",
-      "line": 156,
-      "reasonStatus": "Independent source-backed proposed justification; original explicit ADD decision retained.",
+      "reason": "Internalize the standalone develop-only type name; its unchanged shape derives from the retained method, ProviderDefinition or preset factory documented on this line.",
+      "line": 180,
+      "reasonStatus": "Approved contraction implemented by merged Auth #82; not a published-baseline removal.",
       "implementationEvidence": {
         "path": "src/provider-session-types.ts",
         "sha256": "b68a97a0c3d61f33e0cc17c3b9bc46c835f7be2486429d03b4e37056c4886b44",
-        "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/src/provider-session-types.ts"
+        "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/src/provider-session-types.ts"
       },
       "source": 2
     },
     {
-      "reason": "Applications configure secret-post/basic authentication, including asynchronous rotating secrets with cancellation.",
-      "line": 157,
-      "reasonStatus": "Independent source-backed proposed justification; original explicit ADD decision retained.",
+      "reason": "Internalize the standalone develop-only type name; its unchanged shape derives from the retained method, ProviderDefinition or preset factory documented on this line.",
+      "line": 181,
+      "reasonStatus": "Approved contraction implemented by merged Auth #82; not a published-baseline removal.",
       "implementationEvidence": {
         "path": "src/provider-session-types.ts",
         "sha256": "b68a97a0c3d61f33e0cc17c3b9bc46c835f7be2486429d03b4e37056c4886b44",
-        "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/src/provider-session-types.ts"
+        "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/src/provider-session-types.ts"
       },
       "source": 2
     },
     {
       "reason": "Server integrations accept the shared branded definition produced by generic and native preset factories.",
-      "line": 158,
-      "reasonStatus": "Independent source-backed proposed justification; original explicit ADD decision retained.",
+      "line": 156,
+      "reasonStatus": "Retained application contract reviewed with Auth #82; exact merged source and migration linked.",
       "implementationEvidence": {
         "path": "src/provider-session-types.ts",
         "sha256": "b68a97a0c3d61f33e0cc17c3b9bc46c835f7be2486429d03b4e37056c4886b44",
-        "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/src/provider-session-types.ts"
+        "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/src/provider-session-types.ts"
       },
       "source": 2
     },
     {
-      "reason": "Server routes type provider selection, same-origin return target, resource and scopes for login.",
-      "line": 159,
-      "reasonStatus": "Independent source-backed proposed justification; original explicit ADD decision retained.",
+      "reason": "Internalize the standalone develop-only type name; its unchanged shape derives from the retained method, ProviderDefinition or preset factory documented on this line.",
+      "line": 178,
+      "reasonStatus": "Approved contraction implemented by merged Auth #82; not a published-baseline removal.",
       "implementationEvidence": {
         "path": "src/provider-session-types.ts",
         "sha256": "b68a97a0c3d61f33e0cc17c3b9bc46c835f7be2486429d03b4e37056c4886b44",
-        "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/src/provider-session-types.ts"
+        "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/src/provider-session-types.ts"
       },
       "source": 2
     },
     {
-      "reason": "Server routes type grant selection, local retirement and explicit provider logout/revocation options.",
-      "line": 160,
-      "reasonStatus": "Independent source-backed proposed justification; original explicit ADD decision retained.",
+      "reason": "Internalize the standalone develop-only type name; its unchanged shape derives from the retained method, ProviderDefinition or preset factory documented on this line.",
+      "line": 179,
+      "reasonStatus": "Approved contraction implemented by merged Auth #82; not a published-baseline removal.",
       "implementationEvidence": {
         "path": "src/provider-session-types.ts",
         "sha256": "b68a97a0c3d61f33e0cc17c3b9bc46c835f7be2486429d03b4e37056c4886b44",
-        "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/src/provider-session-types.ts"
+        "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/src/provider-session-types.ts"
       },
       "source": 2
     },
     {
       "reason": "Server integrations type the engine AuthResolver and its explicit lifecycle methods.",
-      "line": 161,
-      "reasonStatus": "Independent source-backed proposed justification; original explicit ADD decision retained.",
+      "line": 157,
+      "reasonStatus": "Retained application contract reviewed with Auth #82; exact merged source and migration linked.",
       "implementationEvidence": {
         "path": "src/provider-session-types.ts",
         "sha256": "b68a97a0c3d61f33e0cc17c3b9bc46c835f7be2486429d03b4e37056c4886b44",
-        "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/src/provider-session-types.ts"
+        "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/src/provider-session-types.ts"
       },
       "source": 2
     },
     {
       "reason": "Applications discriminate the supported safe operational failure cases through ProviderSessionError.code.",
-      "line": 162,
-      "reasonStatus": "Independent source-backed proposed justification; original explicit ADD decision retained.",
+      "line": 158,
+      "reasonStatus": "Retained application contract reviewed with Auth #82; exact merged source and migration linked.",
       "implementationEvidence": {
         "path": "src/provider-session-error.ts",
         "sha256": "8ae601b6b2a25ba01712f9ae6765a302c07ef3f00154ea35302a0bfc6f2dc05c",
-        "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/src/provider-session-error.ts"
+        "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/src/provider-session-error.ts"
       },
       "source": 2
     },
     {
       "reason": "Applications configure canonical origin, providers, session keys/store, expiry and request callbacks.",
-      "line": 163,
-      "reasonStatus": "Independent source-backed proposed justification; original explicit ADD decision retained.",
+      "line": 159,
+      "reasonStatus": "Retained application contract reviewed with Auth #82; exact merged source and migration linked.",
       "implementationEvidence": {
         "path": "src/provider-session-types.ts",
         "sha256": "b68a97a0c3d61f33e0cc17c3b9bc46c835f7be2486429d03b4e37056c4886b44",
-        "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/src/provider-session-types.ts"
+        "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/src/provider-session-types.ts"
       },
       "source": 2
     },
     {
       "reason": "Custom storage implementations read and atomically publish revisioned sealed state and retirement tombstones.",
-      "line": 164,
-      "reasonStatus": "Independent source-backed proposed justification; original explicit ADD decision retained.",
+      "line": 160,
+      "reasonStatus": "Retained application contract reviewed with Auth #82; exact merged source and migration linked.",
       "implementationEvidence": {
         "path": "src/provider-session-types.ts",
         "sha256": "b68a97a0c3d61f33e0cc17c3b9bc46c835f7be2486429d03b4e37056c4886b44",
-        "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/src/provider-session-types.ts"
+        "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/src/provider-session-types.ts"
       },
       "source": 2
     },
     {
       "reason": "Custom durable storage implementations supply cancellation-aware read, compare-and-swap and locking to the engine.",
-      "line": 165,
-      "reasonStatus": "Independent source-backed proposed justification; original explicit ADD decision retained.",
+      "line": 161,
+      "reasonStatus": "Retained application contract reviewed with Auth #82; exact merged source and migration linked.",
       "implementationEvidence": {
         "path": "src/provider-session-types.ts",
         "sha256": "b68a97a0c3d61f33e0cc17c3b9bc46c835f7be2486429d03b4e37056c4886b44",
-        "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/src/provider-session-types.ts"
+        "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/src/provider-session-types.ts"
       },
       "source": 2
     },
     {
-      "reason": "Server routes type resource/scopes and cancellation for server-only access-token acquisition.",
-      "line": 166,
-      "reasonStatus": "Independent source-backed proposed justification; original explicit ADD decision retained.",
+      "reason": "Internalize the standalone develop-only type name; its unchanged shape derives from the retained method, ProviderDefinition or preset factory documented on this line.",
+      "line": 177,
+      "reasonStatus": "Approved contraction implemented by merged Auth #82; not a published-baseline removal.",
       "implementationEvidence": {
         "path": "src/provider-session-types.ts",
         "sha256": "b68a97a0c3d61f33e0cc17c3b9bc46c835f7be2486429d03b4e37056c4886b44",
-        "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/src/provider-session-types.ts"
+        "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/src/provider-session-types.ts"
       },
       "source": 2
     },
     {
       "reason": "Applications select the native Auth0 protocol and claim policy through the common branded provider definition.",
-      "line": 167,
-      "reasonStatus": "Independent source-backed proposed justification; original explicit ADD decision retained.",
+      "line": 162,
+      "reasonStatus": "Retained application contract reviewed with Auth #82; exact merged source and migration linked.",
       "implementationEvidence": {
         "path": "src/providers/auth0.ts",
-        "sha256": "1966315e87e7d1002b6e003ba993f4106e792634f771eb4d62611f01f8db58e0",
-        "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/src/providers/auth0.ts"
+        "sha256": "9e6143de72ac9d7d0ea77b7b8ddab4bdc83ddfbd9598c83b28cb7e22ae5f309b",
+        "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/src/providers/auth0.ts"
       },
       "source": 2
     },
     {
-      "reason": "Applications type Auth0 preset configuration before passing its definition to the shared session engine.",
-      "line": 168,
-      "reasonStatus": "Independent source-backed proposed justification; original explicit ADD decision retained.",
+      "reason": "Internalize the standalone develop-only type name; its unchanged shape derives from the retained method, ProviderDefinition or preset factory documented on this line.",
+      "line": 182,
+      "reasonStatus": "Approved contraction implemented by merged Auth #82; not a published-baseline removal.",
       "implementationEvidence": {
         "path": "src/providers/auth0.ts",
-        "sha256": "1966315e87e7d1002b6e003ba993f4106e792634f771eb4d62611f01f8db58e0",
-        "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/src/providers/auth0.ts"
+        "sha256": "9e6143de72ac9d7d0ea77b7b8ddab4bdc83ddfbd9598c83b28cb7e22ae5f309b",
+        "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/src/providers/auth0.ts"
       },
       "source": 2
     },
@@ -2606,67 +2614,67 @@
     },
     {
       "reason": "Applications select the native Microsoft protocol and claim policy through the common branded provider definition.",
-      "line": 169,
-      "reasonStatus": "Independent source-backed proposed justification; original explicit ADD decision retained.",
+      "line": 163,
+      "reasonStatus": "Retained application contract reviewed with Auth #82; exact merged source and migration linked.",
       "implementationEvidence": {
         "path": "src/providers/microsoft.ts",
-        "sha256": "4345f5221cdb03c1c47741d463f597348b6df586ed0722003fe8a9011c43617f",
-        "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/src/providers/microsoft.ts"
+        "sha256": "2065e91635613da2b9518d5fd731d34db5a74a21cd2e9be069687b2cf0a878c6",
+        "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/src/providers/microsoft.ts"
       },
       "source": 2
     },
     {
-      "reason": "Applications type Microsoft preset configuration before passing its definition to the shared session engine.",
-      "line": 170,
-      "reasonStatus": "Independent source-backed proposed justification; original explicit ADD decision retained.",
+      "reason": "Internalize the standalone develop-only type name; its unchanged shape derives from the retained method, ProviderDefinition or preset factory documented on this line.",
+      "line": 183,
+      "reasonStatus": "Approved contraction implemented by merged Auth #82; not a published-baseline removal.",
       "implementationEvidence": {
         "path": "src/providers/microsoft.ts",
-        "sha256": "4345f5221cdb03c1c47741d463f597348b6df586ed0722003fe8a9011c43617f",
-        "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/src/providers/microsoft.ts"
+        "sha256": "2065e91635613da2b9518d5fd731d34db5a74a21cd2e9be069687b2cf0a878c6",
+        "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/src/providers/microsoft.ts"
       },
       "source": 2
     },
     {
       "reason": "Applications select the native Google protocol and claim policy through the common branded provider definition.",
-      "line": 171,
-      "reasonStatus": "Independent source-backed proposed justification; original explicit ADD decision retained.",
+      "line": 164,
+      "reasonStatus": "Retained application contract reviewed with Auth #82; exact merged source and migration linked.",
       "implementationEvidence": {
         "path": "src/providers/google.ts",
-        "sha256": "6bfd228c0b7ccb7593d4034fe0dbc2d1122949e4123092aa7540df14552e00ec",
-        "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/src/providers/google.ts"
+        "sha256": "7df26212ed2180ce895878b9a08eba7c01299fd529b1810852bedb80c25966af",
+        "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/src/providers/google.ts"
       },
       "source": 2
     },
     {
-      "reason": "Applications type Google preset configuration before passing its definition to the shared session engine.",
-      "line": 172,
-      "reasonStatus": "Independent source-backed proposed justification; original explicit ADD decision retained.",
+      "reason": "Internalize the standalone develop-only type name; its unchanged shape derives from the retained method, ProviderDefinition or preset factory documented on this line.",
+      "line": 184,
+      "reasonStatus": "Approved contraction implemented by merged Auth #82; not a published-baseline removal.",
       "implementationEvidence": {
         "path": "src/providers/google.ts",
-        "sha256": "6bfd228c0b7ccb7593d4034fe0dbc2d1122949e4123092aa7540df14552e00ec",
-        "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/src/providers/google.ts"
+        "sha256": "7df26212ed2180ce895878b9a08eba7c01299fd529b1810852bedb80c25966af",
+        "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/src/providers/google.ts"
       },
       "source": 2
     },
     {
       "reason": "Applications select the native Apple protocol and claim policy through the common branded provider definition.",
-      "line": 173,
-      "reasonStatus": "Independent source-backed proposed justification; original explicit ADD decision retained.",
+      "line": 165,
+      "reasonStatus": "Retained application contract reviewed with Auth #82; exact merged source and migration linked.",
       "implementationEvidence": {
         "path": "src/providers/apple.ts",
-        "sha256": "3d4c94e11557f9cfbf862f9b9edb08fa4d1f4b90edde70fe0b636a5d078b8cba",
-        "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/src/providers/apple.ts"
+        "sha256": "d929b5277b325d0f54a80bf111fab39e8dd0160f2f467c5170c7fe8d17f330ea",
+        "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/src/providers/apple.ts"
       },
       "source": 2
     },
     {
-      "reason": "Applications type Apple preset configuration before passing its definition to the shared session engine.",
-      "line": 174,
-      "reasonStatus": "Independent source-backed proposed justification; original explicit ADD decision retained.",
+      "reason": "Internalize the standalone develop-only type name; its unchanged shape derives from the retained method, ProviderDefinition or preset factory documented on this line.",
+      "line": 185,
+      "reasonStatus": "Approved contraction implemented by merged Auth #82; not a published-baseline removal.",
       "implementationEvidence": {
         "path": "src/providers/apple.ts",
-        "sha256": "3d4c94e11557f9cfbf862f9b9edb08fa4d1f4b90edde70fe0b636a5d078b8cba",
-        "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/src/providers/apple.ts"
+        "sha256": "d929b5277b325d0f54a80bf111fab39e8dd0160f2f467c5170c7fe8d17f330ea",
+        "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/src/providers/apple.ts"
       },
       "source": 2
     },
@@ -28459,13 +28467,13 @@
       1,
       "./server",
       "node_modules/@askrjs/auth/dist/server.d.ts",
-      "9d87b562326dc06b53f986a82743af29bb6e70980398e6f56a5dbfea1a337557"
+      "a89dd2319b9408904fa47b6e9a610212c83dc8ed7b034809604235cf64a9e001"
     ],
     [
       1,
       "./providers/auth0",
       "node_modules/@askrjs/auth/dist/providers/auth0.d.ts",
-      "cf78b462a269ea4cf770d67341ec54b23da8ed93edbaa66a533ca36272953ae2"
+      "3249e464e8299fa4e8d349f4abfeb7aebd76dc7510d06a3f357dc4f4fd6b95f1"
     ],
     [
       1,
@@ -28489,19 +28497,19 @@
       1,
       "./providers/microsoft",
       "node_modules/@askrjs/auth/dist/providers/microsoft.d.ts",
-      "022081320918e233b6c3130113074f9a135b42fa2e8a9191f7a07638da7de423"
+      "fb0a0888e1804b140e59bbfedc604be1da90f8a8a0c3e2f28a292b7bebc00fe4"
     ],
     [
       1,
       "./providers/google",
       "node_modules/@askrjs/auth/dist/providers/google.d.ts",
-      "9cc8f3bfdda6bf09b0d3aa42647889a47a526eaf26f8244196d2657b86829bb3"
+      "adc4afa83330fcf4e2b0e2e52d179c5f81c79fec63485b5b071d171586b9c0a8"
     ],
     [
       1,
       "./providers/apple",
       "node_modules/@askrjs/auth/dist/providers/apple.d.ts",
-      "57c3a2b183f131684504f8737c929d3802c9beff9e52e83d33bf28bf18d60c4a"
+      "190748f769a0d5c7cd5091ea6d5a76145f65e4829f51c84007979d84960592b7"
     ],
     [
       2,
@@ -41909,19 +41917,13 @@
     [1, "./server", "ProviderSessionError", "KEEP", [449]],
     [1, "./server", "InteractionRequiredError", "KEEP", [450]],
     [1, "./server", "OidcProviderOptions", "KEEP", [451]],
-    [1, "./server", "ProviderCapabilities", "KEEP", [452]],
-    [1, "./server", "ProviderClientAuthentication", "KEEP", [453]],
     [1, "./server", "ProviderDefinition", "KEEP", [454]],
-    [1, "./server", "ProviderLoginRequest", "KEEP", [455]],
-    [1, "./server", "ProviderLogoutRequest", "KEEP", [456]],
     [1, "./server", "ProviderSession", "KEEP", [457]],
     [1, "./server", "ProviderSessionErrorCode", "KEEP", [458]],
     [1, "./server", "ProviderSessionOptions", "KEEP", [459]],
     [1, "./server", "ProviderSessionRecord", "KEEP", [460]],
     [1, "./server", "ProviderSessionStore", "KEEP", [461]],
-    [1, "./server", "ProviderTokenRequest", "KEEP", [462]],
     [1, "./providers/auth0", "createAuth0Provider", "KEEP", [463]],
-    [1, "./providers/auth0", "Auth0ProviderOptions", "KEEP", [464]],
     [1, "./saml", "createSamlServiceProvider", "KEEP", [465]],
     [1, "./saml", "SamlStoredRequest", "KEEP", [466]],
     [1, "./saml", "SamlRequestStore", "KEEP", [467]],
@@ -41952,11 +41954,8 @@
     [1, "./webauthn-client", "GetPasskeyAssertionOptions", "KEEP", [492]],
     [1, "./webauthn-client", "PasskeyAssertion", "KEEP", [493]],
     [1, "./providers/microsoft", "createMicrosoftProvider", "KEEP", [494]],
-    [1, "./providers/microsoft", "MicrosoftProviderOptions", "KEEP", [495]],
     [1, "./providers/google", "createGoogleProvider", "KEEP", [496]],
-    [1, "./providers/google", "GoogleProviderOptions", "KEEP", [497]],
     [1, "./providers/apple", "createAppleProvider", "KEEP", [498]],
-    [1, "./providers/apple", "AppleProviderOptions", "KEEP", [499]],
     [2, ".", "ArcProps", "KEEP", [529]],
     [2, ".", "AreaProps", "KEEP", [530]],
     [2, ".", "AxisOrientation", "KEEP", [531]],
@@ -49874,8 +49873,8 @@
     },
     {
       "path": "docs/0.5.0-api.md",
-      "sha256": "536b8d4c52b5f930be9928dde771aeb72b66ade61bfffabe39a2dd5ae8a41f72",
-      "url": "https://github.com/askrjs/askr-auth/blob/f1a0463e62614434a51abff22e58da54ba0af0d4/docs/0.5.0-api.md"
+      "sha256": "183abfd890b7d7da4ab24fae396c0b0c97e8f9c97a6d1fd838441d5a7682f22e",
+      "url": "https://github.com/askrjs/askr-auth/blob/9f1ea8139e20387adde693922aa6feb1ec19d735/docs/0.5.0-api.md"
     },
     {
       "path": "docs/0.5.0-public-api.md",
@@ -49998,5 +49997,47 @@
       "sha256": "ae90f043cda32dd1f9b596e4354db99c9c3c9395018d01dafc49174cfcf1b50b"
     }
   ],
-  "evidenceRule": "Evidence indexes resolve to exact source URLs, hashes and lines containing the symbol-specific reason. Twenty-four Auth addition reasons are explicitly marked proposed because their original ADD rows did not state a reason."
+  "evidenceRule": "Evidence indexes resolve to exact source URLs, hashes and symbol-specific lines. Auth evidence now pins merged #82 migration/source; nine withdrawn develop-only types are separate from absent published-baseline pairs. Historical sourceProposalSha256 and manifestSha256 identify the superseded complete18 input, not the updated graph.",
+  "withdrawnCandidateSymbols": [
+    [1, "./server", "ProviderCapabilities", "REMOVE", [452]],
+    [1, "./server", "ProviderClientAuthentication", "REMOVE", [453]],
+    [1, "./server", "ProviderLoginRequest", "REMOVE", [455]],
+    [1, "./server", "ProviderLogoutRequest", "REMOVE", [456]],
+    [1, "./server", "ProviderTokenRequest", "REMOVE", [462]],
+    [1, "./providers/auth0", "Auth0ProviderOptions", "REMOVE", [464]],
+    [1, "./providers/microsoft", "MicrosoftProviderOptions", "REMOVE", [495]],
+    [1, "./providers/google", "GoogleProviderOptions", "REMOVE", [497]],
+    [1, "./providers/apple", "AppleProviderOptions", "REMOVE", [499]]
+  ],
+  "supersessions": [
+    {
+      "package": 1,
+      "reason": "Merged Auth #82 internalizes nine develop-only type names, preserves runtime JS byte identity to its develop parent, and passes TS6/TS7 packed/provider qualification. This updates only Auth; the original complete18 manifest remains historical.",
+      "previousCandidate": {
+        "commit": "f1a0463e62614434a51abff22e58da54ba0af0d4",
+        "tree": "3610863e7ec482fc67ddcc694a8abb930155f634",
+        "archiveSha512": "69e17f597b6a9b599fbb06abd3ea24767599d61e801443938b830c5cd04f20ce8f41a861a00a105fc8055596fd61853d243f0e1f6bb4daa39adbbfda40c53e5b",
+        "packageJsonSha256": "3c7b8ca5cde7555cbc31e45ffcdf8b496782517425cf88105579a4fc0f47403f",
+        "lockSha256": "32c9dd45cda7500064cda199d11667b9c73d0a506746dc3d05cc6258d6feb9e4"
+      },
+      "mergedCommit": "9f1ea8139e20387adde693922aa6feb1ec19d735",
+      "reviewedPrHead": "8b14a0a228e87e6ba5e29c205da4254226342b6f",
+      "pullRequest": "https://github.com/askrjs/askr-auth/pull/82",
+      "counts": {
+        "publishedBaselinePairs": 93,
+        "retainedBaselinePairs": 77,
+        "retainedAdditions": 15,
+        "finalPairs": 92,
+        "values": 33,
+        "types": 59,
+        "withdrawnDevelopOnlyTypes": 9
+      },
+      "checks": {
+        "threeOsCi": "https://github.com/askrjs/askr-auth/actions/runs/38321824199",
+        "codeql": "https://github.com/askrjs/askr-auth/actions/runs/38321822396",
+        "conclusion": "SUCCESS"
+      },
+      "qualificationBoundary": "Normal Auth archive and packed TS6/TS7/provider gate verified. Complete18 manifest/archive refresh, shipped Schema/Server source reconciliation and final integrated consumer-lock qualification remain pending."
+    }
+  ]
 }

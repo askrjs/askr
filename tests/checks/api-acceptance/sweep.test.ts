@@ -111,6 +111,45 @@ function fixture() {
 }
 
 describe('reproducible cross-package API acceptance sweep', () => {
+  it('should reject withdrawn candidate names without counting them as absent baseline names', () => {
+    const revised: ExportInventory = {
+      ...inventory,
+      withdrawnCandidateSymbols: [[0, '.', 'withdrawn', 'REMOVE', []]],
+    };
+    const found = scanText(
+      'caller.ts',
+      "import type { withdrawn } from '@askrjs/fake';",
+      revised
+    );
+    expect(revised.absentBaselineSymbols).toHaveLength(1);
+    expect(found.hits).toHaveLength(1);
+    expect(found.hits[0]).toMatchObject({
+      name: 'withdrawn',
+      reason: 'removed-name',
+    });
+  });
+
+  it('should reject withdrawal count drift, public names and double-counted baseline removals', () => {
+    const { workspace, expected } = fixture();
+    expected.withdrawnCandidateSymbols = [[0, '.', 'withdrawn', 'REMOVE', []]];
+    expected.counts.withdrawnCandidateSymbolPairs = 1;
+    expect(() => verifyInventory(workspace, expected)).not.toThrow();
+    const changedCount = structuredClone(expected);
+    changedCount.counts.withdrawnCandidateSymbolPairs = 2;
+    expect(() => verifyInventory(workspace, changedCount)).toThrow();
+    const stillPublic = structuredClone(expected);
+    stillPublic.withdrawnCandidateSymbols![0]![2] = 'kept';
+    expect(() => verifyInventory(workspace, stillPublic)).toThrow(
+      /Withdrawn candidate name remains public/
+    );
+    const countedTwice = structuredClone(expected);
+    countedTwice.absentBaselineSymbols = [[0, '.', 'withdrawn', 'REMOVE', []]];
+    countedTwice.counts.absentBaselineSymbolPairs = 1;
+    expect(() => verifyInventory(workspace, countedTwice)).toThrow(
+      /Candidate withdrawal counted as baseline removal/
+    );
+  });
+
   it('should find retired literal imports, aliases, re-exports, namespace members and dynamic paths', () => {
     const source = `import { retired as local } from '@askrjs/fake';
 export { retired as alias } from '@askrjs/fake';

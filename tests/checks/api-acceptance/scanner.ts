@@ -10,6 +10,7 @@ export interface ExportInventory {
     candidateTarget?: unknown;
   }[];
   absentBaselineSymbols: [number, string, string, string, number[]][];
+  withdrawnCandidateSymbols?: [number, string, string, string, number[]][];
 }
 
 export interface Hit {
@@ -35,7 +36,10 @@ export function scanText(
   const knownPackage = (module: string) =>
     packages.find((p) => module === p || module.startsWith(p + '/'));
   const removed = new Set(
-    inventory.absentBaselineSymbols.map(
+    [
+      ...inventory.absentBaselineSymbols,
+      ...(inventory.withdrawnCandidateSymbols ?? []),
+    ].map(
       ([pkg, key, name]) =>
         inventory.packages[pkg]!.name +
         (key === '.' ? '' : key.slice(1)) +

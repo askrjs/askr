@@ -9,24 +9,25 @@
   },
   "compilerSha256": "569177652966bd528c319171c7dd22860dbf72bde116cbc4f644f1d02bb12e39",
   "packageLockSha256": "cd8aab72a2691201447abcd7f01ad3236f511192923b93ae4c7a59e6674dc902",
-  "inventorySha256": "373c7abaae38edb29831abc6c723967a990dc9ed3aa4b640a51ba9fcc3201c2c",
+  "inventorySha256": "ec7d24688639b94b194265bf085a83ee403283b3ed78dbd00262b034182939f9",
   "dispositionsSha256": "5dbef7143c3a86ef6ff16416e897ce99bef1ac9f9a5e13ef793188e393cba323",
   "searchTools": [
     {
       "path": "tests/checks/api-acceptance/scanner.ts",
-      "sha256": "df41ac3b003b54386234fd5f7e80771355f5d87ab7f64ed78eb8412a6b1ce7b4"
+      "sha256": "39d066cdd30f7a1668ca61945aa8f2017d0671a3cfef70121d34a74d0683b101"
     },
     {
       "path": "tests/checks/api-acceptance/sources.ts",
-      "sha256": "2be7ef4c8bbc69d760148a80898fe53dc4387d63782190b7cece278d51d877ea"
+      "sha256": "df1acb6b15197b0f90424d0c03ab53e324cda29263c4fdb05b9c3c186bed59de"
     },
     {
       "path": "tests/checks/api-acceptance/sweep.ts",
-      "sha256": "b52bfd6d2e687c9b6866ecd126d14df43584c7ea48ea1ece9ff0e8984ab40351"
+      "sha256": "e2d591615a7eea6ed7525c5c0d8615ab73de39e350b92c00b560ea0823029052"
     }
   ],
-  "searchToolSha256": "4014dda376a40bff5e96c397e9e9c7597c3fc1b7185bb4a3cad9268244812650",
-  "finalSymbolPairs": 6835,
+  "searchToolSha256": "9d2e1c68a1abc3e620b472be8a207a08ec21b6a97ed463adbf2206c7f34ff4cf",
+  "finalSymbolPairs": 6826,
+  "withdrawnCandidateSymbolPairs": 9,
   "sources": [
     {
       "repo": "askrjs/askr",
@@ -37,10 +38,10 @@
     },
     {
       "repo": "askrjs/askr-auth",
-      "commit": "f1a0463e62614434a51abff22e58da54ba0af0d4",
-      "tree": "3610863e7ec482fc67ddcc694a8abb930155f634",
+      "commit": "9f1ea8139e20387adde693922aa6feb1ec19d735",
+      "tree": "8a5881c17f535f21c0a8751b15a873376f3ca4aa",
       "files": 97,
-      "filesSha256": "96e88594d85fe4e7473201ffb7acf5f268181076ec3d8fe551e1dc28717ab65f"
+      "filesSha256": "1d44634ee79c9fe52a948f344879fee03597018e983e9f5b5729a1254c39e813"
     },
     {
       "repo": "askrjs/askr-charts",
@@ -170,13 +171,13 @@
     }
   ],
   "files": 3169,
-  "importReferenceChecks": 13173,
+  "importReferenceChecks": 13178,
   "executableStaleCallersFound": 0,
   "deliberateNegativeReferences": 219,
   "computedReferenceChecks": 7,
-  "unresolvedAcceptance": "Auth grows from 93 published baseline pairs to 101 candidate pairs. Independent surface-policy review and explicit #745 coordinator disposition remain required; this sweep does not close #745, #747 or #744.",
+  "unresolvedAcceptance": "Merged Auth #82 contracts 93 published baseline pairs to 92 (33 values/59 types), preserving 77 baseline pairs plus 15 additions and withdrawing nine develop-only type names. Complete18 source reconciliation (including shipped Schema/Server fixes), refreshed manifest/archive fingerprints, final integrated consumer qualification and explicit #745 coordinator disposition remain required; this sweep does not close #745, #747 or #744.",
   "command": "npm run check:api-acceptance -- --workspace-root <sibling-checkouts> --archives-root <candidate-artifacts>",
-  "boundary": "Exact frozen package sources plus stated Examples and Website commits; source and Markdown-fenced-code import/export/dynamic and namespace-member search, plus generated import/export strings. Markdown prose and computed module/name expressions are excluded. Tests and negative fixtures are included. This is not current integrated graph or runtime/type acceptance.",
+  "boundary": "Frozen complete18 sources with the explicitly recorded merged Auth #82 supersession, plus stated Examples and Website commits; source and Markdown-fenced-code import/export/dynamic and namespace-member search, plus generated import/export strings. Markdown prose and computed module/name expressions are excluded. Tests and negative fixtures are included. This is not final integrated graph or runtime/type acceptance.",
   "negativeReferences": [
     {
       "source": 0,

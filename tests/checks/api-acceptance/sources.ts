@@ -35,6 +35,7 @@ export interface Inventory extends Omit<ExportInventory, 'packages'> {
     packages: number;
     finalSymbolPairs: number;
     absentBaselineSymbolPairs: number;
+    withdrawnCandidateSymbolPairs?: number;
   };
 }
 
@@ -76,12 +77,37 @@ export function verifyInventory(workspace: string, inventory: Inventory): void {
     inventory.absentBaselineSymbols.length,
     inventory.counts.absentBaselineSymbolPairs
   );
-  for (const rows of [inventory.symbols, inventory.absentBaselineSymbols])
+  const withdrawn = inventory.withdrawnCandidateSymbols ?? [];
+  assert.equal(
+    withdrawn.length,
+    inventory.counts.withdrawnCandidateSymbolPairs ?? 0
+  );
+  for (const rows of [
+    inventory.symbols,
+    inventory.absentBaselineSymbols,
+    withdrawn,
+  ])
     assert.equal(
       new Set(rows.map((row) => JSON.stringify(row.slice(0, 3)))).size,
       rows.length,
       'Duplicate inventory tuple'
     );
+  const finalPairs = new Set(
+    inventory.symbols.map((row) => JSON.stringify(row.slice(0, 3)))
+  );
+  const baselineRemovals = new Set(
+    inventory.absentBaselineSymbols.map((row) =>
+      JSON.stringify(row.slice(0, 3))
+    )
+  );
+  for (const row of withdrawn) {
+    const key = JSON.stringify(row.slice(0, 3));
+    assert(!finalPairs.has(key), 'Withdrawn candidate name remains public');
+    assert(
+      !baselineRemovals.has(key),
+      'Candidate withdrawal counted as baseline removal'
+    );
+  }
   for (const pkg of inventory.packages) {
     const source = { repo: pkg.repo, commit: pkg.candidate.commit };
     const tree = git(repository(workspace, pkg.repo), [
