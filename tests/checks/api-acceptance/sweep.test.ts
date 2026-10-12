@@ -111,7 +111,7 @@ function fixture() {
 }
 
 describe('reproducible cross-package API acceptance sweep', () => {
-  it('finds retired literal imports, aliases, re-exports, namespace members and dynamic paths', () => {
+  it('should find retired literal imports, aliases, re-exports, namespace members and dynamic paths', () => {
     const source = `import { retired as local } from '@askrjs/fake';
 export { retired as alias } from '@askrjs/fake';
 import * as api from '@askrjs/fake'; api.retired();
@@ -126,7 +126,7 @@ await import('@askrjs/fake/removed'); require('@askrjs/fake/removed');`;
     ]);
   });
 
-  it('searches fenced Markdown and generated imports while preserving source lines', () => {
+  it('should search fenced Markdown and generated imports while preserving source lines', () => {
     const markdown =
       "prose: import { retired } from '@askrjs/fake';\n```ts\nimport { retired } from '@askrjs/fake';\n```\n";
     expect(
@@ -142,14 +142,14 @@ await import('@askrjs/fake/removed'); require('@askrjs/fake/removed');`;
     ]);
   });
 
-  it('keeps retained names and paths out of stale findings', () => {
+  it('should keep retained names and paths out of stale findings', () => {
     expect(
       scanText('consumer.ts', "import { kept } from '@askrjs/fake';", inventory)
         .hits
     ).toEqual([]);
   });
 
-  it('rejects executable stale callers and accepts immediately associated rejection fixtures', () => {
+  it('should reject executable stale callers and accept immediately associated rejection fixtures', () => {
     const hit = scanText(
       'consumer.ts',
       "import { retired } from '@askrjs/fake';",
@@ -196,7 +196,7 @@ await import('@askrjs/fake/removed'); require('@askrjs/fake/removed');`;
     ).toThrow(/Unreviewed executable/);
   });
 
-  it('requires exact computed-hit identities and rejects stale or duplicate allowances', () => {
+  it('should require exact computed-hit identities and reject stale or duplicate allowances', () => {
     const hit = {
       source: 0,
       repo: 'askrjs/fake',
@@ -234,7 +234,7 @@ await import('@askrjs/fake/removed'); require('@askrjs/fake/removed');`;
     ).toThrow();
   });
 
-  it('reads pinned Git blobs even when working copies differ', () => {
+  it('should read pinned Git blobs even when working copies differ', () => {
     const { workspace, repo, commit, expected } = fixture();
     verifyInventory(workspace, expected);
     fs.writeFileSync(path.join(repo, 'index.js'), 'uncommitted stale contents');
@@ -246,7 +246,7 @@ await import('@askrjs/fake/removed'); require('@askrjs/fake/removed');`;
   });
 
   it.each(['tree', 'packageJsonSha256', 'lockSha256'] as const)(
-    'fails closed on a changed candidate %s identity',
+    'should fail closed on a changed candidate %s identity',
     (field) => {
       const { workspace, expected } = fixture();
       expected.packages[0]!.candidate[field] = '0'.repeat(64);
@@ -254,7 +254,7 @@ await import('@askrjs/fake/removed'); require('@askrjs/fake/removed');`;
     }
   );
 
-  it('rejects changed baseline hashes, evidence hashes and export targets', () => {
+  it('should reject changed baseline hashes, evidence hashes and export targets', () => {
     const { workspace, expected } = fixture();
     const changedBaseline = structuredClone(expected);
     changedBaseline.packages[0]!.baseline.packageJsonSha256 = 'bad';
@@ -270,7 +270,7 @@ await import('@askrjs/fake/removed'); require('@askrjs/fake/removed');`;
     expect(() => verifyInventory(workspace, expected)).toThrow();
   });
 
-  it('enumerates archive declarations and rejects changed archives or invented exports', () => {
+  it('should enumerate archive declarations and reject changed archives or invented exports', () => {
     const { workspace, repo, expected } = fixture();
     const packageDirectory = path.join(workspace, 'package');
     fs.cpSync(repo, packageDirectory, {
@@ -296,7 +296,7 @@ await import('@askrjs/fake/removed'); require('@askrjs/fake/removed');`;
     ).toThrow(/Archive changed/);
   });
 
-  it('rejects changed receipt counts, sources, compiler and tool hashes', () => {
+  it('should reject changed receipt counts, sources, compiler and tool hashes', () => {
     const receipt = {
       files: 3,
       sources: [{ commit: 'a'.repeat(40) }],
@@ -312,7 +312,7 @@ await import('@askrjs/fake/removed'); require('@askrjs/fake/removed');`;
     ])
       expect(() => checkReceipt(changed, receipt)).toThrow(/receipt is stale/);
   });
-  it('binds the committed receipt to the runner, compiler, lockfile and input artifacts', () => {
+  it('should bind the committed receipt to the runner, compiler, lockfile and input artifacts', () => {
     const committed = JSON.parse(
       fs.readFileSync(
         new URL(
