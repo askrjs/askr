@@ -166,6 +166,44 @@ it('should reject malformed token-bearing session JSON and never cache it', asyn
   expect(Object.isFrozen(value.scopes)).toBe(true);
 });
 
+it.each(['throw', 'reject'] as const)(
+  'should preserve a transport %s failure and allow a fresh session attempt',
+  async (failureMode) => {
+    const failure = new Error('Session transport unavailable');
+    const transport = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        if (failureMode === 'throw') throw failure;
+        return Promise.reject(failure);
+      })
+      .mockResolvedValueOnce(Response.json(user('recovered')));
+    const auth = createSessionAuth({ fetch: transport });
+    const registry = createRouteRegistry(
+      () =>
+        route('/private', () => <main>{currentAuth().principal?.id}</main>, {
+          auth: requireUser(),
+        }),
+      { auth }
+    );
+
+    await expect(createSPA({ root: view.container, registry })).rejects.toBe(
+      failure
+    );
+    expect(getAppRoot(view.container)).toBeUndefined();
+    expect(view.container.textContent).toBe('');
+    expect(getSessionAuthState(auth)!.read()?.authenticated).not.toBe(true);
+    expect(transport).toHaveBeenCalledTimes(1);
+
+    await createSPA({ root: view.container, registry });
+    expect(view.container.textContent).toBe('recovered');
+    expect(transport).toHaveBeenCalledTimes(2);
+    expect(auth.resolve(context())).toMatchObject({
+      principal: { id: 'recovered' },
+    });
+    expect(transport).toHaveBeenCalledTimes(2);
+  }
+);
+
 it('should build canonical provider links from safe local return targets', () => {
   const auth = createSessionAuth();
   expect(
