@@ -308,13 +308,13 @@ export function createSessionAuth(
   const session = (signal: AbortSignal): AuthContext | Promise<AuthContext> => {
     if (signal.aborted || transitions) throw abortError();
     if (cached) return cached;
+    const entry = pending ?? {
+      controller: new AbortController(),
+      promise: undefined as unknown as Promise<AuthContext>,
+    };
     if (!pending) {
       const ownGeneration = generation;
-      const controller = new AbortController();
-      const entry = {
-        controller,
-        promise: undefined as unknown as Promise<AuthContext>,
-      };
+      const { controller } = entry;
       pending = entry;
       entry.promise = (async () => {
         try {
@@ -342,9 +342,10 @@ export function createSessionAuth(
         }
       })();
     }
+    // A synchronous transport failure can already have cleared pending.
     return waitFor(
-      pending.promise,
-      AbortSignal.any([signal, pending.controller.signal])
+      entry.promise,
+      AbortSignal.any([signal, entry.controller.signal])
     );
   };
   const recover = (

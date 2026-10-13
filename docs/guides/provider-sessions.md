@@ -96,6 +96,8 @@ errors. Pass an already-decoded HTTP 401 interaction problem or an
 `@askrjs/fetch` result/FetchError to `auth.handleAuthFailure()`. The binding does
 not wrap API fetch calls, clone responses or retry requests. Its optional
 `SessionAuthOptions.fetch` only injects the session/logout transport.
+Session resolution propagates the transport's original failure, whether it
+throws or rejects, without caching an identity. A later resolution retries.
 
 ```ts
 import { createFetch, json } from '@askrjs/fetch';

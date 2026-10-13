@@ -67,6 +67,10 @@
 
 ### Fixes
 
+- Preserve session transport failures when a supplied fetch throws before
+  returning a promise; allow the next resolution to retry without an unhandled
+  rejection or cached identity.
+
 - Make removed-export type assertions fail when a value or type is restored.
   Qualify the packed absence checks under TypeScript 6 and 7, and exercise
   the required classic JSX factory for a key written after a spread.
