@@ -87,6 +87,7 @@ interface QueryCollection<
 interface QueryPrefetchContext {
   readonly runtime: DataRuntime;
   readonly request?: Request;
+  /** Effective fetch signal; native runtimes compose caller cancellation and retirement. */
   readonly signal: AbortSignal;
   readonly mode: 'ssr' | 'spa';
   prefetch<TInput, TResult extends {}>(
@@ -338,6 +339,9 @@ declare function createQuery<TInput, TResult extends {}>(
 /** Create a new, isolated {@link DataRuntime} with its own query/mutation caches. */
 declare function createDataRuntime(options?: DataRuntimeOptions): DataRuntime;
 
+/** Terminally retire an isolated runtime. The shared default cannot be disposed. */
+declare function disposeDataRuntime(runtime: DataRuntime): void;
+
 /** Get the process-wide default {@link DataRuntime} used when none is provided explicitly. */
 declare function getDefaultDataRuntime(): DataRuntime;
 
@@ -482,6 +486,7 @@ export {
   createMutation,
   createQuery,
   createDataRuntime,
+  disposeDataRuntime,
   getDefaultDataRuntime,
   invalidate,
   queryScope,

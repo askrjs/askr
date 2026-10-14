@@ -37,10 +37,4 @@ declare function controllableState<T>(options: {
   defaultValue: T;
   onChange?: (next: T) => void;
 }): ControllableState<T>;
-export {
-  type ControllableState,
-  controllableState,
-  isControlled,
-  makeControllable,
-  resolveControllable,
-};
+export { type ControllableState, controllableState };

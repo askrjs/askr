@@ -4,6 +4,8 @@ import {
   readSource as recordReadableRead,
 } from '../core/api/hooks';
 import {
+  assertDataRuntimeActive,
+  registerDataRuntimeOwner,
   ensureMutationCleanup,
   getMutationSlotStore,
   invalidateQueriesForRuntime,
@@ -16,6 +18,7 @@ import {
   isCurrentAsyncOperation,
   normalizeAsyncDataError,
   notifySource,
+  raceAbort,
 } from './shared';
 import type { Mutation, MutationOptions, MutationRecord } from './types';
 
@@ -42,6 +45,7 @@ export class MutationCell<TInput, TResult> {
     runtimeState: DataRuntimeState
   ) {
     this.runtimeState = runtimeState;
+    registerDataRuntimeOwner(runtimeState, this);
     this.action = options.action;
     this.optimistic = options.optimistic;
     this.affects = options.affects;
@@ -57,22 +61,22 @@ export class MutationCell<TInput, TResult> {
 
   get status(): 'idle' | 'pending' | 'success' | 'error' {
     recordReadableRead(this.source);
-    return this.state.status;
+    return this.runtimeState.retired ? 'idle' : this.state.status;
   }
 
   get pending(): boolean {
     recordReadableRead(this.source);
-    return this.state.status === 'pending';
+    return !this.runtimeState.retired && this.state.status === 'pending';
   }
 
   get error(): {} | null {
     recordReadableRead(this.source);
-    return this.state.error;
+    return this.runtimeState.retired ? null : this.state.error;
   }
 
   get result(): TResult | null {
     recordReadableRead(this.source);
-    return this.state.result;
+    return this.runtimeState.retired ? null : this.state.result;
   }
 
   private setState(next: Partial<MutationRecord<TResult>>): void {
@@ -84,6 +88,7 @@ export class MutationCell<TInput, TResult> {
   }
 
   async execute(input: TInput): Promise<TResult> {
+    assertDataRuntimeActive(this.runtimeState);
     // A render may replace these callbacks while this execution is pending.
     // The operation must retain the definition it started with.
     const action = this.action;
@@ -103,7 +108,12 @@ export class MutationCell<TInput, TResult> {
     try {
       const rollback = optimistic?.(input, { signal: controller.signal });
       if (rollback) this.rollbacks.set(controller, rollback);
-      result = await action(input, { signal: controller.signal });
+      assertDataRuntimeActive(this.runtimeState);
+      result = await raceAbort(
+        Promise.resolve(action(input, { signal: controller.signal })),
+        [this.runtimeState.retirement.signal]
+      );
+      assertDataRuntimeActive(this.runtimeState);
       this.rollbacks.delete(controller);
     } catch (cause) {
       let error = cause;
@@ -153,6 +163,8 @@ export class MutationCell<TInput, TResult> {
       this.setState({ status: 'success', error: null, result });
     }
 
+    assertDataRuntimeActive(this.runtimeState);
+
     // Every successful write may have committed remotely, including an older
     // execution whose result no longer owns the visible mutation state.
     if (afterSuccess === 'invalidate') {
@@ -166,6 +178,7 @@ export class MutationCell<TInput, TResult> {
   }
 
   abort(): void {
+    if (this.runtimeState.retired) return;
     if (this.activeControllers.size === 0) {
       return;
     }
@@ -179,6 +192,7 @@ export class MutationCell<TInput, TResult> {
   }
 
   reset(): void {
+    if (this.runtimeState.retired) return;
     this.generation += 1;
     this.controller = null;
     this.setState({ status: 'idle', error: null, result: null });
@@ -189,6 +203,18 @@ export class MutationCell<TInput, TResult> {
     const rollback = this.rollbacks.get(controller);
     this.rollbacks.delete(controller);
     rollback?.();
+  }
+
+  /** @internal Retirement differs from ordinary abort: late writes are inert. */
+  retire(): void {
+    this.generation += 1;
+    this.controller = null;
+    this.state = { status: 'idle', error: null, result: null };
+    try {
+      this.cancelActive();
+    } finally {
+      notifySource(this.source);
+    }
   }
 
   private cancelActive(): void {
@@ -222,7 +248,16 @@ export function createMutation<TInput, TResult>(
   }
 
   const instance = getCurrentComponentInstance();
-  const runtimeState = resolveDataRuntimeState(options.runtime);
+  const runtimeState = resolveDataRuntimeState(options.runtime, true);
+  if (runtimeState.retired) {
+    if (instance) {
+      const hookIndex = claimHookIndex(instance, 'createMutation');
+      const slot = getMutationSlotStore(runtimeState, instance).get(hookIndex);
+      if (slot && slot.key === options.key)
+        return slot.cell as unknown as Mutation<TInput, TResult>;
+    }
+    assertDataRuntimeActive(runtimeState);
+  }
   const override = options.key
     ? (runtimeState.mutationTestOverrides.get(options.key) as
         | Mutation<TInput, TResult>

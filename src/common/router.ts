@@ -184,6 +184,7 @@ export interface RouteOptions<
     | undefined,
   TLoaderData = unknown,
   TDehydratedData = TLoaderData,
+  TAppMeta = unknown,
 > extends CommonAccessOptions {
   loader?: (
     context: RouteContext<TParams> & { request?: Request }
@@ -212,6 +213,8 @@ export interface RouteOptions<
   namespace?: string;
   search?: TSearchSchema;
   meta?: RouteMetaSource<TParams>;
+  /** Immutable application declaration data; never automatically serialized for hydration. */
+  appMeta?: TAppMeta;
   actions?: readonly ActionDescriptor[];
 }
 
@@ -276,11 +279,14 @@ export interface RouteDestination {
 }
 
 /** Options accepted by the `page()` route-declaration helper. */
-export interface PageHelperOptions extends CommonAccessOptions {
+export interface PageHelperOptions<
+  TAppMeta = unknown,
+> extends CommonAccessOptions {
   preload?: (
     context: RouteContext & { request?: Request; data: QueryPrefetchContext }
   ) => unknown;
   meta?: RouteMetaSource;
+  appMeta?: TAppMeta;
 }
 
 /**
@@ -350,9 +356,12 @@ export type RouteRequestResult<TParams extends RouteParams = RouteParams> =
   | null;
 
 /** Options accepted by the `group()` route-declaration helper. */
-export interface GroupHelperOptions extends CommonAccessOptions {
+export interface GroupHelperOptions<
+  TAppMeta = unknown,
+> extends CommonAccessOptions {
   layout?: (props: { children?: RenderableChild }) => RenderableChild;
   meta?: RouteMetaSource;
+  appMeta?: TAppMeta;
 }
 
 /**
@@ -436,11 +445,15 @@ export interface ResolvedRoute<TParams extends RouteParams = RouteParams> {
 }
 
 /** A single matched route, as reported by {@link currentRoute} and activity predicates. */
-export interface RouteMatch<TParams extends RouteParams = RouteParams> {
+export interface RouteMatch<
+  TParams extends RouteParams = RouteParams,
+  TAppMeta = unknown,
+> {
   path: string;
   params: Readonly<TParams>;
   name?: string;
   namespace?: string;
+  readonly appMeta?: TAppMeta;
 }
 
 /** Read-only accessor for the current route's query-string parameters. */
@@ -455,6 +468,7 @@ export interface RouteQuery {
 export interface RouteSnapshot<
   TParams extends RouteParams = RouteParams,
   TState = unknown,
+  TAppMeta = unknown,
 > {
   path: string;
   params: Readonly<TParams>;
@@ -467,5 +481,5 @@ export interface RouteSnapshot<
 
   name?: string;
   namespace?: string;
-  matches: readonly RouteMatch<TParams>[];
+  matches: readonly RouteMatch<TParams, TAppMeta>[];
 }

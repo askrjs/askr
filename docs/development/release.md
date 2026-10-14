@@ -33,6 +33,11 @@ The release flow is split across dedicated workflows:
   perf lanes. It captures three repetitions on one pinned host, raw tier JSON,
   and commit/OS/architecture/CPU/Node context. The tracked tier benchmark files
   and `docs/benchmarks/performance-targets.md` define the maintained contract.
+  With Vitest 5, capture JSON with `--reporter=json --outputFile.json=<path>`
+  alongside the default reporter. Measurements live under
+  `testResults[].assertionResults[].benchmarks[].tasks[]`; latency statistics
+  include `mean`, `p50`, and `samplesCount`. The removed `--outputJson` flag
+  and the Vitest 4 report shape are no longer supported.
 - `prepack`: always rebuilds package artifacts before npm creates a tarball.
 - `prepublishOnly`: runs `npm run release:verify`; manual npm publishing cannot
   skip lint, build, checks, public types, test suites, or the packed consumer
@@ -73,6 +78,15 @@ The intended happy path is:
 ## Pre-release checklist
 
 - Full release gate passes: `npm run release:verify`
+- Critical runtime coverage passes: `npm run test:coverage` (also included in
+  the release gate). See [runtime coverage and hardening](./runtime-coverage.md)
+  for measured directory floors, supported environments and source reports.
+- Before every package release, inspect current assertions and probe a deeper
+  adjacent public or internal contract boundary than the previous release.
+  Record the scenarios, exact commands and outcomes, including focused no-defect
+  results. Keep a minimal reproducer and regression test for each confirmed
+  defect; fix it or record an explicit, evidence-backed release deferral in the
+  [release-wide hardening gate](https://github.com/askrjs/askr/issues/747).
 - Tarball inspection passes: `npm pack --dry-run --json` contains no `.map`
   files and includes JavaScript plus declaration artifacts for every export.
 - CHANGELOG updated when the release needs notes

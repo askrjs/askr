@@ -17,5 +17,6 @@ declare function onRouteChange(
 declare function currentRoute<
   TParams extends RouteParams = RouteParams,
   TState = unknown,
->(): RouteSnapshot<TParams, TState>;
+  TAppMeta = unknown,
+>(): RouteSnapshot<TParams, TState, TAppMeta>;
 export { onRouteChange, RouteChangeOptions, currentRoute, RouteChangeCleanup };

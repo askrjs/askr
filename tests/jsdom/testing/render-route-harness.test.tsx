@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { currentRoute, createRouteRegistry, route } from '@askrjs/askr/router';
 import { createQuery, queryScope } from '@askrjs/askr/data';
-import { createQueryTestRegistry, queryState } from '@askrjs/askr/testing';
+import { createQueryTestRegistry, mockQuery } from '@askrjs/askr/testing';
 import { renderRoute, type RenderResult } from '@askrjs/askr/testing';
 
 let mounted: RenderResult | undefined;
@@ -46,10 +46,7 @@ describe('testing routed render harness', () => {
   it('should use an injected test runtime for routed query fixtures', async () => {
     const queries = queryScope('teams');
     const testRegistry = createQueryTestRegistry();
-    testRegistry.set(
-      queries.key('platform'),
-      queryState.fresh({ name: 'Platform' })
-    );
+    testRegistry.set(queries.key('platform'), mockQuery({ name: 'Platform' }));
     const registry = createRouteRegistry(() => {
       route('/teams/{team}', ({ team }) => {
         const query = createQuery(

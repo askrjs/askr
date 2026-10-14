@@ -43,6 +43,9 @@ Public types:
 - `Derived`
 - `Selector`
 - `Scope`
+- `RenderableChild` is the value-child contract for component presentation props
+  and layout slots. See [presentation children](../core/rendering.md#presentation-children)
+  for accepted values and the distinction from child factories.
 - `Props`
   The shared runtime props bag stays intentionally generic. Intrinsic JSX elements layer
   common DOM-style contracts such as `class`, `style`, `ref`, and high-use event handlers on top
@@ -85,7 +88,7 @@ Neither is re-exported from the root.
 
 ## Feature subpaths
 
-- `@askrjs/askr/boot` - app startup and lifecycle helpers such as `createIsland()`, `createIslands()`, `createSPA()`, `hydrateSPA()`, `cleanupApp()`, and `hasApp()`
+- `@askrjs/askr/boot` - app startup and lifecycle helpers such as `createIsland()`, `createIslands()`, `createSPA()`, `hydrateSPA()`, `cleanupApp()`, `hasApp()`, and `replaceDataRuntime()`
 - `@askrjs/askr/components` - `ErrorBoundary`
 - `@askrjs/askr/actions` - browser-safe `defineAction`, reactive `action`, and native-first `ActionForm`
 - `@askrjs/askr/control` - JSX control-flow helpers
@@ -95,15 +98,15 @@ Neither is re-exported from the root.
     the callback subscribes the row that made it.
 
 - `@askrjs/askr/data` - `createDataRuntime()`, `getDefaultDataRuntime()`, `createQuery()`, `createQueryCollection()`, `createMutation()`, `invalidate()`, `invalidateOnInterval()`, and `refreshOnActivity()`
-- `@askrjs/askr/testing` - component harness helpers such as `render`, `mount`, `renderRoute`, `dispatch`, `flush`, and `cleanup`, plus query and router fixtures
+- `@askrjs/askr/testing` - component harness helpers such as `render`, `renderRoute`, `dispatch`, `flush`, and `cleanup`, plus query fixtures and route warnings
 - `@askrjs/askr/resources` - async resource helpers such as `resource`, `watch`, `stream`, `on`, `timer`, `task`, `capture`, `routeActive`, `documentVisible`, and `windowFocused`
 - `@askrjs/askr/router` - typed `RouteRef` declarations and destinations, `matchRoute()` for synchronous registry path matching, metadata, critical `routeData`, and deferred `Resolve` boundaries
 - `@askrjs/askr/fx` - timing and scheduling helpers
 - `@askrjs/askr/ssr` - synchronous rendering plus `renderRouteRequest()` for explicitly deferred Web streams
 - `@askrjs/askr/ssg` - static-site generation helpers
 - `@askrjs/askr/foundations` - structural primitives such as `layout()`, `Slot`, `Presence`, plus runtime-backed portal helpers like `definePortal`, `DefaultPortal`, and `Portal`
-- `@askrjs/askr/foundations/structures` - structural registries and layering
-  helpers such as `createCollection` and `createLayer`, plus `isElement` and
+- `@askrjs/askr/foundations/structures` - structural composition and
+  `createCollection`, plus `isElement` and
   `cloneElement` for framework-compatible JSX composition
 - `@askrjs/askr/foundations/utilities` - prop composition and ID helpers
 - `@askrjs/askr/foundations/interactions` - platform internal interaction-policy helpers for sibling UI packages
@@ -113,7 +116,7 @@ Neither is re-exported from the root.
 The foundations subpaths are described in the [foundations reference](./foundations.md).
 
 - `@askrjs/askr/jsx-runtime` - JSX factory exports plus `JSXElement`, `JSXComponent`, and `JSXElementType`
-- `@askrjs/askr/jsx-dev-runtime` - `jsxDEV()` for development JSX transforms (both JSX entrypoints export it), plus the same JSX public types
+- `@askrjs/askr/jsx-dev-runtime` - `jsxDEV()`, `Fragment`, and the `JSX` namespace for development JSX transforms; manual JSX type imports belong to `jsx-runtime`
 
 Both JSX runtime entrypoints export the `JSX` namespace used by TypeScript's
 automatic JSX transform. Askr does not declare a global `JSX` namespace; import
@@ -162,7 +165,11 @@ await createSPA({ root: document.body, registry });
 - Move startup helpers like `createIsland`, `createIslands`, `createSPA`, `hydrateSPA`, `cleanupApp`, and `hasApp` to `@askrjs/askr/boot`.
 - Move `ErrorBoundary` to `@askrjs/askr/components`.
 - Move `createQuery`, `createMutation`, and `invalidate` to `@askrjs/askr/data`.
-- Move `createCollection` and `createLayer` to `@askrjs/askr/foundations/structures`.
+- Move `createCollection` to `@askrjs/askr/foundations/structures`.
+- The [0.5.0 migration](../migration/0.5.0.md) lists all 31 removed name/path
+  pairs, canonical replacements, and the retired `SSGOptions` generic. The
+  [complete API review](../development/0.5.0-public-api.md) records all retained
+  names and export keys.
 - Use the dedicated `@askrjs/askr/foundations/*` subpaths for utilities, interactions, state, and icon helpers.
 
 ## Notes
@@ -177,5 +184,6 @@ await createSPA({ root: document.body, registry });
 - `createQuery()` exposes `consistency` plus `staleReason` so settled stale states can be narrowed into `inconsistent`, `aborted`, or `error` without guessing from broad booleans alone.
 - `createQueryCollection()` owns a dynamic keyed set of one query definition, bounds collection-started loads and retries, and exposes aggregate results and per-key errors without introducing another cache.
 - `createDataRuntime()` creates isolated query and mutation state for tests, embedded apps, and multi-root shells; pass it through data operation options with `runtime`.
+- `disposeDataRuntime(runtime)` terminally retires an isolated runtime, clears retained data, and cancels its work. Create a new runtime for later work; the shared default cannot be disposed. See [runtime retirement](../core/data.md#retiring-an-isolated-runtime).
 - `resource()` is available from `@askrjs/askr/resources`.
 - `renderToString()`, `renderToStream()`, `renderRouteRequestToString()`, and `createStaticGen()` accept route registries captured with `createRouteRegistry()`.

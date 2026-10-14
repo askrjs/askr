@@ -32,6 +32,8 @@ import {
   mountOrUpdate,
   registerAppNavigation,
   registerRootCleanupCallback,
+  cleanupApp,
+  getAppRoot,
 } from './root-lifecycle';
 import {
   bindDeniedRouteHandler,
@@ -46,6 +48,14 @@ import { getDefaultDataRuntime } from '../data/data-runtime';
 import { resolveRootElement } from './root-element';
 import { validateCspNonce } from '../csp-nonce';
 import { beginHydrationInteractionReplay } from './hydration-interaction-replay';
+import {
+  sessionDataRuntime,
+  releaseSessionDataRuntime,
+  beginSessionAuthBoot,
+  detachSessionAuthRoot,
+} from './session-auth-runtime';
+import { getSessionAuthState } from '../router/session-auth-state';
+import { createSPA } from './spa';
 
 /**
  * hydrateSPA: Hydrate server-rendered HTML with an explicit route registry.
@@ -70,6 +80,14 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
 
   const rootElement = resolveRootElement(config.root);
   if (!rootElement) throw new Error(`Root element not found: ${config.root}`);
+  const routeAuth = config.auth ?? manifest.auth;
+  const dataRuntime =
+    sessionDataRuntime(routeAuth, config.dataRuntime) ??
+    getDefaultDataRuntime();
+  const boot = beginSessionAuthBoot(routeAuth, dataRuntime, () => {
+    if (!getAppRoot(rootElement)) rootElement.replaceChildren();
+  });
+  let restart = false;
   const interactionReplay = beginHydrationInteractionReplay(
     rootElement,
     (boundary) => activateHydrationBoundary(rootElement, boundary),
@@ -80,10 +98,6 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     adoptSsrStyleCarriers(rootElement);
     const hydrationRenderData = takeHydrationRenderData(rootElement);
     const hydrationQueryCache = hydrationRenderData?.queries;
-    const dataRuntime = config.dataRuntime ?? getDefaultDataRuntime();
-    if (hydrationQueryCache) {
-      hydrateDataRuntime(dataRuntime, hydrationQueryCache);
-    }
     // The auth snapshot is consumed by route resolution below; components
     // never see it through render data.
     const hydrationRenderDataForApp = withoutHydratedAuth(hydrationRenderData);
@@ -96,8 +110,19 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     // snapshot decides the initial route; without a client `resolve` it also
     // stays the identity for navigations.
     const hydratedAuth = readHydratedAuth(hydrationRenderData);
-
-    const routeAuth = config.auth ?? manifest.auth;
+    const sessionState = getSessionAuthState(routeAuth);
+    if (sessionState && (!hydratedAuth || !sessionState.adopt(hydratedAuth))) {
+      // A missing snapshot does not own the SSR data, and a later live identity
+      // may have won before old HTML was adopted. Rebuild against current auth.
+      interactionReplay.abort();
+      releaseSessionDataRuntime(dataRuntime);
+      if (getAppRoot(rootElement)) cleanupApp(rootElement);
+      rootElement.replaceChildren();
+      await createSPA(config);
+      return;
+    }
+    if (hydrationQueryCache)
+      hydrateDataRuntime(dataRuntime, hydrationQueryCache);
     const appRouteSource = {
       registry: config.registry,
       auth: routeAuth,
@@ -113,26 +138,34 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     };
     _setActiveRouteAuthOptions(routeAuth);
 
-    const initialRoute = await resolveInitialRoute(routeAuth, {
-      registry: config.registry,
-      load: false,
-      authContext: hydratedAuth,
-      dataRuntime,
-    });
+    const initialRoute = await boot.wait(
+      resolveInitialRoute(routeAuth, {
+        registry: config.registry,
+        load: false,
+        authContext: hydratedAuth,
+        dataRuntime,
+        assertCurrent: boot.assertCurrent,
+        signal: boot.signal,
+      })
+    );
     // A redirect left the origin; the browser is loading that document.
     if (!initialRoute) {
       interactionReplay.abort();
+      releaseSessionDataRuntime(dataRuntime);
       return;
     }
     const { path, href: currentUrl, resolved } = initialRoute;
-    setServerLocation(currentUrl);
     if (isProductionEnvironment()) lockRouteRegistration();
 
     if (!resolved) {
       throw new Error(`hydrateSPA: no route found for current path (${path}).`);
     }
 
-    await reconcileInitialRouteMetadata(resolved);
+    await boot.wait(
+      reconcileInitialRouteMetadata(resolved, boot.assertCurrent)
+    );
+    boot.assertCurrent();
+    setServerLocation(currentUrl);
 
     const hydrationResolved: ResolvedRoute =
       resolved.kind === 'deny'
@@ -145,20 +178,23 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       if (verifyClientMarkup) clientMarkup = rootElement.innerHTML;
     };
 
-    const mountHydratedRoot: typeof mountOrUpdate = (...args) =>
-      mountOrUpdate(args[0], args[1], {
+    const mountHydratedRoot: typeof mountOrUpdate = (...args) => {
+      boot.assertCurrent();
+      return mountOrUpdate(args[0], args[1], {
         ...args[2],
         cspNonce: config.cspNonce,
         hydrate: true,
         onCommit: captureClientMarkup,
       });
+    };
 
     if (shouldVerifyHydrationMarkup(config)) {
       const {
         captureServerHydrationMarkup,
         verifyClientHydrationMarkup,
         verifyHydrationSyncForUrl,
-      } = await import('../ssr/verify-hydration');
+      } = await boot.wait(import('../ssr/verify-hydration'));
+      boot.assertCurrent();
       if (
         !verifyHydrationSyncForUrl({
           root: rootElement,
@@ -216,20 +252,25 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
           startHydrationRenderPhase(hydrationRenderDataForApp);
         }
         try {
-          await applySelectiveHydration(
-            rootElement,
-            hydrationResolved,
-            path,
-            config.cleanupStrict,
-            hydrateOptions,
-            appRouteSource,
-            {
-              mountOrUpdate: mountHydratedRoot,
-              registerAppNavigation,
-              registerRootCleanupCallback,
-              activateHydrationBoundary,
-            },
-            interactionReplay
+          await boot.wait(
+            applySelectiveHydration(
+              rootElement,
+              hydrationResolved,
+              path,
+              config.cleanupStrict,
+              hydrateOptions,
+              appRouteSource,
+              {
+                mountOrUpdate: mountHydratedRoot,
+                registerAppNavigation: (...args) => {
+                  boot.assertCurrent();
+                  return registerAppNavigation(...args);
+                },
+                registerRootCleanupCallback,
+                activateHydrationBoundary,
+              },
+              interactionReplay
+            )
           );
         } finally {
           if (hydrationRenderDataForApp) {
@@ -240,6 +281,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         if (!rootElement.querySelector('[data-skip-hydrate]')) {
           await verifyClientMarkup?.();
         }
+        boot.assertCurrent();
         interactionReplay.complete();
         return;
       }
@@ -270,12 +312,51 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       }
     }
     await verifyClientMarkup?.();
+    boot.assertCurrent();
     interactionReplay.complete();
+    boot.assertCurrent();
     await registerAppNavigation(rootElement, path, {
       ...appRouteSource,
     });
   } catch (error) {
     interactionReplay.abort();
-    throw error;
+    const failures: unknown[] = [error];
+    const failedApp = getAppRoot(rootElement);
+    if (getSessionAuthState(routeAuth) && !failedApp) {
+      // A rejected provider snapshot never owns the existing SSR subtree.
+      // It can fail before mounting, so no app cleanup owns this markup yet.
+      try {
+        rootElement.replaceChildren();
+      } catch (cleanup) {
+        failures.push(cleanup);
+      }
+    }
+    if (
+      getSessionAuthState(routeAuth) &&
+      failedApp?.appRuntime?.dataRuntime === dataRuntime
+    ) {
+      try {
+        cleanupApp(rootElement);
+      } catch (cleanup) {
+        failures.push(cleanup);
+      }
+      try {
+        detachSessionAuthRoot(failedApp);
+      } catch (cleanup) {
+        failures.push(cleanup);
+      }
+    }
+    try {
+      releaseSessionDataRuntime(dataRuntime);
+    } catch (cleanup) {
+      failures.push(cleanup);
+    }
+    if (failures.length > 1)
+      throw new AggregateError(failures, '[Askr] Session boot cleanup failed.');
+    if (!boot.stale()) throw error;
+    restart = boot.restart();
+  } finally {
+    boot.detach();
   }
+  if (restart) await createSPA(config);
 }

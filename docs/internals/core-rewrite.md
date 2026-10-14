@@ -92,6 +92,15 @@ written), `events` (bubbling events delegated at app roots, one batch per
 dispatch), `refs`, `teardown`, `updates` (standalone re-renders and error
 routing), and `root`.
 
+Host prop implementation ownership is documented in
+[Host prop ownership](./host-prop-ownership.md): orchestration selects the write
+order, lifetimes own installation/retirement, and private value writers retain
+the existing scalar DOM semantics and `Pass` rollback contract.
+
+Query reader/cache and async publication ownership is described in
+[Query lifetime transitions](./query-lifetime-transitions.md), including refresh,
+invalidation, reconciliation, cancellation, reader handoff and cache eviction.
+
 Ownership rules:
 
 - **Lifetimes belong to the owner tree.** Whoever renders content creates its
@@ -119,6 +128,9 @@ Ownership rules:
 
 Hooks keep their positional contract (`state()` and friends claim slots by
 call order in a component body). That is public API and stays.
+
+See [DOM node implementation ownership](./dom-node-ownership.md) for the
+private dispatch, node-kind, hydration, select and release boundaries.
 
 ## What is kept
 

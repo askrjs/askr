@@ -41,6 +41,7 @@ export {
   QueryStaleReason,
   Mutation,
   createDataRuntime,
+  disposeDataRuntime,
   ServerQueryRegistry,
   QueryCollection,
   defineServerQueries,

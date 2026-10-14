@@ -7,7 +7,7 @@ composeBrowserRuntime();
 export { createIsland, createIslands } from './islands';
 export { createSPA } from './spa';
 export { hydrateSPA } from './hydrate-spa';
-export { cleanupApp, hasApp } from './root-lifecycle';
+export { cleanupApp, hasApp, replaceDataRuntime } from './root-lifecycle';
 export type {
   HydrateSPAConfig,
   IslandConfig,

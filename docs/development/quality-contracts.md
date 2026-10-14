@@ -22,6 +22,13 @@ durable test family that observes it.
 
 ## Test families
 
+`npm run test:coverage` aggregates the unit, jsdom and Chromium projects for
+DOM, SSR, data and router implementations. CI enforces independent measured
+directory floors and retains annotated source reports. See
+[runtime coverage and hardening](./runtime-coverage.md) for the baseline,
+environment limits and executed transition probes. Counts complement observable
+assertions; they do not replace the existing test families below.
+
 - `tests/checks/architecture.test.ts` and
   `tests/checks/core-architecture.test.ts` protect dependency direction, core
   layering, and server/browser separation. The dependency matrix follows value

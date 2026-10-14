@@ -338,6 +338,7 @@ call these directly.
 
 ## Related topics
 
+- [Stable IDs for labels and descriptions](stable-ids.md)
 - [SSG Guide](ssg.md)
 - [SSR Events](ssr-events.md)
 - [Selective Hydration](../advanced/selective-hydration.md)

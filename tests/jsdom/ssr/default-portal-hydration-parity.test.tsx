@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { defineScope, readScope, state } from '../../../src';
-import { createSPA, hydrateSPA } from '../../../src/boot';
+import { cleanupApp, createSPA, hasApp, hydrateSPA } from '../../../src/boot';
 import {
   DefaultPortal,
   Portal,
@@ -208,11 +208,14 @@ describe('default portal hydration parity', () => {
     }
   });
 
-  it('should reject a portal content mismatch from the client renderer', async () => {
+  it('should report a committed portal mismatch, dispose it, and adopt fresh markup on retry', async () => {
+    let mismatch = true;
     const Page = () => (
       <main>
         <Portal>
-          <span>{getActiveRenderContext() ? 'server' : 'client'}</span>
+          <span>
+            {getActiveRenderContext() || !mismatch ? 'server' : 'client'}
+          </span>
         </Portal>
         <DefaultPortal />
       </main>
@@ -222,6 +225,7 @@ describe('default portal hydration parity', () => {
 
     try {
       container.innerHTML = renderToStringSync(Page);
+      const serverContent = container.querySelector('span');
       expect(captureServerHydrationMarkup(container, '/')).not.toBeNull();
       await expect(
         hydrateSPA({
@@ -230,6 +234,22 @@ describe('default portal hydration parity', () => {
           hydrate: { verifyMarkup: true },
         })
       ).rejects.toThrow(/Hydration mismatch/i);
+      expect(container.querySelector('span')).toBe(serverContent);
+      expect(serverContent?.textContent).toBe('client');
+      expect(hasApp(container)).toBe(true);
+      cleanupApp(container);
+      expect(hasApp(container)).toBe(false);
+      expect(container.childNodes).toHaveLength(0);
+      mismatch = false;
+      container.innerHTML = renderToStringSync(Page);
+      const retryContent = container.querySelector('span');
+      await hydrateSPA({
+        root: container,
+        registry,
+        hydrate: { verifyMarkup: true },
+      });
+      expect(container.querySelector('span')).toBe(retryContent);
+      expect(retryContent?.textContent).toBe('server');
     } finally {
       cleanup();
     }

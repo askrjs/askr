@@ -97,11 +97,10 @@ interface SSGAssetSource {
   to?: string;
 }
 /** Options for createStaticGen */
-type SSGOptions<_TRoutes extends readonly RouteConfig[] = RouteConfig[]> =
-  SSGBaseOptions & {
-    /** Explicit route registry captured with `createRouteRegistry()`. */
-    registry: RouteRegistry;
-  };
+type SSGOptions = SSGBaseOptions & {
+  /** Explicit route registry captured with `createRouteRegistry()`. */
+  registry: RouteRegistry;
+};
 /** Options for a single generation run */
 interface SSGGenerateOptions {
   /** Generation mode */
@@ -270,11 +269,9 @@ declare function createStaticGen(options: SSGOptions): {
   getResult(): SSGResult | null;
 };
 export {
-  type DiscoveredResources,
   type DocumentRenderArgs,
   type DocumentRenderContext,
   type DocumentRenderer,
-  type RouteConfig,
   type RouteRenderReason,
   type RouteRenderResult,
   type RouteRenderStatus,
@@ -284,6 +281,5 @@ export {
   type SSGMode,
   type SSGOptions,
   type SSGResult,
-  type SSRStyleRegistrationValidation,
   createStaticGen,
 };

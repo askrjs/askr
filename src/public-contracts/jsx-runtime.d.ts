@@ -4,7 +4,7 @@ import {
   JSXElement,
   Fragment,
 } from './elements.js';
-import { jsxs, jsx, jsxDEV, JSX } from './jsx.js';
+import { jsxs, jsx, JSX } from './jsx.js';
 export {
   Fragment,
   JSX,
@@ -12,6 +12,5 @@ export {
   type JSXElement,
   type JSXElementType,
   jsx,
-  jsxDEV,
   jsxs,
 };

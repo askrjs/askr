@@ -209,18 +209,31 @@ export function syncChildren(
   expected: readonly Node[],
   stopAt: Node | null = null
 ): void {
+  // SSR portal anchors stay where the server put them. Hydration normally
+  // claims nodes in their existing order, so avoid copying every container's
+  // children into an undo snapshot when no DOM write is needed.
+  const skipAnchors = (node: Node | null): Node | null => {
+    while (node && node !== stopAt && isSSRPortalHydrationAnchor(node)) {
+      node = node.nextSibling;
+    }
+    return node;
+  };
+  let cursor = skipAnchors(container.firstChild);
+  let alreadySynchronized = true;
+  for (const node of expected) {
+    if (node !== cursor) {
+      alreadySynchronized = false;
+      break;
+    }
+    cursor = skipAnchors(node.nextSibling);
+  }
+  if (alreadySynchronized && (!cursor || cursor === stopAt)) return;
+
   const previous = Array.from(container.childNodes);
   pass.onReversibleCommit(() => restoreChildren(container, previous));
 
   try {
-    // SSR portal anchors stay where the server put them.
-    const skipAnchors = (node: Node | null): Node | null => {
-      while (node && node !== stopAt && isSSRPortalHydrationAnchor(node)) {
-        node = node.nextSibling;
-      }
-      return node;
-    };
-    let cursor = skipAnchors(container.firstChild);
+    cursor = skipAnchors(container.firstChild);
     for (const node of expected) {
       if (node === cursor) {
         cursor = skipAnchors(cursor.nextSibling);

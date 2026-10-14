@@ -131,7 +131,7 @@ jobs:
       - name: Capture tier${{ matrix.tier }}
         run: |
           capture() {
-            (cd "$1" && npm run "bench:tier$TIER" -- "./$BENCH_FILE" --testNamePattern "$BENCH_PATTERN" --outputJson "$GITHUB_WORKSPACE/bench-results/$2-run$run.json")
+            (cd "$1" && npm run "bench:tier$TIER" -- "./$BENCH_FILE" --testNamePattern "$BENCH_PATTERN" --reporter=json --outputFile.json="$GITHUB_WORKSPACE/bench-results/$2-run$run.json")
           }
           for run in 1 2 3; do
             if [ -n "$BASELINE" ]; then

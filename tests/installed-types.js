@@ -10,12 +10,14 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const repositoryRoot = resolve(import.meta.dirname, '..');
 const optionalPeers = ['@askrjs/auth', '@askrjs/schema'];
-const peerRanges =
-  JSON.parse(readFileSync(join(repositoryRoot, 'package.json'), 'utf8'))
-    .peerDependencies ?? {};
+const manifest = JSON.parse(
+  readFileSync(join(repositoryRoot, 'package.json'), 'utf8')
+);
+const peerRanges = manifest.peerDependencies ?? {};
 // Windows runners expose TEMP through a DOS short path. Use the same canonical
 // path for npm, TypeScript, and Vite's jsdom module resolver.
 const consumerRoot = realpathSync.native(
@@ -77,20 +79,22 @@ try {
   );
   const install = (packages) =>
     runNpm(
-      [
-        'install',
-        '--ignore-scripts',
-        '--no-package-lock',
-        '--no-audit',
-        '--no-fund',
-        ...packages,
-      ],
+      ['install', '--no-package-lock', '--no-audit', '--no-fund', ...packages],
       { cwd: consumerRoot, stdio: 'pipe' }
     );
   // Install Askr without its optional type-only peers first: an app that never
   // uses route auth or schema-backed search/actions must install, typecheck,
   // and run without @askrjs/auth or @askrjs/schema.
-  install([tarball, 'vitest@4.1.10', 'jsdom@29.1.1', 'tsd@0.33.0']);
+  install([
+    tarball,
+    // This consumer retains the Vitest 4 cohort; the producer uses Vite+ 1.0.
+    'vite-plus@0.3.3',
+    'jsdom@29.1.1',
+    'tsd@0.33.0',
+    ...['@testing-library/dom', '@testing-library/user-event'].map(
+      (name) => `${name}@${manifest.devDependencies[name]}`
+    ),
+  ]);
   // TypeScript and Node search every ancestor node_modules, so a peer
   // installed above the consumer would silently mask a missing one.
   for (const peer of optionalPeers) {
@@ -121,8 +125,10 @@ try {
       'import { defineAction } from "@askrjs/askr/actions";',
       'const [count] = state(1);',
       'const view = <><span>{count()}</span></>;',
+      'const spread = { title: "spread props" };',
+      'const keyed = <span {...spread} key="after-spread">keyed</span>;',
       'route("/", () => view);',
-      'void [Fragment, jsx, jsxs, view, createRouteRegistry, renderToString, createStaticGen, defineAction];',
+      'void [Fragment, jsx, jsxs, view, keyed, createRouteRegistry, renderToString, createStaticGen, defineAction];',
     ].join('\n')
   );
   // Without the peers, their own types degrade to `any`, but Askr's types
@@ -160,32 +166,81 @@ try {
       ],
     })
   );
-  const typescriptCli = resolve(
-    repositoryRoot,
-    'node_modules/typescript/bin/tsc'
-  );
-  execFileSync(
-    process.execPath,
-    [typescriptCli, '-p', join(consumerRoot, 'tsconfig.json')],
-    {
-      cwd: consumerRoot,
-      stdio: 'inherit',
-    }
-  );
+  const compilers = [
+    'node_modules/@typescript/typescript6/bin/tsc6',
+    'node_modules/typescript/bin/tsc',
+  ].map((entry) => resolve(repositoryRoot, entry));
   writeFileSync(
-    join(consumerRoot, 'vitest.config.ts'),
+    join(consumerRoot, 'tsconfig-accessible-node-next.json'),
+    JSON.stringify({
+      compilerOptions: {
+        target: 'ES2022',
+        lib: ['ES2022', 'DOM'],
+        module: 'NodeNext',
+        moduleResolution: 'NodeNext',
+        jsxImportSource: '@askrjs/askr',
+        strict: true,
+        skipLibCheck: false,
+        noEmit: true,
+        types: [],
+      },
+      files: ['contracts/accessible-testing.tsx'],
+    })
+  );
+  for (const compiler of compilers) {
+    console.log(
+      execFileSync(process.execPath, [compiler, '--version'], {
+        encoding: 'utf8',
+      }).trim()
+    );
+    for (const jsx of ['react-jsx', 'react-jsxdev']) {
+      console.log(`Typechecking packed consumer with ${jsx}`);
+      execFileSync(
+        process.execPath,
+        [compiler, '-p', join(consumerRoot, 'tsconfig.json'), '--jsx', jsx],
+        {
+          cwd: consumerRoot,
+          stdio: 'inherit',
+        }
+      );
+      console.log(`Typechecking accessible recipe with NodeNext and ${jsx}`);
+      execFileSync(
+        process.execPath,
+        [
+          compiler,
+          '-p',
+          join(consumerRoot, 'tsconfig-accessible-node-next.json'),
+          '--jsx',
+          jsx,
+        ],
+        { cwd: consumerRoot, stdio: 'inherit' }
+      );
+    }
+  }
+  writeFileSync(
+    join(consumerRoot, 'vite.config.ts'),
     [
-      'import { defineConfig } from "vitest/config";',
+      'import { defineConfig } from "vite-plus";',
       'export default defineConfig({',
       '  oxc: { jsx: { runtime: "automatic", importSource: "@askrjs/askr" } },',
       '  test: { environment: "jsdom" },',
       '});',
     ].join('\n')
   );
+  // The installed config must also load in native Node, outside the test runner.
+  execFileSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      `const { default: config } = await import(${JSON.stringify(pathToFileURL(join(consumerRoot, 'vite.config.ts')).href)}); if (config.test?.environment !== 'jsdom') throw new Error('Installed Vite+ config did not load');`,
+    ],
+    { cwd: consumerRoot, stdio: 'inherit' }
+  );
   writeFileSync(
     join(consumerRoot, 'harness.test.tsx'),
     [
-      'import { expect, test } from "vitest";',
+      'import { expect, test } from "vite-plus/test";',
       'import { state } from "@askrjs/askr";',
       'import { dispatch, render } from "@askrjs/askr/testing";',
       'import { route } from "@askrjs/askr/router";',
@@ -205,9 +260,15 @@ try {
       '  view.cleanup();',
       '  expect(document.body.contains(view.root)).toBe(false);',
       '});',
+      'test("should render JSX with a key after a spread through the classic factory", () => {',
+      '  const props = { title: "spread props" };',
+      '  const markup = renderToString(() => <span {...props} key="after-spread">keyed</span>);',
+      `  expect(markup).toContain('title="spread props"');`,
+      '  expect(markup).toContain(">keyed</span>");',
+      '});',
     ].join('\n')
   );
-  runNpm(['exec', '--', 'vitest', 'run', '-c', 'vitest.config.ts'], {
+  runNpm(['exec', '--', 'vp', 'test', 'run', '-c', 'vite.config.ts'], {
     cwd: consumerRoot,
     stdio: 'inherit',
   });
@@ -217,6 +278,23 @@ try {
   cpSync(join(repositoryRoot, 'tests/types'), join(consumerRoot, 'types'), {
     recursive: true,
   });
+  writeFileSync(
+    join(consumerRoot, 'absence-tsconfig.json'),
+    JSON.stringify({
+      extends: './tsconfig.json',
+      include: [
+        'types/public-entrypoints.test-d.ts',
+        'types/app-meta-schema.test-d.ts',
+      ],
+    })
+  );
+  for (const compiler of compilers) {
+    execFileSync(
+      process.execPath,
+      [compiler, '-p', join(consumerRoot, 'absence-tsconfig.json')],
+      { cwd: consumerRoot, stdio: 'inherit' }
+    );
+  }
   runNpm(
     [
       'exec',

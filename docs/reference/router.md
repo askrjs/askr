@@ -176,6 +176,7 @@ Vite's `base` remains responsible for JavaScript, CSS, and other asset URLs.
   - `entries`: SSG entry generator
   - `search`: executable schema used by typed destinations
   - `meta`: title, meta, canonical/link, JSON-LD, language, and direction metadata
+  - `appMeta`: immutable application declaration data, separate from document metadata
   - `actions`: browser-safe action descriptors authorized for this matched page
   - `namespace`: namespace key
 
@@ -433,11 +434,11 @@ use the same helpers:
 
 ## Route testing helpers
 
-`@askrjs/askr/testing` matches routes without mounting an app:
+Use these helpers without mounting an app:
 
-- `matchRoute(path, { registry })` returns the matched route and params, or
+- `matchRoute(path, { registry })` from `@askrjs/askr/router` returns the matched route and params, or
   `null`.
-- `getRouteWarnings({ registry })` reports named-splat routes whose segments
+- `getRouteWarnings({ registry })` from `@askrjs/askr/testing` reports named-splat routes whose segments
   collide with sibling static routes.
 
 ## `fallback(Component)`
@@ -459,6 +460,24 @@ Registers a pathful miss route.
 
 Inside a component, call `currentRoute()` to read the current route snapshot,
 including entry-local `state` and `hasState`.
+
+`currentRoute<TParams, TState, TAppMeta>().matches` exposes application metadata
+from metadata-bearing groups/pages in declaration order, followed by the leaf.
+Groups use the enclosing path prefix, so multiple entries may share a path.
+Ancestors without `appMeta` add no entries; registries without `appMeta` keep
+their one-leaf match list. Every entry carries the full leaf parameter record.
+`currentRoute().params`, `matchRoute()` and activity predicates retain leaf
+matching semantics. `matchRoute<TAppMeta>()` reads only the best leaf's metadata.
+
+The appended metadata generics default to `unknown`; existing generic positions
+are unchanged. Use application-owned `satisfies` declarations or
+`RouteOptions<TParams, TSearchSchema, TLoaderData, TDehydratedData, TAppMeta>`,
+`GroupHelperOptions<TAppMeta>` and `PageHelperOptions<TAppMeta>` to check inputs.
+An explicit read generic declares your schema; the opaque registry callback does
+not contextually enforce or infer that schema for global authoring helpers.
+
+See [application route metadata](../guides/application-route-metadata.md) for
+reactive grants, declaration immutability and SSR/browser visibility boundaries.
 
 ## `onRouteChange(callback, options?)`
 
@@ -680,3 +699,13 @@ import { NavLink } from '@askrjs/themes/components';
 | `RouteRef`         | Typed path/search declaration returned by `route()` |
 | `RouteDestination` | Immutable destination returned by `to()`            |
 | `RouteMeta`        | Normalized document metadata contract               |
+
+## `createSessionAuth(options)`
+
+Creates the client binding for same-origin server provider sessions.
+Pass its exact result as registry/boot auth; it owns the root's private data
+runtime, adopts a minimal SSR identity, dedupes session GETs and retires private
+state before logout or identity revalidation. `loginHref`, `logout` and decoded
+`handleAuthFailure` compose with the same router owner. See the
+[provider-session guide](../guides/provider-sessions.md) for transport, ownership
+and recovery contracts.

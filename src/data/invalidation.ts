@@ -5,6 +5,7 @@ import {
   type ActivityPredicate,
 } from '../core/api/lifecycle';
 import { documentVisible, windowFocused } from '../resources/browser-activity';
+import { currentComponent } from '../core/api/hooks';
 import {
   invalidateQueriesForRuntime,
   refreshQueriesOnActivity,
@@ -65,7 +66,10 @@ export function refreshOnActivity(
       'refreshOnActivity() requires a finite non-negative staleTimeMs or "always".'
     );
   }
-  const runtime = resolveDataRuntimeState(options.runtime);
+  const runtime = resolveDataRuntimeState(
+    options.runtime,
+    !!currentComponent()
+  );
   const enabled = options.enabled !== false;
   const focus = enabled && options.focus !== false;
   const online = enabled && options.online !== false;
@@ -111,7 +115,10 @@ export function invalidateOnInterval(
     throw new Error(INVALIDATE_ON_INTERVAL_OPTIONS_ERROR);
   }
 
-  const runtimeState = resolveDataRuntimeState(options.runtime);
+  const runtimeState = resolveDataRuntimeState(
+    options.runtime,
+    !!currentComponent()
+  );
   const when: ActivityPredicate[] = [];
 
   if (options.activeOn) {

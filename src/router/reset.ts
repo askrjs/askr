@@ -4,7 +4,7 @@ import { resetHistoryIndex } from './history-index';
 import { resetLazyRoutes } from './lazy';
 import { resetNavigationRegistry } from './navigation-registry';
 import { resetNavigationScroll } from './navigation-scroll';
-import { cancelRouteRequests } from './navigation-targets';
+import { cancelRouteRequests } from './navigation-request';
 import { clearRouteState } from './store';
 
 /**

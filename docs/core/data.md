@@ -141,6 +141,113 @@ seeds it from the server payload, `createQuery()` calls in route components
 read it without an explicit `runtime` option, and route `preload` hooks
 prefetch into it on the initial route and on every client navigation.
 
+#### Retiring an isolated runtime
+
+`disposeDataRuntime(runtime)` synchronously and permanently retires a runtime
+created by `createDataRuntime()`. Use one runtime per request, test, or isolated
+application owner and retire it when that owner no longer needs its data:
+
+```ts
+import { createDataRuntime, disposeDataRuntime } from '@askrjs/askr/data';
+
+const runtime = createDataRuntime();
+try {
+  // Pass runtime to the request's prefetch and rendering operations.
+} finally {
+  disposeDataRuntime(runtime);
+}
+```
+
+Retirement aborts query, mutation, and prefetch signals, stops collection queues,
+and clears cached, hydrated, and prefetched data. Retained query handles, including
+ones evicted from the cache, expose `data: null`, an `AbortError`, and the existing
+settled stale/error state. Existing mounted hooks can read those terminal handles
+again so cleared content can render; they cannot redefine or restart work.
+Collections become empty and settled. Mutations clear their result/error to idle
+and run each active optimistic rollback once.
+
+Pending query `refresh()` promises complete promptly, following the existing
+void/abort completion contract. Pending mutation `execute()` and prefetch callers
+reject promptly with `AbortError`, even if application work ignores its signal.
+For a native runtime, prefetch `context.signal` is the effective signal composed
+from caller cancellation and runtime retirement, and is the signal passed to the
+fetcher/server handler. Disposing the runtime does not abort the caller's own
+signal. Code that needs to inspect the signal used by a prefetch should read
+`context.signal` rather than assume it is the original caller signal.
+Late success, failure, consistency/reconciliation, and mutation `affects` callbacks
+cannot publish data or start new work. Disposal cannot undo an already committed
+remote write; ordinary mutation `abort()` retains its existing write-invalidation
+semantics.
+
+New query/mutation/collection handles, new prefetch contexts or calls, hydration,
+explicit invalidation, and old-handle refresh/retry/execute calls reject with a
+corrective error. Dehydration returns an empty object. Direct writes to the public
+maps after retirement are outside this contract and do not revive readers.
+Create a new isolated runtime for later work; disposal is not a reset operation.
+
+Old activity and interval callbacks become inert. Their DOM listeners and timers
+remain component-owned until normal component cleanup; disposing data does not
+unmount an application. Repeated disposal and later component cleanup are safe.
+If a rollback throws, disposal still drains the other owners and clears the maps
+before rethrowing that failure (or an `AggregateError` for multiple failures).
+Another isolated runtime remains independent.
+
+The process-wide `getDefaultDataRuntime()` singleton cannot be disposed: create an
+isolated runtime when explicit retirement is required. Structural, hand-built
+runtime containers are also rejected by this operation.
+
+#### Replacing an application's data owner
+
+Use `replaceDataRuntime(root, next)` from `@askrjs/askr/boot` when a mounted
+`createSPA`, `hydrateSPA`, or island changes identity. The root is the container
+element or its element ID (with an optional leading `#`), as with `cleanupApp`.
+The replacement must be a live runtime returned by `createDataRuntime()`.
+
+```ts
+import { replaceDataRuntime } from '@askrjs/askr/boot';
+import { createDataRuntime, disposeDataRuntime } from '@askrjs/askr/data';
+
+// previousRuntime is exclusively owned by this application.
+function changeIdentity(previousRuntime: ReturnType<typeof createDataRuntime>) {
+  const next = createDataRuntime();
+  replaceDataRuntime('app', next);
+  disposeDataRuntime(previousRuntime);
+  return next;
+}
+```
+
+Replacement synchronously renders the existing tree with its new data owner.
+Implicit query, mutation and collection hooks bind to it, as do subsequent
+navigation loaders and prefetch contexts. Current route data, registry, auth,
+framework/hydration resources, DOM identity and component state remain in place;
+local state is not an identity-data erasure mechanism. Pending navigation resolved
+under an earlier app owner cannot publish a route, redirect, metadata or history.
+After a deferred auth, policy or preload settles, an obsolete navigation cannot
+publish auth or start further policies, preloads or loaders.
+This remains true when switching A to B and back to A. Replacing an app with its
+current live runtime is a no-op. Other roots and server request runtimes remain
+independent; replacement never falls back to the shared default.
+
+Replacement does not dispose its previous runtime, which may have other owners.
+Retained query and mutation handles stay bound to that runtime. A component-owned
+collection detaches and clears its entries when its replacement commits; a failed
+render preserves the old collection. Dispose an exclusively owned old runtime in
+the same synchronous identity-change operation to clear its data and cancel its
+work using the terminal rules above. Explicit `runtime` options
+continue to use their explicitly supplied owner.
+
+Invalid roots, structural runtimes and disposed replacements fail before changing
+the app. A render or reversible DOM-write failure restores the previous app owner
+and DOM; neither runtime is disposed. Provisional initial-data reads or fetches may
+have touched the next runtime's cache; rollback does not restore a cache snapshot.
+Replacement does not yield while preparing
+or applying the transaction, so a pending old navigation that settles during a
+failed render can continue after rollback. Lifecycle failures after a successful
+commit are reported by throwing to the caller and leave the committed replacement
+in place, following the existing root commit contract. Call this operation from
+application/event code, rather than reentering it during component rendering or
+an active navigation commit.
+
 ### Queries
 
 ```ts
@@ -573,18 +680,19 @@ for a complete server-query setup.
 Use `@askrjs/askr/testing` for query-shaped test fixtures in page and component tests:
 
 ```ts
-import { queryState } from '@askrjs/askr/testing';
+import { mockQuery } from '@askrjs/askr/testing';
 
-const freshUser = queryState.fresh({ id: '123', name: 'Ada' });
-const loadingUser = queryState.loading();
-const refreshingUser = queryState.refreshing({ id: '123', name: 'Ada' });
-const failedUser = queryState.error(new Error('boom'), {
+const freshUser = mockQuery({ id: '123', name: 'Ada' });
+const loadingUser = mockQuery.loading();
+const refreshingUser = mockQuery.refreshing({ id: '123', name: 'Ada' });
+const failedUser = mockQuery.error(new Error('boom'), {
   id: '123',
   name: 'Ada',
 });
 ```
 
-`mockQuery(data)` remains available as the original fresh-query shortcut.
+Call `mockQuery(data, options?)` for a fresh fixture. Use its state builders
+for loading, refreshing, stale, pending-write, and error fixtures.
 
 ### Mutations
 
@@ -668,11 +776,11 @@ Fixtures expose `setPending()`, `succeed(result)`, `fail(error)`, `abort()`,
 and `reset()` for deterministic state changes. Registry `delete()` and
 `clear()` reset removed mutations. Each registry creates an isolated data
 runtime by default. Pass that runtime as `dataRuntime` to `renderRoute()`, or to plain
-`render()`/`mount()` calls when the component does not need a router:
+`render()` calls when the component does not need a router:
 
 ```tsx
 const queries = createQueryTestRegistry();
-queries.set('user:123', queryState.fresh({ name: 'Ada' }));
+queries.set('user:123', mockQuery({ name: 'Ada' }));
 
 const rendered = render(AccountSummary, {
   dataRuntime: queries.runtime,

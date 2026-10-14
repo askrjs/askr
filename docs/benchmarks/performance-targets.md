@@ -41,6 +41,13 @@ of the two baseline medians of three, retaining every control and candidate.
 - Treat changed labels, changed reset behavior, changed batch sizes, and
   changed browser/runtime versions as new workloads, not comparable baselines.
 
+The component-depth guardrail collects samples for three seconds after a
+one-second warmup with at least three warmup iterations. When comparing
+against an older revision with shorter sampling, use the candidate commit as
+the shared `harness` so baseline, control and candidate use identical options.
+Keep rejected short captures and all raw statistics; longer sampling does not
+change the sample-quality or regression limits above.
+
 ## Current Investigation Order
 
 After a clean baseline exists, profile these paths before changing code:

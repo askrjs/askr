@@ -56,22 +56,18 @@ describe('foundations resolution', () => {
 
     const state = (await import('@askrjs/askr/foundations/state')) as {
       controllableState: unknown;
-      isControlled: unknown;
-      makeControllable: unknown;
-      resolveControllable: unknown;
     };
 
     expect(typeof state.controllableState).toBe('function');
-    expect(typeof state.isControlled).toBe('function');
-    expect(typeof state.makeControllable).toBe('function');
-    expect(typeof state.resolveControllable).toBe('function');
+    expect('isControlled' in state).toBe(false);
+    expect('makeControllable' in state).toBe(false);
+    expect('resolveControllable' in state).toBe(false);
 
     const structures =
       (await import('@askrjs/askr/foundations/structures')) as {
         Slot: unknown;
         cloneElement: unknown;
         createCollection: unknown;
-        createLayer: unknown;
         definePortal: unknown;
         layout: unknown;
         Presence: unknown;
@@ -83,7 +79,7 @@ describe('foundations resolution', () => {
     expect(typeof structures.definePortal).toBe('function');
     expect(typeof structures.Presence).toBe('function');
     expect(typeof structures.createCollection).toBe('function');
-    expect(typeof structures.createLayer).toBe('function');
+    expect('createLayer' in structures).toBe(false);
     expect(typeof structures.cloneElement).toBe('function');
     expect(typeof structures.isElement).toBe('function');
 

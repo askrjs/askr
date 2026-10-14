@@ -2,8 +2,6 @@ import {
   IntrinsicFallbackProps,
   IntrinsicElementForTag,
   IntrinsicRef,
-  JSXElementType,
-  JSXComponent,
   KnownIntrinsicElementProps,
   JSXElement,
   MathMLExtraTag,
@@ -79,11 +77,4 @@ declare function jsxDEV(
   key?: string | number,
   isStaticChildren?: boolean
 ): JSXElement;
-export {
-  Fragment,
-  JSX,
-  type JSXComponent,
-  type JSXElement,
-  type JSXElementType,
-  jsxDEV,
-};
+export { Fragment, JSX, jsxDEV };

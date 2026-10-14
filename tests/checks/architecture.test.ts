@@ -171,6 +171,132 @@ function violatesPublicationBoundary(edge: Edge): boolean {
   );
 }
 
+function violatesSSROutputBoundary(edge: Edge): boolean {
+  const target = relative(edge.to);
+  return (
+    relative(edge.from).startsWith('src/ssr/output-') &&
+    !edge.typeOnly &&
+    !target.startsWith('src/ssr/output-') &&
+    ![
+      'src/ssr/attrs.ts',
+      'src/ssr/escape.ts',
+      'src/ssr/sink.ts',
+      'src/common/portal.ts',
+    ].includes(target)
+  );
+}
+
+function violatesNodeImplementationBoundary(edge: Edge): boolean {
+  return (
+    relative(edge.from).startsWith('src/core/dom/node-') &&
+    !edge.typeOnly &&
+    [
+      'src/core/dom/nodes.ts',
+      'src/core/dom/root.ts',
+      'src/core/dom/updates.ts',
+    ].includes(relative(edge.to))
+  );
+}
+
+function violatesPropImplementationBoundary(edge: Edge): boolean {
+  if (edge.typeOnly) return false;
+  const from = relative(edge.from);
+  const to = relative(edge.to);
+  if (from.startsWith('src/core/dom/prop-value-')) {
+    return (
+      to.startsWith('src/core/') &&
+      ![
+        'src/core/dom/element-attributes.ts',
+        'src/core/dom/dom-properties.ts',
+      ].includes(to)
+    );
+  }
+  return (
+    [
+      'src/core/dom/prop-lifecycle.ts',
+      'src/core/dom/prop-policy.ts',
+      'src/core/dom/prop-select.ts',
+      'src/core/dom/prop-transaction.ts',
+    ].includes(from) &&
+    [
+      'src/core/dom/props.ts',
+      'src/core/dom/root.ts',
+      'src/core/dom/updates.ts',
+      'src/core/dom/nodes.ts',
+      'src/core/dom/reconcile.ts',
+    ].includes(to)
+  );
+}
+
+function violatesQueryLifetimeBoundary(edge: Edge): boolean {
+  return (
+    relative(edge.from) === 'src/data/query-lifetime.ts' &&
+    !edge.typeOnly &&
+    [
+      'src/data/query-cell.ts',
+      'src/data/query-state.ts',
+      'src/data/shared.ts',
+    ].includes(relative(edge.to))
+  );
+}
+
+function violatesRouteAuthoringBoundary(edge: Edge): boolean {
+  if (edge.typeOnly) return false;
+  const from = relative(edge.from);
+  const to = relative(edge.to);
+  if (from === 'src/router/app-meta.ts') return true;
+  if (from === 'src/router/path-policy.ts') {
+    return to !== 'src/router/match.ts';
+  }
+  if (from === 'src/router/registration-scope.ts') {
+    return ![
+      'src/router/store.ts',
+      'src/router/access.ts',
+      'src/router/path-policy.ts',
+      'src/router/app-meta.ts',
+    ].includes(to);
+  }
+  return (
+    from === 'src/router/route-registration.ts' &&
+    [
+      'src/router/authoring.ts',
+      'src/router/route.ts',
+      'src/router/index.ts',
+    ].includes(to)
+  );
+}
+
+function violatesNavigationBoundary(edge: Edge): boolean {
+  if (edge.typeOnly) return false;
+  const from = relative(edge.from);
+  const to = relative(edge.to);
+  if (from === 'src/router/navigation-request.ts') return true;
+  if (from === 'src/router/navigation-resolution.ts') {
+    return (
+      to.startsWith('src/boot/') ||
+      to.startsWith('src/core/') ||
+      [
+        'src/common/root-update.ts',
+        'src/router/navigation-commit.ts',
+        'src/router/navigation-targets.ts',
+        'src/router/navigate.ts',
+        'src/router/navigation-request.ts',
+        'src/router/navigation-scroll.ts',
+        'src/router/history-index.ts',
+        'src/router/document-navigation.ts',
+      ].includes(to)
+    );
+  }
+  return (
+    from === 'src/router/navigation-commit.ts' &&
+    [
+      'src/router/navigation-resolution.ts',
+      'src/router/navigation-targets.ts',
+      'src/router/navigate.ts',
+    ].includes(to)
+  );
+}
+
 function findCycles(): string[] {
   const graph = new Map<string, Set<string>>();
   for (const edge of edges.filter((edge) => !edge.typeOnly)) {
@@ -242,6 +368,295 @@ function findModuleCycles(): string[][] {
 }
 
 describe('architecture boundaries', () => {
+  it('should isolate navigation resolution and commit from the single request owner', () => {
+    expect(edges.filter(violatesNavigationBoundary).map(format)).toEqual([]);
+    expect(
+      edges.some(
+        (edge) =>
+          relative(edge.from) === 'src/router/navigate.ts' &&
+          relative(edge.to) === 'src/router/navigation-request.ts' &&
+          !edge.typeOnly
+      )
+    ).toBe(true);
+    expect(
+      edges.some(
+        (edge) =>
+          relative(edge.from) === 'src/router/navigate.ts' &&
+          relative(edge.to) === 'src/router/navigation-resolution.ts' &&
+          !edge.typeOnly
+      )
+    ).toBe(true);
+    expect(
+      edges.some(
+        (edge) =>
+          relative(edge.from) === 'src/router/navigation-targets.ts' &&
+          relative(edge.to) === 'src/router/navigation-commit.ts' &&
+          !edge.typeOnly
+      )
+    ).toBe(true);
+  });
+
+  it('should reject navigation resolution imports of commit capabilities and request-owner back imports', () => {
+    const parse = (module: string, text: string) => {
+      const file = path.join(srcDir, 'router', module + '.ts');
+      return collectEdges(
+        file,
+        ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true)
+      );
+    };
+    const synthetic = [
+      ...parse(
+        'navigation-request',
+        `import './navigate'; import type { NavigateOptions } from './navigation-types';`
+      ),
+      ...parse(
+        'navigation-resolution',
+        `import './navigation-commit'; export * from '../common/root-update'; const browser = import('./history-index'); import './resolution'; import type { AppNavigationTarget } from './navigation-types';`
+      ),
+      ...parse(
+        'navigation-commit',
+        `import './navigation-targets'; import './navigation-request';`
+      ),
+    ];
+    expect(synthetic.filter(violatesNavigationBoundary).map(format)).toEqual([
+      'src/router/navigation-request.ts -> src/router/navigate.ts',
+      'src/router/navigation-resolution.ts -> src/router/navigation-commit.ts',
+      'src/router/navigation-resolution.ts -> src/common/root-update.ts',
+      'src/router/navigation-resolution.ts -> src/router/history-index.ts',
+      'src/router/navigation-commit.ts -> src/router/navigation-targets.ts',
+    ]);
+  });
+
+  it('should keep path policy and scope capture below record registration and public authoring', () => {
+    expect(edges.filter(violatesRouteAuthoringBoundary).map(format)).toEqual(
+      []
+    );
+    for (const module of ['registration-scope', 'route-registration']) {
+      expect(
+        edges.some(
+          (edge) =>
+            relative(edge.from) === 'src/router/authoring.ts' &&
+            relative(edge.to) === `src/router/${module}.ts` &&
+            !edge.typeOnly
+        )
+      ).toBe(true);
+    }
+  });
+
+  it('should reject path and scope dependencies on registration through imports, reexports and dynamic imports', () => {
+    const pathFile = path.join(srcDir, 'router', 'path-policy.ts');
+    const scopeFile = path.join(srcDir, 'router', 'registration-scope.ts');
+    const parse = (file: string, source: string) =>
+      collectEdges(
+        file,
+        ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true)
+      );
+    const synthetic = [
+      ...parse(
+        pathFile,
+        `import './store'; export * from './authoring'; import './match'; import type { RouteParams } from '../common/router';`
+      ),
+      ...parse(
+        scopeFile,
+        `const registration = import('./route-registration'); import './path-policy'; import './store';`
+      ),
+      ...parse(
+        path.join(srcDir, 'router', 'route-registration.ts'),
+        `import './authoring'; import './registration-scope';`
+      ),
+      ...parse(
+        path.join(srcDir, 'router', 'app-meta.ts'),
+        `import './store'; import './authoring';`
+      ),
+    ];
+    expect(
+      synthetic.filter(violatesRouteAuthoringBoundary).map(format)
+    ).toEqual([
+      'src/router/path-policy.ts -> src/router/store.ts',
+      'src/router/path-policy.ts -> src/router/authoring.ts',
+      'src/router/registration-scope.ts -> src/router/route-registration.ts',
+      'src/router/route-registration.ts -> src/router/authoring.ts',
+      'src/router/app-meta.ts -> src/router/store.ts',
+      'src/router/app-meta.ts -> src/router/authoring.ts',
+    ]);
+  });
+
+  it('should keep query reader and cache lifetime independent of async publication', () => {
+    expect(edges.filter(violatesQueryLifetimeBoundary).map(format)).toEqual([]);
+    expect(
+      edges.some(
+        (edge) =>
+          relative(edge.from) === 'src/data/query-cell.ts' &&
+          relative(edge.to) === 'src/data/query-lifetime.ts' &&
+          !edge.typeOnly
+      )
+    ).toBe(true);
+  });
+
+  it('should reject reader lifetime imports of async state while allowing snapshot types and scheduling', () => {
+    const file = path.join(srcDir, 'data', 'query-lifetime.ts');
+    const source = ts.createSourceFile(
+      file,
+      `
+      import './query-cell';
+      export * from './query-state';
+      const publication = import('./shared');
+      import type { QueryState } from './types';
+      import '../core/reactive/scheduler';
+    `,
+      ts.ScriptTarget.Latest,
+      true
+    );
+    expect(
+      collectEdges(file, source)
+        .filter(violatesQueryLifetimeBoundary)
+        .map(format)
+    ).toEqual([
+      'src/data/query-lifetime.ts -> src/data/query-cell.ts',
+      'src/data/query-lifetime.ts -> src/data/query-state.ts',
+      'src/data/query-lifetime.ts -> src/data/shared.ts',
+    ]);
+  });
+
+  it('should keep prop implementations below orchestration and value writers independent of lifetimes and transactions', () => {
+    expect(
+      edges.filter(violatesPropImplementationBoundary).map(format)
+    ).toEqual([]);
+  });
+
+  it('should reject value writer dependencies on pass, orchestration and lifetimes while allowing DOM helpers and context types', () => {
+    const file = path.join(srcDir, 'core', 'dom', 'prop-value-style.ts');
+    const source = ts.createSourceFile(
+      file,
+      `
+      import './pass';
+      export * from './props';
+      const lifetime = import('./prop-lifecycle');
+      import type { Pass } from './pass';
+      import './dom-properties';
+      import './element-attributes';
+    `,
+      ts.ScriptTarget.Latest,
+      true
+    );
+    expect(
+      collectEdges(file, source)
+        .filter(violatesPropImplementationBoundary)
+        .map(format)
+    ).toEqual([
+      'src/core/dom/prop-value-style.ts -> src/core/dom/pass.ts',
+      'src/core/dom/prop-value-style.ts -> src/core/dom/props.ts',
+      'src/core/dom/prop-value-style.ts -> src/core/dom/prop-lifecycle.ts',
+    ]);
+  });
+
+  it('should delegate host lifetimes and scalar value kinds to private implementations', () => {
+    expect(
+      edges.some(
+        (edge) =>
+          relative(edge.from) === 'src/core/dom/props.ts' &&
+          relative(edge.to) === 'src/core/dom/prop-lifecycle.ts' &&
+          !edge.typeOnly
+      )
+    ).toBe(true);
+    expect(
+      new Set(
+        edges
+          .filter(
+            (edge) =>
+              relative(edge.from) === 'src/core/dom/prop-values.ts' &&
+              relative(edge.to).startsWith('src/core/dom/prop-value-') &&
+              !edge.typeOnly
+          )
+          .map((edge) => relative(edge.to))
+      )
+    ).toEqual(
+      new Set([
+        'src/core/dom/prop-value-class.ts',
+        'src/core/dom/prop-value-form.ts',
+        'src/core/dom/prop-value-html.ts',
+        'src/core/dom/prop-value-style.ts',
+      ])
+    );
+  });
+
+  it('should keep node implementations independent of dispatch and standalone update orchestration', () => {
+    expect(
+      edges.filter(violatesNodeImplementationBoundary).map(format)
+    ).toEqual([]);
+    expect(
+      edges.some(
+        (edge) =>
+          relative(edge.from) === 'src/core/dom/nodes.ts' &&
+          relative(edge.to).startsWith('src/core/dom/node-') &&
+          !edge.typeOnly
+      )
+    ).toBe(true);
+  });
+
+  it('should reject node implementation imports of coordinators while allowing context types and sibling implementations', () => {
+    const file = path.join(srcDir, 'core', 'dom', 'node-hydration.ts');
+    const source = ts.createSourceFile(
+      file,
+      `
+      import './nodes';
+      export * from './updates';
+      const root = import('./root');
+      import type { RenderContext } from './reconcile';
+      import './node-context';
+    `,
+      ts.ScriptTarget.Latest,
+      true
+    );
+    expect(
+      collectEdges(file, source)
+        .filter(violatesNodeImplementationBoundary)
+        .map(format)
+    ).toEqual([
+      'src/core/dom/node-hydration.ts -> src/core/dom/nodes.ts',
+      'src/core/dom/node-hydration.ts -> src/core/dom/updates.ts',
+      'src/core/dom/node-hydration.ts -> src/core/dom/root.ts',
+    ]);
+  });
+
+  it('should keep SSR output infrastructure independent of traversal and route orchestration', () => {
+    expect(edges.filter(violatesSSROutputBoundary).map(format)).toEqual([]);
+    expect(
+      edges.some(
+        (edge) =>
+          relative(edge.from) === 'src/ssr/render-sync.ts' &&
+          relative(edge.to).startsWith('src/ssr/output-') &&
+          !edge.typeOnly
+      )
+    ).toBe(true);
+  });
+
+  it('should reject SSR output rendering edges while allowing type-only context dependencies', () => {
+    const file = path.join(srcDir, 'ssr', 'output-portals.ts');
+    const source = ts.createSourceFile(
+      file,
+      `
+      import './render-sync';
+      export * from './route-render';
+      import '../boot/hydrate-spa';
+      import '../core/component/instance';
+      import type { RenderContext } from './context';
+      import '../common/portal';
+      import './sink';
+    `,
+      ts.ScriptTarget.Latest,
+      true
+    );
+    expect(
+      collectEdges(file, source).filter(violatesSSROutputBoundary).map(format)
+    ).toEqual([
+      'src/ssr/output-portals.ts -> src/ssr/render-sync.ts',
+      'src/ssr/output-portals.ts -> src/ssr/route-render.ts',
+      'src/ssr/output-portals.ts -> src/boot/hydrate-spa.ts',
+      'src/ssr/output-portals.ts -> src/core/component/instance.ts',
+    ]);
+  });
+
   it('should keep SSG publication infrastructure independent of route rendering', () => {
     expect(edges.filter(violatesPublicationBoundary).map(format)).toEqual([]);
   });
@@ -408,14 +823,17 @@ describe('architecture boundaries', () => {
     expect(violations).toEqual([]);
   });
 
-  it('should own router request cancellation in one module', () => {
+  it('should keep navigation and shared session cancellation in their owning modules', () => {
     // Navigation cancellation belongs to the module owning the request
     // lifetime. resolution.ts keeps one documented never-aborting stand-in for
-    // callers that supply no signal; anything else is a second, silent
-    // cancellation channel.
+    // callers that supply no signal. session-auth.ts owns one shared session
+    // GET: an individual route caller may cancel only its waiter, whereas
+    // identity invalidation retires the shared request. Any other controller
+    // would introduce a second cancellation channel for these lifetimes.
     const expected = {
-      'src/router/navigation-targets.ts': 1,
+      'src/router/navigation-request.ts': 1,
       'src/router/resolution.ts': 1,
+      'src/router/session-auth.ts': 1,
     };
     const found: Record<string, number> = {};
     for (const { file, relative, source } of sources) {

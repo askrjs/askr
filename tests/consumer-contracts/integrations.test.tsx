@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { expect, test } from 'vite-plus/test';
 import { createRef, state } from '@askrjs/askr';
 import { cleanupApp, createSPA, hydrateSPA } from '@askrjs/askr/boot';
 import { flush } from '@askrjs/askr/testing';

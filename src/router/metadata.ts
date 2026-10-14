@@ -66,16 +66,36 @@ function metadataSources(record: RouteRecord): readonly RouteMetaSource[] {
 }
 
 /** Resolve a route's merged {@link RouteMeta} by running its metadata chain against `context`. */
-export async function resolveRouteMeta(
+export function resolveRouteMeta(
   record: RouteRecord,
   context: RouteContext
 ): Promise<Readonly<RouteMeta>> {
+  return resolveRouteMetaInternal(record, context);
+}
+
+/** Private route-owner fence; the public metadata resolver stays unchanged. */
+export function resolveOwnedRouteMeta(
+  record: RouteRecord,
+  context: RouteContext,
+  assertCurrent: () => void
+): Promise<Readonly<RouteMeta>> {
+  return resolveRouteMetaInternal(record, context, assertCurrent);
+}
+
+async function resolveRouteMetaInternal(
+  record: RouteRecord,
+  context: RouteContext,
+  assertCurrent?: () => void
+): Promise<Readonly<RouteMeta>> {
+  assertCurrent?.();
   let resolved: RouteMeta = record.options.title
     ? { title: record.options.title }
     : {};
 
   for (const source of metadataSources(record)) {
+    assertCurrent?.();
     const next = typeof source === 'function' ? await source(context) : source;
+    assertCurrent?.();
     resolved = mergeMeta(resolved, next);
   }
 

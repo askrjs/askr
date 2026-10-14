@@ -5,6 +5,10 @@ Patterns for building forms in Askr with `state()` and headless UI primitives.
 Use local state for draft values, validate before submit, and keep API calls at
 the route or feature-container boundary.
 
+For reusable or server-rendered fields, pass a stable application-owned ID and
+derive label/description associations from it. See [Stable IDs](./stable-ids.md)
+for instance namespaces, keyed lists and verified hydration.
+
 ## Typical Form Structure
 
 ```tsx
@@ -117,6 +121,52 @@ other pre-authentication forms need a custom server-side CSRF `sessionId`
 strategy. Protocol callbacks such as a SAML ACS should remain protocol routes,
 because an identity provider posts a protocol response rather than an Askr
 action submission.
+
+## Client-rendered action CSRF
+
+A pure SPA has no server-rendered page token. Pass an explicit asynchronous
+resolver to `action()` when the application obtains its token through a
+same-origin server endpoint:
+
+```tsx
+const rename = action(renameProject, {
+  csrfToken: async (signal) => {
+    const response = await fetch('/api/action-csrf', {
+      credentials: 'same-origin',
+      cache: 'no-store',
+      redirect: 'error',
+      signal,
+    });
+    if (!response.ok) throw new Error('Action CSRF bootstrap failed.');
+    const data: unknown = await response.json();
+    if (!data || typeof data !== 'object' || Array.isArray(data))
+      throw new Error('Invalid action CSRF bootstrap.');
+    const token = 'csrfToken' in data ? data.csrfToken : undefined;
+    if (!(token === undefined || typeof token === 'string'))
+      throw new Error('Invalid action CSRF bootstrap.');
+    return token;
+  },
+});
+```
+
+The application-owned GET endpoint must issue the token for the current
+session with the same secret and session identity as the action registry.
+With `@askrjs/server/middleware`, use `createCsrfToken(secret, sessionId)`;
+keep the secret and session ID server-side. Return only `{ csrfToken }`, use
+`Cache-Control: no-store`, and do not enable cross-origin reads. An anonymous
+session may return `{}`; actions that require a session still reject it.
+
+The resolver runs for every submission and receives a signal tied to the
+component and its data runtime. An undefined result omits the header and does
+not reuse an SSR token. Rejection stops the mutation; there is no automatic
+retry. Logout, identity replacement or component teardown aborts this opted-in
+operation, and a late resolver cannot start its POST. Cancellation does not
+undo a server mutation that already executed. Overlapping submissions retain
+the existing last-started-wins status behavior.
+
+The one-argument `action(descriptor)` path and native `ActionForm` continue to
+use the server-rendered page token. This option does not populate framework
+data, hydrate an identity or change routing.
 
 ## Common Pitfalls
 

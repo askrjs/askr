@@ -45,3 +45,31 @@ export function normalizeAsyncDataError(
   }
   return new Error(error == null ? fallbackMessage : String(error));
 }
+
+/** Settle promptly on abort, while observing uncancellable late completions. */
+export function raceAbort<T>(
+  promise: Promise<T>,
+  signals: readonly AbortSignal[]
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const cleanup = () => {
+      for (const signal of signals) signal.removeEventListener('abort', abort);
+    };
+    const abort = () => {
+      cleanup();
+      reject(signals.find((signal) => signal.aborted)!.reason);
+    };
+    for (const signal of signals) signal.addEventListener('abort', abort);
+    if (signals.some((signal) => signal.aborted)) abort();
+    void promise.then(
+      (value) => {
+        cleanup();
+        resolve(value);
+      },
+      (error) => {
+        cleanup();
+        reject(error);
+      }
+    );
+  });
+}

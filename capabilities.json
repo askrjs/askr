@@ -103,6 +103,20 @@
       "stability": "preview",
       "docs": "https://github.com/askrjs/askr/blob/main/docs/reference/api.md",
       "docsPath": "docs/reference/api.md"
+    },
+    {
+      "intent": "server provider-session client binding",
+      "package": "@askrjs/askr",
+      "import": "@askrjs/askr/router",
+      "exports": ["createSessionAuth", "currentAuth"],
+      "constraints": [
+        "same-origin askr-server provider-session routes",
+        "session-bound routed roots own dedicated isolated data runtimes",
+        "identity snapshots exclude provider tokens and resource API grants"
+      ],
+      "stability": "preview",
+      "docs": "https://github.com/askrjs/askr/blob/main/docs/guides/provider-sessions.md",
+      "docsPath": "docs/guides/provider-sessions.md"
     }
   ]
 }

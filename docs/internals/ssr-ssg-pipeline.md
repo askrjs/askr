@@ -40,7 +40,7 @@ flowchart LR
   internal[index-internal.ts]
   renderSync[render-sync.ts]
   hydrationData[hydration-data.ts]
-  boundaries[boundaries.ts boundary helpers]
+  output[private output modules]
   componentInstance[temp component instances]
   syncRender[sync component render]
   attrs[attr escaping and serialization]
@@ -53,11 +53,12 @@ flowchart LR
   routeRender --> ssrContext
   routeRender --> internal
   internal --> renderSync
-  renderSync --> boundaries
+  renderSync --> output
   renderSync --> componentInstance
   componentInstance --> syncRender
   renderSync --> attrs
-  attrs --> html
+  attrs --> output
+  output --> html
   renderSync --> hydrationData
   hydrationData --> hydrateData
 ```
@@ -74,56 +75,59 @@ No component or caller attribute function runs again. This internal bridge
 does not add public JSX props; roots without the private marker keep their
 existing serialization order and bytes.
 
-`src/ssr/index.ts` preserves the public entrypoint. The active implementation
-is split between route/document orchestration in `route-render.ts` and
-synchronous serialization in `render-sync.ts`. `index-internal.ts` keeps the
-public SSR orchestration and route render host. `component-runtime.ts` owns
-synchronous component execution. `hydration-data.ts` owns render-data script
-serialization. `boundaries.ts` owns error/control boundary state helpers,
-renderable child normalization, and default fallback construction. The client
-boot path calls `verify-hydration.ts` when markup verification is enabled; that
-helper renders the resolved route to a normalized string and compares it with
-the adopted DOM, then compares the server markup with the DOM the client
-renderer leaves after the hydration commit, so SSR/client renderer divergences
-are reported too. Both comparisons normalize through the DOM: comments,
-transport carriers and renderer key/skip bookkeeping are dropped and style
-attributes are compared by their parsed declarations. Helper modules own escaping, attributes, sinks, render
-context, and resolved-route rendering.
+`src/ssr/index.ts` preserves the public entrypoint. `index-internal.ts`
+coordinates the public SSR helpers and route render host. `route-render.ts`
+owns route/document orchestration; `render-sync.ts` owns synchronous traversal,
+component execution through core component instances, boundary recovery,
+namespace and select state, and the point at which successful output is
+published.
+
+The private output modules sit below traversal:
+
+- `output-buffer.ts` records ordered text, portal, reference-attribute, and
+  attribute-root operations. Failed boundary buffers are discarded. Successful
+  buffers publish to the chosen sink; streaming writes the prefix immediately
+  and buffers once a portal or deferred attribute root requires finalization.
+- `output-portals.ts` checkpoints portal writers for boundary rollback and
+  resolves host tokens in writer order. The renderer supplies the callback that
+  renders each writer with its owner and host namespace. Newly discovered nested
+  hosts are resolved before completion.
+- `output-reference.ts` owns request-local reference tokens and serializes their
+  final cell values after portal expansion. It does not re-evaluate caller props.
+
+`hydration-data.ts` owns render-data script serialization. The client boot path
+calls `verify-hydration.ts` when markup verification is enabled. It compares the
+server render with both the adopted DOM and the DOM after hydration commits.
+The comparison normalizes through the DOM: comments, transport carriers, and
+renderer key/skip bookkeeping are dropped; style declarations are compared by
+their parsed values. Escaping, attributes, sinks, context, and resolved-route
+rendering remain separate helpers.
 
 ```mermaid
 flowchart TB
   facade[index.ts facade]
-  routeRender[route-render.ts]
   internal[index-internal.ts]
-  boot[hydrateSPA]
-  renderSync[render-sync.ts]
+  routeRender[route-render.ts]
+  renderSync[render-sync.ts traversal and publication]
+  components[core component instances]
+  buffers[output-buffer.ts ordered operations]
+  portals[output-portals.ts checkpoint and resolution]
+  references[output-reference.ts deferred attributes]
   hydrationData[hydration-data.ts]
-  hydrationVerify[verify-hydration.ts]
-  boundaries[boundaries.ts]
-  componentRuntime[component-runtime.ts]
-  serialize[renderable and node serialization]
-  controls[error and control boundary state/fallback helpers]
-  components[component execution for sync SSR]
-  hydration[hydration data and verification]
-  routes[route source and document orchestration]
+  boot[hydrateSPA]
+  verification[verify-hydration.ts]
   sinks[string and stream sinks]
-  helpers[attrs, escape, context, render-resolved]
 
   facade --> internal
   internal --> routeRender
   internal --> renderSync
-  boot --> hydrationVerify
-  renderSync --> componentRuntime
-  renderSync --> boundaries
-  renderSync --> serialize
+  renderSync --> components
+  renderSync --> buffers
+  renderSync --> portals
+  renderSync --> references
   renderSync --> hydrationData
-  boundaries --> controls
-  componentRuntime --> components
-  hydrationData --> hydration
-  hydrationVerify --> hydration
-  routeRender --> routes
-  routeRender --> sinks
-  renderSync --> helpers
+  buffers --> sinks
+  boot --> verification
 ```
 
 ## SSR execution constraints
@@ -264,6 +268,9 @@ The SSR and SSG diagrams are backed by architecture checks:
 
 - Server modules cannot import browser renderer implementations. The client
   boot dependency on `verify-hydration.ts` is an explicit dependency exception.
+- Private SSR output modules cannot import traversal, route orchestration, or
+  component execution at runtime. The renderer supplies portal traversal through
+  a callback and owns the publication point.
 - Request-isolation, nested synchronous execution, hydration authentication,
   streaming cancellation, and generation tests enforce behavior at these seams.
 - SSG should remain an orchestration layer over route expansion and repeated

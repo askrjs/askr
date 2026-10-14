@@ -17,15 +17,19 @@ import {
 import {
   applyNavigationTargets,
   applyPopStateNavigationTargets,
+  getNavigationHistoryMode,
+} from './navigation-targets';
+import {
   beginRouteRequest,
   cancelRouteRequests,
-  getNavigationHistoryMode,
   isStaleRouteRequest,
-  resolveNavigationTargetsForApps,
-  type AppNavigationTarget,
-  type NavigateOptions,
-  type NavigationRedirectState,
-} from './navigation-targets';
+} from './navigation-request';
+import { resolveNavigationTargetsForApps } from './navigation-resolution';
+import type {
+  AppNavigationTarget,
+  NavigateOptions,
+  NavigationRedirectState,
+} from './navigation-types';
 import type { RouteDestination } from '../common/router';
 import { addLogicalRouteBasePath } from './base-path';
 import { loadDocument } from './document-navigation';
@@ -143,6 +147,7 @@ function navigateWithRedirectState(
   }
 
   const request = beginRouteRequest();
+  if (isStaleRouteRequest(request.id)) return;
 
   const target = parseNavigationTarget(path);
   if (!isCurrentOrigin(target)) {
@@ -210,6 +215,7 @@ function handlePopState(event: PopStateEvent): void {
   }
   beginHistoryFocusRestoration();
   const request = beginRouteRequest();
+  if (isStaleRouteRequest(request.id)) return;
   const previousHref = getCurrentHref();
   const historyIndex = landOnHistoryEntry(event.state);
   const pathname = window.location.pathname;

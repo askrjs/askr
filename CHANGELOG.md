@@ -1,5 +1,102 @@
 # Changelog
 
+## 0.5.0 - 2026-10-12
+
+- Document the application-owned stable ID pattern for label and description associations, with installed SSR/hydration, keyed reordering, independent roots and native browser qualification.
+- Document and execute an optional DOM Testing Library/user-event recipe for
+  native component and router harnesses, with scoped accessible queries, input
+  and keyboard interactions, async retry, isolated runtime retirement and
+  cleanup; qualify browser defaults separately. The integrations are dev-only
+  and add no runtime dependency or public export (#755).
+- Add typed `appMeta` declaration data to routes, groups and pages, with immutable
+  parent-to-leaf `currentRoute().matches` reads and leaf-only `matchRoute()` reads.
+  Application metadata is separate from head metadata and is not automatically
+  transported in SSR hydration data. See the application route metadata guide.
+
+### Breaking changes
+
+- Require `@askrjs/auth` and `@askrjs/schema` 0.5.x when these optional peers
+  are used. Upgrade their packages together with Core.
+- Reduce the Core surface from 373 to 342 named/entrypoint pairs while keeping
+  all 22 export-map keys. Remove testing `mount`/`queryState` aliases; move
+  testing `matchRoute` to its router owner. Remove utilities `ariaDisabled`,
+  `ariaExpanded`, `ariaSelected`, `DefaultPreventable`, `FocusLikeEvent`,
+  `KeyboardLikeEvent`, `PointerLikeEvent`, and `PropagationStoppable`.
+- Retire stateless `isControlled`, `resolveControllable`, and `makeControllable`
+  exports and manual `createLayer`, `Layer`, `LayerOptions`, and `LayerManager`
+  exports. Remove router `ParsedSegment`, `PageScopeRecord`, and
+  `LayoutScopeRecord`; import `AuthContext`/`AuthRequirement` from `@askrjs/auth`.
+- Remove SSR `SSRRoute` and SSG `RouteConfig`/`DiscoveredResources`; make
+  registry-based `SSGOptions` non-generic. Import `SSRStyleRegistrationValidation`
+  from SSR. Import `jsxDEV` from `jsx-dev-runtime` and manual `JSXComponent`,
+  `JSXElement`, and `JSXElementType` from `jsx-runtime`.
+  See `docs/migration/0.5.0.md` for every replacement and behavior difference,
+  and `docs/development/0.5.0-public-api.md` for the complete API decisions.
+
+### Deprecations
+
+- None.
+
+### Additions
+
+- Add `createSessionAuth()` and its three option/binding types at the router
+  owner for same-origin server provider sessions. Adopt a minimal SSR identity,
+  dedupe session GETs, construct safe provider links and retire private routed
+  data before logout or identity changes. Decoded typed interaction failures
+  trigger login or consent recovery without wrapping API transports.
+  Session-bound roots own dedicated isolated runtimes; manual auth remains
+  independently supported. See `docs/guides/provider-sessions.md` (#777).
+
+- Export the existing `RenderableChild` type from `@askrjs/askr` for component
+  presentation props and layout slots, including nested readonly arrays.
+  Together with isolated runtime retirement and app runtime replacement, the
+  surface before the provider-session binding has 345 named/entrypoint pairs.
+  Value children exclude factories; `Scope` retains its explicit factory-child
+  contract. See `docs/core/rendering.md#presentation-children`.
+- Add `disposeDataRuntime()` at `@askrjs/askr/data` for terminal, idempotent
+  retirement of isolated runtimes, including retained readers, queued work,
+  mutation rollback, and abort-ignoring requests. Create a new isolated runtime
+  after disposal; the shared default cannot be disposed.
+  Native prefetch uses the effective `context.signal` combining caller cancellation
+  and retirement, rather than preserving the caller signal's object identity;
+  disposing the runtime does not abort the caller's own signal.
+- Add `replaceDataRuntime(root, next)` at `@askrjs/askr/boot` to switch a live
+  routed app or island to another native runtime without remounting its shell.
+  Future implicit data hooks and route preloads use the replacement; pending
+  navigation from an earlier owner cannot publish. The operation preserves
+  component state and does not dispose the previous runtime. Explicitly retire
+  an exclusively owned old runtime when changing identity.
+
+- Add aggregate critical-runtime coverage with independent DOM, SSR, data and
+  router regression floors, CI source reports, and cleanup/hydration failure
+  and recovery probes.
+
+### Fixes
+
+- Preserve session transport failures when a supplied fetch throws before
+  returning a promise; allow the next resolution to retry without an unhandled
+  rejection or cached identity.
+
+- Make removed-export type assertions fail when a value or type is restored.
+  Qualify the packed absence checks under TypeScript 6 and 7, and exercise
+  the required classic JSX factory for a key written after a spread.
+
+- Preserve newer navigation ownership when an abort listener starts or cancels
+  a request, and stop the interrupted request before starting obsolete work.
+
+- Enforce startup locks and component-function checks for index and fallback
+  routes, retain a page's index slot after failed registration, and normalize
+  root-page fallback paths to `/*`.
+
+- Ignore query results and consistency errors superseded by their own callbacks;
+  preserve newer invalidation work created by start or reconciliation abort
+  listeners instead of starting obsolete transport or suppressing retries.
+- Retire a destroyed query's cache entry before abort listeners run, so a reader
+  mounted by that listener acquires a live replacement for the same key.
+
+- Restore hydration render context when claiming SSR resource metadata throws,
+  so a failed claim leaves server nodes and the following hydration retry intact.
+
 ## 0.4.4 - 2026-10-08
 
 ### Breaking changes

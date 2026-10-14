@@ -34,6 +34,9 @@ export type InflightPrefetch = {
 };
 
 export type DataRuntimeState = {
+  retired: boolean;
+  readonly retirement: AbortController;
+  readonly retirementOwners: Set<WeakRef<DataRuntimeRetirementOwner>>;
   queryCache: Map<string, QueryCell<unknown>>;
   queryData: Map<string, unknown>;
   /** Unread browser-prefetched `queryData` entries, oldest first. */
@@ -51,6 +54,46 @@ export type DataRuntimeState = {
   mutationTestOverrides: Map<string, unknown>;
 };
 
+interface DataRuntimeRetirementOwner {
+  retire(): void;
+}
+
+const retiredOwnerFinalizer = new FinalizationRegistry<{
+  owners: DataRuntimeState['retirementOwners'];
+  reference: WeakRef<DataRuntimeRetirementOwner>;
+}>(({ owners, reference }) => owners.delete(reference));
+
+/** Track retained handles without keeping evicted/ownerless cells alive. */
+export function registerDataRuntimeOwner(
+  state: DataRuntimeState,
+  owner: DataRuntimeRetirementOwner
+): () => void {
+  assertDataRuntimeActive(state);
+  const reference = new WeakRef(owner);
+  state.retirementOwners.add(reference);
+  retiredOwnerFinalizer.register(
+    owner,
+    { owners: state.retirementOwners, reference },
+    reference
+  );
+  return () => {
+    state.retirementOwners.delete(reference);
+    retiredOwnerFinalizer.unregister(reference);
+  };
+}
+
+function dataRuntimeDisposedError(): Error {
+  const error = new Error(
+    '[Askr] data runtime was disposed. Create a new isolated runtime with createDataRuntime().'
+  );
+  error.name = 'AbortError';
+  return error;
+}
+
+export function assertDataRuntimeActive(state: DataRuntimeState): void {
+  if (state.retired) throw state.retirement.signal.reason;
+}
+
 const dataRuntimeStates = new WeakMap<DataRuntime, DataRuntimeState>();
 const dataRuntimeByQueryCache = new WeakMap<
   Map<string, unknown>,
@@ -62,6 +105,9 @@ function createDataRuntimeState(
   queryData: Map<string, unknown>
 ): DataRuntimeState {
   return {
+    retired: false,
+    retirement: new AbortController(),
+    retirementOwners: new Set(),
     queryCache: queryCache as Map<string, QueryCell<unknown>>,
     queryData,
     unreadPrefetches: new Map(),
@@ -96,6 +142,34 @@ const defaultDataRuntime = createDataRuntime();
 /** Get the process-wide default {@link DataRuntime} used when none is provided explicitly. */
 export function getDefaultDataRuntime(): DataRuntime {
   return defaultDataRuntime;
+}
+
+/** Terminally retire an isolated runtime and all its retained data/work. */
+export function disposeDataRuntime(runtime: DataRuntime): void {
+  const state = getDataRuntimeState(runtime);
+  if (runtime === defaultDataRuntime) {
+    throw new Error(
+      '[Askr] The shared default data runtime cannot be disposed. Create an isolated runtime with createDataRuntime().'
+    );
+  }
+  if (state.retired) return;
+  state.retired = true;
+  // Establish the rejection reason before any user rollback/abort callbacks.
+  state.retirement.abort(dataRuntimeDisposedError());
+  try {
+    drain(state.retirementOwners, (reference) => {
+      retiredOwnerFinalizer.unregister(reference);
+      reference.deref()?.retire();
+    });
+  } finally {
+    state.retirementOwners.clear();
+    state.queryCache.clear();
+    state.queryData.clear();
+    state.unreadPrefetches.clear();
+    state.prefetches.clear();
+    state.queryTestOverrides.clear();
+    state.mutationTestOverrides.clear();
+  }
 }
 
 function getDataRuntimeState(runtime: DataRuntime): DataRuntimeState {
@@ -150,9 +224,14 @@ function getActiveDataRuntimeState(): DataRuntimeState {
 }
 
 export function resolveDataRuntimeState(
-  runtime?: DataRuntime
+  runtime?: DataRuntime,
+  existingReader = false
 ): DataRuntimeState {
-  return runtime ? getDataRuntimeState(runtime) : getActiveDataRuntimeState();
+  const state = runtime
+    ? getDataRuntimeState(runtime)
+    : getActiveDataRuntimeState();
+  if (!existingReader) assertDataRuntimeActive(state);
+  return state;
 }
 
 /** State for a runtime from createDataRuntime(); undefined for hand-built ones. */
@@ -314,6 +393,7 @@ export function invalidateQueriesForRuntime(
   prefix: string,
   markPendingWrite: boolean
 ): void {
+  if (runtimeState.retired) return;
   if (hasInvalidationListeners()) {
     emitInvalidation({ prefix, markPendingWrite });
   }
@@ -355,6 +435,7 @@ export function refreshQueriesOnActivity(
   prefix: string,
   staleTimeMs: number | 'always'
 ): void {
+  if (runtimeState.retired) return;
   const now = Date.now();
   for (const [key, query] of runtimeState.queryCache) {
     if (

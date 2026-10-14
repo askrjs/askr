@@ -48,3 +48,13 @@ jobs:
 
       - name: Test packed consumers
         run: npm run test:installed
+
+      - name: Measure runtime coverage
+        run: npm run test:coverage
+
+      - name: Upload runtime coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runtime-coverage-${{ matrix.os }}
+          path: coverage/runtime/

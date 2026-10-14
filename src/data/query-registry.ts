@@ -5,6 +5,7 @@ import type {
   ServerQueryHandler,
 } from './types';
 import {
+  assertDataRuntimeActive,
   createDataRuntime,
   getDefaultDataRuntime,
   findDataRuntimeState,
@@ -14,6 +15,7 @@ import {
 import type { CoreTelemetry } from '../common/telemetry';
 import { withTelemetry } from '../common/telemetry';
 import { validateJsonTransportValue } from '../common/json-transport';
+import { raceAbort } from './shared';
 
 /** Lookup table of server handlers keyed by their {@link QueryDefinition}, built by {@link defineServerQueries}. */
 export interface ServerQueryRegistry {
@@ -81,26 +83,6 @@ function assertQueryDataTransportSafe(key: string, value: unknown): void {
 }
 
 /**
- * Settle with `promise`, or reject with the reason of the first of `signals`
- * to abort.
- */
-function raceAbort<T>(
-  promise: Promise<T>,
-  signals: readonly AbortSignal[]
-): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const abort = () => reject(signals.find((each) => each.aborted)!.reason);
-    for (const each of signals) {
-      if (each.aborted) abort();
-      each.addEventListener('abort', abort);
-    }
-    void promise.then(resolve, reject).finally(() => {
-      for (const each of signals) each.removeEventListener('abort', abort);
-    });
-  });
-}
-
-/**
  * Create a {@link QueryPrefetchContext} for prefetching query data ahead of
  * render, e.g. during SSR route resolution.
  */
@@ -117,18 +99,23 @@ export function createQueryPrefetchContext(
   const runtime =
     options.runtime ??
     (options.mode === 'spa' ? getDefaultDataRuntime() : createDataRuntime());
-  const signal = options.signal ?? new AbortController().signal;
+  const runtimeState = findDataRuntimeState(runtime);
+  if (runtimeState) assertDataRuntimeActive(runtimeState);
+  const contextSignal = options.signal ?? new AbortController().signal;
+  const signal = runtimeState
+    ? AbortSignal.any([contextSignal, runtimeState.retirement.signal])
+    : contextSignal;
   const storePrefetchedValue = (key: string, value: {}): boolean => {
-    if (signal.aborted) return false;
+    if (signal.aborted || runtimeState?.retired) return false;
     // A reader that mounted while this fetch was in flight owns newer data;
     // storing this result would revive it on the next mount.
     if (runtime.queryCache.has(key)) return true;
-    const runtimeState =
+    const browserRuntimeState =
       options.mode !== 'ssr' && typeof window !== 'undefined'
         ? findDataRuntimeState(runtime)
         : undefined;
-    if (runtimeState) {
-      writePrefetchedQueryData(runtimeState, key, value);
+    if (browserRuntimeState) {
+      writePrefetchedQueryData(browserRuntimeState, key, value);
     } else {
       // Fail before an SSR shell streams rather than at dehydration.
       if (options.mode === 'ssr') assertQueryDataTransportSafe(key, value);
@@ -145,6 +132,7 @@ export function createQueryPrefetchContext(
     mode: options.mode ?? 'spa',
     async prefetch(query, input) {
       return withTelemetry(options.telemetry?.queryPrefetch, {}, async () => {
+        if (runtimeState) assertDataRuntimeActive(runtimeState);
         const key = query.key(input);
         // A live query cell already owns this key; its reader would ignore a
         // newly prefetched value.
@@ -176,6 +164,7 @@ export function createQueryPrefetchContext(
           findDataRuntimeState(runtime)?.prefetches ??
           new Map<string, InflightPrefetch>();
         for (;;) {
+          if (runtimeState) assertDataRuntimeActive(runtimeState);
           let pending = inflight.get(key);
           // Join a running fetch for this key unless its own caller already
           // cancelled it while this caller is still live.
@@ -205,8 +194,11 @@ export function createQueryPrefetchContext(
               // starting caller aborts, even if the fetch never settles.
               value = await (joined
                 ? raceAbort(current.promise, [signal, current.signal])
-                : current.promise);
+                : runtimeState
+                  ? raceAbort(current.promise, [runtimeState.retirement.signal])
+                  : current.promise);
             } catch (error) {
+              if (runtimeState) assertDataRuntimeActive(runtimeState);
               // A fetch cancelled by its starting caller does not fail a
               // still-live joiner; it starts a replacement.
               if (current.signal.aborted && !signal.aborted) continue;
@@ -247,6 +239,7 @@ export function dehydrateDataRuntime(
   runtime: DataRuntime
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
+  if (findDataRuntimeState(runtime)?.retired) return result;
   for (const [key, value] of runtime.queryData) {
     assertQueryDataTransportSafe(key, value);
     Object.defineProperty(result, key, {
@@ -261,8 +254,9 @@ export function dehydrateDataRuntime(
 
 /** Load a {@link dehydrateDataRuntime} snapshot back into a runtime's query cache. */
 export function hydrateDataRuntime(runtime: DataRuntime, data: unknown): void {
-  if (!data || typeof data !== 'object' || Array.isArray(data)) return;
   const runtimeState = findDataRuntimeState(runtime);
+  if (runtimeState) assertDataRuntimeActive(runtimeState);
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return;
   for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
     runtimeState?.unreadPrefetches.delete(key);
     runtime.queryData.set(key, value);

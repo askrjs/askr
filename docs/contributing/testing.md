@@ -50,7 +50,7 @@ Configure Vitest with jsdom and Askr's automatic JSX runtime:
 
 ```ts
 // vitest.config.ts
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from 'vite-plus';
 
 export default defineConfig({
   oxc: {
@@ -69,7 +69,7 @@ Render a component, dispatch a bubbling event, flush pending work, and clean up
 the owned root after each test:
 
 ```tsx
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, expect, test } from 'vite-plus/test';
 import { state } from '@askrjs/askr';
 import { dispatch, render, type RenderResult } from '@askrjs/askr/testing';
 
@@ -91,7 +91,7 @@ test('increments the counter', () => {
 });
 ```
 
-Pass `container` to `render` or `mount` to retain an existing container after
+Pass `container` to `render` to retain an existing container after
 cleanup. Without one, the harness creates and removes a managed container.
 `renderRoute({ registry, url })` uses the production SPA router and restores the
 previous URL during cleanup.
@@ -108,13 +108,103 @@ Each result owns its cleanup, so sibling renders can be torn down independently.
 Test files remain isolated by the test runner's jsdom realm. The harness fails
 with a configuration hint when no DOM environment exists.
 
-Ordinary `render` and `mount` results can coexist in one realm. Because
+Ordinary `render` results can coexist in one realm. Because
 `renderRoute` uses the production SPA router and browser history, keep only one
 routed render active per jsdom realm and clean it up before starting another.
 
 `@askrjs/askr/testing` covers component, renderer, and router tests.
 `@askrjs/testing` is a separate package for HTTP and server test clients; it
 does not mount Askr components.
+
+## Accessible Queries And User Interactions
+
+Compose the native harness with DOM Testing Library and user-event when a
+component test needs accessible role/name/label queries or realistic input
+sequences:
+
+```bash
+npm install --save-dev @testing-library/dom @testing-library/user-event
+```
+
+These are optional development dependencies of your application. Askr does not
+re-export them or require them at runtime. The qualified recipe uses DOM Testing
+Library 10.4.2 and user-event 14.6.7 with jsdom; it requires no React.
+
+```tsx
+import { expect, test } from 'vite-plus/test';
+import { within, waitFor } from '@testing-library/dom';
+import { userEvent } from '@testing-library/user-event';
+import { createDataRuntime, disposeDataRuntime } from '@askrjs/askr/data';
+import { render } from '@askrjs/askr/testing';
+import { ProfileForm } from './ProfileForm';
+
+test('saves the display name', async () => {
+  const runtime = createDataRuntime();
+  const view = render(ProfileForm, { dataRuntime: runtime });
+  const queries = within(view.container);
+  const user = userEvent.setup({ document: view.container.ownerDocument });
+  try {
+    const name = queries.getByRole('textbox', { name: 'Display name' });
+    await user.clear(name);
+    await user.type(name, 'Ada');
+    view.flush();
+    await user.click(queries.getByRole('button', { name: 'Save' }));
+    await waitFor(
+      () => {
+        view.flush();
+        expect(queries.getByRole('status').textContent).toBe('Saved Ada');
+      },
+      { container: view.container }
+    );
+  } finally {
+    view.cleanup();
+    disposeDataRuntime(runtime);
+  }
+});
+```
+
+`getByLabelText('Display name')` follows the control's label association.
+`getByRole('textbox', { name: 'Display name', description: 'Public name' })`
+also checks its accessible description. Scope each query set with
+`within(view.container)` so two independent renders may both contain a Save
+button. Use distinct document-wide IDs for their label/description targets.
+For a routed screen, await `renderRoute({ registry, url, dataRuntime })`, then
+use the same query/interaction recipe; keep one routed view per realm because
+the router shares browser history. Ordinary component renders use the islands
+execution model; routed renders use SPA. Keep these in separate test files with
+isolated DOM realms. Cleanup does not permit mixing execution models in one
+realm. Author the application registry before bootstrapping its SPA, as in an
+application.
+
+Await every interaction before flushing or tearing down its view. Create a
+user-event setup per test, release any deliberately held keys, and let the
+test environment restore its DOM/clipboard globals. user-event has no supported
+dispose method. A view's cleanup cannot cancel an arbitrary unfinished
+third-party interaction.
+
+`view.flush()` drains synchronous Askr scheduler work. It does not resolve a
+network promise. For loading/error/retry tests, explicitly complete or reject
+the test-owned request, then use `waitFor` to flush and assert the settled DOM.
+Perform each user action once outside `waitFor`; a retrying assertion must not
+repeat a click or mutation. Inject separate data runtimes for independent
+views, clean each view up, then dispose only the runtime you own to retire
+pending data work. Other renders and their runtimes remain live.
+
+The executed recipe covers controlled input selection/replacement, disabled
+buttons, Tab/Shift+Tab, Enter/Space activation, a nonmodal popup's Escape
+dismissal and focus restoration, routed rendering, async error/retry, listener
+cleanup and two-runtime isolation. The popup is a small test-owned component;
+it does not establish UI-package dialog or menu behavior.
+
+Simple `click`/`type`/`dispatch` helpers remain useful for direct handler and
+event contracts. user-event simulates a UI sequence in jsdom; it does not prove
+trusted browser events, layout, pointer hit testing or a browser accessibility
+tree. Native Playwright-backed Chromium, Firefox and WebKit cases separately
+qualify focus traversal, selection, activation and dismissal. Use those browser
+tests when browser defaults or layout affect the result.
+On macOS WebKit, the native case uses Option-Tab/Option-Shift-Tab to include
+buttons under its default keyboard-navigation setting; see the
+[Safari keyboard shortcuts](https://support.apple.com/guide/safari/cpsh003/mac).
 
 ## Benchmarks
 

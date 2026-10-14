@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'vite-plus/test';
-import { userEvent } from 'vitest/browser';
+import { userEvent } from 'vite-plus/test/browser';
 import { cleanupApp, createIsland } from '@askrjs/askr/boot';
 import {
   createTestContainer,

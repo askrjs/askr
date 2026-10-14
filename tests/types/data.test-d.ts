@@ -8,6 +8,7 @@ import {
   defineServerQueries,
   defineQuery,
   dehydrateDataRuntime,
+  disposeDataRuntime,
   getDefaultDataRuntime,
   invalidate,
   invalidateOnInterval,
@@ -59,6 +60,10 @@ expectError(dataRuntime.mutationTestOverrides);
 expectError(createDataRuntime({ queryTestOverrides: new Map() }));
 expectType<DataRuntime>(getDefaultDataRuntime());
 expectType<DataRuntime>(createDataRuntime({ queryCache: new Map() }));
+expectType<void>(disposeDataRuntime(createDataRuntime()));
+expectError(disposeDataRuntime());
+expectError(disposeDataRuntime(dataRuntime, { reset: true }));
+expectError(disposeDataRuntime({}));
 const dataRuntimeOptions: DataRuntimeOptions = {
   queryCache: new Map<string, unknown>(),
   queryData: new Map<string, unknown>(),

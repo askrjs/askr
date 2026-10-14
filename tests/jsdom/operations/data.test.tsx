@@ -1260,7 +1260,10 @@ describe('data layer', () => {
 
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(fetch.mock.calls[0]![0]).toBe(3);
-    expect(fetch.mock.calls[0]![1].signal).toBe(controller.signal);
+    expect(fetch.mock.calls[0]![1].signal).toBe(context.signal);
+    expect(context.signal.aborted).toBe(false);
+    controller.abort();
+    expect(context.signal.aborted).toBe(true);
   });
 
   it('should warn given different defined queries when they share a key', async () => {

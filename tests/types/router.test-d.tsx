@@ -38,15 +38,12 @@ import {
   type AccessRedirectDecision,
   type GroupHelperOptions,
   type HistoryScrollBehavior,
-  type LayoutScopeRecord,
   type LazyRouteComponent,
   type LazyRouteDataLoader,
   type LinkProps,
   type NavigateOptions,
   type NavigationScrollBehavior,
   type PageHelperOptions,
-  type PageScopeRecord,
-  type ParsedSegment,
   type RouteRegistryOptions,
   type RouteComponent,
   type RouteContext,
@@ -291,7 +288,6 @@ route('/files/{* path }', (params) => {
 const manifest = registry.manifest;
 expectType<RouteManifest>(manifest);
 const routeRecord = manifest.records[0] as RouteRecord;
-expectType<PageScopeRecord[]>(routeRecord.pageChain);
 expectType<RouteRecord['pageChain']>(routeRecord.pageChain);
 expectType<readonly Route[]>(registry.routes);
 
@@ -303,14 +299,14 @@ const groupHelperOptions: GroupHelperOptions = {
 };
 expectAssignable<GroupHelperOptions>(groupHelperOptions);
 
-const pageScopeRecord: PageScopeRecord = {
+const pageScopeRecord: RouteRecord['pageChain'][number] = {
   component: () => [<span key="page">page</span>],
 };
-expectAssignable<PageScopeRecord>(pageScopeRecord);
-const layoutScopeRecord: LayoutScopeRecord = {
+expectAssignable<RouteRecord['pageChain'][number]>(pageScopeRecord);
+const layoutScopeRecord: RouteRecord['layoutChain'][number] = {
   component: ({ children }) => <div>{children}</div>,
 };
-expectAssignable<LayoutScopeRecord>(layoutScopeRecord);
+expectAssignable<RouteRecord['layoutChain'][number]>(layoutScopeRecord);
 
 const routeDefinition: RouteDefinition = () => {};
 expectAssignable<RouteDefinition>(routeDefinition);
@@ -419,11 +415,11 @@ expectAssignable<AuthRequirement>(requireUser());
 const routePolicy: RoutePolicy = () => allow();
 expectAssignable<RoutePolicy>(routePolicy);
 
-const parsedSegment: ParsedSegment = {
+const parsedSegment: RouteRecord['segments'][number] = {
   kind: 'param',
   value: 'id',
 };
-expectAssignable<ParsedSegment>(parsedSegment);
+expectAssignable<RouteRecord['segments'][number]>(parsedSegment);
 
 const navigationScrollBehavior: NavigationScrollBehavior = 'preserve';
 expectAssignable<NavigationScrollBehavior>(navigationScrollBehavior);

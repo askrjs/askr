@@ -22,10 +22,16 @@ import type { PreparedRender } from '../core/dom/root';
 import { withoutRouteHydrationMetadata } from '../router/route-hydration';
 import type { AppRoot } from './root-lifecycle';
 import { wrapRootRouteHandler } from './root-handler';
+import {
+  isSessionRootInvalidated,
+  clearSessionRootInvalidated,
+} from '../router/session-auth-state';
 
 function prepare(root: object, input: RootUpdateInput): PreparedRootUpdate {
   const app = root as AppRoot;
   const current = app.appRuntime;
+  const replaceLifetime =
+    input.replaceLifetime || isSessionRootInvalidated(app);
   const runtime = createAppRenderRuntime({
     framework: withoutRouteHydrationMetadata(current?.framework),
     dataRuntime: current?.dataRuntime,
@@ -56,7 +62,7 @@ function prepare(root: object, input: RootUpdateInput): PreparedRootUpdate {
       if (prepared || settled) return;
       stageAppRenderRouteLocation(runtime, input.href, input.locationState);
       app.appRuntime = runtime;
-      if (input.replaceLifetime) {
+      if (replaceLifetime) {
         app.component = input.handler;
         app.handler = wrapRootRouteHandler(input.handler, app.cspNonce);
         app.generation++;
@@ -76,6 +82,7 @@ function prepare(root: object, input: RootUpdateInput): PreparedRootUpdate {
       settled = true;
       try {
         prepared?.publish();
+        clearSessionRootInvalidated(app);
         return { aborted: false, errors: [] };
       } catch (error) {
         const aborted = prepared?.aborted === true;

@@ -5,7 +5,6 @@ import {
   staleQueryState,
   errorQueryState,
 } from './query-state';
-import { logger } from '../common/logger';
 import { getActiveRenderContext } from '../common/render-context';
 import {
   claimHookIndex,
@@ -15,10 +14,13 @@ import {
 } from '../core/api/hooks';
 import { schedule, type Job } from '../core/reactive/scheduler';
 import {
+  assertDataRuntimeActive,
+  registerDataRuntimeOwner,
   ensureQueryCleanup,
   getQuerySlotStore,
   readQueryData,
   resolveDataRuntimeState,
+  type DataRuntimeState,
 } from './data-runtime';
 import { getDefaultDataRuntime } from './data-runtime';
 import {
@@ -32,34 +34,21 @@ import {
   normalizeAsyncDataError,
   notifySource,
 } from './shared';
-import type {
-  Query,
-  QueryDefinitionField,
-  QueryOptions,
-  QueryState,
-} from './types';
-declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
+import {
+  QueryLifetime,
+  validateGcTime,
+  isServerQueryRender,
+  type QueryCellOptions,
+} from './query-lifetime';
+import type { Query, QueryOptions, QueryState } from './types';
 
 const RECONCILE_MAX_ATTEMPTS = 3;
 const RECONCILE_RETRY_DELAY_MS = 25;
-const MAX_GC_TIME_MS = 2_147_483_647;
 const DEFAULT_OWNERLESS_GC_TIME_MS = 5 * 60_000;
 
-function validateGcTime(gcTime: number | undefined): void {
-  if (
-    gcTime !== undefined &&
-    (!Number.isFinite(gcTime) || gcTime < 0 || gcTime > MAX_GC_TIME_MS)
-  ) {
-    throw new RangeError(
-      'Query gcTime must be a finite, non-negative timer delay.'
-    );
-  }
-}
-
-type QueryCellOptions<T> = QueryOptions<T> & {
-  readonly definitionIdentity?: object;
-  /** Supplies `initialData` when a new cell is created for this key. */
-  readonly takeInitialData?: () => T | undefined;
+type QueryOperation = {
+  readonly generation: number;
+  readonly controller: AbortController;
 };
 
 /** Starts a query fetch in the flush; settles its promise if dropped. */
@@ -77,8 +66,7 @@ class QueryStartWork implements Job {
 export class QueryCell<T> {
   private readonly source = createReadableSource();
   private readonly key: string;
-  private readonly cache: Map<string, QueryCell<unknown>>;
-  private options: QueryCellOptions<T>;
+  private readonly lifetime: QueryLifetime<T>;
   private controller: AbortController | null = null;
   private generation = 0;
   private pendingRefresh: Promise<void> | null = null;
@@ -92,24 +80,6 @@ export class QueryCell<T> {
   private pendingRefreshToken = 0;
   private reconcileAttemptCount = 0;
   private reconcileSequence = 0;
-  private destroyed = false;
-  private ownerCount = 0;
-  private gcTimer: ReturnType<typeof setTimeout> | null = null;
-  private unownedTimer: ReturnType<typeof setTimeout> | null = null;
-  // Attached readers by lifetime and hook slot, with each reader's latest
-  // definition (null until the reader defines one).
-  private readonly owners = new Map<
-    object,
-    Map<number, QueryCellOptions<T> | null>
-  >();
-  private readonly warnedDefinitionConflictKeys = new Set<string>();
-  // The reader whose render supplied `options`. Its later renders replace the
-  // definition, so inline callbacks never go stale or read as conflicts.
-  private definitionOwner: object | null = null;
-  private definitionOwnerHook = -1;
-  // Reader conflicts are checked after the current render work settles, so a
-  // reader replacing the owner (e.g. a keyed row swap) is not a conflict.
-  private conflictCheck: Job | null = null;
 
   private state: QueryState<T> = loadingQueryState<T>();
   private freshAt: number | null = null;
@@ -117,292 +87,120 @@ export class QueryCell<T> {
   constructor(
     options: QueryCellOptions<T>,
     key: string,
-    cache: Map<string, QueryCell<unknown>>
+    cache: Map<string, QueryCell<unknown>>,
+    private readonly runtimeState?: DataRuntimeState
   ) {
-    validateGcTime(options.gcTime);
-    this.options = options;
     this.key = key;
-    this.cache = cache;
+    if (runtimeState) registerDataRuntimeOwner(runtimeState, this);
+    this.lifetime = new QueryLifetime(options, key, cache, this, {
+      snapshot: () => this.state,
+      retireInactiveFetch: () => this.retireInactiveFetch(),
+      markRetainedAborted: () =>
+        this.setState(staleQueryState(this.state.data, 'aborted')),
+      destroyFetch: () => {
+        this.controller?.abort();
+        this.controller = null;
+        this.reconcileAttemptCount = 0;
+      },
+      finishPendingRefresh: () => this.finishPendingRefresh(),
+    });
     if (options.initialData !== undefined) {
       this.state = freshQueryState(options.initialData);
-      if (!isServerRender()) this.freshAt = Date.now();
+      if (!isServerQueryRender()) this.freshAt = Date.now();
     }
   }
 
-  attach(generation: object, hookIndex: number): void {
-    if (this.unownedTimer !== null) {
-      clearTimeout(this.unownedTimer);
-      this.unownedTimer = null;
-    }
-    if (this.gcTimer !== null) {
-      clearTimeout(this.gcTimer);
-      this.gcTimer = null;
-    }
-    let hooks = this.owners.get(generation);
-    if (!hooks) {
-      hooks = new Map();
-      this.owners.set(generation, hooks);
-    }
-
-    if (hooks.has(hookIndex)) {
-      return;
-    }
-
-    hooks.set(hookIndex, null);
-    this.ownerCount += 1;
+  private get options(): QueryCellOptions<T> {
+    return this.lifetime.currentOptions;
+  }
+  private get destroyed(): boolean {
+    return this.runtimeState?.retired === true || this.lifetime.isDestroyed;
   }
 
-  detach(generation: object, hookIndex: number): void {
-    const hooks = this.owners.get(generation);
-    if (!hooks || !hooks.delete(hookIndex)) {
-      return;
-    }
-
-    this.ownerCount -= 1;
-    if (hooks.size === 0) {
-      this.owners.delete(generation);
-    }
-
-    if (this.ownerCount <= 0) {
-      const gcTime = this.options.gcTime ?? 0;
-      if (gcTime === 0 || this.state.data === null || isServerRender()) {
-        this.destroy();
-      } else {
-        this.generation += 1;
-        const controller = this.controller;
-        this.controller = null;
-        this.finishPendingRefresh();
-        // A queued start may not have acquired a controller yet. Retire its
-        // token as well so it cannot fetch through the unmounted reader.
-        this.pendingRefreshToken += 1;
-        this.definitionOwner = null;
-        this.definitionOwnerHook = -1;
-        if (this.state.refreshing) {
-          this.setState(staleQueryState(this.state.data, 'aborted'));
-        }
-        this.gcTimer = setTimeout(() => this.destroy(), gcTime);
-        // Abort listeners may attach a new reader; complete the inactive
-        // transition first so that listener's lifecycle decision survives.
-        controller?.abort();
-      }
-      return;
-    }
-
-    if (
-      this.definitionOwner === generation &&
-      this.definitionOwnerHook === hookIndex
-    ) {
-      this.promoteDefinitionOwner();
-    }
-  }
-
-  // Hand the definition to a remaining reader so the cell never keeps
-  // fetching through an unmounted reader's callbacks.
-  private promoteDefinitionOwner(): void {
-    this.definitionOwner = null;
-    for (const [generation, hooks] of this.owners) {
-      for (const [hookIndex, options] of hooks) {
-        if (options) {
-          this.options = options;
-          this.definitionOwner = generation;
-          this.definitionOwnerHook = hookIndex;
-          return;
-        }
-      }
-    }
-  }
-
-  /**
-   * Record an attached reader's definition for this key. The owning reader's
-   * renders replace the definition; with no owner, the reader takes over.
-   * Other readers are checked for conflicts once render work settles.
-   */
-  define(
-    options: QueryCellOptions<T>,
-    generation: object,
-    hookIndex: number
-  ): void {
-    validateGcTime(options.gcTime);
-    const hooks = this.owners.get(generation);
-    if (this.destroyed || !hooks?.has(hookIndex)) {
-      return;
-    }
-    hooks.set(hookIndex, options);
-
-    if (
-      this.definitionOwner === null ||
-      (this.definitionOwner === generation &&
-        this.definitionOwnerHook === hookIndex)
-    ) {
-      this.options = options;
-      this.definitionOwner = generation;
-      this.definitionOwnerHook = hookIndex;
-      return;
-    }
-
-    if (!__ASKR_DEVELOPMENT_BUILD__) {
-      return;
-    }
-    const conflicts = this.getDefinitionConflicts(options);
-    if (
-      conflicts.length === 0 ||
-      this.warnedDefinitionConflictKeys.has(conflicts.join(','))
-    ) {
-      return;
-    }
-    // Server renders never swap readers, and their cells are torn down before
-    // scheduled work would run.
-    if (isServerRender()) {
-      this.warnOnConflictingDefinition(options);
-      return;
-    }
-    this.conflictCheck ??= { run: () => this.warnOnConflictingReaders() };
-    schedule(this.conflictCheck, 'render');
-  }
-
-  private warnOnConflictingReaders(): void {
-    if (this.destroyed) {
-      return;
-    }
-    for (const hooks of this.owners.values()) {
-      for (const options of hooks.values()) {
-        if (options) {
-          this.warnOnConflictingDefinition(options);
-        }
-      }
-    }
-  }
-
-  warnOnConflictingDefinition(options: QueryCellOptions<T>): void {
-    const conflicts = this.getDefinitionConflicts(options);
-    if (conflicts.length === 0) {
-      return;
-    }
-
-    const conflictKey = conflicts.join(',');
-    if (this.warnedDefinitionConflictKeys.has(conflictKey)) {
-      return;
-    }
-
-    this.warnedDefinitionConflictKeys.add(conflictKey);
-
-    const callbackLabel =
-      conflicts.length === 1
-        ? `callback \`${conflicts[0]}\``
-        : `callbacks ${conflicts.map((field) => `\`${field}\``).join(', ')}`;
-
-    logger.warn(
-      `[askr] Conflicting shared query definition for key "${this.key}". ` +
-        `Shared queries are canonical by key, so reuse the same ${callbackLabel} ` +
-        'for every reader of that key.'
-    );
-  }
-
-  private destroy(): void {
-    if (this.destroyed) {
-      return;
-    }
-
-    this.destroyed = true;
-    if (this.gcTimer !== null) {
-      clearTimeout(this.gcTimer);
-      this.gcTimer = null;
-    }
-    if (this.unownedTimer !== null) {
-      clearTimeout(this.unownedTimer);
-      this.unownedTimer = null;
-    }
-    this.controller?.abort();
-    this.controller = null;
-    this.reconcileAttemptCount = 0;
-    this.ownerCount = 0;
-    this.owners.clear();
-    this.evictFromCache();
+  /** @internal Runtime retirement also erases snapshots of evicted handles. */
+  retire(): void {
+    this.generation += 1;
     this.finishPendingRefresh();
+    this.pendingRefreshToken += 1;
+    this.state = errorQueryState<T>(
+      null,
+      this.runtimeState!.retirement.signal.reason
+    );
+    this.freshAt = null;
+    this.lifetime.destroy();
+    notifySource(this.source);
+  }
+  private get ownerCount(): number {
+    return this.lifetime.readerCount;
   }
 
-  private evictFromCache(): void {
-    if (this.cache.get(this.key) === this) this.cache.delete(this.key);
+  attach(owner: object, hookIndex: number): void {
+    this.lifetime.attach(owner, hookIndex);
   }
-
-  /** A component's inactive definition must not become an ownerless fetcher. */
+  detach(owner: object, hookIndex: number): void {
+    this.lifetime.detach(owner, hookIndex);
+  }
+  define(options: QueryCellOptions<T>, owner: object, hookIndex: number): void {
+    this.lifetime.define(options, owner, hookIndex);
+  }
+  warnOnConflictingDefinition(options: QueryCellOptions<T>): void {
+    this.lifetime.warnOnConflictingDefinition(options);
+  }
   retireInactiveReaderCacheEntry(): boolean {
-    if (this.gcTimer === null) return false;
-    this.destroy();
-    return true;
+    return this.lifetime.retireInactiveReaderCacheEntry();
   }
-
-  /** Ownerless handles stay usable after their cache lookup window expires. */
   scheduleUnownedCacheEviction(gcTime: number): void {
-    if (isServerRender() || this.ownerCount > 0 || this.destroyed) return;
-    if (this.unownedTimer !== null) clearTimeout(this.unownedTimer);
-    this.unownedTimer = null;
-    if (gcTime === 0) {
-      this.evictFromCache();
-      return;
-    }
-    this.unownedTimer = setTimeout(() => {
-      this.unownedTimer = null;
-      if (this.ownerCount === 0) this.evictFromCache();
-    }, gcTime);
+    this.lifetime.scheduleUnownedCacheEviction(gcTime);
+  }
+  private destroy(): void {
+    this.lifetime.destroy();
   }
 
-  private getDefinitionConflicts(
-    options: QueryCellOptions<T>
-  ): QueryDefinitionField[] {
-    const conflicts: QueryDefinitionField[] = [];
-
-    const currentFetchIdentity =
-      this.options.definitionIdentity ?? this.options.fetch;
-    const nextFetchIdentity = options.definitionIdentity ?? options.fetch;
-    if (currentFetchIdentity !== nextFetchIdentity) {
-      conflicts.push('fetch');
-    }
-
-    if (this.options.isConsistent !== options.isConsistent) {
-      conflicts.push('isConsistent');
-    }
-
-    if (this.options.reconcile !== options.reconcile) {
-      conflicts.push('reconcile');
-    }
-
-    return conflicts;
+  /** Revoke queued/running work before the lifetime retains its cached snapshot. */
+  private retireInactiveFetch(): AbortController | null {
+    this.generation += 1;
+    const controller = this.controller;
+    this.controller = null;
+    this.finishPendingRefresh();
+    this.pendingRefreshToken += 1;
+    return controller;
   }
 
   get data(): T | null {
     recordReadableRead(this.source);
-    return this.state.data;
+    return this.runtimeState?.retired ? null : this.state.data;
   }
 
   get error(): {} | null {
     recordReadableRead(this.source);
-    return this.state.error;
+    return this.runtimeState?.retired
+      ? this.runtimeState.retirement.signal.reason
+      : this.state.error;
   }
 
   get loading(): boolean {
     recordReadableRead(this.source);
-    return this.state.loading;
+    return !this.runtimeState?.retired && this.state.loading;
   }
 
   get refreshing(): boolean {
     recordReadableRead(this.source);
-    return this.state.refreshing;
+    return !this.runtimeState?.retired && this.state.refreshing;
   }
 
   get stale(): boolean {
     recordReadableRead(this.source);
-    return this.state.stale;
+    return this.runtimeState?.retired || this.state.stale;
   }
 
   get consistency(): QueryState<T>['consistency'] {
     recordReadableRead(this.source);
-    return this.state.consistency;
+    return this.runtimeState?.retired ? 'stale' : this.state.consistency;
   }
 
   get staleReason(): QueryState<T>['staleReason'] {
     recordReadableRead(this.source);
-    return this.state.staleReason;
+    return this.runtimeState?.retired ? 'error' : this.state.staleReason;
   }
 
   /** @internal Whether a collection should schedule this cell's first load. */
@@ -429,10 +227,11 @@ export class QueryCell<T> {
   }
 
   refresh(): Promise<void> {
+    if (this.runtimeState) assertDataRuntimeActive(this.runtimeState);
     if (this.destroyed) {
       return Promise.resolve();
     }
-    if (this.gcTimer !== null) {
+    if (this.lifetime.inactive) {
       this.destroy();
       return Promise.resolve();
     }
@@ -490,10 +289,11 @@ export class QueryCell<T> {
   }
 
   invalidate(): Promise<void> {
+    if (this.runtimeState) assertDataRuntimeActive(this.runtimeState);
     if (this.destroyed) {
       return Promise.resolve();
     }
-    if (this.gcTimer !== null) {
+    if (this.lifetime.inactive) {
       this.destroy();
       return Promise.resolve();
     }
@@ -584,8 +384,21 @@ export class QueryCell<T> {
     resolve?.();
   }
 
-  private setState(next: QueryState<T>): void {
-    if (this.destroyed) {
+  /** The sole authority for an async operation to publish or continue work. */
+  private isCurrent(operation: QueryOperation): boolean {
+    return (
+      !this.destroyed &&
+      isCurrentAsyncOperation(
+        this.generation,
+        operation.generation,
+        this.controller,
+        operation.controller
+      )
+    );
+  }
+
+  private setState(next: QueryState<T>, operation?: QueryOperation): void {
+    if (operation ? !this.isCurrent(operation) : this.destroyed) {
       return;
     }
 
@@ -601,14 +414,19 @@ export class QueryCell<T> {
     this.generation += 1;
     const generation = this.generation;
 
-    this.controller?.abort();
+    const previousController = this.controller;
     const controller = new AbortController();
     this.controller = controller;
+    const operation = { generation, controller };
+    previousController?.abort();
+    if (!this.isCurrent(operation)) return;
 
     const hasData = this.state.data !== null;
     this.setState(
-      hasData ? refreshingQueryState(this.state.data!) : loadingQueryState<T>()
+      hasData ? refreshingQueryState(this.state.data!) : loadingQueryState<T>(),
+      operation
     );
+    if (!this.isCurrent(operation)) return;
 
     // An in-flight fetch keeps the definition it started with, even if the
     // owning reader re-renders with new callbacks before it settles.
@@ -617,15 +435,7 @@ export class QueryCell<T> {
     try {
       nextData = await fetch({ signal: controller.signal });
     } catch (error) {
-      if (
-        this.destroyed ||
-        !isCurrentAsyncOperation(
-          this.generation,
-          generation,
-          this.controller,
-          controller
-        )
-      ) {
+      if (!this.isCurrent(operation)) {
         return;
       }
 
@@ -633,7 +443,8 @@ export class QueryCell<T> {
         this.setState(
           hasData
             ? staleQueryState(this.state.data, 'aborted')
-            : loadingQueryState<T>()
+            : loadingQueryState<T>(),
+          operation
         );
         return;
       }
@@ -642,20 +453,13 @@ export class QueryCell<T> {
         errorQueryState(
           this.state.data,
           normalizeAsyncDataError(error, 'Unknown query error')
-        )
+        ),
+        operation
       );
       return;
     }
 
-    if (
-      this.destroyed ||
-      !isCurrentAsyncOperation(
-        this.generation,
-        generation,
-        this.controller,
-        controller
-      )
-    ) {
+    if (!this.isCurrent(operation)) {
       return;
     }
 
@@ -667,34 +471,25 @@ export class QueryCell<T> {
         errorQueryState(
           this.state.data,
           normalizeAsyncDataError(error, 'Query consistency check failed')
-        )
+        ),
+        operation
       );
       return;
     }
+    // User callbacks may synchronously invalidate, detach or destroy the cell.
+    if (!this.isCurrent(operation)) return;
     if (!isConsistent) {
-      this.setState(staleQueryState(nextData, 'inconsistent'));
+      this.setState(staleQueryState(nextData, 'inconsistent'), operation);
       try {
-        await this.reconcile(
-          reconcile,
-          nextData,
-          generation,
-          controller,
-          reconcileSequence
-        );
+        await this.reconcile(reconcile, nextData, operation, reconcileSequence);
       } catch (error) {
-        if (
-          isCurrentAsyncOperation(
-            this.generation,
-            generation,
-            this.controller,
-            controller
-          )
-        ) {
+        if (this.isCurrent(operation)) {
           this.setState(
             errorQueryState(
               this.state.data,
               normalizeAsyncDataError(error, 'Query reconciliation failed')
-            )
+            ),
+            operation
           );
         }
       }
@@ -703,51 +498,50 @@ export class QueryCell<T> {
 
     this.reconcileAttemptCount = 0;
     this.freshAt = Date.now();
-    this.setState(freshQueryState(nextData));
+    this.setState(freshQueryState(nextData), operation);
   }
 
   private async reconcile(
     reconcile: QueryOptions<T>['reconcile'],
     data: T,
-    generation: number,
-    controller: AbortController,
+    operation: QueryOperation,
     reconcileSequence: number
   ): Promise<void> {
+    if (!this.isCurrent(operation)) return;
     const shouldRetry = await (reconcile?.(data, { key: this.key }) ?? false);
 
     if (
       !shouldRetry ||
-      this.destroyed ||
       reconcileSequence !== this.reconcileSequence ||
-      !isCurrentAsyncOperation(
-        this.generation,
-        generation,
-        this.controller,
-        controller
-      )
+      !this.isCurrent(operation)
     ) {
       return;
     }
 
     this.reconcileAttemptCount += 1;
     if (this.reconcileAttemptCount > RECONCILE_MAX_ATTEMPTS) {
-      this.setState(staleQueryState(this.state.data, 'inconsistent'));
+      this.setState(
+        staleQueryState(this.state.data, 'inconsistent'),
+        operation
+      );
       return;
     }
 
-    await new Promise<void>((resolve) =>
-      setTimeout(resolve, RECONCILE_RETRY_DELAY_MS)
-    );
+    await new Promise<void>((resolve) => {
+      const signal = this.runtimeState?.retirement.signal;
+      const finish = () => {
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', finish);
+        resolve();
+      };
+      const timer = setTimeout(finish, RECONCILE_RETRY_DELAY_MS);
+      signal?.addEventListener('abort', finish, { once: true });
+      if (signal?.aborted) finish();
+    });
     if (
-      this.destroyed ||
       reconcileSequence !== this.reconcileSequence ||
       this.state.consistency === 'fresh' ||
-      !isCurrentAsyncOperation(
-        this.generation,
-        generation,
-        this.controller,
-        controller
-      )
+      !this.isCurrent(operation)
     ) {
       return;
     }
@@ -755,29 +549,24 @@ export class QueryCell<T> {
     // Reconciliation runs inside the current refresh promise. It must replace
     // that generation rather than coalesce with itself as a manual refresh.
     this.controller?.abort();
+    // An abort listener may have created a newer refresh or invalidation.
+    if (!this.isCurrent(operation)) return;
     this.queueStart(reconcileSequence, 'reconcile', true);
   }
 }
 
-function isServerRender(): boolean {
-  const context = getActiveRenderContext() as { mode?: 'ssr' | 'spa' } | null;
-  return (
-    context?.mode === 'ssr' ||
-    (context?.mode === undefined && typeof window === 'undefined')
-  );
-}
-
 function createCell<T>(
   options: QueryCellOptions<T>,
-  cache: Map<string, QueryCell<unknown>>
+  runtimeState: DataRuntimeState
 ): QueryCell<T> {
+  const cache = runtimeState.queryCache;
   const cellOptions = options.takeInitialData
     ? {
         ...options,
         initialData: options.takeInitialData() ?? options.initialData,
       }
     : options;
-  const cell = new QueryCell(cellOptions, options.key, cache);
+  const cell = new QueryCell(cellOptions, options.key, cache, runtimeState);
   cache.set(options.key, cell as QueryCell<unknown>);
   cell.ensureStarted();
   return cell;
@@ -788,7 +577,15 @@ function createLegacyQuery<T extends {}>(
 ): Query<T> {
   validateGcTime(options.gcTime);
   const instance = getCurrentComponentInstance();
-  const runtimeState = resolveDataRuntimeState(options.runtime);
+  const runtimeState = resolveDataRuntimeState(options.runtime, true);
+  if (runtimeState.retired) {
+    if (instance) {
+      const hookIndex = claimHookIndex(instance, 'createQuery');
+      const slot = getQuerySlotStore(runtimeState, instance).get(hookIndex);
+      if (slot?.key === options.key) return slot.cell as unknown as Query<T>;
+    }
+    assertDataRuntimeActive(runtimeState);
+  }
   const cache = runtimeState.queryCache;
   const override = runtimeState.queryTestOverrides.get(options.key) as
     | Query<T>
@@ -798,7 +595,7 @@ function createLegacyQuery<T extends {}>(
     let cell = cache.get(options.key) as QueryCell<T> | undefined;
     if (cell?.retireInactiveReaderCacheEntry()) cell = undefined;
     if (!cell) {
-      cell = createCell(options, cache);
+      cell = createCell(options, runtimeState);
     } else {
       cell.warnOnConflictingDefinition(options);
     }
@@ -827,7 +624,7 @@ function createLegacyQuery<T extends {}>(
 
   const cell =
     (cache.get(options.key) as QueryCell<T> | undefined) ??
-    createCell(options, cache);
+    createCell(options, runtimeState);
 
   slotStore.set(hookIndex, {
     key: options.key,
@@ -853,8 +650,8 @@ export function createDefinedQuery<TInput, TResult extends {}>(
       | undefined) ??
     getCurrentAppRenderRuntime()?.dataRuntime ??
     getDefaultDataRuntime();
-  const serverRender = isServerRender();
-  const runtimeState = resolveDataRuntimeState(dataRuntime);
+  const serverRender = isServerQueryRender();
+  const runtimeState = resolveDataRuntimeState(dataRuntime, true);
   return createLegacyQuery({
     ...options,
     key,

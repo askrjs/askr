@@ -6,14 +6,21 @@ import {
   createSPA,
   hasApp,
   hydrateSPA,
+  replaceDataRuntime,
   type HydrateSPAConfig,
   type IslandConfig,
   type IslandsConfig,
   type SPAConfig,
 } from '@askrjs/askr/boot';
 import type { RouteRegistry } from '@askrjs/askr/router';
+import type { DataRuntime } from '@askrjs/askr/data';
 
 declare const registry: RouteRegistry;
+declare const dataRuntime: DataRuntime;
+expectType<void>(replaceDataRuntime(document.body, dataRuntime));
+expectType<void>(replaceDataRuntime('#app', dataRuntime));
+expectError(replaceDataRuntime(document.body));
+expectError(replaceDataRuntime(document.body, {}));
 
 const islandConfig: IslandConfig = {
   root: document.body,

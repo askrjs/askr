@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 
 const rootDir = path.resolve(import.meta.dirname, '../..');
 const distDir = path.join(rootDir, 'dist');
@@ -86,7 +86,7 @@ describe('production artifact purity', () => {
 
     for (const name of optionalPeers) {
       expect(manifest.dependencies?.[name], name).toBeUndefined();
-      expect(manifest.peerDependencies?.[name], name).toBe('>=0.4.0 <0.5.0');
+      expect(manifest.peerDependencies?.[name], name).toBe('>=0.5.0 <0.6.0');
       expect(manifest.peerDependenciesMeta?.[name], name).toEqual({
         optional: true,
       });

@@ -1,14 +1,22 @@
 import { getActiveRenderContext } from '../common/render-context';
 import {
   claimHookIndex,
+  onRenderDiscard,
   currentComponent as getCurrentComponentInstance,
 } from '../core/api/hooks';
 import {
+  assertDataRuntimeActive,
+  registerDataRuntimeOwner,
   readQueryData,
   resolveDataRuntimeState,
   type DataRuntimeState,
 } from './data-runtime';
 import { QueryCell } from './query-cell';
+import {
+  createReadableSource,
+  notifySource,
+  recordReadableRead,
+} from './shared';
 import {
   invalidateCollectionCell,
   registerCollectionCell,
@@ -102,6 +110,7 @@ class QueryCollectionCell<
 >
   implements QueryCollection<TInput, TResult, TKey>, CollectionInvalidator
 {
+  private readonly source = createReadableSource();
   private records = new Map<TKey, CollectionRecord<TInput, TResult, TKey>>();
   private ordered: readonly CollectionRecord<TInput, TResult, TKey>[] = [];
   private registeredCells = new Set<QueryCell<TResult>>();
@@ -114,7 +123,19 @@ class QueryCollectionCell<
   private concurrency = DEFAULT_QUERY_COLLECTION_CONCURRENCY;
   private disposed = false;
 
-  constructor(private readonly runtimeState: DataRuntimeState) {}
+  private readonly unregisterRuntimeOwner: () => void;
+
+  constructor(private readonly runtimeState: DataRuntimeState) {
+    this.unregisterRuntimeOwner = registerDataRuntimeOwner(runtimeState, this);
+  }
+
+  retire(): void {
+    try {
+      this.dispose();
+    } finally {
+      notifySource(this.source);
+    }
+  }
 
   get invalidationConcurrency(): number {
     return this.concurrency;
@@ -137,11 +158,16 @@ class QueryCollectionCell<
   }
 
   get entries(): readonly QueryCollectionEntry<TInput, TResult, TKey>[] {
-    return this.ordered;
+    recordReadableRead(this.source);
+    return this.runtimeState.retired ? [] : this.ordered;
   }
 
   get loading(): boolean {
-    return this.ordered.some(({ query }) => query.loading || query.refreshing);
+    recordReadableRead(this.source);
+    return (
+      !this.runtimeState.retired &&
+      this.ordered.some(({ query }) => query.loading || query.refreshing)
+    );
   }
 
   get settled(): boolean {
@@ -149,6 +175,7 @@ class QueryCollectionCell<
   }
 
   get results(): ReadonlyMap<TKey, TResult> {
+    recordReadableRead(this.source);
     const results = new Map<TKey, TResult>();
     for (const { key, query } of this.ordered) {
       if (query.data !== null) {
@@ -159,7 +186,9 @@ class QueryCollectionCell<
   }
 
   get errors(): ReadonlyMap<TKey, {}> {
+    recordReadableRead(this.source);
     const errors = new Map<TKey, {}>();
+    if (this.runtimeState.retired) return errors;
     for (const { key, query } of this.ordered) {
       if (query.error !== null) {
         errors.set(key, query.error);
@@ -169,10 +198,12 @@ class QueryCollectionCell<
   }
 
   get(key: TKey): QueryCollectionEntry<TInput, TResult, TKey> | undefined {
-    return this.records.get(key);
+    recordReadableRead(this.source);
+    return this.runtimeState.retired ? undefined : this.records.get(key);
   }
 
   retry(key: TKey): Promise<void> {
+    assertDataRuntimeActive(this.runtimeState);
     const record = this.records.get(key);
     return record ? this.schedule(record.cell) : Promise.resolve();
   }
@@ -230,7 +261,8 @@ class QueryCollectionCell<
           cell = new QueryCell(
             { ...cellOptions, initialData },
             queryKey,
-            cache
+            cache,
+            this.runtimeState
           );
           cache.set(queryKey, cell as QueryCell<unknown>);
         }
@@ -280,6 +312,7 @@ class QueryCollectionCell<
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.unregisterRuntimeOwner();
 
     for (const cell of this.registeredCells) {
       unregisterCollectionCell(cell, this);
@@ -293,6 +326,7 @@ class QueryCollectionCell<
     this.records.clear();
     this.ordered = [];
     for (const cell of cells) this.cancelIfUnused(cell);
+    this.queue.length = 0;
   }
 
   private detach(record: CollectionRecord<TInput, TResult, TKey>): void {
@@ -317,7 +351,11 @@ class QueryCollectionCell<
     task.state = 'cancelled';
     this.tasks.delete(cell);
     task.resolve();
-    if (rescheduleInvalidation && !invalidateCollectionCell(cell)) {
+    if (
+      !this.runtimeState.retired &&
+      rescheduleInvalidation &&
+      !invalidateCollectionCell(cell)
+    ) {
       void cell.invalidate();
     }
     this.pump();
@@ -352,7 +390,7 @@ class QueryCollectionCell<
   }
 
   private pump(): void {
-    if (this.disposed) return;
+    if (this.disposed || this.runtimeState.retired) return;
     while (this.activeCount < this.concurrency) {
       const task = this.queue.shift();
       if (!task) return;
@@ -399,6 +437,22 @@ export function createQueryCollection<
   }
 
   const hookIndex = claimHookIndex(instance, 'createQueryCollection');
+  const generation: object = instance;
+  const runtimeState = resolveDataRuntimeState(options.runtime, true);
+  const store = getCollectionStore(generation);
+  let slot = store.get(hookIndex);
+
+  if (runtimeState.retired) {
+    if (slot?.runtimeState === runtimeState) {
+      return slot.collection as unknown as QueryCollection<
+        TInput,
+        TResult,
+        TKey
+      >;
+    }
+    assertDataRuntimeActive(runtimeState);
+  }
+
   const concurrency = normalizeQueryCollectionConcurrency(options.concurrency);
   const inputs = options.inputs();
   if (!Array.isArray(inputs)) {
@@ -407,16 +461,8 @@ export function createQueryCollection<
     );
   }
 
-  const generation: object = instance;
-  const runtimeState = resolveDataRuntimeState(options.runtime);
-  const store = getCollectionStore(generation);
-  let slot = store.get(hookIndex);
-
-  if (slot && slot.runtimeState !== runtimeState) {
-    slot.collection.dispose();
-    store.delete(hookIndex);
-    slot = undefined;
-  }
+  const previousSlot = slot;
+  if (slot?.runtimeState !== runtimeState) slot = undefined;
 
   if (!slot) {
     const collection = new QueryCollectionCell(runtimeState);
@@ -429,6 +475,16 @@ export function createQueryCollection<
       >,
     };
     store.set(hookIndex, slot);
+    const createdSlot = slot;
+    onRenderDiscard(() => {
+      collection.dispose();
+      if (store.get(hookIndex) !== createdSlot) return;
+      if (previousSlot) store.set(hookIndex, previousSlot);
+      else store.delete(hookIndex);
+    });
+    if (previousSlot) {
+      instance.onCommitSync(() => previousSlot.collection.dispose());
+    }
     instance.onCleanup(() => {
       const current = store.get(hookIndex);
       try {

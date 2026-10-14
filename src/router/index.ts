@@ -16,6 +16,12 @@ export {
   createRouteRegistry,
 } from './route';
 export { onRouteChange } from './activity';
+export { createSessionAuth } from './session-auth';
+export type {
+  SessionAuth,
+  SessionAuthOptions,
+  SessionLoginOptions,
+} from './session-auth';
 export type { RouteChangeCleanup, RouteChangeOptions } from './activity';
 export {
   allow,
@@ -56,12 +62,9 @@ export type {
   RouteSearchValue,
   RouteMeta,
   RouteMetaSource,
-  ParsedSegment,
-  LayoutScopeRecord,
   RouteRecord,
   RouteManifest,
   RouteRegistry,
-  PageScopeRecord,
 } from '../common/router';
 export type { LazyRouteComponent, LazyRouteDataLoader } from './lazy';
 export type { RouteDataLoadPhase } from './route-data-loader';
@@ -82,7 +85,6 @@ export {
   Resolve,
 } from './deferred';
 export type { Deferred, DeferredState, ResolveProps } from './deferred';
-export type { AuthContext, AuthRequirement } from '@askrjs/auth';
 
 export { navigate, updateRouteQuery } from './navigate';
 export type {

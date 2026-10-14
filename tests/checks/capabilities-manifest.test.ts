@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { expect, test } from 'vitest';
+import { expect, test } from 'vite-plus/test';
 
 test('should publish a complete capability manifest', async () => {
   const root = fileURLToPath(new URL('../..', import.meta.url));

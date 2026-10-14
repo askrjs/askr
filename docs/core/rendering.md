@@ -3,6 +3,51 @@
 Askr supports three output modes: DOM (SPA), server-rendered HTML (SSR), and pre-rendered
 HTML files (SSG). The same component code works in all three modes.
 
+## Presentation children
+
+Import `RenderableChild` from `@askrjs/askr` when a component accepts a value
+for a presentation slot. It accepts Askr elements, strings, numbers, booleans,
+`null`, `undefined`, and recursively nested readonly arrays of those values.
+Arrays flatten in order; booleans, `null`, and `undefined` render no content.
+Text is escaped in server HTML. The type has no JavaScript export.
+
+```tsx
+import type { RenderableChild } from '@askrjs/askr';
+
+type PanelProps = {
+  heading?: RenderableChild;
+  children?: RenderableChild;
+};
+
+function Panel({ heading, children }: PanelProps) {
+  return (
+    <section>
+      <header>{heading}</header>
+      {children}
+    </section>
+  );
+}
+
+const details = ['Ready', 2, [<strong>Review complete</strong>, null]] as const;
+const page = <Panel heading="Release review">{details}</Panel>;
+```
+
+`RenderableChild` describes values, so a presentation slot using that type
+does not accept a function, promise, arbitrary data object, or imperative DOM
+node. Call an application-owned factory before passing its result to such a
+slot. Other values tolerated by the renderer, such as bigint and generic
+iterables, are outside this public value-child contract.
+
+Factory and getter children have separate, explicit owners. A `Scope` provider
+accepts either a value child or a zero-argument function returning value
+children: `<ThemeScope value="dark">{() => <Panel>Ready</Panel>}</ThemeScope>`.
+The provider renders that function in its owned scope. Native reactive JSX
+children keep their existing [function-child semantics](#reactive-values-on-the-server).
+This value type does not change those APIs or turn a presentation prop into a
+factory prop. `Presence`, `layout()`'s child argument, and component props
+typed `RenderableChild` share the same value contract; `layout()`'s return
+type remains intentionally opaque.
+
 ## DOM rendering (SPA)
 
 The default mode. Components are rendered into the DOM via

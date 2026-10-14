@@ -1,5 +1,7 @@
 import type { AuthContext } from '@askrjs/auth';
 import type { RouteMode } from '../common/router';
+import { currentAppRuntime } from '../core/api/hooks';
+import { getSessionAuthState } from './session-auth-state';
 import { getActiveRenderContext } from '../common/render-context';
 import {
   withPageFramework,
@@ -24,6 +26,8 @@ export function currentAuth(): AuthContext {
   // client identity here would expose whichever request resolved last.
   const render = getActiveRenderContext();
   if (render) return render.authContext ?? anonymous;
+  const state = getSessionAuthState(currentAppRuntime()?.routeAuth);
+  if (state) return state.read() ?? anonymous;
   return clientAuth;
 }
 

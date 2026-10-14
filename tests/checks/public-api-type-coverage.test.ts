@@ -117,6 +117,66 @@ function collectReferencedNames(): Set<string> {
 }
 
 describe('public API type coverage', () => {
+  it.each([
+    [
+      'rootSurface.createRuntime',
+      'declare const rootSurface: { createRuntime(): void };',
+      'declare const rootSurface: {};',
+    ],
+    [
+      "import('@askrjs/askr').JSXElement",
+      'export interface JSXElement { readonly type: string; }',
+      'export {};',
+    ],
+  ])(
+    'should reject a restored export through the actual %s absence assertion',
+    (needle, present, absent) => {
+      const lines = fs
+        .readFileSync(
+          path.join(testsTypesDir, 'public-entrypoints.test-d.ts'),
+          'utf8'
+        )
+        .split('\n');
+      const index = lines.findIndex((line) => line.includes(needle));
+      expect(index).toBeGreaterThan(0);
+      expect(lines[index - 1]).toContain('@ts-expect-error');
+      const assertion = lines
+        .slice(index - 1, index + 1)
+        .join('\n')
+        .replace("'@askrjs/askr'", "'./exports.js'");
+      const diagnostics = (declaration: string) => {
+        const value = needle.startsWith('rootSurface.');
+        const files: Record<string, string> = {
+          '/probe.ts': `declare function expectType<T>(value: T): void;\n${value ? declaration : ''}\n${assertion}`,
+          '/exports.d.ts': value ? 'export {};' : declaration,
+        };
+        const options = {
+          noLib: true,
+          module: ts.ModuleKind.NodeNext,
+          moduleResolution: ts.ModuleResolutionKind.NodeNext,
+        };
+        const host = ts.createCompilerHost(options);
+        host.fileExists = (file) => file in files;
+        host.readFile = (file) => files[file];
+        host.getSourceFile = (file) =>
+          file in files
+            ? ts.createSourceFile(
+                file,
+                files[file]!,
+                ts.ScriptTarget.Latest,
+                true
+              )
+            : undefined;
+        const program = ts.createProgram(Object.keys(files), options, host);
+        return program
+          .getSemanticDiagnostics(program.getSourceFile('/probe.ts')!)
+          .map(({ code }) => code);
+      };
+      expect(diagnostics(absent)).toEqual([]);
+      expect(diagnostics(present)).toEqual([2578]);
+    }
+  );
+
   it('should exercise consumer contracts instead of asserting a function against itself', () => {
     const selfAssertions: string[] = [];
     for (const file of fs
