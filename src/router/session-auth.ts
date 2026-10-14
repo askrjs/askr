@@ -315,8 +315,14 @@ export function createSessionAuth(
     if (!pending) {
       const ownGeneration = generation;
       const { controller } = entry;
+      let resolveEntry!: (value: AuthContext) => void;
+      let rejectEntry!: (reason: unknown) => void;
+      entry.promise = new Promise<AuthContext>((resolve, reject) => {
+        resolveEntry = resolve;
+        rejectEntry = reject;
+      });
       pending = entry;
-      entry.promise = (async () => {
+      void (async () => {
         try {
           const response = await transport(
             new Request(new URL('/auth/session', window.location.href), {
@@ -336,7 +342,9 @@ export function createSessionAuth(
           )
             throw abortError();
           commit(value);
-          return value;
+          resolveEntry(value);
+        } catch (error) {
+          rejectEntry(error);
         } finally {
           if (pending === entry) pending = undefined;
         }
