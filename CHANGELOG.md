@@ -33,6 +33,10 @@
 
 ### Additions
 
+- Report `status: 404` on the SSR render result when a `fallback()` rendered
+  the miss, so hosts can send the right status without reading the private
+  route record.
+
 - Type `download` on `<a>` (a filename, or `true` for the resource's own
   name) and `onDoubleClick` on every element, as an alias of `onDblClick`.
 

@@ -526,7 +526,9 @@ Resolves a URL against a registry and applies route policies, auth, preloads
 and loaders without rendering. A server that renders the page should call
 `renderRouteRequest()` or `renderRouteRequestToString()` from
 `@askrjs/askr/ssr` instead: they resolve once and return the same redirect,
-deny, and no-match decisions. Use `resolveRouteRequest()` only when you need
+deny, and no-match decisions. A render result carries `status: 404` when a
+`fallback()` rendered the miss, so a host can send the right status without
+inspecting the route; a matched route has no `status`. Use `resolveRouteRequest()` only when you need
 the decision and will not render the route, since loader and preload work is
 not reused by a later render.
 

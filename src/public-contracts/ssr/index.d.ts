@@ -198,6 +198,8 @@ type RenderRouteRequestResult =
       stream?: ReadableStream<Uint8Array>;
       styles: readonly SSRStyleRegistration[];
       params: Record<string, string>;
+      /** `404` when a `fallback()` rendered the miss; absent for a route. */
+      status?: 404;
       record?: RouteRecord;
     }
   | AccessRedirectDecision

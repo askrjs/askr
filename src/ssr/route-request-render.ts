@@ -64,6 +64,8 @@ export type RenderRouteRequestResult =
       stream?: ReadableStream<Uint8Array>;
       styles: readonly SSRStyleRegistration[];
       params: Record<string, string>;
+      /** `404` when a `fallback()` rendered the miss; absent for a route. */
+      status?: 404;
       record?: import('../common/router').RouteRecord;
     }
   | AccessRedirectDecision
@@ -400,6 +402,9 @@ async function renderRouteRequestInternal(
             }
           : {}),
         params: resolved.params,
+        // A host serving this result needs the status without reaching for
+        // the private record: a fallback match is a not-found page.
+        ...(resolved.record?.isFallback ? { status: 404 as const } : {}),
       };
       if (resolved.record) {
         Object.defineProperty(result, 'record', {
