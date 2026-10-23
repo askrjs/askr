@@ -44,8 +44,11 @@ let trackingSources: Set<Source> | null = null;
  * instead of being lost; `setSources` drops the subscriptions not read.
  */
 function track(source: Source): void {
-  if (!trackingSources || trackingSources.has(source)) return;
+  if (!trackingSources) return;
+  // One hash lookup on a repeated read: the size tells whether it was new.
+  const before = trackingSources.size;
   trackingSources.add(source);
+  if (trackingSources.size === before) return;
   const observer = tracking as Computation;
   if (!observer._sources?.has(source)) {
     (source._observers ??= new Set()).add(observer);
