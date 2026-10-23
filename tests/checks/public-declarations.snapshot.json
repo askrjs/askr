@@ -1,6 +1,7 @@
 {
   "exports": {
     ".": {
+      "batch": ["declare function batch<T>(fn: () => T): T;"],
       "configureRenderDiagnostics": [
         "declare function configureRenderDiagnostics(options: RenderDiagnosticsOptions): () => void;"
       ],
@@ -71,7 +72,8 @@
       ],
       "StateTuple": [
         "type StateTuple<T> = [\n    get: State<T>,\n    set: StateSetter<T>\n] & State<T>;"
-      ]
+      ],
+      "untrack": ["declare function untrack<T>(fn: () => T): T;"]
     },
     "./boot": {
       "cleanupApp": [
@@ -1076,6 +1078,7 @@
     "applyInteractionPolicy": [
       "declare function applyInteractionPolicy({ isNative, disabled, onPress, ref }: InteractionPolicyInput): {\n    disabled: true | undefined;\n    onClick: (e: Event) => void;\n    ref: Ref$2<unknown>;\n} | {\n    tabIndex: number;\n    ref: Ref$2<unknown>;\n    \"aria-disabled\"?: \"true\";\n    onClick: (e: DefaultPreventable & PropagationStoppable) => void;\n    disabled?: true;\n    role?: \"button\";\n    onKeyDown?: (e: KeyboardLikeEvent) => void;\n    onKeyUp?: (e: KeyboardLikeEvent) => void;\n};"
     ],
+    "batch": ["declare function batch<T>(fn: () => T): T;"],
     "BivariantHandler": [
       "type BivariantHandler<T> = {\n    bivarianceHack(value: T): void;\n}[\"bivarianceHack\"];"
     ],
@@ -2404,6 +2407,7 @@
       "declare function type(element: HTMLInputElement | HTMLTextAreaElement, text: string): void;"
     ],
     "unauthorized": ["declare function unauthorized(): AccessDenyDecision;"],
+    "untrack": ["declare function untrack<T>(fn: () => T): T;"],
     "updateRouteQuery": [
       "declare function updateRouteQuery(updates: RouteQueryUpdates | RouteQueryUpdater, options?: UpdateRouteQueryOptions): void;"
     ],

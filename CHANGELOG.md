@@ -48,6 +48,11 @@
 - Report `status: 404` on the SSR render result when a `fallback()` rendered
   the miss, so hosts can send the right status without reading the private
   route record.
+- Export `batch(fn)` and `untrack(fn)` from `@askrjs/askr`. `batch` defers
+  scheduling and flushes once when the outermost batch exits, from any code
+  (handlers, timers). `untrack` reads reactive values without subscribing. The
+  surface grows by two named/entrypoint pairs. See
+  `docs/core/runtime.md#batching-and-untracked-reads`.
 - Add an `equals` option to `state()` and `derive()`: `state(initial, { equals })`,
   `derive(fn, { equals })` and `derive(source, map, { equals })`. A comparator that
   returns true suppresses the notification. The default stays `Object.is`.

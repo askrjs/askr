@@ -13,6 +13,7 @@
     "State",
     "StateSetter",
     "StateTuple",
+    "batch",
     "configureRenderDiagnostics",
     "createElement",
     "createRef",
@@ -25,7 +26,8 @@
     "readScope",
     "registerSSRStyle",
     "selector",
-    "state"
+    "state",
+    "untrack"
   ],
   "./boot": [
     "HydrateSPAConfig",

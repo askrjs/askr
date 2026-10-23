@@ -124,7 +124,22 @@ declare function selector<T>(
   source: () => T,
   equals?: SelectorEquals<T>
 ): Selector<T>;
+/**
+ * Runs `fn` with scheduling deferred and flushes once, synchronously, when the
+ * outermost batch exits. Works anywhere: event handlers, timers, callbacks.
+ * Returns the value of `fn`; a throw still flushes queued work.
+ */
+declare function batch<T>(fn: () => T): T;
+
+/**
+ * Runs `fn` without subscribing the running computation (a render or
+ * `derive()`) to any source `fn` reads. Returns the value of `fn`.
+ */
+declare function untrack<T>(fn: () => T): T;
+
 export {
+  batch,
+  untrack,
   ReactiveOptions,
   State,
   StateUpdater,

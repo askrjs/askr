@@ -1,9 +1,11 @@
 import { expectError, expectType } from 'tsd';
 import {
+  batch,
   derive,
   getSignal,
   selector,
   state,
+  untrack,
   type Derived,
   type Selector,
   type State,
@@ -93,3 +95,7 @@ expectError(
 );
 
 expectType<AbortSignal>(getSignal());
+
+expectType<number>(batch(() => 1));
+expectType<string>(untrack(() => 'x'));
+expectError(batch(1));

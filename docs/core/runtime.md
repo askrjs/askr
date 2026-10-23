@@ -102,6 +102,39 @@ const bucket = derive(() => ({ b: Math.floor(n() / 10) }), {
 });
 ```
 
+### Batching and untracked reads
+
+`batch(fn)` runs `fn` with scheduling deferred and flushes once, synchronously,
+when the outermost batch exits. It works anywhere, not only in components: in
+event handlers (which already run in a batch), timers and promise callbacks.
+Nested batches flush only when the outermost one exits. It returns `fn`'s
+result, and queued work still flushes if `fn` throws.
+
+`untrack(fn)` runs `fn` and returns its result without subscribing the running
+render, `derive()` or binding to anything `fn` reads. There is no separate
+`peek`: read a state getter inside `untrack()` instead.
+
+```ts
+import { batch, derive, state, untrack } from '@askrjs/askr';
+
+function Form() {
+  const first = state('');
+  const second = state('');
+  const name = state('');
+  const count = state(0);
+
+  setTimeout(() => {
+    batch(() => {
+      first.set('a');
+      second.set('b');
+    }); // one render
+  }, 100);
+
+  const label = derive(() => `${name()} (${untrack(() => count())})`);
+  return <p>{label()}</p>;
+}
+```
+
 ## When work becomes observable
 
 Askr uses signals internally, but its public primitives become observable at

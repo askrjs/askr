@@ -18,6 +18,10 @@ export type {
   StateTuple,
 } from './core/api/state';
 
+// Scheduling and tracking control
+export { batch } from './core/reactive/scheduler';
+export { untrack } from './core/reactive/graph';
+
 // Lexical scopes
 export { defineScope, readScope } from './core/api/scope';
 export type { Scope } from './core/api/scope';

@@ -4,6 +4,8 @@
  */
 import './jsx-globals.js';
 export {
+  batch,
+  untrack,
   selector,
   StateSetter,
   StateTuple,
