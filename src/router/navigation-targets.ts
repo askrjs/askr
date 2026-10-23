@@ -3,19 +3,17 @@ import { logger } from '../common/logger';
 import {
   applyHistoryScroll,
   applyNavigationScroll,
+  hasSavedScrollPosition,
   saveScrollPosition,
 } from './navigation-scroll';
+import { publishLocation } from './route-query';
 import {
   getCurrentHref,
   getCurrentPathname,
-  getRegisteredAppsSnapshot,
   getWindowHref,
   isCurrentOrigin,
   parseNavigationTarget,
   parseTargetUrl,
-  setCurrentRouteLocation,
-  syncAppRegistrationLocation,
-  syncRegisteredRouteSnapshot,
   toDocumentUrl,
 } from './navigation-registry';
 import { loadDocument, reloadDocument } from './document-navigation';
@@ -188,18 +186,19 @@ export function applyNavigationTargets(
  * path for back/forward traversal.
  */
 export function applyPopStateFragmentChange(
+  previousHref: string,
   historyIndex: number | undefined,
   pathname: string,
   href: string,
   state: unknown
 ): void {
+  saveScrollPosition(previousHref);
   commitHistoryIndex(historyIndex);
-  setCurrentRouteLocation(pathname, href);
-  for (const app of getRegisteredAppsSnapshot()) {
-    syncAppRegistrationLocation(app, pathname, href);
-  }
-  syncRegisteredRouteSnapshot();
-  applyHistoryScroll(href, state);
+  publishLocation(pathname, href);
+  // An entry traversed before (back, forward) restores its offset; a fresh
+  // one (a native anchor click) scrolls to its fragment, as navigate() does.
+  if (hasSavedScrollPosition(href, state)) applyHistoryScroll(href, state);
+  else applyNavigationScroll();
 }
 
 export function applyPopStateNavigationTargets(
@@ -222,12 +221,6 @@ export function applyPopStateNavigationTargets(
 
   const matchedTargets = targets.filter((target) => target.resolved !== null);
   if (matchedTargets.length === 0) {
-    // Only the fragment moved away from the rendered page, which is still
-    // the right page for this entry.
-    if (href.split('#')[0] === previousHref.split('#')[0]) {
-      commitHistoryIndex(historyIndex);
-      return;
-    }
     // The browser already moved to this entry; only a document load can
     // render it, so the old page does not stay mounted under the new URL.
     if (isDevelopmentEnvironment()) {

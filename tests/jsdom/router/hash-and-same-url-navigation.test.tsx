@@ -109,6 +109,66 @@ describe('hash-only and same-location navigation', () => {
     expect(container.querySelector('article')).toBe(article);
   });
 
+  it('should save and restore scroll across fragment-only traversal', async () => {
+    const scrollToSpy = vi.fn();
+    for (const [name, value] of [
+      ['scrollTo', scrollToSpy],
+      ['scrollX', 0],
+      ['scrollY', 0],
+    ] as const) {
+      Object.defineProperty(window, name, {
+        value,
+        writable: true,
+        configurable: true,
+      });
+    }
+    await createSPA({ root: container, registry: registry() });
+    await settle();
+    navigate('/docs#intro');
+    await settle();
+    window.scrollY = 300;
+
+    // Back to /docs: the fragment entry's offset is saved on the way out.
+    window.history.replaceState(window.history.state, '', '/docs');
+    window.dispatchEvent(
+      new PopStateEvent('popstate', { state: { path: '/docs' } })
+    );
+    await settle();
+    scrollToSpy.mockClear();
+
+    // Forward to /docs#intro restores it.
+    window.history.replaceState(window.history.state, '', '/docs#intro');
+    window.dispatchEvent(
+      new PopStateEvent('popstate', { state: { path: '/docs#intro' } })
+    );
+    await settle();
+    expect(scrollToSpy).toHaveBeenCalledWith(0, 300);
+    expect(loads).toBe(1);
+  });
+
+  it('should scroll to the fragment, not the top, for a native anchor entry', async () => {
+    const scrollToSpy = vi.fn();
+    Object.defineProperty(window, 'scrollTo', {
+      value: scrollToSpy,
+      writable: true,
+      configurable: true,
+    });
+    await createSPA({ root: container, registry: registry() });
+    await settle();
+    const intro = container.querySelector('#intro')!;
+    const scrollIntoView = vi.fn();
+    (intro as HTMLElement).scrollIntoView = scrollIntoView;
+
+    // A native <a href="#intro"> click: the browser moved first, with no
+    // router state on the entry.
+    window.history.pushState(null, '', '/docs#intro');
+    window.dispatchEvent(new PopStateEvent('popstate', { state: null }));
+    await settle();
+    expect(scrollIntoView).toHaveBeenCalled();
+    expect(scrollToSpy).not.toHaveBeenCalledWith(0, 0);
+    expect(loads).toBe(1);
+  });
+
   it('should reject uncloneable state on a fragment-only navigation', async () => {
     await createSPA({ root: container, registry: registry() });
     await settle();

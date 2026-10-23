@@ -252,7 +252,13 @@ function handlePopState(event: PopStateEvent): void {
   }
   if (href.split('#')[0] === previousHref.split('#')[0]) {
     // Only the fragment differs from the rendered page: no route to resolve.
-    applyPopStateFragmentChange(historyIndex, pathname, href, event.state);
+    applyPopStateFragmentChange(
+      previousHref,
+      historyIndex,
+      pathname,
+      href,
+      event.state
+    );
     return;
   }
 

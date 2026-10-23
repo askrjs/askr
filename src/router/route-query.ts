@@ -142,7 +142,11 @@ export function commitLocationOnlyNavigation(
     toDocumentUrl(href)
   );
   commitHistoryIndex(historyIndex);
+  publishLocation(pathname, href);
+}
 
+/** Record a location the rendered page now owns, without re-rendering it. */
+export function publishLocation(pathname: string, href: string): void {
   setCurrentRouteLocation(pathname, href);
   for (const app of getRegisteredAppsSnapshot()) {
     syncAppRegistrationLocation(app, pathname, href);
