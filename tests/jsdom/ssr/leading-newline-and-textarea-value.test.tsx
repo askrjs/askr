@@ -37,6 +37,27 @@ describe('SSR leading newlines and textarea values', () => {
     expect(root.querySelector('textarea')!.value).toBe('\nfirst');
   });
 
+  it('should preserve a leading newline produced by dynamic children', () => {
+    const Code = () => '\nfrom-component';
+    const Page = () => (
+      <div>
+        <pre>{() => '\nfrom-function'}</pre>
+        <pre>
+          <>{'\nfrom-fragment'}</>
+        </pre>
+        <pre>
+          <Code />
+        </pre>
+      </div>
+    );
+    const { container: root, cleanup } = createTestContainer();
+    cleanups.push(cleanup);
+    root.innerHTML = renderToStringSync(Page);
+    expect(
+      Array.from(root.querySelectorAll('pre'), (pre) => pre.textContent)
+    ).toEqual(['\nfrom-function', '\nfrom-fragment', '\nfrom-component']);
+  });
+
   it('should render a textarea value as its text content', () => {
     const Page = () => <textarea value="hello" />;
     const { container: root, cleanup } = createTestContainer();

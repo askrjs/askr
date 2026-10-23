@@ -684,9 +684,13 @@ function writeNewlineSensitiveContent(
       return true;
     }
   }
-  const first = normalizeChildren(props.children)[0];
-  if (first?.kind === TEXT && first.text.startsWith('\n')) sink.write('\n');
-  return false;
+  // Children may be functions, fragments or components, so the content is
+  // rendered first and its leading newline doubled on the way out.
+  const content = new BufferedSink(state().referenceAttributes);
+  writeContent(props, null, content);
+  if (content.html().startsWith('\n')) sink.write('\n');
+  content.publishTo(sink);
+  return true;
 }
 
 /** An element's content: raw HTML, raw text, or rendered children. */
