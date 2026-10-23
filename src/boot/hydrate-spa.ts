@@ -11,7 +11,6 @@ import {
   setServerLocation,
 } from '../router/route';
 import { clearRouteState } from '../router/store';
-import { resetRouteMetaBaseline } from '../router/metadata';
 import { readHydratedAuth, withoutHydratedAuth } from '../router/auth';
 import { assertExecutionModel } from '../common/execution-model';
 import { flushSync as flushRuntimeScheduler } from '../core/reactive/scheduler';
@@ -106,7 +105,6 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     configureScrollRestoration(config.scrollRestoration);
 
     clearRouteState();
-    resetRouteMetaBaseline();
     _applyManifest(manifest);
     // The server already enforced auth for this page. Its opted-in identity
     // snapshot decides the initial route; without a client `resolve` it also

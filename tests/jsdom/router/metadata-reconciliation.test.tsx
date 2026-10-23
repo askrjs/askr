@@ -72,6 +72,35 @@ describe('route metadata reconciliation', () => {
     expect(document.documentElement.hasAttribute('dir')).toBe(false);
   });
 
+  it('should leave a language or title the application set itself alone', async () => {
+    const shellTitle = document.createElement('title');
+    shellTitle.textContent = 'Shell';
+    document.head.append(shellTitle);
+    document.documentElement.setAttribute('lang', 'en');
+    window.history.replaceState({}, '', '/titled');
+    const registry = createRouteRegistry(() => {
+      route('/plain', () => <p>plain</p>);
+      route('/titled', () => <p>titled</p>, {
+        meta: { title: 'Titled', html: { lang: 'de' } },
+      });
+    });
+
+    await createSPA({ root: container, registry });
+    expect(document.title).toBe('Titled');
+    expect(document.documentElement.getAttribute('lang')).toBe('de');
+
+    // An i18n layer or unread badge changes what the router wrote.
+    document.documentElement.setAttribute('lang', 'es');
+    shellTitle.textContent = '(3) Titled';
+
+    navigate('/plain');
+    await vi.waitFor(() =>
+      expect(container.querySelector('p')?.textContent).toBe('plain')
+    );
+    expect(document.documentElement.getAttribute('lang')).toBe('es');
+    expect(document.title).toBe('(3) Titled');
+  });
+
   it('should update a static shell title in place and restore it afterwards', async () => {
     const shellTitle = document.createElement('title');
     shellTitle.textContent = 'Shell';

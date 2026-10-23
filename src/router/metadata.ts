@@ -112,11 +112,17 @@ interface DocumentBaseline {
   titleText: string;
   lang: string | null;
   dir: string | null;
+  /** What the router last wrote; only that is reverted, never app edits. */
+  written: { title?: string; lang?: string; dir?: string };
 }
 
 const documentBaselines = new WeakMap<Document, DocumentBaseline>();
 
-/** Forget the captured baseline; the next reconcile reads the document anew. */
+/**
+ * Forget the captured baseline (router reset in tests and teardown); the next
+ * reconcile reads the document anew. Apps booting into the same document
+ * share one baseline, captured before any of them wrote to the head.
+ */
 export function resetRouteMetaBaseline(
   target: Document | undefined = globalThis.document
 ): void {
@@ -134,23 +140,36 @@ function documentBaseline(target: Document): DocumentBaseline {
       titleText: title?.textContent ?? '',
       lang: target.documentElement.getAttribute('lang'),
       dir: target.documentElement.getAttribute('dir'),
+      written: {},
     };
     documentBaselines.set(target, baseline);
   }
   return baseline;
 }
 
-function restoreRootAttribute(
+/**
+ * Write a route's root attribute, or put back the document's own value when
+ * the route declares none and the current value is still the router's.
+ * A value the application set itself is left alone.
+ */
+function writeRootAttribute(
   target: Document,
   name: 'lang' | 'dir',
   value: string | undefined,
-  baseline: string | null
+  baseline: DocumentBaseline
 ): void {
-  const next = value ?? baseline;
-  if (next === null) target.documentElement.removeAttribute(name);
-  else if (target.documentElement.getAttribute(name) !== next) {
-    target.documentElement.setAttribute(name, next);
+  const root = target.documentElement;
+  if (value) {
+    if (root.getAttribute(name) !== value) root.setAttribute(name, value);
+    baseline.written[name] = value;
+    return;
   }
+  const written = baseline.written[name];
+  if (written === undefined || root.getAttribute(name) !== written) return;
+  baseline.written[name] = undefined;
+  const original = baseline[name];
+  if (original === null) root.removeAttribute(name);
+  else root.setAttribute(name, original);
 }
 
 /**
@@ -191,8 +210,19 @@ export function reconcileRouteMeta(
     target.head.append(element);
   };
   if (shellTitle) {
-    const text = meta.title ?? baseline.titleText;
-    if (shellTitle.textContent !== text) shellTitle.textContent = text;
+    if (meta.title !== undefined) {
+      if (shellTitle.textContent !== meta.title) {
+        shellTitle.textContent = meta.title;
+      }
+      baseline.written.title = meta.title;
+    } else if (
+      baseline.written.title !== undefined &&
+      shellTitle.textContent === baseline.written.title
+    ) {
+      // Only the router's own title is put back; an app-updated title stays.
+      baseline.written.title = undefined;
+      shellTitle.textContent = baseline.titleText;
+    }
   } else if (meta.title !== undefined) {
     const element = own(target.createElement('title'));
     element.textContent = meta.title;
@@ -231,18 +261,8 @@ export function reconcileRouteMeta(
       target.head.append(element);
     }
   }
-  restoreRootAttribute(
-    target,
-    'lang',
-    meta.html?.lang || undefined,
-    baseline.lang
-  );
-  restoreRootAttribute(
-    target,
-    'dir',
-    meta.html?.dir || undefined,
-    baseline.dir
-  );
+  writeRootAttribute(target, 'lang', meta.html?.lang || undefined, baseline);
+  writeRootAttribute(target, 'dir', meta.html?.dir || undefined, baseline);
 }
 
 const LINK_ATTRIBUTES = new Set([
