@@ -11,6 +11,7 @@ import {
   setServerLocation,
 } from '../router/route';
 import { clearRouteState } from '../router/store';
+import { resetRouteMetaBaseline } from '../router/metadata';
 import { readHydratedAuth, withoutHydratedAuth } from '../router/auth';
 import { assertExecutionModel } from '../common/execution-model';
 import { flushSync as flushRuntimeScheduler } from '../core/reactive/scheduler';
@@ -105,6 +106,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     configureScrollRestoration(config.scrollRestoration);
 
     clearRouteState();
+    resetRouteMetaBaseline();
     _applyManifest(manifest);
     // The server already enforced auth for this page. Its opted-in identity
     // snapshot decides the initial route; without a client `resolve` it also
@@ -174,10 +176,10 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     let verifyClientMarkup: (() => Promise<void>) | undefined;
     // What the hydration commit itself rendered, before post-commit work runs.
     let clientMarkup: string | null = null;
-    let captureClientHydrationMarkup: ((root: Element) => string) | undefined;
+    let serializeClientMarkup: ((root: Element) => string) | undefined;
     const captureClientMarkup = () => {
-      if (verifyClientMarkup && captureClientHydrationMarkup) {
-        clientMarkup = captureClientHydrationMarkup(rootElement);
+      if (verifyClientMarkup && serializeClientMarkup) {
+        clientMarkup = serializeClientMarkup(rootElement);
       }
     };
 
@@ -196,9 +198,9 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         captureServerHydrationMarkup,
         verifyClientHydrationMarkup,
         verifyHydrationSyncForUrl,
-        captureClientHydrationMarkup: captureClientMarkupFromDom,
+        serializeHydrationMarkup,
       } = await boot.wait(import('../ssr/verify-hydration'));
-      captureClientHydrationMarkup = captureClientMarkupFromDom;
+      serializeClientMarkup = serializeHydrationMarkup;
       boot.assertCurrent();
       if (
         !verifyHydrationSyncForUrl({
@@ -241,7 +243,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
           if (
             !matchedAtCommit &&
             !verifyClientHydrationMarkup(
-              captureClientMarkupFromDom(rootElement),
+              serializeHydrationMarkup(rootElement),
               serverMarkup
             )
           ) {

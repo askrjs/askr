@@ -49,24 +49,6 @@ function normalizeStyleDeclarations(style: CSSStyleDeclaration): string {
 function normalizeHydrationHtml(html: string): string {
   const template = document.createElement('template');
   template.innerHTML = html;
-  return normalizeHydrationTemplate(template);
-}
-
-/**
- * Live DOM is normalized from a clone, not from its `innerHTML`: parsing a
- * serialization drops the newline after `<pre>` and `<textarea>` start tags,
- * and the DOM serializer does not add one back in every host, so a round trip
- * would lose what the server wrote while the server string keeps it.
- */
-function normalizeHydrationDom(root: Element): string {
-  const template = document.createElement('template');
-  for (const child of Array.from(root.childNodes)) {
-    template.content.appendChild(child.cloneNode(true));
-  }
-  return normalizeHydrationTemplate(template);
-}
-
-function normalizeHydrationTemplate(template: HTMLTemplateElement): string {
   for (const carrier of Array.from(
     template.content.querySelectorAll(
       `script[${SSR_RENDER_DATA_ATTR}],${SSR_STYLE_REGISTRY_SELECTOR}`
@@ -130,26 +112,63 @@ export function captureServerHydrationMarkup(
   if (!clientRendersServerUrl(url, envelope)) {
     return null;
   }
-  return normalizeHydrationDom(root);
+  return normalizeHydrationHtml(serializeHydrationMarkup(root));
 }
 
-/** The client markup under `root`, normalized like the server capture. */
-export function captureClientHydrationMarkup(root: Element): string {
-  return normalizeHydrationDom(root);
+let serializerRestoresLeadingNewline: boolean | null = null;
+
+/**
+ * Whether this host's serializer writes the extra newline the HTML
+ * serialization algorithm requires after a `<pre>`, `<textarea>` or
+ * `<listing>` start tag when the content starts with one. Browsers do; a
+ * host that does not would lose that newline on every parse of its output.
+ */
+function hostSerializerRestoresLeadingNewline(): boolean {
+  if (serializerRestoresLeadingNewline === null) {
+    const probe = document.createElement('template');
+    const pre = document.createElement('pre');
+    pre.appendChild(document.createTextNode('\nx'));
+    probe.content.appendChild(pre);
+    serializerRestoresLeadingNewline = probe.innerHTML.startsWith('<pre>\n\n');
+  }
+  return serializerRestoresLeadingNewline;
 }
 
 /**
- * Whether client markup left by hydration (captured with
- * {@link captureClientHydrationMarkup}) matches the server markup captured
- * before it ran. Hydration reconciles the server DOM in place, so an
- * SSR/client renderer divergence shows up here even when a fresh server
- * render reproduces the server HTML exactly.
+ * The markup under `root` as the HTML serialization algorithm writes it, so
+ * that parsing it reproduces the live DOM. When the host serializer omits the
+ * newline that the parser drops after `<pre>`/`<textarea>`/`<listing>` start
+ * tags, it is added here from a clone.
+ */
+export function serializeHydrationMarkup(root: Element): string {
+  if (hostSerializerRestoresLeadingNewline()) return root.innerHTML;
+  const template = document.createElement('template');
+  for (const child of Array.from(root.childNodes)) {
+    template.content.appendChild(child.cloneNode(true));
+  }
+  for (const element of Array.from(
+    template.content.querySelectorAll('pre, textarea, listing')
+  )) {
+    const first = element.firstChild;
+    if (first?.nodeType === 3 && (first as Text).data.startsWith('\n')) {
+      (first as Text).data = '\n' + (first as Text).data;
+    }
+  }
+  return template.innerHTML;
+}
+
+/**
+ * Whether client markup left by hydration (serialized with
+ * {@link serializeHydrationMarkup}) matches the server markup captured before
+ * it ran. Hydration reconciles the server DOM in place, so an SSR/client
+ * renderer divergence shows up here even when a fresh server render
+ * reproduces the server HTML exactly.
  */
 export function verifyClientHydrationMarkup(
-  clientMarkup: string,
+  clientHtml: string,
   serverMarkup: string
 ): boolean {
-  return clientMarkup === serverMarkup;
+  return normalizeHydrationHtml(clientHtml) === serverMarkup;
 }
 
 export function verifyHydrationSyncForUrl(opts: {
@@ -184,5 +203,8 @@ export function verifyHydrationSyncForUrl(opts: {
     )
   );
 
-  return normalizeHydrationDom(root) === normalizeHydrationHtml(expected);
+  return (
+    normalizeHydrationHtml(serializeHydrationMarkup(root)) ===
+    normalizeHydrationHtml(expected)
+  );
 }

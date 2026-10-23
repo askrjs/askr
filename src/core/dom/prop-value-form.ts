@@ -60,6 +60,14 @@ export function applyFormControlProp(
       if (control.value !== stringValue) {
         control.value = stringValue;
       }
+      // A textarea's initial value is its text content, which is what SSR
+      // writes; keep it in step so client and server markup agree.
+      if (
+        tagNamesEqualIgnoreCase(tagName, 'textarea') &&
+        control.defaultValue !== stringValue
+      ) {
+        control.defaultValue = stringValue;
+      }
     }
 
     if (el.getAttribute('value') !== stringValue) {

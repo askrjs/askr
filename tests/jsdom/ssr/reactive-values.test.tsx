@@ -182,7 +182,7 @@ describe('SSR reactive values', () => {
           </form>
         );
       },
-      '<form><input value="Ada" /><input type="checkbox" checked /><textarea value="Ada"></textarea><select value="b"><option value="a">A</option><option value="b" selected>B</option></select></form>',
+      '<form><input value="Ada" /><input type="checkbox" checked /><textarea value="Ada">Ada</textarea><select value="b"><option value="a">A</option><option value="b" selected>B</option></select></form>',
     ],
     [
       'a function child returning a state cell',
