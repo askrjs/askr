@@ -418,6 +418,10 @@
 - Compare a `type="number"` input's value numerically, so a re-render does not
   overwrite text such as `1.0` or `1e2` that equals the rendered number.
 
+- Parse string `style` values with a scratch declaration owned by the element's
+  own document, so an element in an iframe is parsed by that document and not
+  by the first document the renderer saw.
+
 ## 0.4.4 - 2026-10-08
 
 ### Breaking changes

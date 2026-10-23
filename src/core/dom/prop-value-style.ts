@@ -57,7 +57,8 @@ function normalizeStyleEntries(value: unknown): StyleEntries | null {
   return entries;
 }
 
-let scratchStyle: CSSStyleDeclaration | null = null;
+/** A detached declaration per document, since an iframe's parser differs. */
+const scratchStyles = new WeakMap<Document, CSSStyleDeclaration>();
 
 /** Style entries a prop value renders; `null` when it is not expressible. */
 function readStyleEntries(el: Element, value: unknown): StyleEntries | null {
@@ -69,7 +70,12 @@ function readStyleEntries(el: Element, value: unknown): StyleEntries | null {
   }
 
   // Parse on a detached declaration so the target element is not touched.
-  scratchStyle ??= el.ownerDocument.createElement('div').style;
+  const doc = el.ownerDocument;
+  let scratchStyle = scratchStyles.get(doc);
+  if (!scratchStyle) {
+    scratchStyle = doc.createElement('div').style;
+    scratchStyles.set(doc, scratchStyle);
+  }
   scratchStyle.cssText = value;
   const entries = collectStyleEntries(scratchStyle);
   scratchStyle.cssText = '';
