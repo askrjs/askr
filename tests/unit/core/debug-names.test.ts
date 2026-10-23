@@ -10,14 +10,18 @@ describe('computation debug names', () => {
   afterEach(() => clearScheduler());
 
   it('should name a computation in the circular dependency error', () => {
-    const named = new Computation<number>(null, () => named.read(), null);
+    const named: Computation<number> = new Computation<number>(
+      null,
+      (): number => named.read(),
+      null
+    );
     named.name = 'total';
     expect(() => named.read()).toThrow(
       'Circular reactive dependency detected in "total".'
     );
-    const anonymous = new Computation<number>(
+    const anonymous: Computation<number> = new Computation<number>(
       null,
-      () => anonymous.read(),
+      (): number => anonymous.read(),
       null
     );
     expect(() => anonymous.read()).toThrow(
