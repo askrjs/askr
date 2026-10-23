@@ -15,6 +15,7 @@ import {
 } from '../router/route';
 import { clearRouteState } from '../router/store';
 import { publishResolvedAuth } from '../router/resolution';
+import { settleNavigationChunks } from '../router/stale-deployment';
 import { readHydratedAuth, withoutHydratedAuth } from '../router/auth';
 import { assertExecutionModel } from '../common/execution-model';
 import { flushSync as flushRuntimeScheduler } from '../core/reactive/scheduler';
@@ -183,6 +184,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     );
     boot.assertCurrent();
     publishResolvedAuth(resolved);
+    settleNavigationChunks();
     boot.assertCurrent();
     setServerLocation(currentUrl);
 

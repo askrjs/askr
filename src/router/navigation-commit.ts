@@ -27,6 +27,7 @@ import {
   getRouteLayoutData,
 } from './resolution';
 import { reconcileRouteMeta } from './metadata';
+import { settleNavigationChunks } from './stale-deployment';
 import { readClientAuth, setCurrentAuth } from './auth';
 import {
   createDeniedHandler,
@@ -48,7 +49,7 @@ const EMPTY_ROUTE_META: Readonly<RouteMeta> = Object.freeze({});
 function publishNavigationAuth(targets: readonly AppNavigationTarget[]): void {
   for (let index = targets.length - 1; index >= 0; index -= 1) {
     const resolved = targets[index]?.resolved;
-    if (resolved && isRenderResult(resolved)) {
+    if (resolved && (isRenderResult(resolved) || resolved.kind === 'deny')) {
       publishResolvedAuth(resolved);
       return;
     }
@@ -257,6 +258,19 @@ export function commitNavigationRoots(
       setCurrentRouteLocation(pathname, href);
       syncRegisteredRouteSnapshot();
       reconcileNavigationMetadata(targets);
+      // An error component rendering in place of a missing chunk is not a
+      // consistent deployment; only a destination whose chunks all loaded
+      // settles the stale-deployment marker.
+      if (
+        !targets.some(
+          (target) =>
+            target.resolved &&
+            isRenderResult(target.resolved) &&
+            isRouteErrorResult(target.resolved)
+        )
+      ) {
+        settleNavigationChunks();
+      }
       updateScroll();
     } catch (error) {
       logger.error('[Askr] navigation failed:', error);

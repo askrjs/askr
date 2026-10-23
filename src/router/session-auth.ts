@@ -302,7 +302,11 @@ export function createSessionAuth(
       retire();
       if (mountedRoots.size)
         queueMicrotask(() =>
-          navigateToPublicHref(browserHref(), { replace: true })
+          navigateToPublicHref(
+            browserHref(),
+            { replace: true },
+            { skipBlockers: true }
+          )
         );
     }
     cached = value;
@@ -436,7 +440,12 @@ export function createSessionAuth(
             new URL(target.href, window.location.href).href,
             'replace'
           );
-        else navigateToPublicHref(target.href, { replace: true });
+        else
+          navigateToPublicHref(
+            target.href,
+            { replace: true },
+            { skipBlockers: true }
+          );
       });
     } else {
       // The caller navigates in this tick; reports in the same tick share
@@ -454,7 +463,12 @@ export function createSessionAuth(
     if (mountedRoots.size) return true;
     if (target.document)
       loadDocument(new URL(target.href, window.location.href).href, 'replace');
-    else if (!roots.size) navigateToPublicHref(target.href, { replace: true });
+    else if (!roots.size)
+      navigateToPublicHref(
+        target.href,
+        { replace: true },
+        { skipBlockers: true }
+      );
     return true;
   };
   const attachEvents = () => {
@@ -474,7 +488,11 @@ export function createSessionAuth(
       // past a newer login, so always consult the current server authority.
       invalidate(undefined);
       if (mountedRoots.size)
-        navigateToPublicHref(browserHref(), { replace: true });
+        navigateToPublicHref(
+          browserHref(),
+          { replace: true },
+          { skipBlockers: true }
+        );
     };
     const storage = (event: StorageEvent) => {
       if (event.key !== STORAGE || !event.newValue) return;
@@ -546,7 +564,11 @@ export function createSessionAuth(
       const restore = () => {
         if (ownGeneration !== generation) return;
         invalidate(undefined);
-        navigateToPublicHref(browserHref(), { replace: true });
+        navigateToPublicHref(
+          browserHref(),
+          { replace: true },
+          { skipBlockers: true }
+        );
       };
       let response: Response;
       try {
@@ -569,7 +591,11 @@ export function createSessionAuth(
       }
       if (ownGeneration !== generation) return;
       publish('logout');
-      navigateToPublicHref(browserHref(), { replace: true });
+      navigateToPublicHref(
+        browserHref(),
+        { replace: true },
+        { skipBlockers: true }
+      );
     },
     handleAuthFailure,
   };

@@ -70,15 +70,28 @@ import {
 } from './route-error';
 import { loadDocument } from './document-navigation';
 import { reloadForStaleDeployment } from './stale-deployment';
+import { isAbortError } from './route-data-loader';
 
 export { resolveRoute } from './route-matching';
 
 function isAbortLikeError(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    (error as { name?: unknown }).name === 'AbortError'
-  );
+  return isAbortError(error);
+}
+
+function rememberResolvedAuth(
+  result: RouteRequestResult | PromiseLike<RouteRequestResult>,
+  auth: AuthContext
+): void {
+  if (isPromiseLike(result)) {
+    void Promise.resolve(result).then(
+      (settled) => rememberResolvedAuth(settled, auth),
+      () => undefined
+    );
+    return;
+  }
+  if (result && typeof result === 'object' && result.kind !== 'render') {
+    resolvedAuthContexts.set(result, auth);
+  }
 }
 
 const routeRenderContexts = new WeakMap<object, RouteContext>();
@@ -99,10 +112,16 @@ export function getRouteRenderContext(
  * page reads from `currentAuth()`.
  */
 export function publishResolvedAuth(result: RouteRequestResult): void {
-  if (!result || result.kind !== 'render') return;
-  const context = routeRenderContexts.get(result);
-  if (context?.auth) setCurrentAuth(context.auth, 'spa');
+  if (!result || typeof result !== 'object') return;
+  const auth =
+    (result.kind === 'render'
+      ? routeRenderContexts.get(result)?.auth
+      : undefined) ?? resolvedAuthContexts.get(result);
+  if (auth) setCurrentAuth(auth, 'spa');
 }
+
+/** The identity each browser resolution produced, for denials and redirects. */
+const resolvedAuthContexts = new WeakMap<object, AuthContext>();
 
 /** The context metadata sources receive: the route context plus loader data. */
 export function getRouteMetaContext(
@@ -710,6 +729,7 @@ function resolveRouteRequestInternal(
         assertCurrent
       );
       const marked = markDenial(result);
+      if (mode === 'spa') rememberResolvedAuth(marked, authContext);
       if (!basePath) return marked;
       return isPromiseLike(marked)
         ? Promise.resolve(marked).then(exposeRedirect)

@@ -7,7 +7,7 @@ import type {
 } from '../common/router';
 import type { AnyRouteComponent } from './internal-types';
 import { _wrapRouteDataLoadError } from './route-data-loader';
-import { clearStaleDeploymentMarker } from './stale-deployment';
+import { markNavigationChunkLoaded } from './stale-deployment';
 
 const pendingLazy = new Set<Promise<unknown>>();
 type LazyState<TComponent extends AnyRouteComponent> = {
@@ -44,7 +44,7 @@ function startLazyLoad(state: LazyState<AnyRouteComponent>): Promise<void> {
             : (mod as { default: AnyRouteComponent }).default;
         state.loadError = null;
         state.hasLoadError = false;
-        clearStaleDeploymentMarker();
+        markNavigationChunkLoaded();
       },
       (err: unknown) => {
         state.loadError = err;

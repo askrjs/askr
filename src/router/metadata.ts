@@ -23,13 +23,28 @@ function freezeMeta(meta: RouteMeta): Readonly<RouteMeta> {
  * Links are identified by `rel` and `href`: a link declared again by a more
  * specific source replaces the earlier one in place instead of repeating.
  */
+/** The attributes that make two `<link>` elements different resources. */
+const LINK_IDENTITY = [
+  'rel',
+  'href',
+  'hreflang',
+  'media',
+  'type',
+  'sizes',
+  'imagesrcset',
+  'imagesizes',
+] as const;
+
 function mergeLinks(
   current: NonNullable<RouteMeta['links']>,
   next: NonNullable<RouteMeta['links']>
 ): NonNullable<RouteMeta['links']> {
   const merged = new Map<string, NonNullable<RouteMeta['links']>[number]>();
   for (const link of [...current, ...next]) {
-    merged.set(`${link.rel}\u0000${link.href}`, link);
+    // A later source replaces an earlier link for the same resource; links
+    // that target different variants (hreflang, media, type, sizes) stay.
+    const key = LINK_IDENTITY.map((name) => link[name] ?? '').join('\u0000');
+    merged.set(key, link);
   }
   return [...merged.values()];
 }

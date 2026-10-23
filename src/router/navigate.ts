@@ -54,7 +54,10 @@ import {
 } from './history-index';
 import { reloadDocument } from './document-navigation';
 import { configureRouteRetry } from './route-error';
-import { reloadForStaleDeployment } from './stale-deployment';
+import {
+  beginNavigationChunkTracking,
+  reloadForStaleDeployment,
+} from './stale-deployment';
 import { configureRedirectHost } from '../common/redirect-host';
 import {
   allowNavigationLeave,
@@ -173,7 +176,15 @@ export function navigateToPublicHref(
   if (typeof window === 'undefined') {
     return;
   }
-  if (!internal?.skipBlockers && !allowNavigationLeave()) return;
+  // Blockers guard leaving the page; the router's own session redirects and
+  // a move to another fragment of the current page are not that.
+  if (
+    !internal?.skipBlockers &&
+    !isFragmentOnlyMove(href) &&
+    !allowNavigationLeave()
+  ) {
+    return;
+  }
 
   prepareNavigationFocus();
   cancelHistoryReturn();
@@ -207,6 +218,7 @@ function navigateWithRedirectState(
 
   const request = beginRouteRequest();
   if (isStaleRouteRequest(request.id)) return;
+  beginNavigationChunkTracking();
   clearPendingNavigation();
 
   const target = parseNavigationTarget(path);
@@ -313,6 +325,7 @@ function handlePopState(event: PopStateEvent): void {
   beginHistoryFocusRestoration();
   const request = beginRouteRequest();
   if (isStaleRouteRequest(request.id)) return;
+  beginNavigationChunkTracking();
   clearPendingNavigation();
   const previousHref = getCurrentHref();
   const historyIndex = landOnHistoryEntry(event.state);
@@ -417,4 +430,16 @@ export function cleanupNavigation(): void {
   window.removeEventListener('popstate', handlePopState);
   document.removeEventListener('pointerdown', captureNavigationFocus, true);
   document.removeEventListener('click', releaseNavigationFocusCapture);
+}
+
+function isFragmentOnlyMove(href: string): boolean {
+  const current = getCurrentHref();
+  if (!current || !hasRegisteredApps()) return false;
+  const target = parseTargetUrl(href);
+  const here = parseTargetUrl(current);
+  return (
+    target.pathname === here.pathname &&
+    target.search === here.search &&
+    target.hash !== here.hash
+  );
 }

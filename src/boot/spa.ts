@@ -21,6 +21,7 @@ import {
   publishResolvedAuth,
   getRouteLayoutData,
 } from '../router/resolution';
+import { settleNavigationChunks } from '../router/stale-deployment';
 import { createAppRenderRuntime } from '../common/app-render-runtime';
 import {
   mountOrUpdate,
@@ -136,6 +137,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     boot.assertCurrent();
     setServerLocation(currentUrl);
     if (resolved) publishResolvedAuth(resolved);
+    settleNavigationChunks();
     mountOrUpdate(
       rootElement,
       !resolved

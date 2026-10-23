@@ -60,7 +60,32 @@ export function reloadForStaleDeployment(
   return true;
 }
 
-/** A chunk loaded, so the deployment is consistent again. */
+let chunkLoadedForNavigation = false;
+
+/** A navigation begins: chunks loaded from now on belong to it. */
+export function beginNavigationChunkTracking(): void {
+  chunkLoadedForNavigation = false;
+}
+
+/** A lazy chunk resolved for the navigation in progress. */
+export function markNavigationChunkLoaded(): void {
+  chunkLoadedForNavigation = true;
+}
+
+/**
+ * The navigation committed. If it loaded a chunk, every chunk it needed
+ * exists, so the deployment is consistent again and a later stale chunk may
+ * reload once more. A commit that loaded nothing proves nothing, and a
+ * working chunk beside a missing one never commits, so the marker keeps a
+ * broken page from reloading in a loop.
+ */
+export function settleNavigationChunks(): void {
+  if (!chunkLoadedForNavigation) return;
+  chunkLoadedForNavigation = false;
+  clearStaleDeploymentMarker();
+}
+
+/** Forget that this document already reloaded for a stale chunk. */
 export function clearStaleDeploymentMarker(): void {
   try {
     storage()?.removeItem(RELOAD_MARKER);

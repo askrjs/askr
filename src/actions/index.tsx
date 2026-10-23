@@ -194,7 +194,7 @@ export function action<
       assertDataRuntimeActive(runtime);
   }
   const signal = options
-    ? anyAbortSignal([getSignal(), runtime.retirement.signal])
+    ? composedActionSignal(getSignal(), runtime.retirement.signal)
     : undefined;
   const value = state<ActionStatus<TResult>>(
     initialStatus<TResult>(descriptor.id)
@@ -334,4 +334,31 @@ export function action<
       }
     },
   };
+}
+
+/**
+ * The component's signal joined with its runtime's, computed once per pair.
+ * Without native `AbortSignal.any` the join adds listeners, and a render runs
+ * `action()` again each time, so the join is cached per component signal.
+ */
+const composedActionSignals = new WeakMap<
+  AbortSignal,
+  WeakMap<AbortSignal, AbortSignal>
+>();
+
+function composedActionSignal(
+  owner: AbortSignal,
+  retirement: AbortSignal
+): AbortSignal {
+  let byRetirement = composedActionSignals.get(owner);
+  if (!byRetirement) {
+    byRetirement = new WeakMap();
+    composedActionSignals.set(owner, byRetirement);
+  }
+  let composed = byRetirement.get(retirement);
+  if (!composed) {
+    composed = anyAbortSignal([owner, retirement]);
+    byRetirement.set(retirement, composed);
+  }
+  return composed;
 }
