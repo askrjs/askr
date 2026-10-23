@@ -126,7 +126,8 @@ function collectClassTokens(value: unknown, out: string[]): void {
   if (typeof value === 'string') {
     if (value) out.push(value);
   } else if (typeof value === 'number' || typeof value === 'bigint') {
-    out.push(String(value));
+    // Inside a collection a falsy number is a skipped item, as in clsx.
+    if (value) out.push(String(value));
   } else if (Array.isArray(value)) {
     for (const item of value) collectClassTokens(item, out);
   } else if (value !== null && typeof value === 'object') {

@@ -24,6 +24,7 @@ import {
 } from '../../common/dom-path';
 import { ATTRIBUTE_PROP_PREFIX } from '../../common/dom-properties';
 import { isSSRPortalHydrationAnchor } from '../../common/portal';
+import { RENDERER_BOOKKEEPING_ATTRS } from '../../common/hydration-bookkeeping';
 import { getRenderedAttributeName } from './element-attributes';
 import { parseEventProp } from './events';
 import type { Pass } from './pass';
@@ -507,13 +508,6 @@ function renderedAttributes(el: Element, props: Props): Set<string> {
   return names;
 }
 
-/** Attributes the renderers add to server markup for their own bookkeeping. */
-const BOOKKEEPING_ATTRIBUTES = [
-  'data-skip-hydrate',
-  'data-key',
-  'data-askr-key-kind',
-];
-
 /** Attribute names for props the client names but does not render. */
 function retiredAttributes(el: Element, props: Props): Set<string> {
   const names = new Set<string>();
@@ -557,9 +551,11 @@ export function removeUnrenderedAttributes(
     );
   } else {
     const retired = retiredAttributes(el, props);
+    const rendered = renderedAttributes(el, props);
     removed = Array.from(el.attributes).filter(
       (attribute) =>
-        BOOKKEEPING_ATTRIBUTES.includes(attribute.name) ||
+        (RENDERER_BOOKKEEPING_ATTRS.includes(attribute.name) &&
+          !rendered.has(attribute.name)) ||
         retired.has(attribute.name)
     );
   }

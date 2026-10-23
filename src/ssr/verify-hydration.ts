@@ -22,12 +22,7 @@ import {
 
 const SSR_STYLE_REGISTRY_SELECTOR = 'style[data-askr-style-registry]';
 
-// Hydration and key bookkeeping the renderers write, not application markup.
-const RENDERER_BOOKKEEPING_ATTRS = [
-  'data-skip-hydrate',
-  'data-key',
-  'data-askr-key-kind',
-];
+import { RENDERER_BOOKKEEPING_ATTRS } from '../common/hydration-bookkeeping';
 
 /**
  * Parsed declarations in a canonical order. Each parsed longhand is unique, so

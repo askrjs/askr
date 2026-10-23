@@ -210,10 +210,12 @@ export function warnUnknownEventProp(
 ): void {
   if (!isDevelopmentEnvironment()) return;
   if (tag.includes('-') || isKnownDomEvent(eventName)) return;
+  // Custom events and DOM events missing from the list are legitimate, so
+  // only a near miss of a known name (a likely typo) is reported.
   const hint = suggestion(eventName);
+  if (!hint) return;
   warnOnce(
     `event:${prop}`,
-    `[Askr] Unknown event prop "${prop}" on <${tag}> matches no DOM event, so its handler never runs.` +
-      (hint ? ` Did you mean "${hint}"?` : '')
+    `[Askr] Event prop "${prop}" on <${tag}> does not match a known DOM event. Did you mean "${hint}"?`
   );
 }

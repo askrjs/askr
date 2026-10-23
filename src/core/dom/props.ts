@@ -154,6 +154,10 @@ function isLiveFormProp(key: string): boolean {
     key === 'value' ||
     key === 'checked' ||
     key === 'selected' ||
+    // Properties the user or the browser changes on their own.
+    key === 'indeterminate' ||
+    key === 'muted' ||
+    key === 'open' ||
     key.startsWith('prop:')
   );
 }
