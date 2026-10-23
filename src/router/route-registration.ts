@@ -23,7 +23,7 @@ import {
   getCurrentPageScope,
   getCurrentPathPrefix,
   getCurrentScopeKind,
-  getRouteRecords,
+  findRecordByMatchKey,
   hasActivePageScope,
   insertRecordSorted,
 } from './store';
@@ -85,9 +85,7 @@ function assertRouteNotDuplicated(
   fallbackPrefix: string | undefined
 ): void {
   const key = routeMatchKey(segments, fallbackPrefix);
-  const existing = getRouteRecords().find(
-    (record) => routeMatchKey(record.segments, record.fallbackPrefix) === key
-  );
+  const existing = findRecordByMatchKey(key);
   if (existing) {
     const hint =
       existing.path === path

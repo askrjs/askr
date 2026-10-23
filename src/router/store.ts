@@ -16,7 +16,7 @@ import type {
   RegistrationScope,
   AppMetaDeclaration,
 } from './internal-types';
-import { compareRouteSpecificity } from './match';
+import { compareRouteSpecificity, routeMatchKey } from './match';
 
 /**
  * One route table: everything `route()`, `page()` and `group()` write to.
@@ -31,6 +31,10 @@ import { compareRouteSpecificity } from './match';
 export interface RouteTable {
   readonly routes: InternalRoute[];
   readonly records: InternalRouteRecord[];
+  /** Match shapes of `records`, for O(1) duplicate detection. */
+  readonly matchKeys: Set<string>;
+  /** Bumped on every change to `records`; match indexes key on it. */
+  version: number;
   readonly namespaces: Set<string>;
   readonly routesByDepth: Map<number, Route[]>;
   readonly registrationScopeStack: RegistrationScope[];
@@ -44,6 +48,8 @@ export function createRouteTable(): RouteTable {
   return {
     routes: [],
     records: [],
+    matchKeys: new Set<string>(),
+    version: 0,
     namespaces: new Set<string>(),
     routesByDepth: new Map<number, Route[]>(),
     registrationScopeStack: [],
@@ -79,6 +85,21 @@ export function getRouteRecords(): readonly InternalRouteRecord[] {
   return activeTable.records;
 }
 
+/** Changes whenever the live record list changes. */
+export function getRouteTableVersion(): number {
+  return activeTable.version;
+}
+
+/** The registered record with the same match shape as `key`, if any. */
+export function findRecordByMatchKey(
+  key: string
+): InternalRouteRecord | undefined {
+  if (!activeTable.matchKeys.has(key)) return undefined;
+  return activeTable.records.find(
+    (record) => routeMatchKey(record.segments, record.fallbackPrefix) === key
+  );
+}
+
 export function isRouteStoreRoutes(routeList: readonly Route[]): boolean {
   return routeList === activeTable.routes;
 }
@@ -100,6 +121,10 @@ export function insertRecordSorted(record: InternalRouteRecord): void {
     } else hi = mid;
   }
   activeTable.records.splice(lo, 0, record);
+  activeTable.matchKeys.add(
+    routeMatchKey(record.segments, record.fallbackPrefix)
+  );
+  activeTable.version += 1;
 }
 
 export function addRouteToStores(routeObj: InternalRoute): void {
@@ -345,8 +370,13 @@ export function unloadNamespace(namespace: string): number {
   }
 
   for (let i = activeTable.records.length - 1; i >= 0; i--) {
-    if (activeTable.records[i].options.namespace === namespace) {
+    const record = activeTable.records[i];
+    if (record.options.namespace === namespace) {
       activeTable.records.splice(i, 1);
+      activeTable.matchKeys.delete(
+        routeMatchKey(record.segments, record.fallbackPrefix)
+      );
+      activeTable.version += 1;
     }
   }
 
@@ -361,6 +391,8 @@ export function getLoadedNamespaces(): string[] {
 export function clearRouteState(): void {
   activeTable.routes.length = 0;
   activeTable.records.length = 0;
+  activeTable.matchKeys.clear();
+  activeTable.version += 1;
   activeTable.namespaces.clear();
   activeTable.routesByDepth.clear();
   activeTable.registrationScopeStack.length = 0;

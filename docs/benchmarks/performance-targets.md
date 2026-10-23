@@ -85,14 +85,19 @@ acceptable result if it weakens any of those contracts.
 The IDs below are the stable comparison surface. Keep these workload labels and
 source files stable, and do not compare a renamed workload as if it were the same row.
 
-| ID                              | Tier  | Workload                                                     |
-| ------------------------------- | ----- | ------------------------------------------------------------ |
-| `tier1.router.longest-match`    | tier1 | resolve the most specific route from a 512-route dense table |
-| `tier1.router.literal-match`    | tier1 | match literal route segments                                 |
-| `tier1.for.keyed-reorder`       | tier1 | swap distant keyed rows while preserving DOM identity        |
-| `tier2.router.navigation`       | tier2 | navigate between sibling routes with shared layout shape     |
-| `tier2.ssr.layout-route`        | tier2 | render a nested layout route with params query and hash      |
-| `tier2.runtime.component-depth` | tier2 | mount and clean up a 1,000-component wrapper chain           |
+| ID                              | Tier  | Workload                                                                   |
+| ------------------------------- | ----- | -------------------------------------------------------------------------- |
+| `tier1.router.longest-match`    | tier1 | resolve the most specific route from a 512-route dense table (alternating) |
+| `tier1.router.literal-match`    | tier1 | match literal route segments                                               |
+| `tier1.for.keyed-reorder`       | tier1 | swap distant keyed rows while preserving DOM identity                      |
+| `tier2.router.navigation`       | tier2 | navigate between sibling routes with shared layout shape                   |
+| `tier2.ssr.layout-route`        | tier2 | render a nested layout route with params query and hash                    |
+| `tier2.runtime.component-depth` | tier2 | mount and clean up a 1,000-component wrapper chain                         |
+
+The router rows alternate their target with a second path on every call
+since the matcher started memoizing its last answer; a row that resolved one
+fixed path would measure the memo. Captures of the earlier single-path label
+are a different workload and are not comparable to the alternating rows.
 
 Movement thresholds and teardown traversal changes require at least 5%
 improvement across three same-host captures, with touched guardrails within 5%

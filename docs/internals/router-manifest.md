@@ -269,3 +269,23 @@ record is not a public generator input or named export.
   such as `loader`, `preload`, `entries`, `policies`, and function-valued `meta`, and the
   manifest-level `auth.resolve` resolver. Tooling that needs a static description must derive
   one from the paths, segments, and ranks rather than serializing records.
+
+## Matching index
+
+Route records are kept in specificity order, and a match used to scan the
+whole list calling the segment matcher on every record. `route-matching.ts`
+now builds an index per record list (the live table, keyed on its version,
+or a registry manifest's immutable list): records are bucketed by the decoded
+first static segment, with root records and records whose first segment is a
+parameter, wildcard, splat or catch-all in one shared list, and fallbacks in
+their own. A match merges the bucket for the URL's first segment with the
+shared list in record order, so the first hit is exactly the hit a full scan
+would return; a property test in `tests/unit/router/match-index.test.ts`
+checks that against a scan oracle over seeded registries. The index memoizes
+its last answer because one navigation matches the same URL several times.
+
+Registration keeps a set of match shapes next to the records, so duplicate
+detection is a set lookup instead of re-keying every record. `currentRoute()`
+returns one frozen snapshot per committed location and re-reads it only when
+the location, entry state, render parameters or the route table changed, so
+repeated reads compare by identity.
