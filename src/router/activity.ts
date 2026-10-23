@@ -14,7 +14,11 @@ import {
 import { createSource, notify, readSource } from '../core/api/hooks';
 import { deepFreeze, makeQuery, parseLocation } from './route-context';
 import { computeMatchesFromRoutes } from './route-matching';
-import { getActiveRouteBasePath, getActiveRoutes } from './store';
+import {
+  getActiveRouteBasePath,
+  getActiveRoutes,
+  getRouteTableVersion,
+} from './store';
 import { removeRouteBasePath } from './base-path';
 
 /** Options for {@link onRouteChange}. */
@@ -270,29 +274,74 @@ function readCurrentRouteSnapshot<
   }
 
   const { pathname, search, hash, withinBasePath } = readCurrentRouteLocation();
+  const contextParams = withinBasePath
+    ? getActiveRenderContext()?.params
+    : undefined;
+  const locationState = readLocationState();
+  const version = getRouteTableVersion();
+  const memo = readSnapshotMemo;
+  if (
+    memo &&
+    memo.pathname === pathname &&
+    memo.search === search &&
+    memo.hash === hash &&
+    memo.withinBasePath === withinBasePath &&
+    memo.contextParams === contextParams &&
+    memo.hasState === locationState.hasState &&
+    memo.state === locationState.state &&
+    memo.version === version
+  ) {
+    return memo.snapshot as RouteSnapshot<TParams, TState, TAppMeta>;
+  }
 
   const query = makeQuery(search);
   const matches = withinBasePath
     ? computeMatchesFromRoutes(pathname, getActiveRoutes())
     : [];
   const routeParams =
-    (withinBasePath ? getActiveRenderContext()?.params : undefined) ??
-    matches[matches.length - 1]?.params ??
-    {};
+    contextParams ?? matches[matches.length - 1]?.params ?? {};
   const params = deepFreeze({
     ...routeParams,
   });
-  const locationState = readLocationState();
 
-  return Object.freeze({
+  const snapshot = Object.freeze({
     path: pathname,
     params,
     query,
     hash: hash || null,
     ...locationState,
     matches: Object.freeze(matches),
-  }) as RouteSnapshot<TParams, TState, TAppMeta>;
+  }) as RouteSnapshot;
+  readSnapshotMemo = {
+    pathname,
+    search,
+    hash,
+    withinBasePath,
+    contextParams,
+    hasState: locationState.hasState,
+    state: locationState.state,
+    version,
+    snapshot,
+  };
+  return snapshot as RouteSnapshot<TParams, TState, TAppMeta>;
 }
+
+/**
+ * One snapshot object per committed location: repeated `currentRoute()`
+ * reads compare by identity and skip re-matching the URL. Any input that
+ * could change the snapshot invalidates it.
+ */
+let readSnapshotMemo: {
+  pathname: string;
+  search: string;
+  hash: string;
+  withinBasePath: boolean;
+  contextParams: Record<string, string> | undefined;
+  hasState: boolean;
+  state: unknown;
+  version: number;
+  snapshot: RouteSnapshot;
+} | null = null;
 
 /** Read the currently active route's {@link RouteSnapshot}; reactive during component render. */
 export function currentRoute<

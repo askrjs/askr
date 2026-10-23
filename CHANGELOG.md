@@ -80,6 +80,12 @@
 
 ### Fixes
 
+- Index route records by their first segment for matching, memoize the last
+  match per record list, and detect duplicate routes with a set lookup, so
+  matching and registration no longer scale with the whole route table.
+  `currentRoute()` returns one snapshot object per committed location, so
+  repeated reads compare by identity instead of re-matching the URL.
+
 - Revalidate a provider session in the background when the tab regains
   focus or visibility, or a persisted page is shown. The app is retired and
   re-resolved only when the server identity differs; an unchanged identity
