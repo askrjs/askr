@@ -118,6 +118,12 @@
   keeps component state and a navigation in flight. Explicit and cross-tab
   logout hints still retire private state immediately.
 
+- Stop a runaway `queueTask()` loop. A task that queued a fresh closure on every
+  run escaped the per-job loop guard and froze the flush. A flush now stops
+  after 100,000 jobs beyond those queued when it started, drops the remaining
+  queue and reports an error. The "Update loop guard" documentation now
+  describes the actual guards (counting applies to every build, there is no
+  `onError` hook).
 - Log an async `resource()` failure to the console only in development. The
   failure was logged in production as well as surfaced through `.error`; it is
   now only surfaced, and reading `.error` never logs.

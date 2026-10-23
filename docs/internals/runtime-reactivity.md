@@ -151,6 +151,9 @@ a disposed computation is skipped.
   no-op.
 - **Runaway work.** A job that runs more than 50 times in one flush
   (`MAX_RUNS_PER_FLUSH`, or its own lower limit) is cancelled and reported.
+  A flush that runs more than `MAX_FOLLOW_UP_JOBS_PER_FLUSH` jobs beyond those
+  queued when it started (a `queueTask()` that queues a fresh closure each run)
+  stops, drops the queued work and reports an error.
 - **Failures.** A throwing job does not stop the flush. Failures are collected
   and thrown after the flush finishes: one error as-is, several as an
   `AggregateError`.

@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { Computation, Signal } from '../../../src/core/reactive/graph';
 import {
   MAX_RUNS_PER_FLUSH,
+  MAX_FOLLOW_UP_JOBS_PER_FLUSH,
   batch,
+  queueTask,
   clearScheduler,
   effectScheduler,
   flushSync,
@@ -322,5 +324,44 @@ describe('core scheduler', () => {
       effect: 0,
       post: 0,
     });
+  });
+
+  it('should stop a queueTask that queues a fresh closure on every run', () => {
+    let runs = 0;
+    const loop = (): void => {
+      runs += 1;
+      queueTask(() => loop());
+    };
+    queueTask(loop);
+
+    expect(() => flushSync()).toThrow(/exceeded \d+ follow-up jobs/);
+    expect(runs).toBeGreaterThan(MAX_RUNS_PER_FLUSH);
+    expect(runs).toBeLessThanOrEqual(MAX_FOLLOW_UP_JOBS_PER_FLUSH + 2);
+    expect(getSchedulerState().queueLength).toBe(0);
+    // The scheduler is usable again after the stopped flush.
+    let after = 0;
+    queueTask(() => {
+      after += 1;
+    });
+    expect(() => flushSync()).not.toThrow();
+    expect(after).toBe(1);
+  });
+
+  it('should not cap a large number of initially queued jobs or a moderate chain', () => {
+    let runs = 0;
+    for (let index = 0; index < 20_000; index += 1) {
+      queueTask(() => {
+        runs += 1;
+      });
+    }
+    let chain = 0;
+    const next = (): void => {
+      chain += 1;
+      if (chain < 5_000) queueTask(next);
+    };
+    queueTask(next);
+    expect(() => flushSync()).not.toThrow();
+    expect(runs).toBe(20_000);
+    expect(chain).toBe(5_000);
   });
 });

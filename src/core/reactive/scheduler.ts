@@ -35,6 +35,14 @@ export interface Job {
 
 export const MAX_RUNS_PER_FLUSH = 50;
 
+/**
+ * Jobs a single flush may run beyond the ones queued when it started. Work
+ * that fans out as it runs (a render that mounts rows, each queueing its own
+ * follow-up) stays far below this; a task that queues a fresh closure on every
+ * run, which the per-job counter cannot see, reaches it and is stopped.
+ */
+export const MAX_FOLLOW_UP_JOBS_PER_FLUSH = 100_000;
+
 /** FIFO queue with an advancing head, so taking the next job is O(1). */
 class JobQueue {
   private items: Job[] = [];
@@ -256,10 +264,22 @@ export function flushSync(): void {
   flushing = true;
   runCounts = new Map();
   const failures: unknown[] = [];
+  const initialJobs = queued.size;
+  let executed = 0;
   try {
     for (let job = takeNext(); job; job = takeNext()) {
       queued.delete(job);
       if (job.skip) continue;
+      if (++executed - initialJobs > MAX_FOLLOW_UP_JOBS_PER_FLUSH) {
+        job.cancel?.();
+        dropQueued();
+        failures.push(
+          new Error(
+            `[Askr] scheduler flush exceeded ${MAX_FOLLOW_UP_JOBS_PER_FLUSH} follow-up jobs: a task keeps queueing new tasks. Queued work was dropped.`
+          )
+        );
+        break;
+      }
       const count = (runCounts.get(job) ?? 0) + 1;
       runCounts.set(job, count);
       if (count > (job.maxRuns ?? MAX_RUNS_PER_FLUSH)) {
@@ -328,6 +348,10 @@ export function waitForFlush(): Promise<void> {
 
 /** Drop all queued work (test isolation). */
 export function clearScheduler(): void {
+  dropQueued();
+}
+
+function dropQueued(): void {
   const dropped = [...queued];
   for (const lane of Object.values(lanes)) lane.clear();
   queued.clear();

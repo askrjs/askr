@@ -239,36 +239,39 @@ consumed, the drain continues, and the flush rethrows the failure afterwards
 in which queued work runs is described in
 [Runtime reactivity internals](../internals/runtime-reactivity.md#scheduler-lanes).
 
-If the same scheduled task runs more than 50 times in one flush (for example a
-component whose ref callback writes state it renders), the scheduler treats it
-as an update loop: it drops that task, records an `exceeded MAX_FLUSH_DEPTH`
-error with the other failures, and keeps draining the remaining queued work, so
-earlier failures are still reported and other queued work is not stranded. Dropping a
-task clears its owner's pending flag (unless another copy of it is still
-queued), so a later write schedules it again: a component re-renders on its
-next state change.
+Three guards stop work that would otherwise never finish. They behave the same
+in development and production builds.
 
-Reactive work that runs as a shared batch is guarded per entry instead, with
-the same limit counted across every batch in the flush:
+- **The same job repeats.** The scheduler counts how often each queued job runs
+  in one flush. A job that runs more than 50 times (a component whose ref
+  callback writes state it renders, a fine-grained binding that re-dirties
+  itself, a `selector()` source that writes its own inputs) is treated as an
+  update loop: the scheduler drops it, records an
+  `exceeded MAX_FLUSH_DEPTH (50)` error with the other failures, and keeps
+  draining the remaining queued work, so earlier failures are still reported and
+  other queued work is not stranded. Dropping a job clears its owner's pending
+  flag (unless another copy of it is still queued), so a later write schedules
+  it again: a component re-renders on its next state change. A `watch()` runs
+  under a slightly lower limit and reports a reactive-cycle error to its owning
+  error boundary instead.
+- **Fresh closures.** A task queued from `queueTask()` (or anything that queues
+  a new job object each time) has no identity to count, so a task that queues
+  a new closure on every run is caught by a total instead. A flush may run
+  100,000 jobs beyond the ones that were queued when it started; past that, the
+  scheduler stops the flush, drops the work still queued (computations stay
+  stale and are scheduled again by their next change) and reports
+  `exceeded 100000 follow-up jobs`. Flushing many jobs at once is not limited:
+  the total is measured against the number queued at the start.
+- **Derived values.** A `derive()` whose computation writes state that
+  re-dirties itself, directly or through another derive or effect, is skipped
+  after 50 recomputes in one flush and reported as `derive() exceeded 50 runs`.
+  The skipped entry stays dirty and recomputes on its next read. Reads between
+  flushes (an event handler that writes and reads a derive in a loop) are not
+  counted.
 
-- A fine-grained effect that runs more than 50 times is skipped and reported
-  once per flush through its `onError` (or the flush failures).
-- A `derive()` or `selector()` whose computation writes state that re-dirties
-  itself, directly or through another derive, selector or effect, is skipped
-  after 50 recomputes in one flush and reported as `derive() exceeded 50 runs`
-  or `selector() exceeded 50 runs`. The skipped entry stays dirty and
-  recomputes on its next read. Reads between flushes (an event handler that
-  writes and reads a derive in a loop) are not counted.
-
-Unrelated dirty entries in the same batch still run. A loop is caught when the
-same task, component, effect, derived value or selector repeats. A task that
-enqueues a new closure on every run is not detected.
-
-Development builds count every run. Production builds count tasks, derived
-values and selectors only once a flush has run 1000 of them (effects are
-always counted), so flushes below that pay only a counter check. Past that
-point each run costs a map entry, and a production loop runs roughly 1000 + 50
-times before it fails instead of hanging the page.
+Unrelated dirty entries in the same flush still run. There is no `onError`
+hook: failures are collected and thrown after the flush, or delivered to an
+error boundary where noted above.
 
 ## Cleanup
 
