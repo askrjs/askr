@@ -20,6 +20,7 @@ import {
 import {
   effectScheduler,
   getFlushVersion,
+  isFlushing,
   queueTask,
 } from '../reactive/scheduler';
 import { isRendering } from '../component/render-state';
@@ -221,13 +222,18 @@ function createDerived(
   const computation = new Computation<unknown>(
     owner,
     () => {
-      const flush = getFlushVersion();
-      if (flush !== runsFlush) {
-        runsFlush = flush;
-        runs = 0;
-      }
-      if (++runs > MAX_DERIVED_RUNS) {
-        throw new Error(`[Askr] ${label} exceeded ${MAX_DERIVED_RUNS} runs`);
+      // A derive that keeps invalidating itself re-runs repeatedly inside
+      // one flush. Reads between flushes (a handler writing and reading in a
+      // loop) are ordinary work and are not counted.
+      if (isFlushing()) {
+        const flush = getFlushVersion();
+        if (flush !== runsFlush) {
+          runsFlush = flush;
+          runs = 0;
+        }
+        if (++runs > MAX_DERIVED_RUNS) {
+          throw new Error(`[Askr] ${label} exceeded ${MAX_DERIVED_RUNS} runs`);
+        }
       }
       return current();
     },

@@ -127,9 +127,10 @@ the same limit counted across every batch in the flush:
   once per flush through its `onError` (or the flush failures).
 - A `derive()` or `selector()` whose computation writes state that re-dirties
   itself, directly or through another derive, selector or effect, is skipped
-  after 50 recomputes and reported as `derive() exceeded 50 runs` or
-  `selector() exceeded 50 runs`. The skipped entry stays dirty and
-  recomputes on its next read.
+  after 50 recomputes in one flush and reported as `derive() exceeded 50 runs`
+  or `selector() exceeded 50 runs`. The skipped entry stays dirty and
+  recomputes on its next read. Reads between flushes (an event handler that
+  writes and reads a derive in a loop) are not counted.
 
 Unrelated dirty entries in the same batch still run. A loop is caught when the
 same task, component, effect, derived value or selector repeats. A task that

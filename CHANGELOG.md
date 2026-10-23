@@ -77,6 +77,11 @@
   continuation after unmount) as disposed from the start, so it never
   subscribes or schedules work and cannot leak.
 
+- Count the `derive()` and `selector()` loop guard only inside a scheduler
+  flush. Reading a derive more than fifty times between flushes, as an
+  event handler that writes and reads in a loop does, no longer throws
+  `derive() exceeded 50 runs`.
+
 - Reject navigation `state` that cannot be structured-cloned before the
   destination renders, with a `TypeError` naming the cause, instead of
   committing the page and then failing the history write so the page and
