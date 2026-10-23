@@ -33,6 +33,9 @@
 
 ### Additions
 
+- Type `download` on `<a>` (a filename, or `true` for the resource's own
+  name) and `onDoubleClick` on every element, as an alias of `onDblClick`.
+
 - Add `createSessionAuth()` and its three option/binding types at the router
   owner for same-origin server provider sessions. Adopt a minimal SSR identity,
   dedupe session GETs, construct safe provider links and retire private routed
@@ -68,9 +71,10 @@
 ### Fixes
 
 - Navigate to a fragment on the current page without resolving the route
-  again: no loader runs and the rendered page keeps its state. A navigation
-  to the current location replaces its history entry instead of pushing a
-  duplicate, unless `history: 'push'` is given.
+  again: no loader runs and the rendered page keeps its state, for
+  `navigate()` and for back/forward traversal between such entries alike.
+  A navigation to the current location replaces its history entry instead of
+  pushing a duplicate, unless `history: 'push'` is given.
 
 - Look ahead for the matching sibling when a server node does not match the
   element the client renders during hydration, so one extra server node is
@@ -78,9 +82,10 @@
 
 - Subscribe to a reactive source as it is read. A write to a source first
   read in the same run (a `watch()` source or effect that reads and then
-  writes the same state) now re-runs the computation instead of being lost
-  until an unrelated change. Subscriptions a failed or discarded run made
-  are released with it.
+  writes the same state), or to a source behind a derived value the run has
+  already read, now re-runs the computation instead of being lost until an
+  unrelated change. Subscriptions a failed or discarded run made are
+  released with it.
 
 - Treat a lifetime created under an already disposed owner (an async
   continuation after unmount) as disposed from the start, so it never
@@ -103,9 +108,10 @@
 
 - Restore the signed-in app when a session logout request fails or its
   transport rejects, instead of leaving a blank page in a locally logged-out
-  state while the server session is still alive. Compute a fresh login
-  target for each interaction failure, so a later failure from another page
-  returns the user to that page after login rather than the first one.
+  state while the server session is still alive. Reports of one interaction
+  failure share its login target only until the navigation to it is issued,
+  so a later failure from another page returns the user to that page after
+  login rather than the first one.
 
 - Save the departing page's scroll position before its content is replaced
   on a push navigation. Browsers clamp the offset as soon as the document
@@ -115,16 +121,19 @@
 - Reconcile head metadata on every navigation. A route that declares no
   `title` or `meta` now removes the previous route's title, description,
   robots and other owned head nodes instead of leaving them in place, and
-  restores the document's own `lang` and `dir`. A shell `<title>` that the
-  document already had is updated in place rather than shadowed by a second
-  `<title>`, and is restored when a route has no title.
+  restores the document's own `lang` and `dir` when the router wrote them.
+  A shell `<title>` that the document already had is updated in place rather
+  than shadowed by a second `<title>`, and is restored when a route has no
+  title. A title, `lang` or `dir` the application changed itself is left
+  alone, and apps booting into one document share its original values.
 
 - Write a `<textarea value>` as the element's text content in SSR, so the
   control is filled before hydration, and keep that server text in place when
   hydrating; the client keeps a textarea's default text in step with its
   value so server and client markup agree. Double a leading newline in
   `<pre>`, `<textarea>` and `<listing>` content so the parsed text matches
-  the render; hydration verification restores that newline when the host
+  the render, including content produced by function, fragment and component
+  children; hydration verification restores that newline when the host
   serializer omits it.
 
 - Render `download={true}` as a bare attribute instead of `download="true"`,
