@@ -231,7 +231,6 @@ export function createSessionAuth(
   let channel: BroadcastChannel | undefined;
   let eventGeneration = 0;
   let recoveryTarget: SessionRecovery | undefined;
-  let recoveryReturnTo: string | undefined;
   let transitions = 0;
   let announced = false;
 
@@ -355,10 +354,10 @@ export function createSessionAuth(
   ): SessionRecovery | undefined => {
     const problem = readProblem(failure);
     if (!problem) return undefined;
-    // Failures for the same page share one recovery; a later failure from
-    // another page must send the user back to that page after login.
-    if (recoveryTarget && recoveryReturnTo === returnTo) return recoveryTarget;
-    recoveryReturnTo = returnTo;
+    // Reports of one failure share its recovery until the navigation to the
+    // login target is issued; a failure after that computes a fresh target,
+    // so a later 401 from another page returns there after login.
+    if (recoveryTarget) return recoveryTarget;
     invalidate(anonymous);
     if (problem.reason === 'consent') {
       recoveryTarget = {
@@ -377,19 +376,24 @@ export function createSessionAuth(
         document: false,
       };
     }
+    const target = recoveryTarget;
     if (mountedRoots.size) {
       const ownGeneration = generation;
       queueMicrotask(() => {
+        if (recoveryTarget === target) recoveryTarget = undefined;
         if (ownGeneration !== generation || !mountedRoots.size) return;
-        if (recoveryTarget!.document)
+        if (target.document)
           loadDocument(
-            new URL(recoveryTarget!.href, window.location.href).href,
+            new URL(target.href, window.location.href).href,
             'replace'
           );
-        else navigateToPublicHref(recoveryTarget!.href, { replace: true });
+        else navigateToPublicHref(target.href, { replace: true });
       });
+    } else {
+      // The caller navigates; nothing else can share this recovery.
+      recoveryTarget = undefined;
     }
-    return recoveryTarget;
+    return target;
   };
   const handleAuthFailure = (failure: unknown): boolean => {
     if (typeof window === 'undefined') return false;

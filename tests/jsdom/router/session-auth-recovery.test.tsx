@@ -111,6 +111,31 @@ it('should restore the signed-in app when the logout transport rejects', async (
   expect(view.container.textContent).toBe('private');
 });
 
+it('should share one recovery for reports of the same failure before navigating', async () => {
+  const auth = createSessionAuth({
+    fetch: vi.fn().mockResolvedValue(Response.json(user('a'))),
+  });
+  const registry = createRouteRegistry(
+    () => {
+      route('/private', () => <main>private</main>, { auth: requireUser() });
+      route('/login', () => <main>login</main>);
+    },
+    { auth }
+  );
+  await createSPA({ root: view.container, registry });
+  await settle();
+  const state = getSessionAuthState(auth)!;
+  const first = state.recover(problem, '/dashboard');
+  const second = state.recover(problem, '/');
+  expect(first?.href).toBe('/login?next=%2Fdashboard');
+  expect(second).toBe(first);
+  await settle();
+  expect(window.location.pathname).toBe('/login');
+  expect(new URLSearchParams(window.location.search).get('next')).toBe(
+    '/dashboard'
+  );
+});
+
 it('should compute a fresh login target for each interaction failure', async () => {
   const auth = createSessionAuth({ fetch: vi.fn() });
   const state = getSessionAuthState(auth)!;
