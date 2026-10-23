@@ -345,7 +345,10 @@ function alignChildren(
   tokens: ReadonlyArray<{ tag: string; ns: string | null } | null>,
   server: readonly Node[]
 ): Array<Node | null> | undefined {
-  const result: Array<Node | null> = new Array(tokens.length).fill(null);
+  const result: Array<Node | null> = Array.from(
+    { length: tokens.length },
+    () => null
+  );
   let start = 0;
   while (
     start < tokens.length &&

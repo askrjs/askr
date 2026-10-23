@@ -24,7 +24,7 @@ test('should keep the nodes after an extra server node', () => {
       <p>p</p>
     </>
   );
-  expect(Array.from(container.childNodes)).toEqual([before[1], before[2]]);
+  expectSame(container, [before[1], before[2]]);
   root.dispose();
 });
 
@@ -36,7 +36,7 @@ test('should keep the nodes around an extra server node in the middle', () => {
       <p>p</p>
     </>
   );
-  expect(Array.from(container.childNodes)).toEqual([before[0], before[2]]);
+  expectSame(container, [before[0], before[2]]);
   root.dispose();
 });
 
@@ -80,11 +80,7 @@ test('should match mixed text and elements around an extra server element', () =
       text<b>b</b>tail
     </>
   );
-  expect(Array.from(container.childNodes)).toEqual([
-    before[1],
-    before[2],
-    before[3],
-  ]);
+  expectSame(container, [before[1], before[2], before[3]]);
   root.dispose();
 });
 
