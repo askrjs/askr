@@ -349,7 +349,7 @@ function readCurrentRouteSnapshot<
     hash: hash || null,
     ...locationState,
     matches: Object.freeze(matches),
-  }) as RouteSnapshot<TParams, TState, TAppMeta, TSearch>;
+  }) as RouteSnapshot;
   readSnapshotMemo = {
     pathname,
     search,

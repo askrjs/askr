@@ -153,6 +153,9 @@ export async function batchRenderRoutes(
           tenant: null,
         },
         signal: new AbortController().signal,
+        searchParams: route.search
+          ? parseRouteSearch(route.search, requestUrl.search)
+          : emptyRouteSearch(),
       };
       // Query prefetches run against a page-local runtime whose cache the
       // page embeds, as an SSR request would.
@@ -162,6 +165,7 @@ export async function batchRenderRoutes(
         const request = new Request(requestUrl);
         await route.preload({
           ...requestContext,
+          searchParams: requestContext.searchParams!,
           request,
           data: createQueryPrefetchContext({
             mode: 'ssr',
