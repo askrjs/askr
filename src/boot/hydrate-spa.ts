@@ -172,7 +172,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
 
     const hydrationResolved: ResolvedRoute =
       resolved.kind === 'deny'
-        ? { handler: bindDeniedRouteHandler(resolved.status), params: {} }
+        ? { handler: bindDeniedRouteHandler(resolved), params: {} }
         : resolved;
     let verifyClientMarkup: (() => Promise<void>) | undefined;
     // What the hydration commit itself rendered, before post-commit work runs.
@@ -309,7 +309,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       mountHydratedRoot(
         rootElement,
         resolved.kind === 'deny'
-          ? bindDeniedStatus(resolved.status)
+          ? bindDeniedStatus(resolved)
           : bindResolvedRouteHandler(hydrationResolved),
         {
           cleanupStrict: config.cleanupStrict,

@@ -113,6 +113,20 @@ type AccessDecision =
   | AccessRedirectDecision
   | AccessDenyDecision;
 
+/** Props of a route `error` component. */
+interface RouteErrorProps {
+  /** What the route's lazy chunk, preload, loader or policy threw. */
+  error: unknown;
+  /** Resolve the current location again, replacing its history entry. */
+  retry(): void;
+}
+
+/** Props of a route `forbidden` component. */
+interface RouteForbiddenProps {
+  /** The denial status a policy or auth requirement produced. */
+  status: AccessDenyStatus;
+}
+
 /** Context passed to route policies, auth resolvers, and loaders. */
 interface RouteContext<TParams extends RouteParams = RouteParams> {
   mode: RouteMode;
@@ -239,6 +253,16 @@ interface RouteOptions<
   /** Immutable application declaration data; never automatically serialized for hydration. */
   appMeta?: TAppMeta;
   actions?: readonly ActionDescriptor[];
+  /**
+   * Rendered in place of the route content when its lazy chunk, preload or
+   * loader fails. The nearest declaring `route()`, `page()` or `group()` wins.
+   */
+  error?: (props: RouteErrorProps) => RenderableChild;
+  /**
+   * Rendered instead of the bare status placeholder when a policy or auth
+   * requirement denies the route. The nearest declaring scope wins.
+   */
+  forbidden?: (props: RouteForbiddenProps) => RenderableChild;
 }
 
 interface RouteMeta {
@@ -315,6 +339,8 @@ interface PageHelperOptions<TAppMeta = unknown> extends CommonAccessOptions {
   ) => unknown;
   meta?: RouteMetaSource;
   appMeta?: TAppMeta;
+  error?: (props: RouteErrorProps) => RenderableChild;
+  forbidden?: (props: RouteForbiddenProps) => RenderableChild;
 }
 
 /**
@@ -386,6 +412,8 @@ interface GroupHelperOptions<TAppMeta = unknown> extends CommonAccessOptions {
   layout?: (props: { children?: RenderableChild }) => RenderableChild;
   meta?: RouteMetaSource;
   appMeta?: TAppMeta;
+  error?: (props: RouteErrorProps) => RenderableChild;
+  forbidden?: (props: RouteForbiddenProps) => RenderableChild;
 }
 
 /**
@@ -523,6 +551,8 @@ export {
   AccessDenyDecision,
   AccessDecision,
   RouteContext,
+  RouteErrorProps,
+  RouteForbiddenProps,
   RoutePolicy,
   RouteAuthResolver,
   RouteAuthOptions,

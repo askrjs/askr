@@ -68,6 +68,12 @@
   `derive(fn, { equals })` and `derive(source, map, { equals })`. A comparator that
   returns true suppresses the notification. The default stays `Object.is`.
   See `docs/core/runtime.md#custom-equality`.
+- Add `error` and `forbidden` component options to `route()`, `page()` and
+  `group()`, and the `RouteErrorProps` and `RouteForbiddenProps` types at
+  `@askrjs/askr/router`. A failed browser navigation renders the nearest
+  `error` component (with `retry()`) at the destination URL; a denied route
+  renders the nearest `forbidden` component instead of the bare status
+  placeholder. Routes declaring neither keep their behavior.
 
 - Type `download` on `<a>` (a filename, or `true` for the resource's own
   name) and `onDoubleClick` on every element, as an alias of `onDblClick`.

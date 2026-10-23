@@ -40,6 +40,10 @@ import {
   beginSessionAuthBoot,
   detachSessionAuthRoot,
 } from './session-auth-runtime';
+import {
+  isRouteErrorResult,
+  setRootRendersRouteError,
+} from '../router/route-error';
 import { getSessionAuthState } from '../router/session-auth-state';
 
 /**
@@ -129,7 +133,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
       !resolved
         ? () => jsx('div', { children: [] })
         : resolved.kind === 'deny'
-          ? bindDeniedStatus(resolved.status)
+          ? bindDeniedStatus(resolved)
           : bindResolvedRouteHandler({
               handler: resolved.handler,
               params: resolved.params,
@@ -141,6 +145,13 @@ export async function createSPA(config: SPAConfig): Promise<void> {
       }
     );
     boot.assertCurrent();
+    const mountedApp = getAppRoot(rootElement);
+    if (
+      mountedApp &&
+      resolved?.kind === 'render' &&
+      isRouteErrorResult(resolved)
+    )
+      setRootRendersRouteError(mountedApp, true);
     await registerAppNavigation(rootElement, path, {
       ...appRouteSource,
       runtime: appRuntime,

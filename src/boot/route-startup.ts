@@ -1,5 +1,6 @@
 import type { AuthContext } from '@askrjs/auth';
 import type {
+  AccessDenyDecision,
   ResolvedRoute,
   RouteAuthOptions,
   RouteHandler,
@@ -15,7 +16,7 @@ import {
 } from '../router/metadata';
 import { getRouteMetaContext } from '../router/resolution';
 import { readHistoryIndex } from '../router/history-index';
-import { createDeniedStatusNode } from '../router/navigation-commit';
+import { createDeniedHandler, isRouteErrorResult } from '../router/route-error';
 import { loadDocument } from '../router/document-navigation';
 import { resolveNavigationUrl } from '../common/url';
 import type { ComponentFunction } from '../common/component';
@@ -30,19 +31,29 @@ export function bindResolvedRouteHandler(
     resolved.handler(resolved.params) as ReturnType<ComponentFunction>;
 }
 
-export function bindDeniedStatus(status: number): ComponentFunction {
-  return () => createDeniedStatusNode(status);
+export function bindDeniedStatus(
+  decision: Pick<AccessDenyDecision, 'status'>
+): ComponentFunction {
+  const handler = createDeniedHandler(decision);
+  return () => handler({}) as ReturnType<ComponentFunction>;
 }
 
-export function bindDeniedRouteHandler(status: number): RouteHandler {
-  return () => createDeniedStatusNode(status);
+export function bindDeniedRouteHandler(
+  decision: Pick<AccessDenyDecision, 'status'>
+): RouteHandler {
+  return createDeniedHandler(decision);
 }
 
 export async function reconcileInitialRouteMetadata(
   resolved: RouteRequestResult,
   assertCurrent?: () => void
 ): Promise<void> {
-  if (resolved?.kind !== 'render' || !resolved.record) return;
+  if (
+    resolved?.kind !== 'render' ||
+    !resolved.record ||
+    isRouteErrorResult(resolved)
+  )
+    return;
   if (
     !resolved.record.options.title &&
     !resolved.record.options.meta &&
@@ -110,6 +121,7 @@ export async function resolveInitialRoute(
       authContext: source.authContext,
       dataRuntime: source.dataRuntime,
       signal: source.signal,
+      routeErrors: true,
     };
     const resolved = await (source.assertCurrent
       ? resolveOwnedRouteRequest(href, routeOptions, source.assertCurrent)

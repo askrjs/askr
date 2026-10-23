@@ -48,6 +48,8 @@ Supported group options:
 - `layout`
 - `auth`
 - `policies`
+- `meta`, `appMeta`
+- `error`, `forbidden` (see [Route error and forbidden components](#route-error-and-forbidden-components))
 
 ## `page(path, Component, fn)`
 
@@ -179,6 +181,8 @@ Vite's `base` remains responsible for JavaScript, CSS, and other asset URLs.
   - `appMeta`: immutable application declaration data, separate from document metadata
   - `actions`: browser-safe action descriptors authorized for this matched page
   - `namespace`: namespace key
+  - `error`: component rendered when the route fails to resolve (see below)
+  - `forbidden`: component rendered when the route is denied (see below)
 
 ```ts
 route('/posts/{slug}', PostPage, {
@@ -428,6 +432,52 @@ in a route's `policies` array.
 - `deny(status)` stops the request with a 401, 403, or 404 status.
   `unauthorized()`, `forbidden()`, and `notFound()` are shorthands for
   `deny(401)`, `deny(403)`, and `deny(404)`.
+
+## Route error and forbidden components
+
+`route()`, `page()` and `group()` accept two component options. The nearest
+declaring scope wins (a `route()` over its `page()`, a `page()` over its
+`group()`); `fallback()` keeps owning not-found.
+
+- `error`: `({ error, retry }) => content`. In the browser, when a navigation
+  to the route fails because its lazy chunk, `preload`, `loader` or a policy
+  throws, the navigation still commits to the destination URL and the error
+  component renders in place of the route content (page hosts and layouts stay).
+  `error` is what was thrown. `retry()` resolves the current location again,
+  replacing its history entry. Abort errors from superseded navigations never
+  reach it, and session-auth recovery redirects take precedence.
+- `forbidden`: `({ status }) => content`. When a policy or auth requirement
+  denies the route (`deny()`, `unauthorized()`, `forbidden()`, `notFound()`, a
+  `403` from `auth`), this component renders instead of the bare
+  `<div data-route-denied="403">` placeholder, without the route's layouts.
+
+```tsx
+group(
+  {
+    error: ({ error, retry }) => (
+      <section role="alert">
+        <p>Something went wrong.</p>
+        <button type="button" onClick={retry}>
+          Try again
+        </button>
+      </section>
+    ),
+    forbidden: ({ status }) => <p>Not allowed ({status}).</p>,
+  },
+  () => {
+    route('/reports/{id}', ReportPage, { loader: loadReport });
+  }
+);
+```
+
+With no `error` declared, a failed navigation keeps today's behavior: the
+failure is logged and the current page and URL stay. With no `forbidden`
+declared, the status placeholder renders. A route that fails while it is the
+initial route of `createSPA()` renders its `error` component the same way.
+Route metadata is not resolved for an error rendering. Server rendering is
+unchanged: `renderRouteRequest()` still rejects with the loader failure and
+returns `{ kind: 'deny' }` for denials, so hosts render their own error page
+and status.
 
 ## `RouteDataLoadError`
 

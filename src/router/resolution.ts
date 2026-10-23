@@ -41,9 +41,24 @@ import { formatNavigationUrl, resolveNavigationUrl } from '../common/url';
 import { normalizeRouteBasePath, removeRouteBasePath } from './base-path';
 import { getSessionAuthState } from './session-auth-state';
 import { RouteDataLoadError } from './route-data-loader';
+import {
+  createRouteErrorHandler,
+  markDeniedRoute,
+  markRouteErrorResult,
+  routeErrorComponent,
+  routeForbiddenComponent,
+} from './route-error';
 import { loadDocument } from './document-navigation';
 
 export { resolveRoute } from './route-matching';
+
+function isAbortLikeError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { name?: unknown }).name === 'AbortError'
+  );
+}
 
 const routeRenderContexts = new WeakMap<object, RouteContext>();
 const routeRenderData = new WeakMap<object, unknown>();
@@ -454,10 +469,53 @@ function resolveRouteRequestInternal(
         options.dataRuntime,
         assertCurrent
       );
-      if (!basePath) return result;
+      const marked = markDenial(result);
+      if (!basePath) return marked;
+      return isPromiseLike(marked)
+        ? Promise.resolve(marked).then(exposeRedirect)
+        : exposeRedirect(marked);
+    };
+    const markDenial = (
+      result: RouteRequestResult | Promise<RouteRequestResult>
+    ): RouteRequestResult | Promise<RouteRequestResult> => {
+      // Only a route with a forbidden component needs the marking hop.
+      if (!routeForbiddenComponent(match.record)) return result;
+      const mark = (next: RouteRequestResult): RouteRequestResult => {
+        if (next?.kind !== 'deny' || !routeForbiddenComponent(match.record)) {
+          return next;
+        }
+        // A copy: the decision a policy returned may be shared.
+        const denied = { ...next };
+        markDeniedRoute(denied, match.record);
+        return denied;
+      };
       return isPromiseLike(result)
-        ? Promise.resolve(result).then(exposeRedirect)
-        : exposeRedirect(result);
+        ? Promise.resolve(result).then(mark)
+        : mark(result);
+    };
+    const showError = (error: unknown): RouteRequestResult => {
+      if (
+        !options.routeErrors ||
+        signal.aborted ||
+        isAbortLikeError(error) ||
+        !routeErrorComponent(match.record)
+      ) {
+        throw error;
+      }
+      assertCurrent?.();
+      const handler = createRouteErrorHandler(match.record, error)!;
+      const result = createRouteRenderResult(
+        match.record,
+        match.params,
+        buildRouteContext(logicalTarget, match.params, {
+          mode,
+          signal,
+          authContext: options.authContext ?? unresolvedAuth(mode),
+        }),
+        handler
+      );
+      markRouteErrorResult(result);
+      return result;
     };
     const recover = (error: unknown): RouteRequestResult => {
       assertCurrent?.();
@@ -467,7 +525,7 @@ function resolveRouteRequestInternal(
         error instanceof RouteDataLoadError ? error.cause : error,
         targetHref()
       );
-      if (!recovery) throw error;
+      if (!recovery) return showError(error);
       if (recovery.document) {
         if (!state!.hasMountedRoots())
           loadDocument(
@@ -497,7 +555,8 @@ function resolveRouteRequestInternal(
                 : finalize(resolved);
             })();
       return mode === 'spa' &&
-        getSessionAuthState(authOptions) &&
+        (getSessionAuthState(authOptions) ||
+          (options.routeErrors && routeErrorComponent(match.record))) &&
         isPromiseLike(result)
         ? Promise.resolve(result).catch(recover)
         : result;

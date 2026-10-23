@@ -3,6 +3,7 @@ import type {
   PageScopeRecord,
   Route,
   RouteHandler,
+  RouteOptions,
   RoutePolicy,
   RouteRecord,
   RouteMetaSource,
@@ -23,6 +24,8 @@ export type InternalRouteRecord = RouteRecord & {
   fallbackPrefix?: string;
   renderHandler?: RouteHandler;
   appMetaChain?: readonly AppMetaDeclaration[];
+  errorComponent?: RouteOptions['error'];
+  forbiddenComponent?: RouteOptions['forbidden'];
 };
 
 export type RegistrationScope = {
@@ -35,4 +38,6 @@ export type RegistrationScope = {
   policies: readonly RoutePolicy[];
   meta?: RouteMetaSource;
   appMeta?: unknown;
+  error?: RouteOptions['error'];
+  forbidden?: RouteOptions['forbidden'];
 };

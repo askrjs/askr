@@ -113,6 +113,8 @@ export {
   AccessDecision,
   RouteDestination,
   RouteContext,
+  RouteErrorProps,
+  RouteForbiddenProps,
   AccessAllowDecision,
   RouteRegistryOptions,
   AccessRedirectDecision,

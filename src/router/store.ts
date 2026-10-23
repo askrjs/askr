@@ -292,6 +292,18 @@ export function getCurrentInheritedMeta(): RouteMetaSource[] {
   );
 }
 
+/** The nearest enclosing scope's value for `key`, if any scope declares it. */
+export function getNearestScopeValue<K extends keyof RegistrationScope>(
+  key: K
+): RegistrationScope[K] | undefined {
+  const stack = activeTable.registrationScopeStack;
+  for (let index = stack.length - 1; index >= 0; index -= 1) {
+    const value = stack[index]![key];
+    if (value !== undefined) return value;
+  }
+  return undefined;
+}
+
 export function getCurrentInheritedAppMeta(): readonly AppMetaDeclaration[] {
   return Object.freeze(
     activeTable.registrationScopeStack.flatMap((scope) =>

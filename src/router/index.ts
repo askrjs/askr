@@ -45,6 +45,8 @@ export type {
   RouteHandler,
   RouteMode,
   RouteContext,
+  RouteErrorProps,
+  RouteForbiddenProps,
   RoutePolicy,
   RouteRenderResult,
   RouteRequestOptions,

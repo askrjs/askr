@@ -24,6 +24,8 @@ import {
   getCurrentPathPrefix,
   getCurrentScopeKind,
   findRecordByMatchKey,
+  getNearestScopeValue,
+  getRouteRecords,
   hasActivePageScope,
   insertRecordSorted,
 } from './store';
@@ -52,6 +54,8 @@ function normalizeRouteOptions(
     !options.search &&
     !options.meta &&
     !options.actions &&
+    !options.error &&
+    !options.forbidden &&
     options.appMeta === undefined &&
     options.auth === undefined
   ) {
@@ -73,6 +77,8 @@ function normalizeRouteOptions(
     ...(options.search ? { search: options.search } : {}),
     ...(options.meta ? { meta: options.meta } : {}),
     ...(options.actions ? { actions: options.actions } : {}),
+    ...(options.error ? { error: options.error } : {}),
+    ...(options.forbidden ? { forbidden: options.forbidden } : {}),
     ...(options.appMeta !== undefined
       ? { appMeta: snapshotAppMeta(options.appMeta) }
       : {}),
@@ -162,6 +168,10 @@ export function registerRouteAtResolvedPath(
         ])
       : undefined;
 
+  const errorComponent =
+    normalizedOptions?.error ?? getNearestScopeValue('error');
+  const forbiddenComponent =
+    normalizedOptions?.forbidden ?? getNearestScopeValue('forbidden');
   const handler = createRouteHandler(comp, pageChain, chain);
   const renderHandler = createRouteHandler(comp, pageChain, chain, true);
 
@@ -185,6 +195,8 @@ export function registerRouteAtResolvedPath(
           : {},
     ...(metaChain.length > 0 ? { metaChain } : {}),
     ...(appMetaChain ? { appMetaChain } : {}),
+    ...(errorComponent ? { errorComponent } : {}),
+    ...(forbiddenComponent ? { forbiddenComponent } : {}),
     isFallback,
     handler,
     renderHandler,

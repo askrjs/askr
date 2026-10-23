@@ -71,6 +71,8 @@ export function pushGroupScope(
       policies,
       meta: options.meta,
       appMeta: snapshotAppMeta(options.appMeta),
+      error: options.error,
+      forbidden: options.forbidden,
     },
     fn
   );
@@ -101,6 +103,8 @@ export function pushPageScope(
       policies,
       meta: options.meta,
       appMeta: snapshotAppMeta(options.appMeta),
+      error: options.error,
+      forbidden: options.forbidden,
     },
     fn
   );

@@ -52,6 +52,7 @@ import {
   returnToRenderedHistoryEntry,
 } from './history-index';
 import { reloadDocument } from './document-navigation';
+import { configureRouteRetry } from './route-error';
 
 export { configureScrollRestoration } from './navigation-scroll';
 export type {
@@ -74,6 +75,15 @@ export type {
 } from './route-query';
 export type { NavigateOptions };
 
+/** Resolve the rendered location again; it replaces its own history entry. */
+function retryCurrentRoute(): void {
+  if (typeof window === 'undefined') return;
+  navigateToPublicHref(
+    `${window.location.pathname}${window.location.search}${window.location.hash}`,
+    { history: 'replace' }
+  );
+}
+
 let navigationInitialized = false;
 let navigationRegistryHosted = false;
 
@@ -89,6 +99,7 @@ function ensureNavigationRegistryHost(): void {
   if (navigationRegistryHosted) return;
   navigationRegistryHosted = true;
   configureNavigationRegistryHost({ cancelRouteRequests });
+  configureRouteRetry(retryCurrentRoute);
 }
 
 /**

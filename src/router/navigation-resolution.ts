@@ -7,6 +7,7 @@ import {
 } from './navigation-registry';
 import { resolveOwnedRouteRequest, getRouteMetaContext } from './resolution';
 import { resolveOwnedRouteMeta } from './metadata';
+import { isRouteErrorResult } from './route-error';
 import { isRenderResult, type AppNavigationTarget } from './navigation-types';
 
 function createNavigationTarget(
@@ -17,7 +18,8 @@ function createNavigationTarget(
   if (
     app.instance.appRuntime !== runtime ||
     !isRenderResult(resolved) ||
-    !resolved.record
+    !resolved.record ||
+    isRouteErrorResult(resolved)
   )
     return { app, resolved, runtime };
   const hasMetadata = Boolean(
@@ -52,6 +54,7 @@ function resolveAppRouteRequest(
       auth: app.auth,
       signal,
       dataRuntime: runtime?.dataRuntime,
+      routeErrors: true,
     },
     () => {
       if (app.instance.appRuntime !== runtime) {

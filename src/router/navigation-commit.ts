@@ -1,4 +1,5 @@
 import type {
+  AccessDenyDecision,
   RouteMeta,
   RouteRequestResult,
   ResolvedRoute,
@@ -10,8 +11,6 @@ import {
   type PreparedRootUpdate,
 } from '../common/root-update';
 import { logger } from '../common/logger';
-import type { JSXElement } from '../common/jsx';
-import { jsx } from '../jsx/jsx-runtime';
 import { reportUncaughtErrorLater } from '../common/report-error';
 import { flushSync } from '../core/reactive/scheduler';
 import {
@@ -28,6 +27,13 @@ import {
 } from './resolution';
 import { reconcileRouteMeta } from './metadata';
 import { readClientAuth, setCurrentAuth } from './auth';
+import {
+  createDeniedHandler,
+  isRouteErrorResult,
+  rootRendersRouteError,
+  setRootRendersRouteError,
+} from './route-error';
+export { createDeniedStatusNode } from './route-error';
 import { isStaleRouteRequest } from './navigation-request';
 import {
   hasCurrentNavigationOwners,
@@ -66,19 +72,10 @@ function reconcileNavigationMetadata(
   if (targets.length > 0) reconcileRouteMeta(EMPTY_ROUTE_META);
 }
 
-/** The placeholder a denied route renders in place of protected content. */
-export function createDeniedStatusNode(status: number): JSXElement {
-  return jsx('div', {
-    'data-route-denied': String(status),
-    children: [String(status)],
-  });
-}
-
-function createDeniedResolvedRoute(status: number): ResolvedRoute {
-  return {
-    handler: () => createDeniedStatusNode(status),
-    params: {},
-  };
+function createDeniedResolvedRoute(
+  decision: AccessDenyDecision
+): ResolvedRoute {
+  return { handler: createDeniedHandler(decision), params: {} };
 }
 
 function bindResolvedRouteHandler(resolved: ResolvedRoute): ComponentFunction {
@@ -112,7 +109,7 @@ function getResolvedRouteHandler(resolved: RouteRequestResult): ResolvedRoute {
     throw new Error('[Askr] cannot prepare an unmatched navigation target');
   }
   if (resolved.kind === 'deny') {
-    return createDeniedResolvedRoute(resolved.status);
+    return createDeniedResolvedRoute(resolved);
   }
   if (!isRenderResult(resolved)) {
     throw new Error('[Askr] cannot prepare a redirect as a destination root');
@@ -161,8 +158,13 @@ export function commitNavigationRoots(
   const previousPathname = getCurrentPathname();
   const previousHref = getCurrentHref();
   const roots = targets.map((target) => {
+    // Entering or leaving an error rendering swaps the root's handler, which
+    // only a new lifetime does.
     const replaceLifetime =
-      pathname !== target.app.pathname || !isRenderResult(target.resolved);
+      pathname !== target.app.pathname ||
+      !isRenderResult(target.resolved) ||
+      isRouteErrorResult(target.resolved) ||
+      rootRendersRouteError(target.app.instance);
     return {
       target,
       replaceLifetime,
@@ -226,6 +228,11 @@ export function commitNavigationRoots(
         throw failure;
       }
       committedFailures.push(...result.errors);
+      setRootRendersRouteError(
+        root.target.app.instance,
+        isRenderResult(root.target.resolved) &&
+          isRouteErrorResult(root.target.resolved)
+      );
       syncAppRegistrationLocation(root.target.app, pathname, href);
     }
     for (const failure of committedFailures) reportUncaughtErrorLater(failure);

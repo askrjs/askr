@@ -49,6 +49,8 @@ import {
   type RouteContext,
   type RouteDefinition,
   type RouteDestination,
+  type RouteErrorProps,
+  type RouteForbiddenProps,
   RouteDataLoadError,
   type RouteDataLoadPhase,
   type RouteHandler,
@@ -515,3 +517,17 @@ reconcileRouteMeta({
 expectError(
   lazy(async () => ({ default: () => document.createElement('div') }))
 );
+
+// Route error and forbidden components.
+route('/typed-error', () => null, {
+  error: ({ error, retry }: RouteErrorProps) => {
+    expectType<unknown>(error);
+    expectType<() => void>(retry);
+    return null;
+  },
+  forbidden: ({ status }: RouteForbiddenProps) => {
+    expectType<401 | 403 | 404>(status);
+    return null;
+  },
+});
+group({ error: () => null, forbidden: () => null }, () => undefined);
