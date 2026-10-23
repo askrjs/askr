@@ -65,13 +65,18 @@ export function createHost(
   if (adopted) {
     ctx.pass.op(() => {
       try {
-        removeUnrenderedAttributes(adopted, props, (attributes) => {
-          ctx.pass.onReversibleCommit(() => {
-            for (const attribute of attributes) {
-              adopted.setAttributeNode(attribute);
-            }
-          });
-        });
+        removeUnrenderedAttributes(
+          adopted,
+          props,
+          hydrate!.cursor.strict,
+          (attributes) => {
+            ctx.pass.onReversibleCommit(() => {
+              for (const attribute of attributes) {
+                adopted.setAttributeNode(attribute);
+              }
+            });
+          }
+        );
       } catch (error) {
         throw new CommitMutationError(error);
       }

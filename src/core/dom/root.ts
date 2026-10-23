@@ -49,6 +49,8 @@ export interface RootOptions {
   before?: Node | null;
   /** The first render adopts the container's server-rendered markup. */
   hydrate?: boolean;
+  /** Hydration removes every server attribute the client does not render. */
+  hydrateStrict?: boolean;
 }
 
 export function createRoot(
@@ -76,7 +78,10 @@ export function createRoot(
     const pass = new Pass();
     const fresh = !mounted;
     const tail = node.tail?.parentNode === container ? node.tail : null;
-    const cursor = fresh && hydrate ? new HydrationCursor(tail) : null;
+    const cursor =
+      fresh && hydrate
+        ? new HydrationCursor(tail, undefined, options.hydrateStrict === true)
+        : null;
     const ctx = createRenderContext(
       pass,
       owner,

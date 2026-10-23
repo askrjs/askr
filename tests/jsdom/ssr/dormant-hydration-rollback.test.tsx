@@ -63,7 +63,7 @@ describe('dormant hydration rollback', () => {
 
     expect(activateHydrationBoundary(container, boundary)).toBe(true);
     expect(boundary.hasAttribute('data-skip-hydrate')).toBe(false);
-    expect(boundary.hasAttribute('data-server-only')).toBe(false);
+    expect(boundary.getAttribute('data-server-only')).toBe('yes');
     expect(dormantHostFor(boundary)).toBeNull();
   });
 

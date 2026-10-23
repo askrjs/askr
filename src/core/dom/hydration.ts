@@ -7,7 +7,8 @@
  * node (split when the server merged adjacent texts). A node that does not
  * match is created fresh instead. When a container's children are rendered,
  * one commit operation puts the claimed and created nodes in order and
- * removes whatever the server rendered that the client did not.
+ * removes whatever the server rendered that the client did not. Attributes the
+ * client never mentions stay on adopted elements (outside verify mode).
  */
 
 import {
@@ -33,7 +34,9 @@ export class HydrationCursor {
 
   constructor(
     private readonly stopAt: Node | null = null,
-    private readonly successors = new WeakMap<Node, Node | null>()
+    private readonly successors = new WeakMap<Node, Node | null>(),
+    /** Verify mode: adopted elements lose every attribute the client omits. */
+    readonly strict = false
   ) {}
 
   /** Detached text suffixes retain the server sibling that follows them. */
@@ -113,12 +116,16 @@ export class HydrationCursor {
       }
       if (end && end !== this.stopAt) {
         this.next.set(container, this.followingSibling(end));
-        const inner = new HydrationCursor(end, this.successors);
+        const inner = new HydrationCursor(end, this.successors, this.strict);
         inner.next.set(container, this.followingSibling(node));
         return inner;
       }
     }
-    const later = new HydrationCursor(this.stopAt, this.successors);
+    const later = new HydrationCursor(
+      this.stopAt,
+      this.successors,
+      this.strict
+    );
     later.next.set(container, node);
     return later;
   }
@@ -293,19 +300,62 @@ function renderedAttributes(el: Element, props: Props): Set<string> {
   return names;
 }
 
+/** Attributes the renderers add to server markup for their own bookkeeping. */
+const BOOKKEEPING_ATTRIBUTES = [
+  'data-skip-hydrate',
+  'data-key',
+  'data-askr-key-kind',
+];
+
+/** Attribute names for props the client names but does not render. */
+function retiredAttributes(el: Element, props: Props): Set<string> {
+  const names = new Set<string>();
+  for (const key in props) {
+    if (isSkippedProp(key) || parseEventProp(key)) continue;
+    const value = props[key];
+    if (typeof value === 'function') continue;
+    if (value !== null && value !== undefined) {
+      if (value !== false || keepsFalseValue(key)) continue;
+    }
+    if (key === 'className') {
+      names.add('class');
+      continue;
+    }
+    const name = key.startsWith(ATTRIBUTE_PROP_PREFIX)
+      ? key.slice(ATTRIBUTE_PROP_PREFIX.length)
+      : key;
+    names.add(getRenderedAttributeName(el, name));
+  }
+  return names;
+}
+
 /**
- * Server attributes the client does not render are removed from an adopted
- * element, so a mismatched attribute does not survive hydration.
+ * Remove server attributes from an adopted element. Attributes the client
+ * never mentions (a theme attribute, a browser extension's marker) stay; the
+ * renderers' own bookkeeping goes, and so does an attribute the client names
+ * with an empty value. Verify mode (`strict`) removes everything the client
+ * does not render, so a mismatched attribute is visible.
  */
 export function removeUnrenderedAttributes(
   el: Element,
   props: Props,
+  strict: boolean,
   beforeRemove?: (attributes: readonly Attr[]) => void
 ): void {
-  const keep = renderedAttributes(el, props);
-  const removed = Array.from(el.attributes).filter(
-    (attribute) => !keep.has(attribute.name)
-  );
+  let removed: Attr[];
+  if (strict) {
+    const keep = renderedAttributes(el, props);
+    removed = Array.from(el.attributes).filter(
+      (attribute) => !keep.has(attribute.name)
+    );
+  } else {
+    const retired = retiredAttributes(el, props);
+    removed = Array.from(el.attributes).filter(
+      (attribute) =>
+        BOOKKEEPING_ATTRIBUTES.includes(attribute.name) ||
+        retired.has(attribute.name)
+    );
+  }
   beforeRemove?.(removed);
   for (const attribute of removed) el.removeAttribute(attribute.name);
 }

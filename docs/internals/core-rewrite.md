@@ -166,7 +166,7 @@ validation. Run performance benchmarks when a change affects a measured hot
 path; a green functional suite does not establish a performance result.
 
 Recent commit-rollback qualification covers provisional hydration text claims
-and corrections, unrendered server attribute cleanup, ordinary adopted
+and corrections, server attribute cleanup (bookkeeping and retired props, or everything unrendered in verify mode), ordinary adopted
 attributes, reflected class/style writes, attribute-backed binding
 transitions, and static or bound input value, checkbox checked, and option
 selected state. Adopted root and nested child synchronization also restores

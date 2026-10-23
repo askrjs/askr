@@ -135,7 +135,10 @@ unclaimed child. Creating a node first tries to claim the node under the
 cursor: an element with the same tag, or a text node (split when the server
 merged adjacent texts). A node that does not match is created fresh. When a
 container's children are rendered, one commit operation puts the claimed and
-created nodes in order and removes server nodes the client did not render.
+created nodes in order and removes server nodes the client did not render. Adopted elements keep
+attributes the client never mentions; only renderer bookkeeping and attributes
+the client renders as empty are removed (verify mode removes every unrendered
+attribute).
 Markup marked `data-skip-hydrate` stays dormant until it is activated.
 
 ## Portals

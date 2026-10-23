@@ -340,6 +340,14 @@
 - Restore hydration render context when claiming SSR resource metadata throws,
   so a failed claim leaves server nodes and the following hydration retry intact.
 
+- Keep server attributes the client never renders when hydrating. A theme
+  attribute, a browser extension's marker or any other attribute added outside
+  Askr survives adoption. Hydration still removes the renderers' own
+  bookkeeping (`data-skip-hydrate`, `data-key`, `data-askr-key-kind`) and an
+  attribute whose prop the client renders as `null`, `undefined` or `false`.
+  Verify mode (`hydrate.verifyMarkup`) keeps the stricter behavior and removes
+  every attribute the client does not render.
+
 ## 0.4.4 - 2026-10-08
 
 ### Breaking changes

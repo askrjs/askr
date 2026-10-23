@@ -63,10 +63,11 @@ export class AppRoot implements AppRootHandle {
   constructor(
     element: Element,
     component: ComponentFunction,
-    hydrate: boolean
+    hydrate: boolean,
+    hydrateStrict = false
   ) {
     this.element = element;
-    this.root = createRoot(element, { owner: null, hydrate });
+    this.root = createRoot(element, { owner: null, hydrate, hydrateStrict });
     provideDefaultPortal(this.root.owner, element);
     this.component = component;
     this.handler = component;
@@ -186,6 +187,8 @@ export interface MountOptions {
   cspNonce?: string;
   /** The container holds server-rendered markup for this app to adopt. */
   hydrate?: boolean;
+  /** Hydration removes every server attribute the client does not render. */
+  hydrateStrict?: boolean;
   /** Runs after the render commits, before the work it scheduled flushes. */
   onCommit?: () => void;
 }
@@ -202,7 +205,12 @@ export function mountOrUpdate(
   const replacingIsland =
     app !== undefined && app.component !== component && !app.routed;
   if (!app) {
-    app = new AppRoot(rootElement, component, options?.hydrate === true);
+    app = new AppRoot(
+      rootElement,
+      component,
+      options?.hydrate === true,
+      options?.hydrateStrict === true
+    );
     appRoots.set(rootElement, app);
     interceptInnerHTML(app);
   } else if (app.component !== component) {

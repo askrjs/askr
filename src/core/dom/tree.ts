@@ -53,7 +53,12 @@ export interface HostNode extends Base {
    * Adopted server markup whose hydration is skipped or deferred
    * (`data-skip-hydrate`): props and children wait for activation.
    */
-  dormant?: { owner: Owner | null; ns: string | null } | null;
+  dormant?: {
+    owner: Owner | null;
+    ns: string | null;
+    /** Verify mode: activation strips every attribute the client omits. */
+    strict: boolean;
+  } | null;
 }
 
 export interface TextNode extends Base {

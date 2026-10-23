@@ -272,9 +272,13 @@ setting `style.transform`, a tooltip adding `data-*`, or `classList.add(...)`.
   properties.
 - Values Askr still renders are re-applied if other code overwrote them (for
   example a removed class token or a changed `title`).
-- Server-rendered markup that hydration cannot adopt as-is is treated as
-  Askr-owned on its first update, so mismatched SSR attributes are still
-  cleaned up.
+- Hydration keeps the server attributes the client never renders (a
+  `data-theme` set before the app loads, a browser extension's marker). It
+  removes only Askr's own bookkeeping (`data-skip-hydrate`, `data-key`,
+  `data-askr-key-kind`) and an attribute whose prop the client renders as
+  `null`, `undefined` or `false`. With `hydrate.verifyMarkup` (the default in
+  development) it removes every attribute the client does not render, so a
+  mismatch shows up.
 
 ### Attributes and DOM properties
 

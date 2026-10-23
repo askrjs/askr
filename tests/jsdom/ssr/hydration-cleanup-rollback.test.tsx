@@ -62,7 +62,7 @@ describe('hydration cleanup rollback', () => {
     root.dispose();
   });
 
-  it('should restore removed server attributes when their removal throws', () => {
+  it('should restore removed server attributes when their strict removal throws', () => {
     const container = document.createElement('div');
     container.innerHTML = '<div id="first" data-server-only="yes">first</div>';
     const first = container.querySelector('#first')!;
@@ -73,7 +73,7 @@ describe('hydration cleanup rollback', () => {
       if (name === 'data-server-only') throw failure;
     });
 
-    const root = createRoot(container, { hydrate: true });
+    const root = createRoot(container, { hydrate: true, hydrateStrict: true });
     const prepared = root.prepare(<div id="first">first</div>);
 
     expect(() => prepared.commit()).toThrow(failure);

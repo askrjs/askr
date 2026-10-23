@@ -201,6 +201,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         ...args[2],
         cspNonce: config.cspNonce,
         hydrate: true,
+        hydrateStrict: shouldVerifyHydrationMarkup(config),
         onCommit: captureClientMarkup,
       });
     };

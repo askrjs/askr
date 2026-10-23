@@ -33,7 +33,11 @@ export function deferDormantHost(
   const adopted = node.el;
   if (!adopted.hasAttribute(SKIP_HYDRATE)) return false;
   ctx.pass.hasDormantPortalWriter ||= containsPortalWriterAnchor(adopted);
-  node.dormant = { owner: ctx.owner, ns };
+  node.dormant = {
+    owner: ctx.owner,
+    ns,
+    strict: ctx.hydrate?.cursor.strict ?? false,
+  };
   ctx.pass.op(() => {
     const previous = dormantHosts.get(adopted);
     ctx.pass.onReversibleCommit(() => {
@@ -82,7 +86,10 @@ export function activateDormantHost(
     owner: dormant.owner,
     ns: dormant.ns,
     nodes,
-    hydrate: { cursor: new HydrationCursor(), container: el },
+    hydrate: {
+      cursor: new HydrationCursor(null, undefined, dormant.strict),
+      container: el,
+    },
   };
   const props = node.props;
   applyInitialProps(pass, node, true);
@@ -106,7 +113,7 @@ export function activateDormantHost(
       dormantHosts.set(el, node);
     });
     try {
-      removeUnrenderedAttributes(el, props, (attributes) => {
+      removeUnrenderedAttributes(el, props, dormant.strict, (attributes) => {
         pass.onReversibleCommit(() => {
           for (const attribute of attributes) {
             el.setAttributeNode(attribute);
