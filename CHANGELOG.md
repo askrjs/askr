@@ -67,6 +67,11 @@
 
 ### Fixes
 
+- Save the departing page's scroll position before its content is replaced
+  on a push navigation. Browsers clamp the offset as soon as the document
+  shrinks, so a long list followed by a short page previously restored to
+  the top on back navigation.
+
 - Reconcile head metadata on every navigation. A route that declares no
   `title` or `meta` now removes the previous route's title, description,
   robots and other owned head nodes instead of leaving them in place, and

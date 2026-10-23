@@ -146,6 +146,9 @@ export function applyNavigationTargets(
     hasState,
     state: hasState ? options.state : undefined,
   };
+  // Read the departing page's offset before its content is replaced: the
+  // browser clamps the scroll position as soon as the document shrinks.
+  saveScrollPosition(previousHref);
   commitNavigationRoots(
     requestId,
     pathname,
@@ -153,7 +156,6 @@ export function applyNavigationTargets(
     matchedTargets,
     locationState,
     () => {
-      saveScrollPosition(previousHref);
       const historyMode = getNavigationHistoryMode(options);
       const historyIndex = nextHistoryIndex(historyMode);
       window.history[historyMode === 'replace' ? 'replaceState' : 'pushState'](
