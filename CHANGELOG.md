@@ -431,6 +431,10 @@
   at most 10,000 nodes, so a very large list does not exceed an engine's
   argument limit for `replaceChildren(...nodes)`.
 
+- Clear a component instance's rendered view and hook values when it is
+  disposed, so a retained instance no longer keeps detached DOM and its
+  ancestor tree alive.
+
 ## 0.4.4 - 2026-10-08
 
 ### Breaking changes

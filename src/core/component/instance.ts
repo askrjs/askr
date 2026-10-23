@@ -236,6 +236,10 @@ export class ComponentInstance extends Owner {
 
   protected override onDispose(): void {
     this.abortController?.abort(COMPONENT_ABORT_REASON);
+    // A retained instance (a stale closure, a diagnostic) must not keep the
+    // detached DOM, its ancestors, or the hook values alive.
+    this.view = null;
+    this.hooks = [];
   }
 }
 
