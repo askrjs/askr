@@ -81,7 +81,10 @@ handlers and queued tasks, so scope reads and cleanup registration still work
 there.
 
 Lexical scopes (`src/core/api/scope.ts`) are values recorded on a provider's
-owner. `readScope()` walks up the owner tree from the running code.
+owner. `readScope()` walks up the owner tree from the running code. The result is cached on owners along the
+walk (every eighth owner of a long path), so reading a scope in a deep tree walks
+the chain about once; the caches are dropped whenever a provider's value changes
+or a subtree with descendants is detached.
 
 ## Components and hooks
 

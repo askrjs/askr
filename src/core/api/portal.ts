@@ -271,7 +271,7 @@ export function provideDefaultPortal(
       if (rootChannels.get(root) === channel) rootChannels.delete(root);
     });
   }
-  (owner.context ??= new Map()).set(DEFAULT_CHANNEL, channel);
+  owner.setContext(DEFAULT_CHANNEL, channel);
   return channel;
 }
 

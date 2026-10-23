@@ -118,6 +118,9 @@
   keeps component state and a navigation in flight. Explicit and cross-tab
   logout hints still retire private state immediately.
 
+- Cache `readScope()` lookups per owner so reading a scope in a deep component
+  tree no longer walks the whole owner chain on every read. Provider changes,
+  nearer providers and detached subtrees invalidate the cache.
 - Update deep chains of `derive()` values without a stack overflow. A write
   marked its dependents and a read brought them up to date by recursion, so a
   chain a few thousand values deep threw `RangeError`. Both walks now use an

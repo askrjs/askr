@@ -59,7 +59,7 @@ export function createRoot(
   const owner = new Owner(
     options.owner === undefined ? getOwner() : options.owner
   );
-  (owner.context ??= new Map()).set(EVENT_ROOT_CONTAINER, container);
+  owner.setContext(EVENT_ROOT_CONTAINER, container);
   const node: RootNode = {
     kind: ROOT,
     el: container,
