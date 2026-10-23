@@ -911,7 +911,7 @@
         "interface RenderRouteRequestOptions {\n    url: string;\n    registry: RouteRegistry;\n    auth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    request?: Request;\n    signal?: AbortSignal;\n    seed?: number;\n    data?: SSRData;\n    framework?: Readonly<Record<string, unknown>>;\n    dataRuntime?: DataRuntime;\n    queryPrefetch?: QueryPrefetchContext;\n    queryRegistry?: ServerQueryRegistry;\n    telemetry?: CoreTelemetry;\n    cspNonce?: string;\n}"
       ],
       "RenderRouteRequestResult": [
-        "type RenderRouteRequestResult = {\n    kind: \"render\";\n    html: string;\n    stream?: ReadableStream<Uint8Array>;\n    styles: readonly SSRStyleRegistration[];\n    params: Record<string, string>;\n    record?: RouteRecord;\n} | AccessRedirectDecision | AccessDenyDecision | {\n    kind: \"no-match\";\n};"
+        "type RenderRouteRequestResult = {\n    kind: \"render\";\n    html: string;\n    stream?: ReadableStream<Uint8Array>;\n    styles: readonly SSRStyleRegistration[];\n    params: Record<string, string>;\n    status?: 404;\n    record?: RouteRecord;\n} | AccessRedirectDecision | AccessDenyDecision | {\n    kind: \"no-match\";\n};"
       ],
       "renderRouteRequestToString": [
         "declare function renderRouteRequestToString(options: RenderRouteRequestOptions): Promise<RenderRouteRequestResult>;"
@@ -1956,7 +1956,7 @@
       "interface RenderRouteRequestOptions {\n    url: string;\n    registry: RouteRegistry;\n    auth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    request?: Request;\n    signal?: AbortSignal;\n    seed?: number;\n    data?: SSRData;\n    framework?: Readonly<Record<string, unknown>>;\n    dataRuntime?: DataRuntime;\n    queryPrefetch?: QueryPrefetchContext;\n    queryRegistry?: ServerQueryRegistry;\n    telemetry?: CoreTelemetry;\n    cspNonce?: string;\n}"
     ],
     "RenderRouteRequestResult": [
-      "type RenderRouteRequestResult = {\n    kind: \"render\";\n    html: string;\n    stream?: ReadableStream<Uint8Array>;\n    styles: readonly SSRStyleRegistration[];\n    params: Record<string, string>;\n    record?: RouteRecord;\n} | AccessRedirectDecision | AccessDenyDecision | {\n    kind: \"no-match\";\n};"
+      "type RenderRouteRequestResult = {\n    kind: \"render\";\n    html: string;\n    stream?: ReadableStream<Uint8Array>;\n    styles: readonly SSRStyleRegistration[];\n    params: Record<string, string>;\n    status?: 404;\n    record?: RouteRecord;\n} | AccessRedirectDecision | AccessDenyDecision | {\n    kind: \"no-match\";\n};"
     ],
     "renderRouteRequestToString": [
       "declare function renderRouteRequestToString(options: RenderRouteRequestOptions): Promise<RenderRouteRequestResult>;"
@@ -2237,7 +2237,7 @@
       "interface SSGAssetSource {\n    from: string;\n    to?: string;\n}"
     ],
     "SSGBaseOptions": [
-      "interface SSGBaseOptions {\n    outputDir: string;\n    seed?: number;\n    dataOverrides?: Record<string, unknown>;\n    document?: DocumentRenderer;\n    styleRegistrationValidation?: SSRStyleRegistrationValidation;\n    assets?: readonly SSGAssetSource[];\n    concurrency?: number;\n    parallelism?: number | \"auto\";\n}"
+      "interface SSGBaseOptions {\n    outputDir: string;\n    seed?: number;\n    dataOverrides?: Record<string, unknown>;\n    document?: DocumentRenderer;\n    styleRegistrationValidation?: SSRStyleRegistrationValidation;\n    assets?: readonly SSGAssetSource[];\n    concurrency?: number;\n    parallelism?: number | \"auto\";\n    queryRegistry?: ServerQueryRegistry;\n}"
     ],
     "SSGGenerateOptions": [
       "interface SSGGenerateOptions {\n    mode?: SSGMode;\n    changedKeys?: string[];\n    changedRoutes?: string[];\n    forceFull?: boolean;\n}"

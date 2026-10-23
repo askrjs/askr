@@ -14,10 +14,16 @@ import type { RouteContext } from '../common/router';
 import { createRouteRegistry, route as defineRoute } from '../router/route';
 import type { SSRData } from '../common/ssr';
 import { resolveSsgRouteData } from './resolve-ssg-data';
+import { createDataRuntime } from '../data/data-runtime';
+import { createQueryPrefetchContext } from '../data/query-registry';
+import type { DataRuntime } from '../data/types';
+import type { ServerQueryRegistry } from '../data/query-registry';
+import { resolveRouteMeta } from '../router/metadata';
 import {
   getOutputFilePath,
   interpolateRoutePath,
   interpolateRouteUrl,
+  NOT_FOUND_FILE,
 } from './route-utils';
 import { resolveDeferredValues } from '../router/deferred';
 import { bindResolvedRouteData } from '../router/resolution';
@@ -32,6 +38,7 @@ interface BatchRenderOptions {
   concurrency?: number;
   document?: DocumentRenderer;
   styleRegistrationValidation?: SSRStyleRegistrationValidation;
+  queryRegistry?: ServerQueryRegistry;
 }
 
 /**
@@ -47,6 +54,7 @@ export async function batchRenderRoutes(
     concurrency = 1,
     document,
     styleRegistrationValidation = 'warn',
+    queryRegistry,
   } = options;
 
   const workerCount = Math.max(1, Math.min(concurrency, routes.length || 1));
@@ -126,6 +134,43 @@ export async function batchRenderRoutes(
         hasRouteData = true;
       }
 
+      const requestContext: RouteContext = {
+        mode: 'ssg',
+        params: route.params ?? {},
+        pathname: requestUrl.pathname,
+        search: requestUrl.search,
+        hash: requestUrl.hash,
+        href: `${requestUrl.pathname}${requestUrl.search}${requestUrl.hash}`,
+        auth: {
+          authenticated: false,
+          principal: null,
+          session: null,
+          tenant: null,
+        },
+        signal: new AbortController().signal,
+      };
+      // Query prefetches run against a page-local runtime whose cache the
+      // page embeds, as an SSR request would.
+      let dataRuntime: DataRuntime | undefined;
+      if (route.preload) {
+        dataRuntime = createDataRuntime();
+        const request = new Request(requestUrl);
+        await route.preload({
+          ...requestContext,
+          request,
+          data: createQueryPrefetchContext({
+            mode: 'ssr',
+            request,
+            signal: requestContext.signal,
+            runtime: dataRuntime,
+            registry: queryRegistry,
+          }),
+        });
+      }
+      const meta = route.record
+        ? await resolveRouteMeta(route.record, requestContext)
+        : undefined;
+
       const renderedHandler = hasRouteData
         ? bindResolvedRouteData(mergedHandler, routeData, routeHydration)
         : mergedHandler;
@@ -147,6 +192,7 @@ export async function batchRenderRoutes(
         registry,
         seed,
         data: baseData,
+        dataRuntime,
         styleRegistrationValidation: 'off',
         document:
           document === undefined
@@ -171,6 +217,7 @@ export async function batchRenderRoutes(
                       },
                       cspNonce: context.cspNonce,
                       styles: context.styles,
+                      ...(meta ? { meta } : {}),
                     },
                   },
                   'createStaticGen()',
@@ -181,7 +228,7 @@ export async function batchRenderRoutes(
       const duration = performance.now() - startTime;
       return {
         path,
-        filePath: getOutputFilePath(path),
+        filePath: route.notFound ? NOT_FOUND_FILE : getOutputFilePath(path),
         html,
         fileSize: Buffer.byteLength(html, 'utf8'),
         renderDuration: Math.round(duration),
@@ -194,7 +241,7 @@ export async function batchRenderRoutes(
       const duration = performance.now() - startTime;
       return {
         path,
-        filePath: getOutputFilePath(path),
+        filePath: route.notFound ? NOT_FOUND_FILE : getOutputFilePath(path),
         html: '',
         fileSize: 0,
         renderDuration: Math.round(duration),

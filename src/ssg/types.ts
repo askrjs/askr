@@ -62,6 +62,12 @@ export interface RouteConfig<Path extends string = string> {
   loader?: RouteOptions['loader'];
   /** Select the loader data transported for initial hydration. */
   dehydrate?: RouteOptions['dehydrate'];
+  /** Query prefetch run before the page renders; its data is embedded. */
+  preload?: RouteOptions['preload'];
+  /** @internal Route record whose metadata chain the document receives. */
+  record?: import('../common/router').RouteRecord;
+  /** @internal The root `fallback()` page, written as `404.html`. */
+  notFound?: boolean;
   /** @internal Public mount point inherited from the owning registry. */
   basePath?: string;
   /**
@@ -98,6 +104,8 @@ interface SSGBaseOptions {
   concurrency?: number;
   /** Preferred render parallelism. `'auto'` resolves from the host machine. */
   parallelism?: number | 'auto';
+  /** Server query handlers that route `preload` prefetches run against. */
+  queryRegistry?: import('../data/query-registry').ServerQueryRegistry;
 }
 
 /** A static file or directory to copy alongside generated routes. */

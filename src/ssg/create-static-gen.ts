@@ -369,6 +369,7 @@ export function createStaticGen(options: SSGOptions) {
                 document: options.document,
                 styleRegistrationValidation:
                   options.styleRegistrationValidation,
+                queryRegistry: options.queryRegistry,
               })
             : [];
         const renderedByRouteId = new Map<string, RouteRenderResult>();

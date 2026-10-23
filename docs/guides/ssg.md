@@ -108,11 +108,24 @@ warns when a document renderer omits a non-empty registration set; use
 route during a build. Applications that intentionally externalize all generated
 rules can opt out with `styleRegistrationValidation: 'off'`.
 
+The document callback also receives `context.meta`, the route's resolved
+metadata chain (`title`, `meta`, group metadata), so a document can write the
+head with `serializeRouteMeta(context.meta)` from `@askrjs/askr/router`
+instead of resolving it again. A route `preload` runs before the page renders
+against a page-local data runtime; pass `queryRegistry` (the same
+`defineServerQueries()` registry SSR uses) so prefetches are served, and the
+prefetched query data is embedded in the page like an SSR response.
+
 ## Route config
 
 When you pass a registry, SSG reads path, handler, access metadata, and
 `entries()` from route records. Route definitions are shared with SPA and SSR;
-there is no separate raw SSG route array.
+there is no separate raw SSG route array. The root `fallback()` is written as
+`404.html`, which static hosts serve for every miss; scoped fallbacks are not
+generated. A parameterized route without `entries()` is reported as
+runtime-only (status `skipped`, reason `runtime-only`) rather than failing the
+build, so a registry shared with SSR can hold routes that only the server
+renders.
 
 ## Parameterized routes
 

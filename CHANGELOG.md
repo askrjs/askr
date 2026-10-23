@@ -33,6 +33,12 @@
 
 ### Additions
 
+- SSG writes the root `fallback()` as `404.html`, passes the route's resolved
+  metadata to the document callback as `context.meta`, runs route `preload`
+  prefetches against a page-local data runtime served by a new `queryRegistry`
+  option and embeds their data, and reports a parameterized route without
+  `entries()` as runtime-only instead of failing the build.
+
 - Report `status: 404` on the SSR render result when a `fallback()` rendered
   the miss, so hosts can send the right status without reading the private
   route record.

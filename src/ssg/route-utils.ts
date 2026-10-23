@@ -52,6 +52,9 @@ function assertSafeRoutePath(pathStr: string): void {
   }
 }
 
+/** Where hosts look for the not-found page. */
+export const NOT_FOUND_FILE = '404.html';
+
 export function getOutputFilePath(pathStr: string): string {
   assertSafeRoutePath(pathStr);
   if (pathStr === '/') {
@@ -112,7 +115,7 @@ export function resolveRouteDescriptor(
   route: RouteConfig
 ): ResolvedRouteDescriptor {
   const path = interpolateRoutePath(route.path, route.params);
-  const filePath = getOutputFilePath(path);
+  const filePath = route.notFound ? NOT_FOUND_FILE : getOutputFilePath(path);
   return {
     route,
     path,
