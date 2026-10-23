@@ -4,6 +4,7 @@
 
 import type { RouteConfig, RouteRenderResult } from './types';
 import type { RouteRecord, RouteRegistry } from '../common/router';
+import type { InternalRouteRecord } from '../router/internal-types';
 import { getRenderHandler } from '../router/rendering';
 import { expandRoutes } from './resolve-ssg-data';
 import {
@@ -37,6 +38,10 @@ function getRuntimeOnlyDiagnostic(
 
   if (policies.length > 0) {
     return `Skipped prerender for "${path}": routes with policies are runtime-only by default.`;
+  }
+
+  if ((route.record as InternalRouteRecord | undefined)?.loaderChain?.length) {
+    return `Skipped prerender for "${path}": routes under a group() or page() loader are runtime-only.`;
   }
 
   if (route.path.includes('{') && !route.entries && !route.params) {
