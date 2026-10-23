@@ -3,7 +3,10 @@
  */
 import { isProductionEnvironment } from '../common/env';
 import { jsx } from '../jsx/jsx-runtime';
-import { configureScrollRestoration } from '../router/navigate';
+import {
+  configureNavigationFocus,
+  configureScrollRestoration,
+} from '../router/navigate';
 import {
   _applyManifest,
   _setActiveRouteAuthOptions,
@@ -83,6 +86,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     getDefaultDataRuntime();
 
   configureScrollRestoration(config.scrollRestoration);
+  configureNavigationFocus(config.focus, rootElement);
 
   clearRouteState();
   _applyManifest(manifest);

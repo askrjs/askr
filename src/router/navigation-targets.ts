@@ -7,6 +7,7 @@ import {
   saveScrollPosition,
 } from './navigation-scroll';
 import { publishLocation } from './route-query';
+import { applyNavigationFocus } from './navigation-focus';
 import {
   getCurrentHref,
   getCurrentPathname,
@@ -230,8 +231,18 @@ export function applyNavigationTargets(
       commitHistoryIndex(historyIndex);
     },
     () => {
-      if (pathname !== previousPathname || parseTargetUrl(href).hash)
+      const destination = parseTargetUrl(href);
+      if (pathname !== previousPathname || destination.hash)
         applyNavigationScroll(options.scroll);
+      // A fragment names its own target and a same-page query change keeps
+      // the visitor where they are.
+      if (pathname !== previousPathname && !destination.hash) {
+        applyNavigationFocus({
+          pathname: destination.pathname,
+          search: destination.search,
+          hash: destination.hash,
+        });
+      }
     }
   );
   scheduleRevalidationRefresh(

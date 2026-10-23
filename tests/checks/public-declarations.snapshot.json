@@ -97,7 +97,7 @@
         "declare function hydrateSPA(config: HydrateSPAConfig): Promise<void>;"
       ],
       "HydrateSPAConfig": [
-        "type HydrateSPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    cleanupStrict?: boolean;\n    hydrate?: {\n        verifyMarkup?: boolean;\n        deferUntilIdle?: boolean;\n        deferBelowFold?: boolean;\n        foldThreshold?: number;\n        skipSelectors?: string[];\n    };\n};"
+        "type HydrateSPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    focus?: false | {\n        target?: string | ((root: Element) => Element | null);\n        announce?: false | ((route: {\n            readonly pathname: string;\n            readonly search: string;\n            readonly hash: string;\n            readonly title: string;\n        }) => string);\n    };\n    cleanupStrict?: boolean;\n    hydrate?: {\n        verifyMarkup?: boolean;\n        deferUntilIdle?: boolean;\n        deferBelowFold?: boolean;\n        foldThreshold?: number;\n        skipSelectors?: string[];\n    };\n};"
       ],
       "IslandConfig": [
         "type IslandConfig = {\n    root: Element | string;\n    component: ComponentFunction;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    cleanupStrict?: boolean;\n    routes?: never;\n};"
@@ -109,7 +109,7 @@
         "declare function replaceDataRuntime(root: Element | string, next: DataRuntime): void;"
       ],
       "SPAConfig": [
-        "type SPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    cleanupStrict?: boolean;\n    component?: never;\n};"
+        "type SPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    focus?: false | {\n        target?: string | ((root: Element) => Element | null);\n        announce?: false | ((route: {\n            readonly pathname: string;\n            readonly search: string;\n            readonly hash: string;\n            readonly title: string;\n        }) => string);\n    };\n    cleanupStrict?: boolean;\n    component?: never;\n};"
       ]
     },
     "./components": {
@@ -1468,7 +1468,7 @@
       "declare function hydrateSPA(config: HydrateSPAConfig): Promise<void>;"
     ],
     "HydrateSPAConfig": [
-      "type HydrateSPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    cleanupStrict?: boolean;\n    hydrate?: {\n        verifyMarkup?: boolean;\n        deferUntilIdle?: boolean;\n        deferBelowFold?: boolean;\n        foldThreshold?: number;\n        skipSelectors?: string[];\n    };\n};"
+      "type HydrateSPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    focus?: false | {\n        target?: string | ((root: Element) => Element | null);\n        announce?: false | ((route: {\n            readonly pathname: string;\n            readonly search: string;\n            readonly hash: string;\n            readonly title: string;\n        }) => string);\n    };\n    cleanupStrict?: boolean;\n    hydrate?: {\n        verifyMarkup?: boolean;\n        deferUntilIdle?: boolean;\n        deferBelowFold?: boolean;\n        foldThreshold?: number;\n        skipSelectors?: string[];\n    };\n};"
     ],
     "IconBase": [
       "declare function IconBase({ size, strokeWidth, color, title, class: className, style, iconName, children, ref, ...rest }: IconProps): JSXElement;"
@@ -2280,7 +2280,7 @@
       "type SnapshotSourceBrand = {\n    readonly [SNAPSHOT_SOURCE_BRAND]: true;\n};"
     ],
     "SPAConfig": [
-      "type SPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    cleanupStrict?: boolean;\n    component?: never;\n};"
+      "type SPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    focus?: false | {\n        target?: string | ((root: Element) => Element | null);\n        announce?: false | ((route: {\n            readonly pathname: string;\n            readonly search: string;\n            readonly hash: string;\n            readonly title: string;\n        }) => string);\n    };\n    cleanupStrict?: boolean;\n    component?: never;\n};"
     ],
     "SSGAssetSource": [
       "interface SSGAssetSource {\n    from: string;\n    to?: string;\n}"

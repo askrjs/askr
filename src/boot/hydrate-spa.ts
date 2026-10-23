@@ -3,7 +3,10 @@
  */
 import { isProductionEnvironment } from '../common/env';
 import type { ResolvedRoute } from '../common/router';
-import { configureScrollRestoration } from '../router/navigate';
+import {
+  configureNavigationFocus,
+  configureScrollRestoration,
+} from '../router/navigate';
 import {
   _applyManifest,
   _setActiveRouteAuthOptions,
@@ -105,6 +108,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     const hydrationRenderDataForApp = withoutHydratedAuth(hydrationRenderData);
 
     configureScrollRestoration(config.scrollRestoration);
+    configureNavigationFocus(config.focus, rootElement);
 
     clearRouteState();
     _applyManifest(manifest);

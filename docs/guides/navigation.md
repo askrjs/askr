@@ -68,6 +68,40 @@ Call the returned function when the form is saved or unmounted. See the
 [reference](../reference/router.md#blocknavigationshouldblock) for the
 back-button limitations.
 
+## Focus and announcements
+
+After a navigation to a different path that adds or replaces a history entry,
+the router moves keyboard focus to the new page and announces it, so screen
+reader and keyboard users learn that the page changed:
+
+1. Focus goes to the first `[data-askr-focus-target]`, else `<main>`, else the
+   first `<h1>`, else the app root. A non-focusable target receives a temporary
+   `tabindex="-1"`, removed when focus leaves. Scrolling is not affected by the
+   focus move.
+2. A visually hidden `aria-live="polite"` region (`[data-askr-announcer]`)
+   announces the document title once route metadata has been applied, or the
+   pathname when there is none.
+
+Nothing moves for the first page load, a fragment link, a query-only change on
+the same path, `updateRouteQuery()`, or back/forward traversal (which keeps its
+own focus restoration). A text field that survives the navigation, such as a
+search box in a shared layout, keeps focus.
+
+```tsx
+await createSPA({
+  root: '#app',
+  registry,
+  focus: {
+    target: '#content-heading',
+    announce: ({ pathname, title }) => `${title || pathname} loaded`,
+  },
+});
+```
+
+`focus: false` turns both off for applications that manage focus themselves.
+`target` is a selector or a function receiving the app root, and `announce:
+false` keeps the focus move but silences the live region.
+
 ## Error and forbidden components
 
 Declare `error` and `forbidden` on a `route()`, `page()` or `group()`. A failed

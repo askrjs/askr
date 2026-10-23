@@ -842,6 +842,20 @@ was followed from. If other code writes an entry, for example with
 Askr wrote, and a failed Back/Forward reloads the landed URL instead of guessing
 which entry to return to.
 
+## Focus and announcements
+
+`createSPA()` and `hydrateSPA()` accept `focus: false | { target?, announce? }`.
+By default, after a navigation to another path that adds or replaces a history
+entry (not the first load, not back/forward, not a fragment or query-only
+change), focus moves to the first `[data-askr-focus-target]`, else `<main>`,
+else the first `<h1>`, else the app root, and a visually hidden polite live
+region announces the document title (the pathname when there is none).
+`target` is a CSS selector or `(root) => Element | null`; `announce` is
+`(route) => string` receiving `{ pathname, search, hash, title }`, or `false`
+to stay silent. `focus: false` disables both. A text-entry control that
+survives the navigation keeps focus. See the
+[navigation guide](../guides/navigation.md#focus-and-announcements).
+
 ## `navigationState()`
 
 `navigationState()` returns `{ pending, to, revalidating }`:

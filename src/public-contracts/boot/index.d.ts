@@ -33,6 +33,25 @@ type SPAConfig = BootRouteSource & {
   /** Auth resolution and redirect options; defaults to the registry's `auth`. */
   auth?: RouteAuthOptions;
   scrollRestoration?: boolean | ScrollRestorationOptions;
+  /**
+   * Focus and announcement after a push navigation. On by default: focus moves
+   * to the first `[data-askr-focus-target]`, else `<main>`, else the first
+   * `<h1>`, else the root, and a visually hidden polite live region announces
+   * the new document title (the pathname without one). `false` turns both off.
+   */
+  focus?:
+    | false
+    | {
+        target?: string | ((root: Element) => Element | null);
+        announce?:
+          | false
+          | ((route: {
+              readonly pathname: string;
+              readonly search: string;
+              readonly hash: string;
+              readonly title: string;
+            }) => string);
+      };
   cleanupStrict?: boolean;
   component?: never;
 };
@@ -44,6 +63,20 @@ type HydrateSPAConfig = BootRouteSource & {
   /** Auth resolution and redirect options; defaults to the registry's `auth`. */
   auth?: RouteAuthOptions;
   scrollRestoration?: boolean | ScrollRestorationOptions;
+  /** Focus and announcement after a push navigation; see `SPAConfig.focus`. */
+  focus?:
+    | false
+    | {
+        target?: string | ((root: Element) => Element | null);
+        announce?:
+          | false
+          | ((route: {
+              readonly pathname: string;
+              readonly search: string;
+              readonly hash: string;
+              readonly title: string;
+            }) => string);
+      };
   cleanupStrict?: boolean;
   hydrate?: {
     verifyMarkup?: boolean;

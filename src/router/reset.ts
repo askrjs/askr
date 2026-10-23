@@ -9,6 +9,7 @@ import { clearRouteState } from './store';
 import { resetRouteMetaBaseline } from './metadata';
 import { resetNavigationBlockers } from './navigation-block';
 import { clearPendingNavigation } from './navigation-state';
+import { resetNavigationFocus } from './navigation-focus';
 
 /**
  * Return every part of the router to its initial state.
@@ -35,5 +36,6 @@ export function resetRouterState(): void {
   resetClientAuth();
   resetRouteMetaBaseline();
   resetNavigationBlockers();
+  resetNavigationFocus();
   clearPendingNavigation();
 }

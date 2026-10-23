@@ -65,6 +65,11 @@ import {
 
 export { configureScrollRestoration } from './navigation-scroll';
 export { blockNavigation } from './navigation-block';
+export { configureNavigationFocus } from './navigation-focus';
+export type {
+  NavigationAnnouncement,
+  NavigationFocusOptions,
+} from './navigation-focus';
 export { navigationState } from './navigation-state';
 export type { NavigationState } from './navigation-state';
 export type {

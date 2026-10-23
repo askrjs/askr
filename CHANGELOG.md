@@ -68,6 +68,13 @@
   `derive(fn, { equals })` and `derive(source, map, { equals })`. A comparator that
   returns true suppresses the notification. The default stays `Object.is`.
   See `docs/core/runtime.md#custom-equality`.
+- Add a `focus` option to `createSPA()` and `hydrateSPA()`. After a navigation
+  to another path (not back/forward) the router now moves focus to the first
+  `[data-askr-focus-target]`, else `<main>`, else the first `<h1>`, else the
+  root, and announces the document title through a visually hidden polite
+  live region. Pass `focus: false` to opt out, or configure `target` and
+  `announce`.
+
 - Add `navigationState()` (`{ pending, to, revalidating }`, reactive in
   components), `blockNavigation(shouldBlock)` and the `NavigationState` type at
   `@askrjs/askr/router`. A blocker can refuse or confirm `navigate()`, links,

@@ -1,6 +1,9 @@
 import type { ComponentFunction } from '../common/component';
 import type { RouteAuthOptions, RouteRegistry } from '../common/router';
-import type { ScrollRestorationOptions } from '../router/navigate';
+import type {
+  NavigationFocusOptions,
+  ScrollRestorationOptions,
+} from '../router/navigate';
 import type { AppRenderRuntime } from '../common/app-render-runtime';
 
 /** Configuration for {@link createIsland}: mounts one component onto existing DOM. */
@@ -36,6 +39,13 @@ export type SPAConfig = BootRouteSource & {
   /** Auth resolution and redirect options; defaults to the registry's `auth`. */
   auth?: RouteAuthOptions;
   scrollRestoration?: boolean | ScrollRestorationOptions;
+  /**
+   * Focus and announcement after a push navigation. On by default: focus moves
+   * to the first `[data-askr-focus-target]`, else `<main>`, else the first
+   * `<h1>`, else the root, and a visually hidden polite live region announces
+   * the new document title (the pathname without one). `false` turns both off.
+   */
+  focus?: false | NavigationFocusOptions;
   cleanupStrict?: boolean;
   component?: never;
 };
@@ -48,6 +58,8 @@ export type HydrateSPAConfig = BootRouteSource & {
   /** Auth resolution and redirect options; defaults to the registry's `auth`. */
   auth?: RouteAuthOptions;
   scrollRestoration?: boolean | ScrollRestorationOptions;
+  /** Focus and announcement after a push navigation; see {@link SPAConfig.focus}. */
+  focus?: false | NavigationFocusOptions;
   cleanupStrict?: boolean;
   hydrate?: {
     verifyMarkup?: boolean;
