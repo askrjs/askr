@@ -274,11 +274,6 @@ reports a mismatch with a `Hydration mismatch detected` error in two cases:
   a ref callback adopting a persisted preference, are therefore not reported.
   The client has already reconciled the DOM at that point.
 
-When an element under the hydration cursor does not match the one the client
-renders, the cursor looks ahead a bounded number of siblings for the matching
-element and adopts it, so one extra or reordered server node is dropped on its
-own rather than making every later sibling a fresh node.
-
 Both comparisons ignore comments and renderer bookkeeping attributes, and
 compare `style` attributes by their parsed declarations, so the server's
 `color:red;` and the DOM's `color: red;` are equal. The client-output check is
