@@ -28,6 +28,13 @@ export class Owner {
   constructor(parent: Owner | null) {
     this.parent = parent;
     if (parent) {
+      // A lifetime that starts after its parent ended (an async continuation
+      // after unmount) is over before it begins: it is never scheduled and
+      // never subscribes, and its cleanups run as they are registered.
+      if (parent.disposed) {
+        this.disposed = true;
+        return;
+      }
       const owned = (parent.owned ??= []);
       this.ownedIndex = owned.length;
       owned.push(this);

@@ -37,8 +37,19 @@ export type Equals<T> = (a: T, b: T) => boolean;
 let tracking: Computation | null = null;
 let trackingSources: Set<Source> | null = null;
 
+/**
+ * Record a read, subscribing at once when the running computation was not
+ * already observing the source. A write to it later in the same run (by the
+ * computation itself or by something it calls) then reaches the computation
+ * instead of being lost; `setSources` drops the subscriptions not read.
+ */
 function track(source: Source): void {
-  if (trackingSources) trackingSources.add(source);
+  if (!trackingSources || trackingSources.has(source)) return;
+  trackingSources.add(source);
+  const observer = tracking as Computation;
+  if (!observer._sources?.has(source)) {
+    (source._observers ??= new Set()).add(observer);
+  }
 }
 
 /** Notify every observer of `source` that its value changed. */
@@ -194,13 +205,19 @@ export class Computation<T = unknown> extends Owner implements Source {
       tracking = previous;
       trackingSources = previousSources;
     }
-    if (this.disposed) return;
+    if (this.disposed) {
+      // Disposal during the run already released the previous sources;
+      // the reads of this run subscribed as they happened.
+      for (const source of nextSources) unobserve(source, this as Computation);
+      return;
+    }
     this._state = this._invalidatedWhileRunning ? DIRTY : CLEAN;
     this.setSources(
       failed && this._failedRunSources === 'previous'
         ? new Set(this._sources ?? EMPTY)
         : nextSources,
-      failed && this._failedRunSources === 'union'
+      failed && this._failedRunSources === 'union',
+      nextSources
     );
     if (failed) {
       const changed = !this._hasError || this._error !== error;
@@ -230,7 +247,7 @@ export class Computation<T = unknown> extends Owner implements Source {
 
   /** Restore subscriptions captured before a discarded component pass. */
   restoreSources(sources: ReadonlySet<Source>): void {
-    this.setSources(new Set(sources), false);
+    this.setSources(new Set(sources), false, null);
   }
 
   /** Force a re-run on the next update, as if a source changed. */
@@ -252,10 +269,17 @@ export class Computation<T = unknown> extends Owner implements Source {
   }
 
   /**
-   * A failed run keeps its previous subscriptions as well, so a change to
-   * anything either run read retries it.
+   * Make `next` the subscription set. Sources read in the run just finished
+   * (`tracked`) are already subscribed, so any of them not kept are released
+   * here along with the previous sources not in `next`. A failed run keeps
+   * its previous subscriptions as well, so a change to anything either run
+   * read retries it.
    */
-  private setSources(next: Set<Source>, keepPrevious: boolean): void {
+  private setSources(
+    next: Set<Source>,
+    keepPrevious: boolean,
+    tracked: ReadonlySet<Source> | null
+  ): void {
     const previous = this._sources;
     if (previous) {
       for (const source of previous) {
@@ -264,6 +288,11 @@ export class Computation<T = unknown> extends Owner implements Source {
         } else if (!next.has(source)) {
           unobserve(source, this as Computation);
         }
+      }
+    }
+    if (tracked && tracked !== next) {
+      for (const source of tracked) {
+        if (!next.has(source)) unobserve(source, this as Computation);
       }
     }
     for (const source of next) {

@@ -67,6 +67,16 @@
 
 ### Fixes
 
+- Subscribe to a reactive source as it is read. A write to a source first
+  read in the same run (a `watch()` source or effect that reads and then
+  writes the same state) now re-runs the computation instead of being lost
+  until an unrelated change. Subscriptions a failed or discarded run made
+  are released with it.
+
+- Treat a lifetime created under an already disposed owner (an async
+  continuation after unmount) as disposed from the start, so it never
+  subscribes or schedules work and cannot leak.
+
 - Reject navigation `state` that cannot be structured-cloned before the
   destination renders, with a `TypeError` naming the cause, instead of
   committing the page and then failing the history write so the page and

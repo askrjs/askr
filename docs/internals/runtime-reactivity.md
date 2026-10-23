@@ -38,7 +38,11 @@ flowchart LR
 - A **`Computation`** runs a function and records every source it read in
   that run. `derive()`, `selector()`, fine-grained bindings, `watch()`, and
   component renders are all computations. There is one subscriber kind;
-  they differ only in how they are scheduled when they go stale.
+  they differ only in how they are scheduled when they go stale. A read
+  subscribes as it happens, so a write to a source later in the same run
+  (by the computation itself, or by something it calls) marks the
+  computation stale and it runs again; when the run ends, subscriptions it
+  did not read are released.
 
 A write marks direct observers `DIRTY` and everything downstream `CHECK`.
 When a computation is read or run by the scheduler, it first brings its
@@ -62,7 +66,9 @@ computation. An owner has a parent, children, cleanups, and scope values.
 Disposal runs children first, in reverse creation order, then the owner's
 own cleanups in reverse registration order. It always finishes: failures are
 collected and reported together rather than stopping teardown.
-`runWithOwner()` sets the owner for code that runs later, such as event
+An owner created under a parent that is already disposed is disposed from
+the start: it is never scheduled, never subscribes, and runs cleanups as they
+are registered. `runWithOwner()` sets the owner for code that runs later, such as event
 handlers and queued tasks, so scope reads and cleanup registration still work
 there.
 
