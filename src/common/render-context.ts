@@ -60,6 +60,8 @@ export interface ActiveRenderContext {
   keyCounter: number;
   renderData: PageRenderEnvelope | null;
   hydrationData: PageRenderEnvelope | null;
+  /** Group/page loader results by loader function, bound by the route handler. */
+  layoutData?: ReadonlyMap<unknown, unknown>;
   deferredBoundaries: DeferredBoundaryRegistration[];
   ssrStyles: Map<string, SSRStyleRegistration>;
   ssrPortals: SSRPortalState;

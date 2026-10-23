@@ -1,4 +1,5 @@
-import type { RouteContext, RouteOptions } from '../common/router';
+import type { RouteContext, RouteOptions, RouteRecord } from '../common/router';
+import type { InternalRouteRecord } from './internal-types';
 import { isPromiseLike } from '../common/promise';
 import { isDeferred } from '../common/deferred-value';
 import {
@@ -19,6 +20,9 @@ function isDeferredHydrationValue(
 
 /** Compact, framework-owned route hydration metadata key. */
 export const ROUTE_HYDRATION_METADATA = 'rh';
+
+/** Framework-owned key for group/page loader data in the hydration envelope. */
+export const ROUTE_LAYOUT_DATA = 'rl';
 
 export interface RouteOmissionMap {
   readonly [key: string]: 1 | RouteOmissionMap;
@@ -208,8 +212,31 @@ export function getRouteHydrationMetadata(
 export function withoutRouteHydrationMetadata(
   framework: Readonly<Record<string, unknown>> | undefined
 ): Readonly<Record<string, unknown>> | undefined {
-  if (!framework || !(ROUTE_HYDRATION_METADATA in framework)) return framework;
+  if (
+    !framework ||
+    !(ROUTE_HYDRATION_METADATA in framework || ROUTE_LAYOUT_DATA in framework)
+  )
+    return framework;
   const next = { ...framework };
   delete next[ROUTE_HYDRATION_METADATA];
+  delete next[ROUTE_LAYOUT_DATA];
   return next;
+}
+
+/**
+ * Rebuild the loader-keyed group/page data of a server-rendered page from its
+ * transported array, which is aligned with the record's loader chain.
+ */
+export function readHydratedLayoutData(
+  record: RouteRecord | undefined,
+  framework: Readonly<Record<string, unknown>> | undefined
+): ReadonlyMap<unknown, unknown> | undefined {
+  const values = framework?.[ROUTE_LAYOUT_DATA];
+  const chain = (record as InternalRouteRecord | undefined)?.loaderChain;
+  if (!Array.isArray(values) || !chain) return undefined;
+  const layout = new Map<unknown, unknown>();
+  chain.forEach((scope, index) => {
+    layout.set(scope.loader, values[index] ?? undefined);
+  });
+  return layout;
 }

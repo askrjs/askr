@@ -57,6 +57,7 @@ import {
 } from './session-auth-runtime';
 import { getSessionAuthState } from '../router/session-auth-state';
 import { createSPA } from './spa';
+import { readHydratedLayoutData } from '../router/route-hydration';
 
 /**
  * hydrateSPA: Hydrate server-rendered HTML with an explicit route registry.
@@ -156,6 +157,12 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       return;
     }
     const { path, href: currentUrl, resolved } = initialRoute;
+    if (resolved?.kind === 'render') {
+      appRouteSource.runtime.layoutData = readHydratedLayoutData(
+        resolved.record,
+        hydrationRenderData?.framework
+      );
+    }
     if (isProductionEnvironment()) lockRouteRegistration();
 
     if (!resolved) {

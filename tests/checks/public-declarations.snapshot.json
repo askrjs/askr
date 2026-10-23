@@ -670,7 +670,7 @@
         "declare function group(options: GroupHelperOptions, fn: RouteDefinition): void;"
       ],
       "GroupHelperOptions": [
-        "interface GroupHelperOptions<TAppMeta = unknown> extends CommonAccessOptions {\n    layout?: (props: {\n        children?: RenderableChild;\n    }) => RenderableChild;\n    meta?: RouteMetaSource;\n    appMeta?: TAppMeta;\n    error?: (props: RouteErrorProps) => RenderableChild;\n    forbidden?: (props: RouteForbiddenProps) => RenderableChild;\n}"
+        "interface GroupHelperOptions<TAppMeta = unknown> extends CommonAccessOptions {\n    layout?: (props: {\n        children?: RenderableChild;\n    }) => RenderableChild;\n    meta?: RouteMetaSource;\n    appMeta?: TAppMeta;\n    error?: (props: RouteErrorProps) => RenderableChild;\n    forbidden?: (props: RouteForbiddenProps) => RenderableChild;\n    loader?: (context: RouteContext & {\n        request?: Request;\n    }) => unknown;\n    staleTimeMs?: number | \"always\";\n}"
       ],
       "HistoryScrollBehavior": [
         "type HistoryScrollBehavior = \"restore\" | \"top\" | \"preserve\";"
@@ -680,6 +680,9 @@
       ],
       "isDeferred": [
         "declare function isDeferred<T = unknown>(value: unknown): value is Deferred<T>;"
+      ],
+      "layoutData": [
+        "declare function layoutData<TData>(loader: (context: RouteContext & {\n    request?: Request;\n}) => TData | PromiseLike<TData>): TData;"
       ],
       "lazy": [
         "declare function lazy<TComponent extends AnyRouteComponent>(factory: () => Promise<{\n    default: TComponent;\n} | TComponent>): LazyRouteComponent<TComponent>;"
@@ -723,7 +726,7 @@
         "declare function page<const TPath extends string, TComponent extends AnyRouteComponent>(path: TPath, Component: CompatibleRouteComponent<TPath, TComponent>, options: PageHelperOptions, fn: RouteDefinition): void;"
       ],
       "PageHelperOptions": [
-        "interface PageHelperOptions<TAppMeta = unknown> extends CommonAccessOptions {\n    preload?: (context: RouteContext & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    meta?: RouteMetaSource;\n    appMeta?: TAppMeta;\n    error?: (props: RouteErrorProps) => RenderableChild;\n    forbidden?: (props: RouteForbiddenProps) => RenderableChild;\n}"
+        "interface PageHelperOptions<TAppMeta = unknown> extends CommonAccessOptions {\n    preload?: (context: RouteContext & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    meta?: RouteMetaSource;\n    appMeta?: TAppMeta;\n    error?: (props: RouteErrorProps) => RenderableChild;\n    forbidden?: (props: RouteForbiddenProps) => RenderableChild;\n    loader?: (context: RouteContext & {\n        request?: Request;\n    }) => unknown;\n    staleTimeMs?: number | \"always\";\n}"
       ],
       "reconcileRouteMeta": [
         "declare function reconcileRouteMeta(meta: Readonly<RouteMeta>, target?: Document): void;"
@@ -803,7 +806,7 @@
       ],
       "RouteMode": ["type RouteMode = \"spa\" | \"ssr\" | \"ssg\";"],
       "RouteOptions": [
-        "interface RouteOptions<TParams extends RouteParams = RouteParams, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData, TAppMeta = unknown> extends CommonAccessOptions {\n    loader?: (context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TLoaderData | PromiseLike<TLoaderData>;\n    dehydrate?: (data: TLoaderData, context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TDehydratedData extends PromiseLike<unknown> ? never : TDehydratedData;\n    preload?: (context: RouteContext<TParams> & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    entries?: () => Array<TParams> | Promise<Array<TParams>>;\n    invalidationKeys?: readonly string[];\n    title?: string;\n    namespace?: string;\n    search?: TSearchSchema;\n    meta?: RouteMetaSource<TParams, TLoaderData>;\n    appMeta?: TAppMeta;\n    actions?: readonly ActionDescriptor[];\n    error?: (props: RouteErrorProps) => RenderableChild;\n    forbidden?: (props: RouteForbiddenProps) => RenderableChild;\n}"
+        "interface RouteOptions<TParams extends RouteParams = RouteParams, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData, TAppMeta = unknown> extends CommonAccessOptions {\n    loader?: (context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TLoaderData | PromiseLike<TLoaderData>;\n    dehydrate?: (data: TLoaderData, context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TDehydratedData extends PromiseLike<unknown> ? never : TDehydratedData;\n    preload?: (context: RouteContext<TParams> & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    entries?: () => Array<TParams> | Promise<Array<TParams>>;\n    invalidationKeys?: readonly string[];\n    title?: string;\n    namespace?: string;\n    search?: TSearchSchema;\n    meta?: RouteMetaSource<TParams, TLoaderData>;\n    appMeta?: TAppMeta;\n    actions?: readonly ActionDescriptor[];\n    error?: (props: RouteErrorProps) => RenderableChild;\n    forbidden?: (props: RouteForbiddenProps) => RenderableChild;\n    staleTimeMs?: number | \"always\";\n}"
       ],
       "RouteParams": ["type RouteParams = Record<string, string>;"],
       "RoutePathParams": [
@@ -1425,7 +1428,7 @@
       "declare function group(options: GroupHelperOptions, fn: RouteDefinition): void;"
     ],
     "GroupHelperOptions": [
-      "interface GroupHelperOptions<TAppMeta = unknown> extends CommonAccessOptions {\n    layout?: (props: {\n        children?: RenderableChild;\n    }) => RenderableChild;\n    meta?: RouteMetaSource;\n    appMeta?: TAppMeta;\n    error?: (props: RouteErrorProps) => RenderableChild;\n    forbidden?: (props: RouteForbiddenProps) => RenderableChild;\n}"
+      "interface GroupHelperOptions<TAppMeta = unknown> extends CommonAccessOptions {\n    layout?: (props: {\n        children?: RenderableChild;\n    }) => RenderableChild;\n    meta?: RouteMetaSource;\n    appMeta?: TAppMeta;\n    error?: (props: RouteErrorProps) => RenderableChild;\n    forbidden?: (props: RouteForbiddenProps) => RenderableChild;\n    loader?: (context: RouteContext & {\n        request?: Request;\n    }) => unknown;\n    staleTimeMs?: number | \"always\";\n}"
     ],
     "hasApp": ["declare function hasApp(root: Element | string): boolean;"],
     "HasIndexSignature": [
@@ -1638,6 +1641,9 @@
     "LayoutComponent": [
       "type LayoutComponent<P = object> = (props: P & {\n    children?: RenderableChild;\n}) => unknown;"
     ],
+    "layoutData": [
+      "declare function layoutData<TData>(loader: (context: RouteContext & {\n    request?: Request;\n}) => TData | PromiseLike<TData>): TData;"
+    ],
     "LayoutIntrinsicProps": [
       "type LayoutIntrinsicProps = StructuredContentIntrinsicProps;"
     ],
@@ -1796,7 +1802,7 @@
     ],
     "PAGE_RENDER_ENVELOPE_VERSION": ["PAGE_RENDER_ENVELOPE_VERSION: 1"],
     "PageHelperOptions": [
-      "interface PageHelperOptions<TAppMeta = unknown> extends CommonAccessOptions {\n    preload?: (context: RouteContext & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    meta?: RouteMetaSource;\n    appMeta?: TAppMeta;\n    error?: (props: RouteErrorProps) => RenderableChild;\n    forbidden?: (props: RouteForbiddenProps) => RenderableChild;\n}"
+      "interface PageHelperOptions<TAppMeta = unknown> extends CommonAccessOptions {\n    preload?: (context: RouteContext & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    meta?: RouteMetaSource;\n    appMeta?: TAppMeta;\n    error?: (props: RouteErrorProps) => RenderableChild;\n    forbidden?: (props: RouteForbiddenProps) => RenderableChild;\n    loader?: (context: RouteContext & {\n        request?: Request;\n    }) => unknown;\n    staleTimeMs?: number | \"always\";\n}"
     ],
     "PageRenderEnvelope": [
       "interface PageRenderEnvelope {\n    readonly version: typeof PAGE_RENDER_ENVELOPE_VERSION;\n    readonly resources: Readonly<Record<string, unknown>>;\n    readonly route: unknown;\n    readonly framework: Readonly<Record<string, unknown>>;\n}"
@@ -2091,7 +2097,7 @@
     ],
     "RouteMode": ["type RouteMode = \"spa\" | \"ssr\" | \"ssg\";"],
     "RouteOptions": [
-      "interface RouteOptions<TParams extends RouteParams = RouteParams, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData, TAppMeta = unknown> extends CommonAccessOptions {\n    loader?: (context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TLoaderData | PromiseLike<TLoaderData>;\n    dehydrate?: (data: TLoaderData, context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TDehydratedData extends PromiseLike<unknown> ? never : TDehydratedData;\n    preload?: (context: RouteContext<TParams> & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    entries?: () => Array<TParams> | Promise<Array<TParams>>;\n    invalidationKeys?: readonly string[];\n    title?: string;\n    namespace?: string;\n    search?: TSearchSchema;\n    meta?: RouteMetaSource<TParams, TLoaderData>;\n    appMeta?: TAppMeta;\n    actions?: readonly ActionDescriptor[];\n    error?: (props: RouteErrorProps) => RenderableChild;\n    forbidden?: (props: RouteForbiddenProps) => RenderableChild;\n}"
+      "interface RouteOptions<TParams extends RouteParams = RouteParams, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData, TAppMeta = unknown> extends CommonAccessOptions {\n    loader?: (context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TLoaderData | PromiseLike<TLoaderData>;\n    dehydrate?: (data: TLoaderData, context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TDehydratedData extends PromiseLike<unknown> ? never : TDehydratedData;\n    preload?: (context: RouteContext<TParams> & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    entries?: () => Array<TParams> | Promise<Array<TParams>>;\n    invalidationKeys?: readonly string[];\n    title?: string;\n    namespace?: string;\n    search?: TSearchSchema;\n    meta?: RouteMetaSource<TParams, TLoaderData>;\n    appMeta?: TAppMeta;\n    actions?: readonly ActionDescriptor[];\n    error?: (props: RouteErrorProps) => RenderableChild;\n    forbidden?: (props: RouteForbiddenProps) => RenderableChild;\n    staleTimeMs?: number | \"always\";\n}"
     ],
     "RouteOptionsForComponent": [
       "type RouteOptionsForComponent<Path extends string, TComponent extends AnyRouteComponent, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData> = Parameters<TComponent> extends [\n] ? RouteOptions<RoutePathParams<Path>, TSearchSchema, TLoaderData, TDehydratedData> : RouteComponentParam<TComponent> extends RouteParams ? RouteOptions<RouteComponentParam<TComponent>, TSearchSchema, TLoaderData, TDehydratedData> : RouteOptions<RoutePathParams<Path>, TSearchSchema, TLoaderData, TDehydratedData>;"

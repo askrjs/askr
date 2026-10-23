@@ -16,6 +16,7 @@ import {
   getRouteRenderData,
   hasRouteRenderData,
   publishResolvedAuth,
+  getRouteLayoutData,
 } from '../router/resolution';
 import { createAppRenderRuntime } from '../common/app-render-runtime';
 import {
@@ -116,6 +117,9 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     const appRuntime = createAppRenderRuntime({
       ...(resolved?.kind === 'render' && hasRouteRenderData(resolved)
         ? { route: getRouteRenderData(resolved), hasRoute: true }
+        : {}),
+      ...(resolved?.kind === 'render' && getRouteLayoutData(resolved)
+        ? { layoutData: getRouteLayoutData(resolved) }
         : {}),
       dataRuntime,
       routeRegistry: config.registry,

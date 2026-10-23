@@ -24,6 +24,7 @@ import {
   getRouteRenderData,
   hasRouteRenderData,
   publishResolvedAuth,
+  getRouteLayoutData,
 } from './resolution';
 import { reconcileRouteMeta } from './metadata';
 import { readClientAuth, setCurrentAuth } from './auth';
@@ -135,6 +136,9 @@ function prepareNavigationRoot(
       ? getRouteRenderData(resolved)
       : undefined,
     hasRouteData: isRenderResult(resolved) && hasRouteRenderData(resolved),
+    layoutData: isRenderResult(resolved)
+      ? getRouteLayoutData(resolved)
+      : undefined,
     replaceLifetime,
   });
 }

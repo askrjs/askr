@@ -161,7 +161,8 @@ describe('navigation resolution ownership', () => {
         '/pending',
         request.signal
       );
-      expect(loaderSignal).toBe(request.signal);
+      // The cached loader owns a signal that follows the request's lifetime.
+      expect(loaderSignal.aborted).toBe(false);
       expect(view.container.textContent).toBe('start');
       expect(other.container.textContent).toBe('other');
       release('loaded');

@@ -84,6 +84,7 @@ export {
   isDeferred,
   resolveDeferredValues,
   routeData,
+  layoutData,
   Resolve,
 } from './deferred';
 export type { Deferred, DeferredState, ResolveProps } from './deferred';

@@ -292,6 +292,11 @@ export function getCurrentInheritedMeta(): RouteMetaSource[] {
   );
 }
 
+/** The enclosing registration scopes, outermost first. */
+export function getRegistrationScopes(): readonly RegistrationScope[] {
+  return activeTable.registrationScopeStack;
+}
+
 /** The nearest enclosing scope's value for `key`, if any scope declares it. */
 export function getNearestScopeValue<K extends keyof RegistrationScope>(
   key: K

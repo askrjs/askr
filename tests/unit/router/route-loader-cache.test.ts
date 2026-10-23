@@ -1,0 +1,307 @@
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
+import {
+  createDataRuntime,
+  disposeDataRuntime,
+  invalidate,
+} from '../../../src/data';
+import {
+  createRouteRegistry,
+  group,
+  resolveRouteRequest,
+  route,
+} from '../../../src/router';
+import {
+  getRouteLayoutData,
+  getRouteRenderData,
+  getRouteRevalidation,
+} from '../../../src/router/resolution';
+import type { RouteRenderResult } from '../../../src/common/router';
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((next, fail) => {
+    resolve = next;
+    reject = fail;
+  });
+  return { promise, resolve, reject };
+}
+
+function render(result: unknown): RouteRenderResult {
+  const value = result as RouteRenderResult;
+  if (value?.kind !== 'render') throw new Error('expected a render result');
+  return value;
+}
+
+describe('route loader cache', () => {
+  const runtimes: Array<ReturnType<typeof createDataRuntime>> = [];
+  const runtime = () => {
+    const created = createDataRuntime();
+    runtimes.push(created);
+    return created;
+  };
+
+  afterEach(() => {
+    vi.useRealTimers();
+    for (const created of runtimes.splice(0)) disposeDataRuntime(created);
+  });
+
+  it('should render cached data immediately and revalidate in the background on a repeat visit', async () => {
+    let version = 0;
+    const loader = vi.fn(async () => `v${(version += 1)}`);
+    const registry = createRouteRegistry(() => {
+      route('/p', () => null, { loader });
+    });
+    const dataRuntime = runtime();
+    const options = { registry, mode: 'spa' as const, dataRuntime };
+
+    const first = render(await resolveRouteRequest('/p', options));
+    expect(getRouteRenderData(first)).toBe('v1');
+    expect(getRouteRevalidation(first)).toBeUndefined();
+
+    const second = resolveRouteRequest('/p', options);
+    // Not a promise: the cached value renders without waiting.
+    expect(second).not.toBeInstanceOf(Promise);
+    expect(getRouteRenderData(render(second))).toBe('v1');
+    expect(loader).toHaveBeenCalledTimes(2);
+    expect(await getRouteRevalidation(render(second))).toEqual(['v2']);
+
+    const third = resolveRouteRequest('/p', options);
+    expect(getRouteRenderData(render(third))).toBe('v2');
+  });
+
+  it('should share one request between concurrent navigations to the same key', async () => {
+    const pending = deferred<string>();
+    const loader = vi.fn(() => pending.promise);
+    const registry = createRouteRegistry(() => {
+      route('/p/{id}', () => null, { loader });
+    });
+    const dataRuntime = runtime();
+    const options = { registry, mode: 'spa' as const, dataRuntime };
+
+    const a = resolveRouteRequest('/p/1', options);
+    const b = resolveRouteRequest('/p/1', options);
+    const other = resolveRouteRequest('/p/2', options);
+    expect(loader).toHaveBeenCalledTimes(2);
+    pending.resolve('data');
+    expect(getRouteRenderData(render(await a))).toBe('data');
+    expect(getRouteRenderData(render(await b))).toBe('data');
+    await other;
+  });
+
+  it('should key entries by params and search', async () => {
+    const loader = vi.fn(async ({ search }: { search: string }) => search);
+    const registry = createRouteRegistry(() => {
+      route('/p', () => null, { loader });
+    });
+    const dataRuntime = runtime();
+    const options = { registry, mode: 'spa' as const, dataRuntime };
+
+    await resolveRouteRequest('/p?a=1', options);
+    await resolveRouteRequest('/p?a=2', options);
+    expect(loader).toHaveBeenCalledTimes(2);
+    const hit = render(resolveRouteRequest('/p?a=1', options));
+    expect(getRouteRenderData(hit)).toBe('?a=1');
+  });
+
+  it('should not revalidate data younger than staleTimeMs', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    const loader = vi.fn(async () => 'data');
+    const registry = createRouteRegistry(() => {
+      route('/p', () => null, { loader, staleTimeMs: 5_000 });
+    });
+    const dataRuntime = runtime();
+    const options = { registry, mode: 'spa' as const, dataRuntime };
+
+    await resolveRouteRequest('/p', options);
+    vi.setSystemTime(3_000);
+    const fresh = render(resolveRouteRequest('/p', options));
+    expect(getRouteRevalidation(fresh)).toBeUndefined();
+    expect(loader).toHaveBeenCalledTimes(1);
+
+    vi.setSystemTime(7_000);
+    const stale = render(resolveRouteRequest('/p', options));
+    expect(getRouteRevalidation(stale)).toBeDefined();
+    expect(loader).toHaveBeenCalledTimes(2);
+  });
+
+  it('should revalidate on every visit when staleTimeMs is always', async () => {
+    const loader = vi.fn(async () => 'data');
+    const registry = createRouteRegistry(() => {
+      route('/p', () => null, { loader, staleTimeMs: 'always' });
+    });
+    const dataRuntime = runtime();
+    const options = { registry, mode: 'spa' as const, dataRuntime };
+    await resolveRouteRequest('/p', options);
+    const hit = render(resolveRouteRequest('/p', options));
+    expect(getRouteRevalidation(hit)).toBeDefined();
+  });
+
+  it('should drop an entry when its key prefix is invalidated', async () => {
+    let version = 0;
+    const loader = vi.fn(async () => `v${(version += 1)}`);
+    const registry = createRouteRegistry(() => {
+      route('/p', () => null, { loader });
+      route('/q', () => null, { loader: async () => 'q' });
+    });
+    const dataRuntime = runtime();
+    const options = { registry, mode: 'spa' as const, dataRuntime };
+    await resolveRouteRequest('/p', options);
+    await resolveRouteRequest('/q', options);
+
+    invalidate('route-data:/p', { runtime: dataRuntime });
+
+    const reloaded = resolveRouteRequest('/p', options);
+    expect(reloaded).toBeInstanceOf(Promise);
+    expect(getRouteRenderData(render(await reloaded))).toBe('v2');
+    expect(resolveRouteRequest('/q', options)).not.toBeInstanceOf(Promise);
+  });
+
+  it('should keep cached data and ignore a failed revalidation', async () => {
+    const loader = vi
+      .fn<() => Promise<string>>()
+      .mockResolvedValueOnce('good')
+      .mockRejectedValueOnce(new Error('offline'));
+    const registry = createRouteRegistry(() => {
+      route('/p', () => null, { loader });
+    });
+    const dataRuntime = runtime();
+    const options = { registry, mode: 'spa' as const, dataRuntime };
+    await resolveRouteRequest('/p', options);
+    const hit = render(resolveRouteRequest('/p', options));
+    await expect(getRouteRevalidation(hit)).rejects.toThrow('offline');
+    expect(getRouteRenderData(render(resolveRouteRequest('/p', options)))).toBe(
+      'good'
+    );
+  });
+
+  it('should abort a shared request only when every waiting navigation is gone', async () => {
+    const pending = deferred<string>();
+    const signals: AbortSignal[] = [];
+    const registry = createRouteRegistry(() => {
+      route('/p', () => null, {
+        loader: ({ signal }) => {
+          signals.push(signal);
+          return pending.promise;
+        },
+      });
+    });
+    const dataRuntime = runtime();
+    const first = new AbortController();
+    const second = new AbortController();
+    const a = resolveRouteRequest('/p', {
+      registry,
+      mode: 'spa',
+      dataRuntime,
+      signal: first.signal,
+    });
+    const b = resolveRouteRequest('/p', {
+      registry,
+      mode: 'spa',
+      dataRuntime,
+      signal: second.signal,
+    });
+    first.abort();
+    expect(signals[0]!.aborted).toBe(false);
+    second.abort();
+    expect(signals[0]!.aborted).toBe(true);
+    pending.reject(new Error('aborted'));
+    await expect(a).rejects.toThrow();
+    await expect(b).rejects.toThrow();
+  });
+
+  it('should start a new request after every waiting navigation left a loader that ignores its signal', async () => {
+    const loader = vi.fn(() => new Promise<string>(() => undefined));
+    const registry = createRouteRegistry(() => {
+      route('/p', () => null, { loader });
+    });
+    const dataRuntime = runtime();
+    const first = new AbortController();
+    void resolveRouteRequest('/p', {
+      registry,
+      mode: 'spa',
+      dataRuntime,
+      signal: first.signal,
+    });
+    first.abort();
+    void resolveRouteRequest('/p', { registry, mode: 'spa', dataRuntime });
+    expect(loader).toHaveBeenCalledTimes(2);
+  });
+
+  it('should not share entries between registries that declare the same template', async () => {
+    const dataRuntime = runtime();
+    const first = createRouteRegistry(() => {
+      route('/p', () => null, { loader: async () => 'first' });
+    });
+    const second = createRouteRegistry(() => {
+      route('/p', () => null, { loader: async () => 'second' });
+    });
+    await resolveRouteRequest('/p', {
+      registry: first,
+      mode: 'spa',
+      dataRuntime,
+    });
+    const other = await resolveRouteRequest('/p', {
+      registry: second,
+      mode: 'spa',
+      dataRuntime,
+    });
+    expect(getRouteRenderData(render(other))).toBe('second');
+  });
+
+  it('should not cache server loaders', async () => {
+    const loader = vi.fn(async () => 'data');
+    const registry = createRouteRegistry(() => {
+      route('/p', () => null, { loader });
+    });
+    const dataRuntime = runtime();
+    await resolveRouteRequest('/p', { registry, mode: 'ssr', dataRuntime });
+    await resolveRouteRequest('/p', { registry, mode: 'ssr', dataRuntime });
+    expect(loader).toHaveBeenCalledTimes(2);
+  });
+
+  it('should run group loaders beside the leaf loader and expose them by loader', async () => {
+    const started: string[] = [];
+    const layout = deferred<{ user: string }>();
+    const leaf = deferred<string>();
+    const loadUser = () => {
+      started.push('group');
+      return layout.promise;
+    };
+    const registry = createRouteRegistry(() => {
+      group({ loader: loadUser }, () => {
+        route('/p', () => null, {
+          loader: () => {
+            started.push('leaf');
+            return leaf.promise;
+          },
+        });
+      });
+    });
+    const pending = resolveRouteRequest('/p', {
+      registry,
+      mode: 'spa',
+      dataRuntime: runtime(),
+    });
+    expect(started).toEqual(['group', 'leaf']);
+    leaf.resolve('leaf data');
+    layout.resolve({ user: 'ada' });
+    const result = render(await pending);
+    expect(getRouteRenderData(result)).toBe('leaf data');
+    expect(getRouteLayoutData(result)?.get(loadUser)).toEqual({ user: 'ada' });
+  });
+
+  it('should validate staleTimeMs at registration', () => {
+    expect(() =>
+      createRouteRegistry(() => {
+        route('/p', () => null, { staleTimeMs: -1 });
+      })
+    ).toThrow(RangeError);
+    expect(() =>
+      createRouteRegistry(() => {
+        group({ staleTimeMs: Number.NaN }, () => undefined);
+      })
+    ).toThrow(RangeError);
+  });
+});

@@ -12,6 +12,7 @@ import { getHydrationRenderUrl } from '../common/page-render-envelope';
 import { withHydrationVerificationRender } from '../common/render-context';
 import { getRouteRenderContext } from '../router/resolution';
 import { currentAuth } from '../router/auth';
+import { readHydratedLayoutData } from '../router/route-hydration';
 
 const SSR_STYLE_REGISTRY_SELECTOR = 'style[data-askr-style-registry]';
 
@@ -197,7 +198,13 @@ export function verifyHydrationSyncForUrl(opts: {
         registry,
         handler: resolved.handler,
         params: resolved.params,
-        options,
+        options: {
+          ...options,
+          layoutData: readHydratedLayoutData(
+            (resolved as RouteRenderResult).record,
+            options?.envelope?.framework
+          ),
+        },
       },
       authContext
     )

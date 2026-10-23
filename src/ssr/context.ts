@@ -48,6 +48,7 @@ export interface RenderContext {
   keyCounter: number;
   renderData: PageRenderEnvelope | null;
   hydrationData: PageRenderEnvelope | null;
+  layoutData?: ReadonlyMap<unknown, unknown>;
   deferredBoundaries: import('../common/render-context').DeferredBoundaryRegistration[];
   ssrStyles: Map<string, SSRStyleRegistration>;
   ssrPortals: import('../common/render-context').SSRPortalState;
@@ -119,6 +120,7 @@ export function createRenderContext(
     queryPrefetch?: import('../data/types').QueryPrefetchContext;
     framework?: Readonly<Record<string, unknown>>;
     envelope?: PageRenderEnvelope;
+    layoutData?: ReadonlyMap<unknown, unknown>;
     cspNonce?: string;
   } = {}
 ): RenderContext {
@@ -155,6 +157,7 @@ export function createRenderContext(
     keyCounter: 0,
     renderData: envelope,
     hydrationData: hydrationEnvelope,
+    layoutData: opts.layoutData,
     deferredBoundaries: [],
     ssrStyles: new Map(),
     ssrPortals: {

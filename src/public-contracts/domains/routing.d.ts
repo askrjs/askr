@@ -263,6 +263,12 @@ interface RouteOptions<
    * requirement denies the route. The nearest declaring scope wins.
    */
   forbidden?: (props: RouteForbiddenProps) => RenderableChild;
+  /**
+   * Browser loader results are cached in the app's data runtime. A cached
+   * result renders at once and is revalidated in the background when it is at
+   * least this old. `0` (the default) and `'always'` revalidate on every visit.
+   */
+  staleTimeMs?: number | 'always';
 }
 
 interface RouteMeta {
@@ -341,6 +347,13 @@ interface PageHelperOptions<TAppMeta = unknown> extends CommonAccessOptions {
   appMeta?: TAppMeta;
   error?: (props: RouteErrorProps) => RenderableChild;
   forbidden?: (props: RouteForbiddenProps) => RenderableChild;
+  /** Runs alongside the leaf loader; read the result with `layoutData(loader)`. */
+  loader?: (
+    context: RouteContext & {
+      request?: Request;
+    }
+  ) => unknown;
+  staleTimeMs?: number | 'always';
 }
 
 /**
@@ -414,6 +427,13 @@ interface GroupHelperOptions<TAppMeta = unknown> extends CommonAccessOptions {
   appMeta?: TAppMeta;
   error?: (props: RouteErrorProps) => RenderableChild;
   forbidden?: (props: RouteForbiddenProps) => RenderableChild;
+  /** Runs alongside the leaf loader; read the result with `layoutData(loader)`. */
+  loader?: (
+    context: RouteContext & {
+      request?: Request;
+    }
+  ) => unknown;
+  staleTimeMs?: number | 'always';
 }
 
 /**

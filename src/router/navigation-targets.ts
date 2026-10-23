@@ -24,7 +24,9 @@ import {
 } from './history-index';
 import { isStaleRouteRequest } from './navigation-request';
 import { commitNavigationRoots } from './navigation-commit';
-import { hasCurrentNavigationOwners } from './navigation-types';
+import { createNavigationTarget } from './navigation-resolution';
+import { getRouteRevalidation, refreshRouteRenderResult } from './resolution';
+import { hasCurrentNavigationOwners, isRenderResult } from './navigation-types';
 import type {
   NavigateOptions,
   NavigationRedirectState,
@@ -42,6 +44,60 @@ export {
   cancelRouteRequests,
 } from './navigation-request';
 export { resolveNavigationTargetsForApps } from './navigation-resolution';
+
+/**
+ * A committed route that rendered cached loader data refreshes in place once
+ * the background request settles. Any newer navigation request, or a replaced
+ * app owner, makes the refresh obsolete; the cache is already up to date for
+ * the next visit.
+ */
+function scheduleRevalidationRefresh(
+  requestId: number,
+  pathname: string,
+  href: string,
+  targets: readonly AppNavigationTarget[],
+  locationState: { hasState: boolean; state: unknown }
+): void {
+  for (const target of targets) {
+    const resolved = target.resolved;
+    if (!isRenderResult(resolved)) continue;
+    const revalidation = getRouteRevalidation(resolved);
+    if (!revalidation) continue;
+    // Only a root that actually committed this location refreshes.
+    if (getCurrentHref() !== href) continue;
+    // The committed root's runtime owns the refresh; a replaced one does not.
+    const committed = target.app.instance.appRuntime;
+    void revalidation.then(
+      async (values) => {
+        if (isStaleRouteRequest(requestId)) return;
+        if (target.app.instance.appRuntime !== committed) return;
+        const refreshed = refreshRouteRenderResult(resolved, values);
+        if (!refreshed) return;
+        const next = await createNavigationTarget(
+          target.app,
+          refreshed,
+          committed
+        );
+        if (isStaleRouteRequest(requestId)) return;
+        if (target.app.instance.appRuntime !== committed) return;
+        try {
+          commitNavigationRoots(
+            requestId,
+            pathname,
+            href,
+            [next],
+            locationState,
+            () => undefined,
+            () => undefined
+          );
+        } catch (error) {
+          logger.error('[Askr] route data refresh failed:', error);
+        }
+      },
+      () => undefined
+    );
+  }
+}
 
 const MAX_NAVIGATION_REDIRECTS = 20;
 
@@ -178,6 +234,13 @@ export function applyNavigationTargets(
         applyNavigationScroll(options.scroll);
     }
   );
+  scheduleRevalidationRefresh(
+    requestId,
+    pathname,
+    href,
+    matchedTargets,
+    locationState
+  );
 }
 
 /**
@@ -266,6 +329,10 @@ export function applyPopStateNavigationTargets(
       if (!returnToRenderedHistoryEntry()) reloadDocument();
     }
   );
+  scheduleRevalidationRefresh(requestId, pathname, href, matchedTargets, {
+    hasState,
+    state: hasState ? historyState?.askrState : undefined,
+  });
 }
 
 /**

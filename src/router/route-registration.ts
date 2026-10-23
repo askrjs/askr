@@ -10,7 +10,7 @@ import { compileNodePolicies } from './access';
 import { snapshotAppMeta } from './app-meta';
 import { createRouteHandler } from './rendering';
 import { joinRoutePaths, validateRoutePath } from './path-policy';
-import { resolveIndexPath } from './registration-scope';
+import { assertStaleTime, resolveIndexPath } from './registration-scope';
 import {
   addRouteToStores,
   assertRouteRegistrationUnlocked,
@@ -25,6 +25,7 @@ import {
   getCurrentScopeKind,
   findRecordByMatchKey,
   getNearestScopeValue,
+  getRegistrationScopes,
   getRouteRecords,
   hasActivePageScope,
   insertRecordSorted,
@@ -55,6 +56,7 @@ function normalizeRouteOptions(
     !options.meta &&
     !options.actions &&
     !options.error &&
+    options.staleTimeMs === undefined &&
     !options.forbidden &&
     options.appMeta === undefined &&
     options.auth === undefined
@@ -78,6 +80,9 @@ function normalizeRouteOptions(
     ...(options.meta ? { meta: options.meta } : {}),
     ...(options.actions ? { actions: options.actions } : {}),
     ...(options.error ? { error: options.error } : {}),
+    ...(options.staleTimeMs !== undefined
+      ? { staleTimeMs: options.staleTimeMs }
+      : {}),
     ...(options.forbidden ? { forbidden: options.forbidden } : {}),
     ...(options.appMeta !== undefined
       ? { appMeta: snapshotAppMeta(options.appMeta) }
@@ -131,6 +136,7 @@ export function registerRouteAtResolvedPath(
     throw new Error('Route registration requires a component function.');
   }
   validateRoutePath(path);
+  assertStaleTime(options?.staleTimeMs);
 
   const segments = parseSegments(path);
   assertRouteNotDuplicated(path, segments, metadata?.fallbackPrefix);
@@ -172,6 +178,18 @@ export function registerRouteAtResolvedPath(
     normalizedOptions?.error ?? getNearestScopeValue('error');
   const forbiddenComponent =
     normalizedOptions?.forbidden ?? getNearestScopeValue('forbidden');
+  const loaderChain = getRegistrationScopes().flatMap((scope) =>
+    scope.loader
+      ? [
+          Object.freeze({
+            loader: scope.loader,
+            ...(scope.staleTimeMs !== undefined
+              ? { staleTimeMs: scope.staleTimeMs }
+              : {}),
+          }),
+        ]
+      : []
+  );
   const handler = createRouteHandler(comp, pageChain, chain);
   const renderHandler = createRouteHandler(comp, pageChain, chain, true);
 
@@ -195,6 +213,7 @@ export function registerRouteAtResolvedPath(
           : {},
     ...(metaChain.length > 0 ? { metaChain } : {}),
     ...(appMetaChain ? { appMetaChain } : {}),
+    ...(loaderChain.length > 0 ? { loaderChain } : {}),
     ...(errorComponent ? { errorComponent } : {}),
     ...(forbiddenComponent ? { forbiddenComponent } : {}),
     isFallback,

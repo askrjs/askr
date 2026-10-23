@@ -6,6 +6,9 @@ import type {
   RouteContext,
   RouteMetaContext,
   RouteHandler,
+  RouteOptions,
+  RouteScopeLoader,
+  RouteStaleTime,
   RoutePolicy,
   RouteRecord,
   RouteRenderResult,
@@ -14,7 +17,10 @@ import type {
 } from '../common/router';
 import { isPromiseLike } from '../common/promise';
 import { getActiveRenderContext } from '../common/render-context';
-import { replacePageRoute } from '../common/page-render-envelope';
+import {
+  pageRenderEnvelope,
+  replacePageRoute,
+} from '../common/page-render-envelope';
 import type { CoreTelemetry } from '../common/telemetry';
 import { withTelemetry } from '../common/telemetry';
 import { createQueryPrefetchContext } from '../data/query-registry';
@@ -26,8 +32,16 @@ import { getActiveRouteAuthOptions } from './store';
 import { setCurrentAuth, unresolvedAuth } from './auth';
 import { _preloadRouteRecord } from './lazy';
 import {
+  loadThroughCache,
+  routeLoaderKey,
+  type CachedLoad,
+} from './route-loader-cache';
+import type { InternalRouteRecord } from './internal-types';
+import {
   prepareRouteHydrationData,
   ROUTE_HYDRATION_METADATA,
+  ROUTE_LAYOUT_DATA,
+  validateRouteHydrationData,
   withoutRouteHydrationMetadata,
   type PreparedRouteHydrationData,
 } from './route-hydration';
@@ -62,6 +76,8 @@ function isAbortLikeError(error: unknown): boolean {
 
 const routeRenderContexts = new WeakMap<object, RouteContext>();
 const routeRenderData = new WeakMap<object, unknown>();
+const routeLayoutData = new WeakMap<object, ReadonlyMap<unknown, unknown>>();
+const routeRevalidations = new WeakMap<object, Promise<unknown[]>>();
 
 export function getRouteRenderContext(
   result: RouteRenderResult
@@ -129,36 +145,179 @@ function withoutInitialRouteHydrationMetadata(
   );
 }
 
+/** Group/page loader results bound to one route render. */
+export interface BoundLayoutData {
+  readonly values: ReadonlyMap<unknown, unknown>;
+  /** JSON transport array aligned with the record's loader chain (SSR only). */
+  readonly hydration?: readonly unknown[];
+}
+
 /** @internal Bind resolved loader output to one route subtree and its hydration envelope. */
 export function bindResolvedRouteData(
   handler: RouteHandler,
   data: unknown,
-  hydration?: PreparedRouteHydrationData
+  hydration?: PreparedRouteHydrationData,
+  layout?: BoundLayoutData,
+  hasLeafData = true
 ): RouteHandler {
   return (params, context) => {
     const renderContext = getActiveRenderContext();
     if (renderContext) {
-      const envelope = replacePageRoute(renderContext.renderData, data);
-      renderContext.renderData = hydration
-        ? envelope
-        : withoutInitialRouteHydrationMetadata(envelope);
-      const hydrationEnvelope = replacePageRoute(
-        renderContext.hydrationData,
-        hydration?.data ?? data
-      );
-      renderContext.hydrationData = hydration
-        ? withPageFramework(hydrationEnvelope, {
-            ...hydrationEnvelope.framework,
-            [ROUTE_HYDRATION_METADATA]: hydration.metadata,
-          })
-        : withoutInitialRouteHydrationMetadata(hydrationEnvelope);
+      if (hasLeafData) {
+        const envelope = replacePageRoute(renderContext.renderData, data);
+        renderContext.renderData = hydration
+          ? envelope
+          : withoutInitialRouteHydrationMetadata(envelope);
+        const hydrationEnvelope = replacePageRoute(
+          renderContext.hydrationData,
+          hydration?.data ?? data
+        );
+        renderContext.hydrationData = hydration
+          ? withPageFramework(hydrationEnvelope, {
+              ...hydrationEnvelope.framework,
+              [ROUTE_HYDRATION_METADATA]: hydration.metadata,
+            })
+          : withoutInitialRouteHydrationMetadata(hydrationEnvelope);
+      }
+      if (layout) {
+        renderContext.layoutData = layout.values;
+        if (layout.hydration) {
+          const current = pageRenderEnvelope(renderContext.hydrationData);
+          renderContext.hydrationData = withPageFramework(current, {
+            ...current.framework,
+            [ROUTE_LAYOUT_DATA]: layout.hydration,
+          });
+        }
+      }
     }
     return handler(params, context);
   };
 }
 
+/** Group/page loader results of a resolved render, keyed by loader function. */
+export function getRouteLayoutData(
+  result: RouteRenderResult
+): ReadonlyMap<unknown, unknown> | undefined {
+  return routeLayoutData.get(result);
+}
+
+/** Settles with every loader's fresh value once cached data was revalidated. */
+export function getRouteRevalidation(
+  result: RouteRenderResult
+): Promise<unknown[]> | undefined {
+  return routeRevalidations.get(result);
+}
+
 export function hasRouteRenderData(result: RouteRenderResult): boolean {
   return routeRenderData.has(result);
+}
+
+type LoaderRun = {
+  readonly loader: RouteScopeLoader;
+  readonly staleTimeMs: RouteStaleTime;
+  /** Separates a group/page loader's cache entry from the leaf's. */
+  readonly slot: string;
+};
+
+function collectLoaderRuns(
+  record: RouteRecord,
+  includeLeaf: RouteOptions['loader']
+): { runs: LoaderRun[]; layoutCount: number } {
+  const chain = (record as InternalRouteRecord).loaderChain ?? [];
+  const runs: LoaderRun[] = chain.map((scope, index) => ({
+    loader: scope.loader,
+    staleTimeMs: scope.staleTimeMs ?? 0,
+    slot: `layout${index}`,
+  }));
+  if (includeLeaf) {
+    runs.push({
+      loader: includeLeaf as RouteScopeLoader,
+      staleTimeMs: record.options?.staleTimeMs ?? 0,
+      slot: 'leaf',
+    });
+  }
+  return { runs, layoutCount: chain.length };
+}
+
+function assembleLoadedResult(
+  record: RouteRecord,
+  params: Record<string, string>,
+  context: RouteContext,
+  request: Request | undefined,
+  renderHandler: RouteHandler,
+  runs: readonly LoaderRun[],
+  layoutCount: number,
+  hasLeaf: boolean,
+  settled: readonly unknown[]
+): RouteRenderResult {
+  const data = hasLeaf ? settled[layoutCount] : undefined;
+  const layout = new Map<unknown, unknown>();
+  for (let index = 0; index < layoutCount; index += 1) {
+    layout.set(runs[index]!.loader, settled[index]);
+  }
+  const route = context.href || context.pathname || record.path;
+  const hydration =
+    context.mode === 'ssr' && hasLeaf
+      ? prepareRouteHydrationData(
+          data,
+          record.options?.dehydrate,
+          { ...context, params, request },
+          route
+        )
+      : undefined;
+  const layoutHydration =
+    context.mode === 'ssr' && layoutCount > 0
+      ? Array.from({ length: layoutCount }, (_, index) => {
+          validateRouteHydrationData(settled[index], `${route} (layout)`);
+          return settled[index] ?? null;
+        })
+      : undefined;
+  const result = createRouteRenderResult(
+    record,
+    params,
+    context,
+    bindResolvedRouteData(
+      renderHandler,
+      data,
+      hydration,
+      layoutCount > 0
+        ? { values: layout, hydration: layoutHydration }
+        : undefined,
+      hasLeaf
+    )
+  );
+  if (hasLeaf) routeRenderData.set(result, data);
+  if (layoutCount > 0) routeLayoutData.set(result, layout);
+  return result;
+}
+
+/**
+ * A sibling of `result` carrying freshly revalidated loader values, in the
+ * order the cached read produced them (group/page loaders, then the leaf).
+ */
+export function refreshRouteRenderResult(
+  result: RouteRenderResult,
+  values: readonly unknown[]
+): RouteRenderResult | undefined {
+  const record = result.record;
+  const context = routeRenderContexts.get(result);
+  if (!record || !context) return undefined;
+  const hasLeaf = typeof record.options?.loader === 'function';
+  const { runs, layoutCount } = collectLoaderRuns(
+    record,
+    record.options?.loader
+  );
+  return assembleLoadedResult(
+    record,
+    result.params,
+    context,
+    undefined,
+    getRenderHandler(record),
+    runs,
+    layoutCount,
+    hasLeaf,
+    values
+  );
 }
 
 function buildRenderResult(
@@ -173,8 +332,11 @@ function buildRenderResult(
 ): RouteRequestResult | Promise<RouteRequestResult> {
   assertCurrent?.();
   const renderHandler = getRenderHandler(record);
-  const loader =
-    context.mode !== 'ssg' && load ? record.options?.loader : undefined;
+  const useLoaders = context.mode !== 'ssg' && load;
+  const leafLoader = useLoaders ? record.options?.loader : undefined;
+  const { runs, layoutCount } = useLoaders
+    ? collectLoaderRuns(record, leafLoader)
+    : { runs: [] as LoaderRun[], layoutCount: 0 };
   const preload = record.options?.preload;
   const active = getActiveRenderContext();
   const prefetch =
@@ -186,8 +348,8 @@ function buildRenderResult(
       runtime: (active?.dataRuntime as DataRuntime | undefined) ?? dataRuntime,
       telemetry,
     });
-  // The lazy chunk, preload and loader are independent: start them together
-  // so the slowest decides latency instead of their sum.
+  // The lazy chunk, preload and every loader are independent: start them
+  // together so the slowest decides latency instead of their sum.
   const pending: Array<PromiseLike<unknown>> = [];
   const lazyImport = _preloadRouteRecord(record);
   if (lazyImport) pending.push(lazyImport);
@@ -198,44 +360,79 @@ function buildRenderResult(
       )
     );
   }
-  let loaded: unknown;
-  if (loader) {
+  const cacheRuntime = context.mode === 'spa' ? dataRuntime : undefined;
+  const loads: CachedLoad[] = [];
+  let failure: { error: unknown } | undefined;
+  for (const run of runs) {
+    const invoke = (signal?: AbortSignal) =>
+      withTelemetry(telemetry?.loader, { route: record.path }, () =>
+        run.loader({
+          ...context,
+          ...(signal ? { signal } : {}),
+          params,
+          request,
+        })
+      );
     try {
-      loaded = withTelemetry(telemetry?.loader, { route: record.path }, () =>
-        loader({ ...context, params, request })
+      assertCurrent?.();
+      loads.push(
+        cacheRuntime
+          ? loadThroughCache(
+              cacheRuntime,
+              routeLoaderKey(
+                record,
+                record.path,
+                params,
+                context.search,
+                run.slot
+              ),
+              invoke,
+              { signal: context.signal, staleTimeMs: run.staleTimeMs }
+            )
+          : { value: invoke() }
       );
     } catch (error) {
-      if (pending.length === 0) throw error;
-      loaded = Promise.reject(error);
+      failure = { error };
+      break;
     }
-    if (isPromiseLike(loaded)) pending.push(loaded);
   }
-  const finalize = (data: unknown): RouteRenderResult => {
+  const values: unknown[] = loads.map((load) => load.value);
+  if (failure) {
+    if (pending.length === 0 && loads.length === 0) throw failure.error;
+    values.push(Promise.reject(failure.error));
+  }
+  for (const value of values) if (isPromiseLike(value)) pending.push(value);
+
+  const finalize = (settled: unknown[]): RouteRenderResult => {
     assertCurrent?.();
-    if (!loader) {
+    if (runs.length === 0) {
       return createRouteRenderResult(record, params, context, renderHandler);
     }
-    const hydration =
-      context.mode === 'ssr'
-        ? prepareRouteHydrationData(
-            data,
-            record.options?.dehydrate,
-            { ...context, params, request },
-            context.href || context.pathname || record.path
-          )
-        : undefined;
-    const result = createRouteRenderResult(
+    const result = assembleLoadedResult(
       record,
       params,
       context,
-      bindResolvedRouteData(renderHandler, data, hydration)
+      request,
+      renderHandler,
+      runs,
+      layoutCount,
+      Boolean(leafLoader),
+      settled
     );
-    routeRenderData.set(result, data);
+    if (loads.some((load) => load.revalidation)) {
+      const revalidation = Promise.all(
+        loads.map((load, index) => load.revalidation ?? settled[index])
+      );
+      // A result that is never committed must not leave a rejection unhandled.
+      revalidation.catch(() => undefined);
+      routeRevalidations.set(result, revalidation);
+    }
     return result;
   };
-  if (pending.length === 0) return finalize(loaded);
-  const data = isPromiseLike(loaded) ? loaded : Promise.resolve(loaded);
-  return Promise.all([data, ...pending]).then(([value]) => finalize(value));
+  if (pending.length === 0) return finalize(values);
+  return Promise.all([Promise.all(values), ...pending]).then(([settled]) =>
+    finalize(settled)
+  );
 }
 
 function runPolicies(

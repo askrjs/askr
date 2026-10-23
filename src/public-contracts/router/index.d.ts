@@ -374,6 +374,19 @@ declare function resolveDeferredValues<T>(
 ): Promise<T>;
 /** Read the current route's server loader data during render or hydration. */
 declare function routeData<T>(): T;
+/**
+ * Read the result of a `group()`/`page()` loader while rendering a route that
+ * runs it, typically from a layout or page host. The argument is the loader
+ * function declared on the scope, so the read is typed by that function and
+ * works anywhere below the scope, including the leaf.
+ */
+declare function layoutData<TData>(
+  loader: (
+    context: RouteContext & {
+      request?: Request;
+    }
+  ) => TData | PromiseLike<TData>
+): TData;
 /** Render a {@link Deferred} value's fulfilled state, a pending placeholder, or a rejected fallback. */
 declare function Resolve<T>(props: ResolveProps<T>): JSXElement;
 type LinkBaseProps = Omit<
@@ -544,6 +557,7 @@ export {
   group,
   index,
   isDeferred,
+  layoutData,
   lazy,
   lazyRouteData,
   matchRoute,

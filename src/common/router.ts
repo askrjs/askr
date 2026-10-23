@@ -131,6 +131,14 @@ export interface RouteForbiddenProps {
   status: AccessDenyStatus;
 }
 
+/** How long a loader's cached result counts as fresh. */
+export type RouteStaleTime = number | 'always';
+
+/** A `group()`/`page()` loader whose result layouts and pages read with `layoutData()`. */
+export type RouteScopeLoader<TData = unknown> = (
+  context: RouteContext & { request?: Request }
+) => TData | PromiseLike<TData>;
+
 /** A route access-control check, evaluated against {@link RouteContext} to produce an {@link AccessDecision}. */
 export type RoutePolicy = (
   context: RouteContext
@@ -255,6 +263,12 @@ export interface RouteOptions<
    * requirement denies the route. The nearest declaring scope wins.
    */
   forbidden?: (props: RouteForbiddenProps) => RenderableChild;
+  /**
+   * Browser loader results are cached in the app's data runtime. A cached
+   * result renders at once and is revalidated in the background when it is at
+   * least this old. `0` (the default) and `'always'` revalidate on every visit.
+   */
+  staleTimeMs?: RouteStaleTime;
 }
 
 export interface RouteMeta {
@@ -328,6 +342,9 @@ export interface PageHelperOptions<
   appMeta?: TAppMeta;
   error?: (props: RouteErrorProps) => RenderableChild;
   forbidden?: (props: RouteForbiddenProps) => RenderableChild;
+  /** Runs alongside the leaf loader; read the result with `layoutData(loader)`. */
+  loader?: RouteScopeLoader;
+  staleTimeMs?: RouteStaleTime;
 }
 
 /**
@@ -407,6 +424,9 @@ export interface GroupHelperOptions<
   appMeta?: TAppMeta;
   error?: (props: RouteErrorProps) => RenderableChild;
   forbidden?: (props: RouteForbiddenProps) => RenderableChild;
+  /** Runs alongside the leaf loader; read the result with `layoutData(loader)`. */
+  loader?: RouteScopeLoader;
+  staleTimeMs?: RouteStaleTime;
 }
 
 /**

@@ -828,11 +828,14 @@ describe('architecture boundaries', () => {
     // lifetime. resolution.ts keeps one documented never-aborting stand-in for
     // callers that supply no signal. session-auth.ts owns one shared session
     // GET: an individual route caller may cancel only its waiter, whereas
-    // identity invalidation retires the shared request. Any other controller
+    // identity invalidation retires the shared request. route-loader-cache.ts
+    // owns one shared loader request per cache key, cancelled only once every
+    // navigation waiting on it has left. Any other controller
     // would introduce a second cancellation channel for these lifetimes.
     const expected = {
       'src/router/navigation-request.ts': 1,
       'src/router/resolution.ts': 1,
+      'src/router/route-loader-cache.ts': 1,
       'src/router/session-auth.ts': 1,
     };
     const found: Record<string, number> = {};

@@ -6,6 +6,8 @@ export interface AppRenderRuntime {
   framework: Readonly<Record<string, unknown>>;
   route: unknown;
   hasRoute: boolean;
+  /** Group/page loader results by loader function. */
+  layoutData?: ReadonlyMap<unknown, unknown>;
   dataRuntime?: import('../data/types').DataRuntime;
   routeRegistry?: RouteRegistry;
   routeAuth?: RouteAuthOptions;
@@ -35,6 +37,7 @@ export function createAppRenderRuntime(
     framework: Object.freeze({ ...input.framework }),
     route: input.route,
     hasRoute: input.hasRoute ?? false,
+    layoutData: input.layoutData,
     dataRuntime: input.dataRuntime,
     routeRegistry: input.routeRegistry,
     routeAuth: input.routeAuth,

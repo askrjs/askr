@@ -4,6 +4,8 @@ import type {
   Route,
   RouteHandler,
   RouteOptions,
+  RouteScopeLoader,
+  RouteStaleTime,
   RoutePolicy,
   RouteRecord,
   RouteMetaSource,
@@ -24,9 +26,16 @@ export type InternalRouteRecord = RouteRecord & {
   fallbackPrefix?: string;
   renderHandler?: RouteHandler;
   appMetaChain?: readonly AppMetaDeclaration[];
+  /** Group/page loaders from the outermost scope in, run beside the leaf's. */
+  loaderChain?: readonly ScopeLoaderRecord[];
   errorComponent?: RouteOptions['error'];
   forbiddenComponent?: RouteOptions['forbidden'];
 };
+
+export type ScopeLoaderRecord = Readonly<{
+  loader: RouteScopeLoader;
+  staleTimeMs?: RouteStaleTime;
+}>;
 
 export type RegistrationScope = {
   kind: 'group' | 'page';
@@ -40,4 +49,6 @@ export type RegistrationScope = {
   appMeta?: unknown;
   error?: RouteOptions['error'];
   forbidden?: RouteOptions['forbidden'];
+  loader?: RouteScopeLoader;
+  staleTimeMs?: RouteStaleTime;
 };

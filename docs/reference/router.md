@@ -50,6 +50,7 @@ Supported group options:
 - `policies`
 - `meta`, `appMeta`
 - `error`, `forbidden` (see [Route error and forbidden components](#route-error-and-forbidden-components))
+- `loader`, `staleTimeMs` (see [Group and page loaders](#group-and-page-loaders))
 
 ## `page(path, Component, fn)`
 
@@ -91,6 +92,10 @@ Supported page options:
 
 - `auth`
 - `policies`
+- `meta`, `appMeta`
+- `preload`
+- `error`, `forbidden`
+- `loader`, `staleTimeMs` (see [Group and page loaders](#group-and-page-loaders))
 
 Child `route()` declarations inside `page()` must use relative paths.
 Nested `page()` declarations are rejected in this release; use `group()` for
@@ -432,6 +437,66 @@ in a route's `policies` array.
 - `deny(status)` stops the request with a 401, 403, or 404 status.
   `unauthorized()`, `forbidden()`, and `notFound()` are shorthands for
   `deny(401)`, `deny(403)`, and `deny(404)`.
+
+### Loader cache
+
+In the browser, loader results live in the application's data runtime
+(`dataRuntime` of `createSPA()`/`hydrateSPA()`, else the default one), keyed by
+route template, params and search. Visiting a URL again, including back and
+forward traversal, renders the cached result immediately and revalidates it in
+the background; when the new result arrives, the route re-renders in place with
+it. Concurrent navigations to one key share a single request, which is
+cancelled only when every navigation waiting on it has gone.
+
+- `staleTimeMs` (route, `group()` or `page()` option; default `0`): how long a
+  cached result counts as fresh. A fresh result renders with no request. `0`
+  and `'always'` revalidate on every visit while still rendering the cached
+  result first.
+- A failed revalidation keeps the cached result and logs a warning; the next
+  visit tries again. A failed first load behaves as before (see error
+  components).
+- Entries are dropped by the existing invalidation API. Keys begin with
+  `route-data:` followed by the route template, so
+  `invalidate('route-data:/posts/{slug}')` clears every cached post and
+  `invalidate('route-data:')` clears all route data. Invalidating also stops
+  an in-flight request from storing its result. Call it after a mutation that
+  changes what a loader returns.
+- Up to 100 entries are kept per runtime, least recently used first.
+- `navigationState().revalidating` is true while a background revalidation is
+  in flight (see the [navigation guide](../guides/navigation.md)).
+- Server rendering and SSG never read or write the cache.
+
+### Group and page loaders
+
+`group()` and `page()` accept `loader` (and `staleTimeMs`). Ancestor loaders run
+in parallel with the leaf's loader, lazy chunk and `preload`, share the leaf's
+cache behavior, and their results are read with `layoutData(loader)` from
+layouts, page hosts or the leaf, typed by the loader function itself:
+
+```tsx
+const loadUser = ({ signal }: RouteContext) => fetchUser(signal);
+
+group(
+  {
+    loader: loadUser,
+    layout: ({ children }) => (
+      <div>
+        <Header user={layoutData(loadUser)} />
+        {children}
+      </div>
+    ),
+  },
+  () => {
+    route('/inbox', InboxPage, { loader: loadInbox });
+  }
+);
+```
+
+`routeData()` stays the leaf's own loader data. `layoutData()` must run while
+rendering a route whose chain declares that loader, and the value must be
+JSON-compatible for server rendering, which transports it with the page.
+`renderRouteRequest()` and `hydrateSPA()` support group/page loaders;
+`renderToString()` rejects them like leaf loaders, and SSG does not run them.
 
 ## Route error and forbidden components
 

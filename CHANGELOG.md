@@ -68,6 +68,17 @@
   `derive(fn, { equals })` and `derive(source, map, { equals })`. A comparator that
   returns true suppresses the notification. The default stays `Object.is`.
   See `docs/core/runtime.md#custom-equality`.
+- Cache browser route loader results in the app's data runtime, keyed by route
+  template, params and search. Repeat visits and back/forward render the cached
+  result at once and revalidate in the background (the route re-renders when
+  the new result arrives); concurrent navigations share one request. Add a
+  `staleTimeMs` route option (`number | 'always'`, default `0`); drop entries
+  with `invalidate('route-data:...')`.
+- Add `loader` and `staleTimeMs` to `group()` and `page()`, run beside the leaf
+  loader, and `layoutData(loader)` at `@askrjs/askr/router` to read their
+  results in layouts, page hosts and leaves, including through SSR and
+  hydration.
+
 - Add `error` and `forbidden` component options to `route()`, `page()` and
   `group()`, and the `RouteErrorProps` and `RouteForbiddenProps` types at
   `@askrjs/askr/router`. A failed browser navigation renders the nearest

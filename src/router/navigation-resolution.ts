@@ -10,7 +10,7 @@ import { resolveOwnedRouteMeta } from './metadata';
 import { isRouteErrorResult } from './route-error';
 import { isRenderResult, type AppNavigationTarget } from './navigation-types';
 
-function createNavigationTarget(
+export function createNavigationTarget(
   app: AppRegistration,
   resolved: RouteRequestResult,
   runtime: AppRenderRuntime | undefined

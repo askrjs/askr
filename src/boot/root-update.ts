@@ -39,6 +39,7 @@ function prepare(root: object, input: RootUpdateInput): PreparedRootUpdate {
     routeAuth: current?.routeAuth,
     route: input.routeData,
     hasRoute: input.hasRouteData,
+    layoutData: input.layoutData,
     lifetime: current?.lifetime,
   });
   const previous = {

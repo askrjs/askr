@@ -19,6 +19,7 @@ import {
   createRouteRegistry,
   group,
   index,
+  layoutData,
   lazy,
   lazyRouteData,
   matchRoute,
@@ -531,3 +532,20 @@ route('/typed-error', () => null, {
   },
 });
 group({ error: () => null, forbidden: () => null }, () => undefined);
+
+// Group and page loaders, read with layoutData() and cached with staleTimeMs.
+const loadTypedUser = async () => ({ name: 'Ada' });
+group({ loader: loadTypedUser, staleTimeMs: 'always' }, () => {
+  route('/typed-layout-data', () => {
+    expectType<{ name: string }>(layoutData(loadTypedUser));
+    return null;
+  });
+});
+page(
+  '/typed-page-loader',
+  () => null,
+  { loader: loadTypedUser, staleTimeMs: 5_000 },
+  () => undefined
+);
+route('/typed-stale', () => null, { staleTimeMs: 0 });
+expectError(route('/bad-stale', () => null, { staleTimeMs: 'never' }));
