@@ -81,6 +81,43 @@ describe('hash-only and same-location navigation', () => {
     expect(window.history.length).toBe(length + 1);
   });
 
+  it('should traverse fragment-only history entries without rerunning the loader', async () => {
+    await createSPA({ root: container, registry: registry() });
+    await settle();
+    const article = container.querySelector('article')!;
+    navigate('/docs#intro');
+    await settle();
+    expect(loads).toBe(1);
+
+    // Back to /docs, then forward to /docs#intro, as the browser fires them.
+    window.history.replaceState(window.history.state, '', '/docs');
+    window.dispatchEvent(
+      new PopStateEvent('popstate', { state: { path: '/docs' } })
+    );
+    await settle();
+    expect(window.location.hash).toBe('');
+    expect(loads).toBe(1);
+    expect(container.querySelector('article')).toBe(article);
+
+    window.history.replaceState(window.history.state, '', '/docs#intro');
+    window.dispatchEvent(
+      new PopStateEvent('popstate', { state: { path: '/docs#intro' } })
+    );
+    await settle();
+    expect(window.location.hash).toBe('#intro');
+    expect(loads).toBe(1);
+    expect(container.querySelector('article')).toBe(article);
+  });
+
+  it('should reject uncloneable state on a fragment-only navigation', async () => {
+    await createSPA({ root: container, registry: registry() });
+    await settle();
+    expect(() =>
+      navigate('/docs#intro', { state: { callback: () => 1 } })
+    ).toThrow(/clone/);
+    expect(window.location.hash).toBe('');
+  });
+
   it('should replace the history entry when navigating to the current location', async () => {
     await createSPA({ root: container, registry: registry() });
     await settle();

@@ -8,10 +8,14 @@ import {
 import {
   getCurrentHref,
   getCurrentPathname,
+  getRegisteredAppsSnapshot,
   getWindowHref,
   isCurrentOrigin,
   parseNavigationTarget,
   parseTargetUrl,
+  setCurrentRouteLocation,
+  syncAppRegistrationLocation,
+  syncRegisteredRouteSnapshot,
   toDocumentUrl,
 } from './navigation-registry';
 import { loadDocument, reloadDocument } from './document-navigation';
@@ -178,6 +182,26 @@ export function applyNavigationTargets(
   );
 }
 
+/**
+ * A history entry for the rendered page that differs only by fragment: the
+ * page stays, the location and scroll move. Mirrors `navigate()`'s fragment
+ * path for back/forward traversal.
+ */
+export function applyPopStateFragmentChange(
+  historyIndex: number | undefined,
+  pathname: string,
+  href: string,
+  state: unknown
+): void {
+  commitHistoryIndex(historyIndex);
+  setCurrentRouteLocation(pathname, href);
+  for (const app of getRegisteredAppsSnapshot()) {
+    syncAppRegistrationLocation(app, pathname, href);
+  }
+  syncRegisteredRouteSnapshot();
+  applyHistoryScroll(href, state);
+}
+
 export function applyPopStateNavigationTargets(
   requestId: number,
   previousHref: string,
@@ -256,7 +280,7 @@ export function applyPopStateNavigationTargets(
  * runs after the destination has rendered. Checking first keeps the page and
  * the URL in agreement: an uncloneable value fails before anything changes.
  */
-function assertCloneableHistoryState(state: unknown): void {
+export function assertCloneableHistoryState(state: unknown): void {
   if (typeof structuredClone !== 'function') return;
   try {
     structuredClone(state);

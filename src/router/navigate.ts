@@ -16,7 +16,9 @@ import {
 } from './navigation-registry';
 import {
   applyNavigationTargets,
+  applyPopStateFragmentChange,
   applyPopStateNavigationTargets,
+  assertCloneableHistoryState,
   getNavigationHistoryMode,
 } from './navigation-targets';
 import {
@@ -168,6 +170,7 @@ function navigateWithRedirectState(
     ) {
       // Only the fragment changed: the page stays, the location moves.
       const hasState = Object.prototype.hasOwnProperty.call(options, 'state');
+      if (hasState) assertCloneableHistoryState(options.state);
       commitLocationOnlyNavigation(pathname, href, {
         historyMode: getNavigationHistoryMode(options),
         ...(hasState ? { state: { hasState, state: options.state } } : {}),
@@ -245,6 +248,11 @@ function handlePopState(event: PopStateEvent): void {
   const href = `${window.location.pathname}${window.location.search}${window.location.hash}`;
 
   if (!hasRegisteredApps()) {
+    return;
+  }
+  if (href.split('#')[0] === previousHref.split('#')[0]) {
+    // Only the fragment differs from the rendered page: no route to resolve.
+    applyPopStateFragmentChange(historyIndex, pathname, href, event.state);
     return;
   }
 

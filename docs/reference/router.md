@@ -440,7 +440,9 @@ use the same helpers:
   metadata when the destination declares none, so a previous route's head
   nodes never outlive it. A `<title>` the document already had (a static
   shell title) is updated in place and restored when a route has no title;
-  the root `lang` and `dir` are restored the same way.
+  the root `lang` and `dir` are restored the same way. Only values the
+  router wrote are put back: a title, `lang` or `dir` the application
+  changed itself stays as the application left it.
 
 ## Route testing helpers
 
@@ -572,7 +574,8 @@ Triggers client-side navigation. `target` is a logical path string or a typed
 destination from `to()`. A target that differs from the current location only
 by its fragment moves the location and scrolls to the fragment without
 resolving the route again: no loader runs and the rendered page keeps its
-state. A target equal to the current location is resolved again and replaces
+state. Back and forward traversal between entries that differ only by
+fragment behaves the same way. A target equal to the current location is resolved again and replaces
 the history entry unless `history: 'push'` is given. A URL on another origin is not rendered by the
 router: Askr hands it to the browser with `location.assign()`, or
 `location.replace()` for replace history. Guard redirects to another origin
