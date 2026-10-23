@@ -42,6 +42,14 @@ export class BufferedSink {
     this.operations.push({ kind: 'root' });
   }
 
+  /** The first buffered text, for inspecting how the content starts. */
+  firstText(): string {
+    for (const operation of this.operations) {
+      if (operation.kind === 'text') return operation.text;
+    }
+    return '';
+  }
+
   /** The buffered markup, without portal host tokens. */
   html(): string {
     let html = '';

@@ -670,7 +670,7 @@ function writeNewlineSensitiveContent(
   props: Props,
   tag: string,
   sink: SinkTarget
-): boolean {
+): void {
   if (tag === 'textarea') {
     const own = props.value;
     const value =
@@ -681,16 +681,15 @@ function writeNewlineSensitiveContent(
       const text = String(value);
       if (text.startsWith('\n')) sink.write('\n');
       sink.write(escapeText(text));
-      return true;
+      return;
     }
   }
   // Children may be functions, fragments or components, so the content is
   // rendered first and its leading newline doubled on the way out.
   const content = new BufferedSink(state().referenceAttributes);
   writeContent(props, null, content);
-  if (content.html().startsWith('\n')) sink.write('\n');
+  if (content.firstText().startsWith('\n')) sink.write('\n');
   content.publishTo(sink);
-  return true;
 }
 
 /** An element's content: raw HTML, raw text, or rendered children. */
@@ -700,10 +699,8 @@ function writeContent(
   sink: SinkTarget,
   newlineSensitive: string | null = null
 ): void {
-  if (
-    newlineSensitive !== null &&
-    writeNewlineSensitiveContent(props, newlineSensitive, sink)
-  ) {
+  if (newlineSensitive !== null) {
+    writeNewlineSensitiveContent(props, newlineSensitive, sink);
     return;
   }
   const dangerous = (props as { dangerouslySetInnerHTML?: unknown })
