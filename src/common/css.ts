@@ -16,7 +16,9 @@
 const CSS_UNSAFE_RE = /[{}<>]/g;
 const CSS_URI_SCHEME_RE = /(?:^|[\s(,])([a-z][a-z0-9+.-]*):/i;
 const CSS_FUNCTION_NAME_RE = /([a-z-][a-z0-9-]*)\s*\(/gi;
-const CSS_ESCAPE_RE = /\\(?:([0-9a-f]{1,6})[ \t\n\f\r]?|([\s\S]))/gi;
+// A hex escape consumes one following whitespace; CSS preprocessing folds
+// CRLF into one newline, so it consumes the pair.
+const CSS_ESCAPE_RE = /\\(?:([0-9a-f]{1,6})(?:\r\n|[ \t\n\f\r])?|([\s\S]))/gi;
 
 const CSS_BLOCKED_FUNCTIONS = new Set([
   'expression',
@@ -34,7 +36,9 @@ function decodeCssEscapes(value: string): string {
   return value.replace(CSS_ESCAPE_RE, (_match, hex: string, char: string) => {
     if (hex === undefined) return char;
     const code = Number.parseInt(hex, 16);
-    return code === 0 || code > 0x10ffff ? '�' : String.fromCodePoint(code);
+    return code === 0 || code > 0x10ffff
+      ? '\uFFFD'
+      : String.fromCodePoint(code);
   });
 }
 
@@ -46,11 +50,15 @@ function blockedCssFunction(value: string): string | null {
   return null;
 }
 
-/** The style value to write, or `''` when the value is rejected. */
+/**
+ * The style value to write, or `''` when the value is rejected. The written
+ * form (braces and angle brackets removed) is what is checked, so a
+ * character removed after the check cannot rebuild a blocked name.
+ */
 export function sanitizeCssValue(value: string): string {
-  const str = String(value);
+  const str = String(value).replace(CSS_UNSAFE_RE, '');
   const decoded = decodeCssEscapes(str);
   if (CSS_URI_SCHEME_RE.test(decoded)) return '';
   if (decoded.includes('(') && blockedCssFunction(decoded) !== null) return '';
-  return str.replace(CSS_UNSAFE_RE, '');
+  return str;
 }

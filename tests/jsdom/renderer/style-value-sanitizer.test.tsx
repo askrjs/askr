@@ -32,6 +32,12 @@ describe('style object value sanitizer', () => {
     // CSS escapes must not smuggle a blocked function past the check.
     borderImage: '\\75 rl(https://attacker.test/b.png)',
     listStyleImage: 'u\\000072l(/c.png)',
+    // Characters removed from the written value must not rebuild a name.
+    outline: 'ur{}l(//attacker.test/d.png)',
+    cursor: 'u<>rl(//attacker.test/e.png)',
+    borderImageSource: 'image-s{}et("//attacker.test/f.png" 1x)',
+    // CSS folds CRLF into one newline, which the hex escape consumes.
+    maskBorderSource: '\\75\r\nrl(//attacker.test/g.png)',
   };
 
   it('should keep ordinary CSS functions in client style objects', () => {
@@ -56,7 +62,7 @@ describe('style object value sanitizer', () => {
     expect(style.getPropertyValue('clip-path')).toBe(
       'polygon(0 0, 100% 0, 100% 100%)'
     );
-    expect(style.getPropertyValue('content')).toBe('"“"');
+    expect(style.getPropertyValue('content')).toBe('"\u201C"');
     expect(style.getPropertyValue('width')).toBe('');
     expect(style.getPropertyValue('background-image')).toBe('');
     expect(style.getPropertyValue('mask-image')).toBe('');
@@ -67,6 +73,9 @@ describe('style object value sanitizer', () => {
     expect(attribute).not.toContain('attacker.test');
     expect(attribute).not.toContain('expression');
     expect(attribute).not.toContain('c.png');
+    for (const name of ['d.png', 'e.png', 'f.png', 'g.png']) {
+      expect(attribute).not.toContain(name);
+    }
   });
 
   it('should keep ordinary CSS functions in SSR style objects', () => {
@@ -85,6 +94,9 @@ describe('style object value sanitizer', () => {
     expect(html).not.toContain('expression');
     expect(html).not.toContain('attacker.test');
     expect(html).not.toContain('c.png');
+    for (const name of ['d.png', 'e.png', 'f.png', 'g.png']) {
+      expect(html).not.toContain(name);
+    }
     expect(html).not.toContain('width:');
   });
 });
