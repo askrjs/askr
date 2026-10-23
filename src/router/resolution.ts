@@ -53,6 +53,18 @@ export function getRouteRenderContext(
   return routeRenderContexts.get(result);
 }
 
+/**
+ * Make the identity a client navigation resolved the browser's current one.
+ * Called by the navigation commit boundary and at initial mount, so a
+ * pending, failed or superseded navigation never changes what the rendered
+ * page reads from `currentAuth()`.
+ */
+export function publishResolvedAuth(result: RouteRequestResult): void {
+  if (!result || result.kind !== 'render') return;
+  const context = routeRenderContexts.get(result);
+  if (context?.auth) setCurrentAuth(context.auth, 'spa');
+}
+
 export function getRouteRenderData(result: RouteRenderResult): unknown {
   return routeRenderData.get(result);
 }
@@ -439,7 +451,12 @@ function resolveRouteRequestInternal(
         : result;
     const finalize = (authContext: AuthContext) => {
       assertCurrent?.();
-      if (!signal.aborted) setCurrentAuth(authContext, mode);
+      // A server or hydration render owns its identity at once. A browser
+      // navigation publishes it when it commits (see publishResolvedAuth),
+      // so a page still on screen keeps the identity it rendered with.
+      if (!signal.aborted && (mode !== 'spa' || getActiveRenderContext())) {
+        setCurrentAuth(authContext, mode);
+      }
       const result = resolveMatchedRoute(
         match.record,
         match.params,

@@ -21,8 +21,13 @@ import {
   syncAppRegistrationLocation,
   syncRegisteredRouteSnapshot,
 } from './navigation-registry';
-import { getRouteRenderData, hasRouteRenderData } from './resolution';
+import {
+  getRouteRenderData,
+  hasRouteRenderData,
+  publishResolvedAuth,
+} from './resolution';
 import { reconcileRouteMeta } from './metadata';
+import { readClientAuth, setCurrentAuth } from './auth';
 import { isStaleRouteRequest } from './navigation-request';
 import {
   hasCurrentNavigationOwners,
@@ -31,6 +36,17 @@ import {
 } from './navigation-types';
 
 const EMPTY_ROUTE_META: Readonly<RouteMeta> = Object.freeze({});
+
+/** The last rendered destination's identity becomes the client identity. */
+function publishNavigationAuth(targets: readonly AppNavigationTarget[]): void {
+  for (let index = targets.length - 1; index >= 0; index -= 1) {
+    const resolved = targets[index]?.resolved;
+    if (resolved && isRenderResult(resolved)) {
+      publishResolvedAuth(resolved);
+      return;
+    }
+  }
+}
 
 /**
  * The last app with resolved metadata owns the document head. When no
@@ -160,12 +176,14 @@ export function commitNavigationRoots(
   });
 
   try {
+    const previousAuth = readClientAuth();
     const rollback = () => {
       const errors: unknown[] = [];
       for (let index = roots.length - 1; index >= 0; index--) {
         errors.push(...roots[index]!.prepared.rollback());
       }
       setCurrentRouteLocation(previousPathname, previousHref);
+      setCurrentAuth(previousAuth, 'spa');
       try {
         restoreHistory?.();
       } catch (error) {
@@ -174,6 +192,9 @@ export function commitNavigationRoots(
       reportRouteCleanupErrors(errors);
     };
 
+    // The destination renders with the identity its navigation resolved; a
+    // rollback puts the departing page's identity back with its DOM.
+    publishNavigationAuth(targets);
     try {
       // Replacement lifetimes render before refreshed ones.
       for (const replaceLifetime of [true, false]) {

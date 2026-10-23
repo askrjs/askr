@@ -3,6 +3,7 @@ import { renderRouteRequestToString, renderToString } from '../../../src/ssr';
 import { routeRegistryFromTable } from '../../router-test-utils';
 import { createDataRuntime, createQuery, defineQuery } from '../../../src/data';
 import { verifyHydrationSyncForUrl } from '../../../src/ssr/verify-hydration';
+import { publishResolvedAuth } from '../../../src/router/resolution';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 import {
   createRouteRegistry,
@@ -192,11 +193,13 @@ describe('verifyHydrationSyncForUrl', () => {
           },
         }
       );
-      await resolveRouteRequest('/', {
+      const other = await resolveRouteRequest('/', {
         registry: otherRegistry,
         mode: 'spa',
         load: false,
       });
+      // A browser navigation publishes its identity when it commits.
+      publishResolvedAuth(other);
 
       expect(currentAuth().principal?.id).toBe('route-b');
       expect(

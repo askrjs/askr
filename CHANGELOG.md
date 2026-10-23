@@ -80,6 +80,12 @@
 
 ### Fixes
 
+- Publish the identity a custom `resolve` produces when its navigation
+  commits (and at initial mount), not when it resolves. A page still on
+  screen while a navigation is pending, failed or superseded keeps reading
+  the identity it rendered with from `currentAuth()`; a rolled-back commit
+  restores it.
+
 - Index route records by their first segment for matching, memoize the last
   match per record list, and detect duplicate routes with a set lookup, so
   matching and registration no longer scale with the whole route table.

@@ -491,6 +491,12 @@ not contextually enforce or infer that schema for global authoring helpers.
 See [application route metadata](../guides/application-route-metadata.md) for
 reactive grants, declaration immutability and SSR/browser visibility boundaries.
 
+`currentAuth()` reads the identity of the committed page. A custom
+`resolve` runs for each navigation, and the identity it produces is
+published when that navigation commits, so a page still on screen while a
+navigation is pending, failed or superseded keeps the identity it rendered
+with.
+
 ## `onRouteChange(callback, options?)`
 
 Runs after a persistent component commits a pathname, query, or hash change. The

@@ -9,6 +9,7 @@ import {
 import { renderRouteRequestToString, renderToString } from '../../../src/ssr';
 import { renderResolvedForHydrationSync } from '../../../src/ssr/render-resolved';
 import { resetRouteState } from '../../router-test-utils';
+import { publishResolvedAuth } from '../../../src/router/resolution';
 
 function userAuth(id: string): AuthContext {
   return {
@@ -106,10 +107,16 @@ describe('request-local auth isolation during SSR', () => {
     expect(renderToString(Identity)).toBe('<div>anonymous</div>');
   });
 
-  it('should still publish the resolved identity for browser navigation', async () => {
+  it('should publish a browser navigation identity when its result is committed, not when it resolves', async () => {
     const registry = createAccountRegistry(userAuth);
-    await resolveRouteRequest('/account/alice', { registry, mode: 'spa' });
+    const result = await resolveRouteRequest('/account/alice', {
+      registry,
+      mode: 'spa',
+    });
 
+    // Resolving alone leaves the page's identity as it was.
+    expect(currentAuth().principal?.id).not.toBe('alice');
+    publishResolvedAuth(result);
     expect(currentAuth().principal?.id).toBe('alice');
   });
 });

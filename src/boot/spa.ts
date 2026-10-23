@@ -12,7 +12,11 @@ import {
 } from '../router/route';
 import { clearRouteState } from '../router/store';
 import { assertExecutionModel } from '../common/execution-model';
-import { getRouteRenderData, hasRouteRenderData } from '../router/resolution';
+import {
+  getRouteRenderData,
+  hasRouteRenderData,
+  publishResolvedAuth,
+} from '../router/resolution';
 import { createAppRenderRuntime } from '../common/app-render-runtime';
 import {
   mountOrUpdate,
@@ -119,6 +123,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
       );
     boot.assertCurrent();
     setServerLocation(currentUrl);
+    if (resolved) publishResolvedAuth(resolved);
     mountOrUpdate(
       rootElement,
       !resolved
