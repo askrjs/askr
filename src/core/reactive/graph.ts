@@ -414,6 +414,21 @@ function checkSources(root: Computation): void {
   const nodes: Computation[] = [root];
   const cursors: Iterator<Source>[] = [(root._sources ?? EMPTY).values()];
   root._walking = true;
+  try {
+    walkStaleSources(root, nodes, cursors);
+  } finally {
+    // A throwing run or comparator must not leave a node marked as walking,
+    // or later walks would skip it as a cycle and read a stale value.
+    for (const node of nodes) node._walking = false;
+    root._walking = false;
+  }
+}
+
+function walkStaleSources(
+  root: Computation,
+  nodes: Computation[],
+  cursors: Iterator<Source>[]
+): void {
   while (nodes.length > 0) {
     const top = nodes.length - 1;
     const node = nodes[top]!;

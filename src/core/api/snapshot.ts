@@ -58,7 +58,14 @@ export function makeReactiveFields<T extends object>(
       configurable: false,
       get: () => signal.read(),
       set: (next: unknown) => {
-        if (Object.is(signal._value, next)) return;
+        // A mutable object assigned again carries new contents (a buffer
+        // the source pushed into); only unchanged primitives are skipped.
+        if (
+          Object.is(signal._value, next) &&
+          (typeof next !== 'object' || next === null)
+        ) {
+          return;
+        }
         signal._value = next;
         notifySource(signal, getTrackingComputation() ?? undefined);
       },

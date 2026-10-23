@@ -107,6 +107,12 @@ function label(meta: Meta, action: string): string {
   return meta.name ? `store "${meta.name}" ${action}` : `store ${action}`;
 }
 
+const RAW_LOOKUPS = new Set<PropertyKey>([
+  'includes',
+  'indexOf',
+  'lastIndexOf',
+]);
+
 function wrap(value: unknown): unknown {
   return isWrappable(value) ? metaOf(value).proxy : value;
 }
@@ -125,6 +131,31 @@ function handlerFor(meta: Meta): ProxyHandler<object> {
     get(target, key, receiver) {
       if (key === RAW) return target;
       const value = Reflect.get(target, key, receiver);
+      // A frozen or otherwise non-configurable, non-writable property must
+      // report its own value through a proxy (an engine invariant), so it is
+      // returned raw and read without tracking.
+      if (typeof key !== 'symbol') {
+        const descriptor = Object.getOwnPropertyDescriptor(target, key);
+        if (
+          descriptor &&
+          descriptor.configurable === false &&
+          descriptor.writable === false
+        ) {
+          return value;
+        }
+      }
+      if (Array.isArray(target) && RAW_LOOKUPS.has(key)) {
+        // includes/indexOf compare against the raw elements, so the
+        // application's own object references are found.
+        if (isTracking()) (meta.version ??= new Signal(0)).read();
+        return (search: unknown, ...rest: unknown[]) =>
+          (
+            Array.prototype[key as 'includes' | 'indexOf' | 'lastIndexOf'] as (
+              this: unknown[],
+              ...args: unknown[]
+            ) => unknown
+          ).call(target, unwrap(search), ...rest);
+      }
       if (isTracking()) {
         if (Array.isArray(target) && ITERATING.has(key)) {
           (meta.version ??= new Signal(0)).read();
