@@ -136,11 +136,43 @@ it('should share one recovery for reports of the same failure before navigating'
   );
 });
 
-it('should compute a fresh login target for each interaction failure', async () => {
+it('should compute a fresh login target for a later interaction failure', async () => {
   const auth = createSessionAuth({ fetch: vi.fn() });
   const state = getSessionAuthState(auth)!;
-  expect(state.recover(problem, '/a')?.href).toBe('/login?next=%2Fa');
+  const first = state.recover(problem, '/a');
+  expect(first?.href).toBe('/login?next=%2Fa');
+  // The same tick shares the target with every report of the failure.
+  expect(state.recover(problem, '/other')).toBe(first);
+  await Promise.resolve();
   expect(state.recover(problem, '/b?x=1')?.href).toBe(
     '/login?next=%2Fb%3Fx%3D1'
   );
+});
+
+it('should not restart the boot after a consent recovery loads the provider document', async () => {
+  const consent = { ...problem, reason: 'consent' };
+  let loads = 0;
+  const auth = createSessionAuth({
+    fetch: vi.fn().mockResolvedValue(Response.json(user('a'))),
+  });
+  const registry = createRouteRegistry(
+    () => {
+      route('/private', () => <main>private</main>, {
+        auth: requireUser(),
+        loader: async () => {
+          loads += 1;
+          throw {
+            result: { ok: false, kind: 'http', status: 401, error: consent },
+          };
+        },
+      });
+      route('/login', () => <main>login</main>);
+    },
+    { auth }
+  );
+  await createSPA({ root: view.container, registry });
+  await settle();
+  expect(loads).toBe(1);
+  expect(vi.mocked(loadDocument)).toHaveBeenCalledTimes(1);
+  expect(String(vi.mocked(loadDocument).mock.calls[0][0])).toContain('auth0');
 });

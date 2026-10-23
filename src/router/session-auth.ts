@@ -230,7 +230,10 @@ export function createSessionAuth(
   let stopEvents: (() => void) | undefined;
   let channel: BroadcastChannel | undefined;
   let eventGeneration = 0;
+  /** Shared by reports of one failure until its navigation is issued. */
   let recoveryTarget: SessionRecovery | undefined;
+  /** The latest recovery, kept until the identity changes (boot guard). */
+  let lastRecovery: SessionRecovery | undefined;
   let transitions = 0;
   let announced = false;
 
@@ -303,6 +306,7 @@ export function createSessionAuth(
     }
     cached = value;
     recoveryTarget = undefined;
+    lastRecovery = undefined;
     identity.write(value);
   };
   const session = (signal: AbortSignal): AuthContext | Promise<AuthContext> => {
@@ -377,6 +381,7 @@ export function createSessionAuth(
       };
     }
     const target = recoveryTarget;
+    lastRecovery = target;
     if (mountedRoots.size) {
       const ownGeneration = generation;
       queueMicrotask(() => {
@@ -390,8 +395,11 @@ export function createSessionAuth(
         else navigateToPublicHref(target.href, { replace: true });
       });
     } else {
-      // The caller navigates; nothing else can share this recovery.
-      recoveryTarget = undefined;
+      // The caller navigates in this tick; reports in the same tick share
+      // the target, and a later failure computes a fresh one.
+      queueMicrotask(() => {
+        if (recoveryTarget === target) recoveryTarget = undefined;
+      });
     }
     return target;
   };
@@ -417,6 +425,7 @@ export function createSessionAuth(
       )
         return;
       recoveryTarget = undefined;
+      lastRecovery = undefined;
       // A channel message is only an invalidation hint. It may be delayed
       // past a newer login, so always consult the current server authority.
       invalidate(undefined);
@@ -477,6 +486,7 @@ export function createSessionAuth(
         throw new Error('[Askr] Session logout requires a browser.');
       // Invalidate before the network await; older GET completions cannot win.
       recoveryTarget = undefined;
+      lastRecovery = undefined;
       invalidate(anonymous);
       const ownGeneration = generation;
       // The server session is still alive when the request fails: drop the
@@ -536,7 +546,7 @@ export function createSessionAuth(
       return true;
     },
     hasMountedRoots: () => mountedRoots.size > 0,
-    isDocumentRecovery: () => recoveryTarget?.document === true,
+    isDocumentRecovery: () => lastRecovery?.document === true,
     attach(root, callback, mounted = true) {
       roots.set(root, callback);
       if (mounted) mountedRoots.add(root);
