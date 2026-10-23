@@ -67,6 +67,10 @@
 
 ### Fixes
 
+- Look ahead for the matching sibling when a server node does not match the
+  element the client renders during hydration, so one extra server node is
+  dropped on its own instead of every later sibling being recreated.
+
 - Subscribe to a reactive source as it is read. A write to a source first
   read in the same run (a `watch()` source or effect that reads and then
   writes the same state) now re-runs the computation instead of being lost

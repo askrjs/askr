@@ -143,23 +143,42 @@ export class HydrationCursor {
     this.next.set(container, this.followingSibling(node));
   }
 
+  /**
+   * Claim the element under the cursor when it has the expected tag. When
+   * it does not, look ahead a bounded number of siblings for one that does:
+   * an extra server node then costs only itself, not every sibling after
+   * it. Skipped server nodes stay unclaimed and are removed at commit.
+   */
   claimElement(
     container: Node,
     tag: string,
     namespace: string | null
   ): Element | null {
-    const node = this.peek(container);
-    if (!node || node.nodeType !== 1) return null;
-    const el = node as Element;
+    let node = this.peek(container);
+    if (!node) return null;
     const expectedNs = namespace ?? 'http://www.w3.org/1999/xhtml';
-    const matchesTag =
-      expectedNs === 'http://www.w3.org/1999/xhtml'
-        ? el.localName === tag.toLowerCase()
-        : el.localName === tag;
-    if (!matchesTag) return null;
-    if ((el.namespaceURI ?? expectedNs) !== expectedNs) return null;
-    this.advance(container, el);
-    return el;
+    const expectedName =
+      expectedNs === 'http://www.w3.org/1999/xhtml' ? tag.toLowerCase() : tag;
+    for (let distance = 0; node && node !== this.stopAt; distance++) {
+      if (
+        node.nodeType === 1 &&
+        (node as Element).localName === expectedName &&
+        ((node as Element).namespaceURI ?? expectedNs) === expectedNs
+      ) {
+        this.advance(container, node);
+        return node as Element;
+      }
+      if (distance >= MISMATCH_LOOKAHEAD) return null;
+      // Reserved portal output belongs to another render.
+      if (
+        isRangeMarker(node, 'askr-range-start') ||
+        isRangeMarker(node, 'askr-range-end')
+      ) {
+        return null;
+      }
+      node = this.followingSibling(node);
+    }
+    return null;
   }
 
   /**
@@ -190,6 +209,9 @@ export class HydrationCursor {
     return textNode;
   }
 }
+
+/** Siblings examined after a mismatch before giving up on adoption. */
+const MISMATCH_LOOKAHEAD = 16;
 
 function isRangeMarker(node: Node, data: string): boolean {
   return node.nodeType === 8 && (node as Comment).data === data;
