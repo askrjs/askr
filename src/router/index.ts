@@ -72,6 +72,7 @@ export type { LazyRouteComponent, LazyRouteDataLoader } from './lazy';
 export type { RouteDataLoadPhase } from './route-data-loader';
 export { RouteDataLoadError } from './route-data-loader';
 export { to } from './destination';
+export { localTarget } from './local-target';
 export {
   reconcileRouteMeta,
   resolveRouteMeta,

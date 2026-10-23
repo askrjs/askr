@@ -22,6 +22,7 @@ import {
   layoutData,
   lazy,
   lazyRouteData,
+  localTarget,
   blockNavigation,
   matchRoute,
   navigate,
@@ -604,3 +605,9 @@ expectAssignable<LinkProps>({
 });
 expectError<LinkProps>({ href: '/next', prefetch: 'eager' });
 expectError<LinkProps>({ href: '/next', scroll: 'smooth' });
+
+// Same-origin navigation of untrusted targets.
+expectType<string>(localTarget(null));
+expectType<string>(localTarget('/next', '/home'));
+expectType<void>(navigate('/next', { sameOrigin: true }));
+expectError(localTarget(undefined));

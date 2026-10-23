@@ -68,6 +68,11 @@
   `derive(fn, { equals })` and `derive(source, map, { equals })`. A comparator that
   returns true suppresses the notification. The default stays `Object.is`.
   See `docs/core/runtime.md#custom-equality`.
+- Add `localTarget(value, fallback = '/')` at `@askrjs/askr/router`, which
+  reduces an untrusted navigation target to a same-origin root-relative href or
+  the fallback, and a `sameOrigin: true` option for `navigate()` that throws for
+  any cross-origin target, including an explicit `http(s)` URL.
+
 - Add `replace`, `state`, `scroll` (`'top' | 'preserve'`) and `prefetch`
   (`'intent' | 'render' | 'none'`, default `'none'`) props to `Link`. Prefetch
   starts the route's lazy chunk and resolves it through the loader cache on

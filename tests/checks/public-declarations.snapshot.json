@@ -705,6 +705,9 @@
       "LinkProps": [
         "type LinkProps = LinkBaseProps & ({\n    href: string;\n    to?: never;\n} | {\n    href?: never;\n    to: RouteDestination;\n});"
       ],
+      "localTarget": [
+        "declare function localTarget(value: string | null, fallback?: string): string;"
+      ],
       "matchRoute": [
         "declare function matchRoute<TAppMeta = unknown>(pathname: string, options: {\n    registry: RouteRegistry;\n}): RouteMatch<RouteParams, TAppMeta> | null;"
       ],
@@ -712,7 +715,7 @@
         "declare function navigate(target: string | RouteDestination, options?: NavigateOptions): void;"
       ],
       "NavigateOptions": [
-        "type NavigateOptions = {\n    history?: \"push\" | \"replace\";\n    replace?: boolean;\n    scroll?: NavigationScrollBehavior;\n    state?: unknown;\n};"
+        "type NavigateOptions = {\n    history?: \"push\" | \"replace\";\n    replace?: boolean;\n    scroll?: NavigationScrollBehavior;\n    state?: unknown;\n    sameOrigin?: boolean;\n};"
       ],
       "NavigationScrollBehavior": [
         "type NavigationScrollBehavior = \"top\" | \"preserve\";"
@@ -1692,6 +1695,9 @@
     "ListItemIntrinsicProps": [
       "type ListItemIntrinsicProps = StructuredContentIntrinsicProps<{\n    value?: ReactiveProp<IntrinsicNumberValue>;\n}>;"
     ],
+    "localTarget": [
+      "declare function localTarget(value: string | null, fallback?: string): string;"
+    ],
     "Match": ["declare function Match(_props: MatchProps): null;"],
     "MatchChild": ["type MatchChild = BoundaryChild | (() => BoundaryChild);"],
     "MatchProps": [
@@ -1762,7 +1768,7 @@
       "declare function navigate(target: string | RouteDestination, options?: NavigateOptions): void;"
     ],
     "NavigateOptions": [
-      "type NavigateOptions = {\n    history?: \"push\" | \"replace\";\n    replace?: boolean;\n    scroll?: NavigationScrollBehavior;\n    state?: unknown;\n};"
+      "type NavigateOptions = {\n    history?: \"push\" | \"replace\";\n    replace?: boolean;\n    scroll?: NavigationScrollBehavior;\n    state?: unknown;\n    sameOrigin?: boolean;\n};"
     ],
     "NavigationScrollBehavior": [
       "type NavigationScrollBehavior = \"top\" | \"preserve\";"

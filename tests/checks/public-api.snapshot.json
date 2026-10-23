@@ -317,6 +317,7 @@
     "layoutData",
     "lazy",
     "lazyRouteData",
+    "localTarget",
     "matchRoute",
     "navigate",
     "navigationState",

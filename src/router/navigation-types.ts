@@ -14,6 +14,12 @@ export type NavigateOptions = {
   scroll?: NavigationScrollBehavior;
   /** Entry-local browser history state. It is not serialized into the URL or sent to the server. */
   state?: unknown;
+  /**
+   * Throw a `TypeError` for any target on another origin, including an
+   * explicit `http:`/`https:` URL, which `navigate()` otherwise hands to the
+   * browser. Use it when the target came from untrusted input.
+   */
+  sameOrigin?: boolean;
 };
 
 export type NavigationRedirectState = {

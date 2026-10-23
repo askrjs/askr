@@ -34,6 +34,7 @@ import type {
 } from './navigation-types';
 import type { RouteDestination } from '../common/router';
 import { addLogicalRouteBasePath } from './base-path';
+import { resolveNavigationUrl } from '../common/url';
 import { loadDocument } from './document-navigation';
 import { getActiveRouteBasePath } from './store';
 import {
@@ -131,12 +132,26 @@ export function navigate(
   target: string | RouteDestination,
   options: NavigateOptions = {}
 ): void {
+  if (options.sameOrigin && typeof target === 'string') {
+    assertSameOriginTarget(target);
+  }
   navigateToPublicHref(
     typeof target === 'string'
       ? addLogicalRouteBasePath(target, getActiveRouteBasePath())
       : target.href,
     options
   );
+}
+
+/** Throw unless `target` resolves to the document's own origin. */
+function assertSameOriginTarget(target: string): void {
+  if (typeof window === 'undefined') return;
+  const url = resolveNavigationUrl(target, window.location.href);
+  if (url.origin !== window.location.origin) {
+    throw new TypeError(
+      `navigate() with sameOrigin refused ${JSON.stringify(target)}: it is on another origin.`
+    );
+  }
 }
 
 /** Navigate to a public (already mounted) href without adding the `basePath`. */

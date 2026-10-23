@@ -334,6 +334,16 @@ declare function to$1<
   params: TParams,
   search?: TSearch
 ): RouteDestination;
+/**
+ * Reduce an untrusted navigation target (a \`?next=\` query value, a form field)
+ * to a same-origin root-relative href, or \`fallback\` when it names anything
+ * else. Relative values resolve against the origin root. The checks are those
+ * of \`navigate()\`: another origin, a path-like value the URL parser resolves
+ * to another host (\`//evil.example\`, \`/\\evil.example\`), a pathname that
+ * collapses to a leading \`//\`, and non-http schemes all use the fallback.
+ * On a server, where the origin is unknown, only root-relative values pass.
+ */
+declare function localTarget(value: string | null, fallback?: string): string;
 /** Resolve a route's merged {@link RouteMeta} by running its metadata chain against `context`. */
 declare function resolveRouteMeta(
   record: RouteRecord,
@@ -583,6 +593,7 @@ export {
   layoutData,
   lazy,
   lazyRouteData,
+  localTarget,
   matchRoute,
   navigate,
   navigationState,

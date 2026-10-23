@@ -784,19 +784,31 @@ render.
 
 `navigate()` and `redirect()` are redirect sinks, and so is a server that copies
 `decision.to` into a `Location` header. Askr refuses path-like cross-origin
-targets, but an explicit `https://evil.example` is still followed. Validate
-untrusted input, such as a `?next=` query value, by parsing it: a leading
-single `/` is not enough. Compare the parsed origin with your own, and reject a
-parsed pathname that starts with `//`, since dot segments can produce one:
+targets, but an explicit `https://evil.example` is still followed. For
+untrusted input, such as a `?next=` query value, use `localTarget()` and the
+`sameOrigin` option:
 
 ```ts
-function safeNext(value: string | null): string {
-  const url = new URL(value ?? '/', location.origin);
-  return url.origin === location.origin && !url.pathname.startsWith('//')
-    ? `${url.pathname}${url.search}${url.hash}`
-    : '/';
-}
+import { localTarget, navigate } from '@askrjs/askr/router';
+
+// After sign-in: the destination came from the URL, so reduce it first.
+const next = new URLSearchParams(location.search).get('next');
+navigate(localTarget(next, '/dashboard'));
+
+// Or refuse anything off-origin outright.
+navigate(next ?? '/', { sameOrigin: true });
 ```
+
+`localTarget(value, fallback = '/')` returns `value` as a same-origin
+root-relative href (path, query and fragment), or `fallback` when `value` is
+missing, names another origin (including an explicit `https://` URL), parses to
+another host (`//evil.example`, `/\evil.example`), collapses to a leading `//`
+(`/.//evil.example`) or uses a non-http scheme. A relative value resolves
+against the origin root; an absolute URL on the current origin is accepted and
+returned root-relative. `navigate(target, { sameOrigin: true })` throws a
+`TypeError` for any target on another origin, including an explicit `http(s)`
+URL, instead of handing it to the browser. A server has no origin to compare
+with, so there `localTarget()` accepts only root-relative values.
 
 When navigation replaces the active route,
 Askr disposes route-local component state, resources, tasks, and abort signals
