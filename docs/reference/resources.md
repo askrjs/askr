@@ -27,6 +27,11 @@ Returns an object with:
 - `error`
 - `refresh()`
 
+An asynchronous loader failure is delivered through `error`. Development
+builds also write it to the console with `logger.error`; production builds never
+log it, and reading `error` does not log. Each field is reactive on its own: a
+component that reads only `error` does not re-render when `value` changes.
+
 Example (inside a component render):
 
 ```ts

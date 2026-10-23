@@ -118,6 +118,9 @@
   keeps component state and a navigation in flight. Explicit and cross-tab
   logout hints still retire private state immediately.
 
+- Log an async `resource()` failure to the console only in development. The
+  failure was logged in production as well as surfaced through `.error`; it is
+  now only surfaced, and reading `.error` never logs.
 - Compare the value of a single `watch()` source with `Object.is`, like
   `state()` and `derive()`. A source function that returns an array was
   compared element by element, so replacing `[1]` with another `[1]` did not

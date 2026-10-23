@@ -1,3 +1,4 @@
+import { isProductionEnvironment } from '../../common/env';
 import { logger } from '../../common/logger';
 import { isPromiseLike } from '../../common/promise';
 import { throwSSRDataMissing } from '../../common/render-context';
@@ -134,7 +135,9 @@ export class ResourceCell<U> {
       if (!current()) return;
       this.pending = false;
       this.error = error;
-      if (asynchronous) this.reportError(reason);
+      // The failure is surfaced through `snapshot.error`; the console copy
+      // is a development aid and is never written in production.
+      if (asynchronous && !isProductionEnvironment()) this.reportError(reason);
       if (current() && (notify || asynchronous)) this.notifySubscribers();
     };
 
