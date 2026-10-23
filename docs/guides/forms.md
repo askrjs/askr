@@ -92,9 +92,13 @@ it follows the same rule as `state()`: call it during render, at the top level
 of the component. Call the returned `submit(input)` from event handlers when the
 interaction is deliberately client-driven. It uses the same descriptor, handler,
 validation, cookies, and redirects, then processes the result and declared query
-invalidations. When the outcome includes a redirect, it performs full-document
-navigation so cookies, authentication, loaders, and SSR state all refresh
-together.
+invalidations. When the outcome includes a redirect (always same-origin), a
+routed app follows it through the router, as `navigate()` does: the destination
+route resolves, its loaders run and the page renders in place. An island or
+other unrouted code performs a full-document navigation. After an action that
+changes identity, such as a sign-in, rely on the router's auth resolution
+(for example `createSessionAuth()`), or submit the form natively to get a fresh
+document.
 
 A failed client-driven submission rejects, and sets `state().error`, with one
 of two shapes. A 422 validation replay for the same action stays the

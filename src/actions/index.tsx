@@ -14,6 +14,7 @@ import {
 import { readActionFramework } from './runtime';
 import { isCurrentAsyncGeneration, raceAbort } from '../data/shared';
 import { resolveNavigationUrl } from '../common/url';
+import { followSameOriginRedirect } from '../common/redirect-host';
 
 const actionSubmissionGenerations = new WeakMap<object, number>();
 const actionRuntimeBindings = new WeakMap<
@@ -108,7 +109,7 @@ function initialStatus<TResult>(actionId: string): ActionStatus<TResult> {
  * Validate an action redirect and return its absolute URL. Path-like targets
  * that leave the origin, including dot segments that collapse to `//host`,
  * are refused by {@link resolveNavigationUrl}; explicit URLs on another origin
- * are refused here. The absolute form keeps `location.assign()` on the origin.
+ * are refused here. The absolute form keeps the redirect on the origin.
  */
 function normalizeActionRedirect(value: string): string {
   const current = new URL(location.href);
@@ -316,7 +317,7 @@ export function action<
         ) {
           setValue({ pending: false, result: envelope.result });
           signal?.throwIfAborted();
-          if (redirect) location.assign(redirect);
+          if (redirect) followSameOriginRedirect(redirect);
         }
         return envelope.result as TResult;
       } catch (error) {

@@ -54,6 +54,7 @@ import {
 } from './history-index';
 import { reloadDocument } from './document-navigation';
 import { configureRouteRetry } from './route-error';
+import { configureRedirectHost } from '../common/redirect-host';
 import {
   allowNavigationLeave,
   hasNavigationBlockers,
@@ -93,6 +94,12 @@ export type {
 } from './route-query';
 export type { NavigateOptions };
 
+/** Render a same-origin redirect decided outside the router in place. */
+function followRedirectThroughRouter(href: string): void {
+  const target = parseTargetUrl(href);
+  navigateToPublicHref(`${target.pathname}${target.search}${target.hash}`);
+}
+
 /** Resolve the rendered location again; it replaces its own history entry. */
 function retryCurrentRoute(): void {
   if (typeof window === 'undefined') return;
@@ -119,6 +126,7 @@ function ensureNavigationRegistryHost(): void {
   navigationRegistryHosted = true;
   configureNavigationRegistryHost({ cancelRouteRequests });
   configureRouteRetry(retryCurrentRoute);
+  configureRedirectHost(followRedirectThroughRouter);
 }
 
 /**

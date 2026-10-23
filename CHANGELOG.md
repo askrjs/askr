@@ -196,6 +196,11 @@
   own when that field changes, instead of relying on the declaring component to
   re-render, and the declaring component no longer re-renders for results it
   does not read. The snapshot shape and types are unchanged.
+- A server action redirect in a routed app is now followed through the router
+  (same-origin targets only, as before) instead of `location.assign()`, so the
+  destination renders without a document load. Unrouted code still assigns the
+  location.
+
 - Merging route metadata no longer repeats `links` with the same `rel` and
   `href` or identical `jsonLd` blocks declared by a group, page and route; the
   most specific link wins.
