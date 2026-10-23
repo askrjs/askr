@@ -168,6 +168,10 @@
   intrinsic `on*` prop: `Passive` and `Once` (and their combinations with
   `Capture`), for example `onWheelPassive` and `onClickOnce`.
 
+- Accept class arrays and objects on intrinsic `class` and `className`
+  (`class={['a', { b: cond }, null]}`), rendered the same way on the client and
+  on the server.
+
 ### Fixes
 
 - Publish the identity a custom `resolve` produces when its navigation

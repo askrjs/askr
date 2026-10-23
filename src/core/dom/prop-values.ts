@@ -3,6 +3,7 @@ import {
   booleanAttributeValue,
   isSkippedProp,
   keepsFalseValue,
+  normalizeClassValue,
 } from '../../common/prop-classification';
 import {
   rejectRawHtmlAttribute,
@@ -84,7 +85,9 @@ export function applyStaticScalarPropsToElement(
       continue;
     }
 
-    const value = props[key];
+    let value = props[key];
+    if (key === 'class' || key === 'className')
+      value = normalizeClassValue(value);
     if (applyDomPropertyProp(el, key, value, tagName)) {
       continue;
     }
@@ -120,6 +123,10 @@ export function applyScalarPropValue(
   previousValue?: unknown,
   descriptor?: ClassTokenDescriptor
 ): void {
+  if (key === 'class' || key === 'className') {
+    value = normalizeClassValue(value);
+    previousValue = normalizeClassValue(previousValue);
+  }
   if (
     key === 'dangerouslySetInnerHTML' &&
     !isDangerousInnerHTMLPayload(value)

@@ -1486,9 +1486,10 @@
     "IntrinsicBooleanValue": [
       "type IntrinsicBooleanValue = boolean | null | undefined;"
     ],
-    "IntrinsicClassValue": [
-      "type IntrinsicClassValue = string | null | undefined | false;"
+    "IntrinsicClassName": [
+      "type IntrinsicClassName = string | number | null | undefined | false | readonly IntrinsicClassName[] | {\n    readonly [name: string]: unknown;\n};"
     ],
+    "IntrinsicClassValue": ["type IntrinsicClassValue = IntrinsicClassName;"],
     "IntrinsicDataValue": [
       "type IntrinsicDataValue = string | number | boolean | null | undefined;"
     ],

@@ -19,7 +19,16 @@ type ReactiveProp<T> = T | (() => T);
 type BivariantHandler<T> = {
   bivarianceHack(value: T): void;
 }['bivarianceHack'];
-type IntrinsicClassValue = string | null | undefined | false;
+/** A class name, or a nested list or object of them: `['a', { b: cond }]`. */
+type IntrinsicClassName =
+  | string
+  | number
+  | null
+  | undefined
+  | false
+  | readonly IntrinsicClassName[]
+  | { readonly [name: string]: unknown };
+type IntrinsicClassValue = IntrinsicClassName;
 type IntrinsicAriaValue = string | number | boolean | null | undefined;
 type IntrinsicDataValue = string | number | boolean | null | undefined;
 type IntrinsicBooleanValue = boolean | null | undefined;

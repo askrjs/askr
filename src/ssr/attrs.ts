@@ -11,6 +11,7 @@ import {
   booleanAttributeValue,
   isSkippedProp,
   keepsFalseValue,
+  normalizeClassValue,
 } from '../common/prop-classification';
 import {
   isRawHtmlAttribute,
@@ -183,7 +184,9 @@ export function renderAttrsDirect(
       continue;
     }
 
-    const value = resolvePropValue(propsObj[key]);
+    let value = resolvePropValue(propsObj[key]);
+    if (key === 'class' || key === 'className')
+      value = normalizeClassValue(value);
     if (isPropertyOnlyProp(tagName, key, value)) continue;
     // `attr:` renders text only; objects (even `attr:style`) are left out on
     // both sides rather than serialized differently.
@@ -271,7 +274,8 @@ export function getRenderedAttributeValue(
     const attrName = getPublicAttributeName(key);
     if (attrName.toLowerCase() !== name) continue;
 
-    const value = resolvePropValue(propsObj[key]);
+    let value = resolvePropValue(propsObj[key]);
+    if (attrName === 'class') value = normalizeClassValue(value);
     if (attrName === 'style') {
       const css = typeof value === 'string' ? value : styleObjToCss(value);
       if (!css) continue;

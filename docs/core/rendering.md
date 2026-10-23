@@ -307,6 +307,20 @@ setting `style.transform`, a tooltip adding `data-*`, or `classList.add(...)`.
   development) it removes every attribute the client does not render, so a
   mismatch shows up.
 
+### Class values
+
+`class` and `className` take a string, or a list or object of class names that
+renders as a string on the client and on the server:
+
+```tsx
+<li class={['item', { active: selected(), disabled: off }, extra]} />
+```
+
+Strings, numbers and nested lists contribute their names; falsy items are
+skipped; an object contributes the keys whose values are truthy. A collection
+that names nothing renders no `class` attribute. A changing collection updates
+only the tokens Askr owns, like a changing string.
+
 ### Attributes and DOM properties
 
 Intrinsic props render as attributes, so SSR can serialize them and hydration

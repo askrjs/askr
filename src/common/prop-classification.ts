@@ -121,3 +121,31 @@ const BOOLEAN_HTML_ATTRIBUTES = new Set(
 export function booleanAttributeValue(attributeName: string): string {
   return BOOLEAN_HTML_ATTRIBUTES.has(attributeName.toLowerCase()) ? '' : 'true';
 }
+
+function collectClassTokens(value: unknown, out: string[]): void {
+  if (typeof value === 'string') {
+    if (value) out.push(value);
+  } else if (typeof value === 'number' || typeof value === 'bigint') {
+    out.push(String(value));
+  } else if (Array.isArray(value)) {
+    for (const item of value) collectClassTokens(item, out);
+  } else if (value !== null && typeof value === 'object') {
+    for (const name in value as Record<string, unknown>) {
+      if ((value as Record<string, unknown>)[name]) out.push(name);
+    }
+  }
+}
+
+/**
+ * The value a `class`/`className` prop renders: a string, number or other
+ * scalar is returned as is, and an array (nested, with falsy items skipped) or
+ * an object (the names of its truthy entries) becomes its class names joined
+ * by spaces, or `null` when it names none. Both renderers use this, so they
+ * agree on collections.
+ */
+export function normalizeClassValue(value: unknown): unknown {
+  if (value === null || typeof value !== 'object') return value;
+  const tokens: string[] = [];
+  collectClassTokens(value, tokens);
+  return tokens.length > 0 ? tokens.join(' ') : null;
+}
