@@ -842,6 +842,66 @@ was followed from. If other code writes an entry, for example with
 Askr wrote, and a failed Back/Forward reloads the landed URL instead of guessing
 which entry to return to.
 
+## `navigationState()`
+
+`navigationState()` returns `{ pending, to, revalidating }`:
+
+- `pending`: a client navigation is waiting on route resolution (auth,
+  policies, lazy chunk, `preload`, loaders). It stays false for navigations
+  that resolve synchronously, such as to a cached route with no policies.
+- `to`: the public href being navigated to while `pending`, else `null`.
+- `revalidating`: cached route data is being refreshed in the background (see
+  [Loader cache](#loader-cache)).
+
+Called while rendering a client component it is reactive: the component renders
+again when a field changes. The returned object is replaced, never mutated.
+Outside a component it reads the current value. On the server it is always idle.
+
+```tsx
+import { navigationState } from '@askrjs/askr/router';
+
+function TopBar() {
+  const { pending } = navigationState();
+  return <progress hidden={!pending} aria-label="Loading page" />;
+}
+```
+
+## `blockNavigation(shouldBlock)`
+
+Asks before the router leaves the current page, for forms with unsaved work.
+`shouldBlock` returns `false` to allow, `true` to refuse silently (show your own
+dialog, then unblock and navigate), or a string to ask the visitor to confirm
+with `window.confirm(message)`. The first blocker that objects decides. It is
+evaluated for `navigate()`, `<Link>` clicks and back/forward traversals, and,
+while any blocker is registered, for `beforeunload`. The returned function
+removes the blocker.
+
+```ts
+import { blockNavigation } from '@askrjs/askr/router';
+
+let dirty = false;
+const unblock = blockNavigation(() =>
+  dirty ? 'You have unsaved changes. Leave this page?' : false
+);
+
+// Call unblock() when the form is saved or its view is torn down.
+unblock();
+```
+
+Limitations:
+
+- A blocked back/forward traversal has already moved the browser. The router
+  returns to the rendered entry with `history.go()` using the history index it
+  stamps on entries it writes, so the destination URL can flash and the
+  traversal is only undone when that position is known; otherwise the
+  traversal proceeds.
+- `updateRouteQuery()` and router redirects are not blocked; documents opened
+  by `target="_blank"` are not affected.
+- The `beforeunload` prompt uses the browser's fixed text; a string result only
+  matters for in-app navigation.
+- Blockers are global to the page, not scoped to a component: remove them with
+  the returned function.
+
 ## `updateRouteQuery(updates, options)`
 
 Updates the current URL query string without resolving or remounting the route.

@@ -46,6 +46,9 @@ import {
   NavigationScrollBehavior,
   NavigateOptions,
   HistoryScrollBehavior,
+  NavigationState,
+  navigationState,
+  blockNavigation,
   navigate,
 } from '../navigation.js';
 import {
@@ -498,6 +501,7 @@ export {
   type LinkProps,
   type NavigateOptions,
   type NavigationScrollBehavior,
+  type NavigationState,
   Outlet,
   type PageHelperOptions,
   Resolve,
@@ -543,6 +547,7 @@ export {
   type ScrollRestorationOptions,
   type UpdateRouteQueryOptions,
   allow,
+  blockNavigation,
   createRouteRegistry,
   createSessionAuth,
   type SessionAuth,
@@ -562,6 +567,7 @@ export {
   lazyRouteData,
   matchRoute,
   navigate,
+  navigationState,
   notFound,
   onRouteChange,
   page,

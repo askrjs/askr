@@ -640,6 +640,9 @@
         "interface AccessRedirectDecision {\n    kind: \"redirect\";\n    to: string;\n    status?: AccessRedirectStatus;\n    replace?: boolean;\n}"
       ],
       "allow": ["declare function allow(): AccessAllowDecision;"],
+      "blockNavigation": [
+        "declare function blockNavigation(shouldBlock: () => boolean | string): () => void;"
+      ],
       "createRouteRegistry": [
         "declare function createRouteRegistry(definition: RouteDefinition, options?: RouteRegistryOptions): RouteRegistry;"
       ],
@@ -713,6 +716,12 @@
       ],
       "NavigationScrollBehavior": [
         "type NavigationScrollBehavior = \"top\" | \"preserve\";"
+      ],
+      "navigationState": [
+        "declare function navigationState(): NavigationState;"
+      ],
+      "NavigationState": [
+        "interface NavigationState {\n    readonly pending: boolean;\n    readonly to: string | null;\n    readonly revalidating: boolean;\n}"
       ],
       "notFound": ["declare function notFound(): AccessDenyDecision;"],
       "onRouteChange": [
@@ -1094,6 +1103,9 @@
     "batch": ["declare function batch<T>(fn: () => T): T;"],
     "BivariantHandler": [
       "type BivariantHandler<T> = {\n    bivarianceHack(value: T): void;\n}[\"bivarianceHack\"];"
+    ],
+    "blockNavigation": [
+      "declare function blockNavigation(shouldBlock: () => boolean | string): () => void;"
     ],
     "BootRouteSource": [
       "type BootRouteSource = {\n    registry: RouteRegistry;\n};"
@@ -1754,6 +1766,10 @@
     ],
     "NavigationScrollBehavior": [
       "type NavigationScrollBehavior = \"top\" | \"preserve\";"
+    ],
+    "navigationState": ["declare function navigationState(): NavigationState;"],
+    "NavigationState": [
+      "interface NavigationState {\n    readonly pending: boolean;\n    readonly to: string | null;\n    readonly revalidating: boolean;\n}"
     ],
     "notFound": ["declare function notFound(): AccessDenyDecision;"],
     "on": [

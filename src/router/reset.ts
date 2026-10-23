@@ -7,6 +7,8 @@ import { resetNavigationScroll } from './navigation-scroll';
 import { cancelRouteRequests } from './navigation-request';
 import { clearRouteState } from './store';
 import { resetRouteMetaBaseline } from './metadata';
+import { resetNavigationBlockers } from './navigation-block';
+import { clearPendingNavigation } from './navigation-state';
 
 /**
  * Return every part of the router to its initial state.
@@ -32,4 +34,6 @@ export function resetRouterState(): void {
   resetLazyRoutes();
   resetClientAuth();
   resetRouteMetaBaseline();
+  resetNavigationBlockers();
+  clearPendingNavigation();
 }

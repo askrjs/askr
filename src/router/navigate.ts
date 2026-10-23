@@ -53,8 +53,20 @@ import {
 } from './history-index';
 import { reloadDocument } from './document-navigation';
 import { configureRouteRetry } from './route-error';
+import {
+  allowNavigationLeave,
+  hasNavigationBlockers,
+} from './navigation-block';
+import {
+  beginPendingNavigation,
+  clearPendingNavigation,
+  endPendingNavigation,
+} from './navigation-state';
 
 export { configureScrollRestoration } from './navigation-scroll';
+export { blockNavigation } from './navigation-block';
+export { navigationState } from './navigation-state';
+export type { NavigationState } from './navigation-state';
 export type {
   HistoryScrollBehavior,
   NavigationScrollBehavior,
@@ -80,7 +92,8 @@ function retryCurrentRoute(): void {
   if (typeof window === 'undefined') return;
   navigateToPublicHref(
     `${window.location.pathname}${window.location.search}${window.location.hash}`,
-    { history: 'replace' }
+    { history: 'replace' },
+    { skipBlockers: true }
   );
 }
 
@@ -124,12 +137,14 @@ export function navigate(
 /** Navigate to a public (already mounted) href without adding the `basePath`. */
 export function navigateToPublicHref(
   href: string,
-  options: NavigateOptions = {}
+  options: NavigateOptions = {},
+  internal?: { skipBlockers?: boolean }
 ): void {
   ensureNavigationRegistryHost();
   if (typeof window === 'undefined') {
     return;
   }
+  if (!internal?.skipBlockers && !allowNavigationLeave()) return;
 
   prepareNavigationFocus();
   cancelHistoryReturn();
@@ -201,8 +216,10 @@ function navigateWithRedirectState(
   );
 
   if (isPromiseLike(resolvedTargets)) {
+    beginPendingNavigation(request.id, href);
     void Promise.resolve(resolvedTargets).then(
       (targets) => {
+        endPendingNavigation(request.id);
         if (isStaleRouteRequest(request.id)) {
           return;
         }
@@ -223,6 +240,7 @@ function navigateWithRedirectState(
         }
       },
       (error) => {
+        endPendingNavigation(request.id);
         if (isStaleRouteRequest(request.id)) {
           return;
         }
@@ -249,6 +267,13 @@ function handlePopState(event: PopStateEvent): void {
     // A failed traversal returning to the entry that is still rendered.
     syncRegisteredRouteSnapshot();
     return;
+  }
+  if (hasNavigationBlockers() && !allowNavigationLeave()) {
+    // The browser already moved: record where it landed, then go back to the
+    // entry that is still rendered. Without a known position nothing can be
+    // undone, so the traversal proceeds.
+    landOnHistoryEntry(event.state);
+    if (returnToRenderedHistoryEntry()) return;
   }
   beginHistoryFocusRestoration();
   const request = beginRouteRequest();
@@ -283,7 +308,8 @@ function handlePopState(event: PopStateEvent): void {
         href,
         event.state,
         targets,
-        navigateToPublicHref
+        (path, options) =>
+          navigateToPublicHref(path, options, { skipBlockers: true })
       );
     } catch (error) {
       logger.error('[Askr] popstate navigation failed:', error);
@@ -297,11 +323,14 @@ function handlePopState(event: PopStateEvent): void {
   );
 
   if (isPromiseLike<AppNavigationTarget[]>(resolvedTargets)) {
+    beginPendingNavigation(request.id, href);
     void Promise.resolve(resolvedTargets).then(
       (next) => {
+        endPendingNavigation(request.id);
         applyResolved(next);
       },
       (error) => {
+        endPendingNavigation(request.id);
         if (isStaleRouteRequest(request.id)) {
           return;
         }
@@ -339,6 +368,7 @@ export function initializeNavigation(): void {
 export function cleanupNavigation(): void {
   ensureNavigationRegistryHost();
   cancelRouteRequests();
+  clearPendingNavigation();
 
   if (typeof window === 'undefined' || !navigationInitialized) {
     return;

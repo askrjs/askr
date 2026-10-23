@@ -68,6 +68,11 @@
   `derive(fn, { equals })` and `derive(source, map, { equals })`. A comparator that
   returns true suppresses the notification. The default stays `Object.is`.
   See `docs/core/runtime.md#custom-equality`.
+- Add `navigationState()` (`{ pending, to, revalidating }`, reactive in
+  components), `blockNavigation(shouldBlock)` and the `NavigationState` type at
+  `@askrjs/askr/router`. A blocker can refuse or confirm `navigate()`, links,
+  back/forward traversal (undone through the history index) and `beforeunload`.
+
 - Parse the inbound query string with a route's `search` schema. Loaders,
   `preload`, `meta` and policies receive the typed result as
   `context.searchParams`, and `currentRoute().search` exposes it (typed by a new

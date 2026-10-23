@@ -89,9 +89,15 @@ export {
 } from './deferred';
 export type { Deferred, DeferredState, ResolveProps } from './deferred';
 
-export { navigate, updateRouteQuery } from './navigate';
+export {
+  navigate,
+  updateRouteQuery,
+  blockNavigation,
+  navigationState,
+} from './navigate';
 export type {
   NavigateOptions,
+  NavigationState,
   NavigationScrollBehavior,
   HistoryScrollBehavior,
   ScrollRestorationOptions,

@@ -22,8 +22,10 @@ import {
   layoutData,
   lazy,
   lazyRouteData,
+  blockNavigation,
   matchRoute,
   navigate,
+  navigationState,
   notFound,
   page,
   redirect,
@@ -44,6 +46,7 @@ import {
   type LinkProps,
   type NavigateOptions,
   type NavigationScrollBehavior,
+  type NavigationState,
   type PageHelperOptions,
   type RouteRegistryOptions,
   type RouteComponent,
@@ -581,3 +584,12 @@ const searchSnapshot = currentRoute<
   { page: number }
 >();
 expectType<Readonly<{ page: number }>>(searchSnapshot.search);
+
+// Pending navigation state and navigation blockers.
+const pendingState: NavigationState = navigationState();
+expectType<boolean>(pendingState.pending);
+expectType<string | null>(pendingState.to);
+expectType<boolean>(pendingState.revalidating);
+expectType<() => void>(blockNavigation(() => 'Discard changes?'));
+expectType<() => void>(blockNavigation(() => true));
+expectError(blockNavigation(() => 1));
