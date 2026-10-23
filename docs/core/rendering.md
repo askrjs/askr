@@ -402,6 +402,10 @@ Values SSR cannot render are applied when the client hydrates. Attributes a
 property reflects (`prop:href` sets `href`, `prop:hidden` sets `hidden`) are
 kept on re-render like any other attribute Askr rendered.
 
+A `type="number"` input is compared by number: while the user types `1.0` or
+`1.5e2` the text is not rewritten when it equals the rendered value
+numerically, so the caret and the typed text survive a re-render.
+
 Removing `value` from an `<input>`, `<textarea>` or `<select>` resets the
 control to `''`. On any other element (`<option>`, `<button>`, `<li>`,
 `<progress>`) `value` is a plain attribute, so removing the prop removes the

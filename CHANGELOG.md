@@ -415,6 +415,9 @@
   removed or the ref is replaced, instead of calling the ref with `null`; a
   ref that returns nothing still receives `null`.
 
+- Compare a `type="number"` input's value numerically, so a re-render does not
+  overwrite text such as `1.0` or `1e2` that equals the rendered number.
+
 ## 0.4.4 - 2026-10-08
 
 ### Breaking changes
