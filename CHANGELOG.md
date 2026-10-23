@@ -48,6 +48,10 @@
 - Report `status: 404` on the SSR render result when a `fallback()` rendered
   the miss, so hosts can send the right status without reading the private
   route record.
+- Add an `equals` option to `state()` and `derive()`: `state(initial, { equals })`,
+  `derive(fn, { equals })` and `derive(source, map, { equals })`. A comparator that
+  returns true suppresses the notification. The default stays `Object.is`.
+  See `docs/core/runtime.md#custom-equality`.
 
 - Type `download` on `<a>` (a filename, or `true` for the resource's own
   name) and `onDoubleClick` on every element, as an alias of `onDblClick`.

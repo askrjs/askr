@@ -75,6 +75,33 @@ still throw instead of being awaited. The synchronous `renderToString({ url,
 registry })` does not run route loaders and throws `SSRDataMissingError` for a
 route that declares one.
 
+## Reactive primitives
+
+`state()`, `derive()` and `selector()` are positional component hooks. They
+share one change rule: a new value that is `Object.is`-equal to the current one
+does not notify anyone.
+
+### Custom equality
+
+`state(initial, { equals })` and `derive(fn, { equals })` (also
+`derive(source, map, { equals })`) take a comparator `(a, b) => boolean`. When
+it returns `true` the new value is treated as unchanged: a `state.set()` is
+ignored, and a `derive()` that recomputes to an equal value does not notify its
+readers. The comparator is not called for the first value. `selector(source,
+equals)` already took a comparator as its second argument.
+
+```ts
+const point = state(
+  { x: 1, y: 2 },
+  { equals: (a, b) => a.x === b.x && a.y === b.y }
+);
+point.set({ x: 1, y: 2 }); // ignored
+
+const bucket = derive(() => ({ b: Math.floor(n() / 10) }), {
+  equals: (a, b) => a.b === b.b,
+});
+```
+
 ## When work becomes observable
 
 Askr uses signals internally, but its public primitives become observable at

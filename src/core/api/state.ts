@@ -36,6 +36,11 @@ export interface State<T> {
   [Symbol.iterator](): IterableIterator<StateTuple<T>[number]>;
 }
 
+export interface ReactiveOptions<T> {
+  /** Decides whether a new value equals the current one; default `Object.is`. */
+  equals?: (a: T, b: T) => boolean;
+}
+
 type StateUpdater<T> = (prev: T) => T;
 
 type StateSetterArgs<T> = [Extract<T, (...args: any[]) => unknown>] extends [
@@ -84,7 +89,7 @@ export function createStateCell<T>(
       typeof valueOrUpdater === 'function'
         ? (valueOrUpdater as (prev: T) => T)(signal.peek())
         : valueOrUpdater;
-    if (Object.is(signal.peek(), next)) return;
+    if (signal._equals(signal.peek(), next)) return;
     if (isDerivedComputationActive()) {
       throw new Error(
         '[Askr] state.set() cannot be called inside a derive() or selector() computation. ' +
@@ -110,13 +115,19 @@ export function makeDestructurable<T extends { set: unknown }>(read: T): T {
   return read;
 }
 
-export function state<T>(initialValue: T): StateTuple<T> {
+export function state<T>(
+  initialValue: T,
+  options?: ReactiveOptions<T>
+): StateTuple<T> {
   const instance = requireInstance('state()');
   const index = claimHook(instance, 'state');
   const existing = instance.hooks[index] as StateTuple<T> | undefined;
   if (existing) return existing;
   const development = !isProductionEnvironment();
-  const cell = createStateCell(new Signal(initialValue), development);
+  const cell = createStateCell(
+    new Signal(initialValue, options?.equals ?? Object.is),
+    development
+  );
   instance.hooks[index] = cell;
   if (development) warnUnusedStateOnUnmount(instance);
   return cell;
@@ -187,22 +198,31 @@ function mapped<TIn, TOut>(
   };
 }
 
-export function derive<TOut>(fn: () => TOut): Derived<TOut>;
+export function derive<TOut>(
+  fn: () => TOut,
+  options?: ReactiveOptions<TOut>
+): Derived<TOut>;
 export function derive<TIn, TOut>(
   source: SnapshotSource<TIn> | TIn | (() => TIn),
-  map: (value: TIn) => TOut
+  map: (value: TIn) => TOut,
+  options?: ReactiveOptions<TOut | null>
 ): Derived<TOut | null>;
 export function derive<TIn, TOut>(
   source: SnapshotSource<TIn> | TIn | (() => TIn),
-  map?: (value: TIn) => TOut
+  mapOrOptions?: ((value: TIn) => TOut) | ReactiveOptions<unknown>,
+  maybeOptions?: ReactiveOptions<unknown>
 ): Derived<unknown> {
   const instance = requireInstance('derive()');
   const index = claimHook(instance, 'derive');
+  const map = typeof mapOrOptions === 'function' ? mapOrOptions : undefined;
+  const options = map
+    ? maybeOptions
+    : (mapOrOptions as ReactiveOptions<unknown>);
   const compute =
     map === undefined ? (source as () => unknown) : mapped(source, map);
   let slot = instance.hooks[index] as DeriveSlot | undefined;
   if (!slot) {
-    slot = createDerived(instance, compute, 'derive()');
+    slot = createDerived(instance, compute, 'derive()', options?.equals);
     instance.hooks[index] = slot;
   } else {
     // A new render may capture new locals; the next read recomputes.
@@ -214,7 +234,8 @@ export function derive<TIn, TOut>(
 function createDerived(
   owner: ComponentInstance | null,
   compute: () => unknown,
-  label: string
+  label: string,
+  equals?: (a: unknown, b: unknown) => boolean
 ): DeriveSlot {
   let current = compute;
   let runs = 0;
@@ -237,7 +258,8 @@ function createDerived(
       }
       return current();
     },
-    null
+    null,
+    equals ?? Object.is
   );
   (computation as { _derived?: boolean })._derived = true;
   return {

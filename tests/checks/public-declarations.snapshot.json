@@ -16,8 +16,8 @@
         "declare function defineScope<T>(defaultValue: T): Scope<T>;"
       ],
       "derive": [
-        "declare function derive<TOut>(fn: () => TOut): Derived<TOut>;",
-        "declare function derive<TIn, TOut>(source: SnapshotSource<TIn> | TIn | (() => TIn), map: (value: TIn) => TOut): Derived<TOut | null>;"
+        "declare function derive<TOut>(fn: () => TOut, options?: ReactiveOptions<TOut>): Derived<TOut>;",
+        "declare function derive<TIn, TOut>(source: SnapshotSource<TIn> | TIn | (() => TIn), map: (value: TIn) => TOut, options?: ReactiveOptions<TOut | null>): Derived<TOut | null>;"
       ],
       "Derived": ["interface Derived<T> {\n    (): T;\n}"],
       "Fragment": ["Fragment: unique symbol"],
@@ -60,7 +60,9 @@
         "declare function selector<T>(source: () => T, equals?: SelectorEquals<T>): Selector<T>;"
       ],
       "Selector": ["interface Selector<T> {\n    (candidate: T): boolean;\n}"],
-      "state": ["declare function state<T>(initialValue: T): StateTuple<T>;"],
+      "state": [
+        "declare function state<T>(initialValue: T, options?: ReactiveOptions<T>): StateTuple<T>;"
+      ],
       "State": [
         "interface State<T> {\n    (): T;\n    set(...args: StateSetterArgs<T>): void;\n    [Symbol.iterator](): IterableIterator<StateTuple<T>[number]>;\n}"
       ],
@@ -1267,8 +1269,8 @@
       "declare function deny(status: AccessDenyStatus): AccessDenyDecision;"
     ],
     "derive": [
-      "declare function derive<TIn, TOut>(source: SnapshotSource<TIn> | TIn | (() => TIn), map: (value: TIn) => TOut): Derived<TOut | null>;",
-      "declare function derive<TOut>(fn: () => TOut): Derived<TOut>;"
+      "declare function derive<TIn, TOut>(source: SnapshotSource<TIn> | TIn | (() => TIn), map: (value: TIn) => TOut, options?: ReactiveOptions<TOut | null>): Derived<TOut | null>;",
+      "declare function derive<TOut>(fn: () => TOut, options?: ReactiveOptions<TOut>): Derived<TOut>;"
     ],
     "Derived": ["interface Derived<T> {\n    (): T;\n}"],
     "dismissable": [
@@ -1901,6 +1903,9 @@
     "rafEvent": [
       "declare function rafEvent(handler: EventListener): EventListener & {\n    cancel(): void;\n};"
     ],
+    "ReactiveOptions": [
+      "interface ReactiveOptions<T> {\n    equals?: (a: T, b: T) => boolean;\n}"
+    ],
     "ReactiveProp": ["type ReactiveProp<T> = T | (() => T);"],
     "readScope": ["declare function readScope<T>(context: Scope<T>): T;"],
     "reconcileRouteMeta": [
@@ -2286,7 +2291,9 @@
     "StaleValueReason": [
       "type StaleValueReason = Exclude<QueryStaleReason, \"error\">;"
     ],
-    "state": ["declare function state<T>(initialValue: T): StateTuple<T>;"],
+    "state": [
+      "declare function state<T>(initialValue: T, options?: ReactiveOptions<T>): StateTuple<T>;"
+    ],
     "State": [
       "interface State<T> {\n    (): T;\n    set(...args: StateSetterArgs<T>): void;\n    [Symbol.iterator](): IterableIterator<StateTuple<T>[number]>;\n}"
     ],

@@ -34,6 +34,15 @@ type StateSetter<T> = (...args: StateSetterArgs<T>) => void;
  */
 type StateTuple<T> = [get: State<T>, set: StateSetter<T>] & State<T>;
 
+/** Options shared by `state()` and `derive()`. */
+interface ReactiveOptions<T> {
+  /**
+   * Decides whether a new value equals the current one. When it returns
+   * true the write is ignored and nothing is notified. Defaults to `Object.is`.
+   */
+  equals?: (a: T, b: T) => boolean;
+}
+
 /**
  * Creates a local state value for a component
  * Optimized for:
@@ -60,7 +69,10 @@ type StateTuple<T> = [get: State<T>, set: StateSetter<T>] & State<T>;
  * }
  * ```
  */
-declare function state<T>(initialValue: T): StateTuple<T>;
+declare function state<T>(
+  initialValue: T,
+  options?: ReactiveOptions<T>
+): StateTuple<T>;
 
 declare const SNAPSHOT_SOURCE_BRAND: unique symbol;
 
@@ -80,11 +92,15 @@ type SnapshotSource<T> = {
 } & SnapshotSourceBrand;
 
 /** Creates a render-scoped derived value; must be called during component render. */
-declare function derive<TOut>(fn: () => TOut): Derived<TOut>;
+declare function derive<TOut>(
+  fn: () => TOut,
+  options?: ReactiveOptions<TOut>
+): Derived<TOut>;
 
 declare function derive<TIn, TOut>(
   source: SnapshotSource<TIn> | TIn | (() => TIn),
-  map: (value: TIn) => TOut
+  map: (value: TIn) => TOut,
+  options?: ReactiveOptions<TOut | null>
 ): Derived<TOut | null>;
 
 /** A fine-grained reactive membership check produced by {@link selector}. */
@@ -109,6 +125,7 @@ declare function selector<T>(
   equals?: SelectorEquals<T>
 ): Selector<T>;
 export {
+  ReactiveOptions,
   State,
   StateUpdater,
   StateSetterArgs,

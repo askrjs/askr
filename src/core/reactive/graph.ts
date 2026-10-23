@@ -128,6 +128,8 @@ export class Computation<T = unknown> extends Owner implements Source {
   _value: T | undefined = undefined;
   _error: unknown = undefined;
   _hasError = false;
+  /** A run has produced a value; the first value is never compared. */
+  _hasValue = false;
   _running = false;
   /** Sources read so far by the run in progress. */
   _tracked: Set<Source> | null = null;
@@ -238,9 +240,11 @@ export class Computation<T = unknown> extends Owner implements Source {
 
     const changed =
       this._hasError ||
+      !this._hasValue ||
       this._equals === null ||
       !this._equals(this._value as T, value as T);
     this._hasError = false;
+    this._hasValue = true;
     this._error = undefined;
     this._value = value;
     if (changed) this.markObserversDirty();
