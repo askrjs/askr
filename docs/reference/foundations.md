@@ -54,7 +54,7 @@ instead of implementing press, focus, or hover handling themselves.
 - `hoverable({ disabled?, onEnter?, onLeave? })` returns pointer enter and leave
   handlers, or none when disabled.
 - `rovingFocus({ currentIndex, itemCount, orientation?, loop?, onNavigate?,
-  isDisabled? })` implements arrow-key roving `tabindex`. It returns
+isDisabled? })` implements arrow-key roving `tabindex`. It returns
   `container` props and an `item(index)` function for each item's props. An
   already cancelled keyboard event leaves navigation and propagation unchanged.
 - `dismissable(options)` handles Escape and outside-pointer dismissal.

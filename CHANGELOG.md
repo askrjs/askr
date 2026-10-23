@@ -422,7 +422,7 @@
   `resolveRequest` and `renderResolvedToStringSync` are no longer exported from
   `@askrjs/askr/ssr`. To resolve auth, redirects and status without rendering,
   call `resolveRouteRequest(url, { registry, mode: 'ssr', auth, authContext,
-  request, signal })` from `@askrjs/askr/router`. Pass `mode: 'ssr'`
+request, signal })` from `@askrjs/askr/router`. Pass `mode: 'ssr'`
   explicitly (the default is `'spa'` when a global `window` exists) and pass
   `signal` explicitly (it is not taken from `request.signal`). The result may be a plain value or a
   Promise, and errors can throw synchronously, so call it inside an `async`
