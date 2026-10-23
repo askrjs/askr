@@ -2,6 +2,7 @@
 import type { Props } from '../../common/props';
 import { isSkippedProp } from '../../common/prop-classification';
 import { recordUndo } from '../component/journal';
+import { sameInnerHTMLPayload } from './prop-value-html';
 import { parseEventProp } from './events';
 import { CommitMutationError, type Pass } from './pass';
 import {
@@ -160,6 +161,8 @@ function isLiveFormProp(key: string): boolean {
 /** Whether `value` renders exactly what `old` rendered. */
 function sameAppliedValue(key: string, value: unknown, old: unknown): boolean {
   if (Object.is(value, old)) return true;
+  if (key === 'dangerouslySetInnerHTML')
+    return sameInnerHTMLPayload(value, old);
   if (
     key === 'style' &&
     typeof value === 'object' &&

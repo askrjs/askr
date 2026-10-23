@@ -439,6 +439,10 @@
   position instead of scanning its parent's children, which removes the linear
   cost per component in a long list of components that change shape.
 
+- Warn once per element, not on every apply, about `dangerouslySetInnerHTML`,
+  and compare the `__html` strings before touching the element: an unchanged
+  string no longer reads `innerHTML` or snapshots the children.
+
 ## 0.4.4 - 2026-10-08
 
 ### Breaking changes

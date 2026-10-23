@@ -688,7 +688,9 @@ rewritten.
 On the client, a `dangerouslySetInnerHTML` value with a `__html` field owns
 the element's content instead of its JSX children. When that value is
 removed, JSX children mount again. An absent or malformed value leaves the
-children managed normally.
+children managed normally. A re-render with the same `__html` string neither
+reads nor writes the element, whether or not the payload object is new, and in
+development the usage warning appears once per element.
 
 ### Client hydration
 
