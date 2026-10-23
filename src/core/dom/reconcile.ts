@@ -17,15 +17,20 @@ import { logger } from '../../common/logger';
 import { ComponentInstance } from '../component/instance';
 import type { Owner } from '../reactive/owner';
 import {
+  ELEMENT,
+  FRAGMENT,
+  TEXT,
   descriptorType,
   normalizeChildren,
   type ChildDescriptor,
   type Key,
 } from '../view/children';
 import { CommitMutationError, type Pass } from './pass';
+import { elementNamespace } from './node-context';
 import {
   COMPONENT,
   HOST,
+  ROOT,
   NATIVE,
   collectDom,
   containerOf,
@@ -150,6 +155,9 @@ export function reconcileChildren(
         );
       }
       seen.add(child.key);
+    }
+    if (ctx.hydrate && ctx.hydrate.container === containerOf(parent)) {
+      planHydration(ctx, parent, next);
     }
     const result = next.map((child) => ctx.nodes.create(ctx, parent, child));
     if (parent.kind === HOST) {
@@ -296,6 +304,45 @@ export function reconcileChildren(
     }
   });
   return result;
+}
+
+/**
+ * A list of only elements and texts claims exactly one server node per child,
+ * so the cursor can be given a plan that skips the server's extra nodes and
+ * creates the client's extra ones. Components and other opaque children claim
+ * an unknown number of nodes, so those lists are claimed greedily.
+ */
+function planHydration(
+  ctx: RenderContext,
+  parent: Parent,
+  children: readonly ChildDescriptor[]
+): void {
+  if (parent.kind !== HOST && parent.kind !== ROOT) return;
+  const expected: Array<{ tag: string; ns: string | null } | null> = [];
+  if (!collectExpected(ctx, children, expected)) return;
+  ctx.hydrate!.cursor.plan(ctx.hydrate!.container, expected);
+}
+
+/** Fragments claim in order like their parent, so they are flattened. */
+function collectExpected(
+  ctx: RenderContext,
+  children: readonly ChildDescriptor[],
+  out: Array<{ tag: string; ns: string | null } | null>
+): boolean {
+  for (const child of children) {
+    if (child.kind === ELEMENT) {
+      out.push({ tag: child.tag, ns: elementNamespace(child.tag, ctx.ns) });
+    } else if (child.kind === TEXT && child.text !== '') {
+      out.push(null);
+    } else if (child.kind === FRAGMENT) {
+      if (!collectExpected(ctx, normalizeChildren(child.children), out)) {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  }
+  return true;
 }
 
 interface ChildIndex {

@@ -139,6 +139,13 @@ created nodes in order and removes server nodes the client did not render. Adopt
 attributes the client never mentions; only renderer bookkeeping and attributes
 the client renders as empty are removed (verify mode removes every unrendered
 attribute).
+When a container's children are only elements and texts (fragments count as
+their children), the cursor is first given a plan: the client's child tags and
+text kinds are aligned with the server's nodes by a longest common subsequence
+after trimming the common prefix and suffix. An extra node on either side then
+costs only itself, so `<i><b><p>` from the server against `<b><p>` from the
+client adopts `b` and `p` instead of rebuilding them. Lists with components or
+other opaque children, and lists too large to align, are claimed greedily.
 Markup marked `data-skip-hydrate` stays dormant until it is activated.
 
 ## Portals

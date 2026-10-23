@@ -29,6 +29,8 @@ export interface DeferredHydration {
 
 export class HydrationCursor {
   private readonly next = new Map<Node, Node | null>();
+  /** Per container: the server node each upcoming claim should take. */
+  private readonly plans = new Map<Node, Array<Node | null | undefined>>();
   /** Renders to run after the root's hydrating render (portal hosts). */
   readonly deferred: DeferredHydration[] = [];
 
@@ -146,6 +148,67 @@ export class HydrationCursor {
     return node === this.stopAt ? null : node;
   }
 
+  /**
+   * Follow the plan for `container`: false when the next client node has no
+   * server counterpart, otherwise move the cursor to the planned server node.
+   */
+  private takePlanned(container: Node): boolean {
+    const plan = this.plans.get(container);
+    if (!plan) return true;
+    const step = plan.shift();
+    if (plan.length === 0) this.plans.delete(container);
+    if (step === null) return false;
+    if (step !== undefined) this.next.set(container, step);
+    return true;
+  }
+
+  /**
+   * Match the client's `expected` child list against the server nodes at
+   * `container`'s cursor, so an extra node on either side costs only itself.
+   * `expected` holds an element's tag and namespace, or `null` for a text.
+   * Without a plan the cursor claims greedily, node by node.
+   */
+  plan(
+    container: Node,
+    expected: ReadonlyArray<{ tag: string; ns: string | null } | null>
+  ): void {
+    const server: Node[] = [];
+    let node = this.peek(container);
+    while (node && node !== this.stopAt) {
+      if (node.nodeType === 1 || node.nodeType === 3) server.push(node);
+      node = this.followingSibling(node);
+      while (
+        node &&
+        node !== this.stopAt &&
+        (node.nodeType === 8 ||
+          (node.nodeType === 3 && isInsignificantWhitespace(node as Text)))
+      ) {
+        node = this.followingSibling(node);
+      }
+    }
+    // Adjacent client texts are one server text node.
+    const tokens: Array<{ tag: string; ns: string | null } | null> = [];
+    const owner: number[] = [];
+    for (let i = 0; i < expected.length; i++) {
+      if (expected[i] === null && i > 0 && expected[i - 1] === null) {
+        owner.push(tokens.length - 1);
+        continue;
+      }
+      owner.push(tokens.length);
+      tokens.push(expected[i]);
+    }
+    const matched = alignChildren(tokens, server);
+    if (!matched) return;
+    const plan: Array<Node | null | undefined> = [];
+    for (let i = 0; i < expected.length; i++) {
+      const token = owner[i];
+      const target = matched[token];
+      const continuation = i > 0 && owner[i - 1] === token;
+      plan.push(continuation ? (target === null ? null : undefined) : target);
+    }
+    this.plans.set(container, plan);
+  }
+
   private advance(container: Node, node: Node): void {
     this.next.set(container, this.followingSibling(node));
   }
@@ -155,16 +218,11 @@ export class HydrationCursor {
     tag: string,
     namespace: string | null
   ): Element | null {
+    if (!this.takePlanned(container)) return null;
     const node = this.peek(container);
     if (!node || node.nodeType !== 1) return null;
     const el = node as Element;
-    const expectedNs = namespace ?? 'http://www.w3.org/1999/xhtml';
-    const matchesTag =
-      expectedNs === 'http://www.w3.org/1999/xhtml'
-        ? el.localName === tag.toLowerCase()
-        : el.localName === tag;
-    if (!matchesTag) return null;
-    if ((el.namespaceURI ?? expectedNs) !== expectedNs) return null;
+    if (!isElementMatch(el, tag, namespace)) return null;
     this.advance(container, el);
     return el;
   }
@@ -175,6 +233,7 @@ export class HydrationCursor {
    * server text is claimed and corrected at commit.
    */
   claimText(container: Node, text: string): Text | null {
+    if (!this.takePlanned(container)) return null;
     const node = this.peek(container);
     if (!node || node.nodeType !== 3) return null;
     const textNode = node as Text;
@@ -196,6 +255,94 @@ export class HydrationCursor {
     this.advance(container, textNode);
     return textNode;
   }
+}
+
+function isElementMatch(
+  el: Element,
+  tag: string,
+  namespace: string | null
+): boolean {
+  const expectedNs = namespace ?? 'http://www.w3.org/1999/xhtml';
+  const matchesTag =
+    expectedNs === 'http://www.w3.org/1999/xhtml'
+      ? el.localName === tag.toLowerCase()
+      : el.localName === tag;
+  return matchesTag && (el.namespaceURI ?? expectedNs) === expectedNs;
+}
+
+function tokenMatches(
+  token: { tag: string; ns: string | null } | null,
+  node: Node
+): boolean {
+  return token === null
+    ? node.nodeType === 3
+    : node.nodeType === 1 &&
+        isElementMatch(node as Element, token.tag, token.ns);
+}
+
+/** Largest table the alignment will fill (cells). */
+const MAX_ALIGNMENT_CELLS = 250_000;
+
+/**
+ * Pair client tokens with server nodes by a longest common subsequence after
+ * trimming the common prefix and suffix. Returns, per token, its server node
+ * or `null`; or `undefined` when the lists are too large to align.
+ */
+function alignChildren(
+  tokens: ReadonlyArray<{ tag: string; ns: string | null } | null>,
+  server: readonly Node[]
+): Array<Node | null> | undefined {
+  const result: Array<Node | null> = new Array(tokens.length).fill(null);
+  let start = 0;
+  while (
+    start < tokens.length &&
+    start < server.length &&
+    tokenMatches(tokens[start], server[start])
+  ) {
+    result[start] = server[start];
+    start++;
+  }
+  let endT = tokens.length;
+  let endS = server.length;
+  while (
+    endT > start &&
+    endS > start &&
+    tokenMatches(tokens[endT - 1], server[endS - 1])
+  ) {
+    result[endT - 1] = server[endS - 1];
+    endT--;
+    endS--;
+  }
+  const n = endT - start;
+  const m = endS - start;
+  if (n === 0 || m === 0) return result;
+  if ((n + 1) * (m + 1) > MAX_ALIGNMENT_CELLS) return undefined;
+  const width = m + 1;
+  const table = new Uint32Array((n + 1) * width);
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      table[i * width + j] = tokenMatches(tokens[start + i], server[start + j])
+        ? table[(i + 1) * width + j + 1] + 1
+        : Math.max(table[(i + 1) * width + j], table[i * width + j + 1]);
+    }
+  }
+  let i = 0;
+  let j = 0;
+  while (i < n && j < m) {
+    if (
+      tokenMatches(tokens[start + i], server[start + j]) &&
+      table[i * width + j] === table[(i + 1) * width + j + 1] + 1
+    ) {
+      result[start + i] = server[start + j];
+      i++;
+      j++;
+    } else if (table[(i + 1) * width + j] >= table[i * width + j + 1]) {
+      i++;
+    } else {
+      j++;
+    }
+  }
+  return result;
 }
 
 function isRangeMarker(node: Node, data: string): boolean {

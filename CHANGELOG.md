@@ -356,6 +356,11 @@
   so node identity, typed input state, and focus survive. Pass `hydrate: false`
   to keep the old replace behavior.
 
+- Resync hydration after an extra node on either side. Elements and texts are
+  aligned with the server's nodes by a longest common subsequence, so a server
+  `<i><b><p>` against a client `<b><p>` adopts `b` and `p` instead of
+  recreating them.
+
 ## 0.4.4 - 2026-10-08
 
 ### Breaking changes
