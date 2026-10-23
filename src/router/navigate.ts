@@ -35,6 +35,7 @@ import { addLogicalRouteBasePath } from './base-path';
 import { loadDocument } from './document-navigation';
 import { getActiveRouteBasePath } from './store';
 import {
+  applyNavigationScroll,
   beginHistoryFocusRestoration,
   captureNavigationFocus,
   prepareNavigationFocus,
@@ -60,6 +61,7 @@ export {
   registerAppInstance,
   unregisterAppInstance,
 } from './navigation-registry';
+import { commitLocationOnlyNavigation } from './route-query';
 export { updateRouteQuery } from './route-query';
 export type {
   RouteQueryParamInput,
@@ -157,6 +159,27 @@ function navigateWithRedirectState(
   }
   const pathname = target.pathname;
   const href = `${target.pathname}${target.search}${target.hash}`;
+  const currentHref = getCurrentHref();
+  if (href !== currentHref && hasRegisteredApps()) {
+    const current = parseTargetUrl(currentHref);
+    if (
+      current.pathname === target.pathname &&
+      current.search === target.search
+    ) {
+      // Only the fragment changed: the page stays, the location moves.
+      const hasState = Object.prototype.hasOwnProperty.call(options, 'state');
+      commitLocationOnlyNavigation(pathname, href, {
+        historyMode: getNavigationHistoryMode(options),
+        ...(hasState ? { state: { hasState, state: options.state } } : {}),
+      });
+      applyNavigationScroll(options.scroll);
+      return;
+    }
+  } else if (href === currentHref && options.history === undefined) {
+    // Re-resolving the current location replaces its entry rather than
+    // stacking a duplicate the user would have to step back through.
+    options = { ...options, history: 'replace' };
+  }
   const resolvedTargets = resolveNavigationTargetsForApps(
     pathname,
     href,

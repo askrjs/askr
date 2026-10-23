@@ -67,6 +67,11 @@
 
 ### Fixes
 
+- Navigate to a fragment on the current page without resolving the route
+  again: no loader runs and the rendered page keeps its state. A navigation
+  to the current location replaces its history entry instead of pushing a
+  duplicate, unless `history: 'push'` is given.
+
 - Look ahead for the matching sibling when a server node does not match the
   element the client renders during hydration, so one extra server node is
   dropped on its own instead of every later sibling being recreated.

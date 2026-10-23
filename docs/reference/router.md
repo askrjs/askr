@@ -569,7 +569,11 @@ function.
 ## `navigate(target)`
 
 Triggers client-side navigation. `target` is a logical path string or a typed
-destination from `to()`. A URL on another origin is not rendered by the
+destination from `to()`. A target that differs from the current location only
+by its fragment moves the location and scrolls to the fragment without
+resolving the route again: no loader runs and the rendered page keeps its
+state. A target equal to the current location is resolved again and replaces
+the history entry unless `history: 'push'` is given. A URL on another origin is not rendered by the
 router: Askr hands it to the browser with `location.assign()`, or
 `location.replace()` for replace history. Guard redirects to another origin
 load the same way, including a redirect taken while the app first loads. Only a

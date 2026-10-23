@@ -100,20 +100,41 @@ export function updateRouteQuery(
     return;
   }
 
-  const historyMode = getRouteQueryHistoryMode(options);
+  commitLocationOnlyNavigation(url.pathname, href, {
+    historyMode: getRouteQueryHistoryMode(options),
+  });
+}
+
+/**
+ * Publish a new location for the page that is already rendered: a query or
+ * fragment change that needs no route resolution. The history entry carries
+ * the given state, or keeps the current entry's state when none is given.
+ */
+export function commitLocationOnlyNavigation(
+  pathname: string,
+  href: string,
+  options: {
+    historyMode: 'push' | 'replace';
+    state?: { hasState: boolean; state: unknown };
+  }
+): void {
+  const { historyMode } = options;
   if (historyMode === 'push') {
     saveScrollPosition(getCurrentHref());
   }
 
-  const state =
+  const current =
     window.history.state && typeof window.history.state === 'object'
       ? window.history.state
       : {};
+  const entryState = options.state
+    ? { askrHasState: options.state.hasState, askrState: options.state.state }
+    : current;
 
   const historyIndex = nextHistoryIndex(historyMode);
   window.history[historyMode === 'replace' ? 'replaceState' : 'pushState'](
     {
-      ...state,
+      ...entryState,
       path: href,
       askrIndex: historyIndex,
     },
@@ -122,9 +143,9 @@ export function updateRouteQuery(
   );
   commitHistoryIndex(historyIndex);
 
-  setCurrentRouteLocation(url.pathname, href);
+  setCurrentRouteLocation(pathname, href);
   for (const app of getRegisteredAppsSnapshot()) {
-    syncAppRegistrationLocation(app, url.pathname, href);
+    syncAppRegistrationLocation(app, pathname, href);
   }
   syncRegisteredRouteSnapshot();
 }
