@@ -4,6 +4,17 @@ How the browser router behaves around a navigation: what loads, what renders
 while it loads, what happens when it fails, and how the page announces the
 change. Route declarations are in the [router reference](../reference/router.md).
 
+- [Loader cache and revalidation](#loader-cache-and-revalidation)
+- [Layout data](#layout-data)
+- [Typed search params](#typed-search-params)
+- [Prefetching](#prefetching)
+- [Pending state](#pending-state)
+- [Blocking navigation](#blocking-navigation)
+- [Focus and announcements](#focus-and-announcements)
+- [Error and forbidden components](#error-and-forbidden-components)
+- [Untrusted redirect targets](#untrusted-redirect-targets)
+- [Canonical URLs](#canonical-urls)
+
 ## Loader cache and revalidation
 
 Route loader results are cached in the app's data runtime by route template,
@@ -30,6 +41,56 @@ import { invalidate } from '@askrjs/askr/data';
 
 invalidate('route-data:/posts/{slug}');
 ```
+
+## Layout data
+
+`group()` and `page()` take a `loader` too. Ancestor loaders run beside the
+leaf's loader and lazy chunk, share the cache above, and layouts read their
+results with `layoutData(loader)`; `routeData()` stays the leaf's own data.
+
+```tsx
+import { group, layoutData, route } from '@askrjs/askr/router';
+
+const loadAccount = async () => ({ name: 'Ada' });
+
+group(
+  {
+    loader: loadAccount,
+    layout: ({ children }) => (
+      <div>
+        <header>{layoutData(loadAccount).name}</header>
+        {children}
+      </div>
+    ),
+  },
+  () => {
+    route('/inbox', InboxPage);
+  }
+);
+```
+
+## Typed search params
+
+A route with a `search` schema receives its query string parsed and typed. A
+bad or missing value takes the schema default instead of failing the
+navigation:
+
+```tsx
+import { schema } from '@askrjs/schema';
+import { route } from '@askrjs/askr/router';
+
+const PostsSearch = schema.object({
+  page: schema.integer({ minimum: 1, default: 1 }),
+});
+
+route('/posts', PostsPage, {
+  search: PostsSearch,
+  loader: ({ searchParams }) => fetchPosts(searchParams.page),
+});
+```
+
+Read it in components with `currentRoute().search`. Loaders do not re-run for
+`updateRouteQuery()`; use `navigate()` when a query change must reload data.
 
 ## Prefetching
 
@@ -146,3 +207,23 @@ group(
   }
 );
 ```
+
+## Untrusted redirect targets
+
+A `?next=` value is attacker-controlled. Reduce it with `localTarget()` before
+navigating, or refuse anything off-origin with `sameOrigin`:
+
+```ts
+import { localTarget, navigate } from '@askrjs/askr/router';
+
+const next = new URLSearchParams(location.search).get('next');
+navigate(localTarget(next, '/dashboard'));
+navigate(next ?? '/', { sameOrigin: true });
+```
+
+## Canonical URLs
+
+`createRouteRegistry(routes, { trailingSlash: 'never', caseSensitive: false })`
+redirects `/About/` to `/about` with a 308 on the server and in the browser, so
+each page has one URL. See the
+[router reference](../reference/router.md#canonical-paths-trailingslash-and-casesensitive).
