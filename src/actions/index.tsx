@@ -1,4 +1,5 @@
 import type { RenderableChild } from '../common/vnode';
+import { anyAbortSignal } from '../common/abort-signal';
 import type { JSXElement } from '../common/jsx';
 import type { ObjectSchema } from '@askrjs/schema';
 import { getSignal, state } from '../core/api/state';
@@ -192,7 +193,7 @@ export function action<
       assertDataRuntimeActive(runtime);
   }
   const signal = options
-    ? AbortSignal.any([getSignal(), runtime.retirement.signal])
+    ? anyAbortSignal([getSignal(), runtime.retirement.signal])
     : undefined;
   const value = state<ActionStatus<TResult>>(
     initialStatus<TResult>(descriptor.id)

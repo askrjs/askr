@@ -1,4 +1,5 @@
 import type { AuthContext } from '@askrjs/auth';
+import { anyAbortSignal } from '../common/abort-signal';
 import type { RouteAuthOptions, RouteAuthResolver } from '../common/router';
 import { Signal } from '../core/reactive/graph';
 import { resolveNavigationUrl } from '../common/url';
@@ -392,7 +393,7 @@ export function createSessionAuth(
     // A synchronous transport failure can already have cleared pending.
     return waitFor(
       entry.promise,
-      AbortSignal.any([signal, entry.controller.signal])
+      anyAbortSignal([signal, entry.controller.signal])
     );
   };
   const recover = (

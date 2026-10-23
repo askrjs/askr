@@ -196,6 +196,10 @@
   own when that field changes, instead of relying on the declaring component to
   re-render, and the declaring component no longer re-renders for results it
   does not read. The snapshot shape and types are unchanged.
+- Replace direct `AbortSignal.any` use in actions, server-query prefetch and
+  provider sessions with a helper that falls back to listener forwarding, so
+  hosts without `AbortSignal.any` no longer throw.
+
 - `updateRouteQuery()` now supersedes a navigation that is still resolving, so
   the pending navigation can no longer publish over the updated query.
 
