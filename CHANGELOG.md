@@ -67,6 +67,17 @@
 
 ### Fixes
 
+- Render only JSX runtime elements as children. A plain object with a string
+  `type`, such as JSON from a loader or an API, no longer creates an element
+  or raw HTML on the client or in SSR.
+
+- Keep ordinary CSS functions in style objects. `repeat()`, `minmax()`,
+  `translate3d()`, `env()`, `blur()`, `polygon()` and the rest now render on
+  the client and in SSR; only URI schemes, resource-loading functions
+  (`url()`, `image()`, `image-set()`, `src()`, `element()`) and
+  `expression()` are rejected, with CSS escapes decoded before the check and
+  preserved in the written value.
+
 - Preserve session transport failures when a supplied fetch throws before
   returning a promise; allow the next resolution to retry without an unhandled
   rejection or cached identity.
