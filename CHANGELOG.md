@@ -67,6 +67,11 @@
 
 ### Fixes
 
+- Reject empty path segments in route matching. `/users//x` no longer
+  matches `/users/{id}/x` with an empty `id`, and `/users//` no longer
+  matches `/users`; one trailing slash is still ignored and a splat may
+  still capture an empty remainder.
+
 - Restore the signed-in app when a session logout request fails or its
   transport rejects, instead of leaving a blank page in a locally logged-out
   state while the server session is still alive. Compute a fresh login

@@ -96,7 +96,9 @@ function findBestResolvedRouteFromRoutes(
     pathname.endsWith('/') && pathname !== '/'
       ? pathname.slice(0, -1)
       : pathname;
-  const urlParts = splitPathSegments(normalized);
+  // `splitPathSegments` drops one trailing slash itself; splitting the
+  // normalized form would drop a second one and read `/users//` as `/users`.
+  const urlParts = splitPathSegments(pathname);
 
   // Sorted most specific first, so the first match is the best match.
   for (const route of cachedSortedList(routeList)) {
@@ -178,7 +180,7 @@ export function getMatchingRouteRecord(
     location.pathname.endsWith('/') && location.pathname !== '/'
       ? location.pathname.slice(0, -1)
       : location.pathname;
-  const urlParts = splitPathSegments(normalized);
+  const urlParts = splitPathSegments(location.pathname);
 
   for (const record of routeRecords) {
     const internalRecord = record as InternalRouteRecord;
@@ -293,7 +295,7 @@ export function resolveRoute(pathname: string): ResolvedRoute | null {
     pathname.endsWith('/') && pathname !== '/'
       ? pathname.slice(0, -1)
       : pathname;
-  const urlParts = splitPathSegments(normalized);
+  const urlParts = splitPathSegments(pathname);
   const records = getRouteRecords();
 
   for (const record of records) {

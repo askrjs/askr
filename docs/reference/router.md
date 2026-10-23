@@ -337,6 +337,12 @@ Path syntax rules:
 - Single-segment wildcard: `/files/*`
 - Catch-all fallback: `/*`
 
+A parameter or `*` wildcard needs one non-empty segment: `/users//x` does
+not match `/users/{id}/x`, and `/users//` matches neither `/users/{id}` nor
+`/users`. One trailing slash is ignored (`/users/` matches `/users`). A splat
+may capture an empty remainder (`/files/` matches `/files/{*path}` with
+`path: ''`).
+
 Specificity order: static > param > wildcard > named splat > catch-all,
 compared segment by segment: the first segment where two routes differ decides.
 For `/docs/intro`, `/docs/{*rest}` beats `/{lang}/{page}` because its first

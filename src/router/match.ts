@@ -322,6 +322,9 @@ export function matchSegments(
       );
       return params;
     } else {
+      // An empty segment (`/users//x`) is not a value: a parameter and a
+      // single-segment wildcard both need one path segment of text.
+      if (part === '') return null;
       if (params === null) params = {};
       if (seg.kind === 'param') {
         setCapturedParameter(params, seg.value, decodePathSegment(part));
