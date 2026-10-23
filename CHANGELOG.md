@@ -67,6 +67,12 @@
 
 ### Fixes
 
+- Restore the signed-in app when a session logout request fails or its
+  transport rejects, instead of leaving a blank page in a locally logged-out
+  state while the server session is still alive. Compute a fresh login
+  target for each interaction failure, so a later failure from another page
+  returns the user to that page after login rather than the first one.
+
 - Save the departing page's scroll position before its content is replaced
   on a push navigation. Browsers clamp the offset as soon as the document
   shrinks, so a long list followed by a short page previously restored to

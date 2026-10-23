@@ -231,6 +231,7 @@ export function createSessionAuth(
   let channel: BroadcastChannel | undefined;
   let eventGeneration = 0;
   let recoveryTarget: SessionRecovery | undefined;
+  let recoveryReturnTo: string | undefined;
   let transitions = 0;
   let announced = false;
 
@@ -354,7 +355,10 @@ export function createSessionAuth(
   ): SessionRecovery | undefined => {
     const problem = readProblem(failure);
     if (!problem) return undefined;
-    if (recoveryTarget) return recoveryTarget;
+    // Failures for the same page share one recovery; a later failure from
+    // another page must send the user back to that page after login.
+    if (recoveryTarget && recoveryReturnTo === returnTo) return recoveryTarget;
+    recoveryReturnTo = returnTo;
     invalidate(anonymous);
     if (problem.reason === 'consent') {
       recoveryTarget = {
@@ -471,17 +475,32 @@ export function createSessionAuth(
       recoveryTarget = undefined;
       invalidate(anonymous);
       const ownGeneration = generation;
-      const response = await transport(
-        new Request(new URL('/auth/logout', window.location.href), {
-          method: 'POST',
-          credentials: 'same-origin',
-          redirect: 'error',
-          headers: { 'Content-Type': 'application/json' },
-          body: '{}',
-        })
-      );
-      if (!response.ok)
+      // The server session is still alive when the request fails: drop the
+      // anonymous assumption and re-resolve so the signed-in app returns.
+      const restore = () => {
+        if (ownGeneration !== generation) return;
+        invalidate(undefined);
+        navigateToPublicHref(browserHref(), { replace: true });
+      };
+      let response: Response;
+      try {
+        response = await transport(
+          new Request(new URL('/auth/logout', window.location.href), {
+            method: 'POST',
+            credentials: 'same-origin',
+            redirect: 'error',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+          })
+        );
+      } catch (error) {
+        restore();
+        throw error;
+      }
+      if (!response.ok) {
+        restore();
         throw new Error('[Askr] Provider logout request failed.');
+      }
       if (ownGeneration !== generation) return;
       publish('logout');
       navigateToPublicHref(browserHref(), { replace: true });
