@@ -161,9 +161,12 @@ a disposed computation is skipped.
 `resource()` (`src/core/api/resource.ts`) is component-owned async data. The
 loader starts after the render that declared it commits, never during a client
 render. `ResourceCell` (`src/core/api/resource-cell.ts`) owns each execution's
-`AbortController`, and the component reads a readable source next to a stable
-snapshot object, so a published result re-renders exactly the components that
-read it. `stream()` (`src/core/api/stream.ts`) applies the same ownership to an
+`AbortController`. The component gets a stable snapshot object whose fields
+(`value`, `pending`, `error`; for streams also `status` and `stale`) are
+signal-backed accessors (`makeReactiveFields` in `src/core/api/snapshot.ts`).
+A reader subscribes to the fields it reads, so a published result re-renders
+exactly the computations that read the changed fields, wherever they are in the
+tree. A write made while the owner renders does not re-run the owner. `stream()` (`src/core/api/stream.ts`) applies the same ownership to an
 async iterable. It connects after commit and disconnects with the component.
 
 Each execution checks that it still owns the cell after abort callbacks,

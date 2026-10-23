@@ -118,6 +118,11 @@
   keeps component state and a navigation in flight. Explicit and cross-tab
   logout hints still retire private state immediately.
 
+- Make the fields of `resource()` and `stream()` snapshots reactive per field.
+  A child component that reads a passed snapshot field now re-renders on its
+  own when that field changes, instead of relying on the declaring component to
+  re-render, and the declaring component no longer re-renders for results it
+  does not read. The snapshot shape and types are unchanged.
 - Navigate to a fragment on the current page without resolving the route
   again: no loader runs and the rendered page keeps its state, for
   `navigate()` and for back/forward traversal between such entries alike.

@@ -6,15 +6,12 @@
 
 import { queueTask } from '../reactive/scheduler';
 import {
-  createSource,
   currentComponent,
   hookSlot,
-  notify,
   onCommit,
-  readSource,
   type ComponentInstance,
-  type ReadableSource,
 } from './hooks';
+import { makeReactiveFields } from './snapshot';
 
 /** Connection status of a {@link stream}. */
 export type StreamStatus =
@@ -67,8 +64,6 @@ interface StreamSlot<T> {
   cleanupRegistered: boolean;
   startQueued: boolean;
   owner: ComponentInstance | null;
-  /** Read by components that render the snapshot. */
-  readonly readers: ReadableSource;
 }
 
 function toError(value: unknown): Error {
@@ -83,14 +78,6 @@ function depsEqual(
     left.length === right.length &&
     left.every((value, index) => Object.is(value, right[index]))
   );
-}
-
-function publish<T>(slot: StreamSlot<T>): void {
-  if (slot.disposed) {
-    return;
-  }
-
-  notify(slot.readers);
 }
 
 function setStartingState<T>(slot: StreamSlot<T>): void {
@@ -178,7 +165,6 @@ async function consume<T>(
       slot.snapshot.pending = false;
       slot.snapshot.stale = slot.hasValue;
       slot.snapshot.error = null;
-      publish(slot);
       return;
     }
 
@@ -188,7 +174,6 @@ async function consume<T>(
     slot.snapshot.pending = false;
     slot.snapshot.stale = false;
     slot.snapshot.error = null;
-    publish(slot);
   }
 }
 
@@ -214,7 +199,6 @@ function failGeneration<T>(
   slot.snapshot.pending = false;
   slot.snapshot.stale = slot.hasValue;
   slot.snapshot.error = toError(error);
-  publish(slot);
 }
 
 function startSlot<T>(slot: StreamSlot<T>): void {
@@ -232,7 +216,6 @@ function startSlot<T>(slot: StreamSlot<T>): void {
   }
   slot.explicitlyClosed = false;
   setStartingState(slot);
-  publish(slot);
 
   const generation: StreamGeneration<T> = {
     id: ++slot.generation,
@@ -291,7 +274,6 @@ function closeSlot<T>(slot: StreamSlot<T>): void {
   slot.snapshot.pending = false;
   slot.snapshot.stale = slot.hasValue;
   slot.snapshot.error = null;
-  publish(slot);
 }
 
 function createSnapshot<T>(options: StreamOptions<T>): StreamResult<T> {
@@ -299,15 +281,18 @@ function createSnapshot<T>(options: StreamOptions<T>): StreamResult<T> {
     options,
     'initialValue'
   );
-  const snapshot: StreamResult<T> = {
-    value: hasInitialValue ? (options.initialValue as T) : null,
-    status: 'connecting',
-    pending: !hasInitialValue,
-    stale: hasInitialValue,
-    error: null,
-    restart: () => {},
-    close: () => {},
-  };
+  const snapshot: StreamResult<T> = makeReactiveFields(
+    {
+      value: hasInitialValue ? (options.initialValue as T) : null,
+      status: 'connecting' as StreamStatus,
+      pending: !hasInitialValue,
+      stale: hasInitialValue,
+      error: null as Error | null,
+      restart: () => {},
+      close: () => {},
+    },
+    ['value', 'status', 'pending', 'stale', 'error']
+  );
   return snapshot;
 }
 
@@ -330,7 +315,6 @@ function createSlot<T>(
     cleanupRegistered: false,
     startQueued: false,
     owner: null,
-    readers: createSource(),
   };
 
   snapshot.restart = () => {
@@ -446,7 +430,6 @@ function createStream<T>(
   options: StreamOptions<T>
 ): StreamResult<T> {
   const slot = hookSlot(instance, 'stream', () => createSlot(source, options));
-  readSource(slot.readers);
 
   if (!instance.server) {
     // A newer prepare can run before this committed lifecycle callback.
