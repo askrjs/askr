@@ -94,6 +94,8 @@ export class Signal<T> implements Source {
   _observers: Set<Computation> | null = null;
   _value: T;
   readonly _equals: Equals<T>;
+  /** Debug name, shown in diagnostics. */
+  name: string | null = null;
 
   constructor(value: T, equals: Equals<T> = Object.is) {
     this._value = value;
@@ -135,6 +137,8 @@ export class Computation<T = unknown> extends Owner implements Source {
   _walking = false;
   /** A derive() or selector() computation: writes from inside it are rejected. */
   _derived = false;
+  /** Debug name, shown in loop-guard and circular-dependency errors. */
+  name: string | null = null;
   /** Sources read so far by the run in progress. */
   _tracked: Set<Source> | null = null;
   _invalidatedWhileRunning = false;
@@ -162,7 +166,11 @@ export class Computation<T = unknown> extends Owner implements Source {
   /** Read the current value, recomputing if a source changed. */
   read(): T {
     if (this._running) {
-      throw new Error('Circular reactive dependency detected.');
+      throw new Error(
+        `Circular reactive dependency detected${
+          this.name ? ` in "${this.name}"` : ''
+        }.`
+      );
     }
     track(this);
     this.update();

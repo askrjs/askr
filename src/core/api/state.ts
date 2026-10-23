@@ -39,6 +39,8 @@ export interface State<T> {
 export interface ReactiveOptions<T> {
   /** Decides whether a new value equals the current one; default `Object.is`. */
   equals?: (a: T, b: T) => boolean;
+  /** Debug name used in diagnostics (loop-guard and circular-dependency errors). */
+  name?: string;
 }
 
 type StateUpdater<T> = (prev: T) => T;
@@ -134,10 +136,9 @@ export function state<T>(
   const existing = instance.hooks[index] as StateTuple<T> | undefined;
   if (existing) return existing;
   const development = !isProductionEnvironment();
-  const cell = createStateCell(
-    new Signal(initialValue, options?.equals ?? Object.is),
-    development
-  );
+  const signal = new Signal(initialValue, options?.equals ?? Object.is);
+  if (options?.name) signal.name = options.name;
+  const cell = createStateCell(signal, development);
   instance.hooks[index] = cell;
   if (development) warnUnusedStateOnUnmount(instance);
   return cell;
@@ -158,10 +159,14 @@ function warnUnusedStateOnUnmount(instance: ComponentInstance): void {
     const name = instance.displayName || '<anonymous>';
     for (let index = 0; index < instance.hookKinds.length; index++) {
       if (instance.hookKinds[index] !== 'state') continue;
-      const cell = instance.hooks[index] as { _everRead?: boolean };
+      const cell = instance.hooks[index] as {
+        _everRead?: boolean;
+        _signal?: Signal<unknown>;
+      };
       if (cell._everRead) continue;
+      const stateName = cell._signal?.name;
       logger.warn(
-        `[askr] Unused state variable detected in ${name} at index ${index}. State should be read during render or removed.`
+        `[askr] Unused state variable detected in ${name} at index ${index}${stateName ? ` ("${stateName}")` : ''}. State should be read during render or removed.`
       );
     }
   });
@@ -187,6 +192,11 @@ interface DeriveSlot {
 }
 
 const MAX_DERIVED_RUNS = 50;
+
+/** `derive()` or `derive("name")`, for error messages. */
+function labelOf(kind: string, name: string | undefined): string {
+  return name ? `${kind}(${JSON.stringify(name)})` : `${kind}()`;
+}
 
 function mapped<TIn, TOut>(
   source: SnapshotSource<TIn> | TIn | (() => TIn),
@@ -232,7 +242,13 @@ export function derive<TIn, TOut>(
     map === undefined ? (source as () => unknown) : mapped(source, map);
   let slot = instance.hooks[index] as DeriveSlot | undefined;
   if (!slot) {
-    slot = createDerived(instance, compute, 'derive()', options?.equals);
+    slot = createDerived(
+      instance,
+      compute,
+      labelOf('derive', options?.name),
+      options?.equals,
+      options?.name
+    );
     instance.hooks[index] = slot;
   } else {
     // A new render may capture new locals; the next read recomputes.
@@ -245,7 +261,8 @@ function createDerived(
   owner: ComponentInstance | null,
   compute: () => unknown,
   label: string,
-  equals?: (a: unknown, b: unknown) => boolean
+  equals?: (a: unknown, b: unknown) => boolean,
+  name?: string
 ): DeriveSlot {
   let current = compute;
   let runs = 0;
@@ -272,6 +289,7 @@ function createDerived(
     equals ?? Object.is
   );
   computation._derived = true;
+  if (name) computation.name = name;
   return {
     computation,
     read: markReadable((() => {
@@ -309,6 +327,12 @@ export interface Selector<T> {
 
 type SelectorEquals<T> = (a: T, b: T) => boolean;
 
+export interface SelectorOptions<T> {
+  equals?: SelectorEquals<T>;
+  /** Debug name used in diagnostics. */
+  name?: string;
+}
+
 interface CandidateSource extends Source {
   candidate: unknown;
 }
@@ -320,13 +344,18 @@ interface SelectorSlot<T> {
 
 export function selector<T>(
   source: () => T,
-  equals: SelectorEquals<T> = Object.is
+  equalsOrOptions: SelectorEquals<T> | SelectorOptions<T> = Object.is
 ): Selector<T> {
+  const options =
+    typeof equalsOrOptions === 'function'
+      ? { equals: equalsOrOptions, name: undefined }
+      : equalsOrOptions;
+  const equals = options.equals ?? Object.is;
   const instance = requireInstance('selector()');
   const index = claimHook(instance, 'selector');
   let slot = instance.hooks[index] as SelectorSlot<T> | undefined;
   if (!slot) {
-    slot = createSelector(instance, source, equals);
+    slot = createSelector(instance, source, equals, options.name);
     instance.hooks[index] = slot;
   } else {
     slot.setSource(source, equals);
@@ -344,8 +373,10 @@ export function selectorCandidateCount(predicate: object): number {
 function createSelector<T>(
   owner: ComponentInstance,
   initialSource: () => T,
-  initialEquals: SelectorEquals<T>
+  initialEquals: SelectorEquals<T>,
+  name?: string
 ): SelectorSlot<T> {
+  const label = labelOf('selector', name);
   let source = initialSource;
   let equals = initialEquals;
   let value: T;
@@ -436,14 +467,15 @@ function createSelector<T>(
     null
   );
   watcher._derived = true;
+  if (name) watcher.name = name;
   watcher.run();
 
   const predicate = ((candidate: T) => {
     if (watcher.disposed) {
-      throw new Error('selector() owner has been disposed');
+      throw new Error(`${label} owner has been disposed`);
     }
     if (watcher._running) {
-      throw new Error('selector() cannot read itself recursively');
+      throw new Error(`${label} cannot read itself recursively`);
     }
     if (watcher.stale) watcher.update();
     if (isTracking()) {

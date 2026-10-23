@@ -41,6 +41,21 @@ interface ReactiveOptions<T> {
    * true the write is ignored and nothing is notified. Defaults to `Object.is`.
    */
   equals?: (a: T, b: T) => boolean;
+  /** Debug name shown in loop-guard, circular-dependency and unused-state diagnostics. */
+  name?: string;
+}
+
+/** Options for `selector()`. */
+interface SelectorOptions<T> {
+  equals?: SelectorEquals<T>;
+  /** Debug name shown in diagnostics. */
+  name?: string;
+}
+
+/** Options for `store()`. */
+interface StoreOptions {
+  /** Debug name shown in write-guard errors. */
+  name?: string;
 }
 
 /**
@@ -122,7 +137,7 @@ type SelectorEquals<T> = {
  */
 declare function selector<T>(
   source: () => T,
-  equals?: SelectorEquals<T>
+  equals?: SelectorEquals<T> | SelectorOptions<T>
 ): Selector<T>;
 /**
  * Runs `fn` with scheduling deferred and flushes once, synchronously, when the
@@ -147,7 +162,7 @@ declare function untrack<T>(fn: () => T): T;
  * they affect. Nested plain objects and arrays are wrapped lazily, with one
  * proxy per target. Writes during render throw, like `state.set()`.
  */
-declare function store<T extends object>(initial: T): T;
+declare function store<T extends object>(initial: T, options?: StoreOptions): T;
 
 /** Returns the raw object behind a `store()` proxy; other values are returned as is. */
 declare function unwrap<T>(value: T): T;
@@ -158,6 +173,8 @@ export {
   batch,
   untrack,
   ReactiveOptions,
+  SelectorOptions,
+  StoreOptions,
   State,
   StateUpdater,
   StateSetterArgs,

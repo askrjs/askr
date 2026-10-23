@@ -106,3 +106,13 @@ const todos = store({ items: [{ done: false }] });
 expectType<{ items: Array<{ done: boolean }> }>(todos);
 expectType<{ items: Array<{ done: boolean }> }>(unwrap(todos));
 expectError(store(1));
+
+expectType<StateTuple<number>>(
+  state(0, { equals: (a, b) => a === b, name: 'n' })
+);
+expectType<Derived<number>>(
+  derive(() => 1, { name: 'one', equals: (a, b) => a === b })
+);
+expectType<Selector<number>>(selector(() => 1, { name: 'sel' }));
+expectError(state(0, { equals: (a: string, b: string) => a === b }));
+expectType<{ a: number }>(store({ a: 1 }, { name: 'a' }));

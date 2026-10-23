@@ -58,7 +58,7 @@
         "interface Scope<T> {\n    (props: {\n        value: T;\n        children?: ContextScopeChildren;\n    }): JSXElement;\n    readonly key: ContextKey;\n    readonly defaultValue: T;\n}"
       ],
       "selector": [
-        "declare function selector<T>(source: () => T, equals?: SelectorEquals<T>): Selector<T>;"
+        "declare function selector<T>(source: () => T, equals?: SelectorEquals<T> | SelectorOptions<T>): Selector<T>;"
       ],
       "Selector": ["interface Selector<T> {\n    (candidate: T): boolean;\n}"],
       "state": [
@@ -73,7 +73,9 @@
       "StateTuple": [
         "type StateTuple<T> = [\n    get: State<T>,\n    set: StateSetter<T>\n] & State<T>;"
       ],
-      "store": ["declare function store<T extends object>(initial: T): T;"],
+      "store": [
+        "declare function store<T extends object>(initial: T, options?: StoreOptions): T;"
+      ],
       "untrack": ["declare function untrack<T>(fn: () => T): T;"],
       "unwrap": ["declare function unwrap<T>(value: T): T;"]
     },
@@ -1909,7 +1911,7 @@
       "declare function rafEvent(handler: EventListener): EventListener & {\n    cancel(): void;\n};"
     ],
     "ReactiveOptions": [
-      "interface ReactiveOptions<T> {\n    equals?: (a: T, b: T) => boolean;\n}"
+      "interface ReactiveOptions<T> {\n    equals?: (a: T, b: T) => boolean;\n    name?: string;\n}"
     ],
     "ReactiveProp": ["type ReactiveProp<T> = T | (() => T);"],
     "readScope": ["declare function readScope<T>(context: Scope<T>): T;"],
@@ -2191,11 +2193,14 @@
       "interface SelectIntrinsicProps extends IntrinsicProps {\n    disabled?: ReactiveProp<IntrinsicBooleanValue>;\n    multiple?: ReactiveProp<IntrinsicBooleanValue>;\n    name?: ReactiveProp<IntrinsicTextValue>;\n    required?: ReactiveProp<IntrinsicBooleanValue>;\n    value?: ReactiveProp<IntrinsicFormValue>;\n}"
     ],
     "selector": [
-      "declare function selector<T>(source: () => T, equals?: SelectorEquals<T>): Selector<T>;"
+      "declare function selector<T>(source: () => T, equals?: SelectorEquals<T> | SelectorOptions<T>): Selector<T>;"
     ],
     "Selector": ["interface Selector<T> {\n    (candidate: T): boolean;\n}"],
     "SelectorEquals": [
       "type SelectorEquals<T> = {\n    bivarianceHack(a: T, b: T): boolean;\n}[\"bivarianceHack\"];"
+    ],
+    "SelectorOptions": [
+      "interface SelectorOptions<T> {\n    equals?: SelectorEquals<T>;\n    name?: string;\n}"
     ],
     "serializeRouteMeta": [
       "declare function serializeRouteMeta(meta: RouteMeta): string;"
@@ -2312,7 +2317,10 @@
       "type StateTuple<T> = [\n    get: State<T>,\n    set: StateSetter<T>\n] & State<T>;"
     ],
     "StateUpdater": ["type StateUpdater<T> = (prev: T) => T;"],
-    "store": ["declare function store<T extends object>(initial: T): T;"],
+    "store": [
+      "declare function store<T extends object>(initial: T, options?: StoreOptions): T;"
+    ],
+    "StoreOptions": ["interface StoreOptions {\n    name?: string;\n}"],
     "stream": [
       "declare function stream<T>(source: StreamSource<T>, options?: StreamOptions<T>): StreamResult<T>;",
       "declare function stream<TSource, T>(source: () => TSource, connect: (value: TSource, context: {\n    signal: AbortSignal;\n}) => AsyncIterable<T> | PromiseLike<AsyncIterable<T>>, options?: Omit<StreamOptions<T>, \"deps\">): StreamResult<T>;"

@@ -260,6 +260,9 @@ function renderLaneScheduler(instance: ComponentInstance) {
       depth: instance.depth,
       run: () => renderHost?.rerender(instance),
       cancel: () => instance.computation.dropScheduled(),
+      get name() {
+        return instance.displayName;
+      },
       get skip() {
         return instance.disposed || !instance.computation.stale;
       },

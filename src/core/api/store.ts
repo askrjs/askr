@@ -16,6 +16,8 @@ const RAW = Symbol('askr.store.raw');
 
 interface Meta {
   proxy: object;
+  /** Debug name, shown in write-guard errors. */
+  name: string | null;
   /** One version signal per property key, created on a tracked read. */
   signals: Map<PropertyKey, Signal<number>> | null;
   /** Bumped when a key is added or removed. */
@@ -90,6 +92,7 @@ function metaOf(target: object): Meta {
   if (!meta) {
     meta = {
       proxy: undefined as unknown as object,
+      name: null,
       signals: null,
       keys: null,
       version: null,
@@ -98,6 +101,10 @@ function metaOf(target: object): Meta {
     metas.set(target, meta);
   }
   return meta;
+}
+
+function label(meta: Meta, action: string): string {
+  return meta.name ? `store "${meta.name}" ${action}` : `store ${action}`;
 }
 
 function wrap(value: unknown): unknown {
@@ -150,8 +157,8 @@ function handlerFor(meta: Meta): ProxyHandler<object> {
     },
 
     set(target, key, value) {
-      guardRenderWrite('store assignment');
-      guardDerivedWrite('store assignment');
+      guardRenderWrite(label(meta, 'assignment'));
+      guardDerivedWrite(label(meta, 'assignment'));
       const raw = unwrap(value);
       const isArray = Array.isArray(target);
       const hadKey = Object.prototype.hasOwnProperty.call(target, key);
@@ -182,8 +189,8 @@ function handlerFor(meta: Meta): ProxyHandler<object> {
     },
 
     deleteProperty(target, key) {
-      guardRenderWrite('store delete');
-      guardDerivedWrite('store delete');
+      guardRenderWrite(label(meta, 'delete'));
+      guardDerivedWrite(label(meta, 'delete'));
       const hadKey = Object.prototype.hasOwnProperty.call(target, key);
       if (!Reflect.deleteProperty(target, key)) return false;
       if (hadKey) {
@@ -200,17 +207,27 @@ function handlerFor(meta: Meta): ProxyHandler<object> {
  * Create a reactive store outside any component. Prefer `store()` in
  * components; this exists for tests and shared modules.
  */
-export function createStore<T extends object>(initial: T): T {
-  return metaOf(unwrap(initial)).proxy as T;
+export function createStore<T extends object>(
+  initial: T,
+  options?: StoreOptions
+): T {
+  const meta = metaOf(unwrap(initial));
+  if (options?.name) meta.name = options.name;
+  return meta.proxy as T;
+}
+
+export interface StoreOptions {
+  /** Debug name used in diagnostics. */
+  name?: string;
 }
 
 /** Component hook: a deep reactive proxy that persists across renders. */
-export function store<T extends object>(initial: T): T {
+export function store<T extends object>(initial: T, options?: StoreOptions): T {
   const instance = requireInstance('store()');
   const index = claimHook(instance, 'store');
   const existing = instance.hooks[index] as T | undefined;
   if (existing) return existing;
-  const created = createStore(initial);
+  const created = createStore(initial, options);
   instance.hooks[index] = created;
   return created;
 }

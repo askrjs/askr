@@ -31,6 +31,8 @@ export interface Job {
   onLimit?(): void;
   /** A lower limit when this job can repeatedly trigger render work. */
   maxRuns?: number;
+  /** Debug name, shown in the loop-guard error. */
+  readonly name?: string | null;
   /** Scheduler bookkeeping: the flush `flushRuns` was counted in. */
   flushStamp?: number;
   /** Scheduler bookkeeping: times this job has run in that flush. */
@@ -228,6 +230,9 @@ export function effectScheduler(
         maxRuns,
         flushStamp: -1,
         flushRuns: 0,
+        get name() {
+          return computation.name;
+        },
         get skip() {
           return computation.disposed;
         },
@@ -339,7 +344,9 @@ export function flushSync(): void {
         } else {
           failures.push(
             new Error(
-              `[Askr] exceeded MAX_FLUSH_DEPTH (${MAX_RUNS_PER_FLUSH}): a scheduled update kept re-queueing itself.`
+              `[Askr] exceeded MAX_FLUSH_DEPTH (${MAX_RUNS_PER_FLUSH}): a scheduled update${
+                job.name ? ` "${job.name}"` : ''
+              } kept re-queueing itself.`
             )
           );
         }

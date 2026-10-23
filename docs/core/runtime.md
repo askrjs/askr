@@ -102,6 +102,18 @@ const bucket = derive(() => ({ b: Math.floor(n() / 10) }), {
 });
 ```
 
+### Debug names
+
+`state()`, `derive()`, `selector()` and `store()` accept `{ name }` in their
+options (`selector(source, { equals, name })`; a bare comparator still works).
+The name appears in diagnostics: the loop-guard error
+(`exceeded MAX_FLUSH_DEPTH (50): a scheduled update "ticker" kept
+re-queueing itself`, which also names a looping component by its display name),
+the circular-dependency errors (`Circular reactive dependency detected in
+"total"`, `derive("total") cannot read itself recursively`), the unused-state
+warning, and a store's render-write error. A name has no other effect and there
+is no devtools hook.
+
 ### Batching and untracked reads
 
 `batch(fn)` runs `fn` with scheduling deferred and flushes once, synchronously,

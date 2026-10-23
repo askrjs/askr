@@ -48,6 +48,12 @@
 - Report `status: 404` on the SSR render result when a `fallback()` rendered
   the miss, so hosts can send the right status without reading the private
   route record.
+- Accept an optional debug `{ name }` in the options of `state()`, `derive()`,
+  `selector()` and `store()`, and include it in the loop-guard,
+  circular-dependency, unused-state and store write-guard messages. A looping
+  component is named by its display name. `selector()` also accepts
+  `{ equals, name }` in place of a bare comparator. See
+  `docs/core/runtime.md#debug-names`.
 - Add the `store(initial)` component hook and `unwrap(proxy)` to `@askrjs/askr`:
   a deep reactive proxy with per-property tracking, lazy nested wrapping with
   stable identity, array `length`/index/iteration tracking, `delete` and key
