@@ -611,6 +611,11 @@ import error instead. Its `route` is the requested URL,
 
 ## Route metadata helpers
 
+When `group()`, `page()` and `route()` metadata merge, scalar fields take the
+most specific value, `openGraph` and `html` merge key by key, `links` are
+identified by `rel` and `href` (a link declared again replaces the earlier one
+in place) and identical `jsonLd` values are written once.
+
 Most applications let the router manage the document head. Custom shells can
 use the same helpers:
 

@@ -19,6 +19,31 @@ function freezeMeta(meta: RouteMeta): Readonly<RouteMeta> {
   return Object.freeze(meta);
 }
 
+/**
+ * Links are identified by `rel` and `href`: a link declared again by a more
+ * specific source replaces the earlier one in place instead of repeating.
+ */
+function mergeLinks(
+  current: NonNullable<RouteMeta['links']>,
+  next: NonNullable<RouteMeta['links']>
+): NonNullable<RouteMeta['links']> {
+  const merged = new Map<string, NonNullable<RouteMeta['links']>[number]>();
+  for (const link of [...current, ...next]) {
+    merged.set(`${link.rel}\u0000${link.href}`, link);
+  }
+  return [...merged.values()];
+}
+
+/** JSON-LD blocks that serialize identically are written once. */
+function mergeJsonLd(values: readonly unknown[]): unknown[] {
+  const merged = new Map<string, unknown>();
+  for (const value of values) {
+    const key = JSON.stringify(value);
+    if (!merged.has(key)) merged.set(key, value);
+  }
+  return [...merged.values()];
+}
+
 function mergeMeta(current: RouteMeta, next: RouteMeta): RouteMeta {
   return {
     ...(current.title !== undefined ? { title: current.title } : {}),
@@ -39,11 +64,11 @@ function mergeMeta(current: RouteMeta, next: RouteMeta): RouteMeta {
       ? { openGraph: { ...current.openGraph, ...next.openGraph } }
       : {}),
     ...(current.links || next.links
-      ? { links: [...(current.links ?? []), ...(next.links ?? [])] }
+      ? { links: mergeLinks(current.links ?? [], next.links ?? []) }
       : {}),
     ...(current.jsonLd || next.jsonLd
       ? {
-          jsonLd: [
+          jsonLd: mergeJsonLd([
             ...(current.jsonLd === undefined
               ? []
               : Array.isArray(current.jsonLd)
@@ -54,7 +79,7 @@ function mergeMeta(current: RouteMeta, next: RouteMeta): RouteMeta {
               : Array.isArray(next.jsonLd)
                 ? next.jsonLd
                 : [next.jsonLd]),
-          ],
+          ]),
         }
       : {}),
     ...(current.html || next.html

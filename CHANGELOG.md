@@ -196,6 +196,10 @@
   own when that field changes, instead of relying on the declaring component to
   re-render, and the declaring component no longer re-renders for results it
   does not read. The snapshot shape and types are unchanged.
+- Merging route metadata no longer repeats `links` with the same `rel` and
+  `href` or identical `jsonLd` blocks declared by a group, page and route; the
+  most specific link wins.
+
 - Replace direct `AbortSignal.any` use in actions, server-query prefetch and
   provider sessions with a helper that falls back to listener forwarding, so
   hosts without `AbortSignal.any` no longer throw.
