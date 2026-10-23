@@ -86,7 +86,10 @@ chains do not consume the JavaScript call stack.
 committed children: by key, else by type in order. It asks the node kinds to
 patch matches and create the rest, then records one operation that removes
 departed children and places the remaining ones with a single
-longest-increasing-subsequence move pass. There is one keyed reconciler;
+longest-increasing-subsequence move pass. When every child of an element is removed and the element holds no other
+nodes (nothing added by other code), the removal is one `replaceChildren()`
+instead of one `removeChild` per node; the positions are still recorded, so a
+failed commit restores the children in order. There is one keyed reconciler;
 `For` rows go through it like any other keyed children.
 
 The reconciler knows lists, not node kinds. `src/core/dom/nodes.ts` owns how

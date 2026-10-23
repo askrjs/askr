@@ -384,6 +384,10 @@
   lists, return the committed child list unchanged when positions match, and
   share the no-op settle callback of reversible commits.
 
+- Clear a host with one `replaceChildren()` when every child is removed and
+  the host holds only renderer-owned nodes, instead of one `removeChild` per
+  child. A host with nodes added by other code still removes only its own.
+
 ## 0.4.4 - 2026-10-08
 
 ### Breaking changes

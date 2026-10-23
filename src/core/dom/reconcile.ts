@@ -314,11 +314,19 @@ export function reconcileChildren(
     );
     try {
       placeChildren(parent, result, sources, stable, record);
+      const departed: Node[] = [];
       for (const node of removed) {
         for (const dom of collectDom(node)) {
           record(dom);
-          dom.parentNode?.removeChild(dom);
+          departed.push(dom);
         }
+      }
+      if (ownsEveryChild(parent, result, departed)) {
+        // Every child of the host is being removed and none belongs to
+        // anyone else, so one write replaces N removals.
+        (parent as { el: Element }).el.replaceChildren();
+      } else {
+        for (const dom of departed) dom.parentNode?.removeChild(dom);
       }
     } catch (error) {
       throw new CommitMutationError(error);
@@ -367,6 +375,25 @@ function collectExpected(
       return false;
     }
   }
+  return true;
+}
+
+/**
+ * Whether `departed` is every node in `parent`'s element: the new list is
+ * empty and no node (other code's, a tail, a sibling's) would be removed with
+ * them.
+ */
+function ownsEveryChild(
+  parent: Parent,
+  result: readonly RNode[],
+  departed: readonly Node[]
+): boolean {
+  if (parent.kind !== HOST || result.length !== 0 || departed.length < 2) {
+    return false;
+  }
+  const el = parent.el;
+  if (el.childNodes.length !== departed.length) return false;
+  for (const dom of departed) if (dom.parentNode !== el) return false;
   return true;
 }
 
