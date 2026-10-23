@@ -27,7 +27,10 @@ import {
 // Minimal testing window type helpers to avoid `any` casts
 type TestWindow = {
   location: { pathname: string; search?: string; hash?: string };
-  history: { pushState(...args: unknown[]): void };
+  history: {
+    pushState(...args: unknown[]): void;
+    replaceState(...args: unknown[]): void;
+  };
   addEventListener: (...args: unknown[]) => void;
   removeEventListener: (...args: unknown[]) => void;
 };

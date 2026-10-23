@@ -18,11 +18,11 @@ describe('value removal on non-form-control elements', () => {
   it('should remove the value attribute from option, button, li and progress', () => {
     const mounted = createTestContainer();
     cleanup = mounted.cleanup;
-    let setValue!: State<string | undefined>;
+    let setValue!: State<number | undefined>;
     createIsland({
       root: mounted.container,
       component: () => {
-        const value = state<string | undefined>('a');
+        const value = state<number | undefined>(1);
         setValue = value;
         return (
           <div>
@@ -43,8 +43,8 @@ describe('value removal on non-form-control elements', () => {
     const button = mounted.container.querySelector('button')!;
     const item = mounted.container.querySelector('li')!;
     const progress = mounted.container.querySelector('progress')!;
-    expect(option.getAttribute('value')).toBe('a');
-    expect(button.getAttribute('value')).toBe('a');
+    expect(option.getAttribute('value')).toBe('1');
+    expect(button.getAttribute('value')).toBe('1');
 
     setValue.set(undefined);
     flushScheduler();
