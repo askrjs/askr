@@ -1,6 +1,7 @@
 {
   "exports": {
     ".": {
+      "batch": ["declare function batch<T>(fn: () => T): T;"],
       "configureRenderDiagnostics": [
         "declare function configureRenderDiagnostics(options: RenderDiagnosticsOptions): () => void;"
       ],
@@ -16,8 +17,8 @@
         "declare function defineScope<T>(defaultValue: T): Scope<T>;"
       ],
       "derive": [
-        "declare function derive<TOut>(fn: () => TOut): Derived<TOut>;",
-        "declare function derive<TIn, TOut>(source: SnapshotSource<TIn> | TIn | (() => TIn), map: (value: TIn) => TOut): Derived<TOut | null>;"
+        "declare function derive<TOut>(fn: () => TOut, options?: ReactiveOptions<TOut>): Derived<TOut>;",
+        "declare function derive<TIn, TOut>(source: SnapshotSource<TIn> | TIn | (() => TIn), map: (value: TIn) => TOut, options?: ReactiveOptions<TOut | null>): Derived<TOut | null>;"
       ],
       "Derived": ["interface Derived<T> {\n    (): T;\n}"],
       "Fragment": ["Fragment: unique symbol"],
@@ -57,10 +58,12 @@
         "interface Scope<T> {\n    (props: {\n        value: T;\n        children?: ContextScopeChildren;\n    }): JSXElement;\n    readonly key: ContextKey;\n    readonly defaultValue: T;\n}"
       ],
       "selector": [
-        "declare function selector<T>(source: () => T, equals?: SelectorEquals<T>): Selector<T>;"
+        "declare function selector<T>(source: () => T, equals?: SelectorEquals<T> | SelectorOptions<T>): Selector<T>;"
       ],
       "Selector": ["interface Selector<T> {\n    (candidate: T): boolean;\n}"],
-      "state": ["declare function state<T>(initialValue: T): StateTuple<T>;"],
+      "state": [
+        "declare function state<T>(initialValue: T, options?: ReactiveOptions<T>): StateTuple<T>;"
+      ],
       "State": [
         "interface State<T> {\n    (): T;\n    set(...args: StateSetterArgs<T>): void;\n    [Symbol.iterator](): IterableIterator<StateTuple<T>[number]>;\n}"
       ],
@@ -69,7 +72,12 @@
       ],
       "StateTuple": [
         "type StateTuple<T> = [\n    get: State<T>,\n    set: StateSetter<T>\n] & State<T>;"
-      ]
+      ],
+      "store": [
+        "declare function store<T extends object>(initial: T, options?: StoreOptions): T;"
+      ],
+      "untrack": ["declare function untrack<T>(fn: () => T): T;"],
+      "unwrap": ["declare function unwrap<T>(value: T): T;"]
     },
     "./boot": {
       "cleanupApp": [
@@ -89,7 +97,7 @@
         "declare function hydrateSPA(config: HydrateSPAConfig): Promise<void>;"
       ],
       "HydrateSPAConfig": [
-        "type HydrateSPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    cleanupStrict?: boolean;\n    hydrate?: {\n        verifyMarkup?: boolean;\n        onMismatch?: (info: {\n            path: string;\n            expected: string;\n            actual: string;\n        }) => \"continue\" | void;\n        deferUntilIdle?: boolean;\n        deferBelowFold?: boolean;\n        foldThreshold?: number;\n        skipSelectors?: string[];\n    };\n};"
+        "type HydrateSPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    focus?: false | {\n        target?: string | ((root: Element) => Element | null);\n        announce?: false | ((route: {\n            readonly pathname: string;\n            readonly search: string;\n            readonly hash: string;\n            readonly title: string;\n        }) => string);\n    };\n    cleanupStrict?: boolean;\n    hydrate?: {\n        verifyMarkup?: boolean;\n        onMismatch?: (info: {\n            path: string;\n            expected: string;\n            actual: string;\n        }) => \"continue\" | void;\n        deferUntilIdle?: boolean;\n        deferBelowFold?: boolean;\n        foldThreshold?: number;\n        skipSelectors?: string[];\n    };\n};"
       ],
       "IslandConfig": [
         "type IslandConfig = {\n    root: Element | string;\n    component: ComponentFunction;\n    cspNonce?: string;\n    hydrate?: boolean | {\n        onMismatch?: (info: {\n            path: string;\n            expected: string;\n            actual: string;\n        }) => void;\n    };\n    dataRuntime?: DataRuntime;\n    cleanupStrict?: boolean;\n    routes?: never;\n};"
@@ -101,7 +109,7 @@
         "declare function replaceDataRuntime(root: Element | string, next: DataRuntime): void;"
       ],
       "SPAConfig": [
-        "type SPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    cleanupStrict?: boolean;\n    component?: never;\n};"
+        "type SPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    focus?: false | {\n        target?: string | ((root: Element) => Element | null);\n        announce?: false | ((route: {\n            readonly pathname: string;\n            readonly search: string;\n            readonly hash: string;\n            readonly title: string;\n        }) => string);\n    };\n    cleanupStrict?: boolean;\n    component?: never;\n};"
       ]
     },
     "./components": {
@@ -632,6 +640,9 @@
         "interface AccessRedirectDecision {\n    kind: \"redirect\";\n    to: string;\n    status?: AccessRedirectStatus;\n    replace?: boolean;\n}"
       ],
       "allow": ["declare function allow(): AccessAllowDecision;"],
+      "blockNavigation": [
+        "declare function blockNavigation(shouldBlock: () => boolean | string): () => void;"
+      ],
       "createRouteRegistry": [
         "declare function createRouteRegistry(definition: RouteDefinition, options?: RouteRegistryOptions): RouteRegistry;"
       ],
@@ -640,7 +651,7 @@
       ],
       "currentAuth": ["declare function currentAuth(): AuthContext$1;"],
       "currentRoute": [
-        "declare function currentRoute<TParams extends RouteParams = RouteParams, TState = unknown, TAppMeta = unknown>(): RouteSnapshot<TParams, TState, TAppMeta>;"
+        "declare function currentRoute<TParams extends RouteParams = RouteParams, TState = unknown, TAppMeta = unknown, TSearch = RouteSearch>(): RouteSnapshot<TParams, TState, TAppMeta, TSearch>;"
       ],
       "defer": [
         "declare function defer<T>(promise: PromiseLike<T>): Deferred<T>;"
@@ -662,7 +673,7 @@
         "declare function group(options: GroupHelperOptions, fn: RouteDefinition): void;"
       ],
       "GroupHelperOptions": [
-        "interface GroupHelperOptions<TAppMeta = unknown> extends CommonAccessOptions {\n    layout?: (props: {\n        children?: RenderableChild;\n    }) => RenderableChild;\n    meta?: RouteMetaSource;\n    appMeta?: TAppMeta;\n}"
+        "interface GroupHelperOptions<TAppMeta = unknown> extends CommonAccessOptions {\n    layout?: (props: {\n        children?: RenderableChild;\n    }) => RenderableChild;\n    meta?: RouteMetaSource;\n    appMeta?: TAppMeta;\n    error?: (props: RouteErrorProps) => RenderableChild;\n    forbidden?: (props: RouteForbiddenProps) => RenderableChild;\n    loader?: (context: RouteContext & {\n        request?: Request;\n    }) => unknown;\n    staleTimeMs?: number | \"always\";\n}"
       ],
       "HistoryScrollBehavior": [
         "type HistoryScrollBehavior = \"restore\" | \"top\" | \"preserve\";"
@@ -672,6 +683,9 @@
       ],
       "isDeferred": [
         "declare function isDeferred<T = unknown>(value: unknown): value is Deferred<T>;"
+      ],
+      "layoutData": [
+        "declare function layoutData<TData>(loader: (context: RouteContext & {\n    request?: Request;\n}) => TData | PromiseLike<TData>): TData;"
       ],
       "lazy": [
         "declare function lazy<TComponent extends AnyRouteComponent>(factory: () => Promise<{\n    default: TComponent;\n} | TComponent>): LazyRouteComponent<TComponent>;"
@@ -686,10 +700,13 @@
         "type LazyRouteDataLoader<TModule, TData = TModule> = ((context: RouteContext & {\n    request?: Request;\n}) => Promise<TData>) & {\n    preload(): Promise<void>;\n};"
       ],
       "Link": [
-        "declare function Link({ href: suppliedHref, to, class: className, children, rel, target, \"aria-current\": ariaCurrent, \"aria-label\": ariaLabel, onPress, onClick, ...rest }: LinkProps): JSXElement;"
+        "declare function Link({ href: suppliedHref, to, class: className, children, rel, target, \"aria-current\": ariaCurrent, \"aria-label\": ariaLabel, onPress, onClick, replace, state, scroll, prefetch, ...rest }: LinkProps): JSXElement;"
       ],
       "LinkProps": [
         "type LinkProps = LinkBaseProps & ({\n    href: string;\n    to?: never;\n} | {\n    href?: never;\n    to: RouteDestination;\n});"
+      ],
+      "localTarget": [
+        "declare function localTarget(value: string | null, fallback?: string): string;"
       ],
       "matchRoute": [
         "declare function matchRoute<TAppMeta = unknown>(pathname: string, options: {\n    registry: RouteRegistry;\n}): RouteMatch<RouteParams, TAppMeta> | null;"
@@ -698,10 +715,16 @@
         "declare function navigate(target: string | RouteDestination, options?: NavigateOptions): void;"
       ],
       "NavigateOptions": [
-        "type NavigateOptions = {\n    history?: \"push\" | \"replace\";\n    replace?: boolean;\n    scroll?: NavigationScrollBehavior;\n    state?: unknown;\n};"
+        "type NavigateOptions = {\n    history?: \"push\" | \"replace\";\n    replace?: boolean;\n    scroll?: NavigationScrollBehavior;\n    state?: unknown;\n    sameOrigin?: boolean;\n};"
       ],
       "NavigationScrollBehavior": [
         "type NavigationScrollBehavior = \"top\" | \"preserve\";"
+      ],
+      "navigationState": [
+        "declare function navigationState(): NavigationState;"
+      ],
+      "NavigationState": [
+        "interface NavigationState {\n    readonly pending: boolean;\n    readonly to: string | null;\n    readonly revalidating: boolean;\n}"
       ],
       "notFound": ["declare function notFound(): AccessDenyDecision;"],
       "onRouteChange": [
@@ -715,7 +738,7 @@
         "declare function page<const TPath extends string, TComponent extends AnyRouteComponent>(path: TPath, Component: CompatibleRouteComponent<TPath, TComponent>, options: PageHelperOptions, fn: RouteDefinition): void;"
       ],
       "PageHelperOptions": [
-        "interface PageHelperOptions<TAppMeta = unknown> extends CommonAccessOptions {\n    preload?: (context: RouteContext & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    meta?: RouteMetaSource;\n    appMeta?: TAppMeta;\n}"
+        "interface PageHelperOptions<TAppMeta = unknown> extends CommonAccessOptions {\n    preload?: (context: RouteContext & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    meta?: RouteMetaSource;\n    appMeta?: TAppMeta;\n    error?: (props: RouteErrorProps) => RenderableChild;\n    forbidden?: (props: RouteForbiddenProps) => RenderableChild;\n    loader?: (context: RouteContext & {\n        request?: Request;\n    }) => unknown;\n    staleTimeMs?: number | \"always\";\n}"
       ],
       "reconcileRouteMeta": [
         "declare function reconcileRouteMeta(meta: Readonly<RouteMeta>, target?: Document): void;"
@@ -733,7 +756,7 @@
         "interface ResolveProps<T> {\n    value: Deferred<T>;\n    pending?: RenderableChild;\n    rejected?: RenderableChild | ((error: unknown) => RenderableChild);\n    children: (value: T) => RenderableChild;\n}"
       ],
       "resolveRouteMeta": [
-        "declare function resolveRouteMeta(record: RouteRecord, context: RouteContext): Promise<Readonly<RouteMeta>>;"
+        "declare function resolveRouteMeta(record: RouteRecord, context: RouteContext & {\n    data?: unknown;\n}): Promise<Readonly<RouteMeta>>;"
       ],
       "resolveRouteRequest": [
         "declare function resolveRouteRequest(target: string, options: RouteRequestOptions): RouteRequestResult | Promise<RouteRequestResult>;"
@@ -759,7 +782,7 @@
         "type RouteComponent<TParams extends RouteParams = RouteParams> = (props: TParams) => RenderableChild;"
       ],
       "RouteContext": [
-        "interface RouteContext<TParams extends RouteParams = RouteParams> {\n    mode: RouteMode;\n    params: TParams;\n    pathname: string;\n    search: string;\n    hash: string;\n    href: string;\n    auth: AuthContext;\n    signal: AbortSignal;\n}"
+        "interface RouteContext<TParams extends RouteParams = RouteParams> {\n    mode: RouteMode;\n    params: TParams;\n    pathname: string;\n    search: string;\n    hash: string;\n    href: string;\n    auth: AuthContext;\n    signal: AbortSignal;\n    searchParams?: Readonly<RouteSearch>;\n}"
       ],
       "routeData": ["declare function routeData<T>(): T;"],
       "RouteDataLoadError": [
@@ -772,11 +795,17 @@
       "RouteDestination": [
         "interface RouteDestination {\n    readonly href: string;\n    readonly [routeDestinationBrand]: true;\n}"
       ],
+      "RouteErrorProps": [
+        "interface RouteErrorProps {\n    error: unknown;\n    retry(): void;\n}"
+      ],
+      "RouteForbiddenProps": [
+        "interface RouteForbiddenProps {\n    status: AccessDenyStatus;\n}"
+      ],
       "RouteHandler": [
         "interface RouteHandler<TParams extends RouteParams = RouteParams> {\n    (params: TParams, context?: {\n        signal: AbortSignal;\n    }): RenderableChild;\n}"
       ],
       "RouteManifest": [
-        "interface RouteManifest {\n    records: RouteRecord[];\n    auth?: RouteAuthOptions;\n    basePath?: string;\n}"
+        "interface RouteManifest {\n    records: RouteRecord[];\n    auth?: RouteAuthOptions;\n    basePath?: string;\n    trailingSlash?: \"never\" | \"always\";\n    caseSensitive?: false;\n}"
       ],
       "RouteMatch": [
         "interface RouteMatch<TParams extends RouteParams = RouteParams, TAppMeta = unknown> {\n    path: string;\n    params: Readonly<TParams>;\n    name?: string;\n    namespace?: string;\n    readonly appMeta?: TAppMeta;\n}"
@@ -785,11 +814,11 @@
         "interface RouteMeta {\n    title?: string;\n    description?: string;\n    canonical?: string;\n    robots?: string;\n    openGraph?: Record<string, string>;\n    links?: readonly {\n        rel: string;\n        href: string;\n        [key: string]: string;\n    }[];\n    jsonLd?: unknown | readonly unknown[];\n    html?: {\n        lang?: string;\n        dir?: \"ltr\" | \"rtl\" | \"auto\";\n    };\n}"
       ],
       "RouteMetaSource": [
-        "type RouteMetaSource<TParams extends RouteParams = RouteParams> = RouteMeta | ((context: RouteContext<TParams>) => RouteMeta | PromiseLike<RouteMeta>);"
+        "type RouteMetaSource<TParams extends RouteParams = RouteParams, TData = unknown, TSearch = RouteSearch> = RouteMeta | ((context: RouteContext<TParams> & {\n    data?: TData;\n    searchParams: Readonly<TSearch>;\n}) => RouteMeta | PromiseLike<RouteMeta>);"
       ],
       "RouteMode": ["type RouteMode = \"spa\" | \"ssr\" | \"ssg\";"],
       "RouteOptions": [
-        "interface RouteOptions<TParams extends RouteParams = RouteParams, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData, TAppMeta = unknown> extends CommonAccessOptions {\n    loader?: (context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TLoaderData | PromiseLike<TLoaderData>;\n    dehydrate?: (data: TLoaderData, context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TDehydratedData extends PromiseLike<unknown> ? never : TDehydratedData;\n    preload?: (context: RouteContext<TParams> & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    entries?: () => Array<TParams> | Promise<Array<TParams>>;\n    invalidationKeys?: readonly string[];\n    title?: string;\n    namespace?: string;\n    search?: TSearchSchema;\n    meta?: RouteMetaSource<TParams>;\n    appMeta?: TAppMeta;\n    actions?: readonly ActionDescriptor[];\n}"
+        "interface RouteOptions<TParams extends RouteParams = RouteParams, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData, TAppMeta = unknown> extends CommonAccessOptions {\n    loader?: (context: RouteContext<TParams> & {\n        request?: Request;\n        searchParams: Readonly<RouteRefSearch<TSearchSchema>>;\n    }) => TLoaderData | PromiseLike<TLoaderData>;\n    dehydrate?: (data: TLoaderData, context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TDehydratedData extends PromiseLike<unknown> ? never : TDehydratedData;\n    preload?: (context: RouteContext<TParams> & {\n        request?: Request;\n        data: QueryPrefetchContext;\n        searchParams: Readonly<RouteRefSearch<TSearchSchema>>;\n    }) => unknown;\n    entries?: () => Array<TParams> | Promise<Array<TParams>>;\n    invalidationKeys?: readonly string[];\n    title?: string;\n    namespace?: string;\n    search?: TSearchSchema;\n    meta?: RouteMetaSource<TParams, TLoaderData, RouteRefSearch<TSearchSchema>>;\n    appMeta?: TAppMeta;\n    actions?: readonly ActionDescriptor[];\n    error?: (props: RouteErrorProps) => RenderableChild;\n    forbidden?: (props: RouteForbiddenProps) => RenderableChild;\n    staleTimeMs?: number | \"always\";\n}"
       ],
       "RouteParams": ["type RouteParams = Record<string, string>;"],
       "RoutePathParams": [
@@ -823,7 +852,7 @@
         "interface RouteRegistry {\n    readonly [routeRegistryBrand]: true;\n    manifest: RouteManifest;\n    routes: readonly Route[];\n}"
       ],
       "RouteRegistryOptions": [
-        "interface RouteRegistryOptions {\n    auth?: RouteAuthOptions;\n    basePath?: string;\n}"
+        "interface RouteRegistryOptions {\n    auth?: RouteAuthOptions;\n    basePath?: string;\n    trailingSlash?: \"ignore\" | \"never\" | \"always\";\n    caseSensitive?: boolean;\n}"
       ],
       "RouteRenderResult": [
         "interface RouteRenderResult<TParams extends RouteParams = RouteParams> {\n    kind: \"render\";\n    handler: RouteHandler<TParams>;\n    params: TParams;\n    record?: RouteRecord;\n}"
@@ -839,7 +868,7 @@
         "type RouteSearchValue = string | number | boolean | null | undefined | readonly (string | number | boolean | null)[];"
       ],
       "RouteSnapshot": [
-        "interface RouteSnapshot<TParams extends RouteParams = RouteParams, TState = unknown, TAppMeta = unknown> {\n    path: string;\n    params: Readonly<TParams>;\n    query: Readonly<RouteQuery>;\n    hash: string | null;\n    hasState: boolean;\n    state: TState | undefined;\n    name?: string;\n    namespace?: string;\n    matches: readonly RouteMatch<TParams, TAppMeta>[];\n}"
+        "interface RouteSnapshot<TParams extends RouteParams = RouteParams, TState = unknown, TAppMeta = unknown, TSearch = RouteSearch> {\n    path: string;\n    params: Readonly<TParams>;\n    query: Readonly<RouteQuery>;\n    search: Readonly<TSearch>;\n    hash: string | null;\n    hasState: boolean;\n    state: TState | undefined;\n    name?: string;\n    namespace?: string;\n    matches: readonly RouteMatch<TParams, TAppMeta>[];\n}"
       ],
       "ScrollRestorationOptions": [
         "type ScrollRestorationOptions = {\n    navigation?: NavigationScrollBehavior;\n    history?: HistoryScrollBehavior;\n};"
@@ -911,7 +940,7 @@
         "interface RenderRouteRequestOptions {\n    url: string;\n    registry: RouteRegistry;\n    auth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    request?: Request;\n    signal?: AbortSignal;\n    seed?: number;\n    data?: SSRData;\n    framework?: Readonly<Record<string, unknown>>;\n    dataRuntime?: DataRuntime;\n    queryPrefetch?: QueryPrefetchContext;\n    queryRegistry?: ServerQueryRegistry;\n    telemetry?: CoreTelemetry;\n    cspNonce?: string;\n}"
       ],
       "RenderRouteRequestResult": [
-        "type RenderRouteRequestResult = {\n    kind: \"render\";\n    html: string;\n    stream?: ReadableStream<Uint8Array>;\n    styles: readonly SSRStyleRegistration[];\n    params: Record<string, string>;\n    record?: RouteRecord;\n} | AccessRedirectDecision | AccessDenyDecision | {\n    kind: \"no-match\";\n};"
+        "type RenderRouteRequestResult = {\n    kind: \"render\";\n    html: string;\n    stream?: ReadableStream<Uint8Array>;\n    styles: readonly SSRStyleRegistration[];\n    params: Record<string, string>;\n    status?: 404;\n    record?: RouteRecord;\n} | AccessRedirectDecision | AccessDenyDecision | {\n    kind: \"no-match\";\n};"
       ],
       "renderRouteRequestToString": [
         "declare function renderRouteRequestToString(options: RenderRouteRequestOptions): Promise<RenderRouteRequestResult>;"
@@ -1074,8 +1103,12 @@
     "applyInteractionPolicy": [
       "declare function applyInteractionPolicy({ isNative, disabled, onPress, ref }: InteractionPolicyInput): {\n    disabled: true | undefined;\n    onClick: (e: Event) => void;\n    ref: Ref$2<unknown>;\n} | {\n    tabIndex: number;\n    ref: Ref$2<unknown>;\n    \"aria-disabled\"?: \"true\";\n    onClick: (e: DefaultPreventable & PropagationStoppable) => void;\n    disabled?: true;\n    role?: \"button\";\n    onKeyDown?: (e: KeyboardLikeEvent) => void;\n    onKeyUp?: (e: KeyboardLikeEvent) => void;\n};"
     ],
+    "batch": ["declare function batch<T>(fn: () => T): T;"],
     "BivariantHandler": [
       "type BivariantHandler<T> = {\n    bivarianceHack(value: T): void;\n}[\"bivarianceHack\"];"
+    ],
+    "blockNavigation": [
+      "declare function blockNavigation(shouldBlock: () => boolean | string): () => void;"
     ],
     "BootRouteSource": [
       "type BootRouteSource = {\n    registry: RouteRegistry;\n};"
@@ -1217,7 +1250,7 @@
     "CspNonceScope": ["CspNonceScope: Scope<string | undefined>"],
     "currentAuth": ["declare function currentAuth(): AuthContext$1;"],
     "currentRoute": [
-      "declare function currentRoute<TParams extends RouteParams = RouteParams, TState = unknown, TAppMeta = unknown>(): RouteSnapshot<TParams, TState, TAppMeta>;"
+      "declare function currentRoute<TParams extends RouteParams = RouteParams, TState = unknown, TAppMeta = unknown, TSearch = RouteSearch>(): RouteSnapshot<TParams, TState, TAppMeta, TSearch>;"
     ],
     "DataRuntime": [
       "interface DataRuntime {\n    readonly queryCache: Map<string, unknown>;\n    readonly queryData: Map<string, unknown>;\n}"
@@ -1267,8 +1300,8 @@
       "declare function deny(status: AccessDenyStatus): AccessDenyDecision;"
     ],
     "derive": [
-      "declare function derive<TIn, TOut>(source: SnapshotSource<TIn> | TIn | (() => TIn), map: (value: TIn) => TOut): Derived<TOut | null>;",
-      "declare function derive<TOut>(fn: () => TOut): Derived<TOut>;"
+      "declare function derive<TIn, TOut>(source: SnapshotSource<TIn> | TIn | (() => TIn), map: (value: TIn) => TOut, options?: ReactiveOptions<TOut | null>): Derived<TOut | null>;",
+      "declare function derive<TOut>(fn: () => TOut, options?: ReactiveOptions<TOut>): Derived<TOut>;"
     ],
     "Derived": ["interface Derived<T> {\n    (): T;\n}"],
     "dismissable": [
@@ -1413,7 +1446,7 @@
       "declare function group(options: GroupHelperOptions, fn: RouteDefinition): void;"
     ],
     "GroupHelperOptions": [
-      "interface GroupHelperOptions<TAppMeta = unknown> extends CommonAccessOptions {\n    layout?: (props: {\n        children?: RenderableChild;\n    }) => RenderableChild;\n    meta?: RouteMetaSource;\n    appMeta?: TAppMeta;\n}"
+      "interface GroupHelperOptions<TAppMeta = unknown> extends CommonAccessOptions {\n    layout?: (props: {\n        children?: RenderableChild;\n    }) => RenderableChild;\n    meta?: RouteMetaSource;\n    appMeta?: TAppMeta;\n    error?: (props: RouteErrorProps) => RenderableChild;\n    forbidden?: (props: RouteForbiddenProps) => RenderableChild;\n    loader?: (context: RouteContext & {\n        request?: Request;\n    }) => unknown;\n    staleTimeMs?: number | \"always\";\n}"
     ],
     "hasApp": ["declare function hasApp(root: Element | string): boolean;"],
     "HasIndexSignature": [
@@ -1441,7 +1474,7 @@
       "declare function hydrateSPA(config: HydrateSPAConfig): Promise<void>;"
     ],
     "HydrateSPAConfig": [
-      "type HydrateSPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    cleanupStrict?: boolean;\n    hydrate?: {\n        verifyMarkup?: boolean;\n        onMismatch?: (info: {\n            path: string;\n            expected: string;\n            actual: string;\n        }) => \"continue\" | void;\n        deferUntilIdle?: boolean;\n        deferBelowFold?: boolean;\n        foldThreshold?: number;\n        skipSelectors?: string[];\n    };\n};"
+      "type HydrateSPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    focus?: false | {\n        target?: string | ((root: Element) => Element | null);\n        announce?: false | ((route: {\n            readonly pathname: string;\n            readonly search: string;\n            readonly hash: string;\n            readonly title: string;\n        }) => string);\n    };\n    cleanupStrict?: boolean;\n    hydrate?: {\n        verifyMarkup?: boolean;\n        onMismatch?: (info: {\n            path: string;\n            expected: string;\n            actual: string;\n        }) => \"continue\" | void;\n        deferUntilIdle?: boolean;\n        deferBelowFold?: boolean;\n        foldThreshold?: number;\n        skipSelectors?: string[];\n    };\n};"
     ],
     "IconBase": [
       "declare function IconBase({ size, strokeWidth, color, title, class: className, style, iconName, children, ref, ...rest }: IconProps): JSXElement;"
@@ -1627,6 +1660,9 @@
     "LayoutComponent": [
       "type LayoutComponent<P = object> = (props: P & {\n    children?: RenderableChild;\n}) => unknown;"
     ],
+    "layoutData": [
+      "declare function layoutData<TData>(loader: (context: RouteContext & {\n    request?: Request;\n}) => TData | PromiseLike<TData>): TData;"
+    ],
     "LayoutIntrinsicProps": [
       "type LayoutIntrinsicProps = StructuredContentIntrinsicProps;"
     ],
@@ -1646,10 +1682,10 @@
       "type LazyRouteDataLoader<TModule, TData = TModule> = ((context: RouteContext & {\n    request?: Request;\n}) => Promise<TData>) & {\n    preload(): Promise<void>;\n};"
     ],
     "Link": [
-      "declare function Link({ href: suppliedHref, to, class: className, children, rel, target, \"aria-current\": ariaCurrent, \"aria-label\": ariaLabel, onPress, onClick, ...rest }: LinkProps): JSXElement;"
+      "declare function Link({ href: suppliedHref, to, class: className, children, rel, target, \"aria-current\": ariaCurrent, \"aria-label\": ariaLabel, onPress, onClick, replace, state, scroll, prefetch, ...rest }: LinkProps): JSXElement;"
     ],
     "LinkBaseProps": [
-      "type LinkBaseProps = Omit<Props, \"children\" | \"href\" | \"class\" | \"rel\" | \"target\" | \"aria-current\" | \"aria-label\"> & {\n    class?: string;\n    children?: RenderableChild;\n    rel?: string;\n    target?: string;\n    \"aria-current\"?: \"page\" | \"step\" | \"location\" | \"date\" | \"time\" | \"true\" | \"false\";\n    \"aria-label\"?: string;\n    onPress?: (event: Event) => void;\n    onClick?: (event: MouseEvent) => void;\n};"
+      "type LinkBaseProps = Omit<Props, \"children\" | \"href\" | \"class\" | \"rel\" | \"target\" | \"aria-current\" | \"aria-label\"> & {\n    class?: string;\n    children?: RenderableChild;\n    rel?: string;\n    target?: string;\n    \"aria-current\"?: \"page\" | \"step\" | \"location\" | \"date\" | \"time\" | \"true\" | \"false\";\n    \"aria-label\"?: string;\n    onPress?: (event: Event) => void;\n    onClick?: (event: MouseEvent) => void;\n    replace?: boolean;\n    state?: unknown;\n    scroll?: \"top\" | \"preserve\";\n    prefetch?: \"intent\" | \"render\" | \"none\";\n};"
     ],
     "LinkProps": [
       "type LinkProps = LinkBaseProps & ({\n    href: string;\n    to?: never;\n} | {\n    href?: never;\n    to: RouteDestination;\n});"
@@ -1662,6 +1698,9 @@
     ],
     "ListItemIntrinsicProps": [
       "type ListItemIntrinsicProps = StructuredContentIntrinsicProps<{\n    value?: ReactiveProp<IntrinsicNumberValue>;\n}>;"
+    ],
+    "localTarget": [
+      "declare function localTarget(value: string | null, fallback?: string): string;"
     ],
     "Match": ["declare function Match(_props: MatchProps): null;"],
     "MatchChild": ["type MatchChild = BoundaryChild | (() => BoundaryChild);"],
@@ -1733,10 +1772,14 @@
       "declare function navigate(target: string | RouteDestination, options?: NavigateOptions): void;"
     ],
     "NavigateOptions": [
-      "type NavigateOptions = {\n    history?: \"push\" | \"replace\";\n    replace?: boolean;\n    scroll?: NavigationScrollBehavior;\n    state?: unknown;\n};"
+      "type NavigateOptions = {\n    history?: \"push\" | \"replace\";\n    replace?: boolean;\n    scroll?: NavigationScrollBehavior;\n    state?: unknown;\n    sameOrigin?: boolean;\n};"
     ],
     "NavigationScrollBehavior": [
       "type NavigationScrollBehavior = \"top\" | \"preserve\";"
+    ],
+    "navigationState": ["declare function navigationState(): NavigationState;"],
+    "NavigationState": [
+      "interface NavigationState {\n    readonly pending: boolean;\n    readonly to: string | null;\n    readonly revalidating: boolean;\n}"
     ],
     "notFound": ["declare function notFound(): AccessDenyDecision;"],
     "on": [
@@ -1785,7 +1828,7 @@
     ],
     "PAGE_RENDER_ENVELOPE_VERSION": ["PAGE_RENDER_ENVELOPE_VERSION: 1"],
     "PageHelperOptions": [
-      "interface PageHelperOptions<TAppMeta = unknown> extends CommonAccessOptions {\n    preload?: (context: RouteContext & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    meta?: RouteMetaSource;\n    appMeta?: TAppMeta;\n}"
+      "interface PageHelperOptions<TAppMeta = unknown> extends CommonAccessOptions {\n    preload?: (context: RouteContext & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    meta?: RouteMetaSource;\n    appMeta?: TAppMeta;\n    error?: (props: RouteErrorProps) => RenderableChild;\n    forbidden?: (props: RouteForbiddenProps) => RenderableChild;\n    loader?: (context: RouteContext & {\n        request?: Request;\n    }) => unknown;\n    staleTimeMs?: number | \"always\";\n}"
     ],
     "PageRenderEnvelope": [
       "interface PageRenderEnvelope {\n    readonly version: typeof PAGE_RENDER_ENVELOPE_VERSION;\n    readonly resources: Readonly<Record<string, unknown>>;\n    readonly route: unknown;\n    readonly framework: Readonly<Record<string, unknown>>;\n}"
@@ -1905,6 +1948,9 @@
     "rafEvent": [
       "declare function rafEvent(handler: EventListener): EventListener & {\n    cancel(): void;\n};"
     ],
+    "ReactiveOptions": [
+      "interface ReactiveOptions<T> {\n    equals?: (a: T, b: T) => boolean;\n    name?: string;\n}"
+    ],
     "ReactiveProp": ["type ReactiveProp<T> = T | (() => T);"],
     "readScope": ["declare function readScope<T>(context: Scope<T>): T;"],
     "reconcileRouteMeta": [
@@ -1960,7 +2006,7 @@
       "interface RenderRouteRequestOptions {\n    url: string;\n    registry: RouteRegistry;\n    auth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    request?: Request;\n    signal?: AbortSignal;\n    seed?: number;\n    data?: SSRData;\n    framework?: Readonly<Record<string, unknown>>;\n    dataRuntime?: DataRuntime;\n    queryPrefetch?: QueryPrefetchContext;\n    queryRegistry?: ServerQueryRegistry;\n    telemetry?: CoreTelemetry;\n    cspNonce?: string;\n}"
     ],
     "RenderRouteRequestResult": [
-      "type RenderRouteRequestResult = {\n    kind: \"render\";\n    html: string;\n    stream?: ReadableStream<Uint8Array>;\n    styles: readonly SSRStyleRegistration[];\n    params: Record<string, string>;\n    record?: RouteRecord;\n} | AccessRedirectDecision | AccessDenyDecision | {\n    kind: \"no-match\";\n};"
+      "type RenderRouteRequestResult = {\n    kind: \"render\";\n    html: string;\n    stream?: ReadableStream<Uint8Array>;\n    styles: readonly SSRStyleRegistration[];\n    params: Record<string, string>;\n    status?: 404;\n    record?: RouteRecord;\n} | AccessRedirectDecision | AccessDenyDecision | {\n    kind: \"no-match\";\n};"
     ],
     "renderRouteRequestToString": [
       "declare function renderRouteRequestToString(options: RenderRouteRequestOptions): Promise<RenderRouteRequestResult>;"
@@ -1991,7 +2037,7 @@
       "interface ResolveProps<T> {\n    value: Deferred<T>;\n    pending?: RenderableChild;\n    rejected?: RenderableChild | ((error: unknown) => RenderableChild);\n    children: (value: T) => RenderableChild;\n}"
     ],
     "resolveRouteMeta": [
-      "declare function resolveRouteMeta(record: RouteRecord, context: RouteContext): Promise<Readonly<RouteMeta>>;"
+      "declare function resolveRouteMeta(record: RouteRecord, context: RouteContext & {\n    data?: unknown;\n}): Promise<Readonly<RouteMeta>>;"
     ],
     "resolveRouteRequest": [
       "declare function resolveRouteRequest(target: string, options: RouteRequestOptions): RouteRequestResult | Promise<RouteRequestResult>;"
@@ -2040,7 +2086,7 @@
       "type RouteComponentParam<TComponent extends AnyRouteComponent> = Parameters<TComponent> extends [\n] ? unknown : Parameters<TComponent>[0];"
     ],
     "RouteContext": [
-      "interface RouteContext<TParams extends RouteParams = RouteParams> {\n    mode: RouteMode;\n    params: TParams;\n    pathname: string;\n    search: string;\n    hash: string;\n    href: string;\n    auth: AuthContext;\n    signal: AbortSignal;\n}"
+      "interface RouteContext<TParams extends RouteParams = RouteParams> {\n    mode: RouteMode;\n    params: TParams;\n    pathname: string;\n    search: string;\n    hash: string;\n    href: string;\n    auth: AuthContext;\n    signal: AbortSignal;\n    searchParams?: Readonly<RouteSearch>;\n}"
     ],
     "routeData": ["declare function routeData<T>(): T;"],
     "RouteDataLoadError": [
@@ -2054,11 +2100,17 @@
       "interface RouteDestination {\n    readonly href: string;\n    readonly [routeDestinationBrand]: true;\n}"
     ],
     "routeDestinationBrand": ["routeDestinationBrand: unique symbol"],
+    "RouteErrorProps": [
+      "interface RouteErrorProps {\n    error: unknown;\n    retry(): void;\n}"
+    ],
+    "RouteForbiddenProps": [
+      "interface RouteForbiddenProps {\n    status: AccessDenyStatus;\n}"
+    ],
     "RouteHandler": [
       "interface RouteHandler<TParams extends RouteParams = RouteParams> {\n    (params: TParams, context?: {\n        signal: AbortSignal;\n    }): RenderableChild;\n}"
     ],
     "RouteManifest": [
-      "interface RouteManifest {\n    records: RouteRecord[];\n    auth?: RouteAuthOptions;\n    basePath?: string;\n}"
+      "interface RouteManifest {\n    records: RouteRecord[];\n    auth?: RouteAuthOptions;\n    basePath?: string;\n    trailingSlash?: \"never\" | \"always\";\n    caseSensitive?: false;\n}"
     ],
     "RouteMatch": [
       "interface RouteMatch<TParams extends RouteParams = RouteParams, TAppMeta = unknown> {\n    path: string;\n    params: Readonly<TParams>;\n    name?: string;\n    namespace?: string;\n    readonly appMeta?: TAppMeta;\n}"
@@ -2067,11 +2119,11 @@
       "interface RouteMeta {\n    title?: string;\n    description?: string;\n    canonical?: string;\n    robots?: string;\n    openGraph?: Record<string, string>;\n    links?: readonly {\n        rel: string;\n        href: string;\n        [key: string]: string;\n    }[];\n    jsonLd?: unknown | readonly unknown[];\n    html?: {\n        lang?: string;\n        dir?: \"ltr\" | \"rtl\" | \"auto\";\n    };\n}"
     ],
     "RouteMetaSource": [
-      "type RouteMetaSource<TParams extends RouteParams = RouteParams> = RouteMeta | ((context: RouteContext<TParams>) => RouteMeta | PromiseLike<RouteMeta>);"
+      "type RouteMetaSource<TParams extends RouteParams = RouteParams, TData = unknown, TSearch = RouteSearch> = RouteMeta | ((context: RouteContext<TParams> & {\n    data?: TData;\n    searchParams: Readonly<TSearch>;\n}) => RouteMeta | PromiseLike<RouteMeta>);"
     ],
     "RouteMode": ["type RouteMode = \"spa\" | \"ssr\" | \"ssg\";"],
     "RouteOptions": [
-      "interface RouteOptions<TParams extends RouteParams = RouteParams, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData, TAppMeta = unknown> extends CommonAccessOptions {\n    loader?: (context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TLoaderData | PromiseLike<TLoaderData>;\n    dehydrate?: (data: TLoaderData, context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TDehydratedData extends PromiseLike<unknown> ? never : TDehydratedData;\n    preload?: (context: RouteContext<TParams> & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    entries?: () => Array<TParams> | Promise<Array<TParams>>;\n    invalidationKeys?: readonly string[];\n    title?: string;\n    namespace?: string;\n    search?: TSearchSchema;\n    meta?: RouteMetaSource<TParams>;\n    appMeta?: TAppMeta;\n    actions?: readonly ActionDescriptor[];\n}"
+      "interface RouteOptions<TParams extends RouteParams = RouteParams, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData, TAppMeta = unknown> extends CommonAccessOptions {\n    loader?: (context: RouteContext<TParams> & {\n        request?: Request;\n        searchParams: Readonly<RouteRefSearch<TSearchSchema>>;\n    }) => TLoaderData | PromiseLike<TLoaderData>;\n    dehydrate?: (data: TLoaderData, context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TDehydratedData extends PromiseLike<unknown> ? never : TDehydratedData;\n    preload?: (context: RouteContext<TParams> & {\n        request?: Request;\n        data: QueryPrefetchContext;\n        searchParams: Readonly<RouteRefSearch<TSearchSchema>>;\n    }) => unknown;\n    entries?: () => Array<TParams> | Promise<Array<TParams>>;\n    invalidationKeys?: readonly string[];\n    title?: string;\n    namespace?: string;\n    search?: TSearchSchema;\n    meta?: RouteMetaSource<TParams, TLoaderData, RouteRefSearch<TSearchSchema>>;\n    appMeta?: TAppMeta;\n    actions?: readonly ActionDescriptor[];\n    error?: (props: RouteErrorProps) => RenderableChild;\n    forbidden?: (props: RouteForbiddenProps) => RenderableChild;\n    staleTimeMs?: number | \"always\";\n}"
     ],
     "RouteOptionsForComponent": [
       "type RouteOptionsForComponent<Path extends string, TComponent extends AnyRouteComponent, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData> = Parameters<TComponent> extends [\n] ? RouteOptions<RoutePathParams<Path>, TSearchSchema, TLoaderData, TDehydratedData> : RouteComponentParam<TComponent> extends RouteParams ? RouteOptions<RouteComponentParam<TComponent>, TSearchSchema, TLoaderData, TDehydratedData> : RouteOptions<RoutePathParams<Path>, TSearchSchema, TLoaderData, TDehydratedData>;"
@@ -2115,7 +2167,7 @@
     ],
     "routeRegistryBrand": ["routeRegistryBrand: unique symbol"],
     "RouteRegistryOptions": [
-      "interface RouteRegistryOptions {\n    auth?: RouteAuthOptions;\n    basePath?: string;\n}"
+      "interface RouteRegistryOptions {\n    auth?: RouteAuthOptions;\n    basePath?: string;\n    trailingSlash?: \"ignore\" | \"never\" | \"always\";\n    caseSensitive?: boolean;\n}"
     ],
     "RouteRenderOptions": [
       "interface RouteRenderOptions extends RenderOptions {\n    registry: RouteRegistry;\n    url?: string;\n    auth?: RouteAuthOptions;\n    dataRuntime?: DataRuntime;\n}"
@@ -2146,7 +2198,7 @@
       "type RouteSearchValue = string | number | boolean | null | undefined | readonly (string | number | boolean | null)[];"
     ],
     "RouteSnapshot": [
-      "interface RouteSnapshot<TParams extends RouteParams = RouteParams, TState = unknown, TAppMeta = unknown> {\n    path: string;\n    params: Readonly<TParams>;\n    query: Readonly<RouteQuery>;\n    hash: string | null;\n    hasState: boolean;\n    state: TState | undefined;\n    name?: string;\n    namespace?: string;\n    matches: readonly RouteMatch<TParams, TAppMeta>[];\n}"
+      "interface RouteSnapshot<TParams extends RouteParams = RouteParams, TState = unknown, TAppMeta = unknown, TSearch = RouteSearch> {\n    path: string;\n    params: Readonly<TParams>;\n    query: Readonly<RouteQuery>;\n    search: Readonly<TSearch>;\n    hash: string | null;\n    hasState: boolean;\n    state: TState | undefined;\n    name?: string;\n    namespace?: string;\n    matches: readonly RouteMatch<TParams, TAppMeta>[];\n}"
     ],
     "RouteStreamOptions": [
       "type RouteStreamOptions = RouteRenderOptions$2 & {\n    onChunk(html: string): void;\n    onComplete(): void;\n};"
@@ -2185,11 +2237,14 @@
       "interface SelectIntrinsicProps extends IntrinsicProps {\n    disabled?: ReactiveProp<IntrinsicBooleanValue>;\n    multiple?: ReactiveProp<IntrinsicBooleanValue>;\n    name?: ReactiveProp<IntrinsicTextValue>;\n    required?: ReactiveProp<IntrinsicBooleanValue>;\n    value?: ReactiveProp<IntrinsicFormValue>;\n}"
     ],
     "selector": [
-      "declare function selector<T>(source: () => T, equals?: SelectorEquals<T>): Selector<T>;"
+      "declare function selector<T>(source: () => T, equals?: SelectorEquals<T> | SelectorOptions<T>): Selector<T>;"
     ],
     "Selector": ["interface Selector<T> {\n    (candidate: T): boolean;\n}"],
     "SelectorEquals": [
       "type SelectorEquals<T> = {\n    bivarianceHack(a: T, b: T): boolean;\n}[\"bivarianceHack\"];"
+    ],
+    "SelectorOptions": [
+      "interface SelectorOptions<T> {\n    equals?: SelectorEquals<T>;\n    name?: string;\n}"
     ],
     "serializeRouteMeta": [
       "declare function serializeRouteMeta(meta: RouteMeta): string;"
@@ -2235,13 +2290,13 @@
       "type SnapshotSourceBrand = {\n    readonly [SNAPSHOT_SOURCE_BRAND]: true;\n};"
     ],
     "SPAConfig": [
-      "type SPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    cleanupStrict?: boolean;\n    component?: never;\n};"
+      "type SPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    focus?: false | {\n        target?: string | ((root: Element) => Element | null);\n        announce?: false | ((route: {\n            readonly pathname: string;\n            readonly search: string;\n            readonly hash: string;\n            readonly title: string;\n        }) => string);\n    };\n    cleanupStrict?: boolean;\n    component?: never;\n};"
     ],
     "SSGAssetSource": [
       "interface SSGAssetSource {\n    from: string;\n    to?: string;\n}"
     ],
     "SSGBaseOptions": [
-      "interface SSGBaseOptions {\n    outputDir: string;\n    seed?: number;\n    dataOverrides?: Record<string, unknown>;\n    document?: DocumentRenderer;\n    styleRegistrationValidation?: SSRStyleRegistrationValidation;\n    assets?: readonly SSGAssetSource[];\n    concurrency?: number;\n    parallelism?: number | \"auto\";\n}"
+      "interface SSGBaseOptions {\n    outputDir: string;\n    seed?: number;\n    dataOverrides?: Record<string, unknown>;\n    document?: DocumentRenderer;\n    styleRegistrationValidation?: SSRStyleRegistrationValidation;\n    assets?: readonly SSGAssetSource[];\n    concurrency?: number;\n    parallelism?: number | \"auto\";\n    queryRegistry?: ServerQueryRegistry;\n}"
     ],
     "SSGGenerateOptions": [
       "interface SSGGenerateOptions {\n    mode?: SSGMode;\n    changedKeys?: string[];\n    changedRoutes?: string[];\n    forceFull?: boolean;\n}"
@@ -2290,7 +2345,9 @@
     "StaleValueReason": [
       "type StaleValueReason = Exclude<QueryStaleReason, \"error\">;"
     ],
-    "state": ["declare function state<T>(initialValue: T): StateTuple<T>;"],
+    "state": [
+      "declare function state<T>(initialValue: T, options?: ReactiveOptions<T>): StateTuple<T>;"
+    ],
     "State": [
       "interface State<T> {\n    (): T;\n    set(...args: StateSetterArgs<T>): void;\n    [Symbol.iterator](): IterableIterator<StateTuple<T>[number]>;\n}"
     ],
@@ -2304,6 +2361,10 @@
       "type StateTuple<T> = [\n    get: State<T>,\n    set: StateSetter<T>\n] & State<T>;"
     ],
     "StateUpdater": ["type StateUpdater<T> = (prev: T) => T;"],
+    "store": [
+      "declare function store<T extends object>(initial: T, options?: StoreOptions): T;"
+    ],
+    "StoreOptions": ["interface StoreOptions {\n    name?: string;\n}"],
     "stream": [
       "declare function stream<T>(source: StreamSource<T>, options?: StreamOptions<T>): StreamResult<T>;",
       "declare function stream<TSource, T>(source: () => TSource, connect: (value: TSource, context: {\n    signal: AbortSignal;\n}) => AsyncIterable<T> | PromiseLike<AsyncIterable<T>>, options?: Omit<StreamOptions<T>, \"deps\">): StreamResult<T>;"
@@ -2401,6 +2462,8 @@
       "declare function type(element: HTMLInputElement | HTMLTextAreaElement, text: string): void;"
     ],
     "unauthorized": ["declare function unauthorized(): AccessDenyDecision;"],
+    "untrack": ["declare function untrack<T>(fn: () => T): T;"],
+    "unwrap": ["declare function unwrap<T>(value: T): T;"],
     "updateRouteQuery": [
       "declare function updateRouteQuery(updates: RouteQueryUpdates | RouteQueryUpdater, options?: UpdateRouteQueryOptions): void;"
     ],
