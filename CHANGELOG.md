@@ -401,6 +401,12 @@
   dispatch for an event an app root already handled. `change` and `submit` stay
   direct listeners, because they do not cross a shadow root.
 
+- Assign boolean, number and function values to a custom element's property
+  when the element has one by that name (`name in el`) instead of writing an
+  attribute; strings stay attributes, and an element that is not defined yet
+  still gets the attribute. A function given `prop:` on a custom element is
+  assigned as-is instead of being called as a reactive binding.
+
 ## 0.4.4 - 2026-10-08
 
 ### Breaking changes

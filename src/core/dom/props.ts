@@ -94,7 +94,7 @@ export function applyInitialProps(
         // releases it, or the delegation outlives every element using it.
         recordUndo(() => setHandler(node, key, undefined));
       }
-    } else if (isBinding(key, value)) {
+    } else if (isBinding(key, value, node.tag)) {
       flushScalars();
       if (!followsChildren(node.tag, key)) {
         bind(pass, node, key, value, undefined, !adopted);
@@ -201,9 +201,9 @@ export function patchProps(
     const old = previous[key];
     if (parseEventProp(key)) {
       setHandlerForCommit(pass, node, key, undefined, old);
-    } else if (!isBinding(key, old) && isInputValue(tag, key)) {
+    } else if (!isBinding(key, old, tag) && isInputValue(tag, key)) {
       writeInputValue(pass, node, undefined, old);
-    } else if (!isBinding(key, old) && isBooleanControl(tag, key)) {
+    } else if (!isBinding(key, old, tag) && isBooleanControl(tag, key)) {
       writeBooleanControl(
         pass,
         node,
@@ -211,16 +211,22 @@ export function patchProps(
         undefined,
         old
       );
-    } else if (!isBinding(key, old) && isSimpleAttribute(tag, key, undefined)) {
+    } else if (
+      !isBinding(key, old, tag) &&
+      isSimpleAttribute(tag, key, undefined)
+    ) {
       writeSimpleAttribute(pass, node, key, undefined, old);
     } else if (
-      !isBinding(key, old) &&
+      !isBinding(key, old, tag) &&
       (key === 'class' || key === 'className' || key === 'style')
     ) {
       writeReflectedProp(pass, node, key, () =>
         applyScalarPropValue(el, key, undefined, tag, old)
       );
-    } else if (isBinding(key, old) && isSimpleAttribute(tag, key, undefined)) {
+    } else if (
+      isBinding(key, old, tag) &&
+      isSimpleAttribute(tag, key, undefined)
+    ) {
       const binding = node.bindings?.get(key);
       writeSimpleAttribute(
         pass,
@@ -231,7 +237,7 @@ export function patchProps(
         () => retireBindingForCommit(pass, node, key)
       );
     } else if (
-      isBinding(key, old) &&
+      isBinding(key, old, tag) &&
       (key === 'class' || key === 'className' || key === 'style')
     ) {
       const binding = node.bindings?.get(key);
@@ -246,7 +252,7 @@ export function patchProps(
     } else {
       queueScalarProp(pass, node, key, undefined, () => {
         const binding = retireBindingForCommit(pass, node, key);
-        const from = isBinding(key, old) ? lastApplied(binding) : old;
+        const from = isBinding(key, old, tag) ? lastApplied(binding) : old;
         try {
           applyScalarPropValue(el, key, undefined, tag, from);
         } catch (error) {
@@ -270,7 +276,7 @@ export function patchProps(
       }
       continue;
     }
-    if (isBinding(key, value)) {
+    if (isBinding(key, value, node.tag)) {
       if (value === old && node.bindings?.has(key)) continue;
       const replaced = node.bindings?.get(key);
       const from = replaced ? lastApplied(replaced) : old;
@@ -278,7 +284,7 @@ export function patchProps(
       bind(pass, node, key, value, from, false);
       continue;
     }
-    if (isBinding(key, old)) {
+    if (isBinding(key, old, tag)) {
       const binding = node.bindings?.get(key);
       const from = lastApplied(binding);
       if (isSimpleAttribute(tag, key, value)) {

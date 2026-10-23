@@ -317,7 +317,8 @@ because their attribute does not control the live state:
 | --------------- | ------------------- | --------------------------------------------- | --------------- |
 | `muted`         | `<video>`/`<audio>` | `el.muted` and the `muted` attribute          | renders `muted` |
 | `indeterminate` | `<input>`           | `el.indeterminate` only                       | not rendered    |
-| object/array    | custom elements     | `el[name]` (primitive values stay attributes) | not rendered    |
+| object/array    | custom elements     | `el[name]`                                    | not rendered    |
+| non-string      | custom elements     | `el[name]` when `name in el` (else attribute) | renders attr    |
 | `prop:name`     | any                 | `el.name`, assigned as-is (including `false`) | not rendered    |
 | `attr:name`     | any                 | the `name` attribute, never a property        | renders `name`  |
 
@@ -332,6 +333,15 @@ function Media(props: { muted: boolean; stream: MediaStream; rows: Row[] }) {
   );
 }
 ```
+
+On a custom element, a boolean, number or function value is assigned to the
+property when the element has one by that name at write time (`name in el`, so
+an upgraded element gets a typed value) and is written as an attribute
+otherwise, for example before the element is defined. Strings always stay
+attributes. `prop:` and `attr:` are explicit overrides, and a function given
+`prop:` on a custom element is assigned as-is (a formatter, a callback), not
+called as a reactive binding. On a built-in element `prop:name={() => ...}`
+remains a binding.
 
 Form state props accept a function or cell like any other prop, and the
 binding keeps the live property in sync: `value={() => name()}` on an
