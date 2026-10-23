@@ -126,6 +126,8 @@ export class Computation<T = unknown> extends Owner implements Source {
   _error: unknown = undefined;
   _hasError = false;
   _running = false;
+  /** Sources read so far by the run in progress. */
+  _tracked: Set<Source> | null = null;
   _invalidatedWhileRunning = false;
   /** The scheduler dropped this computation's pending run. */
   _dropped = false;
@@ -189,6 +191,7 @@ export class Computation<T = unknown> extends Owner implements Source {
     const nextSources = new Set<Source>();
     tracking = this as Computation;
     trackingSources = nextSources;
+    this._tracked = nextSources;
     this._running = true;
     this._invalidatedWhileRunning = false;
     this._dropped = false;
@@ -202,6 +205,7 @@ export class Computation<T = unknown> extends Owner implements Source {
       error = caught;
     } finally {
       this._running = false;
+      this._tracked = null;
       tracking = previous;
       trackingSources = previousSources;
     }
@@ -290,13 +294,18 @@ export class Computation<T = unknown> extends Owner implements Source {
         }
       }
     }
-    if (tracked && tracked !== next) {
-      for (const source of tracked) {
-        if (!next.has(source)) unobserve(source, this as Computation);
+    if (tracked) {
+      // Everything in `next` is already subscribed: a tracked source was
+      // linked when it was read, a kept previous source never left.
+      if (tracked !== next) {
+        for (const source of tracked) {
+          if (!next.has(source)) unobserve(source, this as Computation);
+        }
       }
-    }
-    for (const source of next) {
-      (source._observers ??= new Set()).add(this as Computation);
+    } else {
+      for (const source of next) {
+        (source._observers ??= new Set()).add(this as Computation);
+      }
     }
     this._sources = next.size ? next : null;
   }
@@ -309,9 +318,16 @@ export class Computation<T = unknown> extends Owner implements Source {
     if (!this.disposed && this._state !== CLEAN) this._dropped = true;
   }
 
-  _mark(state: NodeState): void {
+  _mark(state: NodeState, from?: Source): void {
     if (this.disposed) return;
-    if (this._running && state === DIRTY) {
+    // A direct write to a source, or a change behind a derived value this
+    // run has already read, means the value read is stale; the run repeats.
+    // A derived value not yet read in this run is brought up to date when
+    // it is read, so its mark is ignored.
+    if (
+      this._running &&
+      (state === DIRTY || (from !== undefined && this._tracked?.has(from)))
+    ) {
       const firstInvalidation = !this._invalidatedWhileRunning;
       this._invalidatedWhileRunning = true;
       if (state > this._state) this._state = state;
@@ -320,7 +336,7 @@ export class Computation<T = unknown> extends Owner implements Source {
       if (firstInvalidation) {
         const observers = this._observers;
         if (observers) {
-          for (const observer of observers) observer._mark(CHECK);
+          for (const observer of observers) observer._mark(CHECK, this);
         }
       }
       return;
@@ -335,7 +351,7 @@ export class Computation<T = unknown> extends Owner implements Source {
     if (!wasClean && !dropped) return;
     const observers = this._observers;
     if (observers) {
-      for (const observer of observers) observer._mark(CHECK);
+      for (const observer of observers) observer._mark(CHECK, this);
     }
   }
 

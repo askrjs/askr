@@ -55,6 +55,23 @@ describe('reactive graph subscriptions', () => {
   });
 });
 
+describe('reactive graph derived invalidation during a run', () => {
+  it('should re-run when a derived value read in the run is invalidated later in it', () => {
+    clearScheduler();
+    const count = new Signal(0);
+    const doubled = new Computation(null, () => count.read() * 2, null);
+    const seen: number[] = [];
+    effect(() => {
+      const value = doubled.read();
+      seen.push(value);
+      if (value < 4) count.write(count.peek() + 1);
+    });
+    flushSync();
+    expect(seen).toEqual([0, 2, 4]);
+    expect(count.peek()).toBe(2);
+  });
+});
+
 describe('owner tree disposal', () => {
   it('should dispose a computation created under an already disposed owner', () => {
     const parent = new Owner(null);

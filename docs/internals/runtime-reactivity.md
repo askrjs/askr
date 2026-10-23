@@ -40,9 +40,11 @@ flowchart LR
   component renders are all computations. There is one subscriber kind;
   they differ only in how they are scheduled when they go stale. A read
   subscribes as it happens, so a write to a source later in the same run
-  (by the computation itself, or by something it calls) marks the
-  computation stale and it runs again; when the run ends, subscriptions it
-  did not read are released.
+  (by the computation itself, or by something it calls), or to a source
+  behind a derived value the run has already read, marks the computation
+  stale and it runs again. A derived value the run has not read yet is
+  brought up to date when it is read, so its mark is ignored. When the run
+  ends, subscriptions it did not read are released.
 
 A write marks direct observers `DIRTY` and everything downstream `CHECK`.
 When a computation is read or run by the scheduler, it first brings its
