@@ -1,4 +1,5 @@
 import type {
+  Route,
   RouteMatch,
   RouteParams,
   RouteSearch,
@@ -304,9 +305,12 @@ function readCurrentRouteSnapshot<
     : undefined;
   const locationState = readLocationState();
   const version = getRouteTableVersion();
+  // Each mounted app reads its own registry; the memo is per route list.
+  const routes = getActiveRoutes();
   const memo = readSnapshotMemo;
   if (
     memo &&
+    memo.routes === routes &&
     memo.pathname === pathname &&
     memo.search === search &&
     memo.hash === hash &&
@@ -321,7 +325,7 @@ function readCurrentRouteSnapshot<
 
   const query = makeQuery(search);
   const matches = withinBasePath
-    ? computeMatchesFromRoutes(pathname, getActiveRoutes())
+    ? computeMatchesFromRoutes(pathname, routes)
     : [];
   const routeParams =
     contextParams ?? matches[matches.length - 1]?.params ?? {};
@@ -332,7 +336,7 @@ function readCurrentRouteSnapshot<
   const leaf = matches[matches.length - 1];
   const searchSchema = leaf
     ? (
-        getActiveRoutes().find((entry) => entry.path === leaf.path) as
+        routes.find((entry) => entry.path === leaf.path) as
           | InternalRoute
           | undefined
       )?.searchSchema
@@ -351,6 +355,7 @@ function readCurrentRouteSnapshot<
     matches: Object.freeze(matches),
   }) as RouteSnapshot;
   readSnapshotMemo = {
+    routes,
     pathname,
     search,
     hash,
@@ -370,6 +375,7 @@ function readCurrentRouteSnapshot<
  * could change the snapshot invalidates it.
  */
 let readSnapshotMemo: {
+  routes: readonly Route[];
   pathname: string;
   search: string;
   hash: string;
