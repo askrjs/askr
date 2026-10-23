@@ -67,6 +67,11 @@
 
 ### Fixes
 
+- Reject navigation `state` that cannot be structured-cloned before the
+  destination renders, with a `TypeError` naming the cause, instead of
+  committing the page and then failing the history write so the page and
+  the URL disagreed.
+
 - Reject empty path segments in route matching. `/users//x` no longer
   matches `/users/{id}/x` with an empty `id`, and `/users//` no longer
   matches `/users`; one trailing slash is still ignored and a splat may

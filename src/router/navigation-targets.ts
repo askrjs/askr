@@ -146,6 +146,7 @@ export function applyNavigationTargets(
     hasState,
     state: hasState ? options.state : undefined,
   };
+  if (hasState) assertCloneableHistoryState(locationState.state);
   // Read the departing page's offset before its content is replaced: the
   // browser clamps the scroll position as soon as the document shrinks.
   saveScrollPosition(previousHref);
@@ -248,4 +249,22 @@ export function applyPopStateNavigationTargets(
       if (!returnToRenderedHistoryEntry()) reloadDocument();
     }
   );
+}
+
+/**
+ * `history.pushState` rejects state that cannot be structured-cloned, and it
+ * runs after the destination has rendered. Checking first keeps the page and
+ * the URL in agreement: an uncloneable value fails before anything changes.
+ */
+function assertCloneableHistoryState(state: unknown): void {
+  if (typeof structuredClone !== 'function') return;
+  try {
+    structuredClone(state);
+  } catch (error) {
+    const failure = new TypeError(
+      '[Askr] Navigation state must be structured-cloneable; it is stored in history.state.'
+    );
+    (failure as { cause?: unknown }).cause = error;
+    throw failure;
+  }
 }
