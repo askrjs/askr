@@ -295,9 +295,19 @@ route plus `client`, `server`, or `ssg` phase. Hydration transport validation
 continues to identify the route and property path; use `dehydrate()` so
 unrelated catalog content never enters the browser payload.
 
+A chunk that fails to load during navigation rejects the route resolution (it
+no longer surfaces later, while rendering), so the route's `error` component
+renders it, or the failure is logged when none is declared. When the failure
+looks like a deployment that replaced its chunk files (a `ChunkLoadError`, or
+the `TypeError` browsers throw for a dynamic `import()` that cannot load its
+module), Askr also loads the destination as a fresh document, once per browser
+session: a `sessionStorage` marker (`askr:stale-deployment-reload`) stops a
+document that fails the same way from reloading in a loop, and is cleared when
+a chunk loads. Without `sessionStorage` nothing reloads.
+
 Group, page, and leaf metadata compose in declaration order. The deepest scalar
-value wins; Open Graph maps merge, while link and JSON-LD entries append in a
-deterministic order.
+value wins; Open Graph maps merge, while link and JSON-LD entries merge as
+described under [Route metadata helpers](#route-metadata-helpers).
 
 ## `to(ref, params, search)`
 

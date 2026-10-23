@@ -18,6 +18,7 @@ import { getRouteMetaContext } from '../router/resolution';
 import { readHistoryIndex } from '../router/history-index';
 import { createDeniedHandler, isRouteErrorResult } from '../router/route-error';
 import { loadDocument } from '../router/document-navigation';
+import { reloadForStaleDeployment } from '../router/stale-deployment';
 import { resolveNavigationUrl } from '../common/url';
 import type { ComponentFunction } from '../common/component';
 import type { DataRuntime } from '../data/types';
@@ -123,9 +124,18 @@ export async function resolveInitialRoute(
       signal: source.signal,
       routeErrors: true,
     };
-    const resolved = await (source.assertCurrent
-      ? resolveOwnedRouteRequest(href, routeOptions, source.assertCurrent)
-      : resolveRouteRequest(href, routeOptions));
+    let resolved: RouteRequestResult;
+    try {
+      resolved = await (source.assertCurrent
+        ? resolveOwnedRouteRequest(href, routeOptions, source.assertCurrent)
+        : resolveRouteRequest(href, routeOptions));
+    } catch (error) {
+      // Chunks the deployed page references may be gone: load a fresh document.
+      if (typeof window !== 'undefined') {
+        reloadForStaleDeployment(error, window.location.href, 'replace');
+      }
+      throw error;
+    }
     source.assertCurrent?.();
     if (!resolved || resolved.kind !== 'redirect') {
       return { path, href, resolved };

@@ -35,7 +35,7 @@ import { getRenderHandler } from './rendering';
 import { getMatchingRouteRecord } from './route-matching';
 import { getActiveRouteAuthOptions } from './store';
 import { setCurrentAuth, unresolvedAuth } from './auth';
-import { _preloadRouteRecord } from './lazy';
+import { _preloadRouteRecord, _routeRecordLoadFailure } from './lazy';
 import {
   loadThroughCache,
   routeLoaderKey,
@@ -68,6 +68,7 @@ import {
   routeForbiddenComponent,
 } from './route-error';
 import { loadDocument } from './document-navigation';
+import { reloadForStaleDeployment } from './stale-deployment';
 
 export { resolveRoute } from './route-matching';
 
@@ -447,9 +448,13 @@ function buildRenderResult(
     return result;
   };
   if (pending.length === 0) return finalize(values);
-  return Promise.all([Promise.all(values), ...pending]).then(([settled]) =>
-    finalize(settled)
-  );
+  return Promise.all([Promise.all(values), ...pending]).then(([settled]) => {
+    // A lazy chunk that failed to load is not a result: surface it here, where
+    // the route can show its error component, not later while rendering.
+    const failure = lazyImport ? _routeRecordLoadFailure(record) : undefined;
+    if (failure) throw failure.error;
+    return finalize(settled);
+  });
 }
 
 function runPolicies(
@@ -721,6 +726,7 @@ function resolveRouteRequestInternal(
         : mark(result);
     };
     const showError = (error: unknown): RouteRequestResult => {
+      reloadStaleDeployment(error);
       if (
         !options.routeErrors ||
         signal.aborted ||
@@ -743,6 +749,15 @@ function resolveRouteRequestInternal(
       );
       markRouteErrorResult(result);
       return result;
+    };
+    const reloadStaleDeployment = (error: unknown): void => {
+      if (mode !== 'spa' || options.prefetch || signal.aborted) return;
+      const url = resolveNavigationUrl(target, window.location.href);
+      reloadForStaleDeployment(
+        error,
+        url.href,
+        url.href === window.location.href ? 'replace' : 'push'
+      );
     };
     const recover = (error: unknown): RouteRequestResult => {
       assertCurrent?.();

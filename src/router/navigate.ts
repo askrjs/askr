@@ -54,6 +54,7 @@ import {
 } from './history-index';
 import { reloadDocument } from './document-navigation';
 import { configureRouteRetry } from './route-error';
+import { reloadForStaleDeployment } from './stale-deployment';
 import { configureRedirectHost } from '../common/redirect-host';
 import {
   allowNavigationLeave,
@@ -274,6 +275,11 @@ function navigateWithRedirectState(
           return;
         }
         logger.error('[Askr] navigation failed:', error);
+        reloadForStaleDeployment(
+          error,
+          parseTargetUrl(href).href,
+          getNavigationHistoryMode(options)
+        );
       }
     );
     return;
@@ -365,6 +371,9 @@ function handlePopState(event: PopStateEvent): void {
           return;
         }
         logger.error('[Askr] popstate navigation failed:', error);
+        if (reloadForStaleDeployment(error, window.location.href, 'replace')) {
+          return;
+        }
         // Nothing rendered this entry; send the user back to the one that is.
         if (!returnToRenderedHistoryEntry()) reloadDocument();
       }

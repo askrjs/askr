@@ -196,6 +196,13 @@
   own when that field changes, instead of relying on the declaring component to
   re-render, and the declaring component no longer re-renders for results it
   does not read. The snapshot shape and types are unchanged.
+- A lazy route chunk that fails to load during navigation now rejects the
+  route's resolution, so its `error` component renders it instead of the click
+  doing nothing. A failure that looks like a stale deployment
+  (`ChunkLoadError`, or the `TypeError` of a failed dynamic import) also loads
+  the destination as a fresh document once per session, guarded by a
+  `sessionStorage` marker.
+
 - A server action redirect in a routed app is now followed through the router
   (same-origin targets only, as before) instead of `location.assign()`, so the
   destination renders without a document load. Unrouted code still assigns the
