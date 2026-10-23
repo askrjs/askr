@@ -183,7 +183,11 @@ export function reconcileChildren(
     if (ctx.hydrate && ctx.hydrate.container === containerOf(parent)) {
       planHydration(ctx, parent, next);
     }
-    const result = next.map((child) => ctx.nodes.create(ctx, parent, child));
+    const result = next.map((child, index) => {
+      const node = ctx.nodes.create(ctx, parent, child);
+      node.index = index;
+      return node;
+    });
     if (parent.kind === HOST) {
       if (ctx.hydrate?.container === parent.el) {
         const el = parent.el;
@@ -332,8 +336,10 @@ export function reconcileChildren(
       throw new CommitMutationError(error);
     }
     parent.children = result;
-    for (const node of result) {
+    for (let index = 0; index < result.length; index++) {
+      const node = result[index];
       if (node.parent !== parent) node.parent = parent;
+      node.index = index;
     }
   });
   return result;

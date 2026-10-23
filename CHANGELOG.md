@@ -435,6 +435,10 @@
   disposed, so a retained instance no longer keeps detached DOM and its
   ancestor tree alive.
 
+- Find the DOM node after a component or fragment from a stored, checked
+  position instead of scanning its parent's children, which removes the linear
+  cost per component in a long list of components that change shape.
+
 ## 0.4.4 - 2026-10-08
 
 ### Breaking changes

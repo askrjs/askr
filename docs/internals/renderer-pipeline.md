@@ -75,6 +75,10 @@ children's. A multi-node result needs no wrapper element and no marker comments:
 its nodes are found by walking its children, and the insertion point after it by
 walking its following siblings.
 
+Each node keeps its position among its parent's children as a checked hint, so
+finding the DOM after a component or fragment does not scan the sibling list;
+a stale hint costs one scan.
+
 Lifetimes are not tracked here. A tree node points at the owner that holds its
 lifetime, such as a component instance, a binding, or a function child's
 computation. Deep trees are walked iteratively, so long transparent component
