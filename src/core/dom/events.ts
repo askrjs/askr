@@ -64,7 +64,12 @@ export function parseEventProp(propName: string): ParsedEvent | null {
     propName.length > 'onCapture'.length;
   const name = capture ? propName.slice(0, -'Capture'.length) : propName;
   if (name.length <= 2) return null;
-  return { eventName: name.slice(2).toLowerCase(), capture };
+  const eventName = name.slice(2).toLowerCase();
+  // `onDoubleClick` is the common spelling; the DOM event is `dblclick`.
+  return {
+    eventName: eventName === 'doubleclick' ? 'dblclick' : eventName,
+    capture,
+  };
 }
 
 /**

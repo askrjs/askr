@@ -509,7 +509,17 @@ function renderElement(tag: string, props: Props, sink: SinkTarget): void {
   try {
     withNamespace(
       getChildNamespace(parentNamespace, namespace, lower, elementProps),
-      () => writeElement(tag, elementProps, rawText, sink, childrenBeforeAttrs)
+      () =>
+        writeElement(
+          tag,
+          elementProps,
+          rawText,
+          sink,
+          childrenBeforeAttrs,
+          namespace === 'html' && NEWLINE_SENSITIVE_ELEMENTS.has(lower)
+            ? lower
+            : null
+        )
     );
   } finally {
     if (nextSelection) render.selectSelections.pop();
@@ -605,6 +615,13 @@ function optionTextValue(html: string): string {
   return text;
 }
 
+/**
+ * HTML elements whose first newline the parser drops: SSR writes one extra so
+ * the parsed text matches what the component rendered. A `textarea`'s initial
+ * value is its text content, so its `value` prop is written there too.
+ */
+const NEWLINE_SENSITIVE_ELEMENTS = new Set(['pre', 'textarea', 'listing']);
+
 function writeBufferedElement(
   tag: string,
   props: Props,
@@ -628,27 +645,63 @@ function writeElement(
   props: Props,
   rawText: RawTextElement | null,
   sink: SinkTarget,
-  childrenBeforeAttrs: boolean
+  childrenBeforeAttrs: boolean,
+  newlineSensitive: string | null = null
 ): void {
   if (childrenBeforeAttrs) {
     const children = new BufferedSink(state().referenceAttributes);
-    writeContent(props, rawText, children);
+    writeContent(props, rawText, children, newlineSensitive);
     writeBufferedElement(tag, props, rawText, sink, children);
     return;
   }
   sink.write('<' + tag);
   renderHostAttrs(props, sink, rawText === null ? tag : undefined);
   sink.write('>');
-  writeContent(props, rawText, sink);
+  writeContent(props, rawText, sink, newlineSensitive);
   sink.write('</' + tag + '>');
+}
+
+/**
+ * Text content for a newline-sensitive element: the `textarea` value when one
+ * is given, else nothing (children render normally). The parser drops a
+ * newline immediately after the start tag, so a leading newline is doubled.
+ */
+function writeNewlineSensitiveContent(
+  props: Props,
+  tag: string,
+  sink: SinkTarget
+): boolean {
+  if (tag === 'textarea') {
+    const own = props.value;
+    const value =
+      typeof own === 'function'
+        ? untrack(() => readValue(own as () => unknown))
+        : own;
+    if (value !== undefined && value !== null && value !== false) {
+      const text = String(value);
+      if (text.startsWith('\n')) sink.write('\n');
+      sink.write(escapeText(text));
+      return true;
+    }
+  }
+  const first = normalizeChildren(props.children)[0];
+  if (first?.kind === TEXT && first.text.startsWith('\n')) sink.write('\n');
+  return false;
 }
 
 /** An element's content: raw HTML, raw text, or rendered children. */
 function writeContent(
   props: Props,
   rawText: RawTextElement | null,
-  sink: SinkTarget
+  sink: SinkTarget,
+  newlineSensitive: string | null = null
 ): void {
+  if (
+    newlineSensitive !== null &&
+    writeNewlineSensitiveContent(props, newlineSensitive, sink)
+  ) {
+    return;
+  }
   const dangerous = (props as { dangerouslySetInnerHTML?: unknown })
     .dangerouslySetInnerHTML;
   if (dangerous !== undefined && dangerous !== null) {

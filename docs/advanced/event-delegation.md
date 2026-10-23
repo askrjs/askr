@@ -9,7 +9,8 @@ for the common case.
 
 These event types are delegated:
 
-- **Mouse events**: `click`, `dblclick`, `mousedown`, `mouseup`, `mouseover`,
+- **Mouse events**: `click`, `dblclick` (`onDblClick`, or `onDoubleClick` as
+  an alias), `mousedown`, `mouseup`, `mouseover`,
   `mouseout`, `mousemove`
 - **Touch events**: `touchend`, `touchcancel`
 - **Keyboard events**: `keydown`, `keyup`, `keypress`

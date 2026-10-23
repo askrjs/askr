@@ -174,8 +174,11 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     let verifyClientMarkup: (() => Promise<void>) | undefined;
     // What the hydration commit itself rendered, before post-commit work runs.
     let clientMarkup: string | null = null;
+    let captureClientHydrationMarkup: ((root: Element) => string) | undefined;
     const captureClientMarkup = () => {
-      if (verifyClientMarkup) clientMarkup = rootElement.innerHTML;
+      if (verifyClientMarkup && captureClientHydrationMarkup) {
+        clientMarkup = captureClientHydrationMarkup(rootElement);
+      }
     };
 
     const mountHydratedRoot: typeof mountOrUpdate = (...args) => {
@@ -193,7 +196,9 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         captureServerHydrationMarkup,
         verifyClientHydrationMarkup,
         verifyHydrationSyncForUrl,
+        captureClientHydrationMarkup: captureClientMarkupFromDom,
       } = await boot.wait(import('../ssr/verify-hydration'));
+      captureClientHydrationMarkup = captureClientMarkupFromDom;
       boot.assertCurrent();
       if (
         !verifyHydrationSyncForUrl({
@@ -235,7 +240,10 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
             verifyClientHydrationMarkup(clientMarkup, serverMarkup);
           if (
             !matchedAtCommit &&
-            !verifyClientHydrationMarkup(rootElement.innerHTML, serverMarkup)
+            !verifyClientHydrationMarkup(
+              captureClientMarkupFromDom(rootElement),
+              serverMarkup
+            )
           ) {
             throw new Error(
               '[Askr] Hydration mismatch detected between server and client markup.'

@@ -49,6 +49,24 @@ function normalizeStyleDeclarations(style: CSSStyleDeclaration): string {
 function normalizeHydrationHtml(html: string): string {
   const template = document.createElement('template');
   template.innerHTML = html;
+  return normalizeHydrationTemplate(template);
+}
+
+/**
+ * Live DOM is normalized from a clone, not from its `innerHTML`: parsing a
+ * serialization drops the newline after `<pre>` and `<textarea>` start tags,
+ * and the DOM serializer does not add one back in every host, so a round trip
+ * would lose what the server wrote while the server string keeps it.
+ */
+function normalizeHydrationDom(root: Element): string {
+  const template = document.createElement('template');
+  for (const child of Array.from(root.childNodes)) {
+    template.content.appendChild(child.cloneNode(true));
+  }
+  return normalizeHydrationTemplate(template);
+}
+
+function normalizeHydrationTemplate(template: HTMLTemplateElement): string {
   for (const carrier of Array.from(
     template.content.querySelectorAll(
       `script[${SSR_RENDER_DATA_ATTR}],${SSR_STYLE_REGISTRY_SELECTOR}`
@@ -109,24 +127,29 @@ export function captureServerHydrationMarkup(
   url: string,
   envelope?: PageRenderEnvelope
 ): string | null {
-  const html = root.innerHTML;
   if (!clientRendersServerUrl(url, envelope)) {
     return null;
   }
-  return normalizeHydrationHtml(html);
+  return normalizeHydrationDom(root);
+}
+
+/** The client markup under `root`, normalized like the server capture. */
+export function captureClientHydrationMarkup(root: Element): string {
+  return normalizeHydrationDom(root);
 }
 
 /**
- * Whether client markup left by hydration (`clientHtml`) matches the server
- * markup captured before it ran. Hydration reconciles the server DOM in place,
- * so an SSR/client renderer divergence shows up here even when a fresh server
+ * Whether client markup left by hydration (captured with
+ * {@link captureClientHydrationMarkup}) matches the server markup captured
+ * before it ran. Hydration reconciles the server DOM in place, so an
+ * SSR/client renderer divergence shows up here even when a fresh server
  * render reproduces the server HTML exactly.
  */
 export function verifyClientHydrationMarkup(
-  clientHtml: string,
+  clientMarkup: string,
   serverMarkup: string
 ): boolean {
-  return normalizeHydrationHtml(clientHtml) === serverMarkup;
+  return clientMarkup === serverMarkup;
 }
 
 export function verifyHydrationSyncForUrl(opts: {
@@ -161,7 +184,5 @@ export function verifyHydrationSyncForUrl(opts: {
     )
   );
 
-  return (
-    normalizeHydrationHtml(root.innerHTML) === normalizeHydrationHtml(expected)
-  );
+  return normalizeHydrationDom(root) === normalizeHydrationHtml(expected);
 }

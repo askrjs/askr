@@ -67,6 +67,17 @@
 
 ### Fixes
 
+- Write a `<textarea value>` as the element's text content in SSR, so the
+  control is filled before hydration, and keep that server text in place when
+  hydrating. Double a leading newline in `<pre>`, `<textarea>` and `<listing>`
+  content so the parsed text matches the render. Hydration verification
+  normalizes live DOM from a clone rather than a re-parse of its `innerHTML`,
+  which lost that newline in hosts whose serializer does not restore it.
+
+- Render `download={true}` as a bare attribute instead of `download="true"`,
+  which named the downloaded file `true`. Accept `onDoubleClick` as an alias
+  of `onDblClick`; it previously never fired.
+
 - Ignore the `srcdoc` attribute and `attr:srcdoc` on the client and in SSR,
   matching `prop:srcdoc`: the value is parsed as HTML. Render `blob:` URLs in
   `href`, `action`, `formAction` and `xlink:href`, so generated download links

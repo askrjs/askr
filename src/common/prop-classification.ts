@@ -100,12 +100,14 @@ export function styleValueText(propertyName: string, value: unknown): string {
 
 /**
  * HTML boolean content attributes: present means true, and the value is
- * ignored. A `true` prop renders these bare on both sides. Anything else —
+ * ignored. `download` is included because `download=""` means "use the
+ * resource's name" while `download="true"` would name the file `true`.
+ * A `true` prop renders these bare on both sides. Anything else —
  * `aria-*`, `data-*`, arbitrary attributes — renders the literal `"true"`,
  * because for those the value carries the meaning.
  */
 const BOOLEAN_HTML_ATTRIBUTES = new Set(
-  'allowfullscreen async autofocus autoplay checked controls default defer disabled formnovalidate inert ismap itemscope loop multiple muted nomodule novalidate open playsinline readonly required reversed selected'.split(
+  'allowfullscreen async autofocus autoplay checked controls default defer disabled download formnovalidate inert ismap itemscope loop multiple muted nomodule novalidate open playsinline readonly required reversed selected'.split(
     ' '
   )
 );

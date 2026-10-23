@@ -313,6 +313,13 @@ come from the same render. Options rendered by a `For` or a function child
 are not tracked: the value is not re-applied when only they change, so keep a
 value's option rendered before selecting it.
 
+During SSR, a `<textarea value>` writes its value as the element's text
+content, which is where the parser reads a textarea's initial value, so the
+control is filled before hydration. Hydration keeps that server text in place.
+`<pre>`, `<textarea>` and `<listing>` content that starts with a newline is
+written with one extra newline, because the parser drops the first one; the
+parsed text matches what the component rendered.
+
 During SSR, a controlled `<select value>` marks matching `<option>` elements
 with `selected`, including options inside `<optgroup>`. A single select marks
 the first match; `multiple` with an array marks every match. If nothing matches,

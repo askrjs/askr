@@ -66,7 +66,10 @@ export function createHost(
       }
     });
   }
-  if (!isDangerousInnerHTMLPayload(props.dangerouslySetInnerHTML)) {
+  if (
+    !isDangerousInnerHTMLPayload(props.dangerouslySetInnerHTML) &&
+    !(adopted && isTextareaWithValue(tag, ns, props))
+  ) {
     node.children = reconcileChildren(
       {
         ...ctx,
@@ -84,6 +87,21 @@ export function createHost(
   applyTrailingProps(ctx.pass, node, props, true, adopted !== null);
   attachRef(ctx.pass, node, undefined);
   return node;
+}
+
+/**
+ * SSR writes a `textarea` value as its text content (the control's initial
+ * value). Hydration keeps that server text rather than claiming children the
+ * client never renders, so the adopted control is left as the server wrote it.
+ */
+function isTextareaWithValue(
+  tag: string,
+  ns: string | null | undefined,
+  props: Props
+): boolean {
+  if (ns || tag.toLowerCase() !== 'textarea') return false;
+  const value = props.value;
+  return value !== undefined && value !== null && value !== false;
 }
 
 function ownsChildren(props: Props): boolean {
