@@ -181,7 +181,7 @@ Vite's `base` remains responsible for JavaScript, CSS, and other asset URLs.
   - `dehydrate`: synchronous selector for the loader data embedded in initial hydration
   - `preload`: query prefetch work for SSR and hydration; it runs alongside the loader and lazy chunk
   - `entries`: SSG entry generator
-  - `search`: executable schema used by typed destinations
+  - `search`: executable schema used by typed destinations and to parse the inbound query string (see [Inbound search params](#inbound-search-params))
   - `meta`: title, meta, canonical/link, JSON-LD, language, and direction metadata
   - `appMeta`: immutable application declaration data, separate from document metadata
   - `actions`: browser-safe action descriptors authorized for this matched page
@@ -437,6 +437,52 @@ in a route's `policies` array.
 - `deny(status)` stops the request with a 401, 403, or 404 status.
   `unauthorized()`, `forbidden()`, and `notFound()` are shorthands for
   `deny(401)`, `deny(403)`, and `deny(404)`.
+
+### Inbound search params
+
+A route that declares `search: schema` has its query string parsed with that
+schema every time the route resolves, so loaders, `preload`, `meta`, policies
+and components receive typed values instead of raw strings:
+
+```tsx
+import { schema, type InferSchema } from '@askrjs/schema';
+
+const ListSearch = schema.object({
+  page: schema.integer({ minimum: 1, default: 1 }),
+  sort: schema.enum(['asc', 'desc'], { default: 'asc' }),
+  q: schema.optional(schema.string()),
+});
+
+route('/posts', PostsPage, {
+  search: ListSearch,
+  loader: ({ searchParams }) =>
+    fetchPosts(searchParams.page, searchParams.sort),
+});
+
+function PostsPage() {
+  const { search } = currentRoute<
+    RouteParams,
+    unknown,
+    unknown,
+    InferSchema<typeof ListSearch>
+  >();
+  return <p>Page {search.page}</p>;
+}
+```
+
+- `context.searchParams` is the parsed object in `loader`, `preload`, `meta` and
+  policies (`context.search` remains the raw query string). It is `{}` for a
+  route without a schema. `currentRoute().search` is the same object, typed by
+  the fourth `currentRoute()` generic.
+- Query strings carry text, so values are converted to the type the schema
+  declares first: numbers and integers, booleans (`true`/`false`), `null`,
+  enum and literal members, and repeated keys for arrays.
+- The query string never fails resolution and never produces a 404. A value
+  that fails validation takes the property's schema `default`, or is dropped when
+  it has none; a missing property takes its `default`. Keys the schema does not
+  declare are ignored. A required property with neither a value nor a default
+  stays absent.
+- Outbound `to()` still validates and serializes with the same schema.
 
 ### Loader cache
 

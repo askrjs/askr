@@ -1,4 +1,9 @@
-import type { RouteMatch, RouteParams, RouteSnapshot } from '../common/router';
+import type {
+  RouteMatch,
+  RouteParams,
+  RouteSearch,
+  RouteSnapshot,
+} from '../common/router';
 import {
   getStagedAppRenderRouteLocation,
   getStagedAppRenderRouteState,
@@ -20,6 +25,8 @@ import {
   getRouteTableVersion,
 } from './store';
 import { removeRouteBasePath } from './base-path';
+import type { InternalRoute } from './internal-types';
+import { emptyRouteSearch, parseRouteSearch } from './route-search';
 
 /** Options for {@link onRouteChange}. */
 export interface RouteChangeOptions {
@@ -137,6 +144,22 @@ export function setServerLocation(url: string | null): void {
   );
 }
 
+/** The query string parsed with the leaf match's `search` schema, if it has one. */
+function parsedRouteSearch(
+  matches: readonly RouteMatch[],
+  search: string
+): Readonly<RouteSearch> {
+  const leaf = matches[matches.length - 1];
+  const schema = leaf
+    ? (
+        getActiveRoutes().find((entry) => entry.path === leaf.path) as
+          | InternalRoute
+          | undefined
+      )?.searchSchema
+    : undefined;
+  return schema ? parseRouteSearch(schema, search) : emptyRouteSearch();
+}
+
 function buildRouteSnapshot(
   pathname: string,
   search: string,
@@ -154,6 +177,7 @@ function buildRouteSnapshot(
     path: pathname,
     params: deepFreeze({ ...matches[matches.length - 1]?.params }),
     query,
+    search: parsedRouteSearch(matches, search),
     hash: hash || null,
     ...locationState,
     matches: Object.freeze(matches),
@@ -264,7 +288,8 @@ function readCurrentRouteSnapshot<
   TParams extends RouteParams = RouteParams,
   TState = unknown,
   TAppMeta = unknown,
->(): RouteSnapshot<TParams, TState, TAppMeta> {
+  TSearch = RouteSearch,
+>(): RouteSnapshot<TParams, TState, TAppMeta, TSearch> {
   const instance = getCurrentComponentInstance();
   if (!instance) {
     throw new Error(
@@ -291,7 +316,7 @@ function readCurrentRouteSnapshot<
     memo.state === locationState.state &&
     memo.version === version
   ) {
-    return memo.snapshot as RouteSnapshot<TParams, TState, TAppMeta>;
+    return memo.snapshot as RouteSnapshot<TParams, TState, TAppMeta, TSearch>;
   }
 
   const query = makeQuery(search);
@@ -304,14 +329,27 @@ function readCurrentRouteSnapshot<
     ...routeParams,
   });
 
+  const leaf = matches[matches.length - 1];
+  const searchSchema = leaf
+    ? (
+        getActiveRoutes().find((entry) => entry.path === leaf.path) as
+          | InternalRoute
+          | undefined
+      )?.searchSchema
+    : undefined;
+  const parsedSearch = searchSchema
+    ? parseRouteSearch(searchSchema, search)
+    : emptyRouteSearch();
+
   const snapshot = Object.freeze({
     path: pathname,
     params,
     query,
+    search: parsedSearch,
     hash: hash || null,
     ...locationState,
     matches: Object.freeze(matches),
-  }) as RouteSnapshot;
+  }) as RouteSnapshot<TParams, TState, TAppMeta, TSearch>;
   readSnapshotMemo = {
     pathname,
     search,
@@ -323,7 +361,7 @@ function readCurrentRouteSnapshot<
     version,
     snapshot,
   };
-  return snapshot as RouteSnapshot<TParams, TState, TAppMeta>;
+  return snapshot as RouteSnapshot<TParams, TState, TAppMeta, TSearch>;
 }
 
 /**
@@ -348,7 +386,8 @@ export function currentRoute<
   TParams extends RouteParams = RouteParams,
   TState = unknown,
   TAppMeta = unknown,
->(): RouteSnapshot<TParams, TState, TAppMeta> {
+  TSearch = RouteSearch,
+>(): RouteSnapshot<TParams, TState, TAppMeta, TSearch> {
   const instance = getCurrentComponentInstance();
   if (!instance) {
     throw new Error(
@@ -358,11 +397,11 @@ export function currentRoute<
   }
 
   if (typeof window === 'undefined' || instance.server) {
-    return readCurrentRouteSnapshot<TParams, TState, TAppMeta>();
+    return readCurrentRouteSnapshot<TParams, TState, TAppMeta, TSearch>();
   }
 
   readSource(currentRouteSource);
-  return readCurrentRouteSnapshot<TParams, TState, TAppMeta>();
+  return readCurrentRouteSnapshot<TParams, TState, TAppMeta, TSearch>();
 }
 
 export function syncCurrentRouteSnapshot(

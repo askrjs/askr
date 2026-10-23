@@ -1,9 +1,12 @@
 import type {
+  RouteContext,
   RouteMetaContext,
   RouteMeta,
   RouteMetaSource,
   RouteRecord,
 } from '../common/router';
+
+import { emptyRouteSearch, parseRouteSearch } from './route-search';
 
 function freezeMeta(meta: RouteMeta): Readonly<RouteMeta> {
   if (meta.openGraph) Object.freeze(meta.openGraph);
@@ -68,7 +71,7 @@ function metadataSources(record: RouteRecord): readonly RouteMetaSource[] {
 /** Resolve a route's merged {@link RouteMeta} by running its metadata chain against `context`. */
 export function resolveRouteMeta(
   record: RouteRecord,
-  context: RouteMetaContext
+  context: RouteContext & { data?: unknown }
 ): Promise<Readonly<RouteMeta>> {
   return resolveRouteMetaInternal(record, context);
 }
@@ -76,7 +79,7 @@ export function resolveRouteMeta(
 /** Private route-owner fence; the public metadata resolver stays unchanged. */
 export function resolveOwnedRouteMeta(
   record: RouteRecord,
-  context: RouteMetaContext,
+  context: RouteContext & { data?: unknown },
   assertCurrent: () => void
 ): Promise<Readonly<RouteMeta>> {
   return resolveRouteMetaInternal(record, context, assertCurrent);
@@ -84,10 +87,19 @@ export function resolveOwnedRouteMeta(
 
 async function resolveRouteMetaInternal(
   record: RouteRecord,
-  context: RouteMetaContext,
+  input: RouteContext & { data?: unknown },
   assertCurrent?: () => void
 ): Promise<Readonly<RouteMeta>> {
   assertCurrent?.();
+  // Callers that build their own context need not parse the query themselves.
+  const context: RouteMetaContext = {
+    ...input,
+    searchParams:
+      input.searchParams ??
+      (record.options.search
+        ? parseRouteSearch(record.options.search, input.search)
+        : emptyRouteSearch()),
+  };
   let resolved: RouteMeta = record.options.title
     ? { title: record.options.title }
     : {};

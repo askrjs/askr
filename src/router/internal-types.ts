@@ -9,8 +9,10 @@ import type {
   RoutePolicy,
   RouteRecord,
   RouteMetaSource,
+  RouteSearch,
 } from '../common/router';
 import type { AuthRequirement } from '@askrjs/auth';
+import type { ObjectSchema } from '@askrjs/schema';
 import type { RenderableChild } from '../common/vnode';
 
 export type AnyRouteComponent = (...args: any[]) => RenderableChild;
@@ -19,6 +21,7 @@ export type AppMetaDeclaration = Readonly<{ path: string; appMeta: unknown }>;
 
 export type InternalRoute = Route & {
   fallbackPrefix?: string;
+  searchSchema?: ObjectSchema<RouteSearch>;
   appMetaChain?: readonly AppMetaDeclaration[];
 };
 

@@ -115,6 +115,13 @@ export interface RouteContext<TParams extends RouteParams = RouteParams> {
   href: string;
   auth: AuthContext;
   signal: AbortSignal;
+  /**
+   * The location's query string parsed with the matched route's `search`
+   * schema (empty when the route declares none). Invalid or missing values take
+   * the schema defaults and invalid keys are dropped; resolution never fails
+   * over the query string. `search` stays the raw string.
+   */
+  searchParams?: Readonly<RouteSearch>;
 }
 
 /** Props of a route `error` component. */
@@ -188,22 +195,24 @@ export interface CommonAccessOptions {
 
 /**
  * The context metadata functions receive: the route context plus `data`, the
- * route's loader result once its loader has completed. `data` is absent when
- * the route has no loader or the caller supplied none.
+ * route's loader result once its loader has completed (absent when the route
+ * has no loader or the caller supplied none), and the parsed `searchParams`.
  */
 export type RouteMetaContext<
   TParams extends RouteParams = RouteParams,
   TData = unknown,
-> = RouteContext<TParams> & { data?: TData };
+  TSearch = RouteSearch,
+> = RouteContext<TParams> & { data?: TData; searchParams: Readonly<TSearch> };
 
 /** A route's metadata, or a function computing it from the resolved context. */
 export type RouteMetaSource<
   TParams extends RouteParams = RouteParams,
   TData = unknown,
+  TSearch = RouteSearch,
 > =
   | RouteMeta
   | ((
-      context: RouteMetaContext<TParams, TData>
+      context: RouteMetaContext<TParams, TData, TSearch>
     ) => RouteMeta | PromiseLike<RouteMeta>);
 
 /**
@@ -224,7 +233,10 @@ export interface RouteOptions<
   TAppMeta = unknown,
 > extends CommonAccessOptions {
   loader?: (
-    context: RouteContext<TParams> & { request?: Request }
+    context: RouteContext<TParams> & {
+      request?: Request;
+      searchParams: Readonly<RouteRefSearch<TSearchSchema>>;
+    }
   ) => TLoaderData | PromiseLike<TLoaderData>;
   /**
    * Select the loader data transported to the browser for initial hydration.
@@ -241,6 +253,7 @@ export interface RouteOptions<
     context: RouteContext<TParams> & {
       request?: Request;
       data: QueryPrefetchContext;
+      searchParams: Readonly<RouteRefSearch<TSearchSchema>>;
     }
   ) => unknown;
   entries?: () => Array<TParams> | Promise<Array<TParams>>;
@@ -249,7 +262,7 @@ export interface RouteOptions<
   title?: string;
   namespace?: string;
   search?: TSearchSchema;
-  meta?: RouteMetaSource<TParams, TLoaderData>;
+  meta?: RouteMetaSource<TParams, TLoaderData, RouteRefSearch<TSearchSchema>>;
   /** Immutable application declaration data; never automatically serialized for hydration. */
   appMeta?: TAppMeta;
   actions?: readonly ActionDescriptor[];
@@ -534,10 +547,17 @@ export interface RouteSnapshot<
   TParams extends RouteParams = RouteParams,
   TState = unknown,
   TAppMeta = unknown,
+  TSearch = RouteSearch,
 > {
   path: string;
   params: Readonly<TParams>;
   query: Readonly<RouteQuery>;
+  /**
+   * The query string parsed with the active route's `search` schema: typed by
+   * the `TSearch` read generic, defaults applied, invalid values replaced or
+   * dropped. Empty when the route declares no schema.
+   */
+  search: Readonly<TSearch>;
   hash: string | null;
   /** Whether the current browser history entry was given explicit location state. */
   hasState: boolean;

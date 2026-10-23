@@ -30,6 +30,7 @@ import { bindResolvedRouteData } from '../router/resolution';
 import { _preloadRouteHandler } from '../router/lazy';
 import { prepareRouteHydrationData } from '../router/route-hydration';
 import { RouteDataLoadError } from '../router/route-data-loader';
+import { emptyRouteSearch, parseRouteSearch } from '../router/route-search';
 import { addRouteBasePath } from '../router/base-path';
 
 interface BatchRenderOptions {
@@ -117,10 +118,14 @@ export async function batchRenderRoutes(
             tenant: null,
           },
           signal: controller.signal,
+          searchParams: route.search
+            ? parseRouteSearch(route.search, requestUrl.search)
+            : emptyRouteSearch(),
         };
         const request = new Request(requestUrl);
         const loaded = await route.loader({
           ...loadContext,
+          searchParams: loadContext.searchParams!,
           request,
         });
         await resolveDeferredValues(loaded, controller.signal);

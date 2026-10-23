@@ -229,6 +229,9 @@ export function registerRouteAtResolvedPath(
     path,
     handler,
     namespace: normalizedOptions?.namespace ?? options?.namespace,
+    ...(normalizedOptions?.search
+      ? { searchSchema: normalizedOptions.search }
+      : {}),
     ...(appMetaChain ? { appMetaChain } : {}),
     ...(metadata?.fallbackPrefix
       ? { fallbackPrefix: metadata.fallbackPrefix }

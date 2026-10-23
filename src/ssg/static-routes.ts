@@ -155,6 +155,7 @@ function routeRegistryToRouteConfigs(registry: RouteRegistry): RouteConfig[] {
       policies: options.policies,
       entries: options.entries,
       loader: options.loader,
+      search: options.search,
       dehydrate: options.dehydrate,
       preload: options.preload,
       basePath: registry.manifest.basePath,

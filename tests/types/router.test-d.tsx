@@ -549,3 +549,35 @@ page(
 );
 route('/typed-stale', () => null, { staleTimeMs: 0 });
 expectError(route('/bad-stale', () => null, { staleTimeMs: 'never' }));
+
+// Inbound search params are parsed with the route's schema and typed by it.
+const typedSearch = schema.object({
+  page: schema.integer({ default: 1 }),
+  q: schema.optional(schema.string()),
+});
+route('/typed-search', () => null, {
+  search: typedSearch,
+  loader: ({ searchParams }) => {
+    expectType<number>(searchParams.page);
+    expectType<string | undefined>(searchParams.q);
+    return searchParams.page;
+  },
+  meta: ({ searchParams, data }) => {
+    expectType<number>(searchParams.page);
+    expectType<number | undefined>(data);
+    return {};
+  },
+});
+route('/untyped-search', () => null, {
+  loader: ({ searchParams }) => {
+    expectType<Readonly<RouteSearch>>(searchParams);
+    return null;
+  },
+});
+const searchSnapshot = currentRoute<
+  RouteParams,
+  unknown,
+  unknown,
+  { page: number }
+>();
+expectType<Readonly<{ page: number }>>(searchSnapshot.search);

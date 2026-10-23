@@ -60,6 +60,8 @@ export interface RouteConfig<Path extends string = string> {
   invalidationKeys?: string[];
   /** Route loader resolved completely before static HTML is rendered. */
   loader?: RouteOptions['loader'];
+  /** Query schema applied to the (empty) static query for `searchParams` defaults. */
+  search?: RouteOptions['search'];
   /** Select the loader data transported for initial hydration. */
   dehydrate?: RouteOptions['dehydrate'];
   /** Query prefetch run before the page renders; its data is embedded. */

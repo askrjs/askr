@@ -25,7 +25,12 @@ import type { CoreTelemetry } from '../common/telemetry';
 import { withTelemetry } from '../common/telemetry';
 import { createQueryPrefetchContext } from '../data/query-registry';
 import type { DataRuntime } from '../data/types';
-import { buildRouteContext, buildRouteContextBase } from './route-context';
+import {
+  buildRouteContext,
+  buildRouteContextBase,
+  parseLocation,
+} from './route-context';
+import { emptyRouteSearch, parseRouteSearch } from './route-search';
 import { getRenderHandler } from './rendering';
 import { getMatchingRouteRecord } from './route-matching';
 import { getActiveRouteAuthOptions } from './store';
@@ -103,9 +108,10 @@ export function getRouteMetaContext(
 ): RouteMetaContext | undefined {
   const context = routeRenderContexts.get(result);
   if (!context) return undefined;
+  const full = withSearchParams(context);
   return routeRenderData.has(result)
-    ? { ...context, data: routeRenderData.get(result) }
-    : context;
+    ? { ...full, data: routeRenderData.get(result) }
+    : full;
 }
 
 export function getRouteRenderData(result: RouteRenderResult): unknown {
@@ -320,10 +326,20 @@ export function refreshRouteRenderResult(
   );
 }
 
+function withSearchParams(context: RouteContext): RouteContextWithSearch {
+  return context.searchParams
+    ? (context as RouteContextWithSearch)
+    : { ...context, searchParams: emptyRouteSearch() };
+}
+
+type RouteContextWithSearch = RouteContext & {
+  searchParams: NonNullable<RouteContext['searchParams']>;
+};
+
 function buildRenderResult(
   record: RouteRecord,
   params: Record<string, string>,
-  context: RouteContext,
+  baseContext: RouteContext,
   request: Request | undefined,
   telemetry: CoreTelemetry | undefined,
   load: boolean,
@@ -331,6 +347,7 @@ function buildRenderResult(
   assertCurrent?: () => void
 ): RouteRequestResult | Promise<RouteRequestResult> {
   assertCurrent?.();
+  const context = withSearchParams(baseContext);
   const renderHandler = getRenderHandler(record);
   const useLoaders = context.mode !== 'ssg' && load;
   const leafLoader = useLoaders ? record.options?.loader : undefined;
@@ -635,9 +652,16 @@ function resolveRouteRequestInternal(
     const authOptions = getActiveRouteAuthOptions(
       options.auth ?? options.registry.manifest.auth
     );
+    const searchParams = match.record.options.search
+      ? parseRouteSearch(
+          match.record.options.search,
+          parseLocation(logicalTarget).search
+        )
+      : emptyRouteSearch();
     const base = buildRouteContextBase(logicalTarget, match.params, {
       mode,
       signal,
+      searchParams,
     });
     const exposeRedirect = (result: RouteRequestResult): RouteRequestResult =>
       result?.kind === 'redirect'
@@ -658,6 +682,7 @@ function resolveRouteRequestInternal(
           mode,
           signal,
           authContext,
+          searchParams,
         }),
         authOptions,
         options.request,

@@ -68,6 +68,13 @@
   `derive(fn, { equals })` and `derive(source, map, { equals })`. A comparator that
   returns true suppresses the notification. The default stays `Object.is`.
   See `docs/core/runtime.md#custom-equality`.
+- Parse the inbound query string with a route's `search` schema. Loaders,
+  `preload`, `meta` and policies receive the typed result as
+  `context.searchParams`, and `currentRoute().search` exposes it (typed by a new
+  fourth `currentRoute()` generic). Query text is converted to the declared
+  types; invalid or missing values take schema defaults, invalid keys are
+  dropped and the route never 404s over its query string.
+
 - Cache browser route loader results in the app's data runtime, keyed by route
   template, params and search. Repeat visits and back/forward render the cached
   result at once and revalidate in the background (the route re-renders when

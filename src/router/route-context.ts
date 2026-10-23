@@ -80,6 +80,7 @@ export function buildRouteContextBase(
   options: {
     mode: RouteContext['mode'];
     signal: AbortSignal;
+    searchParams?: RouteContext['searchParams'];
   }
 ): Omit<RouteContext, 'auth'> {
   const parsed = parseLocation(target);
@@ -93,6 +94,7 @@ export function buildRouteContextBase(
     hash: parsed.hash,
     href,
     signal: options.signal,
+    ...(options.searchParams ? { searchParams: options.searchParams } : {}),
   };
 }
 
@@ -103,6 +105,7 @@ export function buildRouteContext(
     mode: RouteContext['mode'];
     signal: AbortSignal;
     authContext: AuthContext;
+    searchParams?: RouteContext['searchParams'];
   }
 ): RouteContext {
   return {

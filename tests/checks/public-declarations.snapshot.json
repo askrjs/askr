@@ -648,7 +648,7 @@
       ],
       "currentAuth": ["declare function currentAuth(): AuthContext$1;"],
       "currentRoute": [
-        "declare function currentRoute<TParams extends RouteParams = RouteParams, TState = unknown, TAppMeta = unknown>(): RouteSnapshot<TParams, TState, TAppMeta>;"
+        "declare function currentRoute<TParams extends RouteParams = RouteParams, TState = unknown, TAppMeta = unknown, TSearch = RouteSearch>(): RouteSnapshot<TParams, TState, TAppMeta, TSearch>;"
       ],
       "defer": [
         "declare function defer<T>(promise: PromiseLike<T>): Deferred<T>;"
@@ -770,7 +770,7 @@
         "type RouteComponent<TParams extends RouteParams = RouteParams> = (props: TParams) => RenderableChild;"
       ],
       "RouteContext": [
-        "interface RouteContext<TParams extends RouteParams = RouteParams> {\n    mode: RouteMode;\n    params: TParams;\n    pathname: string;\n    search: string;\n    hash: string;\n    href: string;\n    auth: AuthContext;\n    signal: AbortSignal;\n}"
+        "interface RouteContext<TParams extends RouteParams = RouteParams> {\n    mode: RouteMode;\n    params: TParams;\n    pathname: string;\n    search: string;\n    hash: string;\n    href: string;\n    auth: AuthContext;\n    signal: AbortSignal;\n    searchParams?: Readonly<RouteSearch>;\n}"
       ],
       "routeData": ["declare function routeData<T>(): T;"],
       "RouteDataLoadError": [
@@ -802,11 +802,11 @@
         "interface RouteMeta {\n    title?: string;\n    description?: string;\n    canonical?: string;\n    robots?: string;\n    openGraph?: Record<string, string>;\n    links?: readonly {\n        rel: string;\n        href: string;\n        [key: string]: string;\n    }[];\n    jsonLd?: unknown | readonly unknown[];\n    html?: {\n        lang?: string;\n        dir?: \"ltr\" | \"rtl\" | \"auto\";\n    };\n}"
       ],
       "RouteMetaSource": [
-        "type RouteMetaSource<TParams extends RouteParams = RouteParams, TData = unknown> = RouteMeta | ((context: RouteContext<TParams> & {\n    data?: TData;\n}) => RouteMeta | PromiseLike<RouteMeta>);"
+        "type RouteMetaSource<TParams extends RouteParams = RouteParams, TData = unknown, TSearch = RouteSearch> = RouteMeta | ((context: RouteContext<TParams> & {\n    data?: TData;\n    searchParams: Readonly<TSearch>;\n}) => RouteMeta | PromiseLike<RouteMeta>);"
       ],
       "RouteMode": ["type RouteMode = \"spa\" | \"ssr\" | \"ssg\";"],
       "RouteOptions": [
-        "interface RouteOptions<TParams extends RouteParams = RouteParams, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData, TAppMeta = unknown> extends CommonAccessOptions {\n    loader?: (context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TLoaderData | PromiseLike<TLoaderData>;\n    dehydrate?: (data: TLoaderData, context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TDehydratedData extends PromiseLike<unknown> ? never : TDehydratedData;\n    preload?: (context: RouteContext<TParams> & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    entries?: () => Array<TParams> | Promise<Array<TParams>>;\n    invalidationKeys?: readonly string[];\n    title?: string;\n    namespace?: string;\n    search?: TSearchSchema;\n    meta?: RouteMetaSource<TParams, TLoaderData>;\n    appMeta?: TAppMeta;\n    actions?: readonly ActionDescriptor[];\n    error?: (props: RouteErrorProps) => RenderableChild;\n    forbidden?: (props: RouteForbiddenProps) => RenderableChild;\n    staleTimeMs?: number | \"always\";\n}"
+        "interface RouteOptions<TParams extends RouteParams = RouteParams, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData, TAppMeta = unknown> extends CommonAccessOptions {\n    loader?: (context: RouteContext<TParams> & {\n        request?: Request;\n        searchParams: Readonly<RouteRefSearch<TSearchSchema>>;\n    }) => TLoaderData | PromiseLike<TLoaderData>;\n    dehydrate?: (data: TLoaderData, context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TDehydratedData extends PromiseLike<unknown> ? never : TDehydratedData;\n    preload?: (context: RouteContext<TParams> & {\n        request?: Request;\n        data: QueryPrefetchContext;\n        searchParams: Readonly<RouteRefSearch<TSearchSchema>>;\n    }) => unknown;\n    entries?: () => Array<TParams> | Promise<Array<TParams>>;\n    invalidationKeys?: readonly string[];\n    title?: string;\n    namespace?: string;\n    search?: TSearchSchema;\n    meta?: RouteMetaSource<TParams, TLoaderData, RouteRefSearch<TSearchSchema>>;\n    appMeta?: TAppMeta;\n    actions?: readonly ActionDescriptor[];\n    error?: (props: RouteErrorProps) => RenderableChild;\n    forbidden?: (props: RouteForbiddenProps) => RenderableChild;\n    staleTimeMs?: number | \"always\";\n}"
       ],
       "RouteParams": ["type RouteParams = Record<string, string>;"],
       "RoutePathParams": [
@@ -856,7 +856,7 @@
         "type RouteSearchValue = string | number | boolean | null | undefined | readonly (string | number | boolean | null)[];"
       ],
       "RouteSnapshot": [
-        "interface RouteSnapshot<TParams extends RouteParams = RouteParams, TState = unknown, TAppMeta = unknown> {\n    path: string;\n    params: Readonly<TParams>;\n    query: Readonly<RouteQuery>;\n    hash: string | null;\n    hasState: boolean;\n    state: TState | undefined;\n    name?: string;\n    namespace?: string;\n    matches: readonly RouteMatch<TParams, TAppMeta>[];\n}"
+        "interface RouteSnapshot<TParams extends RouteParams = RouteParams, TState = unknown, TAppMeta = unknown, TSearch = RouteSearch> {\n    path: string;\n    params: Readonly<TParams>;\n    query: Readonly<RouteQuery>;\n    search: Readonly<TSearch>;\n    hash: string | null;\n    hasState: boolean;\n    state: TState | undefined;\n    name?: string;\n    namespace?: string;\n    matches: readonly RouteMatch<TParams, TAppMeta>[];\n}"
       ],
       "ScrollRestorationOptions": [
         "type ScrollRestorationOptions = {\n    navigation?: NavigationScrollBehavior;\n    history?: HistoryScrollBehavior;\n};"
@@ -1235,7 +1235,7 @@
     "CspNonceScope": ["CspNonceScope: Scope<string | undefined>"],
     "currentAuth": ["declare function currentAuth(): AuthContext$1;"],
     "currentRoute": [
-      "declare function currentRoute<TParams extends RouteParams = RouteParams, TState = unknown, TAppMeta = unknown>(): RouteSnapshot<TParams, TState, TAppMeta>;"
+      "declare function currentRoute<TParams extends RouteParams = RouteParams, TState = unknown, TAppMeta = unknown, TSearch = RouteSearch>(): RouteSnapshot<TParams, TState, TAppMeta, TSearch>;"
     ],
     "DataRuntime": [
       "interface DataRuntime {\n    readonly queryCache: Map<string, unknown>;\n    readonly queryData: Map<string, unknown>;\n}"
@@ -2060,7 +2060,7 @@
       "type RouteComponentParam<TComponent extends AnyRouteComponent> = Parameters<TComponent> extends [\n] ? unknown : Parameters<TComponent>[0];"
     ],
     "RouteContext": [
-      "interface RouteContext<TParams extends RouteParams = RouteParams> {\n    mode: RouteMode;\n    params: TParams;\n    pathname: string;\n    search: string;\n    hash: string;\n    href: string;\n    auth: AuthContext;\n    signal: AbortSignal;\n}"
+      "interface RouteContext<TParams extends RouteParams = RouteParams> {\n    mode: RouteMode;\n    params: TParams;\n    pathname: string;\n    search: string;\n    hash: string;\n    href: string;\n    auth: AuthContext;\n    signal: AbortSignal;\n    searchParams?: Readonly<RouteSearch>;\n}"
     ],
     "routeData": ["declare function routeData<T>(): T;"],
     "RouteDataLoadError": [
@@ -2093,11 +2093,11 @@
       "interface RouteMeta {\n    title?: string;\n    description?: string;\n    canonical?: string;\n    robots?: string;\n    openGraph?: Record<string, string>;\n    links?: readonly {\n        rel: string;\n        href: string;\n        [key: string]: string;\n    }[];\n    jsonLd?: unknown | readonly unknown[];\n    html?: {\n        lang?: string;\n        dir?: \"ltr\" | \"rtl\" | \"auto\";\n    };\n}"
     ],
     "RouteMetaSource": [
-      "type RouteMetaSource<TParams extends RouteParams = RouteParams, TData = unknown> = RouteMeta | ((context: RouteContext<TParams> & {\n    data?: TData;\n}) => RouteMeta | PromiseLike<RouteMeta>);"
+      "type RouteMetaSource<TParams extends RouteParams = RouteParams, TData = unknown, TSearch = RouteSearch> = RouteMeta | ((context: RouteContext<TParams> & {\n    data?: TData;\n    searchParams: Readonly<TSearch>;\n}) => RouteMeta | PromiseLike<RouteMeta>);"
     ],
     "RouteMode": ["type RouteMode = \"spa\" | \"ssr\" | \"ssg\";"],
     "RouteOptions": [
-      "interface RouteOptions<TParams extends RouteParams = RouteParams, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData, TAppMeta = unknown> extends CommonAccessOptions {\n    loader?: (context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TLoaderData | PromiseLike<TLoaderData>;\n    dehydrate?: (data: TLoaderData, context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TDehydratedData extends PromiseLike<unknown> ? never : TDehydratedData;\n    preload?: (context: RouteContext<TParams> & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    entries?: () => Array<TParams> | Promise<Array<TParams>>;\n    invalidationKeys?: readonly string[];\n    title?: string;\n    namespace?: string;\n    search?: TSearchSchema;\n    meta?: RouteMetaSource<TParams, TLoaderData>;\n    appMeta?: TAppMeta;\n    actions?: readonly ActionDescriptor[];\n    error?: (props: RouteErrorProps) => RenderableChild;\n    forbidden?: (props: RouteForbiddenProps) => RenderableChild;\n    staleTimeMs?: number | \"always\";\n}"
+      "interface RouteOptions<TParams extends RouteParams = RouteParams, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData, TAppMeta = unknown> extends CommonAccessOptions {\n    loader?: (context: RouteContext<TParams> & {\n        request?: Request;\n        searchParams: Readonly<RouteRefSearch<TSearchSchema>>;\n    }) => TLoaderData | PromiseLike<TLoaderData>;\n    dehydrate?: (data: TLoaderData, context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TDehydratedData extends PromiseLike<unknown> ? never : TDehydratedData;\n    preload?: (context: RouteContext<TParams> & {\n        request?: Request;\n        data: QueryPrefetchContext;\n        searchParams: Readonly<RouteRefSearch<TSearchSchema>>;\n    }) => unknown;\n    entries?: () => Array<TParams> | Promise<Array<TParams>>;\n    invalidationKeys?: readonly string[];\n    title?: string;\n    namespace?: string;\n    search?: TSearchSchema;\n    meta?: RouteMetaSource<TParams, TLoaderData, RouteRefSearch<TSearchSchema>>;\n    appMeta?: TAppMeta;\n    actions?: readonly ActionDescriptor[];\n    error?: (props: RouteErrorProps) => RenderableChild;\n    forbidden?: (props: RouteForbiddenProps) => RenderableChild;\n    staleTimeMs?: number | \"always\";\n}"
     ],
     "RouteOptionsForComponent": [
       "type RouteOptionsForComponent<Path extends string, TComponent extends AnyRouteComponent, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData> = Parameters<TComponent> extends [\n] ? RouteOptions<RoutePathParams<Path>, TSearchSchema, TLoaderData, TDehydratedData> : RouteComponentParam<TComponent> extends RouteParams ? RouteOptions<RouteComponentParam<TComponent>, TSearchSchema, TLoaderData, TDehydratedData> : RouteOptions<RoutePathParams<Path>, TSearchSchema, TLoaderData, TDehydratedData>;"
@@ -2172,7 +2172,7 @@
       "type RouteSearchValue = string | number | boolean | null | undefined | readonly (string | number | boolean | null)[];"
     ],
     "RouteSnapshot": [
-      "interface RouteSnapshot<TParams extends RouteParams = RouteParams, TState = unknown, TAppMeta = unknown> {\n    path: string;\n    params: Readonly<TParams>;\n    query: Readonly<RouteQuery>;\n    hash: string | null;\n    hasState: boolean;\n    state: TState | undefined;\n    name?: string;\n    namespace?: string;\n    matches: readonly RouteMatch<TParams, TAppMeta>[];\n}"
+      "interface RouteSnapshot<TParams extends RouteParams = RouteParams, TState = unknown, TAppMeta = unknown, TSearch = RouteSearch> {\n    path: string;\n    params: Readonly<TParams>;\n    query: Readonly<RouteQuery>;\n    search: Readonly<TSearch>;\n    hash: string | null;\n    hasState: boolean;\n    state: TState | undefined;\n    name?: string;\n    namespace?: string;\n    matches: readonly RouteMatch<TParams, TAppMeta>[];\n}"
     ],
     "RouteStreamOptions": [
       "type RouteStreamOptions = RouteRenderOptions$2 & {\n    onChunk(html: string): void;\n    onComplete(): void;\n};"

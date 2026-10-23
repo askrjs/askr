@@ -39,6 +39,7 @@ export function _applyManifest(manifest: RouteManifest): void {
       path: record.path,
       handler: record.handler,
       namespace: record.options.namespace,
+      ...(record.options.search ? { searchSchema: record.options.search } : {}),
       ...((record as InternalRouteRecord).appMetaChain
         ? { appMetaChain: (record as InternalRouteRecord).appMetaChain }
         : {}),
