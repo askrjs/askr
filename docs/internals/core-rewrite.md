@@ -206,6 +206,22 @@ root cleanup failures. Error boundaries still render their fallback when a
 failed subtree cleanup throws, and report those cleanup errors after fallback
 handling, including inside raw-text elements.
 
+## Audit closure (2026-10-23)
+
+A three-way audit of the reactive runtime, the DOM renderer with hydration
+and SSR, and the router confirmed 47 defects against a world-class bar and
+listed the design gaps behind them. Every confirmed defect and the agreed
+design backlog (runtime options and primitives, hydration alignment and
+diagnostics, event and prop writers, route error components, loader cache,
+typed search, navigation UX, matching index, SSG output) landed in one pull
+request after three adversarial review rounds. Known gaps that remain by
+design or for later work: an inline `derive()` closure recomputes on each
+render of its owner, SSG reports routes under group or page loaders as
+runtime-only, hydrated first-page data does not seed the loader cache,
+`caseSensitive` and `trailingSlash` apply at resolution with a canonical
+redirect, `blockNavigation()` does not cover `updateRouteQuery()` or
+redirects, and route `error`/`forbidden` components are browser-only.
+
 ## Open audit boundaries
 
 Controlled-select child and bound-option resynchronization are now covered by

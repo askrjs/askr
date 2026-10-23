@@ -333,17 +333,7 @@ function readCurrentRouteSnapshot<
     ...routeParams,
   });
 
-  const leaf = matches[matches.length - 1];
-  const searchSchema = leaf
-    ? (
-        routes.find((entry) => entry.path === leaf.path) as
-          | InternalRoute
-          | undefined
-      )?.searchSchema
-    : undefined;
-  const parsedSearch = searchSchema
-    ? parseRouteSearch(searchSchema, search)
-    : emptyRouteSearch();
+  const parsedSearch = parsedRouteSearch(matches, search);
 
   const snapshot = Object.freeze({
     path: pathname,
