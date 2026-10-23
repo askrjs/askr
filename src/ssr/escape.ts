@@ -146,6 +146,32 @@ export function getRawTextElement(tag: string): RawTextElement | null {
   return tag === 'script' || tag === 'style' ? tag : null;
 }
 
+/**
+ * HTML elements the parser reads as RAWTEXT besides `script` and `style`.
+ * Their text children are never entity-decoded, so they are written verbatim;
+ * only the element's own end tag, which RAWTEXT cannot escape, is broken.
+ */
+const PARSER_RAW_TEXT_ELEMENTS = new Set([
+  'xmp',
+  'iframe',
+  'noembed',
+  'noframes',
+]);
+
+export function isParserRawTextElement(tag: string): boolean {
+  return PARSER_RAW_TEXT_ELEMENTS.has(tag);
+}
+
+/**
+ * Text child of an {@link isParserRawTextElement} element. Every `</` becomes
+ * `<\/`, so no end tag can form, and `follows` says the previous text child
+ * ended with `<` (a `</` split across children). Returns the text to write.
+ */
+export function escapeParserRawText(text: string, follows: boolean): string {
+  const joined = follows && text.startsWith('/') ? '\\' + text : text;
+  return joined.includes('</') ? joined.replaceAll('</', '<\\/') : joined;
+}
+
 const SCRIPT_RAW_TEXT_RE = /<(\/|!--|script)/gi;
 
 /**

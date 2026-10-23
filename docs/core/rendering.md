@@ -653,6 +653,12 @@ Some text has no safe raw form, so it does not survive unchanged:
   contain `<` and range media queries such as `@media (width < 600px)`; write
   those as `(max-width: 599.98px)` or `(600px > width)` instead.
 
+The same holds for the other elements the parser reads as raw text: the text
+children of `<xmp>`, `<iframe>`, `<noembed>` and `<noframes>` are written
+verbatim, and only the sequence `</` is written as `<\/` so the element's end
+tag cannot form, including across adjacent text children. An element nested
+inside one of them keeps its text entity-escaped.
+
 Raw text is written only for an HTML `<script>` or `<style>` whose ancestors
 are all ordinary HTML content. Otherwise SSR keeps the text entity-escaped:
 

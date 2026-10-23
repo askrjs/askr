@@ -57,7 +57,9 @@ import {
 } from './context';
 import {
   VOID_ELEMENTS,
+  escapeParserRawText,
   escapeRawText,
+  isParserRawTextElement,
   escapeText,
   type RawTextElement,
 } from './escape';
@@ -95,6 +97,8 @@ interface ServerRender {
   referenceAttributes: ReferenceAttributes;
   /** Open HTML elements, innermost last; null when nesting is not checked. */
   openTags: string[] | null;
+  /** Set while writing the direct children of an xmp, iframe, noembed or noframes. */
+  rawParent: { tailLt: boolean } | null;
 }
 
 interface SelectSelection {
@@ -340,9 +344,17 @@ export function renderValue(value: unknown, sink: SinkTarget): void {
 
 function renderChild(child: ChildDescriptor, sink: SinkTarget): void {
   switch (child.kind) {
-    case TEXT:
+    case TEXT: {
+      const rawParent = state().rawParent;
+      if (rawParent) {
+        const text = escapeParserRawText(child.text, rawParent.tailLt);
+        if (text) rawParent.tailLt = text.endsWith('<');
+        sink.write(text);
+        return;
+      }
       sink.write(escapeText(child.text));
       return;
+    }
     case ELEMENT:
       renderElement(child.tag, child.props, sink);
       return;
@@ -515,6 +527,11 @@ function renderElement(tag: string, props: Props, sink: SinkTarget): void {
   }
   const rawText = getRawTextElementInContext(parentNamespace, namespace, lower);
   openTags?.push(lower);
+  const previousRawParent = render.rawParent;
+  render.rawParent =
+    namespace === 'html' && isParserRawTextElement(lower)
+      ? { tailLt: false }
+      : null;
   try {
     withNamespace(
       getChildNamespace(parentNamespace, namespace, lower, elementProps),
@@ -531,6 +548,7 @@ function renderElement(tag: string, props: Props, sink: SinkTarget): void {
         )
     );
   } finally {
+    render.rawParent = previousRawParent;
     openTags?.pop();
     if (nextSelection) render.selectSelections.pop();
   }
@@ -879,6 +897,7 @@ function withServerRender<T>(ctx: RenderContext, fn: () => T): T {
     selectSelections: [],
     attributeRoots: new WeakSet(),
     openTags: isDevelopmentEnvironment() ? [] : null,
+    rawParent: null,
     referenceAttributes: new ReferenceAttributes(),
   };
   let result: T;

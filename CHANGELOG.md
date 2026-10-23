@@ -422,6 +422,11 @@
   own document, so an element in an iframe is parsed by that document and not
   by the first document the renderer saw.
 
+- Write the text children of `<xmp>`, `<iframe>`, `<noembed>` and `<noframes>`
+  verbatim on the server, as the parser reads them, instead of entity-escaping
+  them (which made the parsed text differ from what the client renders). Only
+  `</` is rewritten, so the element's end tag cannot form.
+
 ## 0.4.4 - 2026-10-08
 
 ### Breaking changes
