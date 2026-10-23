@@ -9,7 +9,11 @@
  */
 
 import type { ComponentFunction } from '../../common/component';
-import { STATIC_CHILDREN, isFragmentType } from '../../common/jsx';
+import {
+  ELEMENT_TYPE,
+  STATIC_CHILDREN,
+  isFragmentType,
+} from '../../common/jsx';
 import type { Props } from '../../common/props';
 
 export const ELEMENT = 0;
@@ -50,6 +54,7 @@ export type ChildDescriptor =
 export const OWNED_TYPE = Symbol.for('askr.core.owned');
 
 interface ElementLike {
+  $$typeof?: unknown;
   type?: unknown;
   props?: Props | null;
   key?: unknown;
@@ -152,18 +157,20 @@ export function normalizeChildren(
   }
 
   const vnode = value as ElementLike;
-  const type = vnode.type;
-  if (type === undefined) {
+  if (vnode.$$typeof !== ELEMENT_TYPE) {
     if (Symbol.iterator in (value as object)) {
       for (const item of value as Iterable<unknown>) {
         normalizeChildren(item, out);
       }
       return out;
     }
-    // Plain data objects have no visual representation. A surrounding array
-    // can still contain renderable siblings after one of these values.
+    // Only JSX runtime output is an element. Plain data objects, including
+    // JSON that happens to carry a `type` field, have no visual
+    // representation. A surrounding array can still contain renderable
+    // siblings after one of these values.
     return out;
   }
+  const type = vnode.type;
 
   const key = keyOf(vnode);
   if (typeof type === 'string') {

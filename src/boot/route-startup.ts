@@ -15,6 +15,7 @@ import {
 } from '../router/metadata';
 import { getRouteRenderContext } from '../router/resolution';
 import { readHistoryIndex } from '../router/history-index';
+import { createDeniedStatusNode } from '../router/navigation-commit';
 import { loadDocument } from '../router/document-navigation';
 import { resolveNavigationUrl } from '../common/url';
 import type { ComponentFunction } from '../common/component';
@@ -27,16 +28,6 @@ export function bindResolvedRouteHandler(
 ): ComponentFunction {
   return () =>
     resolved.handler(resolved.params) as ReturnType<ComponentFunction>;
-}
-
-function createDeniedStatusNode(status: number) {
-  return {
-    type: 'div',
-    props: {
-      'data-route-denied': String(status),
-    },
-    children: [String(status)],
-  };
 }
 
 export function bindDeniedStatus(status: number): ComponentFunction {

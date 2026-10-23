@@ -6,6 +6,8 @@ import {
   type PreparedRootUpdate,
 } from '../common/root-update';
 import { logger } from '../common/logger';
+import type { JSXElement } from '../common/jsx';
+import { jsx } from '../jsx/jsx-runtime';
 import { reportUncaughtErrorLater } from '../common/report-error';
 import { flushSync } from '../core/reactive/scheduler';
 import {
@@ -36,15 +38,17 @@ function reconcileNavigationMetadata(
   }
 }
 
+/** The placeholder a denied route renders in place of protected content. */
+export function createDeniedStatusNode(status: number): JSXElement {
+  return jsx('div', {
+    'data-route-denied': String(status),
+    children: [String(status)],
+  });
+}
+
 function createDeniedResolvedRoute(status: number): ResolvedRoute {
   return {
-    handler: () => ({
-      type: 'div',
-      props: {
-        'data-route-denied': String(status),
-      },
-      children: [String(status)],
-    }),
+    handler: () => createDeniedStatusNode(status),
     params: {},
   };
 }

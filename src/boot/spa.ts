@@ -2,6 +2,7 @@
  * App bootstrap and mount
  */
 import { isProductionEnvironment } from '../common/env';
+import { jsx } from '../jsx/jsx-runtime';
 import { configureScrollRestoration } from '../router/navigate';
 import {
   _applyManifest,
@@ -121,7 +122,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     mountOrUpdate(
       rootElement,
       !resolved
-        ? () => ({ type: 'div', children: [] })
+        ? () => jsx('div', { children: [] })
         : resolved.kind === 'deny'
           ? bindDeniedStatus(resolved.status)
           : bindResolvedRouteHandler({
