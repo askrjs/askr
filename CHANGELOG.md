@@ -118,6 +118,11 @@
   keeps component state and a navigation in flight. Explicit and cross-tab
   logout hints still retire private state immediately.
 
+- Compare the value of a single `watch()` source with `Object.is`, like
+  `state()` and `derive()`. A source function that returns an array was
+  compared element by element, so replacing `[1]` with another `[1]` did not
+  fire. Only the tuple form (an array of sources) compares entry by entry, and
+  it now delivers an array to the callback even for one source, as its type says.
 - Make the fields of `resource()` and `stream()` snapshots reactive per field.
   A child component that reads a passed snapshot field now re-renders on its
   own when that field changes, instead of relying on the declaring component to

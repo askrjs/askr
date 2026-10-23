@@ -210,6 +210,13 @@ and when choosing a test wait:
 | `watch()`                  | After the owning component commits, then after a watched committed value changes                    | `flush()` reaches the initial callback and coalesced source observations. Await only async work started by the callback. |
 | `navigate()`               | After route resolution and the destination lifecycle commit                                         | Assert both the committed URL and destination DOM. Mocking `navigate()` proves invocation only.                          |
 
+`watch(source, callback)` compares the value its single source returns with
+`Object.is`, like `state()` and `derive()`, so a source that returns a new array
+each time notifies even when the entries are equal. `watch([a, b], callback)`
+(an array of sources) is the tuple form: the callback receives an array, and the
+tuple is compared entry by entry. See
+[`watch()`](../reference/resources.md#watchsource-callback).
+
 A `task()` may call `navigate()` during its commit. That reentrant navigation
 supersedes the route whose commit triggered it; the final URL and mounted DOM
 must both belong to the winning destination. Test mount-time redirects through

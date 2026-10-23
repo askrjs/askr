@@ -246,8 +246,12 @@ watch(isAuthenticated, (authenticated, { initial, previous, signal }) => {
 ```
 
 Pass `state()` and `derive()` accessors without calling them. For multiple
-sources, pass an accessor tuple; values and previous values retain tuple
-inference and are compared entry by entry with `Object.is`.
+sources, pass an accessor tuple (an array of accessors); the callback receives an
+array of values, even for a single entry, and values and previous values retain
+tuple inference. A tuple is compared entry by entry with `Object.is`. A single
+source is compared with `Object.is` on the value it returns, so a source that
+returns a new array each time is a change even when its entries are equal;
+return a stable array or compare through a `derive()` with an `equals` option.
 
 ```ts
 watch([authChecked, isAuthenticated] as const, ([checked, authenticated]) => {
