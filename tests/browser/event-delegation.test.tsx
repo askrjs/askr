@@ -61,7 +61,7 @@ describe('event delegation matches native dispatch in a real browser', () => {
     expect(calls).toEqual(['inner']);
   });
 
-  test('should not run an ancestor onFocus or onBlur for a descendant', () => {
+  test('should run an ancestor onFocus and onBlur for a descendant, once per change', () => {
     const root = mountRoot();
     const calls: string[] = [];
 
@@ -89,7 +89,12 @@ describe('event delegation matches native dispatch in a real browser', () => {
     first.focus();
     first.blur();
 
-    expect(calls).toEqual(['first focus', 'first blur']);
+    expect(calls.sort()).toEqual([
+      'first blur',
+      'first focus',
+      'group blur',
+      'group focus',
+    ]);
   });
 
   test('should let onWheel and onTouchMove cancel the default action', () => {
@@ -588,5 +593,98 @@ describe('event delegation matches native dispatch in a real browser', () => {
     outerRoot.querySelector<HTMLButtonElement>('#inner-button')!.click();
 
     expect(calls).toEqual(['inner button', 'inner wrapper', 'outer app']);
+  });
+
+  test('should delegate pointer events from a real pointer to an ancestor', async () => {
+    const root = mountRoot();
+    const calls: string[] = [];
+
+    createIsland({
+      root,
+      component: () => (
+        <div
+          id="surface"
+          onPointerDown={(e: Event) => calls.push(`surface ${e.type}`)}
+          onPointerUp={() => calls.push('surface up')}
+        >
+          <button id="target">{'target'}</button>
+        </div>
+      ),
+    });
+    flushScheduler();
+
+    await userEvent.click(root.querySelector<HTMLButtonElement>('#target')!);
+
+    expect(calls).toEqual(['surface pointerdown', 'surface up']);
+  });
+
+  test('should hand every handler one event that can be dispatched again', () => {
+    const root = mountRoot();
+    const seen: Event[] = [];
+    const targets: Array<EventTarget | null> = [];
+
+    createIsland({
+      root,
+      component: () => (
+        <div
+          onClick={(e: Event) => {
+            seen.push(e);
+            targets.push(e.currentTarget);
+          }}
+        >
+          <button
+            id="button"
+            onClick={(e: Event) => {
+              seen.push(e);
+              targets.push(e.currentTarget);
+            }}
+          >
+            {'go'}
+          </button>
+        </div>
+      ),
+    });
+    flushScheduler();
+
+    root.querySelector<HTMLButtonElement>('#button')!.click();
+
+    expect(seen).toHaveLength(2);
+    expect(seen[0]).toBe(seen[1]);
+    expect(targets[0]).toBe(root.querySelector('#button'));
+    expect(targets[1]).toBe(root.querySelector('div'));
+    const again: EventTarget[] = [];
+    const other = document.createElement('i');
+    other.addEventListener('click', (e) => again.push(e.currentTarget!));
+    other.dispatchEvent(seen[0]);
+    expect(again).toEqual([other]);
+  });
+
+  test('should run a Once handler a single time and a Passive wheel handler without cancelling', () => {
+    const root = mountRoot();
+    const calls: string[] = [];
+
+    createIsland({
+      root,
+      component: () => (
+        <div
+          id="surface"
+          onClickOnce={() => calls.push('once')}
+          onWheelPassive={(e: Event) => {
+            e.preventDefault();
+            calls.push(`wheel ${e.defaultPrevented}`);
+          }}
+        />
+      ),
+    });
+    flushScheduler();
+
+    const surface = root.querySelector<HTMLElement>('#surface')!;
+    surface.click();
+    surface.click();
+    const wheel = new WheelEvent('wheel', { bubbles: true, cancelable: true });
+    surface.dispatchEvent(wheel);
+
+    expect(calls).toEqual(['once', 'wheel false']);
+    expect(wheel.defaultPrevented).toBe(false);
   });
 });

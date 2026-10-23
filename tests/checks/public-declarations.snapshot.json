@@ -1087,7 +1087,7 @@
     "CancelFn": ["type CancelFn = () => void;"],
     "capture": ["declare function capture<T>(fn: () => T): () => T;"],
     "CapturedIntrinsicEventProps": [
-      "type CapturedIntrinsicEventProps = {\n    [Name in keyof IntrinsicEventProps as `${Name & string}Capture`]?: IntrinsicEventProps[Name];\n};"
+      "type CapturedIntrinsicEventProps = {\n    [Name in keyof IntrinsicEventProps as `${Name & string}${EventOptionSuffix}`]?: IntrinsicEventProps[Name];\n};"
     ],
     "Case": ["Case: (props: CaseProps) => JSXElement"],
     "CaseProps": [
@@ -1341,6 +1341,9 @@
       "interface ErrorBoundaryProps extends Props {\n    children?: ErrorBoundaryChild;\n    fallback?: ErrorBoundaryFallbackValue | ErrorBoundaryFallbackRender;\n    onError?: (error: unknown) => void;\n    resetKey?: unknown;\n}"
     ],
     "escapeHtml": ["declare function escapeHtml(value: unknown): string;"],
+    "EventOptionSuffix": [
+      "type EventOptionSuffix = \"Capture\" | \"Passive\" | \"Once\" | \"CapturePassive\" | \"CaptureOnce\" | \"PassiveOnce\" | \"CapturePassiveOnce\";"
+    ],
     "ExtractRoutePathParamNames": [
       "type ExtractRoutePathParamNames<Path extends string> = TrimRoutePathSlashes<StripRoutePathSuffix<Path>> extends `${infer Segment}/${infer Rest}` ? ExtractRouteSegmentParam<Segment> | ExtractRoutePathParamNames<Rest> : ExtractRouteSegmentParam<TrimRoutePathSlashes<StripRoutePathSuffix<Path>>>;"
     ],

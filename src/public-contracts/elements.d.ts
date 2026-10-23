@@ -169,9 +169,23 @@ interface IntrinsicEventProps {
   onWebkitTransitionEnd?: BivariantHandler<Event> | null;
   onWheel?: BivariantHandler<WheelEvent> | null;
 }
+/**
+ * Listener options through prop name suffixes: `Capture` listens in the capture
+ * phase, `Passive` registers a passive listener, `Once` runs the handler for
+ * the first event only. Suffixes combine in this order (`onWheelPassive`,
+ * `onClickCaptureOnce`).
+ */
+type EventOptionSuffix =
+  | 'Capture'
+  | 'Passive'
+  | 'Once'
+  | 'CapturePassive'
+  | 'CaptureOnce'
+  | 'PassiveOnce'
+  | 'CapturePassiveOnce';
 type CapturedIntrinsicEventProps = {
   [
-    Name in keyof IntrinsicEventProps as `${Name & string}Capture`
+    Name in keyof IntrinsicEventProps as `${Name & string}${EventOptionSuffix}`
   ]?: IntrinsicEventProps[Name];
 };
 /**

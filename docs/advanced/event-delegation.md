@@ -12,27 +12,67 @@ These event types are delegated:
 - **Mouse events**: `click`, `dblclick` (`onDblClick`, or `onDoubleClick` as
   an alias), `mousedown`, `mouseup`, `mouseover`,
   `mouseout`, `mousemove`
+- **Pointer events**: `pointerdown`, `pointerup`, `pointermove`,
+  `pointercancel`, `pointerover`, `pointerout`
 - **Touch events**: `touchend`, `touchcancel`
 - **Keyboard events**: `keydown`, `keyup`, `keypress`
 - **Form events**: `input`
+- **Focus events**: `focusin`, `focusout`
+
+`onFocus` and `onBlur` also observe their descendants, as in React: besides a
+direct listener for the element's own `focus`/`blur`, an element with either
+prop gets a delegated `focusin`/`focusout` handler that runs for focus changes
+inside it (the handler then receives the `focusin`/`focusout` event). An
+element's own focus runs the handler once.
 
 Every other event attaches a listener directly to its element, including:
 
 - **Non-composed events** such as `change` and `submit`. They never leave a
   shadow root, so a delegated listener at the app root could not see them for
-  a form control or form inside one.
-- **Non-bubbling events** such as `focus`, `blur`, `scroll`, `mouseenter`,
-  `mouseleave` and `load`. A handler only runs for its own element, as with
-  `addEventListener`: `onScroll` on a wrapper does not run when a scrollable
-  descendant scrolls, and `onFocus` on a group does not run when a child is
-  focused. Use `onFocusIn`/`onFocusOut` to observe focus changes inside a
-  subtree.
+  a form control or form inside one. They stay direct listeners.
+- **Non-bubbling events** such as `scroll`, `mouseenter`, `mouseleave`,
+  `pointerenter`, `pointerleave` and `load`. A handler only runs for its own
+  element, as with `addEventListener`: `onScroll` on a wrapper does not run
+  when a scrollable descendant scrolls.
 - **`wheel`, `touchstart` and `touchmove`**, registered with
   `{ passive: false }` so `preventDefault()` in `onWheel`, `onTouchStart` or
   `onTouchMove` cancels scrolling and zooming. Browsers treat these listeners
   as passive by default on document-level targets. Only elements that have
   such a handler pay the cost of a non-passive listener.
-- **Pointer events** and other event types not listed above.
+- **Handlers with listener options** (`Capture`, `Passive`, `Once`; see below)
+  and other event types not listed above.
+
+### The event object
+
+Every delegated handler for one event receives the same event object, the
+native event itself. While handlers run, `event.currentTarget` is the element
+whose handler is running (and `event.target` is the real target inside a
+shadow tree); after dispatch it is `null`, as for a native listener. The event
+also has a `nativeEvent` property (the event itself), so code written for
+wrappers that expose one keeps working. Because the object is the native event,
+a handler can keep it and dispatch it again on another target once the current
+dispatch has finished.
+
+An event inside an app root is handled once at that root. `document.body` also
+listens, for content rendered outside any root (portals), and skips an event
+a root already handled.
+
+### Listener options
+
+A prop name can end in `Capture`, `Passive` or `Once`, alone or combined in
+that order, to set the listener options for that handler:
+
+```tsx
+<div onWheelPassive={track} onClickOnce={intro} onScrollCapturePassive={log} />
+```
+
+- `Capture` listens in the capture phase.
+- `Passive` registers a passive listener, so the browser can scroll without
+  waiting for the handler. `preventDefault()` has no effect in it.
+- `Once` runs the handler for the first event only and then stops listening.
+
+Each of these attaches a direct listener to the element, since one delegated
+listener cannot carry per-handler options.
 
 Delegated handlers run target-first, in the same order as native bubbling.
 Server-rendered markup that is hydrated uses the same model as client-rendered
@@ -224,6 +264,7 @@ onMount(() => {
 
 1. **Verify event type is delegated**: See list above
 2. **Check stopPropagation**: Earlier handlers might prevent bubbling
+3. **A `Capture`, `Passive` or `Once` suffix** attaches a direct listener to the element
 
 ### Performance issues
 

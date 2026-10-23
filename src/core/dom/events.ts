@@ -26,6 +26,10 @@ declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 export interface ParsedEvent {
   readonly eventName: string;
   readonly capture: boolean;
+  /** `onWheelPassive`: a passive listener, which cannot call preventDefault(). */
+  readonly passive?: boolean;
+  /** `onClickOnce`: the handler runs for the first event only. */
+  readonly once?: boolean;
 }
 
 export interface Listener {
@@ -34,6 +38,8 @@ export interface Listener {
   readonly eventName: string;
   /** Null for a delegated handler, which has no native listener of its own. */
   readonly wrapped: EventListener | null;
+  /** Delegated handler that runs this one for events from descendants. */
+  companion?: Listener;
   readonly options: AddEventListenerOptions | undefined;
 }
 
@@ -50,28 +56,79 @@ const DELEGATED_EVENTS = new Set([
   'mouseover',
   'mouseout',
   'mousemove',
+  'pointerdown',
+  'pointerup',
+  'pointermove',
+  'pointercancel',
+  'pointerover',
+  'pointerout',
   'touchend',
   'touchcancel',
   'keydown',
   'keyup',
   'keypress',
   'input',
+  'focusin',
+  'focusout',
 ]);
 
-/** `onClick` -> click, `onKeyDownCapture` -> keydown (capture); else null. */
+/**
+ * `focus` and `blur` do not bubble, but their bubbling counterparts do. An
+ * element's `onFocus`/`onBlur` runs for its own `focus`/`blur` through a direct
+ * listener (which also sees the blur a removal emits) and, as in React, for
+ * its descendants' through a delegated `focusin`/`focusout` handler.
+ */
+const DESCENDANT_EVENT: Record<string, string> = {
+  focus: 'focusin',
+  blur: 'focusout',
+};
+
+/**
+ * `onClick` -> click, `onKeyDownCapture` -> keydown (capture),
+ * `onWheelPassive` -> wheel (passive), `onClickOnce` -> click (once). The
+ * `Capture`, `Passive` and `Once` suffixes combine in any order; else null.
+ */
 export function parseEventProp(propName: string): ParsedEvent | null {
   if (propName.length <= 2 || !propName.startsWith('on')) return null;
-  const capture =
-    propName.endsWith('Capture') &&
-    !propName.endsWith('PointerCapture') &&
-    propName.length > 'onCapture'.length;
-  const name = capture ? propName.slice(0, -'Capture'.length) : propName;
+  let name = propName;
+  let capture = false;
+  let passive = false;
+  let once = false;
+  for (;;) {
+    if (
+      !capture &&
+      name.endsWith('Capture') &&
+      !name.endsWith('PointerCapture') &&
+      name.length > 'onCapture'.length
+    ) {
+      capture = true;
+      name = name.slice(0, -'Capture'.length);
+    } else if (
+      !passive &&
+      name.endsWith('Passive') &&
+      name.length > 'onPassive'.length
+    ) {
+      passive = true;
+      name = name.slice(0, -'Passive'.length);
+    } else if (
+      !once &&
+      name.endsWith('Once') &&
+      name.length > 'onOnce'.length
+    ) {
+      once = true;
+      name = name.slice(0, -'Once'.length);
+    } else {
+      break;
+    }
+  }
   if (name.length <= 2) return null;
   const eventName = name.slice(2).toLowerCase();
   // `onDoubleClick` is the common spelling; the DOM event is `dblclick`.
   return {
     eventName: eventName === 'doubleclick' ? 'dblclick' : eventName,
     capture,
+    ...(passive ? { passive } : null),
+    ...(once ? { once } : null),
   };
 }
 
@@ -80,9 +137,9 @@ export function parseEventProp(propName: string): ParsedEvent | null {
  * handler can call `preventDefault()`; `scroll` is always passive.
  */
 function listenerOptions(
-  eventName: string,
-  capture: boolean
+  event: ParsedEvent
 ): AddEventListenerOptions | undefined {
+  const { eventName, capture, passive, once } = event;
   let options: AddEventListenerOptions | undefined;
   if (eventName === 'scroll') options = { passive: true };
   else if (
@@ -92,6 +149,8 @@ function listenerOptions(
   ) {
     options = { passive: false };
   }
+  if (passive) options = { ...options, passive: true };
+  if (once) options = { ...options, once: true };
   if (!capture) return options;
   return { ...options, capture: true };
 }
@@ -109,8 +168,10 @@ function invoke(listener: Listener, el: Element, event: Event): void {
 // ---------------------------------------------------------------------------
 // Delegation
 
-/** Delegated handlers per element, by event type. */
-const delegatedHandlers = new WeakMap<Element, Map<string, Listener>>();
+/** Delegated handlers per element, by event type (several props can share one). */
+const delegatedHandlers = new WeakMap<Element, Map<string, Set<Listener>>>();
+/** Events a registered app root has dispatched, so `document.body` skips them. */
+const handledByRoot = new WeakSet<Event>();
 /** Elements holding a delegated handler, per event type. */
 const delegatedUsage = new Map<string, number>();
 /** Registered app roots, each counted once per live root using it. */
@@ -210,25 +271,48 @@ function ancestryPath(event: Event, container: Element): EventTarget[] {
   return path;
 }
 
-/** The event as seen by one element's handler. */
-function eventFor(
-  event: Event,
-  currentTarget: Element,
-  target: EventTarget | null
-): Event {
-  return new Proxy(event, {
-    get(native, property) {
-      if (property === 'currentTarget') return currentTarget;
-      if (property === 'target') return target;
-      // Native accessors require the original event as their receiver.
-      const value = Reflect.get(native, property, native);
-      return typeof value === 'function' ? value.bind(native) : value;
-    },
+/**
+ * Handlers receive the native event itself, so every handler sees one object
+ * and it can be dispatched again afterwards. While handlers run, `currentTarget`
+ * (and `target`, when retargeted) are shadowed by own accessors on the event;
+ * they are deleted when dispatch ends, which restores the native values.
+ */
+interface EventView {
+  current: Element | null;
+  target: EventTarget | null;
+}
+
+function viewEvent(event: Event): EventView {
+  const view: EventView = { current: null, target: event.target };
+  Object.defineProperty(event, 'currentTarget', {
+    configurable: true,
+    get: () => view.current,
   });
+  Object.defineProperty(event, 'target', {
+    configurable: true,
+    get: () => view.target,
+  });
+  if (!('nativeEvent' in event)) {
+    Object.defineProperty(event, 'nativeEvent', {
+      configurable: true,
+      value: event,
+    });
+  }
+  return view;
+}
+
+function releaseEvent(event: Event): void {
+  Reflect.deleteProperty(event, 'currentTarget');
+  Reflect.deleteProperty(event, 'target');
 }
 
 function dispatch(event: Event, eventName: string): void {
   const container = event.currentTarget as Element;
+  const isRoot = roots.has(container);
+  // An app root already ran every handler below it; `document.body` only
+  // listens for content rendered outside any root.
+  if (!isRoot && handledByRoot.has(event)) return;
+  if (isRoot) handledByRoot.add(event);
   // composedPath() reaches into open shadow roots below the container, which
   // the target (retargeted to the shadow host here) and its parents do not.
   const composed = event.composedPath?.() ?? [];
@@ -267,24 +351,38 @@ function dispatch(event: Event, eventName: string): void {
     if (containerListeners.get(node as Element)?.has(eventName)) {
       handlers.length = 0;
     }
-    const listener = delegatedHandlers.get(node as Element)?.get(eventName);
-    if (listener) handlers.push({ el: node as Element, listener, target });
+    const listeners = delegatedHandlers.get(node as Element)?.get(eventName);
+    if (listeners) {
+      for (const listener of listeners) {
+        handlers.push({ el: node as Element, listener, target });
+      }
+    }
   }
   if (handlers.length === 0) return;
-  outsideRendering(() =>
-    batch(() => {
-      for (const { el, listener, target } of handlers) {
-        invoke(listener, el, eventFor(event, el, target));
-        if (event.cancelBubble) break;
-      }
-    })
-  );
+  const view = viewEvent(event);
+  try {
+    outsideRendering(() =>
+      batch(() => {
+        for (const { el, listener, target } of handlers) {
+          view.current = el;
+          view.target = target;
+          invoke(listener, el, event);
+          if (event.cancelBubble) break;
+        }
+      })
+    );
+  } finally {
+    view.current = null;
+    releaseEvent(event);
+  }
 }
 
 function delegate(el: Element, listener: Listener): void {
   let byEvent = delegatedHandlers.get(el);
   if (!byEvent) delegatedHandlers.set(el, (byEvent = new Map()));
-  byEvent.set(listener.eventName, listener);
+  let set = byEvent.get(listener.eventName);
+  if (!set) byEvent.set(listener.eventName, (set = new Set()));
+  set.add(listener);
   const usage = delegatedUsage.get(listener.eventName) ?? 0;
   delegatedUsage.set(listener.eventName, usage + 1);
   if (usage === 0) {
@@ -292,10 +390,13 @@ function delegate(el: Element, listener: Listener): void {
   }
 }
 
-function undelegate(el: Element, eventName: string): void {
+function undelegate(el: Element, listener: Listener): void {
+  const eventName = listener.eventName;
   const byEvent = delegatedHandlers.get(el);
-  if (!byEvent?.delete(eventName)) return;
-  if (byEvent.size === 0) delegatedHandlers.delete(el);
+  const set = byEvent?.get(eventName);
+  if (!set?.delete(listener)) return;
+  if (set.size === 0) byEvent!.delete(eventName);
+  if (byEvent!.size === 0) delegatedHandlers.delete(el);
   const usage = delegatedUsage.get(eventName)! - 1;
   if (usage > 0) {
     delegatedUsage.set(eventName, usage);
@@ -326,8 +427,10 @@ export function setListener(
   if (__ASKR_DEVELOPMENT_BUILD__) {
     warnUnknownEventProp(propName, event.eventName, el.localName);
   }
+  const plain = !event.capture && !event.passive && !event.once;
+  // Capture, passive and once handlers need a native listener of their own.
   if (
-    !event.capture &&
+    plain &&
     DELEGATED_EVENTS.has(event.eventName) &&
     (roots.size > 0 || fallbackContainer())
   ) {
@@ -342,7 +445,7 @@ export function setListener(
     delegate(el, listener);
     return;
   }
-  const options = listenerOptions(event.eventName, event.capture);
+  const options = listenerOptions(event);
   const listener: Listener = {
     handler,
     owner,
@@ -354,6 +457,22 @@ export function setListener(
   };
   listeners.set(propName, listener);
   el.addEventListener(event.eventName, listener.wrapped!, options);
+  const descendants = DESCENDANT_EVENT[event.eventName];
+  if (plain && descendants && (roots.size > 0 || fallbackContainer())) {
+    const companion: Listener = {
+      // The element's own focus is the direct listener's. The swapped-in
+      // handler is read at call time.
+      handler(this: unknown, e: Event) {
+        if (e.target !== el) listener.handler.call(this, e);
+      },
+      owner,
+      eventName: descendants,
+      wrapped: null,
+      options: undefined,
+    };
+    listener.companion = companion;
+    delegate(el, companion);
+  }
 }
 
 export function removeListener(
@@ -364,8 +483,9 @@ export function removeListener(
   const listener = listeners.get(propName);
   if (!listener) return;
   listeners.delete(propName);
+  if (listener.companion) undelegate(el, listener.companion);
   if (!listener.wrapped) {
-    undelegate(el, listener.eventName);
+    undelegate(el, listener);
     return;
   }
   el.removeEventListener(

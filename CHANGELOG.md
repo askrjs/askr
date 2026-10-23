@@ -164,6 +164,10 @@
   server/client difference; returning `'continue'` from a verify-mode mismatch
   patches the markup and proceeds instead of failing.
 
+- Type per-handler listener options through prop name suffixes on every
+  intrinsic `on*` prop: `Passive` and `Once` (and their combinations with
+  `Capture`), for example `onWheelPassive` and `onClickOnce`.
+
 ### Fixes
 
 - Publish the identity a custom `resolve` produces when its navigation
@@ -387,6 +391,15 @@
 - Clear a host with one `replaceChildren()` when every child is removed and
   the host holds only renderer-owned nodes, instead of one `removeChild` per
   child. A host with nodes added by other code still removes only its own.
+
+- Give every delegated handler the same event object, the native event, with
+  `currentTarget` set per handler and a `nativeEvent` property, instead of a new
+  `Proxy` per handler; the received event can be dispatched again. Delegate
+  pointer events (`pointerdown`, `pointerup`, `pointermove`, `pointercancel`,
+  `pointerover`, `pointerout`) and `focusin`/`focusout`. `onFocus` and `onBlur`
+  now also run for focus changes inside the element. Skip the `document.body`
+  dispatch for an event an app root already handled. `change` and `submit` stay
+  direct listeners, because they do not cross a shadow root.
 
 ## 0.4.4 - 2026-10-08
 
