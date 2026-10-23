@@ -11,6 +11,7 @@ import {
   setServerLocation,
 } from '../router/route';
 import { clearRouteState } from '../router/store';
+import { resetRouteMetaBaseline } from '../router/metadata';
 import { assertExecutionModel } from '../common/execution-model';
 import { getRouteRenderData, hasRouteRenderData } from '../router/resolution';
 import { createAppRenderRuntime } from '../common/app-render-runtime';
@@ -76,6 +77,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
   configureScrollRestoration(config.scrollRestoration);
 
   clearRouteState();
+  resetRouteMetaBaseline();
   _applyManifest(manifest);
 
   const appRouteSource = {

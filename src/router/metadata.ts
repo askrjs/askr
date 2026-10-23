@@ -102,11 +102,71 @@ async function resolveRouteMetaInternal(
   return freezeMeta(resolved);
 }
 
-/** Replace only Askr-owned head nodes after a successful client navigation. */
+/**
+ * What the document declared before any route metadata was written: a shell
+ * `<title>` and the root `lang`/`dir`. A route without its own title,
+ * language or direction restores these.
+ */
+interface DocumentBaseline {
+  title: HTMLTitleElement | null;
+  titleText: string;
+  lang: string | null;
+  dir: string | null;
+}
+
+const documentBaselines = new WeakMap<Document, DocumentBaseline>();
+
+/** Forget the captured baseline; the next reconcile reads the document anew. */
+export function resetRouteMetaBaseline(
+  target: Document | undefined = globalThis.document
+): void {
+  if (target) documentBaselines.delete(target);
+}
+
+function documentBaseline(target: Document): DocumentBaseline {
+  let baseline = documentBaselines.get(target);
+  if (!baseline) {
+    const title = target.head.querySelector<HTMLTitleElement>(
+      'title:not([data-askr-head])'
+    );
+    baseline = {
+      title,
+      titleText: title?.textContent ?? '',
+      lang: target.documentElement.getAttribute('lang'),
+      dir: target.documentElement.getAttribute('dir'),
+    };
+    documentBaselines.set(target, baseline);
+  }
+  return baseline;
+}
+
+function restoreRootAttribute(
+  target: Document,
+  name: 'lang' | 'dir',
+  value: string | undefined,
+  baseline: string | null
+): void {
+  const next = value ?? baseline;
+  if (next === null) target.documentElement.removeAttribute(name);
+  else if (target.documentElement.getAttribute(name) !== next) {
+    target.documentElement.setAttribute(name, next);
+  }
+}
+
+/**
+ * Write a route's metadata to the document head after a client navigation.
+ *
+ * Askr-owned nodes (marked `data-askr-head`, as SSR writes them) are replaced
+ * and nothing else is removed. A shell `<title>` the document already had is
+ * updated in place, because the browser reads the first `<title>`; a route
+ * without a title restores its original text. The root `lang` and `dir`
+ * attributes are restored the same way.
+ */
 export function reconcileRouteMeta(
   meta: Readonly<RouteMeta>,
   target: Document = document
 ): void {
+  const baseline = documentBaseline(target);
   for (const node of Array.from(
     target.head.querySelectorAll('[data-askr-head]')
   )) {
@@ -116,6 +176,10 @@ export function reconcileRouteMeta(
     element.setAttribute('data-askr-head', '');
     return element;
   };
+  const shellTitle =
+    baseline.title && baseline.title.parentNode === target.head
+      ? baseline.title
+      : null;
   const appendMeta = (
     attribute: 'name' | 'property',
     name: string,
@@ -126,7 +190,10 @@ export function reconcileRouteMeta(
     element.setAttribute('content', content);
     target.head.append(element);
   };
-  if (meta.title !== undefined) {
+  if (shellTitle) {
+    const text = meta.title ?? baseline.titleText;
+    if (shellTitle.textContent !== text) shellTitle.textContent = text;
+  } else if (meta.title !== undefined) {
     const element = own(target.createElement('title'));
     element.textContent = meta.title;
     target.head.append(element);
@@ -164,9 +231,18 @@ export function reconcileRouteMeta(
       target.head.append(element);
     }
   }
-  if (meta.html?.lang)
-    target.documentElement.setAttribute('lang', meta.html.lang);
-  if (meta.html?.dir) target.documentElement.setAttribute('dir', meta.html.dir);
+  restoreRootAttribute(
+    target,
+    'lang',
+    meta.html?.lang || undefined,
+    baseline.lang
+  );
+  restoreRootAttribute(
+    target,
+    'dir',
+    meta.html?.dir || undefined,
+    baseline.dir
+  );
 }
 
 const LINK_ATTRIBUTES = new Set([

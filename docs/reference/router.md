@@ -430,7 +430,11 @@ use the same helpers:
 - `serializeRouteMeta(meta)` renders `<title>`, `<meta>`, `<link>`, and JSON-LD
   markup for a server-rendered `<head>`.
 - `reconcileRouteMeta(meta, target?)` replaces only Askr-owned head nodes after
-  a client navigation.
+  a client navigation. The router calls it for every navigation, with empty
+  metadata when the destination declares none, so a previous route's head
+  nodes never outlive it. A `<title>` the document already had (a static
+  shell title) is updated in place and restored when a route has no title;
+  the root `lang` and `dir` are restored the same way.
 
 ## Route testing helpers
 

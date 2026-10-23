@@ -67,12 +67,20 @@
 
 ### Fixes
 
+- Reconcile head metadata on every navigation. A route that declares no
+  `title` or `meta` now removes the previous route's title, description,
+  robots and other owned head nodes instead of leaving them in place, and
+  restores the document's own `lang` and `dir`. A shell `<title>` that the
+  document already had is updated in place rather than shadowed by a second
+  `<title>`, and is restored when a route has no title.
+
 - Write a `<textarea value>` as the element's text content in SSR, so the
   control is filled before hydration, and keep that server text in place when
-  hydrating. Double a leading newline in `<pre>`, `<textarea>` and `<listing>`
-  content so the parsed text matches the render. Hydration verification
-  normalizes live DOM from a clone rather than a re-parse of its `innerHTML`,
-  which lost that newline in hosts whose serializer does not restore it.
+  hydrating; the client keeps a textarea's default text in step with its
+  value so server and client markup agree. Double a leading newline in
+  `<pre>`, `<textarea>` and `<listing>` content so the parsed text matches
+  the render; hydration verification restores that newline when the host
+  serializer omits it.
 
 - Render `download={true}` as a bare attribute instead of `download="true"`,
   which named the downloaded file `true`. Accept `onDoubleClick` as an alias

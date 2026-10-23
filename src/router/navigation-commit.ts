@@ -1,4 +1,8 @@
-import type { RouteRequestResult, ResolvedRoute } from '../common/router';
+import type {
+  RouteMeta,
+  RouteRequestResult,
+  ResolvedRoute,
+} from '../common/router';
 import type { ComponentFunction } from '../common/component';
 import type { AppRenderRouteState } from '../common/app-render-runtime';
 import {
@@ -26,6 +30,13 @@ import {
   type AppNavigationTarget,
 } from './navigation-types';
 
+const EMPTY_ROUTE_META: Readonly<RouteMeta> = Object.freeze({});
+
+/**
+ * The last app with resolved metadata owns the document head. When no
+ * destination declares any, the previous route's metadata is still replaced
+ * by an empty set so it cannot describe a page it no longer belongs to.
+ */
 function reconcileNavigationMetadata(
   targets: readonly AppNavigationTarget[]
 ): void {
@@ -36,6 +47,7 @@ function reconcileNavigationMetadata(
       return;
     }
   }
+  if (targets.length > 0) reconcileRouteMeta(EMPTY_ROUTE_META);
 }
 
 /** The placeholder a denied route renders in place of protected content. */
