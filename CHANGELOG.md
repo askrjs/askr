@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 - 2026-10-12
 
 - Document the application-owned stable ID pattern for label and description associations, with installed SSR/hydration, keyed reordering, independent roots and native browser qualification.
 - Document and execute an optional DOM Testing Library/user-event recipe for
@@ -15,6 +15,8 @@
 
 ### Breaking changes
 
+- Require `@askrjs/auth` and `@askrjs/schema` 0.5.x when these optional peers
+  are used. Upgrade their packages together with Core.
 - Reduce the Core surface from 373 to 342 named/entrypoint pairs while keeping
   all 22 export-map keys. Remove testing `mount`/`queryState` aliases; move
   testing `matchRoute` to its router owner. Remove utilities `ariaDisabled`,
@@ -30,6 +32,10 @@
   `JSXElement`, and `JSXElementType` from `jsx-runtime`.
   See `docs/migration/0.5.0.md` for every replacement and behavior difference,
   and `docs/development/0.5.0-public-api.md` for the complete API decisions.
+
+### Deprecations
+
+- None.
 
 ### Additions
 
@@ -370,7 +376,7 @@
   `resolveRequest` and `renderResolvedToStringSync` are no longer exported from
   `@askrjs/askr/ssr`. To resolve auth, redirects and status without rendering,
   call `resolveRouteRequest(url, { registry, mode: 'ssr', auth, authContext,
-request, signal })` from `@askrjs/askr/router`. Pass `mode: 'ssr'`
+  request, signal })` from `@askrjs/askr/router`. Pass `mode: 'ssr'`
   explicitly (the default is `'spa'` when a global `window` exists) and pass
   `signal` explicitly (it is not taken from `request.signal`). The result may be a plain value or a
   Promise, and errors can throw synchronously, so call it inside an `async`

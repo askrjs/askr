@@ -132,6 +132,30 @@ it('should dedupe GETs while independent cancellation leaves the other waiter li
   expect(transport).toHaveBeenCalledTimes(1);
 });
 
+it('should publish its shared promise before invoking a reentrant transport', async () => {
+  const pending = deferred<Response>();
+  let auth!: ReturnType<typeof createSessionAuth>;
+  let reentrant: AuthContext | PromiseLike<AuthContext> | undefined;
+  const transport = vi.fn(() => {
+    reentrant = auth.resolve(context());
+    return pending.promise;
+  });
+  auth = createSessionAuth({ fetch: transport });
+
+  const first = Promise.resolve(auth.resolve(context()));
+  const second = Promise.resolve(reentrant).then(
+    (value) => ({ value }),
+    (error: unknown) => ({ error })
+  );
+  expect(transport).toHaveBeenCalledTimes(1);
+  pending.resolve(Response.json(user('a')));
+
+  const result = await first;
+  expect(result.principal?.id).toBe('a');
+  await expect(second).resolves.toEqual({ value: result });
+  expect(transport).toHaveBeenCalledTimes(1);
+});
+
 it('should fence a pending pre-logout GET even when its transport ignores abort', async () => {
   const pending = deferred<Response>();
   const transport = vi.fn((request: RequestInfo | URL) =>
