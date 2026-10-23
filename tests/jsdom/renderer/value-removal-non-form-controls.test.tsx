@@ -80,4 +80,27 @@ describe('value removal on non-form-control elements', () => {
     expect(mounted.container.querySelector('input')!.value).toBe('');
     expect(mounted.container.querySelector('textarea')!.value).toBe('');
   });
+
+  it('should keep the creation value as the default text of a client textarea', () => {
+    let setText!: State<string>;
+    const mounted = createTestContainer();
+    cleanup = mounted.cleanup;
+    createIsland({
+      root: mounted.container,
+      component: () => {
+        const text = state('');
+        setText = text;
+        return <textarea value={text()} />;
+      },
+    });
+    flushScheduler();
+    const textarea = mounted.container.querySelector('textarea')!;
+    expect(textarea.defaultValue).toBe('');
+    setText.set('typed');
+    flushScheduler();
+    expect(textarea.value).toBe('typed');
+    // The default text is the initial value, which form.reset() restores.
+    expect(textarea.defaultValue).toBe('');
+    expect(textarea.textContent).toBe('');
+  });
 });

@@ -60,17 +60,6 @@ export function applyFormControlProp(
       if (control.value !== stringValue) {
         control.value = stringValue;
       }
-      // A textarea's initial value is its text content, which is what SSR
-      // writes. Fill it while the control has none so client and server
-      // markup agree; later updates change only the live value, so typing
-      // never rewrites the text node.
-      if (
-        stringValue !== '' &&
-        tagNamesEqualIgnoreCase(tagName, 'textarea') &&
-        control.defaultValue === ''
-      ) {
-        control.defaultValue = stringValue;
-      }
     }
 
     if (el.getAttribute('value') !== stringValue) {

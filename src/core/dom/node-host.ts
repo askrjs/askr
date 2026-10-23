@@ -51,6 +51,17 @@ export function createHost(
   };
   if (adopted && deferDormantHost(ctx, node, ns)) return node;
   applyInitialProps(ctx.pass, node, adopted !== null);
+  if (!adopted && isTextareaWithValue(el, props)) {
+    // A textarea's initial value is its text content, which is what SSR
+    // writes; fill it once the value is written so client and server markup
+    // agree. Later updates change only the live value.
+    ctx.pass.op(() => {
+      const control = el as HTMLTextAreaElement;
+      if (control.defaultValue !== control.value) {
+        control.defaultValue = control.value;
+      }
+    });
+  }
   if (adopted) {
     ctx.pass.op(() => {
       try {
@@ -92,17 +103,14 @@ export function createHost(
 /**
  * SSR writes a `textarea` value as its text content (the control's initial
  * value). Hydration keeps that server text rather than claiming children the
- * client never renders, so the adopted control is left as the server wrote it.
+ * client never renders, a fresh host writes it once, and re-renders leave it
+ * to the value writer.
  */
 function isTextareaWithValue(el: Element, props: Props): boolean {
-  if (el.localName !== 'textarea' || el.namespaceURI !== XHTML_NS) {
-    return false;
-  }
+  if (el.localName !== 'textarea' || namespaceOf(el) !== null) return false;
   const value = props.value;
   return value !== undefined && value !== null && value !== false;
 }
-
-const XHTML_NS = 'http://www.w3.org/1999/xhtml';
 
 function ownsChildren(props: Props): boolean {
   return (
