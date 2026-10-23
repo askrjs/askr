@@ -51,6 +51,12 @@ When a computation is read or run by the scheduler, it first brings its
 `CHECK` sources up to date and re-runs only if one of them actually changed.
 Updates are glitch-free, and an unchanged derived value stops propagation.
 
+Both walks, marking `CHECK` downstream of a write and bringing `CHECK` sources
+up to date on a read, use an explicit stack, so a chain of 10,000 derived values
+updates without a `RangeError`. The first evaluation of such a chain still
+nests one call per link, because each value's function reads the previous one;
+read a long chain from its start (or build it incrementally) the first time.
+
 A computation with no scheduler (a `derive()` value) is lazy: it recomputes
 only when read. A computation with a scheduler queues itself when it goes
 stale. Reading a computation from inside its own run throws

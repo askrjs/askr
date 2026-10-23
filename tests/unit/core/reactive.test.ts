@@ -372,4 +372,46 @@ describe('owner tree', () => {
     expect(child.lookup('theme')).toBe('dark');
     expect(child.lookup('missing')).toBeUndefined();
   });
+
+  it('should update a 10,000-deep derived chain without overflowing the stack', () => {
+    const source = new Signal(0);
+    const chain: Computation<number>[] = [];
+    let previous: () => number = () => source.read();
+    for (let index = 0; index < 10_000; index += 1) {
+      const read = previous;
+      const node = computed(() => read() + 1);
+      chain.push(node);
+      previous = () => node.read();
+      // Evaluate bottom-up so building the chain does not recurse.
+      node.read();
+    }
+    const top = chain[chain.length - 1]!;
+    expect(top.read()).toBe(10_000);
+    source.write(5);
+    expect(top.read()).toBe(10_005);
+    source.write(6);
+    expect(top.read()).toBe(10_006);
+  });
+
+  it('should cut off a deep chain when an intermediate value is unchanged', () => {
+    const source = new Signal(0);
+    let runs = 0;
+    const parity = computed(() => source.read() % 2);
+    let previous: () => number = () => parity.read();
+    let last!: Computation<number>;
+    for (let index = 0; index < 5_000; index += 1) {
+      const read = previous;
+      const node = computed(() => {
+        runs += 1;
+        return read();
+      });
+      last = node;
+      previous = () => node.read();
+      node.read();
+    }
+    const base = runs;
+    source.write(2);
+    expect(last.read()).toBe(0);
+    expect(runs).toBe(base);
+  });
 });

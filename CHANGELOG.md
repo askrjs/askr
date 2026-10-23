@@ -118,6 +118,10 @@
   keeps component state and a navigation in flight. Explicit and cross-tab
   logout hints still retire private state immediately.
 
+- Update deep chains of `derive()` values without a stack overflow. A write
+  marked its dependents and a read brought them up to date by recursion, so a
+  chain a few thousand values deep threw `RangeError`. Both walks now use an
+  explicit stack; a 10,000-deep chain updates.
 - Stop a runaway `queueTask()` loop. A task that queued a fresh closure on every
   run escaped the per-job loop guard and froze the flush. A flush now stops
   after 100,000 jobs beyond those queued when it started, drops the remaining
