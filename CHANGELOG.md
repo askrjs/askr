@@ -76,10 +76,6 @@
   A navigation to the current location replaces its history entry instead of
   pushing a duplicate, unless `history: 'push'` is given.
 
-- Look ahead for the matching sibling when a server node does not match the
-  element the client renders during hydration, so one extra server node is
-  dropped on its own instead of every later sibling being recreated.
-
 - Subscribe to a reactive source as it is read. A write to a source first
   read in the same run (a `watch()` source or effect that reads and then
   writes the same state), or to a source behind a derived value the run has
@@ -129,8 +125,8 @@
 
 - Write a `<textarea value>` as the element's text content in SSR, so the
   control is filled before hydration, and keep that server text in place when
-  hydrating; the client keeps a textarea's default text in step with its
-  value so server and client markup agree. Double a leading newline in
+  hydrating; a client-created textarea writes its initial value as its
+  default text too, so server and client markup agree. Double a leading newline in
   `<pre>`, `<textarea>` and `<listing>` content so the parsed text matches
   the render, including content produced by function, fragment and component
   children; hydration verification restores that newline when the host
