@@ -87,6 +87,8 @@ interface IntrinsicEventProps {
   onCueChange?: BivariantHandler<Event> | null;
   onCut?: BivariantHandler<ClipboardEvent> | null;
   onDblClick?: BivariantHandler<MouseEvent> | null;
+  /** Alias of `onDblClick`; both listen for the `dblclick` event. */
+  onDoubleClick?: BivariantHandler<MouseEvent> | null;
   onDrag?: BivariantHandler<DragEvent> | null;
   onDragEnd?: BivariantHandler<DragEvent> | null;
   onDragEnter?: BivariantHandler<DragEvent> | null;
@@ -301,6 +303,8 @@ type TableHeaderIntrinsicProps = StructuredContentIntrinsicProps<
   }
 >;
 interface AnchorIntrinsicProps extends IntrinsicProps {
+  /** A filename, or `true` to use the resource's own name. */
+  download?: ReactiveProp<IntrinsicTextValue | boolean>;
   href?: ReactiveProp<IntrinsicTextValue>;
   rel?: ReactiveProp<IntrinsicTextValue>;
   target?: ReactiveProp<IntrinsicTextValue>;

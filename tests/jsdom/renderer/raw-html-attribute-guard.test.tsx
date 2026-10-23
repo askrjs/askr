@@ -57,10 +57,7 @@ describe('raw HTML attribute guard and blob hrefs', () => {
     createIsland({
       root: mounted.container,
       component: () => (
-        <a
-          href={href}
-          {...({ download: 'report.csv' } as unknown as Record<string, never>)}
-        >
+        <a href={href} download="report.csv">
           download
         </a>
       ),
@@ -70,10 +67,7 @@ describe('raw HTML attribute guard and blob hrefs', () => {
       href
     );
     const html = renderToStringSync(() => (
-      <a
-        href={href}
-        {...({ download: 'report.csv' } as unknown as Record<string, never>)}
-      >
+      <a href={href} download="report.csv">
         download
       </a>
     ));

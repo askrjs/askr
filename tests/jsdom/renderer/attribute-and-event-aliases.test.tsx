@@ -6,12 +6,6 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 
-// `download` and `onDoubleClick` are not in the typed element props; the
-// renderer still handles them for untyped and spread props.
-function untypedProps(props: Record<string, unknown>): Record<string, never> {
-  return props as Record<string, never>;
-}
-
 describe('attribute and event aliases', () => {
   let cleanup = () => {};
   afterEach(() => cleanup());
@@ -22,7 +16,7 @@ describe('attribute and event aliases', () => {
     createIsland({
       root: mounted.container,
       component: () => (
-        <a href="/report.csv" {...untypedProps({ download: true })}>
+        <a href="/report.csv" download={true}>
           report
         </a>
       ),
@@ -32,7 +26,7 @@ describe('attribute and event aliases', () => {
       ''
     );
     const html = renderToStringSync(() => (
-      <a href="/report.csv" {...untypedProps({ download: true })}>
+      <a href="/report.csv" download={true}>
         report
       </a>
     ));
@@ -46,7 +40,7 @@ describe('attribute and event aliases', () => {
     const onDoubleClick = vi.fn();
     createIsland({
       root: mounted.container,
-      component: () => <button {...untypedProps({ onDoubleClick })}>go</button>,
+      component: () => <button onDoubleClick={onDoubleClick}>go</button>,
     });
     flushScheduler();
     mounted.container
