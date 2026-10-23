@@ -427,6 +427,10 @@
   them (which made the parsed text differ from what the client renders). Only
   `</` is rewritten, so the element's end tag cannot form.
 
+- Write a root's first render and an element's restored children in chunks of
+  at most 10,000 nodes, so a very large list does not exceed an engine's
+  argument limit for `replaceChildren(...nodes)`.
+
 ## 0.4.4 - 2026-10-08
 
 ### Breaking changes

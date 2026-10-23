@@ -22,6 +22,7 @@ import {
 } from './hydration';
 import { EVENT_ROOT_CONTAINER, registerEventRoot } from './events';
 import { installRenderUpdates } from './updates';
+import { replaceChildrenOf } from './replace-children';
 
 export interface PreparedRender {
   /** Apply reversible DOM operations while retaining rollback state. */
@@ -133,7 +134,7 @@ export function createRoot(
                 }
               });
               try {
-                container.replaceChildren(...dom);
+                replaceChildrenOf(container, dom);
               } catch (error) {
                 if (error instanceof CommitMutationError) throw error;
                 throw new CommitMutationError(error);

@@ -7,6 +7,7 @@ import {
   isDangerousInnerHTMLPayload,
 } from './prop-values';
 import { CommitMutationError, type Pass } from './pass';
+import { replaceChildrenOf } from './replace-children';
 import type { HostNode } from './tree';
 
 /** Record the live attribute before applying a reversible scalar write. */
@@ -90,7 +91,7 @@ export function restoreElementChildren(
     }
     if (unchanged) return;
   }
-  el.replaceChildren(...children);
+  replaceChildrenOf(el, children);
 }
 
 /** Make property-backed scalar writes part of the pass rollback journal. */
