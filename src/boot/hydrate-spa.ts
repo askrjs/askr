@@ -47,6 +47,11 @@ import {
   resolveInitialRoute,
 } from './route-startup';
 import type { HydrateSPAConfig } from './types';
+import {
+  formatHydrationMismatch,
+  type HydrationMismatchInfo,
+} from '../common/dom-path';
+import type { HydrationOptions } from '../core/dom/hydration';
 import { hydrateDataRuntime } from '../data/query-registry';
 import { getDefaultDataRuntime } from '../data/data-runtime';
 import { resolveRootElement } from './root-element';
@@ -195,42 +200,55 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       }
     };
 
+    const verifying = shouldVerifyHydrationMarkup(config);
+    // Verify mode compares markup and reports there; otherwise the cursor
+    // reports the nodes it could not adopt.
+    const hydrationOptions: HydrationOptions = {
+      strict: verifying,
+      onMismatch: verifying ? undefined : config.hydrate?.onMismatch,
+      reported: new WeakSet(),
+    };
+    const failOnMismatch = (info: HydrationMismatchInfo, reason: string) => {
+      if (config.hydrate?.onMismatch?.(info) === 'continue') return;
+      throw new Error(formatHydrationMismatch(info, reason));
+    };
+
     const mountHydratedRoot: typeof mountOrUpdate = (...args) => {
       boot.assertCurrent();
       return mountOrUpdate(args[0], args[1], {
         ...args[2],
         cspNonce: config.cspNonce,
         hydrate: true,
-        hydrateStrict: shouldVerifyHydrationMarkup(config),
+        hydrateOptions: hydrationOptions,
         onCommit: captureClientMarkup,
       });
     };
 
-    if (shouldVerifyHydrationMarkup(config)) {
+    if (verifying) {
       const {
         captureServerHydrationMarkup,
-        verifyClientHydrationMarkup,
-        verifyHydrationSyncForUrl,
+        diffClientHydrationMarkup,
+        checkHydrationSyncForUrl,
         serializeHydrationMarkup,
       } = await boot.wait(import('../ssr/verify-hydration'));
       serializeClientMarkup = serializeHydrationMarkup;
       boot.assertCurrent();
-      if (
-        !verifyHydrationSyncForUrl({
-          root: rootElement,
-          url: currentUrl,
-          registry: config.registry,
-          resolved: hydrationResolved,
-          options: {
-            data: hydrationRenderDataForApp?.resources,
-            dataRuntime,
-            envelope: hydrationRenderDataForApp ?? undefined,
-            cspNonce: config.cspNonce,
-          },
-        })
-      ) {
-        throw new Error(
-          '[Askr] Hydration mismatch detected. Server HTML does not match expected server-render output.'
+      const serverMismatch = checkHydrationSyncForUrl({
+        root: rootElement,
+        url: currentUrl,
+        registry: config.registry,
+        resolved: hydrationResolved,
+        options: {
+          data: hydrationRenderDataForApp?.resources,
+          dataRuntime,
+          envelope: hydrationRenderDataForApp ?? undefined,
+          cspNonce: config.cspNonce,
+        },
+      });
+      if (serverMismatch) {
+        failOnMismatch(
+          serverMismatch,
+          'Server HTML does not match expected server-render output.'
         );
       }
       // The server render above cannot see differences between the SSR
@@ -250,18 +268,19 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
           // boundary fallbacks, portal retirement) settles. Matching at either
           // point accepts application updates made after the commit, such as
           // a ref adopting a persisted preference.
-          const matchedAtCommit =
-            clientMarkup !== null &&
-            verifyClientHydrationMarkup(clientMarkup, serverMarkup);
-          if (
-            !matchedAtCommit &&
-            !verifyClientHydrationMarkup(
-              serializeHydrationMarkup(rootElement),
-              serverMarkup
-            )
-          ) {
-            throw new Error(
-              '[Askr] Hydration mismatch detected between server and client markup.'
+          const atCommit =
+            clientMarkup !== null
+              ? diffClientHydrationMarkup(clientMarkup, serverMarkup)
+              : undefined;
+          if (atCommit === null) return;
+          const settled = diffClientHydrationMarkup(
+            serializeHydrationMarkup(rootElement),
+            serverMarkup
+          );
+          if (settled) {
+            failOnMismatch(
+              atCommit ?? settled,
+              'Server and client markup differ.'
             );
           }
         };

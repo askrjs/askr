@@ -26,7 +26,7 @@ import {
   type Key,
 } from '../view/children';
 import type { ListenerMap } from './events';
-import type { HydrationCursor } from './hydration';
+import type { HydrationCursor, HydrationOptions } from './hydration';
 
 export { COMPONENT, FRAGMENT, NATIVE, TEXT, type Key };
 export const HOST = ELEMENT;
@@ -56,8 +56,8 @@ export interface HostNode extends Base {
   dormant?: {
     owner: Owner | null;
     ns: string | null;
-    /** Verify mode: activation strips every attribute the client omits. */
-    strict: boolean;
+    /** How activation treats server markup (strictness, mismatch reports). */
+    options: HydrationOptions;
   } | null;
 }
 

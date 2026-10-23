@@ -16,12 +16,31 @@ import {
   keepsFalseValue,
 } from '../../common/prop-classification';
 import type { Props } from '../../common/props';
+import {
+  describeNode,
+  describeText,
+  domPath,
+  type HydrationMismatchInfo,
+} from '../../common/dom-path';
 import { ATTRIBUTE_PROP_PREFIX } from '../../common/dom-properties';
 import { isSSRPortalHydrationAnchor } from '../../common/portal';
 import { getRenderedAttributeName } from './element-attributes';
 import { parseEventProp } from './events';
 import type { Pass } from './pass';
 import { CommitMutationError } from './pass';
+
+export interface HydrationOptions {
+  /** Verify mode: adopted elements lose every attribute the client omits. */
+  readonly strict: boolean;
+  /** Told about each server node that does not match what the client renders. */
+  readonly onMismatch?: (info: HydrationMismatchInfo) => void;
+  /** Server nodes already reported, so one mismatch is reported once. */
+  readonly reported?: WeakSet<Node>;
+  /** Mismatch paths start below this node (the application root). */
+  readonly root?: Node;
+}
+
+export const DEFAULT_HYDRATION_OPTIONS: HydrationOptions = { strict: false };
 
 export interface DeferredHydration {
   readonly render: () => void;
@@ -37,9 +56,34 @@ export class HydrationCursor {
   constructor(
     private readonly stopAt: Node | null = null,
     private readonly successors = new WeakMap<Node, Node | null>(),
-    /** Verify mode: adopted elements lose every attribute the client omits. */
-    readonly strict = false
+    readonly options: HydrationOptions = DEFAULT_HYDRATION_OPTIONS
   ) {}
+
+  get strict(): boolean {
+    return this.options.strict;
+  }
+
+  /** Report a server node hydration removes because the client rendered nothing there. */
+  reportRemoved(node: Node): void {
+    if (
+      node.nodeType === 1 ||
+      (node.nodeType === 3 && !isInsignificantWhitespace(node as Text))
+    ) {
+      this.mismatch(node.parentNode ?? node, node, 'nothing');
+    }
+  }
+
+  /** Report the server node at the cursor that the client does not render. */
+  private mismatch(container: Node, node: Node | null, expected: string): void {
+    const { onMismatch, reported } = this.options;
+    if (!onMismatch || !node || reported?.has(node)) return;
+    reported?.add(node);
+    onMismatch({
+      path: domPath(node, this.options.root ?? null),
+      expected,
+      actual: describeNode(node),
+    });
+  }
 
   /** Detached text suffixes retain the server sibling that follows them. */
   private followingSibling(node: Node): Node | null {
@@ -118,7 +162,7 @@ export class HydrationCursor {
       }
       if (end && end !== this.stopAt) {
         this.next.set(container, this.followingSibling(end));
-        const inner = new HydrationCursor(end, this.successors, this.strict);
+        const inner = new HydrationCursor(end, this.successors, this.options);
         inner.next.set(container, this.followingSibling(node));
         return inner;
       }
@@ -126,7 +170,7 @@ export class HydrationCursor {
     const later = new HydrationCursor(
       this.stopAt,
       this.successors,
-      this.strict
+      this.options
     );
     later.next.set(container, node);
     return later;
@@ -218,11 +262,17 @@ export class HydrationCursor {
     tag: string,
     namespace: string | null
   ): Element | null {
-    if (!this.takePlanned(container)) return null;
+    const planned = this.takePlanned(container);
     const node = this.peek(container);
-    if (!node || node.nodeType !== 1) return null;
+    if (!planned || !node || node.nodeType !== 1) {
+      this.mismatch(container, node, `<${tag}>`);
+      return null;
+    }
     const el = node as Element;
-    if (!isElementMatch(el, tag, namespace)) return null;
+    if (!isElementMatch(el, tag, namespace)) {
+      this.mismatch(container, node, `<${tag}>`);
+      return null;
+    }
     this.advance(container, el);
     return el;
   }
@@ -233,9 +283,12 @@ export class HydrationCursor {
    * server text is claimed and corrected at commit.
    */
   claimText(container: Node, text: string): Text | null {
-    if (!this.takePlanned(container)) return null;
+    const planned = this.takePlanned(container);
     const node = this.peek(container);
-    if (!node || node.nodeType !== 3) return null;
+    if (!planned || !node || node.nodeType !== 3) {
+      if (text !== '') this.mismatch(container, node, describeText(text));
+      return null;
+    }
     const textNode = node as Text;
     if (
       text.length > 0 &&
@@ -361,7 +414,8 @@ export function syncChildren(
   pass: Pass,
   container: Node,
   expected: readonly Node[],
-  stopAt: Node | null = null
+  stopAt: Node | null = null,
+  cursor?: HydrationCursor
 ): void {
   // SSR portal anchors stay where the server put them. Hydration normally
   // claims nodes in their existing order, so avoid copying every container's
@@ -372,33 +426,36 @@ export function syncChildren(
     }
     return node;
   };
-  let cursor = skipAnchors(container.firstChild);
+  let at = skipAnchors(container.firstChild);
   let alreadySynchronized = true;
   for (const node of expected) {
-    if (node !== cursor) {
+    if (node !== at) {
       alreadySynchronized = false;
       break;
     }
-    cursor = skipAnchors(node.nextSibling);
+    at = skipAnchors(node.nextSibling);
   }
-  if (alreadySynchronized && (!cursor || cursor === stopAt)) return;
+  if (alreadySynchronized && (!at || at === stopAt)) return;
 
   const previous = Array.from(container.childNodes);
   pass.onReversibleCommit(() => restoreChildren(container, previous));
 
   try {
-    cursor = skipAnchors(container.firstChild);
+    at = skipAnchors(container.firstChild);
     for (const node of expected) {
-      if (node === cursor) {
-        cursor = skipAnchors(cursor.nextSibling);
+      if (node === at) {
+        at = skipAnchors(at.nextSibling);
       } else {
-        container.insertBefore(node, cursor);
+        container.insertBefore(node, at);
       }
     }
-    while (cursor && cursor !== stopAt) {
-      const next = cursor.nextSibling;
-      if (!isSSRPortalHydrationAnchor(cursor)) container.removeChild(cursor);
-      cursor = next;
+    while (at && at !== stopAt) {
+      const next = at.nextSibling;
+      if (!isSSRPortalHydrationAnchor(at)) {
+        cursor?.reportRemoved(at);
+        container.removeChild(at);
+      }
+      at = next;
     }
   } catch (error) {
     throw new CommitMutationError(error);

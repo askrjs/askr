@@ -159,6 +159,11 @@
   (`@askrjs/askr/boot`). An island adopts the container's server-rendered
   elements by default, or when `hydrate: true`; `hydrate: false` replaces them.
 
+- Add `hydrate: { onMismatch(info) }` to `hydrateSPA` and `createIsland`
+  (`@askrjs/askr/boot`). It receives `{ path, expected, actual }` for each
+  server/client difference; returning `'continue'` from a verify-mode mismatch
+  patches the markup and proceeds instead of failing.
+
 ### Fixes
 
 - Publish the identity a custom `resolve` produces when its navigation
@@ -360,6 +365,10 @@
   aligned with the server's nodes by a longest common subsequence, so a server
   `<i><b><p>` against a client `<b><p>` adopts `b` and `p` instead of
   recreating them.
+
+- Name the first differing node in a hydration mismatch error: its DOM path
+  below the root (`main > div:nth-child(2) > p`) and the expected and found tag
+  or text.
 
 ## 0.4.4 - 2026-10-08
 

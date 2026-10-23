@@ -73,7 +73,10 @@ describe('hydration cleanup rollback', () => {
       if (name === 'data-server-only') throw failure;
     });
 
-    const root = createRoot(container, { hydrate: true, hydrateStrict: true });
+    const root = createRoot(container, {
+      hydrate: true,
+      hydrateOptions: { strict: true },
+    });
     const prepared = root.prepare(<div id="first">first</div>);
 
     expect(() => prepared.commit()).toThrow(failure);

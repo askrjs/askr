@@ -41,6 +41,10 @@ children.
 createIsland({ root: 'counter-root', component: Counter, hydrate: false });
 ```
 
+`hydrate` can also be an object, `{ onMismatch(info) }`, which adopts the
+markup and calls `onMismatch` with `{ path, expected, actual }` for each server
+node that did not match. See [hydration mismatches](../guides/ssr-events.md).
+
 ## SPA mode
 
 Use `createSPA()` for a full client-rendered application with the Askr router.

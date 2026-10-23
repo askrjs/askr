@@ -52,7 +52,10 @@ test('should remove a server attribute the client names with a nullish value', (
 test('should remove every attribute the client does not render in strict mode', () => {
   const container = serverMarkup('<div id="a" data-theme="dark">hi</div>');
   const el = container.firstElementChild!;
-  const root = createRoot(container, { hydrate: true, hydrateStrict: true });
+  const root = createRoot(container, {
+    hydrate: true,
+    hydrateOptions: { strict: true },
+  });
   root.render(<div id="a">hi</div>);
   expect(el.hasAttribute('data-theme')).toBe(false);
   expect(el.getAttribute('id')).toBe('a');

@@ -281,6 +281,23 @@ skipped for a page hydrated at a different query or hash than it was rendered
 for. Portal content is included in the client-output check. Selective hydration
 skips that check while deferred regions remain.
 
+The error names the first differing node by its DOM path below the root and
+what differed:
+
+```text
+[Askr] Hydration mismatch detected at main > div:nth-child(2) > p: expected <span> but found <p>. ...
+```
+
+Pass `hydrate: { onMismatch(info) { ... } }` to receive `{ path, expected,
+actual }` for each difference. In verify mode, returning `'continue'` patches
+the markup and proceeds instead of failing; any other return value (the
+default) fails with the error above. Without verify mode (production) and for
+`createIsland({ hydrate: { onMismatch } })`, hydration always patches and
+proceeds. `onMismatch` is then a notification for each server node that did not
+match what the client rendered (a different tag or text at the cursor) and for
+each leftover server element or text it removed. A client node with no server
+node left is not reported there.
+
 ### Common Causes
 
 1. **Non-deterministic data**:

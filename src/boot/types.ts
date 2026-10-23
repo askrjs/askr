@@ -12,12 +12,25 @@ export type IslandConfig = {
   component: ComponentFunction;
   cspNonce?: string;
   /**
-   * Adopt the container's existing elements instead of replacing them.
+   * Adopt the container's existing elements instead of replacing them. An
+   * object adopts and receives mismatch reports.
    * Defaults to `true` when the container already has element children;
    * `false` always replaces, `true` always adopts. A mismatch falls back to
    * client-rendered nodes as hydration does.
    */
-  hydrate?: boolean;
+  hydrate?:
+    | boolean
+    | {
+        /**
+         * Called with the DOM path and the expected and found nodes for each
+         * server/client difference; the island patches the markup and proceeds.
+         */
+        onMismatch?: (info: {
+          path: string;
+          expected: string;
+          actual: string;
+        }) => void;
+      };
   /** Optional data runtime owned by this island's render and event lifecycle. */
   dataRuntime?: import('../data/types').DataRuntime;
   // Optional: surface cleanup errors during teardown for this island.
@@ -70,6 +83,17 @@ export type HydrateSPAConfig = BootRouteSource & {
   cleanupStrict?: boolean;
   hydrate?: {
     verifyMarkup?: boolean;
+    /**
+     * Called with the DOM path and the expected and found nodes for each
+     * server/client difference. In verify mode, returning `'continue'` patches
+     * the markup and proceeds instead of failing hydration.
+     */
+    onMismatch?: (info: {
+      path: string;
+      expected: string;
+      actual: string;
+    }) => 'continue' | void;
+
     deferUntilIdle?: boolean;
     deferBelowFold?: boolean;
     foldThreshold?: number;

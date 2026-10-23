@@ -167,7 +167,9 @@ export function reconcileChildren(
           syncChildren(
             ctx.pass,
             el,
-            result.flatMap((node) => collectDom(node))
+            result.flatMap((node) => collectDom(node)),
+            null,
+            ctx.hydrate!.cursor
           )
         );
       } else {

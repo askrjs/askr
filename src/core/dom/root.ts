@@ -15,7 +15,11 @@ import { createRenderContext, domNodes, namespaceAt } from './nodes';
 import { CommitMutationError, Pass } from './pass';
 import { reconcileChildren } from './reconcile';
 import { ROOT, collectDom, type RootNode } from './tree';
-import { HydrationCursor, syncChildren } from './hydration';
+import {
+  HydrationCursor,
+  syncChildren,
+  type HydrationOptions,
+} from './hydration';
 import { EVENT_ROOT_CONTAINER, registerEventRoot } from './events';
 import { installRenderUpdates } from './updates';
 
@@ -49,8 +53,8 @@ export interface RootOptions {
   before?: Node | null;
   /** The first render adopts the container's server-rendered markup. */
   hydrate?: boolean;
-  /** Hydration removes every server attribute the client does not render. */
-  hydrateStrict?: boolean;
+  /** How the first hydrating render treats server markup. */
+  hydrateOptions?: HydrationOptions;
 }
 
 export function createRoot(
@@ -80,7 +84,11 @@ export function createRoot(
     const tail = node.tail?.parentNode === container ? node.tail : null;
     const cursor =
       fresh && hydrate
-        ? new HydrationCursor(tail, undefined, options.hydrateStrict === true)
+        ? new HydrationCursor(tail, undefined, {
+            strict: false,
+            ...options.hydrateOptions,
+            root: container,
+          })
         : null;
     const ctx = createRenderContext(
       pass,
@@ -108,7 +116,7 @@ export function createRoot(
               pass.onReversibleCommit(() => {
                 node.children = previous;
               });
-              syncChildren(pass, container, dom, before);
+              syncChildren(pass, container, dom, before, cursor ?? undefined);
               node.children = children;
               return;
             }
