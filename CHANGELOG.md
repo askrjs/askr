@@ -177,6 +177,34 @@
 
 ### Fixes
 
+- Resource and stream snapshot fields notify when the same mutable object
+  is assigned again (a buffer the source pushed into), so a stream that
+  yields one array keeps re-rendering. A comparator or run that throws
+  during a stale-chain walk no longer leaves a derived value marked as
+  walking, which made later reads stale. Frozen objects can be read through
+  a store, and `includes`/`indexOf` on a store array find the raw objects
+  the application holds.
+
+- Publish the resolved identity for denied routes too, so a `forbidden`
+  component reads the signed-in user. The router's own session redirects
+  and fragment-only moves bypass `blockNavigation()`. Route links that
+  differ by `hreflang`, `media` or other attributes are no longer collapsed
+  when metadata merges. The stale-deployment reload marker clears when a
+  navigation that loaded a chunk commits without an error component, not
+  when any one chunk loads, so a missing chunk beside a working one cannot
+  reload the page in a loop. `action()` composes its abort signal
+  once per component on hosts without `AbortSignal.any`.
+
+- Hydration keeps a `data-key` or other bookkeeping-named attribute the
+  application rendered itself. `indeterminate`, `muted` and `open` are
+  verified against the live DOM on every patch, since the user or browser
+  changes them. A falsy number inside a class array or object is skipped,
+  as in clsx. The unknown-event-prop warning fires only for a near miss of
+  a known event name, so custom events stay quiet.
+
+- SSG reports routes under a `group()` or `page()` loader as runtime-only
+  instead of failing the build.
+
 - Publish the identity a custom `resolve` produces when its navigation
   commits (and at initial mount), not when it resolves. A page still on
   screen while a navigation is pending, failed or superseded keeps reading
