@@ -172,6 +172,9 @@
   (`class={['a', { b: cond }, null]}`), rendered the same way on the client and
   on the server.
 
+- Add jsdom js-framework-benchmark style tier-1 operations (create 1,000 and
+  10,000 rows, select a row, remove one row, clear) with preflight invariants.
+
 ### Fixes
 
 - Publish the identity a custom `resolve` produces when its navigation

@@ -9,6 +9,13 @@ Askr benchmarks are organized by tier so each lane measures a different layer of
 | `tier1` | Hot-path primitives and tight loops     | Node and jsdom |
 | `tier2` | Runtime subsystems and shared behaviors | jsdom and Node |
 
+`tier1-hotpath-jfb-operations` runs js-framework-benchmark style operations
+(create 1,000 and 10,000 rows, select a row, remove one row, clear); update
+every 10th row and swap rows are `tier1-hotpath-for-stable-update` and
+`tier1-hotpath-for-keyed-reorder`. These are jsdom-only: there is no browser
+lane, so the timings measure the renderer and jsdom's DOM, not a browser's
+layout and paint, and are not comparable with js-framework-benchmark results.
+
 The browser-backed `tier3` and `tier4` lanes were removed in 0.3.0. Evidence
 files below that mention them record captures made before that removal.
 
