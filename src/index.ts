@@ -10,6 +10,7 @@ export type { RenderDiagnosticsOptions } from './core/component/diagnostics';
 
 // Runtime primitives
 export { derive, getSignal, selector, state } from './core/api/state';
+export { store, unwrap } from './core/api/store';
 export type {
   Derived,
   Selector,

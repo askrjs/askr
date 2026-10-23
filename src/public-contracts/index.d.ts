@@ -1,4 +1,6 @@
 import {
+  store,
+  unwrap,
   batch,
   untrack,
   cspNonce,
@@ -61,4 +63,6 @@ export {
   state,
   batch,
   untrack,
+  store,
+  unwrap,
 };

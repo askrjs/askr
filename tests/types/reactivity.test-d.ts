@@ -5,6 +5,8 @@ import {
   getSignal,
   selector,
   state,
+  store,
+  unwrap,
   untrack,
   type Derived,
   type Selector,
@@ -99,3 +101,8 @@ expectType<AbortSignal>(getSignal());
 expectType<number>(batch(() => 1));
 expectType<string>(untrack(() => 'x'));
 expectError(batch(1));
+
+const todos = store({ items: [{ done: false }] });
+expectType<{ items: Array<{ done: boolean }> }>(todos);
+expectType<{ items: Array<{ done: boolean }> }>(unwrap(todos));
+expectError(store(1));

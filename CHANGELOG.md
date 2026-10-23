@@ -48,6 +48,11 @@
 - Report `status: 404` on the SSR render result when a `fallback()` rendered
   the miss, so hosts can send the right status without reading the private
   route record.
+- Add the `store(initial)` component hook and `unwrap(proxy)` to `@askrjs/askr`:
+  a deep reactive proxy with per-property tracking, lazy nested wrapping with
+  stable identity, array `length`/index/iteration tracking, `delete` and key
+  tracking. Writes during render throw like `state.set()`. See
+  `docs/core/runtime.md#stores`.
 - Export `batch(fn)` and `untrack(fn)` from `@askrjs/askr`. `batch` defers
   scheduling and flushes once when the outermost batch exits, from any code
   (handlers, timers). `untrack` reads reactive values without subscribing. The

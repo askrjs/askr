@@ -27,7 +27,9 @@
     "registerSSRStyle",
     "selector",
     "state",
-    "untrack"
+    "store",
+    "untrack",
+    "unwrap"
   ],
   "./boot": [
     "HydrateSPAConfig",

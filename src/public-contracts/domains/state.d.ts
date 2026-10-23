@@ -137,7 +137,24 @@ declare function batch<T>(fn: () => T): T;
  */
 declare function untrack<T>(fn: () => T): T;
 
+/**
+ * Creates a deep reactive proxy over a plain object or array. Must be called
+ * during component render; like `state()` it claims a positional slot and the
+ * initial value is used only on the first render.
+ *
+ * Reading a property inside a render, `derive()` or binding subscribes to just
+ * that property. Assignments, `delete` and array mutations notify the readers
+ * they affect. Nested plain objects and arrays are wrapped lazily, with one
+ * proxy per target. Writes during render throw, like `state.set()`.
+ */
+declare function store<T extends object>(initial: T): T;
+
+/** Returns the raw object behind a `store()` proxy; other values are returned as is. */
+declare function unwrap<T>(value: T): T;
+
 export {
+  store,
+  unwrap,
   batch,
   untrack,
   ReactiveOptions,

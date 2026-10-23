@@ -4,6 +4,8 @@
  */
 import './jsx-globals.js';
 export {
+  store,
+  unwrap,
   batch,
   untrack,
   selector,

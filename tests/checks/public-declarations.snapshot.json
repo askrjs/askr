@@ -73,7 +73,9 @@
       "StateTuple": [
         "type StateTuple<T> = [\n    get: State<T>,\n    set: StateSetter<T>\n] & State<T>;"
       ],
-      "untrack": ["declare function untrack<T>(fn: () => T): T;"]
+      "store": ["declare function store<T extends object>(initial: T): T;"],
+      "untrack": ["declare function untrack<T>(fn: () => T): T;"],
+      "unwrap": ["declare function unwrap<T>(value: T): T;"]
     },
     "./boot": {
       "cleanupApp": [
@@ -2310,6 +2312,7 @@
       "type StateTuple<T> = [\n    get: State<T>,\n    set: StateSetter<T>\n] & State<T>;"
     ],
     "StateUpdater": ["type StateUpdater<T> = (prev: T) => T;"],
+    "store": ["declare function store<T extends object>(initial: T): T;"],
     "stream": [
       "declare function stream<T>(source: StreamSource<T>, options?: StreamOptions<T>): StreamResult<T>;",
       "declare function stream<TSource, T>(source: () => TSource, connect: (value: TSource, context: {\n    signal: AbortSignal;\n}) => AsyncIterable<T> | PromiseLike<AsyncIterable<T>>, options?: Omit<StreamOptions<T>, \"deps\">): StreamResult<T>;"
@@ -2408,6 +2411,7 @@
     ],
     "unauthorized": ["declare function unauthorized(): AccessDenyDecision;"],
     "untrack": ["declare function untrack<T>(fn: () => T): T;"],
+    "unwrap": ["declare function unwrap<T>(value: T): T;"],
     "updateRouteQuery": [
       "declare function updateRouteQuery(updates: RouteQueryUpdates | RouteQueryUpdater, options?: UpdateRouteQueryOptions): void;"
     ],

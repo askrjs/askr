@@ -60,6 +60,28 @@ function isDerivedComputationActive(): boolean {
   );
 }
 
+/** Reject a write made while a component render or function child runs. */
+export function guardRenderWrite(label: string): void {
+  if (isRendering() && !isDerivedComputationActive()) {
+    throw new Error(
+      `[Askr] ${label} cannot be called during component render. ` +
+        'A write during render would schedule another render of the same component and could loop forever. ' +
+        'Move state updates to event handlers or use conditional rendering instead.'
+    );
+  }
+}
+
+/** Reject a write made from inside a derive() or selector() computation. */
+export function guardDerivedWrite(label: string): void {
+  if (isDerivedComputationActive()) {
+    throw new Error(
+      `[Askr] ${label} cannot be called inside a derive() or selector() computation. ` +
+        'Derived computations must be pure; a write from one can re-trigger it in an update loop. ' +
+        'Move the state update to an event handler.'
+    );
+  }
+}
+
 /** Create a callable state cell backed by `signal`. */
 export function createStateCell<T>(
   signal: Signal<T>,
@@ -78,25 +100,13 @@ export function createStateCell<T>(
   };
   read._signal = signal;
   const set = (valueOrUpdater: T | ((prev: T) => T)): void => {
-    if (isRendering() && !isDerivedComputationActive()) {
-      throw new Error(
-        '[Askr] state.set() cannot be called during component render. ' +
-          'A write during render would schedule another render of the same component and could loop forever. ' +
-          'Move state updates to event handlers or use conditional rendering instead.'
-      );
-    }
+    guardRenderWrite('state.set()');
     const next =
       typeof valueOrUpdater === 'function'
         ? (valueOrUpdater as (prev: T) => T)(signal.peek())
         : valueOrUpdater;
     if (signal._equals(signal.peek(), next)) return;
-    if (isDerivedComputationActive()) {
-      throw new Error(
-        '[Askr] state.set() cannot be called inside a derive() or selector() computation. ' +
-          'Derived computations must be pure; a write from one can re-trigger it in an update loop. ' +
-          'Move the state update to an event handler.'
-      );
-    }
+    guardDerivedWrite('state.set()');
     signal.write(next);
   };
   markReadable(read);

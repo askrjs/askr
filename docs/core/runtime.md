@@ -135,6 +135,67 @@ function Form() {
 }
 ```
 
+### Stores
+
+`store(initial)` is a component hook, like `state()`, that returns a deep
+reactive proxy over a plain object or array. It claims a positional hook slot,
+so call it unconditionally and in the same order on every render; the initial
+value is used only on the first render and later calls return the same proxy.
+
+```tsx
+import { store, unwrap } from '@askrjs/askr';
+
+function Todos() {
+  const todos = store({
+    filter: 'all',
+    items: [{ title: 'Ship', done: false }],
+  });
+
+  const add = () => todos.items.push({ title: 'Test', done: false });
+  const toggle = (index: number) => {
+    todos.items[index]!.done = !todos.items[index]!.done;
+  };
+  const snapshot = () => JSON.stringify(unwrap(todos));
+
+  return (
+    <div title={todos.filter} onClick={snapshot}>
+      <button onClick={add}>Add</button>
+      <ul>
+        {todos.items.map((item, index) => (
+          <li onClick={() => toggle(index)}>{item.title}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+Contract:
+
+- **Per-property tracking.** A property read inside a render, `derive()` or
+  binding subscribes to that property only, through a signal created on its
+  first tracked read. A component that reads `todos.filter` does not re-render
+  when `todos.items` changes. Assigning a value that is `Object.is`-equal to the
+  current one does nothing.
+- **Nesting and identity.** Nested plain objects and arrays are wrapped lazily
+  and the same target always yields the same proxy (`todos.items === todos.items`).
+  Class instances, `Map`, `Set` and `Date` values are stored and returned
+  as they are, without reactivity. Assigning a proxy stores its raw object.
+- **Arrays.** `length` and each index are tracked individually, and `push`,
+  `splice`, `pop`, `sort` and assignment notify the affected readers.
+  Iteration (`for..of`, `map`, `forEach`, `filter` and the other walking
+  methods) tracks the whole array, so it re-runs on any element change.
+- **Keys.** `delete` notifies the readers of that property. `Object.keys()`,
+  `for..in`, spread and the `in` operator subscribe to key additions and removals.
+- **Writes.** A store write during render throws, like `state.set()`, and so does
+  a write from inside `derive()` or `selector()`. Writes in handlers, timers and
+  tasks are fine and coalesce like any other scheduled work (see `batch()`).
+- **Raw access.** `unwrap(proxy)` returns the raw object. Mutating the raw
+  object directly does not notify anyone, and `includes`/`indexOf` on a store
+  array compare against proxies, so pass items read from the store.
+- **SSR.** A store is plain data on the server: `renderToStringSync()` renders
+  its reads normally and nothing is subscribed.
+
 ## When work becomes observable
 
 Askr uses signals internally, but its public primitives become observable at
