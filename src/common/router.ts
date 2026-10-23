@@ -407,6 +407,8 @@ export interface RouteRequestOptions {
   signal?: AbortSignal;
   request?: Request;
   telemetry?: CoreTelemetry;
+  /** @internal A link prefetch resolves the route without touching identity or session recovery. */
+  prefetch?: boolean;
   /** @internal Browser navigation renders a route's `error` component for resolution failures. */
   routeErrors?: boolean;
   /** @internal Browser apps prefetch route `preload` data into their own runtime. */

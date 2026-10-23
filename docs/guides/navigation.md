@@ -31,6 +31,26 @@ import { invalidate } from '@askrjs/askr/data';
 invalidate('route-data:/posts/{slug}');
 ```
 
+## Prefetching
+
+`<Link prefetch>` warms a destination before the click. `prefetch="intent"`
+starts on pointer enter and keyboard focus, `prefetch="render"` when the link
+mounts. The route's lazy chunk loads and the route resolves through the loader
+cache, so the navigation that follows renders from warm data. Use `render` for
+a few important links and `intent` for lists.
+
+```tsx
+import { Link } from '@askrjs/askr/router';
+
+<Link href="/posts/42" prefetch="intent">
+  Post 42
+</Link>;
+```
+
+Give routes a `staleTimeMs` when a prefetched result should count as fresh;
+with the default, the visit still revalidates in the background. Links also take
+`replace`, `state` and `scroll` to shape the history entry and scroll behavior.
+
 ## Pending state
 
 `navigationState()` tells the UI when the router is waiting on a destination and

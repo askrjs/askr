@@ -68,6 +68,11 @@
   `derive(fn, { equals })` and `derive(source, map, { equals })`. A comparator that
   returns true suppresses the notification. The default stays `Object.is`.
   See `docs/core/runtime.md#custom-equality`.
+- Add `replace`, `state`, `scroll` (`'top' | 'preserve'`) and `prefetch`
+  (`'intent' | 'render' | 'none'`, default `'none'`) props to `Link`. Prefetch
+  starts the route's lazy chunk and resolves it through the loader cache on
+  pointer intent, focus or mount.
+
 - Add a `focus` option to `createSPA()` and `hydrateSPA()`. After a navigation
   to another path (not back/forward) the router now moves focus to the first
   `[data-askr-focus-target]`, else `<main>`, else the first `<h1>`, else the

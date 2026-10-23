@@ -700,7 +700,7 @@
         "type LazyRouteDataLoader<TModule, TData = TModule> = ((context: RouteContext & {\n    request?: Request;\n}) => Promise<TData>) & {\n    preload(): Promise<void>;\n};"
       ],
       "Link": [
-        "declare function Link({ href: suppliedHref, to, class: className, children, rel, target, \"aria-current\": ariaCurrent, \"aria-label\": ariaLabel, onPress, onClick, ...rest }: LinkProps): JSXElement;"
+        "declare function Link({ href: suppliedHref, to, class: className, children, rel, target, \"aria-current\": ariaCurrent, \"aria-label\": ariaLabel, onPress, onClick, replace, state, scroll, prefetch, ...rest }: LinkProps): JSXElement;"
       ],
       "LinkProps": [
         "type LinkProps = LinkBaseProps & ({\n    href: string;\n    to?: never;\n} | {\n    href?: never;\n    to: RouteDestination;\n});"
@@ -1675,10 +1675,10 @@
       "type LazyRouteDataLoader<TModule, TData = TModule> = ((context: RouteContext & {\n    request?: Request;\n}) => Promise<TData>) & {\n    preload(): Promise<void>;\n};"
     ],
     "Link": [
-      "declare function Link({ href: suppliedHref, to, class: className, children, rel, target, \"aria-current\": ariaCurrent, \"aria-label\": ariaLabel, onPress, onClick, ...rest }: LinkProps): JSXElement;"
+      "declare function Link({ href: suppliedHref, to, class: className, children, rel, target, \"aria-current\": ariaCurrent, \"aria-label\": ariaLabel, onPress, onClick, replace, state, scroll, prefetch, ...rest }: LinkProps): JSXElement;"
     ],
     "LinkBaseProps": [
-      "type LinkBaseProps = Omit<Props, \"children\" | \"href\" | \"class\" | \"rel\" | \"target\" | \"aria-current\" | \"aria-label\"> & {\n    class?: string;\n    children?: RenderableChild;\n    rel?: string;\n    target?: string;\n    \"aria-current\"?: \"page\" | \"step\" | \"location\" | \"date\" | \"time\" | \"true\" | \"false\";\n    \"aria-label\"?: string;\n    onPress?: (event: Event) => void;\n    onClick?: (event: MouseEvent) => void;\n};"
+      "type LinkBaseProps = Omit<Props, \"children\" | \"href\" | \"class\" | \"rel\" | \"target\" | \"aria-current\" | \"aria-label\"> & {\n    class?: string;\n    children?: RenderableChild;\n    rel?: string;\n    target?: string;\n    \"aria-current\"?: \"page\" | \"step\" | \"location\" | \"date\" | \"time\" | \"true\" | \"false\";\n    \"aria-label\"?: string;\n    onPress?: (event: Event) => void;\n    onClick?: (event: MouseEvent) => void;\n    replace?: boolean;\n    state?: unknown;\n    scroll?: \"top\" | \"preserve\";\n    prefetch?: \"intent\" | \"render\" | \"none\";\n};"
     ],
     "LinkProps": [
       "type LinkProps = LinkBaseProps & ({\n    href: string;\n    to?: never;\n} | {\n    href?: never;\n    to: RouteDestination;\n});"

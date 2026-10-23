@@ -959,6 +959,30 @@ Raw `href` values may be relative URLs or use `http`, `https`, `mailto`,
 `sms`, `tel`, or `blob`. `Link` rejects other explicit schemes, including
 executable and local-file URLs.
 
+Props that shape the navigation, matching `navigate()` options:
+
+- `replace`: replace the current history entry instead of pushing one.
+- `state`: entry-local history state for the destination (see `navigate()`).
+- `scroll`: `'top'` (the default) or `'preserve'`.
+- `prefetch`: `'none'` (the default), `'intent'` or `'render'`. `'intent'` warms
+  the destination on pointer enter and keyboard focus; `'render'` does it when
+  the link mounts. Prefetching starts the matching route's lazy chunk
+  (`lazy().preload()`) and resolves the route like a navigation (auth, policies,
+  `preload` and loaders through the [loader cache](#loader-cache)) without
+  rendering or committing anything, so the click that follows renders from warm
+  data. Failures are silent and surface on the real navigation; the same href is
+  not prefetched again for thirty seconds; other origins and hrefs no route
+  matches are ignored; nothing runs on the server. Prefetch runs auth resolvers
+  and policies, so keep them cheap and idempotent. A route with the default
+  `staleTimeMs` still revalidates when visited; set `staleTimeMs` to treat the
+  warmed result as fresh.
+
+```tsx
+<Link href="/posts/42" prefetch="intent" scroll="preserve">
+  Post 42
+</Link>
+```
+
 For styled navigation with automatic active-route state, install the optional
 `@askrjs/themes` package and use `NavLink` from
 `@askrjs/themes/components`:

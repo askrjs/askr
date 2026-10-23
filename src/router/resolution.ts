@@ -671,8 +671,13 @@ function resolveRouteRequestInternal(
       assertCurrent?.();
       // A server or hydration render owns its identity at once. A browser
       // navigation publishes it when it commits (see publishResolvedAuth),
-      // so a page still on screen keeps the identity it rendered with.
-      if (!signal.aborted && (mode !== 'spa' || getActiveRenderContext())) {
+      // so a page still on screen keeps the identity it rendered with; a
+      // prefetch never publishes.
+      if (
+        !signal.aborted &&
+        !options.prefetch &&
+        (mode !== 'spa' || getActiveRenderContext())
+      ) {
         setCurrentAuth(authContext, mode);
       }
       const result = resolveMatchedRoute(
@@ -741,7 +746,7 @@ function resolveRouteRequestInternal(
     };
     const recover = (error: unknown): RouteRequestResult => {
       assertCurrent?.();
-      if (mode !== 'spa' || signal.aborted) throw error;
+      if (mode !== 'spa' || signal.aborted || options.prefetch) throw error;
       const state = getSessionAuthState(authOptions);
       const recovery = state?.recover(
         error instanceof RouteDataLoadError ? error.cause : error,

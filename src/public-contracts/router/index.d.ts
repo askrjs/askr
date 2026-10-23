@@ -432,6 +432,20 @@ type LinkBaseProps = Omit<
   'aria-label'?: string;
   onPress?: (event: Event) => void;
   onClick?: (event: MouseEvent) => void;
+  /** Replace the current history entry instead of pushing a new one. */
+  replace?: boolean;
+  /** Entry-local history state for the destination, as `navigate(href, { state })`. */
+  state?: unknown;
+  /** Scroll to the top (default) or keep the offset after the navigation. */
+  scroll?: 'top' | 'preserve';
+  /**
+   * Warm the destination before the visitor commits to it. `'intent'` does so
+   * on pointer enter and keyboard focus, `'render'` when the link mounts, and
+   * `'none'` (the default) never. Prefetching starts the route's lazy chunk and
+   * resolves it like a navigation (auth, policies, loaders through the loader
+   * cache) without rendering it.
+   */
+  prefetch?: 'intent' | 'render' | 'none';
 };
 /** Props for {@link Link}: either a raw `href` or a typed route `to` destination. */
 type LinkProps = LinkBaseProps &
@@ -485,6 +499,10 @@ declare function Link({
   'aria-label': ariaLabel,
   onPress,
   onClick,
+  replace,
+  state,
+  scroll,
+  prefetch,
   ...rest
 }: LinkProps): JSXElement;
 export {

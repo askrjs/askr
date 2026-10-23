@@ -593,3 +593,14 @@ expectType<boolean>(pendingState.revalidating);
 expectType<() => void>(blockNavigation(() => 'Discard changes?'));
 expectType<() => void>(blockNavigation(() => true));
 expectError(blockNavigation(() => 1));
+
+// Link navigation and prefetch options.
+expectAssignable<LinkProps>({
+  href: '/next',
+  replace: true,
+  state: { from: 'list' },
+  scroll: 'preserve',
+  prefetch: 'intent',
+});
+expectError<LinkProps>({ href: '/next', prefetch: 'eager' });
+expectError<LinkProps>({ href: '/next', scroll: 'smooth' });

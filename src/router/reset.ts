@@ -10,6 +10,7 @@ import { resetRouteMetaBaseline } from './metadata';
 import { resetNavigationBlockers } from './navigation-block';
 import { clearPendingNavigation } from './navigation-state';
 import { resetNavigationFocus } from './navigation-focus';
+import { resetRoutePrefetch } from './route-prefetch';
 
 /**
  * Return every part of the router to its initial state.
@@ -37,5 +38,6 @@ export function resetRouterState(): void {
   resetRouteMetaBaseline();
   resetNavigationBlockers();
   resetNavigationFocus();
+  resetRoutePrefetch();
   clearPendingNavigation();
 }
