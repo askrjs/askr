@@ -18,14 +18,21 @@ import {
 } from './store';
 import type { InternalRouteRecord } from './internal-types';
 import { normalizeRouteBasePath } from './base-path';
+import { validatePathPolicyOptions } from './path-canonical';
 
-function createRouteManifest(): RouteManifest {
+function createRouteManifest(options: RouteRegistryOptions): RouteManifest {
   const auth = getDefaultRouteAuthOptions();
   return {
     records: [...getRouteRecords()],
     ...(auth ? { auth } : {}),
     ...(getDefaultRouteBasePath()
       ? { basePath: getDefaultRouteBasePath() }
+      : {}),
+    ...(options.trailingSlash === 'never' || options.trailingSlash === 'always'
+      ? { trailingSlash: options.trailingSlash }
+      : {}),
+    ...(options.caseSensitive === false
+      ? { caseSensitive: false as const }
       : {}),
   };
 }
@@ -61,6 +68,7 @@ export function createRouteRegistry(
   definition: RouteDefinition,
   options: RouteRegistryOptions = {}
 ): RouteRegistry {
+  validatePathPolicyOptions(options);
   // Built against a table of its own, so declaring a registry never disturbs
   // the application's routes and two registries can be built independently.
   return withRouteTable(createRouteTable(), () => {
@@ -68,7 +76,7 @@ export function createRouteRegistry(
     setDefaultRouteBasePath(normalizeRouteBasePath(options.basePath));
     definition();
     return Object.freeze({
-      manifest: createRouteManifest(),
+      manifest: createRouteManifest(options),
       routes: getRouteList(),
     }) as unknown as RouteRegistry;
   });

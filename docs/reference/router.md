@@ -136,6 +136,35 @@ Renders the active child route inside the current `page()` host.
 Registers a route declaration, returns a typed `RouteRef`, and must be called
 during route registration.
 
+### Canonical paths: `trailingSlash` and `caseSensitive`
+
+`createRouteRegistry(definition, options)` also accepts two options that
+make one URL per page canonical:
+
+- `trailingSlash`: `'ignore'` (default) matches `/about` and `/about/`.
+  `'never'` redirects `/about/` to `/about`; `'always'` redirects `/about` to
+  `/about/`. The root `/` and file-like last segments (`/files/report.pdf`) are
+  never changed, and a path no route matches is left to `fallback()`.
+- `caseSensitive`: `true` (default) matches static segments exactly. With
+  `false`, `/About` and `/USERS/Ada` redirect to the declared case
+  (`/about`, `/users/Ada`); parameter values keep the case the URL gave them.
+
+```tsx
+const registry = createRouteRegistry(routes, {
+  trailingSlash: 'never',
+  caseSensitive: false,
+});
+```
+
+The redirect is a 308 that keeps the query string and fragment. Server
+rendering returns it as a `{ kind: 'redirect', status: 308 }` result for the
+host to send; the browser follows it through the router (a client navigation
+pushes the canonical URL, so Back returns to the page it started from) and
+replaces the entry when it happens while booting. Both options apply to route
+resolution, so `matchRoute()`, activity helpers such as `isRoutePathActive()`
+and SSG output paths keep their existing, case-sensitive exact matching:
+link and generate the canonical form.
+
 ### Applications mounted below the origin root
 
 Set one logical-to-public pathname boundary on the registry:

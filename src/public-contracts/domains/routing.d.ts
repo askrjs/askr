@@ -397,6 +397,20 @@ interface RouteRegistryOptions {
   auth?: RouteAuthOptions;
   /** Public pathname prefix for applications mounted below the origin root. */
   basePath?: string;
+  /**
+   * How a trailing slash is treated. `'ignore'` (default) matches both forms.
+   * `'never'` and `'always'` redirect (308) a
+   * request for the other form of a matched route to the canonical one; the
+   * root `/` and file-like paths (`/files/report.pdf`) are left alone.
+   */
+  trailingSlash?: 'ignore' | 'never' | 'always';
+  /**
+   * Whether static segments match case-sensitively. `true` (default) keeps
+   * today's behavior. With `false`, a request whose static segments differ
+   * only in case from a declared route is redirected (308) to the declared
+   * case; parameter values keep their case.
+   */
+  caseSensitive?: boolean;
 }
 
 /** A callback that declares routes via `route()`/`page()`/`group()`, passed to {@link createRouteRegistry}. */
@@ -498,6 +512,10 @@ interface RouteManifest {
   auth?: RouteAuthOptions;
   /** Normalized public pathname prefix. Empty and root mounts omit it. */
   basePath?: string;
+  /** Registry `trailingSlash` policy; omitted for `'ignore'`. */
+  trailingSlash?: 'never' | 'always';
+  /** Registry `caseSensitive`; omitted unless `false`. */
+  caseSensitive?: false;
 }
 
 declare const routeRegistryBrand: unique symbol;

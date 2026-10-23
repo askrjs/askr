@@ -805,7 +805,7 @@
         "interface RouteHandler<TParams extends RouteParams = RouteParams> {\n    (params: TParams, context?: {\n        signal: AbortSignal;\n    }): RenderableChild;\n}"
       ],
       "RouteManifest": [
-        "interface RouteManifest {\n    records: RouteRecord[];\n    auth?: RouteAuthOptions;\n    basePath?: string;\n}"
+        "interface RouteManifest {\n    records: RouteRecord[];\n    auth?: RouteAuthOptions;\n    basePath?: string;\n    trailingSlash?: \"never\" | \"always\";\n    caseSensitive?: false;\n}"
       ],
       "RouteMatch": [
         "interface RouteMatch<TParams extends RouteParams = RouteParams, TAppMeta = unknown> {\n    path: string;\n    params: Readonly<TParams>;\n    name?: string;\n    namespace?: string;\n    readonly appMeta?: TAppMeta;\n}"
@@ -852,7 +852,7 @@
         "interface RouteRegistry {\n    readonly [routeRegistryBrand]: true;\n    manifest: RouteManifest;\n    routes: readonly Route[];\n}"
       ],
       "RouteRegistryOptions": [
-        "interface RouteRegistryOptions {\n    auth?: RouteAuthOptions;\n    basePath?: string;\n}"
+        "interface RouteRegistryOptions {\n    auth?: RouteAuthOptions;\n    basePath?: string;\n    trailingSlash?: \"ignore\" | \"never\" | \"always\";\n    caseSensitive?: boolean;\n}"
       ],
       "RouteRenderResult": [
         "interface RouteRenderResult<TParams extends RouteParams = RouteParams> {\n    kind: \"render\";\n    handler: RouteHandler<TParams>;\n    params: TParams;\n    record?: RouteRecord;\n}"
@@ -2106,7 +2106,7 @@
       "interface RouteHandler<TParams extends RouteParams = RouteParams> {\n    (params: TParams, context?: {\n        signal: AbortSignal;\n    }): RenderableChild;\n}"
     ],
     "RouteManifest": [
-      "interface RouteManifest {\n    records: RouteRecord[];\n    auth?: RouteAuthOptions;\n    basePath?: string;\n}"
+      "interface RouteManifest {\n    records: RouteRecord[];\n    auth?: RouteAuthOptions;\n    basePath?: string;\n    trailingSlash?: \"never\" | \"always\";\n    caseSensitive?: false;\n}"
     ],
     "RouteMatch": [
       "interface RouteMatch<TParams extends RouteParams = RouteParams, TAppMeta = unknown> {\n    path: string;\n    params: Readonly<TParams>;\n    name?: string;\n    namespace?: string;\n    readonly appMeta?: TAppMeta;\n}"
@@ -2163,7 +2163,7 @@
     ],
     "routeRegistryBrand": ["routeRegistryBrand: unique symbol"],
     "RouteRegistryOptions": [
-      "interface RouteRegistryOptions {\n    auth?: RouteAuthOptions;\n    basePath?: string;\n}"
+      "interface RouteRegistryOptions {\n    auth?: RouteAuthOptions;\n    basePath?: string;\n    trailingSlash?: \"ignore\" | \"never\" | \"always\";\n    caseSensitive?: boolean;\n}"
     ],
     "RouteRenderOptions": [
       "interface RouteRenderOptions extends RenderOptions {\n    registry: RouteRegistry;\n    url?: string;\n    auth?: RouteAuthOptions;\n    dataRuntime?: DataRuntime;\n}"

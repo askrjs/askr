@@ -611,3 +611,15 @@ expectType<string>(localTarget(null));
 expectType<string>(localTarget('/next', '/home'));
 expectType<void>(navigate('/next', { sameOrigin: true }));
 expectError(localTarget(undefined));
+
+// Path canonicalization registry options.
+expectType<RouteRegistry>(
+  createRouteRegistry(() => undefined, {
+    trailingSlash: 'never',
+    caseSensitive: false,
+  })
+);
+expectError(
+  createRouteRegistry(() => undefined, { trailingSlash: 'sometimes' })
+);
+expectError(createRouteRegistry(() => undefined, { caseSensitive: 'no' }));

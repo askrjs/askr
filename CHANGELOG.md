@@ -68,6 +68,11 @@
   `derive(fn, { equals })` and `derive(source, map, { equals })`. A comparator that
   returns true suppresses the notification. The default stays `Object.is`.
   See `docs/core/runtime.md#custom-equality`.
+- Add `trailingSlash` (`'ignore' | 'never' | 'always'`) and `caseSensitive`
+  options to `createRouteRegistry()`. Non-canonical requests for a matched
+  route redirect (308, query and fragment kept) to the canonical form; both
+  default to the existing exact, slash-tolerant matching.
+
 - Add `localTarget(value, fallback = '/')` at `@askrjs/askr/router`, which
   reduces an untrusted navigation target to a same-origin root-relative href or
   the fallback, and a `sameOrigin: true` option for `navigate()` that throws for

@@ -60,6 +60,7 @@ import { formatNavigationUrl, resolveNavigationUrl } from '../common/url';
 import { normalizeRouteBasePath, removeRouteBasePath } from './base-path';
 import { getSessionAuthState } from './session-auth-state';
 import { RouteDataLoadError } from './route-data-loader';
+import { canonicalPathRedirect } from './path-canonical';
 import {
   createRouteErrorHandler,
   markDeniedRoute,
@@ -648,6 +649,13 @@ function resolveRouteRequestInternal(
   if (logicalTarget === undefined) return null;
   return withTelemetry(options.telemetry?.routeMatch, {}, () => {
     const records = options.registry.manifest.records;
+    const canonical = canonicalPathRedirect(
+      logicalTarget,
+      options.registry.manifest
+    );
+    if (canonical) {
+      return basePath ? exposeRedirectDecision(canonical, basePath) : canonical;
+    }
     const match = getMatchingRouteRecord(logicalTarget, records);
     if (!match) return null;
     assertCurrent?.();
