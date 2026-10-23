@@ -55,9 +55,7 @@ export type StateTuple<T> = [get: State<T>, set: StateSetter<T>] & State<T>;
 /** A derived computation is running: writes would loop. */
 function isDerivedComputationActive(): boolean {
   const running = getTrackingComputation();
-  return (
-    running !== null && (running as { _derived?: boolean })._derived === true
-  );
+  return running !== null && running._derived;
 }
 
 /** Reject a write made while a component render or function child runs. */
@@ -114,14 +112,16 @@ export function createStateCell<T>(
   return makeDestructurable(read) as unknown as StateTuple<T>;
 }
 
+/** The one iterator every destructurable state shares: `[getter, setter]`. */
+function destructureState(this: { set: unknown }): Iterator<unknown> {
+  return [this, this.set][Symbol.iterator]();
+}
+
 /** Let a getter with a `set` method destructure into `[getter, setter]`. */
 export function makeDestructurable<T extends { set: unknown }>(read: T): T {
   (read as unknown as { [Symbol.iterator]: () => Iterator<unknown> })[
     Symbol.iterator
-  ] = function* () {
-    yield read;
-    yield read.set;
-  };
+  ] = destructureState;
   return read;
 }
 
@@ -271,7 +271,7 @@ function createDerived(
     null,
     equals ?? Object.is
   );
-  (computation as { _derived?: boolean })._derived = true;
+  computation._derived = true;
   return {
     computation,
     read: markReadable((() => {
@@ -435,7 +435,7 @@ function createSelector<T>(
     effectScheduler('render', owner.depth),
     null
   );
-  (watcher as { _derived?: boolean })._derived = true;
+  watcher._derived = true;
   watcher.run();
 
   const predicate = ((candidate: T) => {

@@ -31,6 +31,10 @@ export interface Job {
   onLimit?(): void;
   /** A lower limit when this job can repeatedly trigger render work. */
   maxRuns?: number;
+  /** Scheduler bookkeeping: the flush `flushRuns` was counted in. */
+  flushStamp?: number;
+  /** Scheduler bookkeeping: times this job has run in that flush. */
+  flushRuns?: number;
 }
 
 export const MAX_RUNS_PER_FLUSH = 50;
@@ -79,62 +83,94 @@ class JobQueue {
 /**
  * Render lane: a binary min-heap ordered by depth, then by queue order, so the
  * shallowest job runs first and equal depths run in the order they queued.
+ * The heap is three parallel arrays, so a push allocates no entry object.
  */
 class RenderQueue {
-  private heap: Array<{ job: Job; depth: number; seq: number }> = [];
+  private jobs: Job[] = [];
+  private depths: number[] = [];
+  private seqs: number[] = [];
   private seq = 0;
 
   get length(): number {
-    return this.heap.length;
+    return this.jobs.length;
   }
 
   push(job: Job): void {
-    const heap = this.heap;
-    const entry = { job, depth: job.depth ?? 0, seq: this.seq++ };
-    let index = heap.push(entry) - 1;
+    const { jobs, depths, seqs } = this;
+    const depth = job.depth ?? 0;
+    const seq = this.seq++;
+    let index = jobs.length;
+    jobs.push(job);
+    depths.push(depth);
+    seqs.push(seq);
     while (index > 0) {
       const parent = (index - 1) >> 1;
-      if (!before(entry, heap[parent])) break;
-      heap[index] = heap[parent];
+      if (
+        !(
+          depth < depths[parent]! ||
+          (depth === depths[parent] && seq < seqs[parent]!)
+        )
+      ) {
+        break;
+      }
+      jobs[index] = jobs[parent]!;
+      depths[index] = depths[parent]!;
+      seqs[index] = seqs[parent]!;
       index = parent;
     }
-    heap[index] = entry;
+    jobs[index] = job;
+    depths[index] = depth;
+    seqs[index] = seq;
   }
 
   shift(): Job | undefined {
-    const heap = this.heap;
-    if (heap.length === 0) return undefined;
-    const top = heap[0];
-    const last = heap.pop()!;
-    if (heap.length > 0) {
+    const { jobs, depths, seqs } = this;
+    if (jobs.length === 0) return undefined;
+    const top = jobs[0]!;
+    const last = jobs.pop()!;
+    const lastDepth = depths.pop()!;
+    const lastSeq = seqs.pop()!;
+    const size = jobs.length;
+    if (size > 0) {
       let index = 0;
       for (;;) {
         const left = index * 2 + 1;
-        if (left >= heap.length) break;
+        if (left >= size) break;
         const right = left + 1;
         const child =
-          right < heap.length && before(heap[right], heap[left]) ? right : left;
-        if (!before(heap[child], last)) break;
-        heap[index] = heap[child];
+          right < size &&
+          (depths[right]! < depths[left]! ||
+            (depths[right] === depths[left] && seqs[right]! < seqs[left]!))
+            ? right
+            : left;
+        if (
+          !(
+            depths[child]! < lastDepth ||
+            (depths[child] === lastDepth && seqs[child]! < lastSeq)
+          )
+        ) {
+          break;
+        }
+        jobs[index] = jobs[child]!;
+        depths[index] = depths[child]!;
+        seqs[index] = seqs[child]!;
         index = child;
       }
-      heap[index] = last;
+      jobs[index] = last;
+      depths[index] = lastDepth;
+      seqs[index] = lastSeq;
+    } else {
+      this.seq = 0;
     }
-    if (heap.length === 0) this.seq = 0;
-    return top.job;
+    return top;
   }
 
   clear(): void {
-    this.heap.length = 0;
+    this.jobs.length = 0;
+    this.depths.length = 0;
+    this.seqs.length = 0;
     this.seq = 0;
   }
-}
-
-function before(
-  a: { depth: number; seq: number },
-  b: { depth: number; seq: number }
-): boolean {
-  return a.depth < b.depth || (a.depth === b.depth && a.seq < b.seq);
 }
 
 const lanes = {
@@ -147,7 +183,6 @@ let flushing = false;
 let batchDepth = 0;
 let kickScheduled = false;
 let flushVersion = 0;
-let runCounts: Map<Job, number> | null = null;
 const flushWaiters: Array<() => void> = [];
 
 export function schedule(job: Job, lane: Lane): void {
@@ -159,7 +194,14 @@ export function schedule(job: Job, lane: Lane): void {
 
 export function queueTask(fn: () => void): void {
   const owner = getOwner();
-  schedule({ run: () => runWithOwner(owner, fn) }, 'post');
+  schedule(
+    {
+      run: () => runWithOwner(owner, fn),
+      flushStamp: -1,
+      flushRuns: 0,
+    },
+    'post'
+  );
 }
 
 const computationJobs = new WeakMap<Computation, Job>();
@@ -184,6 +226,8 @@ export function effectScheduler(
         cancel: () => computation.dropScheduled(),
         onLimit,
         maxRuns,
+        flushStamp: -1,
+        flushRuns: 0,
         get skip() {
           return computation.disposed;
         },
@@ -262,7 +306,6 @@ function takeNext(): Job | null {
 export function flushSync(): void {
   if (flushing) return;
   flushing = true;
-  runCounts = new Map();
   const failures: unknown[] = [];
   const initialJobs = queued.size;
   let executed = 0;
@@ -280,8 +323,11 @@ export function flushSync(): void {
         );
         break;
       }
-      const count = (runCounts.get(job) ?? 0) + 1;
-      runCounts.set(job, count);
+      // Counts live on the job, stamped with the flush they belong to, so a
+      // flush allocates no bookkeeping and a job starts at zero each flush.
+      const count = job.flushStamp === flushVersion ? job.flushRuns! + 1 : 1;
+      job.flushStamp = flushVersion;
+      job.flushRuns = count;
       if (count > (job.maxRuns ?? MAX_RUNS_PER_FLUSH)) {
         job.cancel?.();
         if (job.onLimit) {
@@ -307,7 +353,6 @@ export function flushSync(): void {
     }
   } finally {
     flushing = false;
-    runCounts = null;
     flushVersion++;
     for (const resolve of flushWaiters.splice(0)) resolve();
   }

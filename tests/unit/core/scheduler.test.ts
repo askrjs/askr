@@ -364,4 +364,40 @@ describe('core scheduler', () => {
     expect(runs).toBe(20_000);
     expect(chain).toBe(5_000);
   });
+
+  it('should run render jobs shallowest first and in queue order within a depth', () => {
+    const order: number[] = [];
+    const expected: Array<{ id: number; depth: number }> = [];
+    let seed = 7;
+    const random = () => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return seed;
+    };
+    batch(() => {
+      for (let id = 0; id < 400; id += 1) {
+        const depth = random() % 9;
+        expected.push({ id, depth });
+        schedule({ depth, run: () => void order.push(id) }, 'render');
+      }
+      expected.sort((a, b) => a.depth - b.depth || a.id - b.id);
+      expect(order).toEqual([]);
+    });
+    expect(order).toEqual(expected.map((entry) => entry.id));
+  });
+
+  it('should count repeated runs of a job on every flush from zero', () => {
+    let runs = 0;
+    const repeating: Job = {
+      run() {
+        runs += 1;
+        if (runs % 40 !== 0) schedule(repeating, 'post');
+      },
+    };
+    // 40 runs per flush stays below the limit, flush after flush.
+    for (let round = 0; round < 5; round += 1) {
+      schedule(repeating, 'post');
+      expect(() => flushSync()).not.toThrow();
+    }
+    expect(runs).toBe(200);
+  });
 });

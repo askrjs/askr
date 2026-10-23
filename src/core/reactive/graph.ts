@@ -133,6 +133,8 @@ export class Computation<T = unknown> extends Owner implements Source {
   _running = false;
   /** The CHECK walk is inside this computation (cycle guard). */
   _walking = false;
+  /** A derive() or selector() computation: writes from inside it are rejected. */
+  _derived = false;
   /** Sources read so far by the run in progress. */
   _tracked: Set<Source> | null = null;
   _invalidatedWhileRunning = false;
