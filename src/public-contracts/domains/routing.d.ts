@@ -172,10 +172,21 @@ interface CommonAccessOptions {
   policies?: readonly RoutePolicy[];
 }
 
-/** A route's metadata, or a function computing it from the resolved context. */
-type RouteMetaSource<TParams extends RouteParams = RouteParams> =
+/**
+ * A route's metadata, or a function computing it from the resolved context.
+ * The context carries `data`, the route's loader result, once its loader has
+ * completed; it is absent when the route has no loader.
+ */
+type RouteMetaSource<
+  TParams extends RouteParams = RouteParams,
+  TData = unknown,
+> =
   | RouteMeta
-  | ((context: RouteContext<TParams>) => RouteMeta | PromiseLike<RouteMeta>);
+  | ((
+      context: RouteContext<TParams> & {
+        data?: TData;
+      }
+    ) => RouteMeta | PromiseLike<RouteMeta>);
 
 /**
  * Options for `route()` declarations.
@@ -224,7 +235,7 @@ interface RouteOptions<
   title?: string;
   namespace?: string;
   search?: TSearchSchema;
-  meta?: RouteMetaSource<TParams>;
+  meta?: RouteMetaSource<TParams, TLoaderData>;
   /** Immutable application declaration data; never automatically serialized for hydration. */
   appMeta?: TAppMeta;
   actions?: readonly ActionDescriptor[];

@@ -13,7 +13,7 @@ import {
   resolveRouteMeta,
   resolveOwnedRouteMeta,
 } from '../router/metadata';
-import { getRouteRenderContext } from '../router/resolution';
+import { getRouteMetaContext } from '../router/resolution';
 import { readHistoryIndex } from '../router/history-index';
 import { createDeniedStatusNode } from '../router/navigation-commit';
 import { loadDocument } from '../router/document-navigation';
@@ -49,7 +49,7 @@ export async function reconcileInitialRouteMetadata(
     !resolved.record.metaChain?.length
   )
     return;
-  const context = getRouteRenderContext(resolved);
+  const context = getRouteMetaContext(resolved);
   if (!context) return;
   const metadata = await (assertCurrent
     ? resolveOwnedRouteMeta(resolved.record, context, assertCurrent)

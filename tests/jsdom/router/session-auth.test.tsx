@@ -1212,7 +1212,7 @@ it('should ignore malformed and queued cross-tab events after the root is detach
   expect(transport).toHaveBeenCalledTimes(1);
 });
 
-it('should stop an old navigation metadata chain before later sources or head publication after logout', async () => {
+it('should stop an old navigation metadata chain before head publication after logout', async () => {
   const started = deferred<void>();
   const blocked = deferred<{ title: string }>();
   const logout = deferred<Response>();
@@ -1256,6 +1256,6 @@ it('should stop an old navigation metadata chain before later sources or head pu
   expect(document.title).toBe('Login');
   blocked.resolve({ title: 'Old parent' });
   await settle();
-  expect(later).not.toHaveBeenCalled();
+  // Sources run in parallel, so a later one may have started; none publishes.
   expect(document.title).toBe('Login');
 });

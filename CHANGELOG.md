@@ -150,6 +150,11 @@
   own when that field changes, instead of relying on the declaring component to
   re-render, and the declaring component no longer re-renders for results it
   does not read. The snapshot shape and types are unchanged.
+- Resolve a matched route's lazy chunk, `preload` and `loader` together instead
+  of one after another, and start metadata sources in parallel. `meta` functions
+  now receive the loader result as `context.data`. A `loader` no longer waits
+  for `preload` to settle.
+
 - Navigate to a fragment on the current page without resolving the route
   again: no loader runs and the rendered page keeps its state, for
   `navigate()` and for back/forward traversal between such entries alike.

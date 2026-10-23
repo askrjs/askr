@@ -164,10 +164,25 @@ export interface CommonAccessOptions {
   policies?: readonly RoutePolicy[];
 }
 
+/**
+ * The context metadata functions receive: the route context plus `data`, the
+ * route's loader result once its loader has completed. `data` is absent when
+ * the route has no loader or the caller supplied none.
+ */
+export type RouteMetaContext<
+  TParams extends RouteParams = RouteParams,
+  TData = unknown,
+> = RouteContext<TParams> & { data?: TData };
+
 /** A route's metadata, or a function computing it from the resolved context. */
-export type RouteMetaSource<TParams extends RouteParams = RouteParams> =
+export type RouteMetaSource<
+  TParams extends RouteParams = RouteParams,
+  TData = unknown,
+> =
   | RouteMeta
-  | ((context: RouteContext<TParams>) => RouteMeta | PromiseLike<RouteMeta>);
+  | ((
+      context: RouteMetaContext<TParams, TData>
+    ) => RouteMeta | PromiseLike<RouteMeta>);
 
 /**
  * Options for `route()` declarations.
@@ -212,7 +227,7 @@ export interface RouteOptions<
   title?: string;
   namespace?: string;
   search?: TSearchSchema;
-  meta?: RouteMetaSource<TParams>;
+  meta?: RouteMetaSource<TParams, TLoaderData>;
   /** Immutable application declaration data; never automatically serialized for hydration. */
   appMeta?: TAppMeta;
   actions?: readonly ActionDescriptor[];

@@ -4,6 +4,7 @@ import type {
   RouteAuthOptions,
   RouteDestination,
   RouteContext,
+  RouteMetaContext,
   RouteHandler,
   RoutePolicy,
   RouteRecord,
@@ -63,6 +64,17 @@ export function publishResolvedAuth(result: RouteRequestResult): void {
   if (!result || result.kind !== 'render') return;
   const context = routeRenderContexts.get(result);
   if (context?.auth) setCurrentAuth(context.auth, 'spa');
+}
+
+/** The context metadata sources receive: the route context plus loader data. */
+export function getRouteMetaContext(
+  result: RouteRenderResult
+): RouteMetaContext | undefined {
+  const context = routeRenderContexts.get(result);
+  if (!context) return undefined;
+  return routeRenderData.has(result)
+    ? { ...context, data: routeRenderData.get(result) }
+    : context;
 }
 
 export function getRouteRenderData(result: RouteRenderResult): unknown {
@@ -145,44 +157,6 @@ function buildRenderResult(
   assertCurrent?: () => void
 ): RouteRequestResult | Promise<RouteRequestResult> {
   assertCurrent?.();
-  const lazyImport = _preloadRouteRecord(record);
-  if (lazyImport) {
-    return lazyImport.then(() =>
-      buildLoadedRenderResult(
-        record,
-        params,
-        context,
-        request,
-        telemetry,
-        load,
-        dataRuntime,
-        assertCurrent
-      )
-    );
-  }
-  return buildLoadedRenderResult(
-    record,
-    params,
-    context,
-    request,
-    telemetry,
-    load,
-    dataRuntime,
-    assertCurrent
-  );
-}
-
-function buildLoadedRenderResult(
-  record: RouteRecord,
-  params: Record<string, string>,
-  context: RouteContext,
-  request: Request | undefined,
-  telemetry: CoreTelemetry | undefined,
-  load: boolean,
-  dataRuntime: DataRuntime | undefined,
-  assertCurrent?: () => void
-): RouteRequestResult | Promise<RouteRequestResult> {
-  assertCurrent?.();
   const renderHandler = getRenderHandler(record);
   const loader =
     context.mode !== 'ssg' && load ? record.options?.loader : undefined;
@@ -197,48 +171,56 @@ function buildLoadedRenderResult(
       runtime: (active?.dataRuntime as DataRuntime | undefined) ?? dataRuntime,
       telemetry,
     });
-  const runPreload = preload
-    ? Promise.resolve(
-        preload({ ...context, params, request, data: prefetch })
-      ).then(() => undefined)
-    : undefined;
-  if (loader) {
-    const load = () => {
-      assertCurrent?.();
-      return withTelemetry(telemetry?.loader, { route: record.path }, () =>
-        loader({ ...context, params, request })
-      );
-    };
-    const loaded = runPreload ? runPreload.then(load) : load();
-    const finalize = (data: unknown): RouteRenderResult => {
-      const hydration =
-        context.mode === 'ssr'
-          ? prepareRouteHydrationData(
-              data,
-              record.options?.dehydrate,
-              { ...context, params, request },
-              context.href || context.pathname || record.path
-            )
-          : undefined;
-      const result = createRouteRenderResult(
-        record,
-        params,
-        context,
-        bindResolvedRouteData(renderHandler, data, hydration)
-      );
-      routeRenderData.set(result, data);
-      return result;
-    };
-    return isPromiseLike(loaded)
-      ? Promise.resolve(loaded).then(finalize)
-      : finalize(loaded);
-  }
-  if (runPreload) {
-    return runPreload.then(() =>
-      createRouteRenderResult(record, params, context, renderHandler)
+  // The lazy chunk, preload and loader are independent: start them together
+  // so the slowest decides latency instead of their sum.
+  const pending: Array<PromiseLike<unknown>> = [];
+  const lazyImport = _preloadRouteRecord(record);
+  if (lazyImport) pending.push(lazyImport);
+  if (preload) {
+    pending.push(
+      new Promise<unknown>((resolve) =>
+        resolve(preload({ ...context, params, request, data: prefetch }))
+      )
     );
   }
-  return createRouteRenderResult(record, params, context, renderHandler);
+  let loaded: unknown;
+  if (loader) {
+    try {
+      loaded = withTelemetry(telemetry?.loader, { route: record.path }, () =>
+        loader({ ...context, params, request })
+      );
+    } catch (error) {
+      if (pending.length === 0) throw error;
+      loaded = Promise.reject(error);
+    }
+    if (isPromiseLike(loaded)) pending.push(loaded);
+  }
+  const finalize = (data: unknown): RouteRenderResult => {
+    assertCurrent?.();
+    if (!loader) {
+      return createRouteRenderResult(record, params, context, renderHandler);
+    }
+    const hydration =
+      context.mode === 'ssr'
+        ? prepareRouteHydrationData(
+            data,
+            record.options?.dehydrate,
+            { ...context, params, request },
+            context.href || context.pathname || record.path
+          )
+        : undefined;
+    const result = createRouteRenderResult(
+      record,
+      params,
+      context,
+      bindResolvedRouteData(renderHandler, data, hydration)
+    );
+    routeRenderData.set(result, data);
+    return result;
+  };
+  if (pending.length === 0) return finalize(loaded);
+  const data = isPromiseLike(loaded) ? loaded : Promise.resolve(loaded);
+  return Promise.all([data, ...pending]).then(([value]) => finalize(value));
 }
 
 function runPolicies(

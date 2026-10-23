@@ -332,7 +332,9 @@ declare function to$1<
 /** Resolve a route's merged {@link RouteMeta} by running its metadata chain against `context`. */
 declare function resolveRouteMeta(
   record: RouteRecord,
-  context: RouteContext
+  context: RouteContext & {
+    data?: unknown;
+  }
 ): Promise<Readonly<RouteMeta>>;
 /** Replace only Askr-owned head nodes after a successful client navigation. */
 declare function reconcileRouteMeta(

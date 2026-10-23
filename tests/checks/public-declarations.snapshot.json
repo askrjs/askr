@@ -741,7 +741,7 @@
         "interface ResolveProps<T> {\n    value: Deferred<T>;\n    pending?: RenderableChild;\n    rejected?: RenderableChild | ((error: unknown) => RenderableChild);\n    children: (value: T) => RenderableChild;\n}"
       ],
       "resolveRouteMeta": [
-        "declare function resolveRouteMeta(record: RouteRecord, context: RouteContext): Promise<Readonly<RouteMeta>>;"
+        "declare function resolveRouteMeta(record: RouteRecord, context: RouteContext & {\n    data?: unknown;\n}): Promise<Readonly<RouteMeta>>;"
       ],
       "resolveRouteRequest": [
         "declare function resolveRouteRequest(target: string, options: RouteRequestOptions): RouteRequestResult | Promise<RouteRequestResult>;"
@@ -793,11 +793,11 @@
         "interface RouteMeta {\n    title?: string;\n    description?: string;\n    canonical?: string;\n    robots?: string;\n    openGraph?: Record<string, string>;\n    links?: readonly {\n        rel: string;\n        href: string;\n        [key: string]: string;\n    }[];\n    jsonLd?: unknown | readonly unknown[];\n    html?: {\n        lang?: string;\n        dir?: \"ltr\" | \"rtl\" | \"auto\";\n    };\n}"
       ],
       "RouteMetaSource": [
-        "type RouteMetaSource<TParams extends RouteParams = RouteParams> = RouteMeta | ((context: RouteContext<TParams>) => RouteMeta | PromiseLike<RouteMeta>);"
+        "type RouteMetaSource<TParams extends RouteParams = RouteParams, TData = unknown> = RouteMeta | ((context: RouteContext<TParams> & {\n    data?: TData;\n}) => RouteMeta | PromiseLike<RouteMeta>);"
       ],
       "RouteMode": ["type RouteMode = \"spa\" | \"ssr\" | \"ssg\";"],
       "RouteOptions": [
-        "interface RouteOptions<TParams extends RouteParams = RouteParams, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData, TAppMeta = unknown> extends CommonAccessOptions {\n    loader?: (context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TLoaderData | PromiseLike<TLoaderData>;\n    dehydrate?: (data: TLoaderData, context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TDehydratedData extends PromiseLike<unknown> ? never : TDehydratedData;\n    preload?: (context: RouteContext<TParams> & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    entries?: () => Array<TParams> | Promise<Array<TParams>>;\n    invalidationKeys?: readonly string[];\n    title?: string;\n    namespace?: string;\n    search?: TSearchSchema;\n    meta?: RouteMetaSource<TParams>;\n    appMeta?: TAppMeta;\n    actions?: readonly ActionDescriptor[];\n}"
+        "interface RouteOptions<TParams extends RouteParams = RouteParams, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData, TAppMeta = unknown> extends CommonAccessOptions {\n    loader?: (context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TLoaderData | PromiseLike<TLoaderData>;\n    dehydrate?: (data: TLoaderData, context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TDehydratedData extends PromiseLike<unknown> ? never : TDehydratedData;\n    preload?: (context: RouteContext<TParams> & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    entries?: () => Array<TParams> | Promise<Array<TParams>>;\n    invalidationKeys?: readonly string[];\n    title?: string;\n    namespace?: string;\n    search?: TSearchSchema;\n    meta?: RouteMetaSource<TParams, TLoaderData>;\n    appMeta?: TAppMeta;\n    actions?: readonly ActionDescriptor[];\n}"
       ],
       "RouteParams": ["type RouteParams = Record<string, string>;"],
       "RoutePathParams": [
@@ -1999,7 +1999,7 @@
       "interface ResolveProps<T> {\n    value: Deferred<T>;\n    pending?: RenderableChild;\n    rejected?: RenderableChild | ((error: unknown) => RenderableChild);\n    children: (value: T) => RenderableChild;\n}"
     ],
     "resolveRouteMeta": [
-      "declare function resolveRouteMeta(record: RouteRecord, context: RouteContext): Promise<Readonly<RouteMeta>>;"
+      "declare function resolveRouteMeta(record: RouteRecord, context: RouteContext & {\n    data?: unknown;\n}): Promise<Readonly<RouteMeta>>;"
     ],
     "resolveRouteRequest": [
       "declare function resolveRouteRequest(target: string, options: RouteRequestOptions): RouteRequestResult | Promise<RouteRequestResult>;"
@@ -2075,11 +2075,11 @@
       "interface RouteMeta {\n    title?: string;\n    description?: string;\n    canonical?: string;\n    robots?: string;\n    openGraph?: Record<string, string>;\n    links?: readonly {\n        rel: string;\n        href: string;\n        [key: string]: string;\n    }[];\n    jsonLd?: unknown | readonly unknown[];\n    html?: {\n        lang?: string;\n        dir?: \"ltr\" | \"rtl\" | \"auto\";\n    };\n}"
     ],
     "RouteMetaSource": [
-      "type RouteMetaSource<TParams extends RouteParams = RouteParams> = RouteMeta | ((context: RouteContext<TParams>) => RouteMeta | PromiseLike<RouteMeta>);"
+      "type RouteMetaSource<TParams extends RouteParams = RouteParams, TData = unknown> = RouteMeta | ((context: RouteContext<TParams> & {\n    data?: TData;\n}) => RouteMeta | PromiseLike<RouteMeta>);"
     ],
     "RouteMode": ["type RouteMode = \"spa\" | \"ssr\" | \"ssg\";"],
     "RouteOptions": [
-      "interface RouteOptions<TParams extends RouteParams = RouteParams, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData, TAppMeta = unknown> extends CommonAccessOptions {\n    loader?: (context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TLoaderData | PromiseLike<TLoaderData>;\n    dehydrate?: (data: TLoaderData, context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TDehydratedData extends PromiseLike<unknown> ? never : TDehydratedData;\n    preload?: (context: RouteContext<TParams> & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    entries?: () => Array<TParams> | Promise<Array<TParams>>;\n    invalidationKeys?: readonly string[];\n    title?: string;\n    namespace?: string;\n    search?: TSearchSchema;\n    meta?: RouteMetaSource<TParams>;\n    appMeta?: TAppMeta;\n    actions?: readonly ActionDescriptor[];\n}"
+      "interface RouteOptions<TParams extends RouteParams = RouteParams, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData, TAppMeta = unknown> extends CommonAccessOptions {\n    loader?: (context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TLoaderData | PromiseLike<TLoaderData>;\n    dehydrate?: (data: TLoaderData, context: RouteContext<TParams> & {\n        request?: Request;\n    }) => TDehydratedData extends PromiseLike<unknown> ? never : TDehydratedData;\n    preload?: (context: RouteContext<TParams> & {\n        request?: Request;\n        data: QueryPrefetchContext;\n    }) => unknown;\n    entries?: () => Array<TParams> | Promise<Array<TParams>>;\n    invalidationKeys?: readonly string[];\n    title?: string;\n    namespace?: string;\n    search?: TSearchSchema;\n    meta?: RouteMetaSource<TParams, TLoaderData>;\n    appMeta?: TAppMeta;\n    actions?: readonly ActionDescriptor[];\n}"
     ],
     "RouteOptionsForComponent": [
       "type RouteOptionsForComponent<Path extends string, TComponent extends AnyRouteComponent, TSearchSchema extends ObjectSchema<RouteSearch> | undefined = ObjectSchema<RouteSearch> | undefined, TLoaderData = unknown, TDehydratedData = TLoaderData> = Parameters<TComponent> extends [\n] ? RouteOptions<RoutePathParams<Path>, TSearchSchema, TLoaderData, TDehydratedData> : RouteComponentParam<TComponent> extends RouteParams ? RouteOptions<RouteComponentParam<TComponent>, TSearchSchema, TLoaderData, TDehydratedData> : RouteOptions<RoutePathParams<Path>, TSearchSchema, TLoaderData, TDehydratedData>;"

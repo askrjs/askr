@@ -5,7 +5,7 @@ import {
   getRegisteredAppsSnapshot,
   type AppRegistration,
 } from './navigation-registry';
-import { resolveOwnedRouteRequest, getRouteRenderContext } from './resolution';
+import { resolveOwnedRouteRequest, getRouteMetaContext } from './resolution';
 import { resolveOwnedRouteMeta } from './metadata';
 import { isRenderResult, type AppNavigationTarget } from './navigation-types';
 
@@ -26,7 +26,7 @@ function createNavigationTarget(
     resolved.record.metaChain?.length
   );
   if (!hasMetadata) return { app, resolved, runtime };
-  const context = getRouteRenderContext(resolved);
+  const context = getRouteMetaContext(resolved);
   if (!context) return { app, resolved, runtime };
   return resolveOwnedRouteMeta(resolved.record, context, () => {
     if (app.instance.appRuntime !== runtime) {

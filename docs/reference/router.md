@@ -172,7 +172,7 @@ Vite's `base` remains responsible for JavaScript, CSS, and other asset URLs.
   - `policies`: ordered access checks
   - `loader`: route loader `({ params }) => unknown`
   - `dehydrate`: synchronous selector for the loader data embedded in initial hydration
-  - `preload`: query prefetch work for SSR and hydration
+  - `preload`: query prefetch work for SSR and hydration; it runs alongside the loader and lazy chunk
   - `entries`: SSG entry generator
   - `search`: executable schema used by typed destinations
   - `meta`: title, meta, canonical/link, JSON-LD, language, and direction metadata
@@ -205,6 +205,28 @@ route('/account/{id}', AccountPage, {
   }),
 });
 ```
+
+### Resolution order
+
+After auth and policies allow a route, its lazy components, `preload` and
+`loader` start together and the route renders when the slowest settles, so
+latency is the maximum of the three rather than their sum. A `loader` that
+needs data a `preload` prefetches must read it through its own query, not rely
+on the preload having finished. `meta` runs after the loader and chunk have
+settled: its context carries the loader result as `context.data`, and the
+sources of a `group()`/`page()`/route chain are started together and merged in
+declaration order.
+
+```tsx
+route('/users/{id}', UserPage, {
+  loader: ({ params }) => fetchUser(params.id),
+  meta: ({ data }) => ({ title: data?.name ?? 'User' }),
+});
+```
+
+`data` is absent when the route has no loader, in SSG, or when a caller of
+`resolveRouteMeta()` passes none; pass `{ ...context, data }` to supply it.
+A navigation that is superseded while any source is pending publishes nothing.
 
 The selector runs synchronously after the loader and receives typed loader data
 plus the concrete route context. SSR/SSG components still see the complete

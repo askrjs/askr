@@ -1,5 +1,5 @@
 import type {
-  RouteContext,
+  RouteMetaContext,
   RouteMeta,
   RouteMetaSource,
   RouteRecord,
@@ -68,7 +68,7 @@ function metadataSources(record: RouteRecord): readonly RouteMetaSource[] {
 /** Resolve a route's merged {@link RouteMeta} by running its metadata chain against `context`. */
 export function resolveRouteMeta(
   record: RouteRecord,
-  context: RouteContext
+  context: RouteMetaContext
 ): Promise<Readonly<RouteMeta>> {
   return resolveRouteMetaInternal(record, context);
 }
@@ -76,7 +76,7 @@ export function resolveRouteMeta(
 /** Private route-owner fence; the public metadata resolver stays unchanged. */
 export function resolveOwnedRouteMeta(
   record: RouteRecord,
-  context: RouteContext,
+  context: RouteMetaContext,
   assertCurrent: () => void
 ): Promise<Readonly<RouteMeta>> {
   return resolveRouteMetaInternal(record, context, assertCurrent);
@@ -84,7 +84,7 @@ export function resolveOwnedRouteMeta(
 
 async function resolveRouteMetaInternal(
   record: RouteRecord,
-  context: RouteContext,
+  context: RouteMetaContext,
   assertCurrent?: () => void
 ): Promise<Readonly<RouteMeta>> {
   assertCurrent?.();
@@ -92,12 +92,15 @@ async function resolveRouteMetaInternal(
     ? { title: record.options.title }
     : {};
 
-  for (const source of metadataSources(record)) {
-    assertCurrent?.();
-    const next = typeof source === 'function' ? await source(context) : source;
-    assertCurrent?.();
-    resolved = mergeMeta(resolved, next);
-  }
+  // Sources are independent: start them all, then merge in declaration order.
+  const sources = metadataSources(record);
+  const settled = await Promise.all(
+    sources.map(async (source) =>
+      typeof source === 'function' ? source(context) : source
+    )
+  );
+  assertCurrent?.();
+  for (const next of settled) resolved = mergeMeta(resolved, next);
 
   return freezeMeta(resolved);
 }

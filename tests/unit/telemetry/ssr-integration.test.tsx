@@ -90,9 +90,9 @@ describe('SSR telemetry integration', () => {
       'start:ssr-render',
       'start:route-match',
       'start:query-prefetch',
-      'end:query-prefetch',
       'start:loader',
       'end:loader',
+      'end:query-prefetch',
       'end:route-match',
       'end:ssr-render',
     ]);
