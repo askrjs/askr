@@ -2,7 +2,11 @@ import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { hydrateSPA } from '../../../src/boot';
 import { renderToStringSync } from '../../../src/ssr';
 import { routeRegistryFromTable } from '../../router-test-utils';
-import { createTestContainer } from '../../../test-utils/render/test-renderer';
+import { state, type State } from '../../../src';
+import {
+  createTestContainer,
+  flushScheduler,
+} from '../../../test-utils/render/test-renderer';
 
 /**
  * The HTML parser drops one newline right after `<pre>`, `<textarea>` and
@@ -39,6 +43,33 @@ describe('SSR leading newlines and textarea values', () => {
     cleanups.push(cleanup);
     root.innerHTML = renderToStringSync(Page);
     expect(root.querySelector('textarea')!.value).toBe('hello');
+  });
+
+  it('should keep a hydrated textarea value across parent re-renders', async () => {
+    let bump!: State<number>;
+    const Page = () => {
+      const count = state(0);
+      bump = count;
+      return (
+        <div data-count={count()}>
+          <textarea value="hello" />
+        </div>
+      );
+    };
+    const { container: root, cleanup } = createTestContainer();
+    cleanups.push(cleanup);
+    root.innerHTML = renderToStringSync(Page);
+    await hydrateSPA({
+      root,
+      registry: routeRegistryFromTable([{ path: '/', handler: Page }]),
+    });
+    const textarea = root.querySelector('textarea')!;
+    expect(textarea.value).toBe('hello');
+    bump.set(1);
+    flushScheduler();
+    expect(root.querySelector('div')!.getAttribute('data-count')).toBe('1');
+    expect(textarea.value).toBe('hello');
+    expect(textarea.textContent).toBe('hello');
   });
 
   it('should hydrate pre text and textarea values without rewriting them', async () => {

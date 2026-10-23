@@ -196,15 +196,9 @@ export function recordInputValueUndo(pass: Pass, node: HostNode): void {
   const control = node.el as HTMLInputElement | HTMLTextAreaElement;
   const beforeValue = control.value;
   const beforeAttribute = node.el.getAttribute('value');
-  // A textarea's default value is its text content, written with the value.
-  const beforeDefault =
-    control.localName === 'textarea' ? control.defaultValue : null;
   pass.onReversibleCommit(() => {
     if (beforeAttribute === null) node.el.removeAttribute('value');
     else node.el.setAttribute('value', beforeAttribute);
-    if (beforeDefault !== null && control.defaultValue !== beforeDefault) {
-      control.defaultValue = beforeDefault;
-    }
     control.value = beforeValue;
   });
 }

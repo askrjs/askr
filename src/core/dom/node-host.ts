@@ -68,7 +68,7 @@ export function createHost(
   }
   if (
     !isDangerousInnerHTMLPayload(props.dangerouslySetInnerHTML) &&
-    !(adopted && isTextareaWithValue(tag, ns, props))
+    !(adopted && isTextareaWithValue(el, props))
   ) {
     node.children = reconcileChildren(
       {
@@ -94,15 +94,15 @@ export function createHost(
  * value). Hydration keeps that server text rather than claiming children the
  * client never renders, so the adopted control is left as the server wrote it.
  */
-function isTextareaWithValue(
-  tag: string,
-  ns: string | null | undefined,
-  props: Props
-): boolean {
-  if (ns || tag.toLowerCase() !== 'textarea') return false;
+function isTextareaWithValue(el: Element, props: Props): boolean {
+  if (el.localName !== 'textarea' || el.namespaceURI !== XHTML_NS) {
+    return false;
+  }
   const value = props.value;
   return value !== undefined && value !== null && value !== false;
 }
+
+const XHTML_NS = 'http://www.w3.org/1999/xhtml';
 
 function ownsChildren(props: Props): boolean {
   return (
@@ -159,9 +159,11 @@ export function patchHost(
       false
     );
     if (
-      props.children === undefined ||
-      props.children === null ||
-      props.children === false
+      (props.children === undefined ||
+        props.children === null ||
+        props.children === false) &&
+      // A textarea's text is its default value, owned by the value writer.
+      !isTextareaWithValue(node.el, props)
     ) {
       ctx.pass.op(() => {
         if (!node.el.firstChild) return;
