@@ -1,4 +1,5 @@
 /** Host creation and patching record their live mutations on the Pass. */
+import { warnInvalidNesting } from '../../common/dev-warnings';
 import type { Props } from '../../common/props';
 import type { Key } from '../view/children';
 import { CommitMutationError } from './pass';
@@ -22,6 +23,16 @@ import {
 import { deferDormantHost } from './node-hydration';
 import { markSelectSynced, syncEnclosingSelect } from './node-select';
 
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
+
+/** Tag of the nearest host element above `parent`, if any. */
+function enclosingHostTag(parent: Parent): string | null {
+  for (let p: Parent | null = parent; p; p = p.parent) {
+    if (p.kind === HOST) return namespaceOf(p.el) === null ? p.tag : null;
+  }
+  return null;
+}
+
 export function createHost(
   ctx: RenderContext,
   parent: Parent,
@@ -30,6 +41,10 @@ export function createHost(
   props: Props
 ): HostNode {
   const ns = elementNamespace(tag, ctx.ns);
+  if (__ASKR_DEVELOPMENT_BUILD__ && ns === null) {
+    const host = enclosingHostTag(parent);
+    if (host) warnInvalidNesting(host, tag.toLowerCase(), 'client');
+  }
   const hydrate = ctx.hydrate;
   const adopted = hydrate
     ? hydrate.cursor.claimElement(hydrate.container, tag, ns)

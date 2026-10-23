@@ -65,6 +65,7 @@ export interface RenderContext {
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
 const warnedMissingKeys = new WeakSet<Owner>();
+const warnedPartialKeys = new WeakSet<Owner>();
 
 /**
  * Warn (once per component, in development) about a dynamic array of more
@@ -77,26 +78,30 @@ function warnMissingKeys(value: unknown, owner: Owner | null): void {
     for (const item of value) warnMissingKeys(item, owner);
     return;
   }
-  let elements = 0;
+  let keyed = 0;
+  let unkeyed = 0;
   for (const item of value) {
     if (typeof item !== 'object' || item === null) continue;
     const vnode = item as { type?: unknown; key?: unknown };
     if (vnode.type === undefined) continue;
-    if (vnode.key !== undefined && vnode.key !== null) return;
-    elements++;
+    if (vnode.key !== undefined && vnode.key !== null) keyed++;
+    else unkeyed++;
   }
-  if (elements < 2) return;
+  if (keyed === 0 ? unkeyed < 2 : unkeyed === 0) return;
   let component: Owner | null = owner;
   while (component && !(component instanceof ComponentInstance)) {
     component = component.parent;
   }
   const key = component ?? warnedMissingKeysAnonymous;
-  if (warnedMissingKeys.has(key)) return;
-  warnedMissingKeys.add(key);
+  const warned = keyed === 0 ? warnedMissingKeys : warnedPartialKeys;
+  if (warned.has(key)) return;
+  warned.add(key);
   const name =
     (component as ComponentInstance | null)?.displayName || '<anonymous>';
   logger.warn(
-    `Missing keys on dynamic lists in ${name}. Each child in a list should have a unique "key" prop.`
+    keyed === 0
+      ? `Missing keys on dynamic lists in ${name}. Each child in a list should have a unique "key" prop.`
+      : `Missing keys on some children of a dynamic list in ${name}: ${keyed} have a "key" prop and ${unkeyed} do not. Give every child in a list a unique "key" prop.`
   );
 }
 

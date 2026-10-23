@@ -14,7 +14,13 @@ import {
   STATIC_CHILDREN,
   isFragmentType,
 } from '../../common/jsx';
+import { warnOncePerObject } from '../../common/dev-warnings';
 import type { Props } from '../../common/props';
+
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
+
+/** Values already reported as unrenderable children. */
+const warnedChildren = new WeakSet<object>();
 
 export const ELEMENT = 0;
 export const TEXT = 1;
@@ -153,6 +159,13 @@ export function normalizeChildren(
   if (isHostNode(value)) {
     // Imperative nodes are not JSX children. A boundary fallback wraps the
     // node explicitly so it can still be adopted at its own position.
+    if (__ASKR_DEVELOPMENT_BUILD__) {
+      warnOncePerObject(
+        warnedChildren,
+        value,
+        '[Askr] A DOM node was passed as a child and is not rendered. Attach it from a ref callback instead.'
+      );
+    }
     return out;
   }
 
@@ -168,6 +181,16 @@ export function normalizeChildren(
     // JSON that happens to carry a `type` field, have no visual
     // representation. A surrounding array can still contain renderable
     // siblings after one of these values.
+    if (
+      __ASKR_DEVELOPMENT_BUILD__ &&
+      typeof (value as { then?: unknown }).then === 'function'
+    ) {
+      warnOncePerObject(
+        warnedChildren,
+        value as object,
+        '[Askr] A Promise was passed as a child and is not rendered. Read its value with resource() and render the result.'
+      );
+    }
     return out;
   }
   const type = vnode.type;

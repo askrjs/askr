@@ -13,6 +13,8 @@
  */
 
 import { clarifyRenderOverflow } from '../common/render-depth';
+import { warnInvalidNesting } from '../common/dev-warnings';
+import { isDevelopmentEnvironment } from '../common/env';
 import { logger } from '../common/logger';
 import { getCurrentRenderData } from '../common/render-context';
 import type { AuthContext } from '@askrjs/auth';
@@ -91,6 +93,8 @@ interface ServerRender {
   selectSelections: SelectSelection[];
   attributeRoots: WeakSet<Owner>;
   referenceAttributes: ReferenceAttributes;
+  /** Open HTML elements, innermost last; null when nesting is not checked. */
+  openTags: string[] | null;
 }
 
 interface SelectSelection {
@@ -417,6 +421,10 @@ function renderElement(tag: string, props: Props, sink: SinkTarget): void {
   const parentNamespace = render.namespace;
   const lower = tag.toLowerCase();
   const namespace = getElementNamespace(parentNamespace, lower);
+  const openTags = namespace === 'html' ? render.openTags : null;
+  if (openTags && openTags.length > 0) {
+    warnInvalidNesting(openTags[openTags.length - 1], lower, 'server');
+  }
   // `annotation-xml` reads its `encoding` to choose its children's context,
   // so a reactive value is read once for both.
   let elementProps =
@@ -506,6 +514,7 @@ function renderElement(tag: string, props: Props, sink: SinkTarget): void {
     render.selectSelections.push(nextSelection);
   }
   const rawText = getRawTextElementInContext(parentNamespace, namespace, lower);
+  openTags?.push(lower);
   try {
     withNamespace(
       getChildNamespace(parentNamespace, namespace, lower, elementProps),
@@ -522,6 +531,7 @@ function renderElement(tag: string, props: Props, sink: SinkTarget): void {
         )
     );
   } finally {
+    openTags?.pop();
     if (nextSelection) render.selectSelections.pop();
   }
 }
@@ -868,6 +878,7 @@ function withServerRender<T>(ctx: RenderContext, fn: () => T): T {
     portalNamespaces: new Map(),
     selectSelections: [],
     attributeRoots: new WeakSet(),
+    openTags: isDevelopmentEnvironment() ? [] : null,
     referenceAttributes: new ReferenceAttributes(),
   };
   let result: T;

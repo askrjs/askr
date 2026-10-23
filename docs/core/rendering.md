@@ -218,6 +218,27 @@ result updates. Parent reconciliation preserves that live range and its editor
 or widget identity instead of restoring a stale pre-update range. Cleanup
 ownership remains balanced when the row is later replaced or removed.
 
+### Development warnings
+
+In development builds (never in production) the renderers log each of these
+once, so a typo or a markup mistake does not stay silent:
+
+- **Invalid nesting** the HTML parser would rewrite: a block element such as
+  `<div>` or `<section>` inside a `<p>`, an `<a>` inside an `<a>`, a `<button>`
+  inside a `<button>`, a `<form>` inside a `<form>`, and, when rendering on the
+  server, a `<tr>` directly inside a `<table>` (the browser inserts a `<tbody>`,
+  so the server markup would not match the client tree). One warning per
+  parent/child pair.
+- **A DOM node or a Promise passed as a child.** Neither renders. Attach the node
+  from a ref and read the Promise's value with `resource()`. One warning per
+  value.
+- **Partly keyed lists.** A dynamic list whose children are some keyed and some
+  not warns once per component, next to the existing missing-keys warning.
+- **Unknown event props.** An `on*` handler on a built-in element that matches
+  no DOM event (`onClck`) never runs; the warning suggests the closest event
+  prop. Custom elements (tags with a hyphen) can fire any event and are not
+  checked.
+
 ### Tree depth
 
 The client renderer and SSR render nested elements and components

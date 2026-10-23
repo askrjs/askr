@@ -370,6 +370,12 @@
   below the root (`main > div:nth-child(2) > p`) and the expected and found tag
   or text.
 
+- Add development-only warnings (silent in production, each reported once) for
+  invalid nesting the HTML parser rewrites (block elements in `<p>`, nested
+  `<a>`/`<button>`/`<form>`, a server-rendered `<tr>` without `<tbody>`), a DOM
+  node or Promise passed as a child, partly keyed dynamic lists, and `on*`
+  props that match no DOM event.
+
 ## 0.4.4 - 2026-10-08
 
 ### Breaking changes

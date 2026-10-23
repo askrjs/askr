@@ -15,10 +15,13 @@
  * like an uncaught listener exception.
  */
 
+import { warnUnknownEventProp } from '../../common/dev-warnings';
 import { reportUncaughtError } from '../../common/report-error';
 import { runWithOwner, type Owner } from '../reactive/owner';
 import { batch } from '../reactive/scheduler';
 import { outsideRendering } from '../component/render-state';
+
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
 export interface ParsedEvent {
   readonly eventName: string;
@@ -319,6 +322,9 @@ export function setListener(
   if (existing) {
     existing.handler = handler;
     return;
+  }
+  if (__ASKR_DEVELOPMENT_BUILD__) {
+    warnUnknownEventProp(propName, event.eventName, el.localName);
   }
   if (
     !event.capture &&
