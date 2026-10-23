@@ -376,6 +376,14 @@
   node or Promise passed as a child, partly keyed dynamic lists, and `on*`
   props that match no DOM event.
 
+- Skip props whose value did not change when patching a host: no attribute,
+  class or style read or write, and no per-prop closures. A value that other
+  code overwrote while its prop stayed the same is no longer rewritten until the
+  prop changes; form control `value`, `checked` and `selected` and `prop:` writes
+  are still verified on every render. Also reuse the render context for child
+  lists, return the committed child list unchanged when positions match, and
+  share the no-op settle callback of reversible commits.
+
 ## 0.4.4 - 2026-10-08
 
 ### Breaking changes

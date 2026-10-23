@@ -291,8 +291,13 @@ setting `style.transform`, a tooltip adding `data-*`, or `classList.add(...)`.
 - A prop that disappears (or becomes `null`/`undefined`/`false`) removes only
   what Askr wrote for it: the attribute, its own class tokens, or its own style
   properties.
-- Values Askr still renders are re-applied if other code overwrote them (for
-  example a removed class token or a changed `title`).
+- A prop whose value did not change since the last render costs no DOM read or
+  write, so a value other code overwrote (a changed `title`, a removed class
+  token) stays as that code left it until the prop's value changes. When it
+  changes, Askr writes the new value. Form control state (`value`, `checked`,
+  `selected`) is the exception: it is compared with the live control on every
+  render. For `style` objects the entries are compared one by one, so a new
+  object with the same entries is unchanged.
 - Hydration keeps the server attributes the client never renders (a
   `data-theme` set before the app loads, a browser extension's marker). It
   removes only Askr's own bookkeeping (`data-skip-hydrate`, `data-key`,

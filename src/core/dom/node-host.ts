@@ -12,7 +12,11 @@ import {
   patchProps,
   restoreElementChildren,
 } from './props';
-import { reconcileChildren, type RenderContext } from './reconcile';
+import {
+  childContext,
+  reconcileChildren,
+  type RenderContext,
+} from './reconcile';
 import { HOST, type HostNode, type Parent } from './tree';
 import {
   childNamespace,
@@ -102,14 +106,13 @@ export function createHost(
     !(adopted && isTextareaWithValue(el, props))
   ) {
     node.children = reconcileChildren(
-      {
-        ...ctx,
-        ns: childNamespace(tag, ns),
-        hydrate:
-          adopted && hydrate
-            ? { cursor: hydrate.cursor, container: adopted }
-            : null,
-      },
+      childContext(
+        ctx,
+        childNamespace(tag, ns),
+        adopted && hydrate
+          ? { cursor: hydrate.cursor, container: adopted }
+          : null
+      ),
       node,
       props.children,
       true
@@ -181,7 +184,11 @@ export function patchHost(
   }
   if (isManaged) {
     reconcileChildren(
-      { ...ctx, ns: childNamespace(node.tag, namespaceOf(node.el)) },
+      childContext(
+        ctx,
+        childNamespace(node.tag, namespaceOf(node.el)),
+        ctx.hydrate
+      ),
       node,
       props.children,
       false

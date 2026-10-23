@@ -143,6 +143,48 @@ export function applyTrailingProps(
   }
 }
 
+/**
+ * Props whose DOM state can change without the renderer: form control state,
+ * and `prop:` writes (hydration removes the attribute a reflected property
+ * adds, so the property is written again on the next update).
+ */
+function isLiveFormProp(key: string): boolean {
+  return (
+    key === 'value' ||
+    key === 'checked' ||
+    key === 'selected' ||
+    key.startsWith('prop:')
+  );
+}
+
+/** Whether `value` renders exactly what `old` rendered. */
+function sameAppliedValue(key: string, value: unknown, old: unknown): boolean {
+  if (Object.is(value, old)) return true;
+  if (
+    key === 'style' &&
+    typeof value === 'object' &&
+    typeof old === 'object' &&
+    value !== null &&
+    old !== null &&
+    !Array.isArray(value) &&
+    !Array.isArray(old)
+  ) {
+    return shallowEqual(value as object, old as object);
+  }
+  return false;
+}
+
+function shallowEqual(a: object, b: object): boolean {
+  let count = 0;
+  for (const name in a) {
+    if (!Object.is((a as never)[name], (b as never)[name])) return false;
+    if (!(name in b)) return false;
+    count++;
+  }
+  for (const _ in b) count--;
+  return count === 0;
+}
+
 /** Record the writes that turn `previous` into `next` on a committed element. */
 export function patchProps(
   pass: Pass,
@@ -259,9 +301,10 @@ export function patchProps(
       }
       continue;
     }
-    // A host may change a rendered value between passes. The scalar writer
-    // compares against the live DOM and leaves equal values untouched.
-    if (Object.is(value, old) && key === 'dangerouslySetInnerHTML') continue;
+    // A value equal to the one last applied needs no DOM read or write. Form
+    // control state is the exception: the user changes it without the
+    // renderer's involvement, so the writer verifies it against the live DOM.
+    if (!isLiveFormProp(key) && sameAppliedValue(key, value, old)) continue;
     if (isInputValue(tag, key)) {
       writeInputValue(pass, node, value, old);
     } else if (isBooleanControl(tag, key)) {

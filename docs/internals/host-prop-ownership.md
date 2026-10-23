@@ -43,6 +43,14 @@ flowchart TB
   select --> pass
 ```
 
+A patch compares each prop with the value last applied (`Object.is`; `style`
+objects entry by entry) and records nothing for an equal value, so an unchanged
+prop costs no attribute, class or style read and no closure. Form control
+`value`, `checked` and `selected`, and `prop:` writes, are exempt: they are
+verified against the live control on every patch. Rendering children inside an
+element reuses the parent's render context when neither the namespace nor the
+hydration cursor changes.
+
 Fresh detached elements retain their direct initial writes. Adopted and committed
 elements use the same pass operations and undo records as before extraction.
 Form snapshots retain live values as well as attributes; select snapshots retain

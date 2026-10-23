@@ -111,7 +111,26 @@ export function withOwner(
   ctx: RenderContext,
   owner: Owner | null
 ): RenderContext {
-  return owner === ctx.owner ? ctx : { ...ctx, owner };
+  return owner === ctx.owner
+    ? ctx
+    : {
+        pass: ctx.pass,
+        owner,
+        ns: ctx.ns,
+        nodes: ctx.nodes,
+        hydrate: ctx.hydrate,
+      };
+}
+
+/** The context for rendering inside an element; `ctx` itself when nothing differs. */
+export function childContext(
+  ctx: RenderContext,
+  ns: string | null,
+  hydrate: RenderContext['hydrate']
+): RenderContext {
+  return ns === ctx.ns && hydrate === ctx.hydrate
+    ? ctx
+    : { pass: ctx.pass, owner: ctx.owner, ns, nodes: ctx.nodes, hydrate };
 }
 
 function typeOf(node: RNode): unknown {
@@ -199,11 +218,10 @@ export function reconcileChildren(
       }
     }
     if (samePositions) {
-      const result = previous.slice();
       for (let i = 0; i < next.length; i++) {
         ctx.nodes.patch(ctx, previous[i], next[i]);
       }
-      return result;
+      return previous;
     }
   }
   const slot = ctx.pass.reserve();
