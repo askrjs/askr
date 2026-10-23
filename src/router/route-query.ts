@@ -1,4 +1,6 @@
 import { saveScrollPosition } from './navigation-scroll';
+import { beginRouteRequest } from './navigation-request';
+import { clearPendingNavigation } from './navigation-state';
 import { commitHistoryIndex, nextHistoryIndex } from './history-index';
 import {
   getCurrentHref,
@@ -100,6 +102,10 @@ export function updateRouteQuery(
     return;
   }
 
+  // The query update is the newest location: a navigation still resolving
+  // must not publish over it, and is no longer pending.
+  beginRouteRequest();
+  clearPendingNavigation();
   commitLocationOnlyNavigation(url.pathname, href, {
     historyMode: getRouteQueryHistoryMode(options),
   });

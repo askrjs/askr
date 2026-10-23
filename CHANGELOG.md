@@ -196,6 +196,9 @@
   own when that field changes, instead of relying on the declaring component to
   re-render, and the declaring component no longer re-renders for results it
   does not read. The snapshot shape and types are unchanged.
+- `updateRouteQuery()` now supersedes a navigation that is still resolving, so
+  the pending navigation can no longer publish over the updated query.
+
 - Resolve a matched route's lazy chunk, `preload` and `loader` together instead
   of one after another, and start metadata sources in parallel. `meta` functions
   now receive the loader result as `context.data`. A `loader` no longer waits

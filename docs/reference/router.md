@@ -946,6 +946,12 @@ updateRouteQuery((searchParams) => searchParams.set('page', '2'));
 `null` and `undefined` delete a query key. Array values append repeated query
 keys in order.
 
+A query update is the newest location: a navigation that is still resolving is
+superseded and cannot publish over it, and `navigationState().pending` clears.
+Loaders do not re-run for a query update; read the query through
+`currentRoute().search` or `query` and navigate with `navigate()` when the data
+must reload.
+
 ## `Link`
 
 Declarative navigation component.

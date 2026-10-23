@@ -198,6 +198,7 @@ function navigateWithRedirectState(
 
   const request = beginRouteRequest();
   if (isStaleRouteRequest(request.id)) return;
+  clearPendingNavigation();
 
   const target = parseNavigationTarget(path);
   if (!isCurrentOrigin(target)) {
@@ -298,6 +299,7 @@ function handlePopState(event: PopStateEvent): void {
   beginHistoryFocusRestoration();
   const request = beginRouteRequest();
   if (isStaleRouteRequest(request.id)) return;
+  clearPendingNavigation();
   const previousHref = getCurrentHref();
   const historyIndex = landOnHistoryEntry(event.state);
   const pathname = window.location.pathname;
