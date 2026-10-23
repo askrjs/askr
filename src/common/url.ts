@@ -2,7 +2,14 @@ import { getPublicAttributeName } from './attr-names';
 import { isDevelopmentEnvironment } from './env';
 import { logger } from './logger';
 
-const SAFE_URL_SCHEMES = new Set(['http', 'https', 'mailto', 'sms', 'tel']);
+const SAFE_URL_SCHEMES = new Set([
+  'http',
+  'https',
+  'mailto',
+  'sms',
+  'tel',
+  'blob',
+]);
 const SCRIPT_URL_SCHEMES = new Set(['javascript', 'vbscript']);
 const URL_SCHEME_RE = /^([a-z][a-z0-9+.-]*):/i;
 
@@ -100,6 +107,34 @@ export const UNSAFE_URL_SCHEME_ATTRIBUTES = new Set([
  * navigation allowlist.
  */
 export const SCRIPT_URL_RESOURCE_ATTRIBUTES = new Set(['src', 'data']);
+
+/**
+ * Attributes (lowercased) that parse their value as HTML. They are never
+ * rendered, like `prop:innerHTML` and `prop:srcdoc`; `dangerouslySetInnerHTML`
+ * is the explicit way to write markup.
+ */
+const RAW_HTML_ATTRIBUTES = new Set(['srcdoc']);
+
+/** Accepts the JSX prop name (`srcDoc`) or the rendered attribute name. */
+export function isRawHtmlAttribute(key: string): boolean {
+  return RAW_HTML_ATTRIBUTES.has(getPublicAttributeName(key).toLowerCase());
+}
+
+const warnedRawHtmlAttributes = new Set<string>();
+
+/** Whether `key` is a raw HTML attribute, warning once per name in development. */
+export function rejectRawHtmlAttribute(key: string): boolean {
+  if (!isRawHtmlAttribute(key)) return false;
+  const name = getPublicAttributeName(key).toLowerCase();
+  if (isDevelopmentEnvironment() && !warnedRawHtmlAttributes.has(name)) {
+    warnedRawHtmlAttributes.add(name);
+    logger.warn(
+      `[Askr] ${name} is not rendered because it is parsed as HTML. ` +
+        'Use dangerouslySetInnerHTML for explicit markup.'
+    );
+  }
+  return true;
+}
 
 /** Accepts the JSX prop name (`xlinkHref`) or the rendered attribute name. */
 export function isUnsafeUrlAttribute(key: string, value: unknown): boolean {

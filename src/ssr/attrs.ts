@@ -12,7 +12,12 @@ import {
   isSkippedProp,
   keepsFalseValue,
 } from '../common/prop-classification';
-import { isUnsafeUrlAttribute, rejectUnsafeUrlAttribute } from '../common/url';
+import {
+  isRawHtmlAttribute,
+  isUnsafeUrlAttribute,
+  rejectRawHtmlAttribute,
+  rejectUnsafeUrlAttribute,
+} from '../common/url';
 import {
   ATTRIBUTE_PROP_PREFIX,
   isPropertyOnlyProp,
@@ -194,6 +199,7 @@ export function renderAttrsDirect(
     // `attr:` never smuggles an inline event handler past the check above.
     if (attrName !== key && isEventHandler(attrName)) continue;
     assertAttributeName(attrName);
+    if (rejectRawHtmlAttribute(attrName)) continue;
 
     // Handle style objects
     if (attrName === 'style') {
@@ -279,6 +285,7 @@ export function getRenderedAttributeValue(
     )
       continue;
     const strValue = String(value);
+    if (isRawHtmlAttribute(attrName)) continue;
     if (isUnsafeUrlAttribute(attrName, strValue)) continue;
     return strValue;
   }

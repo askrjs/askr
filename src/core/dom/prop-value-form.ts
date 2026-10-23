@@ -6,6 +6,19 @@ export function isFormControlProp(key: string): boolean {
   return key === 'value' || key === 'checked' || key === 'selected';
 }
 
+/**
+ * Elements whose `value` is live user state: removing the prop resets the
+ * control to `''`. Other elements (`option`, `button`, `li`, `progress`) use
+ * `value` as a plain attribute, and removing the prop removes the attribute.
+ */
+export function isTextValueControl(tagName: string): boolean {
+  return (
+    tagNamesEqualIgnoreCase(tagName, 'input') ||
+    tagNamesEqualIgnoreCase(tagName, 'textarea') ||
+    tagNamesEqualIgnoreCase(tagName, 'select')
+  );
+}
+
 export function applyFormControlProp(
   el: Element,
   key: string,

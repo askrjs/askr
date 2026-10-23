@@ -67,6 +67,16 @@
 
 ### Fixes
 
+- Ignore the `srcdoc` attribute and `attr:srcdoc` on the client and in SSR,
+  matching `prop:srcdoc`: the value is parsed as HTML. Render `blob:` URLs in
+  `href`, `action`, `formAction` and `xlink:href`, so generated download links
+  work.
+
+- Remove the `value` attribute when the prop is removed from an `<option>`,
+  `<button>`, `<li>` or `<progress>` instead of writing `value=""`, so an
+  update matches a fresh mount. Inputs, textareas and selects still reset to
+  an empty value.
+
 - Render only JSX runtime elements as children. A plain object with a string
   `type`, such as JSON from a loader or an API, no longer creates an element
   or raw HTML on the client or in SSR.

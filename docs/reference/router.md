@@ -674,8 +674,8 @@ origins, and a `target` naming another browsing context (`_blank`, a frame
 name). `target="_self"` still navigates in the router.
 
 Raw `href` values may be relative URLs or use `http`, `https`, `mailto`,
-`sms`, or `tel`. `Link` rejects other explicit schemes, including executable
-and local-file URLs.
+`sms`, `tel`, or `blob`. `Link` rejects other explicit schemes, including
+executable and local-file URLs.
 
 For styled navigation with automatic active-route state, install the optional
 `@askrjs/themes` package and use `NavLink` from

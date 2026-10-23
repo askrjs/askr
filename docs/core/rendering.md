@@ -340,6 +340,11 @@ Values SSR cannot render are applied when the client hydrates. Attributes a
 property reflects (`prop:href` sets `href`, `prop:hidden` sets `hidden`) are
 kept on re-render like any other attribute Askr rendered.
 
+Removing `value` from an `<input>`, `<textarea>` or `<select>` resets the
+control to `''`. On any other element (`<option>`, `<button>`, `<li>`,
+`<progress>`) `value` is a plain attribute, so removing the prop removes the
+attribute, the same as mounting without it.
+
 When one of these props is removed, Askr puts the property back to its
 default: `muted` and `indeterminate` become `false`; a property that reflects
 to an attribute has that attribute removed; an own property (an expando, or a
@@ -350,8 +355,9 @@ property writes back with the rest of the element.
 
 URL attributes are checked the same way on the client and in SSR. `href`,
 `action`, `formAction` and `xlink:href` render only relative URLs or the
-`http`, `https`, `mailto`, `sms` and `tel` schemes. `src` and `data` render
-any URL except a script scheme (`javascript:`, `vbscript:`). The scheme is
+`http`, `https`, `mailto`, `sms`, `tel` and `blob` schemes (a `blob:` URL
+names an object the page created itself, such as a generated download). `src`
+and `data` render any URL except a script scheme (`javascript:`, `vbscript:`). The scheme is
 read case-insensitively after trimming the value and removing ASCII spaces
 and control characters (U+0000-U+0020, U+007F-U+009F) anywhere in it, so
 `java\tscript:` is still a script URL. A non-string value is converted to
@@ -381,7 +387,9 @@ The escape hatches keep the usual guards:
   (including `attr:style={{...}}`) are not rendered on either side.
 - `prop:innerHTML`, `prop:outerHTML` and `prop:srcdoc` are ignored (use
   `dangerouslySetInnerHTML`), as are `prop:__proto__`, `prop:constructor` and
-  `prop:prototype`.
+  `prop:prototype`. The `srcdoc` attribute (and `attr:srcdoc`) is ignored for
+  the same reason on both sides: it is parsed as HTML. Development logs a
+  warning once; production omits it silently.
 
 Custom element properties are assigned even if the element is not defined
 yet, as Lit's `.prop` bindings do. Until the element upgrades, the value is an

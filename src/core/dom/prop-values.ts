@@ -4,7 +4,10 @@ import {
   isSkippedProp,
   keepsFalseValue,
 } from '../../common/prop-classification';
-import { rejectUnsafeUrlAttribute } from '../../common/url';
+import {
+  rejectRawHtmlAttribute,
+  rejectUnsafeUrlAttribute,
+} from '../../common/url';
 import { ATTRIBUTE_PROP_PREFIX } from '../../common/dom-properties';
 import {
   getRenderedAttributeName,
@@ -14,7 +17,11 @@ import {
   writeElementClassName,
 } from './element-attributes';
 import { applyDomPropertyProp } from './dom-properties';
-import { applyFormControlProp, isFormControlProp } from './prop-value-form';
+import {
+  applyFormControlProp,
+  isFormControlProp,
+  isTextValueControl,
+} from './prop-value-form';
 import {
   applyDangerousInnerHTMLValue,
   isDangerousInnerHTMLPayload,
@@ -62,6 +69,7 @@ function renderableAttributeText(
       return null;
     }
   }
+  if (rejectRawHtmlAttribute(name)) return null;
   const text = renderedScalarValue(el, key, value);
   return rejectUnsafeUrlAttribute(name, text) ? null : text;
 }
@@ -142,7 +150,11 @@ export function applyScalarPropValue(
         descriptor.lastClassTokens = [];
       }
     } else if (key === 'value') {
-      applyFormControlProp(el, key, '', tagName);
+      if (isTextValueControl(tagName)) {
+        applyFormControlProp(el, key, '', tagName);
+      } else {
+        removeRenderedAttribute(el, key);
+      }
     } else if (key === 'checked' || key === 'selected') {
       applyFormControlProp(el, key, false, tagName);
     } else if (key === 'style') {
