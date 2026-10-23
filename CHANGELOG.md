@@ -155,6 +155,10 @@
   router regression floors, CI source reports, and cleanup/hydration failure
   and recovery probes.
 
+- Add the `hydrate` option to `createIsland` and `createIslands`
+  (`@askrjs/askr/boot`). An island adopts the container's server-rendered
+  elements by default, or when `hydrate: true`; `hydrate: false` replaces them.
+
 ### Fixes
 
 - Publish the identity a custom `resolve` produces when its navigation
@@ -347,6 +351,10 @@
   attribute whose prop the client renders as `null`, `undefined` or `false`.
   Verify mode (`hydrate.verifyMarkup`) keeps the stricter behavior and removes
   every attribute the client does not render.
+
+- Hydrate `createIsland` over server-rendered markup instead of replacing it,
+  so node identity, typed input state, and focus survive. Pass `hydrate: false`
+  to keep the old replace behavior.
 
 ## 0.4.4 - 2026-10-08
 

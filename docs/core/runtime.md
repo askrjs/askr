@@ -29,6 +29,18 @@ Calling it again with a different component at the same root ends the old
 island lifetime, runs its cleanup, and mounts the new component. If cleanup
 mounts another island at that root, that replacement takes precedence.
 
+When the container already holds server-rendered elements, `createIsland()`
+adopts them instead of replacing them, so node identity, typed input state, and
+focus survive. A mismatch between the markup and the component falls back to
+client-rendered nodes, as `hydrateSPA` does. Set `hydrate: false` to replace the
+container's content, or `hydrate: true` to adopt even when the container has
+only text. Omitted, the island adopts exactly when the container has element
+children.
+
+```ts
+createIsland({ root: 'counter-root', component: Counter, hydrate: false });
+```
+
 ## SPA mode
 
 Use `createSPA()` for a full client-rendered application with the Askr router.

@@ -100,7 +100,7 @@
         "type HydrateSPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    focus?: false | {\n        target?: string | ((root: Element) => Element | null);\n        announce?: false | ((route: {\n            readonly pathname: string;\n            readonly search: string;\n            readonly hash: string;\n            readonly title: string;\n        }) => string);\n    };\n    cleanupStrict?: boolean;\n    hydrate?: {\n        verifyMarkup?: boolean;\n        deferUntilIdle?: boolean;\n        deferBelowFold?: boolean;\n        foldThreshold?: number;\n        skipSelectors?: string[];\n    };\n};"
       ],
       "IslandConfig": [
-        "type IslandConfig = {\n    root: Element | string;\n    component: ComponentFunction;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    cleanupStrict?: boolean;\n    routes?: never;\n};"
+        "type IslandConfig = {\n    root: Element | string;\n    component: ComponentFunction;\n    cspNonce?: string;\n    hydrate?: boolean;\n    dataRuntime?: DataRuntime;\n    cleanupStrict?: boolean;\n    routes?: never;\n};"
       ],
       "IslandsConfig": [
         "type IslandsConfig = {\n    islands: IslandConfig[];\n    cspNonce?: string;\n};"
@@ -1593,7 +1593,7 @@
       "declare function isElement(value: unknown): value is JSXElement;"
     ],
     "IslandConfig": [
-      "type IslandConfig = {\n    root: Element | string;\n    component: ComponentFunction;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    cleanupStrict?: boolean;\n    routes?: never;\n};"
+      "type IslandConfig = {\n    root: Element | string;\n    component: ComponentFunction;\n    cspNonce?: string;\n    hydrate?: boolean;\n    dataRuntime?: DataRuntime;\n    cleanupStrict?: boolean;\n    routes?: never;\n};"
     ],
     "IslandsConfig": [
       "type IslandsConfig = {\n    islands: IslandConfig[];\n    cspNonce?: string;\n};"

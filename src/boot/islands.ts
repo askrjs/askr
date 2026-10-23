@@ -8,7 +8,8 @@ import { resolveRootElement } from './root-element';
 import { validateCspNonce } from '../csp-nonce';
 
 /**
- * createIsland: Enhances existing DOM (no router, mounts once)
+ * createIsland: Enhances existing DOM (no router, mounts once). Existing
+ * element children are adopted unless `hydrate: false`.
  */
 export function createIsland(config: IslandConfig): void {
   assertExecutionModel('islands');
@@ -39,7 +40,14 @@ export function createIsland(config: IslandConfig): void {
     );
   }
 
+  if (config.hydrate !== undefined && typeof config.hydrate !== 'boolean') {
+    throw new Error('createIsland: hydrate must be a boolean');
+  }
+  // Server-rendered elements are adopted unless the island opts out.
+  const hydrate = config.hydrate ?? rootElement.firstElementChild !== null;
+
   mountOrUpdate(rootElement, config.component, {
+    hydrate,
     cleanupStrict: config.cleanupStrict,
     cspNonce: config.cspNonce,
     appRuntime: createAppRenderRuntime({

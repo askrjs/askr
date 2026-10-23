@@ -10,6 +10,13 @@ type IslandConfig = {
   root: Element | string;
   component: ComponentFunction;
   cspNonce?: string;
+  /**
+   * Adopt the container's existing elements instead of replacing them.
+   * Defaults to `true` when the container already has element children;
+   * `false` always replaces, `true` always adopts. A mismatch falls back to
+   * client-rendered nodes as hydration does.
+   */
+  hydrate?: boolean;
   /** Optional data runtime owned by this island's render and event lifecycle. */
   dataRuntime?: DataRuntime;
   cleanupStrict?: boolean;
