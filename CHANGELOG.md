@@ -70,6 +70,12 @@
 
 ### Fixes
 
+- Revalidate a provider session in the background when the tab regains
+  focus or visibility, or a persisted page is shown. The app is retired and
+  re-resolved only when the server identity differs; an unchanged identity
+  keeps component state and a navigation in flight. Explicit and cross-tab
+  logout hints still retire private state immediately.
+
 - Navigate to a fragment on the current page without resolving the route
   again: no loader runs and the rendered page keeps its state, for
   `navigate()` and for back/forward traversal between such entries alike.

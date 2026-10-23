@@ -309,6 +309,41 @@ export function createSessionAuth(
     lastRecovery = undefined;
     identity.write(value);
   };
+  /**
+   * Fetch the server session without touching the cached identity first.
+   * `commit` retires private state and re-resolves the page only when the
+   * identity differs; a failed or superseded fetch changes nothing.
+   */
+  let revalidating: Promise<void> | undefined;
+  const revalidate = (): Promise<void> => {
+    if (revalidating) return revalidating;
+    if (pending)
+      return pending.promise.then(
+        () => undefined,
+        () => undefined
+      );
+    const ownGeneration = generation;
+    revalidating = (async () => {
+      try {
+        const response = await transport(
+          new Request(new URL('/auth/session', window.location.href), {
+            credentials: 'same-origin',
+            cache: 'no-store',
+            redirect: 'error',
+          })
+        );
+        if (!response.ok) return;
+        const value = parseSnapshot(await response.json());
+        if (generation !== ownGeneration || pending || transitions) return;
+        commit(value);
+      } catch {
+        // The current identity stands until a later hint or request.
+      } finally {
+        revalidating = undefined;
+      }
+    })();
+    return revalidating;
+  };
   const session = (signal: AbortSignal): AuthContext | Promise<AuthContext> => {
     if (signal.aborted || transitions) throw abortError();
     if (cached) return cached;
@@ -440,16 +475,24 @@ export function createSessionAuth(
         /* Unrelated malformed storage value. */
       }
     };
+    // Regaining the page is only a chance that a hint was missed: the
+    // server is consulted in the background and the app is retired only
+    // when the identity actually changed. Pending navigation and component
+    // state survive an unchanged identity.
+    const refocus = () => {
+      if (ownEvents !== eventGeneration || !roots.size) return;
+      void revalidate();
+    };
     const focus = () => {
-      if (!channel) changed({ protocol: 1, kind: 'changed' });
+      if (!channel) refocus();
     };
     const pageshow = (event: PageTransitionEvent) => {
-      if (event.persisted) changed({ protocol: 1, kind: 'changed' });
+      if (event.persisted) refocus();
     };
     let wasHidden = document.visibilityState === 'hidden';
     const visibility = () => {
       const visible = document.visibilityState === 'visible';
-      if (visible && wasHidden) changed({ protocol: 1, kind: 'changed' });
+      if (visible && wasHidden) refocus();
       wasHidden = !visible;
     };
     try {

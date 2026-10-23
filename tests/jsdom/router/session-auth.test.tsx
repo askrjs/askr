@@ -658,7 +658,8 @@ it.each(['pageshow', 'visibility'] as const)(
       visible.mockReturnValue('visible');
       document.dispatchEvent(new Event('visibilitychange'));
     }
-    expect(view.container.textContent).toBe('');
+    // The page stays until the server confirms the identity changed.
+    expect(view.container.textContent).toBe('private');
     await settle();
     expect(view.container.textContent).toBe('login');
     expect(transport).toHaveBeenCalledTimes(2);

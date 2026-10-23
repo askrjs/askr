@@ -5,6 +5,7 @@ import {
   createRouteRegistry,
   route,
   currentAuth,
+  navigate,
 } from '../../../src/router';
 import { cleanupApp, createSPA } from '../../../src/boot';
 import { getSessionAuthState } from '../../../src/router/session-auth-state';
@@ -175,4 +176,58 @@ it('should not restart the boot after a consent recovery loads the provider docu
   expect(loads).toBe(1);
   expect(vi.mocked(loadDocument)).toHaveBeenCalledTimes(1);
   expect(String(vi.mocked(loadDocument).mock.calls[0][0])).toContain('auth0');
+});
+
+it('should keep the app and a pending navigation when a refocus finds the same identity', async () => {
+  const visible = vi
+    .spyOn(document, 'visibilityState', 'get')
+    .mockReturnValue('visible');
+  const gate = { resolve: () => {} };
+  const transport = vi.fn().mockResolvedValue(Response.json(user('a')));
+  const auth = createSessionAuth({ fetch: transport });
+  let mounts = 0;
+  const registry = createRouteRegistry(
+    () => {
+      route(
+        '/private',
+        () => {
+          mounts += 1;
+          return (
+            <main>
+              <input id="draft" />
+            </main>
+          );
+        },
+        { auth: requireUser() }
+      );
+      route('/slow', () => <main>slow</main>, {
+        auth: requireUser(),
+        loader: () => new Promise<void>((done) => (gate.resolve = done)),
+      });
+      route('/login', () => <main>login</main>);
+    },
+    { auth }
+  );
+  await createSPA({ root: view.container, registry });
+  await settle();
+  const input = view.container.querySelector<HTMLInputElement>('#draft')!;
+  input.value = 'typed';
+  navigate('/slow');
+  await settle();
+
+  visible.mockReturnValue('hidden');
+  document.dispatchEvent(new Event('visibilitychange'));
+  visible.mockReturnValue('visible');
+  document.dispatchEvent(new Event('visibilitychange'));
+  await settle();
+
+  expect(view.container.querySelector('#draft')).toBe(input);
+  expect(input.value).toBe('typed');
+  expect(mounts).toBe(1);
+  expect(transport).toHaveBeenCalledTimes(2);
+
+  gate.resolve();
+  await settle();
+  expect(window.location.pathname).toBe('/slow');
+  expect(view.container.textContent).toBe('slow');
 });
