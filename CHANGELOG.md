@@ -407,6 +407,10 @@
   still gets the attribute. A function given `prop:` on a custom element is
   assigned as-is instead of being called as a reactive binding.
 
+- Let a callback ref return a cleanup function. It runs when the element is
+  removed or the ref is replaced, instead of calling the ref with `null`; a
+  ref that returns nothing still receives `null`.
+
 ## 0.4.4 - 2026-10-08
 
 ### Breaking changes

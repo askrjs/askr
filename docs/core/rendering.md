@@ -65,7 +65,8 @@ do not roll back an already successful render.
 ### Teardown errors
 
 When an update removes DOM, Askr tears down the removed subtree: callback refs
-receive `null`, listeners and fine-grained bindings are removed, and component
+receive `null` (or, when the callback returned a function, that cleanup runs
+instead and the callback is not called again), listeners and fine-grained bindings are removed, and component
 lifetimes are disposed, running their cleanup functions (returned by mount
 operations, tasks, and watches). Every one of these steps runs for every node in
 the subtree, even when an earlier one throws. Each step runs at most once: a
