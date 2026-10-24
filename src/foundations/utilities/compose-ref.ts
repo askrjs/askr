@@ -45,7 +45,8 @@ export function composeRefs<T>(
   return (value: T | null) => {
     const errors: unknown[] = [];
     // Cleanups the callbacks returned, and the refs that returned none
-    // and so expect null on detach, as they would when attached directly.
+    // (callbacks and object refs) and so expect null on detach, as they
+    // would when attached directly.
     const releases: Array<() => void> = [];
     const nullOnDetach: Array<Ref<T>> = [];
     for (const ref of refs) {
@@ -56,25 +57,22 @@ export function composeRefs<T>(
           else nullOnDetach.push(ref);
         } else {
           setRef(ref, value);
+          if (value !== null && ref) nullOnDetach.push(ref);
         }
       } catch (error) {
         errors.push(error);
       }
     }
-    if (errors.length > 0) {
-      throw new AggregateError(errors, 'Composed ref callbacks failed');
-    }
-    if (value === null || releases.length === 0) return undefined;
-    return () => {
+    const release = (reset: ReadonlyArray<Ref<T>>): void => {
       const failures: unknown[] = [];
-      for (const release of releases) {
+      for (const cleanup of releases) {
         try {
-          release();
+          cleanup();
         } catch (error) {
           failures.push(error);
         }
       }
-      for (const ref of nullOnDetach) {
+      for (const ref of reset) {
         try {
           setRef(ref, null);
         } catch (error) {
@@ -85,5 +83,20 @@ export function composeRefs<T>(
         throw new AggregateError(failures, 'Composed ref cleanups failed');
       }
     };
+    if (errors.length > 0) {
+      // Every ref was still applied (policy 3); the detach that follows
+      // gives them null. The cleanups already returned cannot be forwarded
+      // from a throwing attach, so they run now rather than never.
+      if (value !== null) {
+        try {
+          release([]);
+        } catch (failure) {
+          errors.push(failure);
+        }
+      }
+      throw new AggregateError(errors, 'Composed ref callbacks failed');
+    }
+    if (value === null || releases.length === 0) return undefined;
+    return () => release(nullOnDetach);
   };
 }

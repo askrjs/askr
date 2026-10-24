@@ -4,9 +4,11 @@ This document demonstrates correct usage patterns and shows how misuse is preven
 
 `composeRefs` invokes every ref in order for assignment. A callback that
 returns a cleanup has it forwarded: the composed ref returns one cleanup that
-runs those in order and gives `null` to the refs that returned none, so a
-composed ref detaches exactly like each ref would on its own. Failures are
-collected into an `AggregateError` in callback order.
+runs those in order and gives `null` to the refs that returned none (callback
+and object refs alike), so a composed ref detaches exactly like each ref would
+on its own. Failures are collected into an `AggregateError` in callback order;
+every ref is still applied, and the cleanups other callbacks already returned
+run at once, since a throwing attach cannot forward them.
 Readonly object assignments remain ignored. Standalone `setRef` continues to
 propagate callback failures directly.
 

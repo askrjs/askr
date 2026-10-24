@@ -40,4 +40,40 @@ describe('composeRefs (FOUNDATIONS)', () => {
     expect(readonlyRef.current).toBeNull();
     expect(callback).toHaveBeenCalledWith(value);
   });
+
+  it('should null object refs on detach when a callback ref returned a cleanup', () => {
+    const released = vi.fn();
+    const object: { current: { id: string } | null } = { current: null };
+    const node = { id: 'x' };
+
+    const detach = composeRefs<{ id: string }>(() => released, object)(node);
+
+    expect(object.current).toBe(node);
+    expect(typeof detach).toBe('function');
+    detach!();
+    expect(released).toHaveBeenCalledTimes(1);
+    expect(object.current).toBeNull();
+  });
+
+  it('should run the cleanups already returned when a later ref throws on attach', () => {
+    const released = vi.fn();
+    const object: { current: { id: string } | null } = { current: null };
+    const failure = new Error('nope');
+    const node = { id: 'x' };
+    const ref = composeRefs<{ id: string }>(
+      () => released,
+      object,
+      () => {
+        throw failure;
+      }
+    );
+
+    expect(() => ref(node)).toThrow(AggregateError);
+    // A throwing attach returns no cleanup, so the one collected runs now.
+    expect(released).toHaveBeenCalledTimes(1);
+    // Every ref is still applied; the detach that follows gives them null.
+    expect(object.current).toBe(node);
+    expect(() => ref(null)).toThrow(AggregateError);
+    expect(object.current).toBeNull();
+  });
 });
