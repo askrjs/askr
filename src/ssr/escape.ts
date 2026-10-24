@@ -37,15 +37,6 @@ const _TEXT_ESCAPE_RE = /[&<>]/g;
 const STYLE_PROP_CACHE = new Map<string, string>();
 const MAX_STYLE_PROP_CACHE_SIZE = 512;
 
-// Pre-compute escape map functions for faster replacement
-const _textEscapeMap = (ch: string): string => {
-  const code = ch.charCodeAt(0);
-  if (code === 38) return '&amp;'; // &
-  if (code === 60) return '&lt;'; // <
-  if (code === 62) return '&gt;'; // >
-  return ch;
-};
-
 function toKebabCached(prop: string): string {
   const cached = STYLE_PROP_CACHE.get(prop);
   if (cached !== undefined) return cached;
