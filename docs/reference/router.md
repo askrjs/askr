@@ -634,6 +634,8 @@ With no `error` declared, a failed navigation keeps today's behavior: the
 failure is logged and the current page and URL stay. With no `forbidden`
 declared, the status placeholder renders. A route that fails while it is the
 initial route of `createSPA()` renders its `error` component the same way.
+When auth resolution succeeded before the failure, the error page commits
+with that resolved identity; the departing page keeps its identity until then.
 Route metadata is not resolved for an error rendering.
 
 ### Server rendering
@@ -1023,7 +1025,8 @@ Limitations:
   state: the page and URL agree, at the cost of one extra history entry and
   the loss of forward entries.
 - Session-auth redirects (a session expiring or changing identity) and
-  fragment-only moves are not blocked; documents opened by `target="_blank"` are
+  fragment-only moves (including back/forward between fragments) are not blocked;
+  documents opened by `target="_blank"` are
   not affected.
 - The `beforeunload` prompt uses the browser's fixed text; a string result only
   matters for in-app navigation.

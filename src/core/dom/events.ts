@@ -170,8 +170,8 @@ function invoke(listener: Listener, el: Element, event: Event): void {
 
 /** Delegated handlers per element, by event type (several props can share one). */
 const delegatedHandlers = new WeakMap<Element, Map<string, Set<Listener>>>();
-/** Events a registered app root has dispatched, so `document.body` skips them. */
-const handledByRoot = new WeakSet<Event>();
+/** The last root that dispatched an event, so body skips that dispatch only. */
+const handledByRoot = new WeakMap<Event, Element>();
 /** Elements holding a delegated handler, per event type. */
 const delegatedUsage = new Map<string, number>();
 /** Registered app roots, each counted once per live root using it. */
@@ -309,13 +309,19 @@ function releaseEvent(event: Event): void {
 function dispatch(event: Event, eventName: string): void {
   const container = event.currentTarget as Element;
   const isRoot = roots.has(container);
+  const previousRoot = handledByRoot.get(event);
+  const handledRoot = previousRoot === container ? undefined : previousRoot;
   // An app root already ran every handler below it; `document.body` only
-  // listens for content rendered outside any root.
-  if (!isRoot && handledByRoot.has(event)) return;
-  if (isRoot) handledByRoot.add(event);
+  // listens for content rendered outside any root. An event can be dispatched
+  // again outside that root, so the old marker alone cannot suppress it.
+  if (!isRoot && handledRoot?.contains(event.target as Node | null)) return;
+  if (isRoot) handledByRoot.set(event, container);
   // composedPath() reaches into open shadow roots below the container, which
   // the target (retargeted to the shadow host here) and its parents do not.
   const composed = event.composedPath?.() ?? [];
+  // The target may have been detached, or retargeted at a shadow boundary,
+  // since the root handled it; the native path still records this dispatch.
+  if (!isRoot && handledRoot && composed.includes(handledRoot)) return;
   const end = composedPathEnd(composed, event.target, container);
   const path = end === -1 ? ancestryPath(event, container) : composed;
   const last = end === -1 ? path.length : end;

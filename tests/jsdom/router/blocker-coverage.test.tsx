@@ -64,6 +64,28 @@ describe('blockNavigation() coverage', () => {
     expect(navigationState().blocked).toBe(null);
   });
 
+  it('should traverse fragment entries without consulting blockers', async () => {
+    const registry = createRouteRegistry(() => {
+      route('/', () => <p id="section">a</p>);
+    });
+    await createSPA({ root: container, registry });
+    const content = container.querySelector('p');
+    navigate('/#section');
+    const blocker = vi.fn(() => true);
+    unblockers.push(blockNavigation(blocker));
+
+    window.history.back();
+    await vi.waitFor(() => expect(window.location.hash).toBe(''));
+    expect(blocker).not.toHaveBeenCalled();
+    expect(navigationState().blocked).toBe(null);
+    expect(container.querySelector('p')).toBe(content);
+
+    window.history.forward();
+    await vi.waitFor(() => expect(window.location.hash).toBe('#section'));
+    expect(blocker).not.toHaveBeenCalled();
+    expect(container.querySelector('p')).toBe(content);
+  });
+
   it('should leave the page as it is when a redirect is refused by a blocker', async () => {
     const slow = deferred<string>();
     let dirty = false;

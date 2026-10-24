@@ -111,7 +111,9 @@ rules can opt out with `styleRegistrationValidation: 'off'`.
 The document callback also receives `context.meta`, the route's resolved
 metadata chain (`title`, `meta`, group metadata), so a document can write the
 head with `serializeRouteMeta(context.meta)` from `@askrjs/askr/router`
-instead of resolving it again. A route `preload` runs before the page renders
+instead of resolving it again. Metadata sources receive the resolved leaf
+loader result as `context.data`, as they do during navigation and SSR.
+A route `preload` runs before the page renders
 against a page-local data runtime; pass `queryRegistry` (the same
 `defineServerQueries()` registry SSR uses) so prefetches are served, and the
 prefetched query data is embedded in the page like an SSR response.

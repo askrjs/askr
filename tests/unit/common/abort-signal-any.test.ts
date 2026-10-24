@@ -68,4 +68,22 @@ describe('anyAbortSignal', () => {
     first.abort();
     expect(remove).toHaveBeenCalledWith('abort', expect.any(Function));
   });
+
+  it('should remove every listener when an input signal is repeated', () => {
+    vi.stubGlobal('AbortSignal', function AbortSignalStub() {});
+    const first = new AbortController();
+    const second = new AbortController();
+    const add = vi.spyOn(second.signal, 'addEventListener');
+    const remove = vi.spyOn(second.signal, 'removeEventListener');
+    const combined = anyAbortSignal([
+      first.signal,
+      second.signal,
+      second.signal,
+    ]);
+    first.abort('done');
+    expect(combined.reason).toBe('done');
+    for (const [, listener] of add.mock.calls) {
+      expect(remove).toHaveBeenCalledWith('abort', listener);
+    }
+  });
 });

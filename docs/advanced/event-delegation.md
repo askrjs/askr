@@ -50,7 +50,8 @@ whose handler is running (and `event.target` is the real target inside a
 shadow tree); after dispatch it is `null`, as for a native listener. The event
 also has a `nativeEvent` property (the event itself), so code written for
 wrappers that expose one keeps working. Because the object is the native event,
-a handler can keep it and dispatch it again on another target once the current
+a handler can keep it and dispatch it again on another target, including
+outside its original app root, once the current
 dispatch has finished.
 
 An event inside an app root is handled once at that root. `document.body` also

@@ -206,7 +206,7 @@ Contract:
 
 - **Per-property tracking.** A property read inside a render, `derive()` or
   binding subscribes to that property only, through a signal created on its
-  first tracked read. A component that reads `todos.filter` does not re-render
+  first tracked read, including symbol properties. A component that reads `todos.filter` does not re-render
   when `todos.items` changes. Assigning a value that is `Object.is`-equal to the
   current one does nothing.
 - **Nesting and identity.** Nested plain objects and arrays are wrapped lazily
@@ -224,7 +224,9 @@ Contract:
   tasks are fine and coalesce like any other scheduled work (see `batch()`).
 - **Raw access.** `unwrap(proxy)` returns the raw object. Mutating the raw
   object directly does not notify anyone, and `includes`/`indexOf` on a store
-  array compare against proxies, so pass items read from the store.
+  array accept either raw items or items read from the store. Non-configurable,
+  non-writable data properties return their exact raw values, including
+  symbol properties, as JavaScript proxy invariants require.
 - **SSR.** A store is plain data on the server: `renderToStringSync()` renders
   its reads normally and nothing is subscribed.
 

@@ -92,4 +92,36 @@ describe('client auth publication', () => {
     await settle();
     expect(container.textContent).toBe('slow:bob');
   });
+
+  it('should publish the resolved identity when a loader failure commits an error page', async () => {
+    const gate = { fail: (_error: Error) => {} };
+    const registry = createRouteRegistry(
+      () => {
+        route('/home', () => (
+          <main>{`home:${currentAuth().principal?.id}`}</main>
+        ));
+        route('/broken', () => <main>content</main>, {
+          loader: () => new Promise((_resolve, reject) => (gate.fail = reject)),
+          error: () => <main>{`error:${currentAuth().principal?.id}`}</main>,
+        });
+      },
+      {
+        auth: {
+          resolve: ({ pathname }) =>
+            identity(pathname === '/home' ? 'alice' : 'bob'),
+        },
+      }
+    );
+    await createSPA({ root: container, registry });
+    expect(container.textContent).toBe('home:alice');
+
+    navigate('/broken');
+    await settle();
+    expect(currentAuth().principal?.id).toBe('alice');
+    gate.fail(new Error('loader failed'));
+    await settle();
+    expect(container.textContent).toBe('error:bob');
+    expect(currentAuth().principal?.id).toBe('bob');
+    expect(window.location.pathname).toBe('/broken');
+  });
 });

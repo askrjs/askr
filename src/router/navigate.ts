@@ -326,7 +326,14 @@ function handlePopState(event: PopStateEvent): void {
     syncRegisteredRouteSnapshot();
     return;
   }
-  if (hasNavigationBlockers() && !allowNavigationLeave()) {
+  const href = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  const fragmentTraversal =
+    href.split('#')[0] === getCurrentHref().split('#')[0];
+  if (
+    !fragmentTraversal &&
+    hasNavigationBlockers() &&
+    !allowNavigationLeave()
+  ) {
     // The browser already moved: record where it landed, then go back to the
     // entry that is still rendered.
     landOnHistoryEntry(event.state);
@@ -359,12 +366,11 @@ function handlePopState(event: PopStateEvent): void {
   const previousHref = getCurrentHref();
   const historyIndex = landOnHistoryEntry(event.state);
   const pathname = window.location.pathname;
-  const href = `${window.location.pathname}${window.location.search}${window.location.hash}`;
 
   if (!hasRegisteredApps()) {
     return;
   }
-  if (href.split('#')[0] === previousHref.split('#')[0]) {
+  if (fragmentTraversal) {
     // Only the fragment differs from the rendered page: no route to resolve.
     applyPopStateFragmentChange(
       previousHref,

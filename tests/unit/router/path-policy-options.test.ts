@@ -13,6 +13,15 @@ const routes = () => {
 };
 
 describe('trailingSlash registry option', () => {
+  it('should preserve both URL forms with an explicit ignore policy', async () => {
+    const registry = createRouteRegistry(routes, { trailingSlash: 'ignore' });
+    for (const target of ['/about?a=1#x', '/about/?a=1#x']) {
+      expect((await resolveRouteRequest(target, { registry }))?.kind).toBe(
+        'render'
+      );
+    }
+  });
+
   it('should leave both forms matching by default', async () => {
     const registry = createRouteRegistry(routes);
     expect((await resolveRouteRequest('/about/', { registry }))?.kind).toBe(

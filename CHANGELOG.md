@@ -277,7 +277,18 @@
   commits (and at initial mount), not when it resolves. A page still on
   screen while a navigation is pending, failed or superseded keeps reading
   the identity it rendered with from `currentAuth()`; a rolled-back commit
-  restores it.
+  restores it. An error page committed after a loader or policy failure also
+  receives the identity that resolved successfully before the failure.
+
+- Track symbol properties in stores and preserve the exact raw value of
+  frozen symbol properties, avoiding proxy invariant failures. SSG metadata
+  sources receive the leaf loader result as `context.data`. The abort-signal
+  fallback releases every listener when an input signal is repeated.
+
+- Back and forward between fragment entries skip departure blockers, matching
+  fragment-only `navigate()` calls. A native event previously handled by a
+  root can be dispatched again outside that root without losing its delegated
+  handlers, including when its first dispatch stopped propagation.
 
 - Index route records by their first segment for matching, memoize the last
   match per record list, and detect duplicate routes with a set lookup, so

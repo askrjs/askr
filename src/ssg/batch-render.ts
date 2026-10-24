@@ -214,7 +214,12 @@ export async function batchRenderRoutes(
         });
       }
       const meta = route.record
-        ? await resolveRouteMeta(route.record, requestContext)
+        ? await resolveRouteMeta(
+            route.record,
+            hasRouteData
+              ? { ...requestContext, data: routeData }
+              : requestContext
+          )
         : undefined;
 
       const renderedHandler =

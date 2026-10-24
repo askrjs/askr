@@ -134,15 +134,13 @@ function handlerFor(meta: Meta): ProxyHandler<object> {
       // A frozen or otherwise non-configurable, non-writable property must
       // report its own value through a proxy (an engine invariant), so it is
       // returned raw and read without tracking.
-      if (typeof key !== 'symbol') {
-        const descriptor = Object.getOwnPropertyDescriptor(target, key);
-        if (
-          descriptor &&
-          descriptor.configurable === false &&
-          descriptor.writable === false
-        ) {
-          return value;
-        }
+      const descriptor = Object.getOwnPropertyDescriptor(target, key);
+      if (
+        descriptor &&
+        descriptor.configurable === false &&
+        descriptor.writable === false
+      ) {
+        return value;
       }
       if (Array.isArray(target) && RAW_LOOKUPS.has(key)) {
         // includes/indexOf compare against the raw elements, so the
@@ -163,9 +161,8 @@ function handlerFor(meta: Meta): ProxyHandler<object> {
         // Inherited members (array methods) are not data; absent keys are
         // tracked so adding them later notifies the reader.
         if (
-          typeof key !== 'symbol' &&
-          (Object.prototype.hasOwnProperty.call(target, key) ||
-            !(key in target))
+          Object.prototype.hasOwnProperty.call(target, key) ||
+          !(key in target)
         ) {
           signalFor(meta, key).read();
         }

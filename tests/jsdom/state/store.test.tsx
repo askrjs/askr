@@ -7,7 +7,7 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 
-function mount<T>(component: () => unknown) {
+function mount(component: () => unknown) {
   const { container, cleanup } = createTestContainer();
   createIsland({ root: container, component: component as never });
   flushScheduler();
@@ -15,6 +15,37 @@ function mount<T>(component: () => unknown) {
 }
 
 describe('store()', () => {
+  it('should track symbol properties and notify their readers', () => {
+    const key = Symbol('count');
+    let value!: { [key]: number };
+    const { container, cleanup } = mount(() => {
+      value = store({ [key]: 1 });
+      return <p>{value[key]}</p>;
+    });
+    try {
+      value[key] = 2;
+      flushScheduler();
+      expect(container.textContent).toBe('2');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should preserve the value of frozen symbol properties', () => {
+    const key = Symbol('child');
+    const child = { n: 1 };
+    const raw = Object.freeze({ [key]: child });
+    const { container, cleanup } = mount(() => {
+      const value = store(raw);
+      return <p>{value[key].n}</p>;
+    });
+    try {
+      expect(container.textContent).toBe('1');
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should track a property per signal so an unrelated property does not re-render', () => {
     let renders = 0;
     let s!: { x: number; y: number };

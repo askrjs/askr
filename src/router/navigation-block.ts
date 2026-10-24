@@ -61,8 +61,9 @@ function onBeforeUnload(event: BeforeUnloadEvent): void {
  * `true` to refuse, a string to ask the visitor to confirm with that message,
  * or `false` to allow. Returns a function that removes the blocker.
  *
- * `updateRouteQuery()` and a policy or auth redirect met during an in-app
- * navigation consult blockers too; a refusal is dropped and reported through
+ * Query updates and fragment-only moves stay on the page and skip blockers.
+ * A policy or auth redirect met during an in-app navigation consults blockers
+ * too; a refusal is dropped and reported through
  * `navigationState().blocked`. Limitations: a traversal is undone after the
  * browser has moved and flashes the destination URL, by `history.go()` when the
  * history position is known and otherwise by pushing the current entry again

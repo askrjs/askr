@@ -29,6 +29,36 @@ function nextNativeEvent(target: EventTarget, type: string): Promise<void> {
 }
 
 describe('event delegation matches native dispatch in a real browser', () => {
+  test.each([false, true])(
+    'should redispatch a root event outside its root after stopPropagation is %s',
+    (stop) => {
+      const root = mountRoot();
+      const calls: Event[] = [];
+      createIsland({
+        root,
+        component: () => (
+          <button
+            onClick={(event: Event) => {
+              calls.push(event);
+              if (stop) event.stopPropagation();
+            }}
+          >
+            go
+          </button>
+        ),
+      });
+      flushScheduler();
+      const button = root.querySelector('button')!;
+      button.click();
+      const event = calls[0];
+      const outside = document.body.appendChild(document.createElement('div'));
+      cleanups.push(() => outside.remove());
+      outside.appendChild(button);
+      button.dispatchEvent(event);
+      expect(calls).toEqual([event, event]);
+    }
+  );
+
   test('should not run an ancestor onScroll when a descendant scrolls', async () => {
     const root = mountRoot();
     const calls: string[] = [];

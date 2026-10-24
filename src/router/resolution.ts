@@ -817,6 +817,7 @@ function resolveRouteRequestInternal(
       result?.kind === 'redirect'
         ? exposeRedirectDecision(result, basePath)
         : result;
+    let resolvedContext: RouteContext | undefined;
     const finalize = (authContext: AuthContext) => {
       assertCurrent?.();
       // A server or hydration render owns its identity at once. A browser
@@ -830,15 +831,16 @@ function resolveRouteRequestInternal(
       ) {
         setCurrentAuth(authContext, mode);
       }
+      resolvedContext = buildRouteContext(logicalTarget, match.params, {
+        mode,
+        signal,
+        authContext,
+        searchParams,
+      });
       const result = resolveMatchedRoute(
         match.record,
         match.params,
-        buildRouteContext(logicalTarget, match.params, {
-          mode,
-          signal,
-          authContext,
-          searchParams,
-        }),
+        resolvedContext,
         authOptions,
         options.request,
         options.telemetry,
@@ -896,11 +898,13 @@ function resolveRouteRequestInternal(
       const result = createRouteRenderResult(
         match.record,
         match.params,
-        buildRouteContext(logicalTarget, match.params, {
-          mode,
-          signal,
-          authContext: options.authContext ?? unresolvedAuth(mode),
-        }),
+        resolvedContext ??
+          buildRouteContext(logicalTarget, match.params, {
+            mode,
+            signal,
+            authContext: options.authContext ?? unresolvedAuth(mode),
+            searchParams,
+          }),
         layout
           ? bindResolvedRouteData(handler, undefined, undefined, layout, false)
           : handler

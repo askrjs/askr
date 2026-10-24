@@ -62,6 +62,30 @@ describe('SSG output policies', () => {
     });
   });
 
+  it('should pass resolved leaf loader data to metadata sources', async () => {
+    const registry = createRouteRegistry(() => {
+      route('/about', () => <p>about</p>, {
+        loader: async () => ({ title: 'Loaded title' }),
+        meta: ({ data }) => ({ title: (data as { title: string }).title }),
+      });
+    });
+    const outputDir = outputDirectory();
+    const document = vi.fn(({ appHtml }: { appHtml: string }) => appHtml);
+    const result = await createStaticGen({
+      registry,
+      outputDir,
+      document,
+    }).generate();
+    expect(result.routes[0]?.status).toBe('success');
+    expect(document).toHaveBeenCalledWith(
+      expect.objectContaining({
+        context: expect.objectContaining({
+          meta: expect.objectContaining({ title: 'Loaded title' }),
+        }),
+      })
+    );
+  });
+
   it('should run the route preload and embed its query data', async () => {
     const query = defineQuery({
       key: () => 'greeting',

@@ -23,7 +23,7 @@ export function anyAbortSignal(signals: readonly AbortSignal[]): AbortSignal {
     }
     listeners.clear();
   };
-  for (const signal of signals) {
+  for (const signal of new Set(signals)) {
     const listener = () => {
       release();
       controller.abort(signal.reason);
