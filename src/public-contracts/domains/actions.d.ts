@@ -57,6 +57,9 @@ interface ActionStatus<TResult = unknown> {
  * called from event handlers or other async work. An explicit csrfToken
  * resolver runs fresh for every submission under the component/data lifetime.
  * Its undefined result omits the token instead of falling back to SSR data.
+ * Without a resolver the token is read at every submission: the hydration
+ * token (until the session identity changes), else the \`csrf-token\` meta
+ * element, else the cookie named by \`csrfCookie\`.
  */
 declare function action<
   TInput extends Record<string, unknown>,
@@ -64,7 +67,9 @@ declare function action<
 >(
   descriptor: ActionDescriptor<TInput>,
   options?: {
-    readonly csrfToken: (signal: AbortSignal) => Promise<string | undefined>;
+    readonly csrfToken?: (signal: AbortSignal) => Promise<string | undefined>;
+    /** Name of a cookie holding the token, read at submit when no other source has one. */
+    readonly csrfCookie?: string;
   }
 ): {
   state: StateTuple<ActionStatus<TResult>>;

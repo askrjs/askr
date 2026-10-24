@@ -898,7 +898,7 @@
     },
     "./actions": {
       "action": [
-        "declare function action<TInput extends Record<string, unknown>, TResult = unknown>(descriptor: ActionDescriptor<TInput>, options?: {\n    readonly csrfToken: (signal: AbortSignal) => Promise<string | undefined>;\n}): {\n    state: StateTuple<ActionStatus<TResult>>;\n    submit(input: TInput): Promise<TResult>;\n};"
+        "declare function action<TInput extends Record<string, unknown>, TResult = unknown>(descriptor: ActionDescriptor<TInput>, options?: {\n    readonly csrfToken?: (signal: AbortSignal) => Promise<string | undefined>;\n    readonly csrfCookie?: string;\n}): {\n    state: StateTuple<ActionStatus<TResult>>;\n    submit(input: TInput): Promise<TResult>;\n};"
       ],
       "ActionDescriptor": [
         "interface ActionDescriptor<TInput extends Record<string, unknown> = Record<string, unknown>> {\n    readonly id: string;\n    readonly input: ObjectSchema<TInput>;\n    readonly invalidates: readonly string[];\n}"
@@ -1077,7 +1077,7 @@
       "type AccessRedirectStatus = 301 | 302 | 303 | 307 | 308;"
     ],
     "action": [
-      "declare function action<TInput extends Record<string, unknown>, TResult = unknown>(descriptor: ActionDescriptor<TInput>, options?: {\n    readonly csrfToken: (signal: AbortSignal) => Promise<string | undefined>;\n}): {\n    state: StateTuple<ActionStatus<TResult>>;\n    submit(input: TInput): Promise<TResult>;\n};"
+      "declare function action<TInput extends Record<string, unknown>, TResult = unknown>(descriptor: ActionDescriptor<TInput>, options?: {\n    readonly csrfToken?: (signal: AbortSignal) => Promise<string | undefined>;\n    readonly csrfCookie?: string;\n}): {\n    state: StateTuple<ActionStatus<TResult>>;\n    submit(input: TInput): Promise<TResult>;\n};"
     ],
     "ActionDescriptor": [
       "interface ActionDescriptor<TInput extends Record<string, unknown> = Record<string, unknown>> {\n    readonly id: string;\n    readonly input: ObjectSchema<TInput>;\n    readonly invalidates: readonly string[];\n}"

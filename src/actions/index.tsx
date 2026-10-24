@@ -3,7 +3,12 @@ import { anyAbortSignal } from '../common/abort-signal';
 import type { JSXElement } from '../common/jsx';
 import type { ObjectSchema } from '@askrjs/schema';
 import { getSignal, state } from '../core/api/state';
-import { currentComponent, onRenderDiscard } from '../core/api/hooks';
+import {
+  currentAppRuntime,
+  currentComponent,
+  onRenderDiscard,
+} from '../core/api/hooks';
+import { isCsrfCookieName, readSubmitTimeCsrfToken } from './csrf';
 import { getCurrentRenderData } from '../common/render-context';
 import {
   assertDataRuntimeActive,
@@ -157,6 +162,9 @@ function actionFailure(status: number, cause?: unknown): Error {
  * called from event handlers or other async work. An explicit csrfToken
  * resolver runs fresh for every submission under the component/data lifetime.
  * Its undefined result omits the token instead of falling back to SSR data.
+ * Without a resolver the token is read at every submission: the hydration
+ * token (until the session identity changes), else the `csrf-token` meta
+ * element, else the cookie named by `csrfCookie`.
  */
 export function action<
   TInput extends Record<string, unknown>,
@@ -164,7 +172,8 @@ export function action<
 >(
   descriptor: ActionDescriptor<TInput>,
   options?: {
-    readonly csrfToken: (signal: AbortSignal) => Promise<string | undefined>;
+    readonly csrfToken?: (signal: AbortSignal) => Promise<string | undefined>;
+    readonly csrfCookie?: string;
   }
 ) {
   if (
@@ -172,12 +181,24 @@ export function action<
     (options === null ||
       typeof options !== 'object' ||
       Array.isArray(options) ||
-      typeof options.csrfToken !== 'function' ||
-      Object.keys(options).some((key) => key !== 'csrfToken'))
+      (options.csrfToken !== undefined &&
+        typeof options.csrfToken !== 'function') ||
+      Object.keys(options).some(
+        (key) => key !== 'csrfToken' && key !== 'csrfCookie'
+      ))
   ) {
     throw new TypeError('action csrfToken requires an explicit resolver.');
   }
+  if (
+    options?.csrfCookie !== undefined &&
+    !isCsrfCookieName(options.csrfCookie)
+  ) {
+    throw new TypeError('action csrfCookie must be a cookie name.');
+  }
+  const resolveToken = options?.csrfToken;
+  const csrfCookie = options?.csrfCookie;
   const token = csrfToken();
+  const appRuntime = currentAppRuntime();
   const runtime = resolveDataRuntimeState(undefined, true);
   if (runtime.retired) {
     const instance = currentComponent();
@@ -193,7 +214,7 @@ export function action<
     if (binding?.runtime !== runtime || binding?.actionId !== descriptor.id)
       assertDataRuntimeActive(runtime);
   }
-  const signal = options
+  const signal = resolveToken
     ? composedActionSignal(getSignal(), runtime.retirement.signal)
     : undefined;
   const value = state<ActionStatus<TResult>>(
@@ -224,14 +245,17 @@ export function action<
       // submit again before the first request settles.
       setValue((previous) => ({ pending: true, result: previous.result }));
       try {
-        const submissionToken = options
-          ? await raceAbort(Promise.resolve(options.csrfToken(signal!)), [
-              signal!,
-            ])
-          : token;
+        const submissionToken = resolveToken
+          ? await raceAbort(Promise.resolve(resolveToken(signal!)), [signal!])
+          : readSubmitTimeCsrfToken(
+              typeof appRuntime?.framework.csrf === 'string'
+                ? appRuntime.framework.csrf
+                : token,
+              csrfCookie
+            );
         signal?.throwIfAborted();
         if (
-          options &&
+          resolveToken &&
           submissionToken !== undefined &&
           (typeof submissionToken !== 'string' ||
             !/^[\x21-\x7e]+$/.test(submissionToken))

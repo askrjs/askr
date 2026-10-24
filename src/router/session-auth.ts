@@ -6,6 +6,7 @@ import { resolveNavigationUrl } from '../common/url';
 import { reportUncaughtErrorLater } from '../common/report-error';
 import { navigateToPublicHref } from './navigate';
 import { loadDocument } from './document-navigation';
+import { revokeHydratedCsrfToken } from '../common/csrf-token';
 import {
   registerSessionAuthState,
   type SessionRecovery,
@@ -225,6 +226,8 @@ export function createSessionAuth(
   const mountedRoots = new Set<object>();
   let generation = 0;
   let cached: AuthContext | undefined;
+  /** The last identity the server confirmed (serialized), for token revocation. */
+  let confirmedIdentity: string | undefined;
   let pending:
     | { controller: AbortController; promise: Promise<AuthContext> }
     | undefined;
@@ -284,6 +287,12 @@ export function createSessionAuth(
     for (const error of errors) reportUncaughtErrorLater(error);
   };
   const invalidate = (value: AuthContext | undefined) => {
+    // `undefined` only asks for a fresh look at the server; a value is the
+    // new identity (logout, a failed session), which ends the token's session.
+    if (value !== undefined) {
+      revokeHydratedCsrfToken();
+      confirmedIdentity = JSON.stringify(project(value));
+    }
     generation++;
     const previous = pending;
     pending = undefined;
@@ -294,6 +303,13 @@ export function createSessionAuth(
     identity.write(value ?? anonymous);
   };
   const commit = (value: AuthContext) => {
+    // The cache holds a placeholder identity after a revalidation hint, so
+    // the token's session is judged against the last identity the server
+    // confirmed.
+    const next = JSON.stringify(project(value));
+    if (confirmedIdentity !== undefined && confirmedIdentity !== next)
+      revokeHydratedCsrfToken();
+    confirmedIdentity = next;
     const previous = identity.peek();
     if (
       previous !== undefined &&

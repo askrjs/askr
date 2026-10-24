@@ -128,6 +128,23 @@ action submission.
 
 ## Client-rendered action CSRF
 
+Without a resolver, `action()` finds the token again on every submission rather
+than capturing it once at render. The first source that has a token wins:
+
+1. the explicit `csrfToken` resolver option (below);
+2. the token in the latest hydration envelope, until the session identity
+   changes (login, logout or a different user) - a token is bound to the session
+   it was issued for, so it is dropped then;
+3. a `<meta name="csrf-token" content="...">` element, read from the document at
+   each submit, so a server that rotates the token after login only has to
+   update the element;
+4. the cookie named by the `csrfCookie` option, URL-decoded, for example
+   `action(rename, { csrfCookie: 'XSRF-TOKEN' })`. There is no default cookie
+   name.
+
+A value that is not a non-empty ASCII token is skipped. When no source has a
+token, the request carries none.
+
 A pure SPA has no server-rendered page token. Pass an explicit asynchronous
 resolver to `action()` when the application obtains its token through a
 same-origin server endpoint:
@@ -160,7 +177,7 @@ keep the secret and session ID server-side. Return only `{ csrfToken }`, use
 `Cache-Control: no-store`, and do not enable cross-origin reads. An anonymous
 session may return `{}`; actions that require a session still reject it.
 
-The resolver runs for every submission and receives a signal tied to the
+An explicit resolver replaces the chain above. It runs for every submission and receives a signal tied to the
 component and its data runtime. An undefined result omits the header and does
 not reuse an SSR token. Rejection stops the mutation; there is no automatic
 retry. Logout, identity replacement or component teardown aborts this opted-in

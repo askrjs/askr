@@ -61,6 +61,12 @@
   navigation commit inside `document.startViewTransition()` when it exists,
   and commit directly otherwise. Back/forward follows the app option. See
   the navigation guide.
+- `action()` no longer captures the CSRF token once at render when it has no
+  `csrfToken` resolver. Each submission reads, in order, the hydration envelope
+  token (until the session identity changes), a `<meta name="csrf-token">`
+  element, and the cookie named by the new `csrfCookie` option (default none),
+  so a token rotated after login is picked up. `csrfToken` is now optional in
+  the options. See the forms guide.
 - Report `status: 404` on the SSR render result when a `fallback()` rendered
   the miss, so hosts can send the right status without reading the private
   route record.

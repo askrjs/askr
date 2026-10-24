@@ -33,6 +33,10 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { loadDocument } from '../../../src/router/document-navigation';
+import {
+  isHydratedCsrfTokenRevoked,
+  resetHydratedCsrfToken,
+} from '../../../src/common/csrf-token';
 
 vi.mock('../../../src/router/document-navigation', () => ({
   loadDocument: vi.fn(),
@@ -432,6 +436,55 @@ it('should revalidate cross-tab login from storage fallback and immediately clea
   await settle();
   expect(view.container.textContent).toBe('login');
   expect(transport).toHaveBeenCalledTimes(3);
+});
+
+it('should revoke the hydration CSRF token when the session identity changes or ends', async () => {
+  const transport = vi
+    .fn()
+    .mockResolvedValueOnce(Response.json(user('a')))
+    .mockResolvedValueOnce(Response.json(user('a')))
+    .mockResolvedValueOnce(Response.json(user('b')))
+    .mockResolvedValueOnce(Response.json(guest));
+  const auth = createSessionAuth({ fetch: transport });
+  const registry = createRouteRegistry(
+    () => {
+      route('/private', () => <main>{currentAuth().principal?.id}</main>, {
+        auth: requireUser(),
+      });
+      route('/login', () => <main>login</main>);
+    },
+    { auth }
+  );
+  await createSPA({ root: view.container, registry });
+  expect(isHydratedCsrfTokenRevoked()).toBe(false);
+  // The same identity keeps the token.
+  window.dispatchEvent(
+    new StorageEvent('storage', {
+      key: '__askr_provider_session_1',
+      newValue: JSON.stringify({ protocol: 1, kind: 'changed' }),
+    })
+  );
+  await settle();
+  expect(isHydratedCsrfTokenRevoked()).toBe(false);
+  // Another identity revokes it.
+  window.dispatchEvent(
+    new StorageEvent('storage', {
+      key: '__askr_provider_session_1',
+      newValue: JSON.stringify({ protocol: 1, kind: 'changed' }),
+    })
+  );
+  await settle();
+  expect(isHydratedCsrfTokenRevoked()).toBe(true);
+  // Logout revokes it as well.
+  resetHydratedCsrfToken();
+  window.dispatchEvent(
+    new StorageEvent('storage', {
+      key: '__askr_provider_session_1',
+      newValue: JSON.stringify({ protocol: 1, kind: 'logout' }),
+    })
+  );
+  await settle();
+  expect(isHydratedCsrfTokenRevoked()).toBe(true);
 });
 
 it('should retire every root before publishing identity even when one cleanup throws', async () => {

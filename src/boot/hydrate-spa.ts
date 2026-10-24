@@ -1,6 +1,7 @@
 /**
  * App bootstrap and mount
  */
+import { resetHydratedCsrfToken } from '../common/csrf-token';
 import { isProductionEnvironment } from '../common/env';
 import type { ResolvedRoute } from '../common/router';
 import {
@@ -109,6 +110,8 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     applyDeferredStreamPatches(rootElement);
     adoptSsrStyleCarriers(rootElement);
     const hydrationRenderData = takeHydrationRenderData(rootElement);
+    // A freshly delivered envelope carries a token for the current session.
+    resetHydratedCsrfToken();
     const hydrationQueryCache = hydrationRenderData?.queries;
     // The auth snapshot is consumed by route resolution below; components
     // never see it through render data.

@@ -281,7 +281,6 @@ it('should preserve a decoded interaction problem as the action error cause', as
 it.each([
   null,
   [],
-  {},
   { csrfToken: 'static' },
   { csrfToken: async () => 'token', fetch },
 ])(
