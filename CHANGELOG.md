@@ -290,6 +290,10 @@
   root can be dispatched again outside that root without losing its delegated
   handlers, including when its first dispatch stopped propagation.
 
+- Avoid splitting and parsing identical literal paths in direct route
+  matching. Dynamic patterns and paths with empty interior segments retain
+  the general matcher and its capture and validation rules.
+
 - Index route records by their first segment for matching, memoize the last
   match per record list, and detect duplicate routes with a set lookup, so
   matching and registration no longer scale with the whole route table.

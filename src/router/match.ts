@@ -362,6 +362,17 @@ export function match(path: string, pattern: string): MatchResult {
   const normalizedPattern =
     pattern.endsWith('/') && pattern !== '/' ? pattern.slice(0, -1) : pattern;
 
+  // Identical literal paths need no splitting, parsing or capture walk. Keep
+  // dynamic patterns and empty interior segments on the general matcher.
+  if (
+    normalizedPath === normalizedPattern &&
+    !normalizedPattern.includes('{') &&
+    !normalizedPattern.includes('*') &&
+    !normalizedPattern.includes('//')
+  ) {
+    return { matched: true, params: emptyParams };
+  }
+
   const pathSegments = splitPathSegments(normalizedPath);
   const patternSegments = parseSegments(normalizedPattern);
   const params = matchSegments(pathSegments, patternSegments);

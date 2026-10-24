@@ -9,6 +9,23 @@ import { match } from '../../../src/router/match';
 
 describe('route matching (ROUTER)', () => {
   describe('exact path matching', () => {
+    it.each([
+      ['/users/{id}', '/users/{id}', { id: '{id}' }],
+      ['/docs/*', '/docs/*', { '*': '*' }],
+      ['/files/{*path}', '/files/{*path}', { path: '{*path}' }],
+      ['/caf%C3%A9', '/café', {}],
+      ['/literal*', '/literal*', {}],
+    ])(
+      'should retain captures and decoding for %s against %s',
+      (path, pattern, params) => {
+        expect(match(path, pattern)).toEqual({ matched: true, params });
+      }
+    );
+
+    it('should reject empty interior segments even when the path and pattern are identical', () => {
+      expect(match('/users//x', '/users//x').matched).toBe(false);
+    });
+
     it('should match exact static paths', () => {
       const result = match('/users', '/users');
       expect(result.matched).toBe(true);
