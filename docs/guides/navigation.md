@@ -244,6 +244,14 @@ group(
 );
 ```
 
+On the server, `renderRouteRequest()` renders these components too: a failure
+resolves to `{ kind: 'render', status: 500, error }` and a denial to `{ kind:
+'render', status: 403, denied: true }` (the denial's own status), each with the
+component's HTML. Hosts send `status` with the HTML. Without the components the
+call still rejects and returns `{ kind: 'deny' }`. Hydration adopts the
+server markup. A failure's message reaches the page only when the error has
+`expose: true`; see the [router reference](../reference/router.md#server-rendering).
+
 ## Untrusted redirect targets
 
 A `?next=` value is attacker-controlled. Reduce it with `localTarget()` before

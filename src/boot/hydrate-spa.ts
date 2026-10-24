@@ -69,6 +69,13 @@ import {
 import { getSessionAuthState } from '../router/session-auth-state';
 import { createSPA } from './spa';
 import { readHydratedLayoutData } from '../router/route-hydration';
+import {
+  createHydratedRouteErrorResult,
+  isRouteErrorResult,
+  readRouteErrorOutcome,
+  routeErrorComponent,
+  setRootRendersRouteError,
+} from '../router/route-error';
 
 /**
  * hydrateSPA: Hydrate server-rendered HTML with an explicit route registry.
@@ -171,7 +178,24 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       releaseSessionDataRuntime(dataRuntime);
       return;
     }
-    const { path, href: currentUrl, resolved } = initialRoute;
+    const { path, href: currentUrl } = initialRoute;
+    let resolved = initialRoute.resolved;
+    // The server rendered the route's `error` component for a failure; the
+    // client renders the same component instead of rerunning the route.
+    const serverError =
+      resolved?.kind === 'render' &&
+      resolved.record &&
+      routeErrorComponent(resolved.record)
+        ? readRouteErrorOutcome(hydrationRenderData?.framework)
+        : undefined;
+    if (resolved?.kind === 'render' && resolved.record && serverError) {
+      publishResolvedAuth(resolved);
+      resolved = createHydratedRouteErrorResult(
+        resolved.record,
+        resolved.params,
+        serverError
+      );
+    }
     if (resolved?.kind === 'render') {
       appRouteSource.runtime.layoutData = readHydratedLayoutData(
         resolved.record,
@@ -218,6 +242,17 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     const failOnMismatch = (info: HydrationMismatchInfo, reason: string) => {
       if (config.hydrate?.onMismatch?.(info) === 'continue') return;
       throw new Error(formatHydrationMismatch(info, reason));
+    };
+
+    // A navigation away from a mounted error page must remount, not patch.
+    const markErrorRoot = () => {
+      const mounted = getAppRoot(rootElement);
+      if (
+        mounted &&
+        resolved?.kind === 'render' &&
+        isRouteErrorResult(resolved)
+      )
+        setRootRendersRouteError(mounted, true);
     };
 
     const mountHydratedRoot: typeof mountOrUpdate = (...args) => {
@@ -313,6 +348,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
                 mountOrUpdate: mountHydratedRoot,
                 registerAppNavigation: (...args) => {
                   boot.assertCurrent();
+                  markErrorRoot();
                   return registerAppNavigation(...args);
                 },
                 registerRootCleanupCallback,
@@ -364,6 +400,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     boot.assertCurrent();
     interactionReplay.complete();
     boot.assertCurrent();
+    markErrorRoot();
     await registerAppNavigation(rootElement, path, {
       ...appRouteSource,
     });

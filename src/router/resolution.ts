@@ -65,6 +65,7 @@ import {
   createRouteErrorHandler,
   markDeniedRoute,
   markRouteErrorResult,
+  publicRouteError,
   routeErrorComponent,
   routeForbiddenComponent,
 } from './route-error';
@@ -764,7 +765,12 @@ function resolveRouteRequestInternal(
         throw error;
       }
       assertCurrent?.();
-      const handler = createRouteErrorHandler(match.record, error)!;
+      // A server render shows the page's visitors only what the failure
+      // opted in to expose; the host still receives the failure itself.
+      const handler = createRouteErrorHandler(
+        match.record,
+        mode === 'ssr' ? publicRouteError(error) : error
+      )!;
       const result = createRouteRenderResult(
         match.record,
         match.params,
@@ -775,7 +781,7 @@ function resolveRouteRequestInternal(
         }),
         handler
       );
-      markRouteErrorResult(result);
+      markRouteErrorResult(result, error);
       return result;
     };
     const reloadStaleDeployment = (error: unknown): void => {
@@ -789,6 +795,7 @@ function resolveRouteRequestInternal(
     };
     const recover = (error: unknown): RouteRequestResult => {
       assertCurrent?.();
+      if (serverErrors) return showError(error);
       if (mode !== 'spa' || signal.aborted || options.prefetch) throw error;
       const state = getSessionAuthState(authOptions);
       const recovery = state?.recover(
@@ -806,6 +813,12 @@ function resolveRouteRequestInternal(
       }
       return { kind: 'redirect', to: recovery.href, replace: true };
     };
+    // A server render shows a declared error component for a failing route.
+    const serverErrors =
+      mode === 'ssr' &&
+      Boolean(options.routeErrors) &&
+      !options.prefetch &&
+      Boolean(routeErrorComponent(match.record));
     const targetHref = () => {
       const url = resolveNavigationUrl(
         target,
@@ -824,9 +837,10 @@ function resolveRouteRequestInternal(
                 ? Promise.resolve(resolved).then(finalize)
                 : finalize(resolved);
             })();
-      return mode === 'spa' &&
+      return ((mode === 'spa' &&
         (getSessionAuthState(authOptions) ||
-          (options.routeErrors && routeErrorComponent(match.record))) &&
+          (options.routeErrors && routeErrorComponent(match.record)))) ||
+        serverErrors) &&
         isPromiseLike(result)
         ? Promise.resolve(result).catch(recover)
         : result;

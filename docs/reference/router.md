@@ -624,10 +624,33 @@ With no `error` declared, a failed navigation keeps today's behavior: the
 failure is logged and the current page and URL stay. With no `forbidden`
 declared, the status placeholder renders. A route that fails while it is the
 initial route of `createSPA()` renders its `error` component the same way.
-Route metadata is not resolved for an error rendering. Server rendering is
-unchanged: `renderRouteRequest()` still rejects with the loader failure and
-returns `{ kind: 'deny' }` for denials, so hosts render their own error page
-and status.
+Route metadata is not resolved for an error rendering.
+
+### Server rendering
+
+`renderRouteRequest()` and `renderRouteRequestToString()` render the same
+components when the matched route (or an ancestor `page()`/`group()`) declares
+them:
+
+- A loader, `preload`, policy or render failure renders the `error` component
+  inside the route's layouts and resolves to `{ kind: 'render', html, status:
+  500, error }`, where `error` is the original failure. Send `status` with the
+  HTML and log `error`. The component's `retry()` is inert on the server.
+- A denial renders the `forbidden` component (without layouts, as in the
+  browser) and resolves to `{ kind: 'render', html, status, denied: true }`
+  where `status` is the denial status (`401`, `403` or `404`). `denied` is an
+  ordinary enumerable field, so it survives spreading and serialization.
+- Without the component the results are unchanged: the call rejects with the
+  failure and returns `{ kind: 'deny', status }` for denials.
+
+Server-rendered pages show visitors only what a failure opts in to expose,
+as rejected deferred values do: the `error` prop of a server-rendered page is
+the failure itself when it is an `Error` with `expose: true`, and otherwise an
+`Error` whose message is `"Route failed to render."`. The browser rebuilds the
+same error from the page's hydration data, so `hydrateSPA()` adopts the markup
+without a mismatch and the loader does not run again. A denial is
+re-evaluated by the client with the same policies, so it renders the same
+`forbidden` component.
 
 ## `RouteDataLoadError`
 

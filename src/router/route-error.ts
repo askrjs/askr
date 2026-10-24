@@ -35,12 +35,77 @@ export function configureRouteRetry(retry: () => void): void {
   retryRoute = retry;
 }
 
-const errorResults = new WeakSet<object>();
+const errorResults = new WeakMap<object, unknown>();
 const deniedRecords = new WeakMap<object, RouteRecord>();
 
 /** True for a result that renders a route's `error` component. */
 export function isRouteErrorResult(result: RouteRenderResult): boolean {
   return errorResults.has(result);
+}
+
+/** The failure a route error result is showing (undefined for other results). */
+export function routeErrorOf(result: RouteRenderResult): unknown {
+  return errorResults.get(result);
+}
+
+/** Message a server-rendered error page shows for a failure that did not opt in to exposure. */
+export const REDACTED_ROUTE_ERROR = 'Route failed to render.';
+
+/** Framework-owned envelope key recording that the server rendered a route's error component. */
+export const ROUTE_ERROR_OUTCOME = 're';
+
+/**
+ * The error a server-rendered error component receives, and the one the
+ * client rebuilds from the transported outcome. Failures reach the page only
+ * when they opt in with `expose: true`, as rejected deferred values do.
+ */
+export function publicRouteError(error: unknown): Error {
+  if (
+    error instanceof Error &&
+    (error as Error & { expose?: unknown }).expose === true
+  ) {
+    return error;
+  }
+  return new Error(REDACTED_ROUTE_ERROR);
+}
+
+/** JSON transport of a server-rendered error outcome. */
+export function routeErrorOutcome(error: Error): { n: string; m: string } {
+  return { n: error.name, m: error.message };
+}
+
+/** Rebuild the error a server-rendered error page showed, from its transport. */
+export function readRouteErrorOutcome(
+  framework: Readonly<Record<string, unknown>> | undefined
+): Error | undefined {
+  const value = framework?.[ROUTE_ERROR_OUTCOME] as
+    | { n?: unknown; m?: unknown }
+    | undefined;
+  if (!value || typeof value !== 'object') return undefined;
+  const error = new Error(
+    typeof value.m === 'string' ? value.m : REDACTED_ROUTE_ERROR
+  );
+  if (typeof value.n === 'string') error.name = value.n;
+  return error;
+}
+
+/**
+ * The result a hydrating client mounts when the server rendered the route's
+ * `error` component: the same component, with the error the server exposed.
+ */
+export function createHydratedRouteErrorResult(
+  record: RouteRecord,
+  params: Record<string, string>,
+  error: Error
+): RouteRenderResult {
+  const result: RouteRenderResult = {
+    kind: 'render',
+    handler: createRouteErrorHandler(record, error)!,
+    params,
+  };
+  Object.defineProperty(result, 'record', { value: record, enumerable: false });
+  markRouteErrorResult(result, error);
+  return result;
 }
 
 /** Render the route's `error` component in the leaf slot, inside its layouts. */
@@ -71,8 +136,11 @@ export function setRootRendersRouteError(root: object, value: boolean): void {
   else errorRoots.delete(root);
 }
 
-export function markRouteErrorResult(result: RouteRenderResult): void {
-  errorResults.add(result);
+export function markRouteErrorResult(
+  result: RouteRenderResult,
+  error?: unknown
+): void {
+  errorResults.set(result, error);
 }
 
 /** Remember the route that denied a request, for its `forbidden` component. */
@@ -81,6 +149,13 @@ export function markDeniedRoute(
   record: RouteRecord
 ): void {
   deniedRecords.set(decision, record);
+}
+
+/** The route whose `forbidden` component a denial renders, if it declared one. */
+export function deniedRouteRecord(
+  decision: AccessDenyDecision
+): RouteRecord | undefined {
+  return deniedRecords.get(decision);
 }
 
 /** The placeholder a denied route renders in place of protected content. */

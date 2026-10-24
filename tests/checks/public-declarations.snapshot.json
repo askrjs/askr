@@ -940,7 +940,7 @@
         "interface RenderRouteRequestOptions {\n    url: string;\n    registry: RouteRegistry;\n    auth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    request?: Request;\n    signal?: AbortSignal;\n    seed?: number;\n    data?: SSRData;\n    framework?: Readonly<Record<string, unknown>>;\n    dataRuntime?: DataRuntime;\n    queryPrefetch?: QueryPrefetchContext;\n    queryRegistry?: ServerQueryRegistry;\n    telemetry?: CoreTelemetry;\n    cspNonce?: string;\n}"
       ],
       "RenderRouteRequestResult": [
-        "type RenderRouteRequestResult = {\n    kind: \"render\";\n    html: string;\n    stream?: ReadableStream<Uint8Array>;\n    styles: readonly SSRStyleRegistration[];\n    params: Record<string, string>;\n    status?: 404;\n    record?: RouteRecord;\n} | AccessRedirectDecision | AccessDenyDecision | {\n    kind: \"no-match\";\n};"
+        "type RenderRouteRequestResult = {\n    kind: \"render\";\n    html: string;\n    stream?: ReadableStream<Uint8Array>;\n    styles: readonly SSRStyleRegistration[];\n    params: Record<string, string>;\n    status?: 401 | 403 | 404 | 500;\n    error?: unknown;\n    denied?: true;\n    record?: RouteRecord;\n} | AccessRedirectDecision | AccessDenyDecision | {\n    kind: \"no-match\";\n};"
       ],
       "renderRouteRequestToString": [
         "declare function renderRouteRequestToString(options: RenderRouteRequestOptions): Promise<RenderRouteRequestResult>;"
@@ -2006,7 +2006,7 @@
       "interface RenderRouteRequestOptions {\n    url: string;\n    registry: RouteRegistry;\n    auth?: RouteAuthOptions;\n    authContext?: AuthContext;\n    request?: Request;\n    signal?: AbortSignal;\n    seed?: number;\n    data?: SSRData;\n    framework?: Readonly<Record<string, unknown>>;\n    dataRuntime?: DataRuntime;\n    queryPrefetch?: QueryPrefetchContext;\n    queryRegistry?: ServerQueryRegistry;\n    telemetry?: CoreTelemetry;\n    cspNonce?: string;\n}"
     ],
     "RenderRouteRequestResult": [
-      "type RenderRouteRequestResult = {\n    kind: \"render\";\n    html: string;\n    stream?: ReadableStream<Uint8Array>;\n    styles: readonly SSRStyleRegistration[];\n    params: Record<string, string>;\n    status?: 404;\n    record?: RouteRecord;\n} | AccessRedirectDecision | AccessDenyDecision | {\n    kind: \"no-match\";\n};"
+      "type RenderRouteRequestResult = {\n    kind: \"render\";\n    html: string;\n    stream?: ReadableStream<Uint8Array>;\n    styles: readonly SSRStyleRegistration[];\n    params: Record<string, string>;\n    status?: 401 | 403 | 404 | 500;\n    error?: unknown;\n    denied?: true;\n    record?: RouteRecord;\n} | AccessRedirectDecision | AccessDenyDecision | {\n    kind: \"no-match\";\n};"
     ],
     "renderRouteRequestToString": [
       "declare function renderRouteRequestToString(options: RenderRouteRequestOptions): Promise<RenderRouteRequestResult>;"

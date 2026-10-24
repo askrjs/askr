@@ -39,6 +39,14 @@
 
 ### Additions
 
+- Server rendering renders a route's `error` and `forbidden` components:
+  `renderRouteRequest()` and `renderRouteRequestToString()` resolve a loader,
+  `preload`, policy or render failure to `{ kind: 'render', status: 500, error }`
+  with the `error` component inside the layouts, and a denial to
+  `{ kind: 'render', status, denied: true }` with the `forbidden` component.
+  Without those components the results are unchanged. `hydrateSPA()` adopts the
+  markup; failures reach the page only with `expose: true`. The buffered result
+  also keeps its private `record`. See the router reference.
 - SSG writes the root `fallback()` as `404.html`, passes the route's resolved
   metadata to the document callback as `context.meta`, runs route `preload`
   prefetches against a page-local data runtime served by a new `queryRegistry`
