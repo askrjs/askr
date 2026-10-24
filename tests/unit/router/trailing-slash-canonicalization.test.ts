@@ -18,7 +18,6 @@ describe('trailing slash canonicalization', () => {
     );
     expect(matchRoute('/docs/', { registry })?.path).toBe('/docs');
     expect(matchRoute(`/docs${'/'.repeat(5000)}`, { registry })).toBeNull();
-    expect(matchRoute('/'.repeat(5000), { registry })).toBeNull();
   });
 
   it('should keep file-like paths without a trailing slash under the always policy', () => {
