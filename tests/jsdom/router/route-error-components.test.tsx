@@ -17,6 +17,7 @@ import {
   route,
 } from '../../../src/router/route';
 import { forbidden } from '../../../src/router/policy';
+import { layoutData } from '../../../src/router';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 import { logger } from '../../../src/common/logger';
 
@@ -54,6 +55,39 @@ describe('route error and forbidden components', () => {
 
     navigate('/broken');
     await vi.waitFor(() => expect(container.textContent).toBe('failed: boom'));
+    expect(window.location.pathname).toBe('/broken');
+  });
+
+  it('should render the error component inside layouts that read the group loader data that did load', async () => {
+    const navLoader = async () => 'nav';
+    const registry = createRouteRegistry(() => {
+      route('/', () => <p>home</p>);
+      group(
+        {
+          loader: navLoader,
+          layout: ({ children }: { children?: unknown }) => (
+            <div>
+              <h1>{layoutData(navLoader)}</h1>
+              {children as never}
+            </div>
+          ),
+        },
+        () => {
+          route('/broken', () => <p>content</p>, {
+            loader: async () => {
+              throw new Error('boom');
+            },
+            error: ({ error }) => <p>failed: {(error as Error).message}</p>,
+          });
+        }
+      );
+    });
+    await createSPA({ root: container, registry });
+
+    navigate('/broken');
+    await vi.waitFor(() =>
+      expect(container.textContent).toBe('navfailed: boom')
+    );
     expect(window.location.pathname).toBe('/broken');
   });
 

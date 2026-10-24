@@ -99,6 +99,12 @@ function rememberResolvedAuth(
 const routeRenderContexts = new WeakMap<object, RouteContext>();
 const routeRenderData = new WeakMap<object, unknown>();
 const routeLayoutData = new WeakMap<object, ReadonlyMap<unknown, unknown>>();
+/**
+ * Group/page loader results that did load before another loader failed,
+ * keyed by that failure, so the error component renders inside layouts that
+ * have their data.
+ */
+const partialLayoutData = new WeakMap<object, BoundLayoutData>();
 const routeRevalidations = new WeakMap<object, Promise<unknown[]>>();
 
 export function getRouteRenderContext(
@@ -486,7 +492,7 @@ function buildRenderResult(
     if (pending.length === 0 && loads.length === 0) throw failure.error;
     values.push(Promise.reject(failure.error));
   }
-  for (const value of values) if (isPromiseLike(value)) pending.push(value);
+  const asyncLoads = values.some(isPromiseLike);
 
   const finalize = (settled: unknown[]): RouteRenderResult => {
     assertCurrent?.();
@@ -514,14 +520,79 @@ function buildRenderResult(
     }
     return result;
   };
-  if (pending.length === 0) return finalize(values);
-  return Promise.all([Promise.all(values), ...pending]).then(([settled]) => {
+  if (!asyncLoads && pending.length === 0) return finalize(values);
+  // With group/page loaders every loader settles before a failure surfaces,
+  // so the error component renders inside layouts that have their data.
+  const loaded =
+    asyncLoads && layoutCount > 0
+      ? Promise.allSettled(values).then((outcomes) => {
+          const rejected = outcomes.find(
+            (outcome): outcome is PromiseRejectedResult =>
+              outcome.status === 'rejected'
+          );
+          if (!rejected) {
+            return outcomes.map(
+              (outcome) => (outcome as PromiseFulfilledResult<unknown>).value
+            );
+          }
+          rememberPartialLayoutData(
+            rejected.reason,
+            runs,
+            layoutCount,
+            outcomes,
+            context.mode === 'ssr'
+              ? context.href || context.pathname || record.path
+              : undefined
+          );
+          throw rejected.reason;
+        })
+      : Promise.all(values);
+  return Promise.all([loaded, ...pending]).then(([settled]) => {
     // A lazy chunk that failed to load is not a result: surface it here, where
     // the route can show its error component, not later while rendering.
     const failure = lazyImport ? _routeRecordLoadFailure(record) : undefined;
     if (failure) throw failure.error;
     return finalize(settled);
   });
+}
+
+/**
+ * Keep the group/page loader values that did load against the failure that
+ * stops this resolution. On the server they also enter the hydration
+ * envelope, as a successful render's would.
+ */
+function rememberPartialLayoutData(
+  error: unknown,
+  runs: readonly LoaderRun[],
+  layoutCount: number,
+  outcomes: readonly PromiseSettledResult<unknown>[],
+  ssrRoute: string | undefined
+): void {
+  if (!error || typeof error !== 'object') return;
+  const values = new Map<unknown, unknown>();
+  for (let index = 0; index < layoutCount; index += 1) {
+    const outcome = outcomes[index]!;
+    if (outcome.status === 'fulfilled') {
+      values.set(runs[index]!.loader, outcome.value);
+    }
+  }
+  if (values.size === 0) return;
+  let hydration: unknown[] | undefined;
+  if (ssrRoute !== undefined) {
+    try {
+      hydration = Array.from({ length: layoutCount }, (_, index) => {
+        const outcome = outcomes[index]!;
+        if (outcome.status !== 'fulfilled') return null;
+        validateRouteHydrationData(outcome.value, `${ssrRoute} (layout)`);
+        return outcome.value ?? null;
+      });
+    } catch {
+      // Data the page cannot carry stays out of the envelope; the server
+      // render still binds it.
+      hydration = undefined;
+    }
+  }
+  partialLayoutData.set(error, { values, hydration });
 }
 
 function runPolicies(
@@ -817,6 +888,11 @@ function resolveRouteRequestInternal(
         match.record,
         mode === 'ssr' ? publicRouteError(error) : error
       )!;
+      // Layouts above the error component read the loader data that did load.
+      const layout =
+        error && typeof error === 'object'
+          ? partialLayoutData.get(error)
+          : undefined;
       const result = createRouteRenderResult(
         match.record,
         match.params,
@@ -825,8 +901,11 @@ function resolveRouteRequestInternal(
           signal,
           authContext: options.authContext ?? unresolvedAuth(mode),
         }),
-        handler
+        layout
+          ? bindResolvedRouteData(handler, undefined, undefined, layout, false)
+          : handler
       );
+      if (layout) routeLayoutData.set(result, layout.values);
       markRouteErrorResult(result, error);
       return result;
     };

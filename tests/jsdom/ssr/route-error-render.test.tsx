@@ -2,8 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { cleanupApp, hydrateSPA } from '@askrjs/askr/boot';
 import {
   createRouteRegistry,
+  currentAuth,
   forbidden,
   group,
+  layoutData,
   Outlet,
   page,
   route,
@@ -81,6 +83,100 @@ describe('SSR route error and forbidden components', () => {
     expect(result.error).toBe(exposed);
     expect(result.html).toContain('render: db down');
     expect(result.html).not.toContain('content');
+  });
+
+  it('should keep the identity and layout data when a failing render falls back to the error component', async () => {
+    const navLoader = async () => 'nav';
+    const registry = createRouteRegistry(() => {
+      group(
+        {
+          loader: navLoader,
+          layout: ({ children }: { children?: unknown }) => (
+            <div>
+              <h1>{layoutData(navLoader)}</h1>
+              {children as never}
+            </div>
+          ),
+        },
+        () => {
+          route(
+            '/x',
+            () => {
+              throw exposed;
+            },
+            {
+              error: ({ error }) => (
+                <p>
+                  {currentAuth().principal?.id ?? 'anonymous'}:{' '}
+                  {(error as Error).message}
+                </p>
+              ),
+            }
+          );
+        }
+      );
+    });
+    const result = await renderRouteRequestToString({
+      url: '/x',
+      registry,
+      authContext: {
+        authenticated: true,
+        principal: { id: 'alice' },
+        session: null,
+        tenant: null,
+      },
+    });
+    if (result.kind !== 'render') throw new Error('expected render');
+    expect(result.status).toBe(500);
+    expect(result.html).toContain('<h1>nav</h1>');
+    expect(result.html).toContain('alice: db down');
+  });
+
+  it('should render and hydrate the error component inside a layout that reads group loader data', async () => {
+    const navLoader = async () => 'nav';
+    const registry = createRouteRegistry(() => {
+      group(
+        {
+          loader: navLoader,
+          layout: ({ children }: { children?: unknown }) => (
+            <div>
+              <h1>{layoutData(navLoader)}</h1>
+              {children as never}
+            </div>
+          ),
+        },
+        () => {
+          route('/x', () => <p>content</p>, {
+            loader: async () => {
+              throw exposed;
+            },
+            error: ({ error }) => <p>failed: {(error as Error).message}</p>,
+          });
+        }
+      );
+    });
+    const result = await renderRouteRequestToString({ url: '/x', registry });
+    if (result.kind !== 'render') throw new Error('expected render');
+    expect(result.status).toBe(500);
+    expect(result.html).toContain(
+      '<div><h1>nav</h1><p>failed: db down</p></div>'
+    );
+    const root = document.body.appendChild(document.createElement('div'));
+    root.innerHTML = result.html;
+    window.history.replaceState({}, '', '/x');
+    const mismatch = vi.fn();
+    try {
+      await hydrateSPA({
+        root,
+        registry,
+        hydrate: { verifyMarkup: true, onMismatch: mismatch },
+      });
+      expect(mismatch).not.toHaveBeenCalled();
+      expect(root.textContent).toBe('navfailed: db down');
+    } finally {
+      cleanupApp(root);
+      root.remove();
+    }
   });
 
   it('should keep the current results when no error component is declared', async () => {

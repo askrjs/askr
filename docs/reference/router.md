@@ -641,7 +641,10 @@ them:
 - A loader, `preload`, policy or render failure renders the `error` component
   inside the route's layouts and resolves to `{ kind: 'render', html, status:
   500, error }`, where `error` is the original failure. Send `status` with the
-  HTML and log `error`. The component's `retry()` is inert on the server.
+  HTML and log `error`. The component's `retry()` is inert on the server. The
+  layouts read `currentAuth()` and the group/page loader data that did load,
+  as they would around the page; in the browser the same data reaches the
+  layouts around an `error` component.
 - A denial renders the `forbidden` component (without layouts, as in the
   browser) and resolves to `{ kind: 'render', html, status, denied: true }`
   where `status` is the denial status (`401`, `403` or `404`). `denied` is an

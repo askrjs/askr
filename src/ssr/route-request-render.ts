@@ -13,11 +13,12 @@ import {
 import type { DataRuntime, QueryPrefetchContext } from '../data/types';
 import type { ServerQueryRegistry } from '../data/query-registry';
 import {
+  bindResolvedRouteData,
   getRouteLayoutData,
   hasRouteRenderData,
   resolveRouteRequest,
 } from '../router/resolution';
-import { ROUTE_LOADED_AT } from '../router/route-hydration';
+import { ROUTE_LAYOUT_DATA, ROUTE_LOADED_AT } from '../router/route-hydration';
 import {
   createDeniedHandler,
   createRouteErrorHandler,
@@ -413,11 +414,10 @@ async function renderRouteRequestInternal(
         : undefined;
       const handler = resolved.handler;
       const record = resolved.record;
+      const layout = getRouteLayoutData(resolved);
       // The page's loader data is as old as this render, not as hydration.
       const loadedAt =
-        hasRouteRenderData(resolved) || getRouteLayoutData(resolved)
-          ? Date.now()
-          : undefined;
+        hasRouteRenderData(resolved) || layout ? Date.now() : undefined;
       try {
         return renderOutcome({
           context,
@@ -439,10 +439,30 @@ async function renderRouteRequestInternal(
         // A render failure shows the route's declared error component.
         if (failure || !record || !routeErrorComponent(record)) throw error;
         const shown = publicRouteError(error);
+        // The error page renders for the same visitor, inside the same
+        // layouts: the identity and the group/page loader data carry over.
+        const retry = createContext();
+        retry.authContext = context.authContext;
+        const errorHandler = createRouteErrorHandler(record, shown)!;
+        const layoutHydration = pageRenderEnvelope(context.hydrationData)
+          .framework[ROUTE_LAYOUT_DATA];
         return renderOutcome({
-          context: createContext(),
+          context: retry,
           createContext,
-          handler: createRouteErrorHandler(record, shown)!,
+          handler: layout
+            ? bindResolvedRouteData(
+                errorHandler,
+                undefined,
+                undefined,
+                {
+                  values: layout,
+                  hydration: Array.isArray(layoutHydration)
+                    ? layoutHydration
+                    : undefined,
+                },
+                false
+              )
+            : errorHandler,
           params: resolved.params,
           record,
           extra: { status: 500, error },
