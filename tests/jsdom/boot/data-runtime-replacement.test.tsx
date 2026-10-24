@@ -278,7 +278,7 @@ it('should stop obsolete auth before publishing its identity or invoking its loa
 });
 
 it.each(['policy', 'preload'] as const)(
-  'should not start an old loader after its pending %s settles',
+  'should not start or publish an old loader after its pending %s settles',
   async (stage) => {
     const old = createDataRuntime();
     const next = createDataRuntime();
@@ -300,7 +300,8 @@ it.each(['policy', 'preload'] as const)(
     replaceDataRuntime(view.container, next);
     pending.resolve();
     await settle();
-    expect(loader).not.toHaveBeenCalled();
+    // A preload runs alongside its loader, so only a later stage is withheld.
+    if (stage === 'policy') expect(loader).not.toHaveBeenCalled();
     expect(view.container.textContent).toBe('home');
     expect(location.pathname).toBe('/');
     disposeDataRuntime(old);

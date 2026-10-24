@@ -1,5 +1,6 @@
 import type { AuthContext } from '@askrjs/auth';
 import type {
+  AccessDenyDecision,
   ResolvedRoute,
   RouteAuthOptions,
   RouteHandler,
@@ -13,9 +14,11 @@ import {
   resolveRouteMeta,
   resolveOwnedRouteMeta,
 } from '../router/metadata';
-import { getRouteRenderContext } from '../router/resolution';
+import { getRouteMetaContext } from '../router/resolution';
 import { readHistoryIndex } from '../router/history-index';
+import { createDeniedHandler, isRouteErrorResult } from '../router/route-error';
 import { loadDocument } from '../router/document-navigation';
+import { reloadForStaleDeployment } from '../router/stale-deployment';
 import { resolveNavigationUrl } from '../common/url';
 import type { ComponentFunction } from '../common/component';
 import type { DataRuntime } from '../data/types';
@@ -29,36 +32,36 @@ export function bindResolvedRouteHandler(
     resolved.handler(resolved.params) as ReturnType<ComponentFunction>;
 }
 
-function createDeniedStatusNode(status: number) {
-  return {
-    type: 'div',
-    props: {
-      'data-route-denied': String(status),
-    },
-    children: [String(status)],
-  };
+export function bindDeniedStatus(
+  decision: Pick<AccessDenyDecision, 'status'>
+): ComponentFunction {
+  const handler = createDeniedHandler(decision);
+  return () => handler({}) as ReturnType<ComponentFunction>;
 }
 
-export function bindDeniedStatus(status: number): ComponentFunction {
-  return () => createDeniedStatusNode(status);
-}
-
-export function bindDeniedRouteHandler(status: number): RouteHandler {
-  return () => createDeniedStatusNode(status);
+export function bindDeniedRouteHandler(
+  decision: Pick<AccessDenyDecision, 'status'>
+): RouteHandler {
+  return createDeniedHandler(decision);
 }
 
 export async function reconcileInitialRouteMetadata(
   resolved: RouteRequestResult,
   assertCurrent?: () => void
 ): Promise<void> {
-  if (resolved?.kind !== 'render' || !resolved.record) return;
+  if (
+    resolved?.kind !== 'render' ||
+    !resolved.record ||
+    isRouteErrorResult(resolved)
+  )
+    return;
   if (
     !resolved.record.options.title &&
     !resolved.record.options.meta &&
     !resolved.record.metaChain?.length
   )
     return;
-  const context = getRouteRenderContext(resolved);
+  const context = getRouteMetaContext(resolved);
   if (!context) return;
   const metadata = await (assertCurrent
     ? resolveOwnedRouteMeta(resolved.record, context, assertCurrent)
@@ -119,10 +122,20 @@ export async function resolveInitialRoute(
       authContext: source.authContext,
       dataRuntime: source.dataRuntime,
       signal: source.signal,
+      routeErrors: true,
     };
-    const resolved = await (source.assertCurrent
-      ? resolveOwnedRouteRequest(href, routeOptions, source.assertCurrent)
-      : resolveRouteRequest(href, routeOptions));
+    let resolved: RouteRequestResult;
+    try {
+      resolved = await (source.assertCurrent
+        ? resolveOwnedRouteRequest(href, routeOptions, source.assertCurrent)
+        : resolveRouteRequest(href, routeOptions));
+    } catch (error) {
+      // Chunks the deployed page references may be gone: load a fresh document.
+      if (typeof window !== 'undefined') {
+        reloadForStaleDeployment(error, window.location.href, 'replace');
+      }
+      throw error;
+    }
     source.assertCurrent?.();
     if (!resolved || resolved.kind !== 'redirect') {
       return { path, href, resolved };

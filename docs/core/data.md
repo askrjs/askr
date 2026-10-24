@@ -248,6 +248,12 @@ in place, following the existing root commit contract. Call this operation from
 application/event code, rather than reentering it during component rendering or
 an active navigation commit.
 
+### Route loader results
+
+Route `loader` results in the browser are cached in the same data runtime, under
+keys that begin with `route-data:`, and are removed by `invalidate()` with a
+matching prefix. See the [router reference](../reference/router.md#loader-cache).
+
 ### Queries
 
 ```ts

@@ -6,6 +6,40 @@ export function isFormControlProp(key: string): boolean {
   return key === 'value' || key === 'checked' || key === 'selected';
 }
 
+/**
+ * Elements whose `value` is live user state: removing the prop resets the
+ * control to `''`. Other elements (`option`, `button`, `li`, `progress`) use
+ * `value` as a plain attribute, and removing the prop removes the attribute.
+ */
+export function isTextValueControl(tagName: string): boolean {
+  return (
+    tagNamesEqualIgnoreCase(tagName, 'input') ||
+    tagNamesEqualIgnoreCase(tagName, 'textarea') ||
+    tagNamesEqualIgnoreCase(tagName, 'select')
+  );
+}
+
+/**
+ * A number input's text can differ from the rendered value without disagreeing
+ * with it: while the user types `1.0` or `1e1`, the value is still the number
+ * the component rendered, and rewriting the text would move the caret and
+ * discard what they typed.
+ */
+function sameNumber(
+  control: HTMLInputElement | HTMLTextAreaElement,
+  text: string
+): boolean {
+  if (
+    control.localName !== 'input' ||
+    (control as HTMLInputElement).type !== 'number'
+  ) {
+    return false;
+  }
+  if (control.value === '' || text === '') return false;
+  const live = Number(control.value);
+  return !Number.isNaN(live) && live === Number(text);
+}
+
 export function applyFormControlProp(
   el: Element,
   key: string,
@@ -44,7 +78,7 @@ export function applyFormControlProp(
       tagNamesEqualIgnoreCase(tagName, 'textarea')
     ) {
       const control = el as HTMLInputElement | HTMLTextAreaElement;
-      if (control.value !== stringValue) {
+      if (control.value !== stringValue && !sameNumber(control, stringValue)) {
         control.value = stringValue;
       }
     }

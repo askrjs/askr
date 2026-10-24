@@ -65,7 +65,8 @@ do not roll back an already successful render.
 ### Teardown errors
 
 When an update removes DOM, Askr tears down the removed subtree: callback refs
-receive `null`, listeners and fine-grained bindings are removed, and component
+receive `null` (or, when the callback returned a function, that cleanup runs
+instead and the callback is not called again), listeners and fine-grained bindings are removed, and component
 lifetimes are disposed, running their cleanup functions (returned by mount
 operations, tasks, and watches). Every one of these steps runs for every node in
 the subtree, even when an earlier one throws. Each step runs at most once: a
@@ -218,6 +219,27 @@ result updates. Parent reconciliation preserves that live range and its editor
 or widget identity instead of restoring a stale pre-update range. Cleanup
 ownership remains balanced when the row is later replaced or removed.
 
+### Development warnings
+
+In development builds (never in production) the renderers log each of these
+once, so a typo or a markup mistake does not stay silent:
+
+- **Invalid nesting** the HTML parser would rewrite: a block element such as
+  `<div>` or `<section>` inside a `<p>`, an `<a>` inside an `<a>`, a `<button>`
+  inside a `<button>`, a `<form>` inside a `<form>`, and, when rendering on the
+  server, a `<tr>` directly inside a `<table>` (the browser inserts a `<tbody>`,
+  so the server markup would not match the client tree). One warning per
+  parent/child pair.
+- **A DOM node or a Promise passed as a child.** Neither renders. Attach the node
+  from a ref and read the Promise's value with `resource()`. One warning per
+  value.
+- **Partly keyed lists.** A dynamic list whose children are some keyed and some
+  not warns once per component, next to the existing missing-keys warning.
+- **Unknown event props.** An `on*` handler on a built-in element that matches
+  no DOM event (`onClck`) never runs; the warning suggests the closest event
+  prop. Custom elements (tags with a hyphen) can fire any event and are not
+  checked.
+
 ### Tree depth
 
 The client renderer and SSR render nested elements and components
@@ -270,11 +292,34 @@ setting `style.transform`, a tooltip adding `data-*`, or `classList.add(...)`.
 - A prop that disappears (or becomes `null`/`undefined`/`false`) removes only
   what Askr wrote for it: the attribute, its own class tokens, or its own style
   properties.
-- Values Askr still renders are re-applied if other code overwrote them (for
-  example a removed class token or a changed `title`).
-- Server-rendered markup that hydration cannot adopt as-is is treated as
-  Askr-owned on its first update, so mismatched SSR attributes are still
-  cleaned up.
+- A prop whose value did not change since the last render costs no DOM read or
+  write, so a value other code overwrote (a changed `title`, a removed class
+  token) stays as that code left it until the prop's value changes. When it
+  changes, Askr writes the new value. Form control state (`value`, `checked`,
+  `selected`) is the exception: it is compared with the live control on every
+  render. For `style` objects the entries are compared one by one, so a new
+  object with the same entries is unchanged.
+- Hydration keeps the server attributes the client never renders (a
+  `data-theme` set before the app loads, a browser extension's marker). It
+  removes only Askr's own bookkeeping (`data-skip-hydrate`, `data-key`,
+  `data-askr-key-kind`) and an attribute whose prop the client renders as
+  `null`, `undefined` or `false`. With `hydrate.verifyMarkup` (the default in
+  development) it removes every attribute the client does not render, so a
+  mismatch shows up.
+
+### Class values
+
+`class` and `className` take a string, or a list or object of class names that
+renders as a string on the client and on the server:
+
+```tsx
+<li class={['item', { active: selected(), disabled: off }, extra]} />
+```
+
+Strings, numbers and nested lists contribute their names; falsy items are
+skipped; an object contributes the keys whose values are truthy. A collection
+that names nothing renders no `class` attribute. A changing collection updates
+only the tokens Askr owns, like a changing string.
 
 ### Attributes and DOM properties
 
@@ -287,7 +332,8 @@ because their attribute does not control the live state:
 | --------------- | ------------------- | --------------------------------------------- | --------------- |
 | `muted`         | `<video>`/`<audio>` | `el.muted` and the `muted` attribute          | renders `muted` |
 | `indeterminate` | `<input>`           | `el.indeterminate` only                       | not rendered    |
-| object/array    | custom elements     | `el[name]` (primitive values stay attributes) | not rendered    |
+| object/array    | custom elements     | `el[name]`                                    | not rendered    |
+| non-string      | custom elements     | `el[name]` when `name in el` (else attribute) | renders attr    |
 | `prop:name`     | any                 | `el.name`, assigned as-is (including `false`) | not rendered    |
 | `attr:name`     | any                 | the `name` attribute, never a property        | renders `name`  |
 
@@ -303,6 +349,15 @@ function Media(props: { muted: boolean; stream: MediaStream; rows: Row[] }) {
 }
 ```
 
+On a custom element, a boolean, number or function value is assigned to the
+property when the element has one by that name at write time (`name in el`, so
+an upgraded element gets a typed value) and is written as an attribute
+otherwise, for example before the element is defined. Strings always stay
+attributes. `prop:` and `attr:` are explicit overrides, and a function given
+`prop:` on a custom element is assigned as-is (a formatter, a callback), not
+called as a reactive binding. On a built-in element `prop:name={() => ...}`
+remains a binding.
+
 Form state props accept a function or cell like any other prop, and the
 binding keeps the live property in sync: `value={() => name()}` on an
 `<input>` or `<textarea>`, `checked={() => on()}`, `selected={() => on()}`
@@ -312,6 +367,13 @@ children are created or updated, so options written directly inside it can
 come from the same render. Options rendered by a `For` or a function child
 are not tracked: the value is not re-applied when only they change, so keep a
 value's option rendered before selecting it.
+
+During SSR, a `<textarea value>` writes its value as the element's text
+content, which is where the parser reads a textarea's initial value, so the
+control is filled before hydration. Hydration keeps that server text in place.
+`<pre>`, `<textarea>` and `<listing>` content that starts with a newline is
+written with one extra newline, because the parser drops the first one; the
+parsed text matches what the component rendered.
 
 During SSR, a controlled `<select value>` marks matching `<option>` elements
 with `selected`, including options inside `<optgroup>`. A single select marks
@@ -340,6 +402,15 @@ Values SSR cannot render are applied when the client hydrates. Attributes a
 property reflects (`prop:href` sets `href`, `prop:hidden` sets `hidden`) are
 kept on re-render like any other attribute Askr rendered.
 
+A `type="number"` input is compared by number: while the user types `1.0` or
+`1.5e2` the text is not rewritten when it equals the rendered value
+numerically, so the caret and the typed text survive a re-render.
+
+Removing `value` from an `<input>`, `<textarea>` or `<select>` resets the
+control to `''`. On any other element (`<option>`, `<button>`, `<li>`,
+`<progress>`) `value` is a plain attribute, so removing the prop removes the
+attribute, the same as mounting without it.
+
 When one of these props is removed, Askr puts the property back to its
 default: `muted` and `indeterminate` become `false`; a property that reflects
 to an attribute has that attribute removed; an own property (an expando, or a
@@ -350,8 +421,9 @@ property writes back with the rest of the element.
 
 URL attributes are checked the same way on the client and in SSR. `href`,
 `action`, `formAction` and `xlink:href` render only relative URLs or the
-`http`, `https`, `mailto`, `sms` and `tel` schemes. `src` and `data` render
-any URL except a script scheme (`javascript:`, `vbscript:`). The scheme is
+`http`, `https`, `mailto`, `sms`, `tel` and `blob` schemes (a `blob:` URL
+names an object the page created itself, such as a generated download). `src`
+and `data` render any URL except a script scheme (`javascript:`, `vbscript:`). The scheme is
 read case-insensitively after trimming the value and removing ASCII spaces
 and control characters (U+0000-U+0020, U+007F-U+009F) anywhere in it, so
 `java\tscript:` is still a script URL. A non-string value is converted to
@@ -381,7 +453,9 @@ The escape hatches keep the usual guards:
   (including `attr:style={{...}}`) are not rendered on either side.
 - `prop:innerHTML`, `prop:outerHTML` and `prop:srcdoc` are ignored (use
   `dangerouslySetInnerHTML`), as are `prop:__proto__`, `prop:constructor` and
-  `prop:prototype`.
+  `prop:prototype`. The `srcdoc` attribute (and `attr:srcdoc`) is ignored for
+  the same reason on both sides: it is parsed as HTML. Development logs a
+  warning once; production omits it silently.
 
 Custom element properties are assigned even if the element is not defined
 yet, as Lit's `.prop` bindings do. Until the element upgrades, the value is an
@@ -579,6 +653,12 @@ Some text has no safe raw form, so it does not survive unchanged:
   contain `<` and range media queries such as `@media (width < 600px)`; write
   those as `(max-width: 599.98px)` or `(600px > width)` instead.
 
+The same holds for the other elements the parser reads as raw text: the text
+children of `<xmp>`, `<iframe>`, `<noembed>` and `<noframes>` are written
+verbatim, and only the sequence `</` is written as `<\/` so the element's end
+tag cannot form, including across adjacent text children. An element nested
+inside one of them keeps its text entity-escaped.
+
 Raw text is written only for an HTML `<script>` or `<style>` whose ancestors
 are all ordinary HTML content. Otherwise SSR keeps the text entity-escaped:
 
@@ -608,7 +688,9 @@ rewritten.
 On the client, a `dangerouslySetInnerHTML` value with a `__html` field owns
 the element's content instead of its JSX children. When that value is
 removed, JSX children mount again. An absent or malformed value leaves the
-children managed normally.
+children managed normally. A re-render with the same `__html` string neither
+reads nor writes the element, whether or not the payload object is new, and in
+development the usage warning appears once per element.
 
 ### Client hydration
 

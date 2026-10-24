@@ -1,10 +1,12 @@
 import type { AuthContext } from '@askrjs/auth';
+import { anyAbortSignal } from '../common/abort-signal';
 import type { RouteAuthOptions, RouteAuthResolver } from '../common/router';
 import { Signal } from '../core/reactive/graph';
 import { resolveNavigationUrl } from '../common/url';
 import { reportUncaughtErrorLater } from '../common/report-error';
 import { navigateToPublicHref } from './navigate';
 import { loadDocument } from './document-navigation';
+import { revokeHydratedCsrfToken } from '../common/csrf-token';
 import {
   registerSessionAuthState,
   type SessionRecovery,
@@ -224,13 +226,18 @@ export function createSessionAuth(
   const mountedRoots = new Set<object>();
   let generation = 0;
   let cached: AuthContext | undefined;
+  /** The last identity the server confirmed (serialized), for token revocation. */
+  let confirmedIdentity: string | undefined;
   let pending:
     | { controller: AbortController; promise: Promise<AuthContext> }
     | undefined;
   let stopEvents: (() => void) | undefined;
   let channel: BroadcastChannel | undefined;
   let eventGeneration = 0;
+  /** Shared by reports of one failure until its navigation is issued. */
   let recoveryTarget: SessionRecovery | undefined;
+  /** The latest recovery, kept until the identity changes (boot guard). */
+  let lastRecovery: SessionRecovery | undefined;
   let transitions = 0;
   let announced = false;
 
@@ -280,6 +287,15 @@ export function createSessionAuth(
     for (const error of errors) reportUncaughtErrorLater(error);
   };
   const invalidate = (value: AuthContext | undefined) => {
+    // `undefined` only asks for a fresh look at the server; a value is the
+    // new identity (logout, a failed session). The token belongs to the
+    // identity the server last confirmed, so it ends when that changes, not
+    // when a 401 repeats the anonymous identity already confirmed.
+    if (value !== undefined) {
+      const next = JSON.stringify(project(value));
+      if (confirmedIdentity !== next) revokeHydratedCsrfToken();
+      confirmedIdentity = next;
+    }
     generation++;
     const previous = pending;
     pending = undefined;
@@ -290,6 +306,13 @@ export function createSessionAuth(
     identity.write(value ?? anonymous);
   };
   const commit = (value: AuthContext) => {
+    // The cache holds a placeholder identity after a revalidation hint, so
+    // the token's session is judged against the last identity the server
+    // confirmed.
+    const next = JSON.stringify(project(value));
+    if (confirmedIdentity !== undefined && confirmedIdentity !== next)
+      revokeHydratedCsrfToken();
+    confirmedIdentity = next;
     const previous = identity.peek();
     if (
       previous !== undefined &&
@@ -298,12 +321,52 @@ export function createSessionAuth(
       retire();
       if (mountedRoots.size)
         queueMicrotask(() =>
-          navigateToPublicHref(browserHref(), { replace: true })
+          navigateToPublicHref(
+            browserHref(),
+            { replace: true },
+            { skipBlockers: true }
+          )
         );
     }
     cached = value;
     recoveryTarget = undefined;
+    lastRecovery = undefined;
     identity.write(value);
+  };
+  /**
+   * Fetch the server session without touching the cached identity first.
+   * `commit` retires private state and re-resolves the page only when the
+   * identity differs; a failed or superseded fetch changes nothing.
+   */
+  let revalidating: Promise<void> | undefined;
+  const revalidate = (): Promise<void> => {
+    if (revalidating) return revalidating;
+    if (pending)
+      return pending.promise.then(
+        () => undefined,
+        () => undefined
+      );
+    const ownGeneration = generation;
+    revalidating = (async () => {
+      try {
+        const response = await transport(
+          new Request(new URL('/auth/session', window.location.href), {
+            credentials: 'same-origin',
+            cache: 'no-store',
+            redirect: 'error',
+          })
+        );
+        if (!response.ok) return;
+        const value = parseSnapshot(await response.json());
+        if (generation !== ownGeneration || pending || transitions) return;
+        commit(value);
+      } catch {
+        // The current identity stands until a later hint or request.
+      } finally {
+        revalidating = undefined;
+      }
+    })();
+    return revalidating;
   };
   const session = (signal: AbortSignal): AuthContext | Promise<AuthContext> => {
     if (signal.aborted || transitions) throw abortError();
@@ -353,7 +416,7 @@ export function createSessionAuth(
     // A synchronous transport failure can already have cleared pending.
     return waitFor(
       entry.promise,
-      AbortSignal.any([signal, entry.controller.signal])
+      anyAbortSignal([signal, entry.controller.signal])
     );
   };
   const recover = (
@@ -362,6 +425,9 @@ export function createSessionAuth(
   ): SessionRecovery | undefined => {
     const problem = readProblem(failure);
     if (!problem) return undefined;
+    // Reports of one failure share its recovery until the navigation to the
+    // login target is issued; a failure after that computes a fresh target,
+    // so a later 401 from another page returns there after login.
     if (recoveryTarget) return recoveryTarget;
     invalidate(anonymous);
     if (problem.reason === 'consent') {
@@ -381,19 +447,33 @@ export function createSessionAuth(
         document: false,
       };
     }
+    const target = recoveryTarget;
+    lastRecovery = target;
     if (mountedRoots.size) {
       const ownGeneration = generation;
       queueMicrotask(() => {
+        if (recoveryTarget === target) recoveryTarget = undefined;
         if (ownGeneration !== generation || !mountedRoots.size) return;
-        if (recoveryTarget!.document)
+        if (target.document)
           loadDocument(
-            new URL(recoveryTarget!.href, window.location.href).href,
+            new URL(target.href, window.location.href).href,
             'replace'
           );
-        else navigateToPublicHref(recoveryTarget!.href, { replace: true });
+        else
+          navigateToPublicHref(
+            target.href,
+            { replace: true },
+            { skipBlockers: true }
+          );
+      });
+    } else {
+      // The caller navigates in this tick; reports in the same tick share
+      // the target, and a later failure computes a fresh one.
+      queueMicrotask(() => {
+        if (recoveryTarget === target) recoveryTarget = undefined;
       });
     }
-    return recoveryTarget;
+    return target;
   };
   const handleAuthFailure = (failure: unknown): boolean => {
     if (typeof window === 'undefined') return false;
@@ -402,7 +482,12 @@ export function createSessionAuth(
     if (mountedRoots.size) return true;
     if (target.document)
       loadDocument(new URL(target.href, window.location.href).href, 'replace');
-    else if (!roots.size) navigateToPublicHref(target.href, { replace: true });
+    else if (!roots.size)
+      navigateToPublicHref(
+        target.href,
+        { replace: true },
+        { skipBlockers: true }
+      );
     return true;
   };
   const attachEvents = () => {
@@ -417,11 +502,16 @@ export function createSessionAuth(
       )
         return;
       recoveryTarget = undefined;
+      lastRecovery = undefined;
       // A channel message is only an invalidation hint. It may be delayed
       // past a newer login, so always consult the current server authority.
       invalidate(undefined);
       if (mountedRoots.size)
-        navigateToPublicHref(browserHref(), { replace: true });
+        navigateToPublicHref(
+          browserHref(),
+          { replace: true },
+          { skipBlockers: true }
+        );
     };
     const storage = (event: StorageEvent) => {
       if (event.key !== STORAGE || !event.newValue) return;
@@ -431,16 +521,24 @@ export function createSessionAuth(
         /* Unrelated malformed storage value. */
       }
     };
+    // Regaining the page is only a chance that a hint was missed: the
+    // server is consulted in the background and the app is retired only
+    // when the identity actually changed. Pending navigation and component
+    // state survive an unchanged identity.
+    const refocus = () => {
+      if (ownEvents !== eventGeneration || !roots.size) return;
+      void revalidate();
+    };
     const focus = () => {
-      if (!channel) changed({ protocol: 1, kind: 'changed' });
+      if (!channel) refocus();
     };
     const pageshow = (event: PageTransitionEvent) => {
-      if (event.persisted) changed({ protocol: 1, kind: 'changed' });
+      if (event.persisted) refocus();
     };
     let wasHidden = document.visibilityState === 'hidden';
     const visibility = () => {
       const visible = document.visibilityState === 'visible';
-      if (visible && wasHidden) changed({ protocol: 1, kind: 'changed' });
+      if (visible && wasHidden) refocus();
       wasHidden = !visible;
     };
     try {
@@ -477,22 +575,46 @@ export function createSessionAuth(
         throw new Error('[Askr] Session logout requires a browser.');
       // Invalidate before the network await; older GET completions cannot win.
       recoveryTarget = undefined;
+      lastRecovery = undefined;
       invalidate(anonymous);
       const ownGeneration = generation;
-      const response = await transport(
-        new Request(new URL('/auth/logout', window.location.href), {
-          method: 'POST',
-          credentials: 'same-origin',
-          redirect: 'error',
-          headers: { 'Content-Type': 'application/json' },
-          body: '{}',
-        })
-      );
-      if (!response.ok)
+      // The server session is still alive when the request fails: drop the
+      // anonymous assumption and re-resolve so the signed-in app returns.
+      const restore = () => {
+        if (ownGeneration !== generation) return;
+        invalidate(undefined);
+        navigateToPublicHref(
+          browserHref(),
+          { replace: true },
+          { skipBlockers: true }
+        );
+      };
+      let response: Response;
+      try {
+        response = await transport(
+          new Request(new URL('/auth/logout', window.location.href), {
+            method: 'POST',
+            credentials: 'same-origin',
+            redirect: 'error',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+          })
+        );
+      } catch (error) {
+        restore();
+        throw error;
+      }
+      if (!response.ok) {
+        restore();
         throw new Error('[Askr] Provider logout request failed.');
+      }
       if (ownGeneration !== generation) return;
       publish('logout');
-      navigateToPublicHref(browserHref(), { replace: true });
+      navigateToPublicHref(
+        browserHref(),
+        { replace: true },
+        { skipBlockers: true }
+      );
     },
     handleAuthFailure,
   };
@@ -521,7 +643,7 @@ export function createSessionAuth(
       return true;
     },
     hasMountedRoots: () => mountedRoots.size > 0,
-    isDocumentRecovery: () => recoveryTarget?.document === true,
+    isDocumentRecovery: () => lastRecovery?.document === true,
     attach(root, callback, mounted = true) {
       roots.set(root, callback);
       if (mounted) mountedRoots.add(root);

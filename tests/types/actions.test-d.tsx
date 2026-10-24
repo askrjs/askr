@@ -41,7 +41,11 @@ expectError(action(rename, { csrfToken: 'static-token' }));
 expectError(action(rename, { csrfToken: async () => 42 }));
 expectError(action(rename, { csrfToken: () => 'sync-token' }));
 expectError(action(rename, { csrfToken: async (_signal: string) => 'token' }));
-expectError(action(rename, {}));
+// The CSRF token is read at submit from the hydration envelope, a meta tag or
+// a cookie when no resolver is given, so an empty options object is valid.
+expectAssignable<ReturnType<typeof action<{ name: string }>>>(
+  action(rename, {})
+);
 expectError(
   action(rename, { csrfToken: async () => 'token', transport: fetch })
 );

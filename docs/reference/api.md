@@ -11,6 +11,9 @@ Common runtime exports:
 - `state()`
 - `derive()`
 - `selector()`
+- `store()` and `unwrap()`; see [stores](../core/runtime.md#stores)
+- `batch(fn)` and `untrack(fn)`; see
+  [batching and untracked reads](../core/runtime.md#batching-and-untracked-reads)
 - `defineScope()`
 - `readScope()`
 - `getSignal()`

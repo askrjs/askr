@@ -1,4 +1,10 @@
-import type { RouteMatch, RouteParams, RouteSnapshot } from '../common/router';
+import type {
+  Route,
+  RouteMatch,
+  RouteParams,
+  RouteSearch,
+  RouteSnapshot,
+} from '../common/router';
 import {
   getStagedAppRenderRouteLocation,
   getStagedAppRenderRouteState,
@@ -13,9 +19,16 @@ import {
 } from '../core/api/hooks';
 import { createSource, notify, readSource } from '../core/api/hooks';
 import { deepFreeze, makeQuery, parseLocation } from './route-context';
-import { computeMatchesFromRoutes } from './route-matching';
-import { getActiveRouteBasePath, getActiveRoutes } from './store';
+import { canonicalMatchPath, computeMatchesFromRoutes } from './route-matching';
+import {
+  getActiveRouteBasePath,
+  getActiveRoutes,
+  getRoutePathPolicy,
+  getRouteTableVersion,
+} from './store';
 import { removeRouteBasePath } from './base-path';
+import type { InternalRoute } from './internal-types';
+import { emptyRouteSearch, parseRouteSearch } from './route-search';
 
 /** Options for {@link onRouteChange}. */
 export interface RouteChangeOptions {
@@ -133,6 +146,22 @@ export function setServerLocation(url: string | null): void {
   );
 }
 
+/** The query string parsed with the leaf match's `search` schema, if it has one. */
+function parsedRouteSearch(
+  matches: readonly RouteMatch[],
+  search: string
+): Readonly<RouteSearch> {
+  const leaf = matches[matches.length - 1];
+  const schema = leaf
+    ? (
+        getActiveRoutes().find((entry) => entry.path === leaf.path) as
+          | InternalRoute
+          | undefined
+      )?.searchSchema
+    : undefined;
+  return schema ? parseRouteSearch(schema, search) : emptyRouteSearch();
+}
+
 function buildRouteSnapshot(
   pathname: string,
   search: string,
@@ -150,6 +179,7 @@ function buildRouteSnapshot(
     path: pathname,
     params: deepFreeze({ ...matches[matches.length - 1]?.params }),
     query,
+    search: parsedRouteSearch(matches, search),
     hash: hash || null,
     ...locationState,
     matches: Object.freeze(matches),
@@ -234,33 +264,80 @@ function readCurrentRouteLocation(): {
   };
 }
 
+/**
+ * The active location's canonical path and leaf match, kept across the many
+ * `isRoutePathActive()` reads one render makes (a navigation menu) and
+ * dropped when the location or the route table changes.
+ */
+let activePathMemo: {
+  routes: readonly Route[];
+  version: number;
+  pathname: string;
+  activePath: string;
+  leafPaths: readonly string[];
+} | null = null;
+
 export function isRoutePathActive(
   pathOrPaths: string | readonly string[]
 ): boolean {
+  // A registry with `caseSensitive: false` or a `trailingSlash` policy
+  // compares paths in the canonical form resolution serves them under.
+  const routes = getActiveRoutes();
+  const policy = getRoutePathPolicy(routes);
+  const canonical = (path: string): string => {
+    const normalized = normalizeRouteActivityPath(path);
+    return policy
+      ? normalizeRouteActivityPath(canonicalMatchPath(normalized, policy))
+      : normalized;
+  };
   const candidates = new Set(
-    (Array.isArray(pathOrPaths) ? pathOrPaths : [pathOrPaths]).map(
-      normalizeRouteActivityPath
-    )
+    (Array.isArray(pathOrPaths) ? pathOrPaths : [pathOrPaths]).map(canonical)
   );
 
   const location = readCurrentRouteLocation();
   if (!location.withinBasePath) return false;
-  const activePath = normalizeRouteActivityPath(location.pathname);
-  if (candidates.has(activePath)) {
+  const version = getRouteTableVersion();
+  let memo = activePathMemo;
+  if (
+    !memo ||
+    memo.routes !== routes ||
+    memo.version !== version ||
+    memo.pathname !== location.pathname
+  ) {
+    const activePath = canonical(location.pathname);
+    memo = activePathMemo = {
+      routes,
+      version,
+      pathname: location.pathname,
+      activePath,
+      leafPaths: computeMatchesFromRoutes(activePath, routes)
+        .slice(-1)
+        .map((match) => canonical(match.path)),
+    };
+  }
+  if (candidates.has(memo.activePath)) {
     return true;
   }
+  return memo.leafPaths.some((path) => candidates.has(path));
+}
 
-  const matches = computeMatchesFromRoutes(activePath, getActiveRoutes());
-  return matches
-    .slice(-1)
-    .some((match) => candidates.has(normalizeRouteActivityPath(match.path)));
+/** @internal The location state of the history entry whose page is rendered. */
+export function currentRouteLocationState(): {
+  hasState: boolean;
+  state: unknown;
+} {
+  return {
+    hasState: currentRouteSnapshot.hasState,
+    state: currentRouteSnapshot.state,
+  };
 }
 
 function readCurrentRouteSnapshot<
   TParams extends RouteParams = RouteParams,
   TState = unknown,
   TAppMeta = unknown,
->(): RouteSnapshot<TParams, TState, TAppMeta> {
+  TSearch = RouteSearch,
+>(): RouteSnapshot<TParams, TState, TAppMeta, TSearch> {
   const instance = getCurrentComponentInstance();
   if (!instance) {
     throw new Error(
@@ -270,36 +347,90 @@ function readCurrentRouteSnapshot<
   }
 
   const { pathname, search, hash, withinBasePath } = readCurrentRouteLocation();
+  const contextParams = withinBasePath
+    ? getActiveRenderContext()?.params
+    : undefined;
+  const locationState = readLocationState();
+  const version = getRouteTableVersion();
+  // Each mounted app reads its own registry; the memo is per route list.
+  const routes = getActiveRoutes();
+  const memo = readSnapshotMemo;
+  if (
+    memo &&
+    memo.routes === routes &&
+    memo.pathname === pathname &&
+    memo.search === search &&
+    memo.hash === hash &&
+    memo.withinBasePath === withinBasePath &&
+    memo.contextParams === contextParams &&
+    memo.hasState === locationState.hasState &&
+    memo.state === locationState.state &&
+    memo.version === version
+  ) {
+    return memo.snapshot as RouteSnapshot<TParams, TState, TAppMeta, TSearch>;
+  }
 
   const query = makeQuery(search);
   const matches = withinBasePath
-    ? computeMatchesFromRoutes(pathname, getActiveRoutes())
+    ? computeMatchesFromRoutes(pathname, routes)
     : [];
   const routeParams =
-    (withinBasePath ? getActiveRenderContext()?.params : undefined) ??
-    matches[matches.length - 1]?.params ??
-    {};
+    contextParams ?? matches[matches.length - 1]?.params ?? {};
   const params = deepFreeze({
     ...routeParams,
   });
-  const locationState = readLocationState();
 
-  return Object.freeze({
+  const parsedSearch = parsedRouteSearch(matches, search);
+
+  const snapshot = Object.freeze({
     path: pathname,
     params,
     query,
+    search: parsedSearch,
     hash: hash || null,
     ...locationState,
     matches: Object.freeze(matches),
-  }) as RouteSnapshot<TParams, TState, TAppMeta>;
+  }) as RouteSnapshot;
+  readSnapshotMemo = {
+    routes,
+    pathname,
+    search,
+    hash,
+    withinBasePath,
+    contextParams,
+    hasState: locationState.hasState,
+    state: locationState.state,
+    version,
+    snapshot,
+  };
+  return snapshot as RouteSnapshot<TParams, TState, TAppMeta, TSearch>;
 }
+
+/**
+ * One snapshot object per committed location: repeated `currentRoute()`
+ * reads compare by identity and skip re-matching the URL. Any input that
+ * could change the snapshot invalidates it.
+ */
+let readSnapshotMemo: {
+  routes: readonly Route[];
+  pathname: string;
+  search: string;
+  hash: string;
+  withinBasePath: boolean;
+  contextParams: Record<string, string> | undefined;
+  hasState: boolean;
+  state: unknown;
+  version: number;
+  snapshot: RouteSnapshot;
+} | null = null;
 
 /** Read the currently active route's {@link RouteSnapshot}; reactive during component render. */
 export function currentRoute<
   TParams extends RouteParams = RouteParams,
   TState = unknown,
   TAppMeta = unknown,
->(): RouteSnapshot<TParams, TState, TAppMeta> {
+  TSearch = RouteSearch,
+>(): RouteSnapshot<TParams, TState, TAppMeta, TSearch> {
   const instance = getCurrentComponentInstance();
   if (!instance) {
     throw new Error(
@@ -309,11 +440,11 @@ export function currentRoute<
   }
 
   if (typeof window === 'undefined' || instance.server) {
-    return readCurrentRouteSnapshot<TParams, TState, TAppMeta>();
+    return readCurrentRouteSnapshot<TParams, TState, TAppMeta, TSearch>();
   }
 
   readSource(currentRouteSource);
-  return readCurrentRouteSnapshot<TParams, TState, TAppMeta>();
+  return readCurrentRouteSnapshot<TParams, TState, TAppMeta, TSearch>();
 }
 
 export function syncCurrentRouteSnapshot(
@@ -327,6 +458,7 @@ export function syncCurrentRouteSnapshot(
 
 /** @internal Return route activity to its initial location. Part of the router-wide reset. */
 export function resetRouteActivity(): void {
+  activePathMemo = null;
   serverLocation = null;
   currentRouteSnapshot = buildRouteSnapshot('/', '', '');
 }

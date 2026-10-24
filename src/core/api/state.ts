@@ -16,10 +16,12 @@ import {
   notifySource,
   trackSource,
   type Source,
+  isDerivedRunActive,
 } from '../reactive/graph';
 import {
   effectScheduler,
   getFlushVersion,
+  isFlushing,
   queueTask,
 } from '../reactive/scheduler';
 import { isRendering } from '../component/render-state';
@@ -35,6 +37,13 @@ export interface State<T> {
   [Symbol.iterator](): IterableIterator<StateTuple<T>[number]>;
 }
 
+export interface ReactiveOptions<T> {
+  /** Decides whether a new value equals the current one; default `Object.is`. */
+  equals?: (a: T, b: T) => boolean;
+  /** Debug name used in diagnostics (loop-guard and circular-dependency errors). */
+  name?: string;
+}
+
 type StateUpdater<T> = (prev: T) => T;
 
 type StateSetterArgs<T> = [Extract<T, (...args: any[]) => unknown>] extends [
@@ -48,10 +57,31 @@ export type StateTuple<T> = [get: State<T>, set: StateSetter<T>] & State<T>;
 
 /** A derived computation is running: writes would loop. */
 function isDerivedComputationActive(): boolean {
+  if (isDerivedRunActive()) return true;
   const running = getTrackingComputation();
-  return (
-    running !== null && (running as { _derived?: boolean })._derived === true
-  );
+  return running !== null && running._derived;
+}
+
+/** Reject a write made while a component render or function child runs. */
+export function guardRenderWrite(label: string): void {
+  if (isRendering() && !isDerivedComputationActive()) {
+    throw new Error(
+      `[Askr] ${label} cannot be called during component render. ` +
+        'A write during render would schedule another render of the same component and could loop forever. ' +
+        'Move state updates to event handlers or use conditional rendering instead.'
+    );
+  }
+}
+
+/** Reject a write made from inside a derive() or selector() computation. */
+export function guardDerivedWrite(label: string): void {
+  if (isDerivedComputationActive()) {
+    throw new Error(
+      `[Askr] ${label} cannot be called inside a derive() or selector() computation. ` +
+        'Derived computations must be pure; a write from one can re-trigger it in an update loop. ' +
+        'Move the state update to an event handler.'
+    );
+  }
 }
 
 /** Create a callable state cell backed by `signal`. */
@@ -72,25 +102,13 @@ export function createStateCell<T>(
   };
   read._signal = signal;
   const set = (valueOrUpdater: T | ((prev: T) => T)): void => {
-    if (isRendering() && !isDerivedComputationActive()) {
-      throw new Error(
-        '[Askr] state.set() cannot be called during component render. ' +
-          'A write during render would schedule another render of the same component and could loop forever. ' +
-          'Move state updates to event handlers or use conditional rendering instead.'
-      );
-    }
+    guardRenderWrite('state.set()');
     const next =
       typeof valueOrUpdater === 'function'
         ? (valueOrUpdater as (prev: T) => T)(signal.peek())
         : valueOrUpdater;
-    if (Object.is(signal.peek(), next)) return;
-    if (isDerivedComputationActive()) {
-      throw new Error(
-        '[Askr] state.set() cannot be called inside a derive() or selector() computation. ' +
-          'Derived computations must be pure; a write from one can re-trigger it in an update loop. ' +
-          'Move the state update to an event handler.'
-      );
-    }
+    if (signal._equals(signal.peek(), next)) return;
+    guardDerivedWrite('state.set()');
     signal.write(next);
   };
   markReadable(read);
@@ -98,24 +116,31 @@ export function createStateCell<T>(
   return makeDestructurable(read) as unknown as StateTuple<T>;
 }
 
+/** The one iterator every destructurable state shares: `[getter, setter]`. */
+function destructureState(this: { set: unknown }): Iterator<unknown> {
+  return [this, this.set][Symbol.iterator]();
+}
+
 /** Let a getter with a `set` method destructure into `[getter, setter]`. */
 export function makeDestructurable<T extends { set: unknown }>(read: T): T {
   (read as unknown as { [Symbol.iterator]: () => Iterator<unknown> })[
     Symbol.iterator
-  ] = function* () {
-    yield read;
-    yield read.set;
-  };
+  ] = destructureState;
   return read;
 }
 
-export function state<T>(initialValue: T): StateTuple<T> {
+export function state<T>(
+  initialValue: T,
+  options?: ReactiveOptions<T>
+): StateTuple<T> {
   const instance = requireInstance('state()');
   const index = claimHook(instance, 'state');
   const existing = instance.hooks[index] as StateTuple<T> | undefined;
   if (existing) return existing;
   const development = !isProductionEnvironment();
-  const cell = createStateCell(new Signal(initialValue), development);
+  const signal = new Signal(initialValue, options?.equals ?? Object.is);
+  if (options?.name) signal.name = options.name;
+  const cell = createStateCell(signal, development);
   instance.hooks[index] = cell;
   if (development) warnUnusedStateOnUnmount(instance);
   return cell;
@@ -136,10 +161,14 @@ function warnUnusedStateOnUnmount(instance: ComponentInstance): void {
     const name = instance.displayName || '<anonymous>';
     for (let index = 0; index < instance.hookKinds.length; index++) {
       if (instance.hookKinds[index] !== 'state') continue;
-      const cell = instance.hooks[index] as { _everRead?: boolean };
+      const cell = instance.hooks[index] as {
+        _everRead?: boolean;
+        _signal?: Signal<unknown>;
+      };
       if (cell._everRead) continue;
+      const stateName = cell._signal?.name;
       logger.warn(
-        `[askr] Unused state variable detected in ${name} at index ${index}. State should be read during render or removed.`
+        `[askr] Unused state variable detected in ${name} at index ${index}${stateName ? ` ("${stateName}")` : ''}. State should be read during render or removed.`
       );
     }
   });
@@ -166,6 +195,11 @@ interface DeriveSlot {
 
 const MAX_DERIVED_RUNS = 50;
 
+/** `derive()` or `derive("name")`, for error messages. */
+function labelOf(kind: string, name: string | undefined): string {
+  return name ? `${kind}(${JSON.stringify(name)})` : `${kind}()`;
+}
+
 function mapped<TIn, TOut>(
   source: SnapshotSource<TIn> | TIn | (() => TIn),
   map: (value: TIn) => TOut
@@ -186,22 +220,37 @@ function mapped<TIn, TOut>(
   };
 }
 
-export function derive<TOut>(fn: () => TOut): Derived<TOut>;
+export function derive<TOut>(
+  fn: () => TOut,
+  options?: ReactiveOptions<TOut>
+): Derived<TOut>;
 export function derive<TIn, TOut>(
   source: SnapshotSource<TIn> | TIn | (() => TIn),
-  map: (value: TIn) => TOut
+  map: (value: TIn) => TOut,
+  options?: ReactiveOptions<TOut | null>
 ): Derived<TOut | null>;
 export function derive<TIn, TOut>(
   source: SnapshotSource<TIn> | TIn | (() => TIn),
-  map?: (value: TIn) => TOut
+  mapOrOptions?: ((value: TIn) => TOut) | ReactiveOptions<unknown>,
+  maybeOptions?: ReactiveOptions<unknown>
 ): Derived<unknown> {
   const instance = requireInstance('derive()');
   const index = claimHook(instance, 'derive');
+  const map = typeof mapOrOptions === 'function' ? mapOrOptions : undefined;
+  const options = map
+    ? maybeOptions
+    : (mapOrOptions as ReactiveOptions<unknown>);
   const compute =
     map === undefined ? (source as () => unknown) : mapped(source, map);
   let slot = instance.hooks[index] as DeriveSlot | undefined;
   if (!slot) {
-    slot = createDerived(instance, compute, 'derive()');
+    slot = createDerived(
+      instance,
+      compute,
+      labelOf('derive', options?.name),
+      options?.equals,
+      options?.name
+    );
     instance.hooks[index] = slot;
   } else {
     // A new render may capture new locals; the next read recomputes.
@@ -213,7 +262,9 @@ export function derive<TIn, TOut>(
 function createDerived(
   owner: ComponentInstance | null,
   compute: () => unknown,
-  label: string
+  label: string,
+  equals?: (a: unknown, b: unknown) => boolean,
+  name?: string
 ): DeriveSlot {
   let current = compute;
   let runs = 0;
@@ -221,19 +272,26 @@ function createDerived(
   const computation = new Computation<unknown>(
     owner,
     () => {
-      const flush = getFlushVersion();
-      if (flush !== runsFlush) {
-        runsFlush = flush;
-        runs = 0;
-      }
-      if (++runs > MAX_DERIVED_RUNS) {
-        throw new Error(`[Askr] ${label} exceeded ${MAX_DERIVED_RUNS} runs`);
+      // A derive that keeps invalidating itself re-runs repeatedly inside
+      // one flush. Reads between flushes (a handler writing and reading in a
+      // loop) are ordinary work and are not counted.
+      if (isFlushing()) {
+        const flush = getFlushVersion();
+        if (flush !== runsFlush) {
+          runsFlush = flush;
+          runs = 0;
+        }
+        if (++runs > MAX_DERIVED_RUNS) {
+          throw new Error(`[Askr] ${label} exceeded ${MAX_DERIVED_RUNS} runs`);
+        }
       }
       return current();
     },
-    null
+    null,
+    equals ?? Object.is
   );
-  (computation as { _derived?: boolean })._derived = true;
+  computation._derived = true;
+  if (name) computation.name = name;
   return {
     computation,
     read: markReadable((() => {
@@ -271,6 +329,12 @@ export interface Selector<T> {
 
 type SelectorEquals<T> = (a: T, b: T) => boolean;
 
+export interface SelectorOptions<T> {
+  equals?: SelectorEquals<T>;
+  /** Debug name used in diagnostics. */
+  name?: string;
+}
+
 interface CandidateSource extends Source {
   candidate: unknown;
 }
@@ -282,13 +346,18 @@ interface SelectorSlot<T> {
 
 export function selector<T>(
   source: () => T,
-  equals: SelectorEquals<T> = Object.is
+  equalsOrOptions: SelectorEquals<T> | SelectorOptions<T> = Object.is
 ): Selector<T> {
+  const options =
+    typeof equalsOrOptions === 'function'
+      ? { equals: equalsOrOptions, name: undefined }
+      : equalsOrOptions;
+  const equals = options.equals ?? Object.is;
   const instance = requireInstance('selector()');
   const index = claimHook(instance, 'selector');
   let slot = instance.hooks[index] as SelectorSlot<T> | undefined;
   if (!slot) {
-    slot = createSelector(instance, source, equals);
+    slot = createSelector(instance, source, equals, options.name);
     instance.hooks[index] = slot;
   } else {
     slot.setSource(source, equals);
@@ -306,8 +375,10 @@ export function selectorCandidateCount(predicate: object): number {
 function createSelector<T>(
   owner: ComponentInstance,
   initialSource: () => T,
-  initialEquals: SelectorEquals<T>
+  initialEquals: SelectorEquals<T>,
+  name?: string
 ): SelectorSlot<T> {
+  const label = labelOf('selector', name);
   let source = initialSource;
   let equals = initialEquals;
   let value: T;
@@ -397,15 +468,16 @@ function createSelector<T>(
     effectScheduler('render', owner.depth),
     null
   );
-  (watcher as { _derived?: boolean })._derived = true;
+  watcher._derived = true;
+  if (name) watcher.name = name;
   watcher.run();
 
   const predicate = ((candidate: T) => {
     if (watcher.disposed) {
-      throw new Error('selector() owner has been disposed');
+      throw new Error(`${label} owner has been disposed`);
     }
     if (watcher._running) {
-      throw new Error('selector() cannot read itself recursively');
+      throw new Error(`${label} cannot read itself recursively`);
     }
     if (watcher.stale) watcher.update();
     if (isTracking()) {

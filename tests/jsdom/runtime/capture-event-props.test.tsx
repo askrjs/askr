@@ -66,7 +66,7 @@ describe('capture event props', () => {
     }
   );
 
-  it('should not dispatch an ancestor onFocus given a focused descendant', () => {
+  it('should dispatch an ancestor onFocus through focusin given a focused descendant', () => {
     const events: string[] = [];
     const Component = () => (
       <main
@@ -81,11 +81,12 @@ describe('capture event props', () => {
     container
       .querySelector('input')!
       .dispatchEvent(new FocusEvent('focus', { bubbles: false }));
+    expect(events).toEqual([]);
     container
       .querySelector('input')!
       .dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
     flushScheduler();
-    expect(events).toEqual(['focusin']);
+    expect(events.sort()).toEqual(['focus', 'focusin']);
   });
 
   it('should dispatch only the target onScroll given a scrolled descendant', () => {

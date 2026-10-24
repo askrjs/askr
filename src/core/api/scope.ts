@@ -65,20 +65,6 @@ export function readScope<T>(scope: Scope<T>): T {
         'Ensure you are calling this from inside your component or resource function.'
     );
   }
-  const value = lookup(owner, scope.key);
+  const value = owner.lookupScope(scope.key, NOT_FOUND);
   return value === NOT_FOUND ? scope.defaultValue : (value as T);
-}
-
-function lookup(
-  owner: { context: Map<unknown, unknown> | null; parent: unknown },
-  key: symbol
-): unknown {
-  for (
-    let o = owner as typeof owner | null;
-    o;
-    o = o.parent as typeof owner | null
-  ) {
-    if (o.context?.has(key)) return o.context.get(key);
-  }
-  return NOT_FOUND;
 }

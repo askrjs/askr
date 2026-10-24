@@ -11,8 +11,14 @@ import {
   booleanAttributeValue,
   isSkippedProp,
   keepsFalseValue,
+  normalizeClassValue,
 } from '../common/prop-classification';
-import { isUnsafeUrlAttribute, rejectUnsafeUrlAttribute } from '../common/url';
+import {
+  isRawHtmlAttribute,
+  isUnsafeUrlAttribute,
+  rejectRawHtmlAttribute,
+  rejectUnsafeUrlAttribute,
+} from '../common/url';
 import {
   ATTRIBUTE_PROP_PREFIX,
   isPropertyOnlyProp,
@@ -178,7 +184,9 @@ export function renderAttrsDirect(
       continue;
     }
 
-    const value = resolvePropValue(propsObj[key]);
+    let value = resolvePropValue(propsObj[key]);
+    if (key === 'class' || key === 'className')
+      value = normalizeClassValue(value);
     if (isPropertyOnlyProp(tagName, key, value)) continue;
     // `attr:` renders text only; objects (even `attr:style`) are left out on
     // both sides rather than serialized differently.
@@ -194,6 +202,7 @@ export function renderAttrsDirect(
     // `attr:` never smuggles an inline event handler past the check above.
     if (attrName !== key && isEventHandler(attrName)) continue;
     assertAttributeName(attrName);
+    if (rejectRawHtmlAttribute(attrName)) continue;
 
     // Handle style objects
     if (attrName === 'style') {
@@ -265,7 +274,8 @@ export function getRenderedAttributeValue(
     const attrName = getPublicAttributeName(key);
     if (attrName.toLowerCase() !== name) continue;
 
-    const value = resolvePropValue(propsObj[key]);
+    let value = resolvePropValue(propsObj[key]);
+    if (attrName === 'class') value = normalizeClassValue(value);
     if (attrName === 'style') {
       const css = typeof value === 'string' ? value : styleObjToCss(value);
       if (!css) continue;
@@ -279,6 +289,7 @@ export function getRenderedAttributeValue(
     )
       continue;
     const strValue = String(value);
+    if (isRawHtmlAttribute(attrName)) continue;
     if (isUnsafeUrlAttribute(attrName, strValue)) continue;
     return strValue;
   }

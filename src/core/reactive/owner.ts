@@ -9,6 +9,15 @@
 
 export type Cleanup = () => void;
 
+/**
+ * Bumped whenever scope values or the owner tree change shape. Cached scope
+ * lookups are valid only within the epoch they were stored in.
+ */
+let scopeEpoch = 0;
+
+/** Distance between cached owners on a compressed lookup path. */
+const SCOPE_CACHE_STRIDE = 8;
+
 export class Owner {
   parent: Owner | null;
   /**
@@ -23,11 +32,21 @@ export class Owner {
   cleanups: Cleanup[] | null = null;
   /** Lexical scope values keyed by scope identity; inherited through `parent`. */
   context: Map<unknown, unknown> | null = null;
+  /** Resolved scope lookups through this owner, valid for `scopeCacheEpoch`. */
+  scopeCache: Map<unknown, unknown> | null = null;
+  scopeCacheEpoch = -1;
   disposed = false;
 
   constructor(parent: Owner | null) {
     this.parent = parent;
     if (parent) {
+      // A lifetime that starts after its parent ended (an async continuation
+      // after unmount) is over before it begins: it is never scheduled and
+      // never subscribes, and its cleanups run as they are registered.
+      if (parent.disposed) {
+        this.disposed = true;
+        return;
+      }
       const owned = (parent.owned ??= []);
       this.ownedIndex = owned.length;
       owned.push(this);
@@ -42,17 +61,64 @@ export class Owner {
     (this.cleanups ??= []).push(fn);
   }
 
+  /** Record a scope value on this owner, visible to it and its descendants. */
+  setContext(key: unknown, value: unknown): void {
+    (this.context ??= new Map()).set(key, value);
+    scopeEpoch++;
+  }
+
+  /** Remove a scope value recorded with {@link setContext}. */
+  deleteContext(key: unknown): void {
+    this.context?.delete(key);
+    scopeEpoch++;
+  }
+
   lookup(key: unknown): unknown {
-    if (this.context?.has(key)) return this.context.get(key);
-    for (let owner = this.parent; owner; owner = owner.parent) {
-      if (owner.context?.has(key)) return owner.context.get(key);
+    return this.lookupScope(key, undefined);
+  }
+
+  /**
+   * Find the nearest value recorded under `key` on this owner or an ancestor,
+   * or `notFound`. The result is cached on owners along the walk (every
+   * {@link SCOPE_CACHE_STRIDE}th one, so a chain of any depth is walked about
+   * once per change), and a later lookup stops at the first cached owner.
+   */
+  lookupScope<T>(key: unknown, notFound: T): unknown {
+    const epoch = scopeEpoch;
+    let found: unknown = notFound;
+    let steps = 0;
+    let owner: Owner | null = this;
+    for (; owner; owner = owner.parent) {
+      if (owner.scopeCacheEpoch === epoch && owner.scopeCache?.has(key)) {
+        found = owner.scopeCache.get(key);
+        break;
+      }
+      const context = owner.context;
+      if (context?.has(key)) {
+        found = context.get(key);
+        break;
+      }
+      steps++;
     }
-    return undefined;
+    if (steps >= SCOPE_CACHE_STRIDE) {
+      let index = 0;
+      for (let o: Owner | null = this; index < steps; o = o!.parent, index++) {
+        if (index % SCOPE_CACHE_STRIDE !== 0) continue;
+        if (o!.scopeCacheEpoch !== epoch || !o!.scopeCache) {
+          o!.scopeCache = new Map();
+          o!.scopeCacheEpoch = epoch;
+        }
+        o!.scopeCache.set(key, found);
+      }
+    }
+    return found;
   }
 
   /** Detach from the parent without disposing (the caller disposes). */
   detach(): void {
     const parent = this.parent;
+    // Descendants may have cached values from the ancestors being left.
+    if (parent && (this.owned || this.scopeCache)) scopeEpoch++;
     const siblings = parent?.owned;
     if (parent && siblings && siblings[this.ownedIndex] === this) {
       if (this.ownedIndex === siblings.length - 1) {

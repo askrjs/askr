@@ -10,6 +10,26 @@ type IslandConfig = {
   root: Element | string;
   component: ComponentFunction;
   cspNonce?: string;
+  /**
+   * Adopt the container's existing elements instead of replacing them. An
+   * object adopts and receives mismatch reports.
+   * Defaults to `true` when the container already has element children;
+   * `false` always replaces, `true` always adopts. A mismatch falls back to
+   * client-rendered nodes as hydration does.
+   */
+  hydrate?:
+    | boolean
+    | {
+        /**
+         * Called with the DOM path and the expected and found nodes for each
+         * server/client difference; the island patches the markup and proceeds.
+         */
+        onMismatch?: (info: {
+          path: string;
+          expected: string;
+          actual: string;
+        }) => void;
+      };
   /** Optional data runtime owned by this island's render and event lifecycle. */
   dataRuntime?: DataRuntime;
   cleanupStrict?: boolean;
@@ -33,6 +53,34 @@ type SPAConfig = BootRouteSource & {
   /** Auth resolution and redirect options; defaults to the registry's `auth`. */
   auth?: RouteAuthOptions;
   scrollRestoration?: boolean | ScrollRestorationOptions;
+  /**
+   * Focus and announcement after a push navigation. On by default: focus moves
+   * to the first `[data-askr-focus-target]`, else `<main>`, else the first
+   * `<h1>`, else the root, and a visually hidden polite live region announces
+   * the new document title (the pathname without one). `false` turns both off.
+   */
+  focus?:
+    | false
+    | {
+        target?: string | ((root: Element) => Element | null);
+        announce?:
+          | false
+          | ((route: {
+              readonly pathname: string;
+              readonly search: string;
+              readonly hash: string;
+              readonly title: string;
+            }) => string);
+      };
+  /**
+   * Animate page changes with \`document.startViewTransition()\`. \`true\`
+   * animates every navigation (including back/forward), a function decides per
+   * navigation from the departing and arriving hrefs, and the default \`false\`
+   * never does unless a navigation asks (\`navigate(target, { viewTransition:
+   * true })\`, \`<Link viewTransition>\`). Browsers without the API commit
+   * directly.
+   */
+  viewTransitions?: boolean | ((from: string, to: string) => boolean);
   cleanupStrict?: boolean;
   component?: never;
 };
@@ -44,9 +92,36 @@ type HydrateSPAConfig = BootRouteSource & {
   /** Auth resolution and redirect options; defaults to the registry's `auth`. */
   auth?: RouteAuthOptions;
   scrollRestoration?: boolean | ScrollRestorationOptions;
+  /** Focus and announcement after a push navigation; see `SPAConfig.focus`. */
+  focus?:
+    | false
+    | {
+        target?: string | ((root: Element) => Element | null);
+        announce?:
+          | false
+          | ((route: {
+              readonly pathname: string;
+              readonly search: string;
+              readonly hash: string;
+              readonly title: string;
+            }) => string);
+      };
+  /** View transitions between pages; see \`SPAConfig.viewTransitions\`. */
+  viewTransitions?: boolean | ((from: string, to: string) => boolean);
   cleanupStrict?: boolean;
   hydrate?: {
     verifyMarkup?: boolean;
+    /**
+     * Called with the DOM path and the expected and found nodes for each
+     * server/client difference. In verify mode, returning `'continue'` patches
+     * the markup and proceeds instead of failing hydration.
+     */
+    onMismatch?: (info: {
+      path: string;
+      expected: string;
+      actual: string;
+    }) => 'continue' | void;
+
     deferUntilIdle?: boolean;
     deferBelowFold?: boolean;
     foldThreshold?: number;

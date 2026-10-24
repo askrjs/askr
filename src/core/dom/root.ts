@@ -15,9 +15,14 @@ import { createRenderContext, domNodes, namespaceAt } from './nodes';
 import { CommitMutationError, Pass } from './pass';
 import { reconcileChildren } from './reconcile';
 import { ROOT, collectDom, type RootNode } from './tree';
-import { HydrationCursor, syncChildren } from './hydration';
+import {
+  HydrationCursor,
+  syncChildren,
+  type HydrationOptions,
+} from './hydration';
 import { EVENT_ROOT_CONTAINER, registerEventRoot } from './events';
 import { installRenderUpdates } from './updates';
+import { replaceChildrenOf } from './replace-children';
 
 export interface PreparedRender {
   /** Apply reversible DOM operations while retaining rollback state. */
@@ -49,6 +54,8 @@ export interface RootOptions {
   before?: Node | null;
   /** The first render adopts the container's server-rendered markup. */
   hydrate?: boolean;
+  /** How the first hydrating render treats server markup. */
+  hydrateOptions?: HydrationOptions;
 }
 
 export function createRoot(
@@ -59,7 +66,7 @@ export function createRoot(
   const owner = new Owner(
     options.owner === undefined ? getOwner() : options.owner
   );
-  (owner.context ??= new Map()).set(EVENT_ROOT_CONTAINER, container);
+  owner.setContext(EVENT_ROOT_CONTAINER, container);
   const node: RootNode = {
     kind: ROOT,
     el: container,
@@ -76,7 +83,14 @@ export function createRoot(
     const pass = new Pass();
     const fresh = !mounted;
     const tail = node.tail?.parentNode === container ? node.tail : null;
-    const cursor = fresh && hydrate ? new HydrationCursor(tail) : null;
+    const cursor =
+      fresh && hydrate
+        ? new HydrationCursor(tail, undefined, {
+            strict: false,
+            ...options.hydrateOptions,
+            root: container,
+          })
+        : null;
     const ctx = createRenderContext(
       pass,
       owner,
@@ -103,7 +117,7 @@ export function createRoot(
               pass.onReversibleCommit(() => {
                 node.children = previous;
               });
-              syncChildren(pass, container, dom, before);
+              syncChildren(pass, container, dom, before, cursor ?? undefined);
               node.children = children;
               return;
             }
@@ -120,7 +134,7 @@ export function createRoot(
                 }
               });
               try {
-                container.replaceChildren(...dom);
+                replaceChildrenOf(container, dom);
               } catch (error) {
                 if (error instanceof CommitMutationError) throw error;
                 throw new CommitMutationError(error);

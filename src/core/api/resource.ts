@@ -22,15 +22,11 @@ import {
 import { queueTask } from '../reactive/scheduler';
 import { recordUndo } from '../component/journal';
 import {
-  createSource,
   currentComponent,
   hookSlot,
-  notify,
   onCommit,
-  readSource,
   currentAppRuntime,
   type ComponentInstance,
-  type ReadableSource,
 } from './hooks';
 import { ResourceCell } from './resource-cell';
 import { brandSnapshotSource } from './snapshot';
@@ -163,7 +159,6 @@ interface ResourceSlot<T> {
   cell?: ResourceCell<T>;
   snapshot: ResourceResult<T>;
   uncommittedDeps: boolean;
-  source: ReadableSource;
 }
 
 /** Restore render-time snapshot edits when the render transaction is discarded. */
@@ -262,7 +257,6 @@ function createResource<T>(
   const h = hookSlot<ResourceSlot<T>>(inst, 'resource', () => ({
     cell: undefined,
     uncommittedDeps: false,
-    source: createSource(),
     snapshot: brandSnapshotSource({
       value: seed ? seed.value : null,
       pending: seed?.pending ?? true,
@@ -270,8 +264,6 @@ function createResource<T>(
       refresh: () => {},
     }) as ResourceResult<T>,
   }));
-  readSource(h.source);
-  const publish = () => notify(h.source);
 
   // Initialize cell on first call
   if (!h.cell) {
@@ -292,7 +284,6 @@ function createResource<T>(
       h.snapshot.value = cell.snapshot.value;
       h.snapshot.pending = cell.snapshot.pending;
       h.snapshot.error = cell.snapshot.error;
-      publish();
     });
 
     inst.onCleanup(unsubscribe);
@@ -333,16 +324,14 @@ function createResource<T>(
             h.snapshot.value = cell.value;
             h.snapshot.pending = cell.pending;
             h.snapshot.error = (err as Error) ?? null;
-            publish();
             return;
           }
 
-          // A synchronous result did not notify subscribers; publish it.
+          // A synchronous result did not notify subscribers; record it.
           if (!cell.pending) {
             h.snapshot.value = cell.value;
             h.snapshot.pending = cell.pending;
             h.snapshot.error = cell.error;
-            publish();
           }
         });
       });
@@ -411,7 +400,6 @@ function createResource<T>(
               h.snapshot.value = cell.value;
               h.snapshot.pending = cell.pending;
               h.snapshot.error = cell.error;
-              publish();
             }
           });
         });

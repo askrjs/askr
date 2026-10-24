@@ -6,6 +6,13 @@ import { resetNavigationRegistry } from './navigation-registry';
 import { resetNavigationScroll } from './navigation-scroll';
 import { cancelRouteRequests } from './navigation-request';
 import { clearRouteState } from './store';
+import { resetRouteMetaBaseline } from './metadata';
+import { resetNavigationBlockers } from './navigation-block';
+import { clearPendingNavigation } from './navigation-state';
+import { resetNavigationFocus } from './navigation-focus';
+import { resetRoutePrefetch } from './route-prefetch';
+import { resetViewTransitions } from './view-transition';
+import { resetHydratedCsrfToken } from '../common/csrf-token';
 
 /**
  * Return every part of the router to its initial state.
@@ -30,4 +37,11 @@ export function resetRouterState(): void {
   resetHistoryIndex();
   resetLazyRoutes();
   resetClientAuth();
+  resetRouteMetaBaseline();
+  resetNavigationBlockers();
+  resetNavigationFocus();
+  resetRoutePrefetch();
+  resetViewTransitions();
+  resetHydratedCsrfToken();
+  clearPendingNavigation();
 }

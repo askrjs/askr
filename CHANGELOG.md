@@ -39,6 +39,127 @@
 
 ### Additions
 
+- `hydrateSPA()` seeds the route loader cache with the loader data it adopts
+  (leaf and group/page loaders), so navigating away from a server-rendered
+  first page and back does not run its loaders again while the data is fresh
+  (`staleTimeMs`). The data's age counts from the server render, which
+  `renderRouteRequest()` records in the hydration data. A leaf with
+  `dehydrate()` is not seeded.
+- Server rendering renders a route's `error` and `forbidden` components:
+  `renderRouteRequest()` and `renderRouteRequestToString()` resolve a loader,
+  `preload`, policy or render failure to `{ kind: 'render', status: 500, error }`
+  with the `error` component inside the layouts, and a denial to
+  `{ kind: 'render', status, denied: true }` with the `forbidden` component.
+  Without those components the results are unchanged. `hydrateSPA()` adopts the
+  markup; failures reach the page only with `expose: true`. The buffered result
+  also keeps its private `record`. See the router reference.
+- SSG writes the root `fallback()` as `404.html`, passes the route's resolved
+  metadata to the document callback as `context.meta`, runs route `preload`
+  prefetches against a page-local data runtime served by a new `queryRegistry`
+  option and embeds their data, and reports a parameterized route without
+  `entries()` as runtime-only instead of failing the build.
+
+- `blockNavigation()` now also guards a policy or auth redirect met while an
+  in-app navigation resolves, so a blocker that starts objecting during
+  resolution keeps the page as it is. A message the visitor already confirmed
+  for that navigation is not asked again. `updateRouteQuery()` changes the
+  page that stays rendered and does not consult blockers. A blocked
+  back/forward traversal whose history position is unknown is undone by
+  pushing the rendered location again, with its `navigate()` state (one extra
+  entry; forward entries are lost) instead of proceeding. `navigationState()`
+  gains `blocked`, the href of the latest refused navigation until the next
+  one begins.
+
+- Add opt-in view transitions: `navigate(target, { viewTransition: true })`,
+  `<Link viewTransition>` and a `viewTransitions: boolean | ((from, to) =>
+  boolean)` option on `createSPA()`/`hydrateSPA()` (default off) run the
+  navigation commit inside `document.startViewTransition()` when it exists,
+  and commit directly otherwise. Back/forward follows the app option. See
+  the navigation guide.
+- `action()` no longer captures the CSRF token once at render when it has no
+  `csrfToken` resolver. Each submission reads, in order, the hydration envelope
+  token (until the session identity changes), a `<meta name="csrf-token">`
+  element, and the cookie named by the new `csrfCookie` option (default none),
+  so a token rotated after login is picked up. `csrfToken` is now optional in
+  the options. See the forms guide.
+- Report `status: 404` on the SSR render result when a `fallback()` rendered
+  the miss, so hosts can send the right status without reading the private
+  route record.
+- Accept an optional debug `{ name }` in the options of `state()`, `derive()`,
+  `selector()` and `store()`, and include it in the loop-guard,
+  circular-dependency, unused-state and store write-guard messages. A looping
+  component is named by its display name. `selector()` also accepts
+  `{ equals, name }` in place of a bare comparator. See
+  `docs/core/runtime.md#debug-names`.
+- Add the `store(initial)` component hook and `unwrap(proxy)` to `@askrjs/askr`:
+  a deep reactive proxy with per-property tracking, lazy nested wrapping with
+  stable identity, array `length`/index/iteration tracking, `delete` and key
+  tracking. Writes during render throw like `state.set()`. See
+  `docs/core/runtime.md#stores`.
+- Export `batch(fn)` and `untrack(fn)` from `@askrjs/askr`. `batch` defers
+  scheduling and flushes once when the outermost batch exits, from any code
+  (handlers, timers). `untrack` reads reactive values without subscribing. The
+  surface grows by two named/entrypoint pairs. See
+  `docs/core/runtime.md#batching-and-untracked-reads`.
+- Add an `equals` option to `state()` and `derive()`: `state(initial, { equals })`,
+  `derive(fn, { equals })` and `derive(source, map, { equals })`. A comparator that
+  returns true suppresses the notification. The default stays `Object.is`.
+  See `docs/core/runtime.md#custom-equality`.
+- Add `trailingSlash` (`'ignore' | 'never' | 'always'`) and `caseSensitive`
+  options to `createRouteRegistry()`. Non-canonical requests for a matched
+  route redirect (308, query and fragment kept) to the canonical form; both
+  default to the existing exact, slash-tolerant matching.
+
+- Add `localTarget(value, fallback = '/')` at `@askrjs/askr/router`, which
+  reduces an untrusted navigation target to a same-origin root-relative href or
+  the fallback, and a `sameOrigin: true` option for `navigate()` that throws for
+  any cross-origin target, including an explicit `http(s)` URL.
+
+- Add `replace`, `state`, `scroll` (`'top' | 'preserve'`) and `prefetch`
+  (`'intent' | 'render' | 'none'`, default `'none'`) props to `Link`. Prefetch
+  starts the route's lazy chunk and resolves it through the loader cache on
+  pointer intent, focus or mount.
+
+- Add a `focus` option to `createSPA()` and `hydrateSPA()`. After a navigation
+  to another path (not back/forward) the router now moves focus to the first
+  `[data-askr-focus-target]`, else `<main>`, else the first `<h1>`, else the
+  root, and announces the document title through a visually hidden polite
+  live region. Pass `focus: false` to opt out, or configure `target` and
+  `announce`.
+
+- Add `navigationState()` (`{ pending, to, revalidating }`, reactive in
+  components), `blockNavigation(shouldBlock)` and the `NavigationState` type at
+  `@askrjs/askr/router`. A blocker can refuse or confirm `navigate()`, links,
+  back/forward traversal (undone through the history index) and `beforeunload`.
+
+- Parse the inbound query string with a route's `search` schema. Loaders,
+  `preload`, `meta` and policies receive the typed result as
+  `context.searchParams`, and `currentRoute().search` exposes it (typed by a new
+  fourth `currentRoute()` generic). Query text is converted to the declared
+  types; invalid or missing values take schema defaults, invalid keys are
+  dropped and the route never 404s over its query string.
+
+- Cache browser route loader results in the app's data runtime, keyed by route
+  template, params and search. Repeat visits and back/forward render the cached
+  result at once and revalidate in the background (the route re-renders when
+  the new result arrives); concurrent navigations share one request. Add a
+  `staleTimeMs` route option (`number | 'always'`, default `0`); drop entries
+  with `invalidate('route-data:...')`.
+- Add `loader` and `staleTimeMs` to `group()` and `page()`, run beside the leaf
+  loader, and `layoutData(loader)` at `@askrjs/askr/router` to read their
+  results in layouts, page hosts and leaves, including through SSR and
+  hydration.
+
+- Add `error` and `forbidden` component options to `route()`, `page()` and
+  `group()`, and the `RouteErrorProps` and `RouteForbiddenProps` types at
+  `@askrjs/askr/router`. A failed browser navigation renders the nearest
+  `error` component (with `retry()`) at the destination URL; a denied route
+  renders the nearest `forbidden` component instead of the bare status
+  placeholder. Routes declaring neither keep their behavior.
+
+- Type `download` on `<a>` (a filename, or `true` for the resource's own
+  name) and `onDoubleClick` on every element, as an alias of `onDblClick`.
+
 - Add `createSessionAuth()` and its three option/binding types at the router
   owner for same-origin server provider sessions. Adopt a minimal SSR identity,
   dedupe session GETs, construct safe provider links and retire private routed
@@ -71,7 +192,262 @@
   router regression floors, CI source reports, and cleanup/hydration failure
   and recovery probes.
 
+- Add the `hydrate` option to `createIsland` and `createIslands`
+  (`@askrjs/askr/boot`). An island adopts the container's server-rendered
+  elements by default, or when `hydrate: true`; `hydrate: false` replaces them.
+
+- Add `hydrate: { onMismatch(info) }` to `hydrateSPA` and `createIsland`
+  (`@askrjs/askr/boot`). It receives `{ path, expected, actual }` for each
+  server/client difference; returning `'continue'` from a verify-mode mismatch
+  patches the markup and proceeds instead of failing.
+
+- Type per-handler listener options through prop name suffixes on every
+  intrinsic `on*` prop: `Passive` and `Once` (and their combinations with
+  `Capture`), for example `onWheelPassive` and `onClickOnce`.
+
+- Accept class arrays and objects on intrinsic `class` and `className`
+  (`class={['a', { b: cond }, null]}`), rendered the same way on the client and
+  on the server.
+
+- Add jsdom js-framework-benchmark style tier-1 operations (create 1,000 and
+  10,000 rows, select a row, remove one row, clear) with preflight invariants.
+
 ### Fixes
+
+- Reject a `state.set()` hidden inside `untrack()` from a `derive()` or
+  `selector()` with the derived-write error rather than letting it through
+  or misreporting it as a render write. `composeRefs()` forwards the
+  cleanups its callback refs return and gives `null` only to the refs that
+  returned none, object refs included; when one ref throws on attach, the
+  cleanups the other callbacks returned run instead of being lost.
+- An `error` component renders inside layouts that have the group/page loader
+  data that did load before another loader failed, in the browser and on the
+  server, and a server render that falls back to the `error` component after
+  the page threw keeps the request's identity and layout data. A route with
+  group/page loaders waits for every loader to settle before a failure
+  surfaces.
+- The hydration CSRF token survives a session recovery that repeats the
+  identity the server already confirmed (a 401 for an anonymous visitor); it
+  is still revoked when the identity changes or the session ends. `action()`
+  reads the render-data token ahead of the app's at submit, as `ActionForm`
+  does, rejects `{ csrfToken: undefined }`, and names the accepted options
+  when it rejects an unknown one.
+- A navigation commit that fails inside `document.startViewTransition()` is
+  logged like a direct commit failure instead of vanishing with the
+  transition's promise. `isRoutePathActive()` canonicalizes the active
+  location once per location and route table rather than on every read.
+- `matchRoute()`, `isRoutePathActive()`, `currentRoute()` and the activity
+  predicates now apply a registry's `caseSensitive: false` and `trailingSlash`
+  options the way resolution does (static segments compare case-insensitively
+  when the path matches no route as written, and `isRoutePathActive()`
+  compares its candidates the same way), and a synchronous server render of a
+  non-canonical URL reports the canonical redirect instead of a missing route.
+
+- Resource and stream snapshot fields notify when the same mutable object
+  is assigned again (a buffer the source pushed into), so a stream that
+  yields one array keeps re-rendering. A comparator or run that throws
+  during a stale-chain walk no longer leaves a derived value marked as
+  walking, which made later reads stale. Frozen objects can be read through
+  a store, and `includes`/`indexOf` on a store array find the raw objects
+  the application holds.
+
+- Publish the resolved identity for denied routes too, so a `forbidden`
+  component reads the signed-in user. The router's own session redirects
+  and fragment-only moves bypass `blockNavigation()`. Route links that
+  differ by `hreflang`, `media` or other attributes are no longer collapsed
+  when metadata merges. The stale-deployment reload marker clears when a
+  navigation that loaded a chunk commits without an error component, not
+  when any one chunk loads, so a missing chunk beside a working one cannot
+  reload the page in a loop. `action()` composes its abort signal
+  once per component on hosts without `AbortSignal.any`.
+
+- Hydration keeps a `data-key` or other bookkeeping-named attribute the
+  application rendered itself. `indeterminate`, `muted` and `open` are
+  verified against the live DOM on every patch, since the user or browser
+  changes them. A falsy number inside a class array or object is skipped,
+  as in clsx. The unknown-event-prop warning fires only for a near miss of
+  a known event name, so custom events stay quiet.
+
+- SSG prerenders routes under a `group()` or `page()` loader: the group and
+  page loaders run beside the leaf loader with the request context, resolve
+  `layoutData(loader)` in the static render and transport their data for
+  hydration.
+
+- Publish the identity a custom `resolve` produces when its navigation
+  commits (and at initial mount), not when it resolves. A page still on
+  screen while a navigation is pending, failed or superseded keeps reading
+  the identity it rendered with from `currentAuth()`; a rolled-back commit
+  restores it. An error page committed after a loader or policy failure also
+  receives the identity that resolved successfully before the failure.
+
+- Track symbol properties in stores and preserve the exact raw value of
+  frozen symbol properties, avoiding proxy invariant failures. SSG metadata
+  sources receive the leaf loader result as `context.data`. The abort-signal
+  fallback releases every listener when an input signal is repeated.
+
+- Back and forward between fragment entries skip departure blockers, matching
+  fragment-only `navigate()` calls. A native event previously handled by a
+  root can be dispatched again outside that root without losing its delegated
+  handlers, including when its first dispatch stopped propagation.
+
+- Avoid splitting and parsing identical literal paths in direct route
+  matching. Dynamic patterns and paths with empty interior segments retain
+  the general matcher and its capture and validation rules.
+  Sparse keyed reorders retain unchanged sibling position hints instead of
+  rewriting every hint.
+
+- Index route records by their first segment for matching, memoize the last
+  match per record list, and detect duplicate routes with a set lookup, so
+  matching and registration no longer scale with the whole route table.
+  `currentRoute()` returns one snapshot object per committed location, so
+  repeated reads compare by identity instead of re-matching the URL.
+
+- Revalidate a provider session in the background when the tab regains
+  focus or visibility, or a persisted page is shown. The app is retired and
+  re-resolved only when the server identity differs; an unchanged identity
+  keeps component state and a navigation in flight. Explicit and cross-tab
+  logout hints still retire private state immediately.
+
+- Cache `readScope()` lookups per owner so reading a scope in a deep component
+  tree no longer walks the whole owner chain on every read. Provider changes,
+  nearer providers and detached subtrees invalidate the cache.
+- Update deep chains of `derive()` values without a stack overflow. A write
+  marked its dependents and a read brought them up to date by recursion, so a
+  chain a few thousand values deep threw `RangeError`. Both walks now use an
+  explicit stack; a 10,000-deep chain updates.
+- Stop a runaway `queueTask()` loop. A task that queued a fresh closure on every
+  run escaped the per-job loop guard and froze the flush. A flush now stops
+  after 100,000 jobs beyond those queued when it started, drops the remaining
+  queue and reports an error. The "Update loop guard" documentation now
+  describes the actual guards (counting applies to every build, there is no
+  `onError` hook).
+- Log an async `resource()` failure to the console only in development. The
+  failure was logged in production as well as surfaced through `.error`; it is
+  now only surfaced, and reading `.error` never logs.
+- Compare the value of a single `watch()` source with `Object.is`, like
+  `state()` and `derive()`. A source function that returns an array was
+  compared element by element, so replacing `[1]` with another `[1]` did not
+  fire. Only the tuple form (an array of sources) compares entry by entry, and
+  it now delivers an array to the callback even for one source, as its type says.
+- Make the fields of `resource()` and `stream()` snapshots reactive per field.
+  A child component that reads a passed snapshot field now re-renders on its
+  own when that field changes, instead of relying on the declaring component to
+  re-render, and the declaring component no longer re-renders for results it
+  does not read. The snapshot shape and types are unchanged.
+- A lazy route chunk that fails to load during navigation now rejects the
+  route's resolution, so its `error` component renders it instead of the click
+  doing nothing. A failure that looks like a stale deployment
+  (`ChunkLoadError`, or the `TypeError` of a failed dynamic import) also loads
+  the destination as a fresh document once per session, guarded by a
+  `sessionStorage` marker.
+
+- A server action redirect in a routed app is now followed through the router
+  (same-origin targets only, as before) instead of `location.assign()`, so the
+  destination renders without a document load. Unrouted code still assigns the
+  location.
+
+- Merging route metadata no longer repeats `links` with the same `rel` and
+  `href` or identical `jsonLd` blocks declared by a group, page and route; the
+  most specific link wins.
+
+- Replace direct `AbortSignal.any` use in actions, server-query prefetch and
+  provider sessions with a helper that falls back to listener forwarding, so
+  hosts without `AbortSignal.any` no longer throw.
+
+- `updateRouteQuery()` now supersedes a navigation that is still resolving, so
+  the pending navigation can no longer publish over the updated query.
+
+- Resolve a matched route's lazy chunk, `preload` and `loader` together instead
+  of one after another, and start metadata sources in parallel. `meta` functions
+  now receive the loader result as `context.data`. A `loader` no longer waits
+  for `preload` to settle.
+
+- Navigate to a fragment on the current page without resolving the route
+  again: no loader runs and the rendered page keeps its state, for
+  `navigate()` and for back/forward traversal between such entries alike.
+  A navigation to the current location replaces its history entry instead of
+  pushing a duplicate, unless `history: 'push'` is given.
+
+- Subscribe to a reactive source as it is read. A write to a source first
+  read in the same run (a `watch()` source or effect that reads and then
+  writes the same state), or to a source behind a derived value the run has
+  already read, now re-runs the computation instead of being lost until an
+  unrelated change. Subscriptions a failed or discarded run made are
+  released with it.
+
+- Treat a lifetime created under an already disposed owner (an async
+  continuation after unmount) as disposed from the start, so it never
+  subscribes or schedules work and cannot leak.
+
+- Count the `derive()` and `selector()` loop guard only inside a scheduler
+  flush. Reading a derive more than fifty times between flushes, as an
+  event handler that writes and reads in a loop does, no longer throws
+  `derive() exceeded 50 runs`.
+
+- Reject navigation `state` that cannot be structured-cloned before the
+  destination renders, with a `TypeError` naming the cause, instead of
+  committing the page and then failing the history write so the page and
+  the URL disagreed.
+
+- Reject empty path segments in route matching. `/users//x` no longer
+  matches `/users/{id}/x` with an empty `id`, and `/users//` no longer
+  matches `/users`; one trailing slash is still ignored and a splat may
+  still capture an empty remainder.
+
+- Restore the signed-in app when a session logout request fails or its
+  transport rejects, instead of leaving a blank page in a locally logged-out
+  state while the server session is still alive. Reports of one interaction
+  failure share its login target only until the navigation to it is issued,
+  so a later failure from another page returns the user to that page after
+  login rather than the first one.
+
+- Save the departing page's scroll position before its content is replaced
+  on a push navigation. Browsers clamp the offset as soon as the document
+  shrinks, so a long list followed by a short page previously restored to
+  the top on back navigation.
+
+- Reconcile head metadata on every navigation. A route that declares no
+  `title` or `meta` now removes the previous route's title, description,
+  robots and other owned head nodes instead of leaving them in place, and
+  restores the document's own `lang` and `dir` when the router wrote them.
+  A shell `<title>` that the document already had is updated in place rather
+  than shadowed by a second `<title>`, and is restored when a route has no
+  title. A title, `lang` or `dir` the application changed itself is left
+  alone, and apps booting into one document share its original values.
+
+- Write a `<textarea value>` as the element's text content in SSR, so the
+  control is filled before hydration, and keep that server text in place when
+  hydrating; a client-created textarea writes its initial value as its
+  default text too, so server and client markup agree. Double a leading newline in
+  `<pre>`, `<textarea>` and `<listing>` content so the parsed text matches
+  the render, including content produced by function, fragment and component
+  children; hydration verification restores that newline when the host
+  serializer omits it.
+
+- Render `download={true}` as a bare attribute instead of `download="true"`,
+  which named the downloaded file `true`. Accept `onDoubleClick` as an alias
+  of `onDblClick`; it previously never fired.
+
+- Ignore the `srcdoc` attribute and `attr:srcdoc` on the client and in SSR,
+  matching `prop:srcdoc`: the value is parsed as HTML. Render `blob:` URLs in
+  `href`, `action`, `formAction` and `xlink:href`, so generated download links
+  work.
+
+- Remove the `value` attribute when the prop is removed from an `<option>`,
+  `<button>`, `<li>` or `<progress>` instead of writing `value=""`, so an
+  update matches a fresh mount. Inputs, textareas and selects still reset to
+  an empty value.
+
+- Render only JSX runtime elements as children. A plain object with a string
+  `type`, such as JSON from a loader or an API, no longer creates an element
+  or raw HTML on the client or in SSR.
+
+- Keep ordinary CSS functions in style objects. `repeat()`, `minmax()`,
+  `translate3d()`, `env()`, `blur()`, `polygon()` and the rest now render on
+  the client and in SSR; only URI schemes, resource-loading functions
+  (`url()`, `image()`, `image-set()`, `src()`, `element()`) and
+  `expression()` are rejected, with CSS escapes decoded before the check and
+  preserved in the written value.
 
 - Preserve session transport failures when a supplied fetch throws before
   returning a promise; allow the next resolution to retry without an unhandled
@@ -96,6 +472,92 @@
 
 - Restore hydration render context when claiming SSR resource metadata throws,
   so a failed claim leaves server nodes and the following hydration retry intact.
+
+- Keep server attributes the client never renders when hydrating. A theme
+  attribute, a browser extension's marker or any other attribute added outside
+  Askr survives adoption. Hydration still removes the renderers' own
+  bookkeeping (`data-skip-hydrate`, `data-key`, `data-askr-key-kind`) and an
+  attribute whose prop the client renders as `null`, `undefined` or `false`.
+  Verify mode (`hydrate.verifyMarkup`) keeps the stricter behavior and removes
+  every attribute the client does not render.
+
+- Hydrate `createIsland` over server-rendered markup instead of replacing it,
+  so node identity, typed input state, and focus survive. Pass `hydrate: false`
+  to keep the old replace behavior.
+
+- Resync hydration after an extra node on either side. Elements and texts are
+  aligned with the server's nodes by a longest common subsequence, so a server
+  `<i><b><p>` against a client `<b><p>` adopts `b` and `p` instead of
+  recreating them.
+
+- Name the first differing node in a hydration mismatch error: its DOM path
+  below the root (`main > div:nth-child(2) > p`) and the expected and found tag
+  or text.
+
+- Add development-only warnings (silent in production, each reported once) for
+  invalid nesting the HTML parser rewrites (block elements in `<p>`, nested
+  `<a>`/`<button>`/`<form>`, a server-rendered `<tr>` without `<tbody>`), a DOM
+  node or Promise passed as a child, partly keyed dynamic lists, and `on*`
+  props that match no DOM event.
+
+- Skip props whose value did not change when patching a host: no attribute,
+  class or style read or write, and no per-prop closures. A value that other
+  code overwrote while its prop stayed the same is no longer rewritten until the
+  prop changes; form control `value`, `checked` and `selected` and `prop:` writes
+  are still verified on every render. Also reuse the render context for child
+  lists, return the committed child list unchanged when positions match, and
+  share the no-op settle callback of reversible commits.
+
+- Clear a host with one `replaceChildren()` when every child is removed and
+  the host holds only renderer-owned nodes, instead of one `removeChild` per
+  child. A host with nodes added by other code still removes only its own.
+
+- Give every delegated handler the same event object, the native event, with
+  `currentTarget` set per handler and a `nativeEvent` property, instead of a new
+  `Proxy` per handler; the received event can be dispatched again. Delegate
+  pointer events (`pointerdown`, `pointerup`, `pointermove`, `pointercancel`,
+  `pointerover`, `pointerout`) and `focusin`/`focusout`. `onFocus` and `onBlur`
+  now also run for focus changes inside the element. Skip the `document.body`
+  dispatch for an event an app root already handled. `change` and `submit` stay
+  direct listeners, because they do not cross a shadow root.
+
+- Assign boolean, number and function values to a custom element's property
+  when the element has one by that name (`name in el`) instead of writing an
+  attribute; strings stay attributes, and an element that is not defined yet
+  still gets the attribute. A function given `prop:` on a custom element is
+  assigned as-is instead of being called as a reactive binding.
+
+- Let a callback ref return a cleanup function. It runs when the element is
+  removed or the ref is replaced, instead of calling the ref with `null`; a
+  ref that returns nothing still receives `null`.
+
+- Compare a `type="number"` input's value numerically, so a re-render does not
+  overwrite text such as `1.0` or `1e2` that equals the rendered number.
+
+- Parse string `style` values with a scratch declaration owned by the element's
+  own document, so an element in an iframe is parsed by that document and not
+  by the first document the renderer saw.
+
+- Write the text children of `<xmp>`, `<iframe>`, `<noembed>` and `<noframes>`
+  verbatim on the server, as the parser reads them, instead of entity-escaping
+  them (which made the parsed text differ from what the client renders). Only
+  `</` is rewritten, so the element's end tag cannot form.
+
+- Write a root's first render and an element's restored children in chunks of
+  at most 10,000 nodes, so a very large list does not exceed an engine's
+  argument limit for `replaceChildren(...nodes)`.
+
+- Clear a component instance's rendered view and hook values when it is
+  disposed, so a retained instance no longer keeps detached DOM and its
+  ancestor tree alive.
+
+- Find the DOM node after a component or fragment from a stored, checked
+  position instead of scanning its parent's children, which removes the linear
+  cost per component in a long list of components that change shape.
+
+- Warn once per element, not on every apply, about `dangerouslySetInnerHTML`,
+  and compare the `__html` strings before touching the element: an unchanged
+  string no longer reads `innerHTML` or snapshots the children.
 
 ## 0.4.4 - 2026-10-08
 

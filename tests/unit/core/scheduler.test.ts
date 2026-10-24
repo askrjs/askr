@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { Computation, Signal } from '../../../src/core/reactive/graph';
 import {
   MAX_RUNS_PER_FLUSH,
+  MAX_FOLLOW_UP_JOBS_PER_FLUSH,
   batch,
+  queueTask,
   clearScheduler,
   effectScheduler,
   flushSync,
@@ -322,5 +324,80 @@ describe('core scheduler', () => {
       effect: 0,
       post: 0,
     });
+  });
+
+  it('should stop a queueTask that queues a fresh closure on every run', () => {
+    let runs = 0;
+    const loop = (): void => {
+      runs += 1;
+      queueTask(() => loop());
+    };
+    queueTask(loop);
+
+    expect(() => flushSync()).toThrow(/exceeded \d+ follow-up jobs/);
+    expect(runs).toBeGreaterThan(MAX_RUNS_PER_FLUSH);
+    expect(runs).toBeLessThanOrEqual(MAX_FOLLOW_UP_JOBS_PER_FLUSH + 2);
+    expect(getSchedulerState().queueLength).toBe(0);
+    // The scheduler is usable again after the stopped flush.
+    let after = 0;
+    queueTask(() => {
+      after += 1;
+    });
+    expect(() => flushSync()).not.toThrow();
+    expect(after).toBe(1);
+  });
+
+  it('should not cap a large number of initially queued jobs or a moderate chain', () => {
+    let runs = 0;
+    for (let index = 0; index < 20_000; index += 1) {
+      queueTask(() => {
+        runs += 1;
+      });
+    }
+    let chain = 0;
+    const next = (): void => {
+      chain += 1;
+      if (chain < 5_000) queueTask(next);
+    };
+    queueTask(next);
+    expect(() => flushSync()).not.toThrow();
+    expect(runs).toBe(20_000);
+    expect(chain).toBe(5_000);
+  });
+
+  it('should run render jobs shallowest first and in queue order within a depth', () => {
+    const order: number[] = [];
+    const expected: Array<{ id: number; depth: number }> = [];
+    let seed = 7;
+    const random = () => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return seed;
+    };
+    batch(() => {
+      for (let id = 0; id < 400; id += 1) {
+        const depth = random() % 9;
+        expected.push({ id, depth });
+        schedule({ depth, run: () => void order.push(id) }, 'render');
+      }
+      expected.sort((a, b) => a.depth - b.depth || a.id - b.id);
+      expect(order).toEqual([]);
+    });
+    expect(order).toEqual(expected.map((entry) => entry.id));
+  });
+
+  it('should count repeated runs of a job on every flush from zero', () => {
+    let runs = 0;
+    const repeating: Job = {
+      run() {
+        runs += 1;
+        if (runs % 40 !== 0) schedule(repeating, 'post');
+      },
+    };
+    // 40 runs per flush stays below the limit, flush after flush.
+    for (let round = 0; round < 5; round += 1) {
+      schedule(repeating, 'post');
+      expect(() => flushSync()).not.toThrow();
+    }
+    expect(runs).toBe(200);
   });
 });

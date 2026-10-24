@@ -34,6 +34,30 @@ type StateSetter<T> = (...args: StateSetterArgs<T>) => void;
  */
 type StateTuple<T> = [get: State<T>, set: StateSetter<T>] & State<T>;
 
+/** Options shared by `state()` and `derive()`. */
+interface ReactiveOptions<T> {
+  /**
+   * Decides whether a new value equals the current one. When it returns
+   * true the write is ignored and nothing is notified. Defaults to `Object.is`.
+   */
+  equals?: (a: T, b: T) => boolean;
+  /** Debug name shown in loop-guard, circular-dependency and unused-state diagnostics. */
+  name?: string;
+}
+
+/** Options for `selector()`. */
+interface SelectorOptions<T> {
+  equals?: SelectorEquals<T>;
+  /** Debug name shown in diagnostics. */
+  name?: string;
+}
+
+/** Options for `store()`. */
+interface StoreOptions {
+  /** Debug name shown in write-guard errors. */
+  name?: string;
+}
+
 /**
  * Creates a local state value for a component
  * Optimized for:
@@ -60,7 +84,10 @@ type StateTuple<T> = [get: State<T>, set: StateSetter<T>] & State<T>;
  * }
  * ```
  */
-declare function state<T>(initialValue: T): StateTuple<T>;
+declare function state<T>(
+  initialValue: T,
+  options?: ReactiveOptions<T>
+): StateTuple<T>;
 
 declare const SNAPSHOT_SOURCE_BRAND: unique symbol;
 
@@ -80,11 +107,15 @@ type SnapshotSource<T> = {
 } & SnapshotSourceBrand;
 
 /** Creates a render-scoped derived value; must be called during component render. */
-declare function derive<TOut>(fn: () => TOut): Derived<TOut>;
+declare function derive<TOut>(
+  fn: () => TOut,
+  options?: ReactiveOptions<TOut>
+): Derived<TOut>;
 
 declare function derive<TIn, TOut>(
   source: SnapshotSource<TIn> | TIn | (() => TIn),
-  map: (value: TIn) => TOut
+  map: (value: TIn) => TOut,
+  options?: ReactiveOptions<TOut | null>
 ): Derived<TOut | null>;
 
 /** A fine-grained reactive membership check produced by {@link selector}. */
@@ -106,9 +137,44 @@ type SelectorEquals<T> = {
  */
 declare function selector<T>(
   source: () => T,
-  equals?: SelectorEquals<T>
+  equals?: SelectorEquals<T> | SelectorOptions<T>
 ): Selector<T>;
+/**
+ * Runs `fn` with scheduling deferred and flushes once, synchronously, when the
+ * outermost batch exits. Works anywhere: event handlers, timers, callbacks.
+ * Returns the value of `fn`; a throw still flushes queued work.
+ */
+declare function batch<T>(fn: () => T): T;
+
+/**
+ * Runs `fn` without subscribing the running computation (a render or
+ * `derive()`) to any source `fn` reads. Returns the value of `fn`.
+ */
+declare function untrack<T>(fn: () => T): T;
+
+/**
+ * Creates a deep reactive proxy over a plain object or array. Must be called
+ * during component render; like `state()` it claims a positional slot and the
+ * initial value is used only on the first render.
+ *
+ * Reading a property inside a render, `derive()` or binding subscribes to just
+ * that property. Assignments, `delete` and array mutations notify the readers
+ * they affect. Nested plain objects and arrays are wrapped lazily, with one
+ * proxy per target. Writes during render throw, like `state.set()`.
+ */
+declare function store<T extends object>(initial: T, options?: StoreOptions): T;
+
+/** Returns the raw object behind a `store()` proxy; other values are returned as is. */
+declare function unwrap<T>(value: T): T;
+
 export {
+  store,
+  unwrap,
+  batch,
+  untrack,
+  ReactiveOptions,
+  SelectorOptions,
+  StoreOptions,
   State,
   StateUpdater,
   StateSetterArgs,

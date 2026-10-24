@@ -26,7 +26,7 @@ export class RouteDataLoadError extends Error {
   }
 }
 
-function isAbortError(error: unknown): boolean {
+export function isAbortError(error: unknown): boolean {
   return (
     typeof error === 'object' &&
     error !== null &&

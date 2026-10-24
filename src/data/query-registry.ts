@@ -4,6 +4,7 @@ import type {
   QueryPrefetchContext,
   ServerQueryHandler,
 } from './types';
+import { anyAbortSignal } from '../common/abort-signal';
 import {
   assertDataRuntimeActive,
   createDataRuntime,
@@ -103,7 +104,7 @@ export function createQueryPrefetchContext(
   if (runtimeState) assertDataRuntimeActive(runtimeState);
   const contextSignal = options.signal ?? new AbortController().signal;
   const signal = runtimeState
-    ? AbortSignal.any([contextSignal, runtimeState.retirement.signal])
+    ? anyAbortSignal([contextSignal, runtimeState.retirement.signal])
     : contextSignal;
   const storePrefetchedValue = (key: string, value: {}): boolean => {
     if (signal.aborted || runtimeState?.retired) return false;

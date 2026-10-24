@@ -13,6 +13,8 @@
  */
 
 import { clarifyRenderOverflow } from '../common/render-depth';
+import { warnInvalidNesting } from '../common/dev-warnings';
+import { isDevelopmentEnvironment } from '../common/env';
 import { logger } from '../common/logger';
 import { getCurrentRenderData } from '../common/render-context';
 import type { AuthContext } from '@askrjs/auth';
@@ -55,7 +57,9 @@ import {
 } from './context';
 import {
   VOID_ELEMENTS,
+  escapeParserRawText,
   escapeRawText,
+  isParserRawTextElement,
   escapeText,
   type RawTextElement,
 } from './escape';
@@ -91,6 +95,10 @@ interface ServerRender {
   selectSelections: SelectSelection[];
   attributeRoots: WeakSet<Owner>;
   referenceAttributes: ReferenceAttributes;
+  /** Open HTML elements, innermost last; null when nesting is not checked. */
+  openTags: string[] | null;
+  /** Set while writing the direct children of an xmp, iframe, noembed or noframes. */
+  rawParent: { tailLt: boolean } | null;
 }
 
 interface SelectSelection {
@@ -336,9 +344,17 @@ export function renderValue(value: unknown, sink: SinkTarget): void {
 
 function renderChild(child: ChildDescriptor, sink: SinkTarget): void {
   switch (child.kind) {
-    case TEXT:
+    case TEXT: {
+      const rawParent = state().rawParent;
+      if (rawParent) {
+        const text = escapeParserRawText(child.text, rawParent.tailLt);
+        if (text) rawParent.tailLt = text.endsWith('<');
+        sink.write(text);
+        return;
+      }
       sink.write(escapeText(child.text));
       return;
+    }
     case ELEMENT:
       renderElement(child.tag, child.props, sink);
       return;
@@ -417,6 +433,10 @@ function renderElement(tag: string, props: Props, sink: SinkTarget): void {
   const parentNamespace = render.namespace;
   const lower = tag.toLowerCase();
   const namespace = getElementNamespace(parentNamespace, lower);
+  const openTags = namespace === 'html' ? render.openTags : null;
+  if (openTags && openTags.length > 0) {
+    warnInvalidNesting(openTags[openTags.length - 1], lower, 'server');
+  }
   // `annotation-xml` reads its `encoding` to choose its children's context,
   // so a reactive value is read once for both.
   let elementProps =
@@ -506,12 +526,30 @@ function renderElement(tag: string, props: Props, sink: SinkTarget): void {
     render.selectSelections.push(nextSelection);
   }
   const rawText = getRawTextElementInContext(parentNamespace, namespace, lower);
+  openTags?.push(lower);
+  const previousRawParent = render.rawParent;
+  render.rawParent =
+    namespace === 'html' && isParserRawTextElement(lower)
+      ? { tailLt: false }
+      : null;
   try {
     withNamespace(
       getChildNamespace(parentNamespace, namespace, lower, elementProps),
-      () => writeElement(tag, elementProps, rawText, sink, childrenBeforeAttrs)
+      () =>
+        writeElement(
+          tag,
+          elementProps,
+          rawText,
+          sink,
+          childrenBeforeAttrs,
+          namespace === 'html' && NEWLINE_SENSITIVE_ELEMENTS.has(lower)
+            ? lower
+            : null
+        )
     );
   } finally {
+    render.rawParent = previousRawParent;
+    openTags?.pop();
     if (nextSelection) render.selectSelections.pop();
   }
 }
@@ -605,6 +643,13 @@ function optionTextValue(html: string): string {
   return text;
 }
 
+/**
+ * HTML elements whose first newline the parser drops: SSR writes one extra so
+ * the parsed text matches what the component rendered. A `textarea`'s initial
+ * value is its text content, so its `value` prop is written there too.
+ */
+const NEWLINE_SENSITIVE_ELEMENTS = new Set(['pre', 'textarea', 'listing']);
+
 function writeBufferedElement(
   tag: string,
   props: Props,
@@ -628,27 +673,64 @@ function writeElement(
   props: Props,
   rawText: RawTextElement | null,
   sink: SinkTarget,
-  childrenBeforeAttrs: boolean
+  childrenBeforeAttrs: boolean,
+  newlineSensitive: string | null = null
 ): void {
   if (childrenBeforeAttrs) {
     const children = new BufferedSink(state().referenceAttributes);
-    writeContent(props, rawText, children);
+    writeContent(props, rawText, children, newlineSensitive);
     writeBufferedElement(tag, props, rawText, sink, children);
     return;
   }
   sink.write('<' + tag);
   renderHostAttrs(props, sink, rawText === null ? tag : undefined);
   sink.write('>');
-  writeContent(props, rawText, sink);
+  writeContent(props, rawText, sink, newlineSensitive);
   sink.write('</' + tag + '>');
+}
+
+/**
+ * Text content for a newline-sensitive element: the `textarea` value when one
+ * is given, else nothing (children render normally). The parser drops a
+ * newline immediately after the start tag, so a leading newline is doubled.
+ */
+function writeNewlineSensitiveContent(
+  props: Props,
+  tag: string,
+  sink: SinkTarget
+): void {
+  if (tag === 'textarea') {
+    const own = props.value;
+    const value =
+      typeof own === 'function'
+        ? untrack(() => readValue(own as () => unknown))
+        : own;
+    if (value !== undefined && value !== null && value !== false) {
+      const text = String(value);
+      if (text.startsWith('\n')) sink.write('\n');
+      sink.write(escapeText(text));
+      return;
+    }
+  }
+  // Children may be functions, fragments or components, so the content is
+  // rendered first and its leading newline doubled on the way out.
+  const content = new BufferedSink(state().referenceAttributes);
+  writeContent(props, null, content);
+  if (content.firstText().startsWith('\n')) sink.write('\n');
+  content.publishTo(sink);
 }
 
 /** An element's content: raw HTML, raw text, or rendered children. */
 function writeContent(
   props: Props,
   rawText: RawTextElement | null,
-  sink: SinkTarget
+  sink: SinkTarget,
+  newlineSensitive: string | null = null
 ): void {
+  if (newlineSensitive !== null) {
+    writeNewlineSensitiveContent(props, newlineSensitive, sink);
+    return;
+  }
   const dangerous = (props as { dangerouslySetInnerHTML?: unknown })
     .dangerouslySetInnerHTML;
   if (dangerous !== undefined && dangerous !== null) {
@@ -814,6 +896,8 @@ function withServerRender<T>(ctx: RenderContext, fn: () => T): T {
     portalNamespaces: new Map(),
     selectSelections: [],
     attributeRoots: new WeakSet(),
+    openTags: isDevelopmentEnvironment() ? [] : null,
+    rawParent: null,
     referenceAttributes: new ReferenceAttributes(),
   };
   let result: T;

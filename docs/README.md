@@ -96,6 +96,7 @@ Guides live in [guides](./guides/), and benchmark workflow in
 | [Router reference](./reference/router.md)                            | Router API details                                               |
 | [Application route metadata](./guides/application-route-metadata.md) | Immutable declarations and reactive display grants               |
 | [Provider sessions](./guides/provider-sessions.md)                   | Server-owned auth, reactive identity and private data retirement |
+| [Navigation](./guides/navigation.md)                                 | Loader cache, pending state, prefetch, focus, error components   |
 | [Resources reference](./reference/resources.md)                      | Resource API details                                             |
 | [FX reference](./reference/fx.md)                                    | Timing utilities                                                 |
 | [Foundations reference](./reference/foundations.md)                  | Low-level UI building blocks                                     |

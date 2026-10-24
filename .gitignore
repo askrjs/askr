@@ -126,3 +126,6 @@ __screenshots__/
 
 # Local agent state and worktrees
 .claude/
+
+# Vitest browser attachments (failure screenshots)
+.vitest/

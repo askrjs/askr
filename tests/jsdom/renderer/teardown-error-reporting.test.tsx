@@ -144,7 +144,7 @@ describe.each(['development', 'production'])(
       // A directly attached (non-delegated) listener is removed on teardown.
       const remove = mountToggle(() => (
         <section>
-          <button id="btn" onFocus={() => {}} />
+          <button id="btn" onScroll={() => {}} />
           <b ref={sibling} />
         </section>
       ));
@@ -346,7 +346,7 @@ describe.each(['development', 'production'])(
         return (
           <ul>
             {items().map((id) => (
-              <li key={id} data-id={String(id)} onFocus={() => {}}>
+              <li key={id} data-id={String(id)} onScroll={() => {}}>
                 {String(id)}
               </li>
             ))}
@@ -789,7 +789,7 @@ describe.each(['development', 'production'])(
         return (
           <ul>
             {items().map((id) => (
-              <li key={id} data-id={String(id)} onFocus={() => {}}>
+              <li key={id} data-id={String(id)} onScroll={() => {}}>
                 {id === 1 ? <Item /> : String(id)}
               </li>
             ))}

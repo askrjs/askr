@@ -77,6 +77,8 @@ export type WatchCallback<TValue> = (
 
 interface WatchSlot<TValue> {
   sources: readonly WatchSource<unknown>[];
+  /** The sources argument was an array: values are delivered as a tuple. */
+  tuple: boolean;
   callback: WatchCallback<TValue>;
   effect: Computation<void> | null;
   controller: AbortController | null;
@@ -87,12 +89,14 @@ interface WatchSlot<TValue> {
   version: number;
 }
 
-function sameValues(previous: unknown, next: unknown): boolean {
-  if (Array.isArray(previous) && Array.isArray(next)) {
-    if (previous.length !== next.length) return false;
-    return previous.every((value, index) => Object.is(value, next[index]));
-  }
-  return Object.is(previous, next);
+/** Entry-wise `Object.is` for tuple sources. */
+function sameTuple(previous: unknown, next: unknown): boolean {
+  const left = previous as readonly unknown[];
+  const right = next as readonly unknown[];
+  return (
+    left.length === right.length &&
+    left.every((value, index) => Object.is(value, right[index]))
+  );
 }
 
 function stopGeneration(slot: WatchSlot<unknown>): void {
@@ -148,12 +152,19 @@ function startWatch<TValue>(
       let value: TValue;
       try {
         const values = slot.sources.map((source) => source());
-        value = (values.length === 1 ? values[0] : values) as TValue;
+        value = (slot.tuple ? values : values[0]) as TValue;
       } catch (error) {
         reportLifecycleError(instance, error);
         return;
       }
-      if (slot.version > 0 && sameValues(slot.value, value)) return;
+      if (
+        slot.version > 0 &&
+        (slot.tuple
+          ? sameTuple(slot.value, value)
+          : Object.is(slot.value, value))
+      ) {
+        return;
+      }
       slot.value = value;
       const version = ++slot.version;
       // The computation must finish subscribing before the callback can
@@ -206,8 +217,10 @@ export function watch<TValue>(
   const sources = (
     Array.isArray(sourceOrSources) ? sourceOrSources : [sourceOrSources]
   ) as readonly WatchSource<unknown>[];
+  const tuple = Array.isArray(sourceOrSources);
   const slot = hookSlot<WatchSlot<TValue>>(instance, 'watch', () => ({
     sources,
+    tuple,
     callback,
     effect: null,
     controller: null,
@@ -220,6 +233,7 @@ export function watch<TValue>(
   if (instance.server) return;
   onCommit(instance, () => {
     slot.sources = sources;
+    slot.tuple = tuple;
     slot.callback = callback;
     startWatch(instance, slot);
   });

@@ -8,6 +8,7 @@ export interface RootUpdateInput {
   locationState?: AppRenderRouteState;
   routeData: unknown;
   hasRouteData: boolean;
+  layoutData?: ReadonlyMap<unknown, unknown>;
   replaceLifetime: boolean;
 }
 

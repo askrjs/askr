@@ -46,6 +46,7 @@ export interface ResolvedRouteRender {
     data?: SSRData;
     dataRuntime?: DataRuntime;
     envelope?: PageRenderEnvelope;
+    layoutData?: ReadonlyMap<unknown, unknown>;
     cspNonce?: string;
   };
 }
@@ -98,6 +99,7 @@ export function renderResolvedForHydrationSync(
     authContext,
     dataRuntime: options?.dataRuntime,
     envelope: options?.envelope,
+    layoutData: options?.layoutData,
     cspNonce,
   });
   const sink = new StringSink();

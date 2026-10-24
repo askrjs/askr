@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vite-plus/test';
 import { page } from 'vite-plus/test/browser/context';
 import { cleanupApp, createSPA } from '@askrjs/askr/boot';
+import { invalidate } from '@askrjs/askr/data';
 import { createRouteRegistry, navigate, route } from '@askrjs/askr/router';
 
 // @askr-allow-real-timers -- browser history traversals settle asynchronously.
@@ -134,6 +135,8 @@ test('should return to the rendered entry when a failed traversal superseded a p
 
   holdB = true;
   failA = true;
+  // A cached result would render at once instead of waiting on the loader.
+  invalidate('route-data:');
   window.history.back();
   await expect.poll(() => window.location.pathname).toBe('/b');
   window.history.back();
@@ -278,6 +281,7 @@ test('should return to the rendered entry when another app mounts during a faili
 
   holdA = true;
   failA = true;
+  invalidate('route-data:');
   window.history.back();
   await expect.poll(() => window.location.pathname).toBe('/a');
   const second = document.body.appendChild(document.createElement('div'));
@@ -344,6 +348,7 @@ test('should return to the rendered entry when a back/forward loader rejects', a
   await expect.poll(renderedPath).toBe('/b');
 
   rejectA = true;
+  invalidate('route-data:');
   window.history.back();
   await waitForRenderFailure('a loader failed');
   await settleTraversal();

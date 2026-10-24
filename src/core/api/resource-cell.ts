@@ -1,9 +1,14 @@
+import { isProductionEnvironment } from '../../common/env';
 import { logger } from '../../common/logger';
 import { isPromiseLike } from '../../common/promise';
 import { throwSSRDataMissing } from '../../common/render-context';
 import { runWithOwner, type Owner } from '../reactive/owner';
 import { untrack } from '../reactive/graph';
-import { brandSnapshotSource, type SnapshotSourceBrand } from './snapshot';
+import {
+  brandSnapshotSource,
+  makeReactiveFields,
+  type SnapshotSourceBrand,
+} from './snapshot';
 
 /**
  * Pure, component-agnostic ResourceCell state machine.
@@ -44,12 +49,17 @@ export class ResourceCell<U> {
     this.fn = fn;
     this.deps = deps ? deps.slice() : null;
     this.owner = owner;
-    this.snapshot = brandSnapshotSource({
-      value: null,
-      pending: true,
-      error: null,
-      refresh: () => this.refresh(),
-    });
+    this.snapshot = brandSnapshotSource(
+      makeReactiveFields(
+        {
+          value: null as U | null,
+          pending: true,
+          error: null as Error | null,
+          refresh: () => this.refresh(),
+        },
+        ['value', 'pending', 'error']
+      )
+    );
   }
 
   setLoader(fn: (opts: { signal: AbortSignal }) => PromiseLike<U> | U): void {
@@ -125,7 +135,9 @@ export class ResourceCell<U> {
       if (!current()) return;
       this.pending = false;
       this.error = error;
-      if (asynchronous) this.reportError(reason);
+      // The failure is surfaced through `snapshot.error`; the console copy
+      // is a development aid and is never written in production.
+      if (asynchronous && !isProductionEnvironment()) this.reportError(reason);
       if (current() && (notify || asynchronous)) this.notifySubscribers();
     };
 

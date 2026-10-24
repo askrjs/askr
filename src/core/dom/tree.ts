@@ -26,7 +26,7 @@ import {
   type Key,
 } from '../view/children';
 import type { ListenerMap } from './events';
-import type { HydrationCursor } from './hydration';
+import type { HydrationCursor, HydrationOptions } from './hydration';
 
 export { COMPONENT, FRAGMENT, NATIVE, TEXT, type Key };
 export const HOST = ELEMENT;
@@ -36,6 +36,11 @@ export const ROOT = 5;
 interface Base {
   parent: Parent | null;
   key: Key | undefined;
+  /**
+   * Position among the parent's children when last committed. Only a hint:
+   * every read checks it, so a stale value (after a rollback) costs a scan.
+   */
+  index?: number;
 }
 
 export interface HostNode extends Base {
@@ -53,7 +58,12 @@ export interface HostNode extends Base {
    * Adopted server markup whose hydration is skipped or deferred
    * (`data-skip-hydrate`): props and children wait for activation.
    */
-  dormant?: { owner: Owner | null; ns: string | null } | null;
+  dormant?: {
+    owner: Owner | null;
+    ns: string | null;
+    /** How activation treats server markup (strictness, mismatch reports). */
+    options: HydrationOptions;
+  } | null;
 }
 
 export interface TextNode extends Base {
@@ -190,7 +200,12 @@ export function nextDomAfter(node: RNode): Node | null {
   let current: RNode = node;
   for (let parent = current.parent; parent; parent = current.parent) {
     const siblings = parent.children;
-    for (let i = siblings.indexOf(current) + 1; i < siblings.length; i++) {
+    const hint = current.index;
+    const position =
+      hint !== undefined && siblings[hint] === current
+        ? hint
+        : siblings.indexOf(current);
+    for (let i = position + 1; i < siblings.length; i++) {
       const dom = firstDom(siblings[i]);
       if (dom) return dom;
     }

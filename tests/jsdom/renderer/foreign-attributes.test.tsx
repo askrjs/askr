@@ -229,7 +229,37 @@ test('should preserve third-party classes and styles next to reactive class and 
   }
 });
 
-test('should restore owned values that other code overwrote', () => {
+test('should restore a changed owned value that other code overwrote', () => {
+  const { container, cleanup } = createTestContainer();
+  let count!: State<number>;
+  function App() {
+    count = state(0);
+    return (
+      <p
+        title={`owned${count()}`}
+        style={{ color: count() === 0 ? 'red' : 'blue' }}
+        data-count={count()}
+      >
+        x
+      </p>
+    );
+  }
+  try {
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const paragraph = container.querySelector('p')!;
+    paragraph.setAttribute('title', 'external');
+    paragraph.style.color = 'green';
+    count.set(1);
+    flushScheduler();
+    expect(paragraph.getAttribute('title')).toBe('owned1');
+    expect(paragraph.style.color).toBe('blue');
+  } finally {
+    cleanup();
+  }
+});
+
+test('should not touch an unchanged owned value that other code overwrote', () => {
   const { container, cleanup } = createTestContainer();
   let count!: State<number>;
   function App() {
@@ -249,16 +279,13 @@ test('should restore owned values that other code overwrote', () => {
     createIsland({ root: container, component: App });
     flushScheduler();
     const paragraph = container.querySelector('p')!;
-    paragraph.classList.remove('owned');
-    paragraph.classList.add('ext');
     paragraph.setAttribute('title', 'external');
     paragraph.style.color = 'green';
     count.set(1);
     flushScheduler();
-    expect(paragraph.classList.contains('owned')).toBe(true);
-    expect(paragraph.classList.contains('ext')).toBe(true);
-    expect(paragraph.getAttribute('title')).toBe('owned');
-    expect(paragraph.style.color).toBe('red');
+    expect(paragraph.getAttribute('data-count')).toBe('1');
+    expect(paragraph.getAttribute('title')).toBe('external');
+    expect(paragraph.style.color).toBe('green');
   } finally {
     cleanup();
   }

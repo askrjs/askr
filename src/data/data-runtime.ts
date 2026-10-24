@@ -33,6 +33,25 @@ export type InflightPrefetch = {
   invalidated?: boolean;
 };
 
+/**
+ * A route loader's cached result and in-flight request, owned by the router
+ * (see `router/route-loader-cache.ts`) but stored here so invalidation and
+ * disposal reach it.
+ */
+export type RouteLoaderEntry = {
+  hasData: boolean;
+  data: unknown;
+  completedAt: number;
+  inflight?: {
+    readonly promise: Promise<unknown>;
+    readonly controller: AbortController;
+    /** Navigations currently waiting on the request. */
+    waiters: number;
+    /** Started to refresh cached data, so no waiter owns its cancellation. */
+    background: boolean;
+  };
+};
+
 export type DataRuntimeState = {
   retired: boolean;
   readonly retirement: AbortController;
@@ -46,6 +65,8 @@ export type DataRuntimeState = {
    * (or discarded) the result so an invalidation can still reach it.
    */
   prefetches: Map<string, InflightPrefetch>;
+  /** Route loader results by `route-data:` key, oldest first. */
+  routeLoaders: Map<string, RouteLoaderEntry>;
   querySlotsByGeneration: WeakMap<object, Map<number, QuerySlot>>;
   mutationSlotsByGeneration: WeakMap<object, Map<number, MutationSlot>>;
   queryCleanupRegistered: WeakSet<object>;
@@ -112,6 +133,7 @@ function createDataRuntimeState(
     queryData,
     unreadPrefetches: new Map(),
     prefetches: new Map(),
+    routeLoaders: new Map(),
     querySlotsByGeneration: new WeakMap(),
     mutationSlotsByGeneration: new WeakMap(),
     queryCleanupRegistered: new WeakSet(),
@@ -167,6 +189,10 @@ export function disposeDataRuntime(runtime: DataRuntime): void {
     state.queryData.clear();
     state.unreadPrefetches.clear();
     state.prefetches.clear();
+    for (const entry of state.routeLoaders.values()) {
+      entry.inflight?.controller.abort(state.retirement.signal.reason);
+    }
+    state.routeLoaders.clear();
     state.queryTestOverrides.clear();
     state.mutationTestOverrides.clear();
   }
@@ -232,6 +258,14 @@ export function resolveDataRuntimeState(
     : getActiveDataRuntimeState();
   if (!existingReader) assertDataRuntimeActive(state);
   return state;
+}
+
+/** The router's loader cache for a runtime; undefined for hand-built runtimes. */
+export function findRouteLoaderEntries(
+  runtime: DataRuntime
+): Map<string, RouteLoaderEntry> | undefined {
+  const state = dataRuntimeStates.get(runtime);
+  return state && !state.retired ? state.routeLoaders : undefined;
 }
 
 /** State for a runtime from createDataRuntime(); undefined for hand-built ones. */
@@ -411,6 +445,14 @@ export function invalidateQueriesForRuntime(
     if (matchesInvalidationPrefix(key, prefix)) {
       runtimeState.queryData.delete(key);
       runtimeState.unreadPrefetches.delete(key);
+    }
+  }
+
+  // A route loader request that started before this invalidation is no longer
+  // joined, and its result is not stored.
+  for (const key of Array.from(runtimeState.routeLoaders.keys())) {
+    if (matchesInvalidationPrefix(key, prefix)) {
+      runtimeState.routeLoaders.delete(key);
     }
   }
 

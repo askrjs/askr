@@ -3,7 +3,8 @@ import type { RouteRequestResult } from '../common/router';
 import * as RouteModule from '../router/route';
 import { getRouteRenderContext } from '../router/resolution';
 import type { AuthContext } from '@askrjs/auth';
-import { getMatchingRouteRecord } from '../router/route-matching';
+import type { InternalRouteRecord } from '../router/internal-types';
+import { getMatchingRouteRecordUnderPolicy } from '../router/route-matching';
 import { SSRAccessDecisionError, SSRDataMissingError } from './errors';
 import type { RouteRenderOptions, SSRRoute } from './route-render';
 import {
@@ -48,9 +49,9 @@ export function resolvePolicyAwareSSRRoute(
   // Match against manifest records, the same matcher resolveRouteRequest()
   // and async SSR (renderRouteRequest) use, so sync and async SSR always pick
   // the same route.
-  const matched = getMatchingRouteRecord(
+  const matched = getMatchingRouteRecordUnderPolicy(
     logicalHref,
-    opts.registry.manifest.records
+    opts.registry.manifest
   );
   // The registry's route table carries the same handlers as its records.
   const route =
@@ -64,7 +65,10 @@ export function resolvePolicyAwareSSRRoute(
   // Reject loader routes before resolution starts, so neither the loader nor
   // its preload or lazy import is started for a render that cannot use them.
   const { record } = matched;
-  if (typeof record.options.loader === 'function') {
+  if (
+    typeof record.options.loader === 'function' ||
+    (record as InternalRouteRecord).loaderChain?.length
+  ) {
     throw new SSRDataMissingError(
       `SSR: route ${record.path} declares a loader, which renderToString()/renderToStream() do not run. Use renderRouteRequest() to await route loaders before rendering.`
     );

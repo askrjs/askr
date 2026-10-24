@@ -1,4 +1,9 @@
-import type { RouteRequestResult, ResolvedRoute } from '../common/router';
+import type {
+  AccessDenyDecision,
+  RouteMeta,
+  RouteRequestResult,
+  ResolvedRoute,
+} from '../common/router';
 import type { ComponentFunction } from '../common/component';
 import type { AppRenderRouteState } from '../common/app-render-runtime';
 import {
@@ -15,8 +20,22 @@ import {
   syncAppRegistrationLocation,
   syncRegisteredRouteSnapshot,
 } from './navigation-registry';
-import { getRouteRenderData, hasRouteRenderData } from './resolution';
+import {
+  getRouteRenderData,
+  hasRouteRenderData,
+  publishResolvedAuth,
+  getRouteLayoutData,
+} from './resolution';
 import { reconcileRouteMeta } from './metadata';
+import { settleNavigationChunks } from './stale-deployment';
+import { readClientAuth, setCurrentAuth } from './auth';
+import {
+  createDeniedHandler,
+  isRouteErrorResult,
+  rootRendersRouteError,
+  setRootRendersRouteError,
+} from './route-error';
+export { createDeniedStatusNode } from './route-error';
 import { isStaleRouteRequest } from './navigation-request';
 import {
   hasCurrentNavigationOwners,
@@ -24,6 +43,24 @@ import {
   type AppNavigationTarget,
 } from './navigation-types';
 
+const EMPTY_ROUTE_META: Readonly<RouteMeta> = Object.freeze({});
+
+/** The last rendered destination's identity becomes the client identity. */
+function publishNavigationAuth(targets: readonly AppNavigationTarget[]): void {
+  for (let index = targets.length - 1; index >= 0; index -= 1) {
+    const resolved = targets[index]?.resolved;
+    if (resolved && (isRenderResult(resolved) || resolved.kind === 'deny')) {
+      publishResolvedAuth(resolved);
+      return;
+    }
+  }
+}
+
+/**
+ * The last app with resolved metadata owns the document head. When no
+ * destination declares any, the previous route's metadata is still replaced
+ * by an empty set so it cannot describe a page it no longer belongs to.
+ */
 function reconcileNavigationMetadata(
   targets: readonly AppNavigationTarget[]
 ): void {
@@ -34,19 +71,13 @@ function reconcileNavigationMetadata(
       return;
     }
   }
+  if (targets.length > 0) reconcileRouteMeta(EMPTY_ROUTE_META);
 }
 
-function createDeniedResolvedRoute(status: number): ResolvedRoute {
-  return {
-    handler: () => ({
-      type: 'div',
-      props: {
-        'data-route-denied': String(status),
-      },
-      children: [String(status)],
-    }),
-    params: {},
-  };
+function createDeniedResolvedRoute(
+  decision: AccessDenyDecision
+): ResolvedRoute {
+  return { handler: createDeniedHandler(decision), params: {} };
 }
 
 function bindResolvedRouteHandler(resolved: ResolvedRoute): ComponentFunction {
@@ -80,7 +111,7 @@ function getResolvedRouteHandler(resolved: RouteRequestResult): ResolvedRoute {
     throw new Error('[Askr] cannot prepare an unmatched navigation target');
   }
   if (resolved.kind === 'deny') {
-    return createDeniedResolvedRoute(resolved.status);
+    return createDeniedResolvedRoute(resolved);
   }
   if (!isRenderResult(resolved)) {
     throw new Error('[Askr] cannot prepare a redirect as a destination root');
@@ -106,6 +137,9 @@ function prepareNavigationRoot(
       ? getRouteRenderData(resolved)
       : undefined,
     hasRouteData: isRenderResult(resolved) && hasRouteRenderData(resolved),
+    layoutData: isRenderResult(resolved)
+      ? getRouteLayoutData(resolved)
+      : undefined,
     replaceLifetime,
   });
 }
@@ -129,8 +163,13 @@ export function commitNavigationRoots(
   const previousPathname = getCurrentPathname();
   const previousHref = getCurrentHref();
   const roots = targets.map((target) => {
+    // Entering or leaving an error rendering swaps the root's handler, which
+    // only a new lifetime does.
     const replaceLifetime =
-      pathname !== target.app.pathname || !isRenderResult(target.resolved);
+      pathname !== target.app.pathname ||
+      !isRenderResult(target.resolved) ||
+      isRouteErrorResult(target.resolved) ||
+      rootRendersRouteError(target.app.instance);
     return {
       target,
       replaceLifetime,
@@ -144,12 +183,14 @@ export function commitNavigationRoots(
   });
 
   try {
+    const previousAuth = readClientAuth();
     const rollback = () => {
       const errors: unknown[] = [];
       for (let index = roots.length - 1; index >= 0; index--) {
         errors.push(...roots[index]!.prepared.rollback());
       }
       setCurrentRouteLocation(previousPathname, previousHref);
+      setCurrentAuth(previousAuth, 'spa');
       try {
         restoreHistory?.();
       } catch (error) {
@@ -158,6 +199,9 @@ export function commitNavigationRoots(
       reportRouteCleanupErrors(errors);
     };
 
+    // The destination renders with the identity its navigation resolved; a
+    // rollback puts the departing page's identity back with its DOM.
+    publishNavigationAuth(targets);
     try {
       // Replacement lifetimes render before refreshed ones.
       for (const replaceLifetime of [true, false]) {
@@ -189,6 +233,11 @@ export function commitNavigationRoots(
         throw failure;
       }
       committedFailures.push(...result.errors);
+      setRootRendersRouteError(
+        root.target.app.instance,
+        isRenderResult(root.target.resolved) &&
+          isRouteErrorResult(root.target.resolved)
+      );
       syncAppRegistrationLocation(root.target.app, pathname, href);
     }
     for (const failure of committedFailures) reportUncaughtErrorLater(failure);
@@ -209,6 +258,19 @@ export function commitNavigationRoots(
       setCurrentRouteLocation(pathname, href);
       syncRegisteredRouteSnapshot();
       reconcileNavigationMetadata(targets);
+      // An error component rendering in place of a missing chunk is not a
+      // consistent deployment; only a destination whose chunks all loaded
+      // settles the stale-deployment marker.
+      if (
+        !targets.some(
+          (target) =>
+            target.resolved &&
+            isRenderResult(target.resolved) &&
+            isRouteErrorResult(target.resolved)
+        )
+      ) {
+        settleNavigationChunks();
+      }
       updateScroll();
     } catch (error) {
       logger.error('[Askr] navigation failed:', error);

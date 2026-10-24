@@ -37,8 +37,22 @@ export type Equals<T> = (a: T, b: T) => boolean;
 let tracking: Computation | null = null;
 let trackingSources: Set<Source> | null = null;
 
+/**
+ * Record a read, subscribing at once when the running computation was not
+ * already observing the source. A write to it later in the same run (by the
+ * computation itself or by something it calls) then reaches the computation
+ * instead of being lost; `setSources` drops the subscriptions not read.
+ */
 function track(source: Source): void {
-  if (trackingSources) trackingSources.add(source);
+  if (!trackingSources) return;
+  // One hash lookup on a repeated read: the size tells whether it was new.
+  const before = trackingSources.size;
+  trackingSources.add(source);
+  if (trackingSources.size === before) return;
+  const observer = tracking as Computation;
+  if (!observer._sources?.has(source)) {
+    (source._observers ??= new Set()).add(observer);
+  }
 }
 
 /** Notify every observer of `source` that its value changed. */
@@ -63,6 +77,17 @@ export function getTrackingComputation(): Computation | null {
   return tracking;
 }
 
+/** Derived computations (derive, selector) currently running, nested. */
+let derivedRunDepth = 0;
+
+/**
+ * Whether a derived computation is running, even inside `untrack()`, which
+ * hides reads from tracking but does not make a write acceptable.
+ */
+export function isDerivedRunActive(): boolean {
+  return derivedRunDepth > 0;
+}
+
 export function untrack<T>(fn: () => T): T {
   const previous = tracking;
   const previousSources = trackingSources;
@@ -80,6 +105,8 @@ export class Signal<T> implements Source {
   _observers: Set<Computation> | null = null;
   _value: T;
   readonly _equals: Equals<T>;
+  /** Debug name, shown in diagnostics. */
+  name: string | null = null;
 
   constructor(value: T, equals: Equals<T> = Object.is) {
     this._value = value;
@@ -114,7 +141,17 @@ export class Computation<T = unknown> extends Owner implements Source {
   _value: T | undefined = undefined;
   _error: unknown = undefined;
   _hasError = false;
+  /** A run has produced a value; the first value is never compared. */
+  _hasValue = false;
   _running = false;
+  /** The CHECK walk is inside this computation (cycle guard). */
+  _walking = false;
+  /** A derive() or selector() computation: writes from inside it are rejected. */
+  _derived = false;
+  /** Debug name, shown in loop-guard and circular-dependency errors. */
+  name: string | null = null;
+  /** Sources read so far by the run in progress. */
+  _tracked: Set<Source> | null = null;
   _invalidatedWhileRunning = false;
   /** The scheduler dropped this computation's pending run. */
   _dropped = false;
@@ -140,7 +177,11 @@ export class Computation<T = unknown> extends Owner implements Source {
   /** Read the current value, recomputing if a source changed. */
   read(): T {
     if (this._running) {
-      throw new Error('Circular reactive dependency detected.');
+      throw new Error(
+        `Circular reactive dependency detected${
+          this.name ? ` in "${this.name}"` : ''
+        }.`
+      );
     }
     track(this);
     this.update();
@@ -155,14 +196,7 @@ export class Computation<T = unknown> extends Owner implements Source {
   /** Bring this computation up to date, running it only if a source changed. */
   update(): void {
     if (this.disposed) return;
-    if (this._state === CHECK) {
-      for (const source of this._sources ?? EMPTY) {
-        if (source instanceof Computation) {
-          source.update();
-          if ((this._state as NodeState) === DIRTY) break;
-        }
-      }
-    }
+    if (this._state === CHECK) checkSources(this as Computation);
     if (this._state === DIRTY) {
       this.run();
     } else {
@@ -178,7 +212,9 @@ export class Computation<T = unknown> extends Owner implements Source {
     const nextSources = new Set<Source>();
     tracking = this as Computation;
     trackingSources = nextSources;
+    this._tracked = nextSources;
     this._running = true;
+    if (this._derived) derivedRunDepth++;
     this._invalidatedWhileRunning = false;
     this._dropped = false;
     let value: T | undefined;
@@ -190,17 +226,25 @@ export class Computation<T = unknown> extends Owner implements Source {
       failed = true;
       error = caught;
     } finally {
+      if (this._derived) derivedRunDepth--;
       this._running = false;
+      this._tracked = null;
       tracking = previous;
       trackingSources = previousSources;
     }
-    if (this.disposed) return;
+    if (this.disposed) {
+      // Disposal during the run already released the previous sources;
+      // the reads of this run subscribed as they happened.
+      for (const source of nextSources) unobserve(source, this as Computation);
+      return;
+    }
     this._state = this._invalidatedWhileRunning ? DIRTY : CLEAN;
     this.setSources(
       failed && this._failedRunSources === 'previous'
         ? new Set(this._sources ?? EMPTY)
         : nextSources,
-      failed && this._failedRunSources === 'union'
+      failed && this._failedRunSources === 'union',
+      nextSources
     );
     if (failed) {
       const changed = !this._hasError || this._error !== error;
@@ -214,9 +258,11 @@ export class Computation<T = unknown> extends Owner implements Source {
 
     const changed =
       this._hasError ||
+      !this._hasValue ||
       this._equals === null ||
       !this._equals(this._value as T, value as T);
     this._hasError = false;
+    this._hasValue = true;
     this._error = undefined;
     this._value = value;
     if (changed) this.markObserversDirty();
@@ -230,7 +276,7 @@ export class Computation<T = unknown> extends Owner implements Source {
 
   /** Restore subscriptions captured before a discarded component pass. */
   restoreSources(sources: ReadonlySet<Source>): void {
-    this.setSources(new Set(sources), false);
+    this.setSources(new Set(sources), false, null);
   }
 
   /** Force a re-run on the next update, as if a source changed. */
@@ -252,10 +298,17 @@ export class Computation<T = unknown> extends Owner implements Source {
   }
 
   /**
-   * A failed run keeps its previous subscriptions as well, so a change to
-   * anything either run read retries it.
+   * Make `next` the subscription set. Sources read in the run just finished
+   * (`tracked`) are already subscribed, so any of them not kept are released
+   * here along with the previous sources not in `next`. A failed run keeps
+   * its previous subscriptions as well, so a change to anything either run
+   * read retries it.
    */
-  private setSources(next: Set<Source>, keepPrevious: boolean): void {
+  private setSources(
+    next: Set<Source>,
+    keepPrevious: boolean,
+    tracked: ReadonlySet<Source> | null
+  ): void {
     const previous = this._sources;
     if (previous) {
       for (const source of previous) {
@@ -266,8 +319,18 @@ export class Computation<T = unknown> extends Owner implements Source {
         }
       }
     }
-    for (const source of next) {
-      (source._observers ??= new Set()).add(this as Computation);
+    if (tracked) {
+      // Everything in `next` is already subscribed: a tracked source was
+      // linked when it was read, a kept previous source never left.
+      if (tracked !== next) {
+        for (const source of tracked) {
+          if (!next.has(source)) unobserve(source, this as Computation);
+        }
+      }
+    } else {
+      for (const source of next) {
+        (source._observers ??= new Set()).add(this as Computation);
+      }
     }
     this._sources = next.size ? next : null;
   }
@@ -280,34 +343,39 @@ export class Computation<T = unknown> extends Owner implements Source {
     if (!this.disposed && this._state !== CLEAN) this._dropped = true;
   }
 
-  _mark(state: NodeState): void {
-    if (this.disposed) return;
-    if (this._running && state === DIRTY) {
+  _mark(state: NodeState, from?: Source): void {
+    if (this._markSelf(state, from)) propagateCheck(this as Computation);
+  }
+
+  /**
+   * Record that this computation is stale and schedule it. Returns true when
+   * the computations downstream of it must be marked CHECK as well.
+   */
+  _markSelf(state: NodeState, from?: Source): boolean {
+    if (this.disposed) return false;
+    // A direct write to a source, or a change behind a derived value this
+    // run has already read, means the value read is stale; the run repeats.
+    // A derived value not yet read in this run is brought up to date when
+    // it is read, so its mark is ignored.
+    if (
+      this._running &&
+      (state === DIRTY || (from !== undefined && this._tracked?.has(from)))
+    ) {
       const firstInvalidation = !this._invalidatedWhileRunning;
       this._invalidatedWhileRunning = true;
       if (state > this._state) this._state = state;
       this._dropped = false;
       this._schedule?.(this as Computation);
-      if (firstInvalidation) {
-        const observers = this._observers;
-        if (observers) {
-          for (const observer of observers) observer._mark(CHECK);
-        }
-      }
-      return;
+      return firstInvalidation;
     }
     const dropped = this._dropped;
-    if (this._state >= state && !dropped) return;
+    if (this._state >= state && !dropped) return false;
     const wasClean = this._state === CLEAN;
     if (state > this._state) this._state = state;
-    if (!wasClean && !dropped) return;
+    if (!wasClean && !dropped) return false;
     this._dropped = false;
     if (this._schedule) this._schedule(this as Computation);
-    if (!wasClean && !dropped) return;
-    const observers = this._observers;
-    if (observers) {
-      for (const observer of observers) observer._mark(CHECK);
-    }
+    return true;
   }
 
   protected override onDispose(): void {
@@ -320,3 +388,98 @@ export class Computation<T = unknown> extends Owner implements Source {
 }
 
 const EMPTY: ReadonlySet<Source> = new Set();
+
+/**
+ * Mark everything downstream of `root` CHECK, depth first and in observer
+ * order, with an explicit stack so a long chain does not overflow the call
+ * stack.
+ */
+function propagateCheck(root: Computation): void {
+  const first = root._observers;
+  if (!first) return;
+  const owners: Computation[] = [root];
+  const cursors: Iterator<Computation>[] = [first.values()];
+  while (owners.length > 0) {
+    const top = owners.length - 1;
+    const step = cursors[top]!.next();
+    if (step.done) {
+      owners.pop();
+      cursors.pop();
+      continue;
+    }
+    const observer = step.value;
+    if (observer._markSelf(CHECK, owners[top])) {
+      const observers = observer._observers;
+      if (observers) {
+        owners.push(observer);
+        cursors.push(observers.values());
+      }
+    }
+  }
+}
+
+/**
+ * Bring the stale sources of `root` up to date, stopping at the first one
+ * that changed it. The walk keeps its own stack, so the depth of a chain of
+ * derived values is not limited by the call stack.
+ */
+function checkSources(root: Computation): void {
+  const nodes: Computation[] = [root];
+  const cursors: Iterator<Source>[] = [(root._sources ?? EMPTY).values()];
+  root._walking = true;
+  try {
+    walkStaleSources(root, nodes, cursors);
+  } finally {
+    // A throwing run or comparator must not leave a node marked as walking,
+    // or later walks would skip it as a cycle and read a stale value.
+    for (const node of nodes) node._walking = false;
+    root._walking = false;
+  }
+}
+
+function walkStaleSources(
+  root: Computation,
+  nodes: Computation[],
+  cursors: Iterator<Source>[]
+): void {
+  while (nodes.length > 0) {
+    const top = nodes.length - 1;
+    const node = nodes[top]!;
+    let next: Computation | null = null;
+    if (node._state === CHECK) {
+      for (
+        let step = cursors[top]!.next();
+        !step.done;
+        step = cursors[top]!.next()
+      ) {
+        const source = step.value;
+        if (!(source instanceof Computation) || source.disposed) continue;
+        if (source._state === CHECK) {
+          // A source already being walked is a cycle; leave it alone.
+          if (!source._walking) {
+            next = source;
+            break;
+          }
+        } else if (source._state === DIRTY) {
+          source.run();
+          if ((node._state as NodeState) === DIRTY) break;
+        }
+      }
+    }
+    if (next) {
+      next._walking = true;
+      nodes.push(next);
+      cursors.push((next._sources ?? EMPTY).values());
+      continue;
+    }
+    // This node's sources are settled (or one changed it): bring it current,
+    // which lets its own observer in the walk see the result.
+    nodes.pop();
+    cursors.pop();
+    node._walking = false;
+    if (node !== root) {
+      if (node._state === DIRTY) node.run();
+      else node._state = CLEAN;
+    }
+  }
+}

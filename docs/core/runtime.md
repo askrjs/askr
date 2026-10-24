@@ -29,6 +29,22 @@ Calling it again with a different component at the same root ends the old
 island lifetime, runs its cleanup, and mounts the new component. If cleanup
 mounts another island at that root, that replacement takes precedence.
 
+When the container already holds server-rendered elements, `createIsland()`
+adopts them instead of replacing them, so node identity, typed input state, and
+focus survive. A mismatch between the markup and the component falls back to
+client-rendered nodes, as `hydrateSPA` does. Set `hydrate: false` to replace the
+container's content, or `hydrate: true` to adopt even when the container has
+only text. Omitted, the island adopts exactly when the container has element
+children.
+
+```ts
+createIsland({ root: 'counter-root', component: Counter, hydrate: false });
+```
+
+`hydrate` can also be an object, `{ onMismatch(info) }`, which adopts the
+markup and calls `onMismatch` with `{ path, expected, actual }` for each server
+node that did not match. See [hydration mismatches](../guides/ssr-events.md).
+
 ## SPA mode
 
 Use `createSPA()` for a full client-rendered application with the Askr router.
@@ -75,6 +91,145 @@ still throw instead of being awaited. The synchronous `renderToString({ url,
 registry })` does not run route loaders and throws `SSRDataMissingError` for a
 route that declares one.
 
+## Reactive primitives
+
+`state()`, `derive()` and `selector()` are positional component hooks. They
+share one change rule: a new value that is `Object.is`-equal to the current one
+does not notify anyone.
+
+### Custom equality
+
+`state(initial, { equals })` and `derive(fn, { equals })` (also
+`derive(source, map, { equals })`) take a comparator `(a, b) => boolean`. When
+it returns `true` the new value is treated as unchanged: a `state.set()` is
+ignored, and a `derive()` that recomputes to an equal value does not notify its
+readers. The comparator is not called for the first value. `selector(source,
+equals)` already took a comparator as its second argument.
+
+```ts
+const point = state(
+  { x: 1, y: 2 },
+  { equals: (a, b) => a.x === b.x && a.y === b.y }
+);
+point.set({ x: 1, y: 2 }); // ignored
+
+const bucket = derive(() => ({ b: Math.floor(n() / 10) }), {
+  equals: (a, b) => a.b === b.b,
+});
+```
+
+### Debug names
+
+`state()`, `derive()`, `selector()` and `store()` accept `{ name }` in their
+options (`selector(source, { equals, name })`; a bare comparator still works).
+The name appears in diagnostics: the loop-guard error
+(`exceeded MAX_FLUSH_DEPTH (50): a scheduled update "ticker" kept
+re-queueing itself`, which also names a looping component by its display name),
+the circular-dependency errors (`Circular reactive dependency detected in
+"total"`, `derive("total") cannot read itself recursively`), the unused-state
+warning, and a store's render-write error. A name has no other effect and there
+is no devtools hook.
+
+### Batching and untracked reads
+
+`batch(fn)` runs `fn` with scheduling deferred and flushes once, synchronously,
+when the outermost batch exits. It works anywhere, not only in components: in
+event handlers (which already run in a batch), timers and promise callbacks.
+Nested batches flush only when the outermost one exits. It returns `fn`'s
+result, and queued work still flushes if `fn` throws.
+
+`untrack(fn)` does not relax the purity rules: a `state.set()` inside
+`untrack()` within a `derive()` or `selector()` is still rejected, because the
+derived computation is still the one running.
+
+`untrack(fn)` runs `fn` and returns its result without subscribing the running
+render, `derive()` or binding to anything `fn` reads. There is no separate
+`peek`: read a state getter inside `untrack()` instead.
+
+```ts
+import { batch, derive, state, untrack } from '@askrjs/askr';
+
+function Form() {
+  const first = state('');
+  const second = state('');
+  const name = state('');
+  const count = state(0);
+
+  setTimeout(() => {
+    batch(() => {
+      first.set('a');
+      second.set('b');
+    }); // one render
+  }, 100);
+
+  const label = derive(() => `${name()} (${untrack(() => count())})`);
+  return <p>{label()}</p>;
+}
+```
+
+### Stores
+
+`store(initial)` is a component hook, like `state()`, that returns a deep
+reactive proxy over a plain object or array. It claims a positional hook slot,
+so call it unconditionally and in the same order on every render; the initial
+value is used only on the first render and later calls return the same proxy.
+
+```tsx
+import { store, unwrap } from '@askrjs/askr';
+
+function Todos() {
+  const todos = store({
+    filter: 'all',
+    items: [{ title: 'Ship', done: false }],
+  });
+
+  const add = () => todos.items.push({ title: 'Test', done: false });
+  const toggle = (index: number) => {
+    todos.items[index]!.done = !todos.items[index]!.done;
+  };
+  const snapshot = () => JSON.stringify(unwrap(todos));
+
+  return (
+    <div title={todos.filter} onClick={snapshot}>
+      <button onClick={add}>Add</button>
+      <ul>
+        {todos.items.map((item, index) => (
+          <li onClick={() => toggle(index)}>{item.title}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+Contract:
+
+- **Per-property tracking.** A property read inside a render, `derive()` or
+  binding subscribes to that property only, through a signal created on its
+  first tracked read, including symbol properties. A component that reads `todos.filter` does not re-render
+  when `todos.items` changes. Assigning a value that is `Object.is`-equal to the
+  current one does nothing.
+- **Nesting and identity.** Nested plain objects and arrays are wrapped lazily
+  and the same target always yields the same proxy (`todos.items === todos.items`).
+  Class instances, `Map`, `Set` and `Date` values are stored and returned
+  as they are, without reactivity. Assigning a proxy stores its raw object.
+- **Arrays.** `length` and each index are tracked individually, and `push`,
+  `splice`, `pop`, `sort` and assignment notify the affected readers.
+  Iteration (`for..of`, `map`, `forEach`, `filter` and the other walking
+  methods) tracks the whole array, so it re-runs on any element change.
+- **Keys.** `delete` notifies the readers of that property. `Object.keys()`,
+  `for..in`, spread and the `in` operator subscribe to key additions and removals.
+- **Writes.** A store write during render throws, like `state.set()`, and so does
+  a write from inside `derive()` or `selector()`. Writes in handlers, timers and
+  tasks are fine and coalesce like any other scheduled work (see `batch()`).
+- **Raw access.** `unwrap(proxy)` returns the raw object. Mutating the raw
+  object directly does not notify anyone, and `includes`/`indexOf` on a store
+  array accept either raw items or items read from the store. Non-configurable,
+  non-writable data properties return their exact raw values, including
+  symbol properties, as JavaScript proxy invariants require.
+- **SSR.** A store is plain data on the server: `renderToStringSync()` renders
+  its reads normally and nothing is subscribed.
+
 ## When work becomes observable
 
 Askr uses signals internally, but its public primitives become observable at
@@ -88,6 +243,13 @@ and when choosing a test wait:
 | `task()`                   | After the owning component commits                                                                  | It runs once per committed mount, not once per rerender. Await returned async work when the assertion depends on it.     |
 | `watch()`                  | After the owning component commits, then after a watched committed value changes                    | `flush()` reaches the initial callback and coalesced source observations. Await only async work started by the callback. |
 | `navigate()`               | After route resolution and the destination lifecycle commit                                         | Assert both the committed URL and destination DOM. Mocking `navigate()` proves invocation only.                          |
+
+`watch(source, callback)` compares the value its single source returns with
+`Object.is`, like `state()` and `derive()`, so a source that returns a new array
+each time notifies even when the entries are equal. `watch([a, b], callback)`
+(an array of sources) is the tuple form: the callback receives an array, and the
+tuple is compared entry by entry. See
+[`watch()`](../reference/resources.md#watchsource-callback).
 
 A `task()` may call `navigate()` during its commit. That reentrant navigation
 supersedes the route whose commit triggered it; the final URL and mounted DOM
@@ -111,35 +273,39 @@ consumed, the drain continues, and the flush rethrows the failure afterwards
 in which queued work runs is described in
 [Runtime reactivity internals](../internals/runtime-reactivity.md#scheduler-lanes).
 
-If the same scheduled task runs more than 50 times in one flush (for example a
-component whose ref callback writes state it renders), the scheduler treats it
-as an update loop: it drops that task, records an `exceeded MAX_FLUSH_DEPTH`
-error with the other failures, and keeps draining the remaining queued work, so
-earlier failures are still reported and other queued work is not stranded. Dropping a
-task clears its owner's pending flag (unless another copy of it is still
-queued), so a later write schedules it again: a component re-renders on its
-next state change.
+Three guards stop work that would otherwise never finish. They behave the same
+in development and production builds.
 
-Reactive work that runs as a shared batch is guarded per entry instead, with
-the same limit counted across every batch in the flush:
+- **The same job repeats.** The scheduler counts how often each queued job runs
+  in one flush. A job that runs more than 50 times (a component whose ref
+  callback writes state it renders, a fine-grained binding that re-dirties
+  itself, a `selector()` source that writes its own inputs) is treated as an
+  update loop: the scheduler drops it, records an
+  `exceeded MAX_FLUSH_DEPTH (50)` error with the other failures, and keeps
+  draining the remaining queued work, so earlier failures are still reported and
+  other queued work is not stranded. Dropping a job clears its owner's pending
+  flag (unless another copy of it is still queued), so a later write schedules
+  it again: a component re-renders on its next state change. A `watch()` runs
+  under a slightly lower limit and reports a reactive-cycle error to its owning
+  error boundary instead.
+- **Fresh closures.** A task queued from `queueTask()` (or anything that queues
+  a new job object each time) has no identity to count, so a task that queues
+  a new closure on every run is caught by a total instead. A flush may run
+  100,000 jobs beyond the ones that were queued when it started; past that, the
+  scheduler stops the flush, drops the work still queued (computations stay
+  stale and are scheduled again by their next change) and reports
+  `exceeded 100000 follow-up jobs`. Flushing many jobs at once is not limited:
+  the total is measured against the number queued at the start.
+- **Derived values.** A `derive()` whose computation writes state that
+  re-dirties itself, directly or through another derive or effect, is skipped
+  after 50 recomputes in one flush and reported as `derive() exceeded 50 runs`.
+  The skipped entry stays dirty and recomputes on its next read. Reads between
+  flushes (an event handler that writes and reads a derive in a loop) are not
+  counted.
 
-- A fine-grained effect that runs more than 50 times is skipped and reported
-  once per flush through its `onError` (or the flush failures).
-- A `derive()` or `selector()` whose computation writes state that re-dirties
-  itself, directly or through another derive, selector or effect, is skipped
-  after 50 recomputes and reported as `derive() exceeded 50 runs` or
-  `selector() exceeded 50 runs`. The skipped entry stays dirty and
-  recomputes on its next read.
-
-Unrelated dirty entries in the same batch still run. A loop is caught when the
-same task, component, effect, derived value or selector repeats. A task that
-enqueues a new closure on every run is not detected.
-
-Development builds count every run. Production builds count tasks, derived
-values and selectors only once a flush has run 1000 of them (effects are
-always counted), so flushes below that pay only a counter check. Past that
-point each run costs a map entry, and a production loop runs roughly 1000 + 50
-times before it fails instead of hanging the page.
+Unrelated dirty entries in the same flush still run. There is no `onError`
+hook: failures are collected and thrown after the flush, or delivered to an
+error boundary where noted above.
 
 ## Cleanup
 

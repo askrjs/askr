@@ -2,7 +2,12 @@
  * App bootstrap and mount
  */
 import { isProductionEnvironment } from '../common/env';
-import { configureScrollRestoration } from '../router/navigate';
+import { jsx } from '../jsx/jsx-runtime';
+import {
+  configureNavigationFocus,
+  configureViewTransitions,
+  configureScrollRestoration,
+} from '../router/navigate';
 import {
   _applyManifest,
   _setActiveRouteAuthOptions,
@@ -11,7 +16,13 @@ import {
 } from '../router/route';
 import { clearRouteState } from '../router/store';
 import { assertExecutionModel } from '../common/execution-model';
-import { getRouteRenderData, hasRouteRenderData } from '../router/resolution';
+import {
+  getRouteRenderData,
+  hasRouteRenderData,
+  publishResolvedAuth,
+  getRouteLayoutData,
+} from '../router/resolution';
+import { settleNavigationChunks } from '../router/stale-deployment';
 import { createAppRenderRuntime } from '../common/app-render-runtime';
 import {
   mountOrUpdate,
@@ -35,6 +46,10 @@ import {
   beginSessionAuthBoot,
   detachSessionAuthRoot,
 } from './session-auth-runtime';
+import {
+  isRouteErrorResult,
+  setRootRendersRouteError,
+} from '../router/route-error';
 import { getSessionAuthState } from '../router/session-auth-state';
 
 /**
@@ -73,6 +88,8 @@ export async function createSPA(config: SPAConfig): Promise<void> {
     getDefaultDataRuntime();
 
   configureScrollRestoration(config.scrollRestoration);
+  configureNavigationFocus(config.focus, rootElement);
+  configureViewTransitions(config.viewTransitions);
 
   clearRouteState();
   _applyManifest(manifest);
@@ -108,6 +125,9 @@ export async function createSPA(config: SPAConfig): Promise<void> {
       ...(resolved?.kind === 'render' && hasRouteRenderData(resolved)
         ? { route: getRouteRenderData(resolved), hasRoute: true }
         : {}),
+      ...(resolved?.kind === 'render' && getRouteLayoutData(resolved)
+        ? { layoutData: getRouteLayoutData(resolved) }
+        : {}),
       dataRuntime,
       routeRegistry: config.registry,
       routeAuth,
@@ -118,12 +138,14 @@ export async function createSPA(config: SPAConfig): Promise<void> {
       );
     boot.assertCurrent();
     setServerLocation(currentUrl);
+    if (resolved) publishResolvedAuth(resolved);
+    settleNavigationChunks();
     mountOrUpdate(
       rootElement,
       !resolved
-        ? () => ({ type: 'div', children: [] })
+        ? () => jsx('div', { children: [] })
         : resolved.kind === 'deny'
-          ? bindDeniedStatus(resolved.status)
+          ? bindDeniedStatus(resolved)
           : bindResolvedRouteHandler({
               handler: resolved.handler,
               params: resolved.params,
@@ -135,6 +157,13 @@ export async function createSPA(config: SPAConfig): Promise<void> {
       }
     );
     boot.assertCurrent();
+    const mountedApp = getAppRoot(rootElement);
+    if (
+      mountedApp &&
+      resolved?.kind === 'render' &&
+      isRouteErrorResult(resolved)
+    )
+      setRootRendersRouteError(mountedApp, true);
     await registerAppNavigation(rootElement, path, {
       ...appRouteSource,
       runtime: appRuntime,

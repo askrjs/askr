@@ -41,18 +41,62 @@ export function setRef<T>(ref: Ref<T>, value: T | null): void {
 /** Combine multiple refs into one callback ref that writes to all of them. */
 export function composeRefs<T>(
   ...refs: Array<Ref<T>>
-): (value: T | null) => void {
+): (value: T | null) => void | (() => void) {
   return (value: T | null) => {
     const errors: unknown[] = [];
+    // Cleanups the callbacks returned, and the refs that returned none
+    // (callbacks and object refs) and so expect null on detach, as they
+    // would when attached directly.
+    const releases: Array<() => void> = [];
+    const nullOnDetach: Array<Ref<T>> = [];
     for (const ref of refs) {
       try {
-        setRef(ref, value);
+        if (value !== null && typeof ref === 'function') {
+          const result = (ref as (value: T) => unknown)(value);
+          if (typeof result === 'function') releases.push(result as () => void);
+          else nullOnDetach.push(ref);
+        } else {
+          setRef(ref, value);
+          if (value !== null && ref) nullOnDetach.push(ref);
+        }
       } catch (error) {
         errors.push(error);
       }
     }
+    const release = (reset: ReadonlyArray<Ref<T>>): void => {
+      const failures: unknown[] = [];
+      for (const cleanup of releases) {
+        try {
+          cleanup();
+        } catch (error) {
+          failures.push(error);
+        }
+      }
+      for (const ref of reset) {
+        try {
+          setRef(ref, null);
+        } catch (error) {
+          failures.push(error);
+        }
+      }
+      if (failures.length > 0) {
+        throw new AggregateError(failures, 'Composed ref cleanups failed');
+      }
+    };
     if (errors.length > 0) {
+      // Every ref was still applied (policy 3); the detach that follows
+      // gives them null. The cleanups already returned cannot be forwarded
+      // from a throwing attach, so they run now rather than never.
+      if (value !== null) {
+        try {
+          release([]);
+        } catch (failure) {
+          errors.push(failure);
+        }
+      }
       throw new AggregateError(errors, 'Composed ref callbacks failed');
     }
+    if (value === null || releases.length === 0) return undefined;
+    return () => release(nullOnDetach);
   };
 }

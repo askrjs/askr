@@ -3,7 +3,7 @@
  */
 
 import type { RouteConfig, RouteRenderResult } from './types';
-import type { RouteRegistry } from '../common/router';
+import type { RouteRecord, RouteRegistry } from '../common/router';
 import { getRenderHandler } from '../router/rendering';
 import { expandRoutes } from './resolve-ssg-data';
 import {
@@ -39,7 +39,19 @@ function getRuntimeOnlyDiagnostic(
     return `Skipped prerender for "${path}": routes with policies are runtime-only by default.`;
   }
 
+  if (route.path.includes('{') && !route.entries && !route.params) {
+    return `Skipped prerender for "${path}": a parameterized route without entries() is runtime-only.`;
+  }
+
   return null;
+}
+
+/** The render path of the not-found page; it is written as `404.html`. */
+export const NOT_FOUND_PATH = '/404';
+
+function isRootFallback(record: RouteRecord): boolean {
+  const prefix = (record as { fallbackPrefix?: string }).fallbackPrefix;
+  return prefix === undefined || prefix === '' || prefix === '/';
 }
 
 function getRouteResultPath(route: RouteConfig): string {
@@ -114,6 +126,18 @@ function routeRegistryToRouteConfigs(registry: RouteRegistry): RouteConfig[] {
 
   for (const record of registry.manifest.records) {
     if (record.isFallback) {
+      // The root fallback is the site's not-found page; hosts serve
+      // `404.html` for every miss. Scoped fallbacks stay runtime-only.
+      if (isRootFallback(record)) {
+        routeConfigs.push({
+          path: NOT_FOUND_PATH,
+          handler: getRenderHandler(record),
+          namespace: record.options.namespace,
+          basePath: registry.manifest.basePath,
+          record,
+          notFound: true,
+        });
+      }
       continue;
     }
 
@@ -131,8 +155,11 @@ function routeRegistryToRouteConfigs(registry: RouteRegistry): RouteConfig[] {
       policies: options.policies,
       entries: options.entries,
       loader: options.loader,
+      search: options.search,
       dehydrate: options.dehydrate,
+      preload: options.preload,
       basePath: registry.manifest.basePath,
+      record,
     });
   }
 

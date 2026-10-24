@@ -10,6 +10,10 @@ The Askr router is built around one mental model:
 
 The same route definitions drive SPA navigation, SSR request resolution, and SSG.
 
+For what happens around a navigation (loader cache, pending state, prefetch,
+focus and announcements, error components, blocking), see the
+[navigation guide](./navigation.md).
+
 ## Register routes and boot
 
 ```ts

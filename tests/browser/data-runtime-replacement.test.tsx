@@ -1,6 +1,10 @@
 import { expect, test } from 'vite-plus/test';
 import { cleanupApp, createSPA, replaceDataRuntime } from '@askrjs/askr/boot';
-import { createDataRuntime, disposeDataRuntime } from '@askrjs/askr/data';
+import {
+  createDataRuntime,
+  disposeDataRuntime,
+  invalidate,
+} from '@askrjs/askr/data';
 import { createRouteRegistry, navigate, route } from '@askrjs/askr/router';
 import { flush } from '@askrjs/askr/testing';
 
@@ -35,6 +39,8 @@ test('should return an obsolete pending back traversal to the still-rendered ent
     const home = root.querySelector('p');
     const length = history.length;
     pending = true;
+    // A cached result would render at once instead of waiting on the loader.
+    invalidate('route-data:', { runtime: old });
     history.back();
     await expect.poll(() => started).toBe(true);
     expect(location.pathname).toBe('/replacement-back');

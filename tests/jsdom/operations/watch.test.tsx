@@ -189,4 +189,52 @@ describe('watch()', () => {
     errorSpy.mockRestore();
     cleanup();
   });
+
+  it('should compare an array returned by a single source by reference', () => {
+    const { container, cleanup } = createTestContainer();
+    let list!: State<number[]>;
+    const seen: number[][] = [];
+    createIsland({
+      root: container,
+      component: () => {
+        list = state([1]);
+        watch(list, (value) => {
+          seen.push(value);
+        });
+        return <p>{list().length}</p>;
+      },
+    });
+    flushScheduler();
+    expect(seen).toHaveLength(1);
+    // An equal-looking but new array is a new value.
+    list.set([1]);
+    flushScheduler();
+    expect(seen).toHaveLength(2);
+    expect(seen[1]).not.toBe(seen[0]);
+    cleanupApp(container);
+    cleanup();
+  });
+
+  it('should compare tuple sources element by element and deliver a one-element tuple as an array', () => {
+    const { container, cleanup } = createTestContainer();
+    let a!: State<number>;
+    const seen: unknown[] = [];
+    createIsland({
+      root: container,
+      component: () => {
+        a = state(1);
+        watch([a] as const, (value) => {
+          seen.push(value);
+        });
+        return <p>{a()}</p>;
+      },
+    });
+    flushScheduler();
+    expect(seen).toEqual([[1]]);
+    a.set(2);
+    flushScheduler();
+    expect(seen).toEqual([[1], [2]]);
+    cleanupApp(container);
+    cleanup();
+  });
 });

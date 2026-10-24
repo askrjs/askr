@@ -12,10 +12,33 @@ import {
 } from '../data/query-registry';
 import type { DataRuntime, QueryPrefetchContext } from '../data/types';
 import type { ServerQueryRegistry } from '../data/query-registry';
-import { resolveRouteRequest } from '../router/resolution';
+import {
+  bindResolvedRouteData,
+  getRouteLayoutData,
+  hasRouteRenderData,
+  resolveRouteRequest,
+} from '../router/resolution';
+import { ROUTE_LAYOUT_DATA, ROUTE_LOADED_AT } from '../router/route-hydration';
+import {
+  createDeniedHandler,
+  createRouteErrorHandler,
+  deniedRouteRecord,
+  isRouteErrorResult,
+  publicRouteError,
+  routeErrorComponent,
+  routeErrorOf,
+  routeErrorOutcome,
+  ROUTE_ERROR_OUTCOME,
+} from '../router/route-error';
+import {
+  pageRenderEnvelope,
+  withPageFramework,
+} from '../common/page-render-envelope';
+import type { RouteHandler, RouteRecord } from '../common/router';
 import {
   createRenderContext,
   withRenderContextAsync,
+  type RenderContext,
   type RenderRouteState,
   type SSRData,
 } from './context';
@@ -64,6 +87,17 @@ export type RenderRouteRequestResult =
       stream?: ReadableStream<Uint8Array>;
       styles: readonly SSRStyleRegistration[];
       params: Record<string, string>;
+      /**
+       * `404` when a `fallback()` rendered the miss, `500` when a route's
+       * `error` component rendered a failure, the denial status (`401`,
+       * `403` or `404`) when its `forbidden` component rendered a denial;
+       * absent for a route.
+       */
+      status?: 401 | 403 | 404 | 500;
+      /** The failure an `error` component rendered (only with status `500`). */
+      error?: unknown;
+      /** `true` when a `forbidden` component rendered a denial; `status` is the denial status. */
+      denied?: true;
       record?: import('../common/router').RouteRecord;
     }
   | AccessRedirectDecision
@@ -294,11 +328,19 @@ export async function renderRouteRequestToString(
 ): Promise<RenderRouteRequestResult> {
   const result = await renderRouteRequestInternal(options);
   if (result.kind !== 'render' || !result.stream) return result;
-  return {
+  const buffered = {
     ...result,
     html: await new Response(result.stream).text(),
     stream: undefined,
   };
+  // The record is private (non-enumerable), so the spread above drops it.
+  if (result.record) {
+    Object.defineProperty(buffered, 'record', {
+      value: result.record,
+      enumerable: false,
+    });
+  }
+  return buffered;
 }
 
 async function renderRouteRequestInternal(
@@ -325,19 +367,21 @@ async function renderRouteRequestInternal(
       mode: 'ssr',
       telemetry: options.telemetry,
     });
-  const context = createRenderContext(options.seed, {
-    url: options.url,
-    basePath: manifest.basePath,
-    routes: options.registry.routes,
-    routeAuth: options.auth ?? manifest.auth,
-    data: options.data,
-    framework: options.framework,
-    signal,
-    dataRuntime: runtime,
-    queryPrefetch: prefetch,
-    mode: 'ssr',
-    cspNonce,
-  });
+  const createContext = (): RenderContext =>
+    createRenderContext(options.seed, {
+      url: options.url,
+      basePath: manifest.basePath,
+      routes: options.registry.routes,
+      routeAuth: options.auth ?? manifest.auth,
+      data: options.data,
+      framework: options.framework,
+      signal,
+      dataRuntime: runtime,
+      queryPrefetch: prefetch,
+      mode: 'ssr',
+      cspNonce,
+    });
+  const context = createContext();
   return withTelemetry(options.telemetry?.ssrRender, {}, () =>
     withRenderContextAsync(context, async () => {
       const resolved = await resolveRouteRequest(options.url, {
@@ -348,66 +392,176 @@ async function renderRouteRequestInternal(
         request,
         signal,
         telemetry: options.telemetry,
+        routeErrors: true,
       });
       if (!resolved) return { kind: 'no-match' };
-      if (resolved.kind !== 'render') return resolved;
-      context.params = resolved.params;
-      if (context.hydrationData) {
-        context.hydrationData = withHydratedAuth(
-          context.hydrationData,
-          options.auth ?? manifest.auth,
-          context.authContext
-        );
-      }
-      const sink = new StringSink();
-      renderSSRRouteAppToSink({
-        route: { path: '', handler: resolved.handler },
-        params: resolved.params,
-        data: options.data,
-        ctx: context,
-        sink,
-      });
-      sink.end();
-      const html = sink.toString();
-      const boundaries = [...context.deferredBoundaries];
-      // A streamed response embeds query data only after its last boundary;
-      // fail before the shell is sent rather than truncating the stream.
-      if (boundaries.length > 0) dehydrateDataRuntime(runtime);
-      const result: Extract<RenderRouteRequestResult, { kind: 'render' }> = {
-        kind: 'render',
-        html,
-        styles: Array.from(context.ssrStyles.values()),
-        ...(boundaries.length > 0
-          ? {
-              stream: createDeferredRenderStream(
-                html,
-                boundaries,
-                signal,
-                {
-                  seed: options.seed,
-                  data: context.hydrationData,
-                  cspNonce,
-                  authContext: context.authContext,
-                  route: {
-                    url: context.url,
-                    routes: context.routes,
-                    basePath: context.basePath,
-                    params: context.params,
-                  },
-                },
-                runtime
-              ),
-            }
-          : {}),
-        params: resolved.params,
-      };
-      if (resolved.record) {
-        Object.defineProperty(result, 'record', {
-          value: resolved.record,
-          enumerable: false,
+      if (resolved.kind === 'deny') {
+        const denied = deniedRouteRecord(resolved);
+        // Without a `forbidden` component the host owns the denial response.
+        if (!denied) return resolved;
+        return renderOutcome({
+          context,
+          createContext,
+          handler: createDeniedHandler(resolved),
+          params: {},
+          record: denied,
+          extra: { status: resolved.status, denied: true },
         });
       }
-      return result;
+      if (resolved.kind !== 'render') return resolved;
+      const failure = isRouteErrorResult(resolved)
+        ? { error: routeErrorOf(resolved) }
+        : undefined;
+      const handler = resolved.handler;
+      const record = resolved.record;
+      const layout = getRouteLayoutData(resolved);
+      // The page's loader data is as old as this render, not as hydration.
+      const loadedAt =
+        hasRouteRenderData(resolved) || layout ? Date.now() : undefined;
+      try {
+        return renderOutcome({
+          context,
+          createContext,
+          handler,
+          params: resolved.params,
+          record,
+          extra: failure
+            ? { status: 500, error: failure.error }
+            : record?.isFallback
+              ? { status: 404 }
+              : {},
+          transportError: failure
+            ? (publicRouteError(failure.error) as Error)
+            : undefined,
+          loadedAt,
+        });
+      } catch (error) {
+        // A render failure shows the route's declared error component.
+        if (failure || !record || !routeErrorComponent(record)) throw error;
+        const shown = publicRouteError(error);
+        // The error page renders for the same visitor, inside the same
+        // layouts: the identity and the group/page loader data carry over.
+        const retry = createContext();
+        retry.authContext = context.authContext;
+        const errorHandler = createRouteErrorHandler(record, shown)!;
+        const layoutHydration = pageRenderEnvelope(context.hydrationData)
+          .framework[ROUTE_LAYOUT_DATA];
+        return renderOutcome({
+          context: retry,
+          createContext,
+          handler: layout
+            ? bindResolvedRouteData(
+                errorHandler,
+                undefined,
+                undefined,
+                {
+                  values: layout,
+                  hydration: Array.isArray(layoutHydration)
+                    ? layoutHydration
+                    : undefined,
+                },
+                false
+              )
+            : errorHandler,
+          params: resolved.params,
+          record,
+          extra: { status: 500, error },
+          transportError: shown,
+          loadedAt,
+        });
+      }
     })
   );
+
+  /** Render one resolved handler into a result, in the given request context. */
+  function renderOutcome(input: {
+    context: RenderContext;
+    createContext: () => RenderContext;
+    handler: RouteHandler;
+    params: Record<string, string>;
+    record: RouteRecord | undefined;
+    extra: {
+      status?: 401 | 403 | 404 | 500;
+      error?: unknown;
+      denied?: true;
+    };
+    transportError?: Error;
+    loadedAt?: number;
+  }): Extract<RenderRouteRequestResult, { kind: 'render' }> {
+    const { context, record, extra } = input;
+    context.params = input.params;
+    if (input.loadedAt !== undefined) {
+      const current = pageRenderEnvelope(context.hydrationData);
+      context.hydrationData = withPageFramework(current, {
+        ...current.framework,
+        [ROUTE_LOADED_AT]: input.loadedAt,
+      });
+    }
+    if (context.hydrationData) {
+      context.hydrationData = withHydratedAuth(
+        context.hydrationData,
+        options.auth ?? manifest.auth,
+        context.authContext
+      );
+    }
+    if (input.transportError) {
+      const current = pageRenderEnvelope(context.hydrationData);
+      context.hydrationData = withPageFramework(current, {
+        ...current.framework,
+        [ROUTE_ERROR_OUTCOME]: routeErrorOutcome(input.transportError),
+      });
+    }
+    const sink = new StringSink();
+    renderSSRRouteAppToSink({
+      route: { path: '', handler: input.handler },
+      params: input.params,
+      data: options.data,
+      ctx: context,
+      sink,
+    });
+    sink.end();
+    const html = sink.toString();
+    const boundaries = [...context.deferredBoundaries];
+    // A streamed response embeds query data only after its last boundary;
+    // fail before the shell is sent rather than truncating the stream.
+    if (boundaries.length > 0) dehydrateDataRuntime(runtime);
+    const result: Extract<RenderRouteRequestResult, { kind: 'render' }> = {
+      kind: 'render',
+      html,
+      styles: Array.from(context.ssrStyles.values()),
+      ...(boundaries.length > 0
+        ? {
+            stream: createDeferredRenderStream(
+              html,
+              boundaries,
+              signal,
+              {
+                seed: options.seed,
+                data: context.hydrationData,
+                cspNonce,
+                authContext: context.authContext,
+                route: {
+                  url: context.url,
+                  routes: context.routes,
+                  basePath: context.basePath,
+                  params: context.params,
+                },
+              },
+              runtime
+            ),
+          }
+        : {}),
+      params: input.params,
+      // A host serving this result needs the status without reaching for
+      // the private record: a fallback match is a not-found page.
+      ...extra,
+    };
+    if (record) {
+      Object.defineProperty(result, 'record', {
+        value: record,
+        enumerable: false,
+      });
+    }
+    return result;
+  }
 }

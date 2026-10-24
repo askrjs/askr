@@ -49,6 +49,8 @@ export interface PassMark {
   readonly dormantPortalWriter: boolean;
 }
 
+const NOOP: Op = () => {};
+
 export class Pass {
   /** A server portal writer is inside a selectively hydrated host. */
   hasDormantPortalWriter = false;
@@ -114,7 +116,7 @@ export class Pass {
   }
 
   /** Restore a reversible write on abort; settle its old lifetime on success. */
-  onReversibleCommit(undo: Op, settle: Op = () => {}): void {
+  onReversibleCommit(undo: Op, settle: Op = NOOP): void {
     this.commitUndo.push(undo);
     this.commitSettle.push(settle);
   }

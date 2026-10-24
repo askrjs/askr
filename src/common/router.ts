@@ -115,7 +115,36 @@ export interface RouteContext<TParams extends RouteParams = RouteParams> {
   href: string;
   auth: AuthContext;
   signal: AbortSignal;
+  /**
+   * The location's query string parsed with the matched route's `search`
+   * schema (empty when the route declares none). Invalid or missing values take
+   * the schema defaults and invalid keys are dropped; resolution never fails
+   * over the query string. `search` stays the raw string.
+   */
+  searchParams?: Readonly<RouteSearch>;
 }
+
+/** Props of a route `error` component. */
+export interface RouteErrorProps {
+  /** What the route's lazy chunk, preload, loader or policy threw. */
+  error: unknown;
+  /** Resolve the current location again, replacing its history entry. */
+  retry(): void;
+}
+
+/** Props of a route `forbidden` component. */
+export interface RouteForbiddenProps {
+  /** The denial status a policy or auth requirement produced. */
+  status: AccessDenyStatus;
+}
+
+/** How long a loader's cached result counts as fresh. */
+export type RouteStaleTime = number | 'always';
+
+/** A `group()`/`page()` loader whose result layouts and pages read with `layoutData()`. */
+export type RouteScopeLoader<TData = unknown> = (
+  context: RouteContext & { request?: Request }
+) => TData | PromiseLike<TData>;
 
 /** A route access-control check, evaluated against {@link RouteContext} to produce an {@link AccessDecision}. */
 export type RoutePolicy = (
@@ -164,10 +193,27 @@ export interface CommonAccessOptions {
   policies?: readonly RoutePolicy[];
 }
 
+/**
+ * The context metadata functions receive: the route context plus `data`, the
+ * route's loader result once its loader has completed (absent when the route
+ * has no loader or the caller supplied none), and the parsed `searchParams`.
+ */
+export type RouteMetaContext<
+  TParams extends RouteParams = RouteParams,
+  TData = unknown,
+  TSearch = RouteSearch,
+> = RouteContext<TParams> & { data?: TData; searchParams: Readonly<TSearch> };
+
 /** A route's metadata, or a function computing it from the resolved context. */
-export type RouteMetaSource<TParams extends RouteParams = RouteParams> =
+export type RouteMetaSource<
+  TParams extends RouteParams = RouteParams,
+  TData = unknown,
+  TSearch = RouteSearch,
+> =
   | RouteMeta
-  | ((context: RouteContext<TParams>) => RouteMeta | PromiseLike<RouteMeta>);
+  | ((
+      context: RouteMetaContext<TParams, TData, TSearch>
+    ) => RouteMeta | PromiseLike<RouteMeta>);
 
 /**
  * Options for `route()` declarations.
@@ -187,7 +233,10 @@ export interface RouteOptions<
   TAppMeta = unknown,
 > extends CommonAccessOptions {
   loader?: (
-    context: RouteContext<TParams> & { request?: Request }
+    context: RouteContext<TParams> & {
+      request?: Request;
+      searchParams: Readonly<RouteRefSearch<TSearchSchema>>;
+    }
   ) => TLoaderData | PromiseLike<TLoaderData>;
   /**
    * Select the loader data transported to the browser for initial hydration.
@@ -204,6 +253,7 @@ export interface RouteOptions<
     context: RouteContext<TParams> & {
       request?: Request;
       data: QueryPrefetchContext;
+      searchParams: Readonly<RouteRefSearch<TSearchSchema>>;
     }
   ) => unknown;
   entries?: () => Array<TParams> | Promise<Array<TParams>>;
@@ -212,10 +262,26 @@ export interface RouteOptions<
   title?: string;
   namespace?: string;
   search?: TSearchSchema;
-  meta?: RouteMetaSource<TParams>;
+  meta?: RouteMetaSource<TParams, TLoaderData, RouteRefSearch<TSearchSchema>>;
   /** Immutable application declaration data; never automatically serialized for hydration. */
   appMeta?: TAppMeta;
   actions?: readonly ActionDescriptor[];
+  /**
+   * Rendered in place of the route content when its lazy chunk, preload or
+   * loader fails. The nearest declaring `route()`, `page()` or `group()` wins.
+   */
+  error?: (props: RouteErrorProps) => RenderableChild;
+  /**
+   * Rendered instead of the bare status placeholder when a policy or auth
+   * requirement denies the route. The nearest declaring scope wins.
+   */
+  forbidden?: (props: RouteForbiddenProps) => RenderableChild;
+  /**
+   * Browser loader results are cached in the app's data runtime. A cached
+   * result renders at once and is revalidated in the background when it is at
+   * least this old. `0` (the default) and `'always'` revalidate on every visit.
+   */
+  staleTimeMs?: RouteStaleTime;
 }
 
 export interface RouteMeta {
@@ -287,6 +353,11 @@ export interface PageHelperOptions<
   ) => unknown;
   meta?: RouteMetaSource;
   appMeta?: TAppMeta;
+  error?: (props: RouteErrorProps) => RenderableChild;
+  forbidden?: (props: RouteForbiddenProps) => RenderableChild;
+  /** Runs alongside the leaf loader; read the result with `layoutData(loader)`. */
+  loader?: RouteScopeLoader;
+  staleTimeMs?: RouteStaleTime;
 }
 
 /**
@@ -319,6 +390,20 @@ export interface RouteRegistryOptions {
   auth?: RouteAuthOptions;
   /** Public pathname prefix for applications mounted below the origin root. */
   basePath?: string;
+  /**
+   * How a trailing slash is treated. `'ignore'` (default) matches both forms.
+   * `'never'` and `'always'` redirect (308) a
+   * request for the other form of a matched route to the canonical one; the
+   * root `/` and file-like paths (`/files/report.pdf`) are left alone.
+   */
+  trailingSlash?: 'ignore' | 'never' | 'always';
+  /**
+   * Whether static segments match case-sensitively. `true` (default) keeps
+   * today's behavior. With `false`, a request whose static segments differ
+   * only in case from a declared route is redirected (308) to the declared
+   * case; parameter values keep their case.
+   */
+  caseSensitive?: boolean;
 }
 
 /** A callback that declares routes via `route()`/`page()`/`group()`, passed to {@link createRouteRegistry}. */
@@ -336,6 +421,10 @@ export interface RouteRequestOptions {
   signal?: AbortSignal;
   request?: Request;
   telemetry?: CoreTelemetry;
+  /** @internal A link prefetch resolves the route without touching identity or session recovery. */
+  prefetch?: boolean;
+  /** @internal Browser navigation renders a route's `error` component for resolution failures. */
+  routeErrors?: boolean;
   /** @internal Browser apps prefetch route `preload` data into their own runtime. */
   dataRuntime?: import('../data/types').DataRuntime;
 }
@@ -362,6 +451,11 @@ export interface GroupHelperOptions<
   layout?: (props: { children?: RenderableChild }) => RenderableChild;
   meta?: RouteMetaSource;
   appMeta?: TAppMeta;
+  error?: (props: RouteErrorProps) => RenderableChild;
+  forbidden?: (props: RouteForbiddenProps) => RenderableChild;
+  /** Runs alongside the leaf loader; read the result with `layoutData(loader)`. */
+  loader?: RouteScopeLoader;
+  staleTimeMs?: RouteStaleTime;
 }
 
 /**
@@ -415,6 +509,10 @@ export interface RouteManifest {
   auth?: RouteAuthOptions;
   /** Normalized public pathname prefix. Empty and root mounts omit it. */
   basePath?: string;
+  /** Registry `trailingSlash` policy; omitted for `'ignore'`. */
+  trailingSlash?: 'never' | 'always';
+  /** Registry `caseSensitive`; omitted unless `false`. */
+  caseSensitive?: false;
 }
 
 declare const routeRegistryBrand: unique symbol;
@@ -469,10 +567,17 @@ export interface RouteSnapshot<
   TParams extends RouteParams = RouteParams,
   TState = unknown,
   TAppMeta = unknown,
+  TSearch = RouteSearch,
 > {
   path: string;
   params: Readonly<TParams>;
   query: Readonly<RouteQuery>;
+  /**
+   * The query string parsed with the active route's `search` schema: typed by
+   * the `TSearch` read generic, defaults applied, invalid values replaced or
+   * dropped. Empty when the route declares no schema.
+   */
+  search: Readonly<TSearch>;
   hash: string | null;
   /** Whether the current browser history entry was given explicit location state. */
   hasState: boolean;

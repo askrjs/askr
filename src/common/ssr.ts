@@ -31,6 +31,8 @@ export interface DocumentRenderContext {
   route: DocumentRenderRoute;
   cspNonce?: string;
   styles?: readonly SSRStyleRegistration[];
+  /** The route's resolved metadata (SSG), for `serializeRouteMeta()`. */
+  meta?: Readonly<import('./router').RouteMeta>;
 }
 
 /** Arguments passed to a {@link DocumentRenderer}: the rendered app HTML and its context. */

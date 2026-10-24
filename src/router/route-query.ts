@@ -1,4 +1,6 @@
 import { saveScrollPosition } from './navigation-scroll';
+import { beginRouteRequest } from './navigation-request';
+import { clearPendingNavigation } from './navigation-state';
 import { commitHistoryIndex, nextHistoryIndex } from './history-index';
 import {
   getCurrentHref,
@@ -100,20 +102,46 @@ export function updateRouteQuery(
     return;
   }
 
-  const historyMode = getRouteQueryHistoryMode(options);
+  // The page stays, so blockers are not consulted: a query change is not a
+  // departure. The query update is the newest location: a navigation still resolving
+  // must not publish over it, and is no longer pending.
+  beginRouteRequest();
+  clearPendingNavigation();
+  commitLocationOnlyNavigation(url.pathname, href, {
+    historyMode: getRouteQueryHistoryMode(options),
+  });
+}
+
+/**
+ * Publish a new location for the page that is already rendered: a query or
+ * fragment change that needs no route resolution. The history entry carries
+ * the given state, or keeps the current entry's state when none is given.
+ */
+export function commitLocationOnlyNavigation(
+  pathname: string,
+  href: string,
+  options: {
+    historyMode: 'push' | 'replace';
+    state?: { hasState: boolean; state: unknown };
+  }
+): void {
+  const { historyMode } = options;
   if (historyMode === 'push') {
     saveScrollPosition(getCurrentHref());
   }
 
-  const state =
+  const current =
     window.history.state && typeof window.history.state === 'object'
       ? window.history.state
       : {};
+  const entryState = options.state
+    ? { askrHasState: options.state.hasState, askrState: options.state.state }
+    : current;
 
   const historyIndex = nextHistoryIndex(historyMode);
   window.history[historyMode === 'replace' ? 'replaceState' : 'pushState'](
     {
-      ...state,
+      ...entryState,
       path: href,
       askrIndex: historyIndex,
     },
@@ -121,10 +149,14 @@ export function updateRouteQuery(
     toDocumentUrl(href)
   );
   commitHistoryIndex(historyIndex);
+  publishLocation(pathname, href);
+}
 
-  setCurrentRouteLocation(url.pathname, href);
+/** Record a location the rendered page now owns, without re-rendering it. */
+export function publishLocation(pathname: string, href: string): void {
+  setCurrentRouteLocation(pathname, href);
   for (const app of getRegisteredAppsSnapshot()) {
-    syncAppRegistrationLocation(app, url.pathname, href);
+    syncAppRegistrationLocation(app, pathname, href);
   }
   syncRegisteredRouteSnapshot();
 }

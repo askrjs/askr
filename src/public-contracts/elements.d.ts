@@ -19,7 +19,16 @@ type ReactiveProp<T> = T | (() => T);
 type BivariantHandler<T> = {
   bivarianceHack(value: T): void;
 }['bivarianceHack'];
-type IntrinsicClassValue = string | null | undefined | false;
+/** A class name, or a nested list or object of them: `['a', { b: cond }]`. */
+type IntrinsicClassName =
+  | string
+  | number
+  | null
+  | undefined
+  | false
+  | readonly IntrinsicClassName[]
+  | { readonly [name: string]: unknown };
+type IntrinsicClassValue = IntrinsicClassName;
 type IntrinsicAriaValue = string | number | boolean | null | undefined;
 type IntrinsicDataValue = string | number | boolean | null | undefined;
 type IntrinsicBooleanValue = boolean | null | undefined;
@@ -87,6 +96,8 @@ interface IntrinsicEventProps {
   onCueChange?: BivariantHandler<Event> | null;
   onCut?: BivariantHandler<ClipboardEvent> | null;
   onDblClick?: BivariantHandler<MouseEvent> | null;
+  /** Alias of `onDblClick`; both listen for the `dblclick` event. */
+  onDoubleClick?: BivariantHandler<MouseEvent> | null;
   onDrag?: BivariantHandler<DragEvent> | null;
   onDragEnd?: BivariantHandler<DragEvent> | null;
   onDragEnter?: BivariantHandler<DragEvent> | null;
@@ -167,9 +178,23 @@ interface IntrinsicEventProps {
   onWebkitTransitionEnd?: BivariantHandler<Event> | null;
   onWheel?: BivariantHandler<WheelEvent> | null;
 }
+/**
+ * Listener options through prop name suffixes: `Capture` listens in the capture
+ * phase, `Passive` registers a passive listener, `Once` runs the handler for
+ * the first event only. Suffixes combine in this order (`onWheelPassive`,
+ * `onClickCaptureOnce`).
+ */
+type EventOptionSuffix =
+  | 'Capture'
+  | 'Passive'
+  | 'Once'
+  | 'CapturePassive'
+  | 'CaptureOnce'
+  | 'PassiveOnce'
+  | 'CapturePassiveOnce';
 type CapturedIntrinsicEventProps = {
   [
-    Name in keyof IntrinsicEventProps as `${Name & string}Capture`
+    Name in keyof IntrinsicEventProps as `${Name & string}${EventOptionSuffix}`
   ]?: IntrinsicEventProps[Name];
 };
 /**
@@ -301,6 +326,8 @@ type TableHeaderIntrinsicProps = StructuredContentIntrinsicProps<
   }
 >;
 interface AnchorIntrinsicProps extends IntrinsicProps {
+  /** A filename, or `true` to use the resource's own name. */
+  download?: ReactiveProp<IntrinsicTextValue | boolean>;
   href?: ReactiveProp<IntrinsicTextValue>;
   rel?: ReactiveProp<IntrinsicTextValue>;
   target?: ReactiveProp<IntrinsicTextValue>;

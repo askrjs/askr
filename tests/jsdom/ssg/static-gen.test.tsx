@@ -310,7 +310,7 @@ describe('Static Site Generation', () => {
       );
     });
 
-    it('should not generate registry fallback records as concrete pages', async () => {
+    it('should write the root fallback only as the 404 page, never as a concrete route', async () => {
       const registry = createRouteRegistry(() => {
         route('/', () => <main>{'Registry Home'}</main>);
         fallback(() => <main>{'Missing'}</main>);
@@ -322,9 +322,16 @@ describe('Static Site Generation', () => {
 
       const result = await ssg.generate();
 
-      expect(result.totalRoutes).toBe(1);
-      expect(result.routes.map((route) => route.path)).toEqual(['/']);
+      expect(result.totalRoutes).toBe(2);
+      expect(result.routes.map((route) => route.path)).toEqual(['/', '/404']);
+      expect(result.routes[1]?.filePath).toBe('404.html');
       expect(fs.existsSync(path.join(tempDir, '*', 'index.html'))).toBe(false);
+      expect(fs.existsSync(path.join(tempDir, '404', 'index.html'))).toBe(
+        false
+      );
+      expect(fs.readFileSync(path.join(tempDir, '404.html'), 'utf8')).toContain(
+        'Missing'
+      );
     });
 
     it('should preserve Context sibling children in generated HTML', async () => {

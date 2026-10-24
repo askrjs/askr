@@ -38,3 +38,20 @@ and prevent back imports into the request owner. Direct seam tests resolve a
 loaded root and denied root without publication, then apply the complete target
 set. Reentrant abort probes and pending metadata probes supplement the existing
 multi-root rollback, popstate, fallback, scroll/focus and browser suites.
+
+## Loader cache, error UI and navigation state
+
+| Owner                                        | Responsibility                                                                                                                                                                     |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `route-loader-cache.ts`                      | Cache loader results in the data runtime (`routeLoaders`, cleared by `invalidate()` and disposal), share one request per key and cancel it when every waiting navigation has left. |
+| `resolution.ts`                              | Start the lazy chunk, `preload` and every loader together; surface chunk failures; produce render results that carry layout data, revalidation promises and error renderings.      |
+| `route-error.ts`                             | Build error and denial renderings from the nearest declared `error`/`forbidden` component.                                                                                         |
+| `navigation-targets.ts`                      | After a commit, refresh the route in place when a cached result revalidates, and move focus after a push navigation (`navigation-focus.ts`).                                       |
+| `navigation-state.ts`, `navigation-block.ts` | Publish pending/revalidating state, and consult navigation blockers before leaving the page (in-app navigation, popstate through the history index, `beforeunload`).               |
+| `route-prefetch.ts`                          | Resolve a link's destination without committing: start the chunk and warm the loader cache, never touching identity or session recovery.                                           |
+| `stale-deployment.ts`, `path-canonical.ts`   | Reload once for chunk files a deployment replaced; redirect to the canonical trailing-slash and case form.                                                                         |
+
+Resolution still produces targets without changing roots, history or document
+metadata; none of these modules gives it a commit capability. A refresh after
+revalidation commits through the same `commitNavigationRoots` boundary and is
+dropped when any newer navigation request began.

@@ -19,10 +19,14 @@ import {
   createRouteRegistry,
   group,
   index,
+  layoutData,
   lazy,
   lazyRouteData,
+  localTarget,
+  blockNavigation,
   matchRoute,
   navigate,
+  navigationState,
   notFound,
   page,
   redirect,
@@ -43,12 +47,15 @@ import {
   type LinkProps,
   type NavigateOptions,
   type NavigationScrollBehavior,
+  type NavigationState,
   type PageHelperOptions,
   type RouteRegistryOptions,
   type RouteComponent,
   type RouteContext,
   type RouteDefinition,
   type RouteDestination,
+  type RouteErrorProps,
+  type RouteForbiddenProps,
   RouteDataLoadError,
   type RouteDataLoadPhase,
   type RouteHandler,
@@ -515,3 +522,104 @@ reconcileRouteMeta({
 expectError(
   lazy(async () => ({ default: () => document.createElement('div') }))
 );
+
+// Route error and forbidden components.
+route('/typed-error', () => null, {
+  error: ({ error, retry }: RouteErrorProps) => {
+    expectType<unknown>(error);
+    expectType<() => void>(retry);
+    return null;
+  },
+  forbidden: ({ status }: RouteForbiddenProps) => {
+    expectType<401 | 403 | 404>(status);
+    return null;
+  },
+});
+group({ error: () => null, forbidden: () => null }, () => undefined);
+
+// Group and page loaders, read with layoutData() and cached with staleTimeMs.
+const loadTypedUser = async () => ({ name: 'Ada' });
+group({ loader: loadTypedUser, staleTimeMs: 'always' }, () => {
+  route('/typed-layout-data', () => {
+    expectType<{ name: string }>(layoutData(loadTypedUser));
+    return null;
+  });
+});
+page(
+  '/typed-page-loader',
+  () => null,
+  { loader: loadTypedUser, staleTimeMs: 5_000 },
+  () => undefined
+);
+route('/typed-stale', () => null, { staleTimeMs: 0 });
+expectError(route('/bad-stale', () => null, { staleTimeMs: 'never' }));
+
+// Inbound search params are parsed with the route's schema and typed by it.
+const typedSearch = schema.object({
+  page: schema.integer({ default: 1 }),
+  q: schema.optional(schema.string()),
+});
+route('/typed-search', () => null, {
+  search: typedSearch,
+  loader: ({ searchParams }) => {
+    expectType<number>(searchParams.page);
+    expectType<string | undefined>(searchParams.q);
+    return searchParams.page;
+  },
+  meta: ({ searchParams, data }) => {
+    expectType<number>(searchParams.page);
+    expectType<number | undefined>(data);
+    return {};
+  },
+});
+route('/untyped-search', () => null, {
+  loader: ({ searchParams }) => {
+    expectType<Readonly<RouteSearch>>(searchParams);
+    return null;
+  },
+});
+const searchSnapshot = currentRoute<
+  RouteParams,
+  unknown,
+  unknown,
+  { page: number }
+>();
+expectType<Readonly<{ page: number }>>(searchSnapshot.search);
+
+// Pending navigation state and navigation blockers.
+const pendingState: NavigationState = navigationState();
+expectType<boolean>(pendingState.pending);
+expectType<string | null>(pendingState.to);
+expectType<boolean>(pendingState.revalidating);
+expectType<() => void>(blockNavigation(() => 'Discard changes?'));
+expectType<() => void>(blockNavigation(() => true));
+expectError(blockNavigation(() => 1));
+
+// Link navigation and prefetch options.
+expectAssignable<LinkProps>({
+  href: '/next',
+  replace: true,
+  state: { from: 'list' },
+  scroll: 'preserve',
+  prefetch: 'intent',
+});
+expectError<LinkProps>({ href: '/next', prefetch: 'eager' });
+expectError<LinkProps>({ href: '/next', scroll: 'smooth' });
+
+// Same-origin navigation of untrusted targets.
+expectType<string>(localTarget(null));
+expectType<string>(localTarget('/next', '/home'));
+expectType<void>(navigate('/next', { sameOrigin: true }));
+expectError(localTarget(undefined));
+
+// Path canonicalization registry options.
+expectType<RouteRegistry>(
+  createRouteRegistry(() => undefined, {
+    trailingSlash: 'never',
+    caseSensitive: false,
+  })
+);
+expectError(
+  createRouteRegistry(() => undefined, { trailingSlash: 'sometimes' })
+);
+expectError(createRouteRegistry(() => undefined, { caseSensitive: 'no' }));

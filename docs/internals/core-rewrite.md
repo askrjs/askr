@@ -166,7 +166,7 @@ validation. Run performance benchmarks when a change affects a measured hot
 path; a green functional suite does not establish a performance result.
 
 Recent commit-rollback qualification covers provisional hydration text claims
-and corrections, unrendered server attribute cleanup, ordinary adopted
+and corrections, server attribute cleanup (bookkeeping and retired props, or everything unrendered in verify mode), ordinary adopted
 attributes, reflected class/style writes, attribute-backed binding
 transitions, and static or bound input value, checkbox checked, and option
 selected state. Adopted root and nested child synchronization also restores
@@ -205,6 +205,23 @@ SSR failures preserve their primary render error while aggregating temporary
 root cleanup failures. Error boundaries still render their fallback when a
 failed subtree cleanup throws, and report those cleanup errors after fallback
 handling, including inside raw-text elements.
+
+## Audit closure (2026-10-23)
+
+A three-way audit of the reactive runtime, the DOM renderer with hydration
+and SSR, and the router confirmed 47 defects against a world-class bar and
+listed the design gaps behind them. Every confirmed defect and the agreed
+design backlog (runtime options and primitives, hydration alignment and
+diagnostics, event and prop writers, route error components, loader cache,
+typed search, navigation UX, matching index, SSG output) landed in one pull
+request after three adversarial review rounds. Known gaps that remain by
+design or for later work: an inline `derive()` closure recomputes on each
+render of its owner, and `blockNavigation()` does not cover
+`updateRouteQuery()` or redirects. A follow-up closed the router gaps: SSG
+prerenders routes under group or page loaders, hydrated first-page data seeds
+the loader cache, `caseSensitive` and `trailingSlash` also apply to matching
+and activity reads, and route `error`/`forbidden` components render on the
+server.
 
 ## Open audit boundaries
 

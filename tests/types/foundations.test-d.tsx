@@ -150,7 +150,7 @@ expectType<(event: MouseEvent) => void>(
 const mergedDisjoint = mergeProps({ id: 'a' }, { role: 'button' });
 expectType<string>(mergedDisjoint.id);
 expectType<string>(mergedDisjoint.role);
-expectType<(value: HTMLElement | null) => void>(
+expectType<(value: HTMLElement | null) => void | (() => void)>(
   composeRefs<HTMLElement>(callbackRef, objectRef)
 );
 expectType<void>(setRef<HTMLElement>(objectRef, null));

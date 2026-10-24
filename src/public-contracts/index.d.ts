@@ -1,4 +1,8 @@
 import {
+  store,
+  unwrap,
+  batch,
+  untrack,
   cspNonce,
   selector,
   configureRenderDiagnostics,
@@ -57,4 +61,8 @@ export {
   registerSSRStyle,
   selector,
   state,
+  batch,
+  untrack,
+  store,
+  unwrap,
 };

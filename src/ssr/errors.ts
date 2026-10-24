@@ -5,15 +5,6 @@ import type {
 
 export { SSRDataMissingError } from '../common/ssr-errors';
 
-export class SSRInvariantError extends Error {
-  readonly code = 'SSR_INVARIANT_VIOLATION';
-  constructor(message: string) {
-    super(message);
-    this.name = 'SSRInvariantError';
-    Object.setPrototypeOf(this, SSRInvariantError.prototype);
-  }
-}
-
 /**
  * Thrown by synchronous route SSR (`renderToString()`/`renderToStream()`) when
  * route auth or a policy redirects or denies the request. Nothing is rendered;

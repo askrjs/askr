@@ -9,6 +9,7 @@ const command = action<{ name: string }, { saved: boolean }>(save, {
 });
 command.submit({ name: 'Askr' }) satisfies Promise<{ saved: boolean }>;
 action(save, { csrfToken: async () => undefined });
+action(save, { csrfCookie: 'XSRF-TOKEN' });
 // @ts-expect-error An explicit asynchronous resolver is required.
 action(save, { csrfToken: 'static' });
 // @ts-expect-error Token results must be strings or undefined.

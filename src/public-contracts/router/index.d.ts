@@ -32,6 +32,8 @@ import {
   AccessDecision,
   RouteDestination,
   RouteContext,
+  RouteErrorProps,
+  RouteForbiddenProps,
   AccessAllowDecision,
   RouteRegistryOptions,
   AccessRedirectDecision,
@@ -44,6 +46,9 @@ import {
   NavigationScrollBehavior,
   NavigateOptions,
   HistoryScrollBehavior,
+  NavigationState,
+  navigationState,
+  blockNavigation,
   navigate,
 } from '../navigation.js';
 import {
@@ -329,10 +334,22 @@ declare function to$1<
   params: TParams,
   search?: TSearch
 ): RouteDestination;
+/**
+ * Reduce an untrusted navigation target (a \`?next=\` query value, a form field)
+ * to a same-origin root-relative href, or \`fallback\` when it names anything
+ * else. Relative values resolve against the origin root. The checks are those
+ * of \`navigate()\`: another origin, a path-like value the URL parser resolves
+ * to another host (\`//evil.example\`, \`/\\evil.example\`), a pathname that
+ * collapses to a leading \`//\`, and non-http schemes all use the fallback.
+ * On a server, where the origin is unknown, only root-relative values pass.
+ */
+declare function localTarget(value: string | null, fallback?: string): string;
 /** Resolve a route's merged {@link RouteMeta} by running its metadata chain against `context`. */
 declare function resolveRouteMeta(
   record: RouteRecord,
-  context: RouteContext
+  context: RouteContext & {
+    data?: unknown;
+  }
 ): Promise<Readonly<RouteMeta>>;
 /** Replace only Askr-owned head nodes after a successful client navigation. */
 declare function reconcileRouteMeta(
@@ -370,6 +387,19 @@ declare function resolveDeferredValues<T>(
 ): Promise<T>;
 /** Read the current route's server loader data during render or hydration. */
 declare function routeData<T>(): T;
+/**
+ * Read the result of a `group()`/`page()` loader while rendering a route that
+ * runs it, typically from a layout or page host. The argument is the loader
+ * function declared on the scope, so the read is typed by that function and
+ * works anywhere below the scope, including the leaf.
+ */
+declare function layoutData<TData>(
+  loader: (
+    context: RouteContext & {
+      request?: Request;
+    }
+  ) => TData | PromiseLike<TData>
+): TData;
 /** Render a {@link Deferred} value's fulfilled state, a pending placeholder, or a rejected fallback. */
 declare function Resolve<T>(props: ResolveProps<T>): JSXElement;
 type LinkBaseProps = Omit<
@@ -412,6 +442,25 @@ type LinkBaseProps = Omit<
   'aria-label'?: string;
   onPress?: (event: Event) => void;
   onClick?: (event: MouseEvent) => void;
+  /** Replace the current history entry instead of pushing a new one. */
+  replace?: boolean;
+  /** Entry-local history state for the destination, as `navigate(href, { state })`. */
+  state?: unknown;
+  /** Scroll to the top (default) or keep the offset after the navigation. */
+  scroll?: 'top' | 'preserve';
+  /**
+   * Warm the destination before the visitor commits to it. `'intent'` does so
+   * on pointer enter and keyboard focus, `'render'` when the link mounts, and
+   * `'none'` (the default) never. Prefetching starts the route's lazy chunk and
+   * resolves it like a navigation (auth, policies, loaders through the loader
+   * cache) without rendering it.
+   */
+  prefetch?: 'intent' | 'render' | 'none';
+  /**
+   * Animate the page change with \`document.startViewTransition()\` when the
+   * browser has it, as \`navigate(href, { viewTransition: true })\`.
+   */
+  viewTransition?: boolean;
 };
 /** Props for {@link Link}: either a raw `href` or a typed route `to` destination. */
 type LinkProps = LinkBaseProps &
@@ -465,6 +514,10 @@ declare function Link({
   'aria-label': ariaLabel,
   onPress,
   onClick,
+  replace,
+  state,
+  scroll,
+  prefetch,
   ...rest
 }: LinkProps): JSXElement;
 export {
@@ -481,6 +534,7 @@ export {
   type LinkProps,
   type NavigateOptions,
   type NavigationScrollBehavior,
+  type NavigationState,
   Outlet,
   type PageHelperOptions,
   Resolve,
@@ -496,6 +550,8 @@ export {
   type RouteDataLoadPhase,
   type RouteDefinition,
   type RouteDestination,
+  type RouteErrorProps,
+  type RouteForbiddenProps,
   type RouteHandler,
   type RouteManifest,
   type RouteMatch,
@@ -524,6 +580,7 @@ export {
   type ScrollRestorationOptions,
   type UpdateRouteQueryOptions,
   allow,
+  blockNavigation,
   createRouteRegistry,
   createSessionAuth,
   type SessionAuth,
@@ -538,10 +595,13 @@ export {
   group,
   index,
   isDeferred,
+  layoutData,
   lazy,
   lazyRouteData,
+  localTarget,
   matchRoute,
   navigate,
+  navigationState,
   notFound,
   onRouteChange,
   page,

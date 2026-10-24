@@ -22,6 +22,7 @@ import { provideDefaultPortal } from '../core/api/portal';
 import { dormantHostFor, hydrateDormantHost } from '../core/dom/nodes';
 import { Pass } from '../core/dom/pass';
 import { createRoot, type Root } from '../core/dom/root';
+import type { HydrationOptions } from '../core/dom/hydration';
 import { ROOT, type Parent } from '../core/dom/tree';
 import { flushSync } from '../core/reactive/scheduler';
 import { validateCspNonce } from '../csp-nonce';
@@ -63,10 +64,11 @@ export class AppRoot implements AppRootHandle {
   constructor(
     element: Element,
     component: ComponentFunction,
-    hydrate: boolean
+    hydrate: boolean,
+    hydrateOptions?: HydrationOptions
   ) {
     this.element = element;
-    this.root = createRoot(element, { owner: null, hydrate });
+    this.root = createRoot(element, { owner: null, hydrate, hydrateOptions });
     provideDefaultPortal(this.root.owner, element);
     this.component = component;
     this.handler = component;
@@ -186,6 +188,8 @@ export interface MountOptions {
   cspNonce?: string;
   /** The container holds server-rendered markup for this app to adopt. */
   hydrate?: boolean;
+  /** How hydration treats server markup: strict attributes, mismatch reports. */
+  hydrateOptions?: HydrationOptions;
   /** Runs after the render commits, before the work it scheduled flushes. */
   onCommit?: () => void;
 }
@@ -202,7 +206,12 @@ export function mountOrUpdate(
   const replacingIsland =
     app !== undefined && app.component !== component && !app.routed;
   if (!app) {
-    app = new AppRoot(rootElement, component, options?.hydrate === true);
+    app = new AppRoot(
+      rootElement,
+      component,
+      options?.hydrate === true,
+      options?.hydrateOptions
+    );
     appRoots.set(rootElement, app);
     interceptInnerHTML(app);
   } else if (app.component !== component) {

@@ -38,12 +38,24 @@ flowchart LR
 - A **`Computation`** runs a function and records every source it read in
   that run. `derive()`, `selector()`, fine-grained bindings, `watch()`, and
   component renders are all computations. There is one subscriber kind;
-  they differ only in how they are scheduled when they go stale.
+  they differ only in how they are scheduled when they go stale. A read
+  subscribes as it happens, so a write to a source later in the same run
+  (by the computation itself, or by something it calls), or to a source
+  behind a derived value the run has already read, marks the computation
+  stale and it runs again. A derived value the run has not read yet is
+  brought up to date when it is read, so its mark is ignored. When the run
+  ends, subscriptions it did not read are released.
 
 A write marks direct observers `DIRTY` and everything downstream `CHECK`.
 When a computation is read or run by the scheduler, it first brings its
 `CHECK` sources up to date and re-runs only if one of them actually changed.
 Updates are glitch-free, and an unchanged derived value stops propagation.
+
+Both walks, marking `CHECK` downstream of a write and bringing `CHECK` sources
+up to date on a read, use an explicit stack, so a chain of 10,000 derived values
+updates without a `RangeError`. The first evaluation of such a chain still
+nests one call per link, because each value's function reads the previous one;
+read a long chain from its start (or build it incrementally) the first time.
 
 A computation with no scheduler (a `derive()` value) is lazy: it recomputes
 only when read. A computation with a scheduler queues itself when it goes
@@ -62,12 +74,17 @@ computation. An owner has a parent, children, cleanups, and scope values.
 Disposal runs children first, in reverse creation order, then the owner's
 own cleanups in reverse registration order. It always finishes: failures are
 collected and reported together rather than stopping teardown.
-`runWithOwner()` sets the owner for code that runs later, such as event
+An owner created under a parent that is already disposed is disposed from
+the start: it is never scheduled, never subscribes, and runs cleanups as they
+are registered. `runWithOwner()` sets the owner for code that runs later, such as event
 handlers and queued tasks, so scope reads and cleanup registration still work
 there.
 
 Lexical scopes (`src/core/api/scope.ts`) are values recorded on a provider's
-owner. `readScope()` walks up the owner tree from the running code.
+owner. `readScope()` walks up the owner tree from the running code. The result is cached on owners along the
+walk (every eighth owner of a long path), so reading a scope in a deep tree walks
+the chain about once; the caches are dropped whenever a provider's value changes
+or a subtree with descendants is detached.
 
 ## Components and hooks
 
@@ -143,6 +160,9 @@ a disposed computation is skipped.
   no-op.
 - **Runaway work.** A job that runs more than 50 times in one flush
   (`MAX_RUNS_PER_FLUSH`, or its own lower limit) is cancelled and reported.
+  A flush that runs more than `MAX_FOLLOW_UP_JOBS_PER_FLUSH` jobs beyond those
+  queued when it started (a `queueTask()` that queues a fresh closure each run)
+  stops, drops the queued work and reports an error.
 - **Failures.** A throwing job does not stop the flush. Failures are collected
   and thrown after the flush finishes: one error as-is, several as an
   `AggregateError`.
@@ -153,9 +173,12 @@ a disposed computation is skipped.
 `resource()` (`src/core/api/resource.ts`) is component-owned async data. The
 loader starts after the render that declared it commits, never during a client
 render. `ResourceCell` (`src/core/api/resource-cell.ts`) owns each execution's
-`AbortController`, and the component reads a readable source next to a stable
-snapshot object, so a published result re-renders exactly the components that
-read it. `stream()` (`src/core/api/stream.ts`) applies the same ownership to an
+`AbortController`. The component gets a stable snapshot object whose fields
+(`value`, `pending`, `error`; for streams also `status` and `stale`) are
+signal-backed accessors (`makeReactiveFields` in `src/core/api/snapshot.ts`).
+A reader subscribes to the fields it reads, so a published result re-renders
+exactly the computations that read the changed fields, wherever they are in the
+tree. A write made while the owner renders does not re-run the owner. `stream()` (`src/core/api/stream.ts`) applies the same ownership to an
 async iterable. It connects after commit and disconnects with the component.
 
 Each execution checks that it still owns the cell after abort callbacks,
