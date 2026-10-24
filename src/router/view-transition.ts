@@ -71,10 +71,15 @@ export function runNavigationCommit(
   }
   const transition = start.call(document, () => {
     if (isStaleRouteRequest(requestId)) return;
-    commit();
+    try {
+      commit();
+    } catch (error) {
+      // The browser owns this callback: a failure here cannot reach the
+      // caller the way a direct commit's does, so it is reported here.
+      logger.error('[Askr] navigation failed:', error);
+    }
   }) as ViewTransitionLike | undefined;
-  // The commit logs its own failures; a rejected promise only reports the
-  // transition as skipped.
+  // A rejected promise only reports the transition itself as skipped.
   for (const promise of [
     transition?.ready,
     transition?.finished,

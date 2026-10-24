@@ -16,6 +16,9 @@ import {
   route,
 } from '../../../src/router';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
+import { runNavigationCommit } from '../../../src/router/view-transition';
+import { beginRouteRequest } from '../../../src/router/navigation-request';
+import { logger } from '../../../src/common/logger';
 
 vi.mock('../../../src/router/document-navigation', () => ({
   loadDocument: vi.fn(),
@@ -213,5 +216,29 @@ describe('view transitions', () => {
     await Promise.all(stub.finished);
     expect(container.textContent).toBe('c');
     expect(window.location.pathname).toBe('/c');
+  });
+
+  it('should log a commit that fails inside the transition callback', async () => {
+    const error = vi.spyOn(logger, 'error').mockImplementation(() => {});
+    const failure = new Error('commit failed');
+    let updateCallbackDone!: Promise<unknown>;
+    (document as unknown as Record<string, unknown>).startViewTransition = (
+      update: () => void
+    ) => {
+      // The browser runs the callback later, where nothing awaits it.
+      updateCallbackDone = Promise.resolve().then(update);
+      updateCallbackDone.catch(() => undefined);
+      return {
+        ready: Promise.resolve(),
+        updateCallbackDone,
+        finished: updateCallbackDone,
+      };
+    };
+
+    runNavigationCommit(true, beginRouteRequest().id, () => {
+      throw failure;
+    });
+    await updateCallbackDone.catch(() => undefined);
+    expect(error).toHaveBeenCalledWith('[Askr] navigation failed:', failure);
   });
 });
