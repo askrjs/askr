@@ -127,6 +127,12 @@ runtime-only (status `skipped`, reason `runtime-only`) rather than failing the
 build, so a registry shared with SSR can hold routes that only the server
 renders.
 
+Routes under a `group()` or `page()` loader are prerendered like any other:
+the build runs those loaders (outermost first, together with the leaf loader)
+with the same context a request render uses, `layoutData(loader)` resolves in
+layouts, page hosts and leaves, and the data is embedded for hydration.
+Results must be JSON-compatible, as with leaf loaders.
+
 ## Parameterized routes
 
 Use `entries()` when one route template should expand into many concrete pages:

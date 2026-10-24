@@ -28,7 +28,11 @@ import {
 import { resolveDeferredValues } from '../router/deferred';
 import { bindResolvedRouteData } from '../router/resolution';
 import { _preloadRouteHandler } from '../router/lazy';
-import { prepareRouteHydrationData } from '../router/route-hydration';
+import {
+  prepareRouteHydrationData,
+  validateRouteHydrationData,
+} from '../router/route-hydration';
+import type { InternalRouteRecord } from '../router/internal-types';
 import { RouteDataLoadError } from '../router/route-data-loader';
 import { emptyRouteSearch, parseRouteSearch } from '../router/route-search';
 import { addRouteBasePath } from '../router/base-path';
@@ -93,7 +97,10 @@ export async function batchRenderRoutes(
 
     const mergedHandler: RouteHandler = route.handler;
 
-    let phase: 'load' | 'render' = route.loader ? 'load' : 'render';
+    const scopeLoaders =
+      (route.record as InternalRouteRecord | undefined)?.loaderChain ?? [];
+    let phase: 'load' | 'render' =
+      route.loader || scopeLoaders.length > 0 ? 'load' : 'render';
     try {
       await _preloadRouteHandler(mergedHandler);
 
@@ -102,7 +109,13 @@ export async function batchRenderRoutes(
         | ReturnType<typeof prepareRouteHydrationData>
         | undefined;
       let hasRouteData = false;
-      if (route.loader) {
+      let layout:
+        | {
+            values: Map<unknown, unknown>;
+            hydration: unknown[];
+          }
+        | undefined;
+      if (route.loader || scopeLoaders.length > 0) {
         const controller = new AbortController();
         const loadContext: RouteContext = {
           mode: 'ssg',
@@ -123,20 +136,44 @@ export async function batchRenderRoutes(
             : emptyRouteSearch(),
         };
         const request = new Request(requestUrl);
-        const loaded = await route.loader({
-          ...loadContext,
-          searchParams: loadContext.searchParams!,
-          request,
-        });
-        await resolveDeferredValues(loaded, controller.signal);
-        routeData = loaded;
-        routeHydration = prepareRouteHydrationData(
-          loaded,
-          route.dehydrate,
-          { ...loadContext, request },
-          url
-        );
-        hasRouteData = true;
+        const run = async (
+          loader: (context: never) => unknown
+        ): Promise<unknown> => {
+          const loaded = await loader({
+            ...loadContext,
+            searchParams: loadContext.searchParams!,
+            request,
+          } as never);
+          await resolveDeferredValues(loaded, controller.signal);
+          return loaded;
+        };
+        // Group and page loaders (outermost first) and the leaf loader are
+        // independent: start them together, as an SSR request does.
+        const [scoped, loaded] = await Promise.all([
+          Promise.all(scopeLoaders.map((scope) => run(scope.loader))),
+          route.loader ? run(route.loader) : undefined,
+        ]);
+        if (scopeLoaders.length > 0) {
+          layout = {
+            values: new Map(
+              scopeLoaders.map((scope, index) => [scope.loader, scoped[index]])
+            ),
+            hydration: scoped.map((value) => {
+              validateRouteHydrationData(value, `${url} (layout)`);
+              return value ?? null;
+            }),
+          };
+        }
+        if (route.loader) {
+          routeData = loaded;
+          routeHydration = prepareRouteHydrationData(
+            loaded,
+            route.dehydrate,
+            { ...loadContext, request },
+            url
+          );
+          hasRouteData = true;
+        }
       }
 
       const requestContext: RouteContext = {
@@ -180,11 +217,18 @@ export async function batchRenderRoutes(
         ? await resolveRouteMeta(route.record, requestContext)
         : undefined;
 
-      const renderedHandler = hasRouteData
-        ? bindResolvedRouteData(mergedHandler, routeData, routeHydration)
-        : mergedHandler;
+      const renderedHandler =
+        hasRouteData || layout
+          ? bindResolvedRouteData(
+              mergedHandler,
+              routeData,
+              routeHydration,
+              layout,
+              hasRouteData
+            )
+          : mergedHandler;
       const registry =
-        hasRouteData || !sharedRegistry
+        hasRouteData || layout || !sharedRegistry
           ? createRouteRegistry(
               () => {
                 defineRoute(route.path, renderedHandler, {

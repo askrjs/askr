@@ -238,8 +238,10 @@
   as in clsx. The unknown-event-prop warning fires only for a near miss of
   a known event name, so custom events stay quiet.
 
-- SSG reports routes under a `group()` or `page()` loader as runtime-only
-  instead of failing the build.
+- SSG prerenders routes under a `group()` or `page()` loader: the group and
+  page loaders run beside the leaf loader with the request context, resolve
+  `layoutData(loader)` in the static render and transport their data for
+  hydration.
 
 - Publish the identity a custom `resolve` produces when its navigation
   commits (and at initial mount), not when it resolves. A page still on
