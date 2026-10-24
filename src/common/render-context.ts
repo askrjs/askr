@@ -142,13 +142,6 @@ export function getCurrentRenderData(): PageRenderEnvelope | null {
   return ctx?.renderData ?? hydrationRenderData;
 }
 
-export function resetRenderKeyCounter(): void {
-  const ctx = getActiveRenderContext();
-  if (ctx) {
-    ctx.keyCounter = 0;
-  }
-}
-
 export function getNextRenderKey(): string {
   const ctx = getActiveRenderContext();
   if (ctx) {
