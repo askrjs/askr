@@ -39,6 +39,10 @@
 
 ### Additions
 
+- `hydrateSPA()` seeds the route loader cache with the loader data it adopts
+  (leaf and group/page loaders), so navigating away from a server-rendered
+  first page and back does not run its loaders again while the data is fresh
+  (`staleTimeMs`). A leaf with `dehydrate()` is not seeded.
 - Server rendering renders a route's `error` and `forbidden` components:
   `renderRouteRequest()` and `renderRouteRequestToString()` resolve a loader,
   `preload`, policy or render failure to `{ kind: 'render', status: 500, error }`

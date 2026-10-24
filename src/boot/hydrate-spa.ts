@@ -16,7 +16,11 @@ import {
   setServerLocation,
 } from '../router/route';
 import { clearRouteState } from '../router/store';
-import { publishResolvedAuth } from '../router/resolution';
+import {
+  publishResolvedAuth,
+  resolvedRouteHasLoader,
+  seedRouteLoaderCache,
+} from '../router/resolution';
 import { settleNavigationChunks } from '../router/stale-deployment';
 import { readHydratedAuth, withoutHydratedAuth } from '../router/auth';
 import { assertExecutionModel } from '../common/execution-model';
@@ -201,6 +205,15 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
         resolved.record,
         hydrationRenderData?.framework
       );
+      // Returning to this page reuses the data the server rendered it with.
+      if (!serverError && hydrationRenderData) {
+        seedRouteLoaderCache(resolved, dataRuntime, {
+          ...(resolvedRouteHasLoader(resolved)
+            ? { leaf: { value: hydrationRenderData.route } }
+            : {}),
+          layout: appRouteSource.runtime.layoutData,
+        });
+      }
     }
     if (isProductionEnvironment()) lockRouteRegistration();
 

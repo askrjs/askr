@@ -46,6 +46,22 @@ export function routeLoaderKey(
   return `${ROUTE_DATA_KEY_PREFIX}:${path}:${ownerId(owner)}:${JSON.stringify(entries)}:${search}:${slot}`;
 }
 
+/**
+ * Store a result the page already holds (server data adopted by hydration)
+ * as if a loader had just produced it. A key that already has an entry keeps
+ * it.
+ */
+export function seedLoaderCache(
+  runtime: DataRuntime | undefined,
+  key: string,
+  data: unknown
+): void {
+  const entries = runtime ? findRouteLoaderEntries(runtime) : undefined;
+  if (!entries || entries.has(key)) return;
+  entries.set(key, { hasData: true, data, completedAt: Date.now() });
+  evict(entries);
+}
+
 /** Fresh data is served without revalidation until it is `staleTimeMs` old. */
 export type RouteStaleTime = number | 'always';
 

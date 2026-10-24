@@ -39,6 +39,7 @@ import { _preloadRouteRecord, _routeRecordLoadFailure } from './lazy';
 import {
   loadThroughCache,
   routeLoaderKey,
+  seedLoaderCache,
   type CachedLoad,
 } from './route-loader-cache';
 import type { InternalRouteRecord } from './internal-types';
@@ -227,6 +228,44 @@ export function getRouteLayoutData(
   result: RouteRenderResult
 ): ReadonlyMap<unknown, unknown> | undefined {
   return routeLayoutData.get(result);
+}
+
+/**
+ * Insert the loader data hydration adopted into the loader cache, under the
+ * keys a client resolution of the same location computes, so returning to the
+ * first page does not run its loaders again. A leaf that declares
+ * `dehydrate()` is skipped: the page holds only part of its data.
+ */
+export function seedRouteLoaderCache(
+  result: RouteRenderResult,
+  runtime: DataRuntime,
+  adopted: {
+    leaf?: { readonly value: unknown };
+    layout?: ReadonlyMap<unknown, unknown>;
+  }
+): void {
+  const record = result.record;
+  const context = routeRenderContexts.get(result);
+  if (!record || !context) return;
+  const keyFor = (slot: string) =>
+    routeLoaderKey(record, record.path, result.params, context.search, slot);
+  const chain = (record as InternalRouteRecord).loaderChain ?? [];
+  chain.forEach((scope, index) => {
+    if (adopted.layout?.has(scope.loader)) {
+      seedLoaderCache(
+        runtime,
+        keyFor(`layout${index}`),
+        adopted.layout.get(scope.loader)
+      );
+    }
+  });
+  if (
+    adopted.leaf &&
+    typeof record.options?.loader === 'function' &&
+    !record.options.dehydrate
+  ) {
+    seedLoaderCache(runtime, keyFor('leaf'), adopted.leaf.value);
+  }
 }
 
 /** Settles with every loader's fresh value once cached data was revalidated. */

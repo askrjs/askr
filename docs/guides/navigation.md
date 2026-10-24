@@ -42,6 +42,13 @@ import { invalidate } from '@askrjs/askr/data';
 invalidate('route-data:/posts/{slug}');
 ```
 
+A server-rendered first page seeds the cache: `hydrateSPA()` stores the loader
+data it adopted (leaf and group/page loaders) as if it had just been fetched, so
+returning to the first page renders it without a request while it is fresh
+(`staleTimeMs`) and revalidates as usual once it is stale. A route that
+declares `dehydrate()` is not seeded, because the page holds only part of its
+data.
+
 ## Layout data
 
 `group()` and `page()` take a `loader` too. Ancestor loaders run beside the
