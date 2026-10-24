@@ -56,7 +56,11 @@ function withTrailingSlash(
   policy: RouteManifest['trailingSlash']
 ): string {
   if (pathname === '/' || !policy) return pathname;
-  const stripped = pathname.replace(/\/+$/, '') || '/';
+  // Trim in a loop rather than with `/\/+$/`: the pattern is quadratic on
+  // a request path made of many slashes, which anyone can send.
+  let end = pathname.length;
+  while (end > 0 && pathname.charCodeAt(end - 1) === 47) end -= 1;
+  const stripped = end === 0 ? '/' : pathname.slice(0, end);
   if (policy === 'never') return stripped;
   const last = stripped.slice(stripped.lastIndexOf('/') + 1);
   // `/files/report.pdf/` names no file: leave file-like paths alone.
