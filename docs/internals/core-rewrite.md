@@ -216,11 +216,12 @@ diagnostics, event and prop writers, route error components, loader cache,
 typed search, navigation UX, matching index, SSG output) landed in one pull
 request after three adversarial review rounds. Known gaps that remain by
 design or for later work: an inline `derive()` closure recomputes on each
-render of its owner, SSG reports routes under group or page loaders as
-runtime-only, hydrated first-page data does not seed the loader cache,
-`caseSensitive` and `trailingSlash` apply at resolution with a canonical
-redirect, `blockNavigation()` does not cover `updateRouteQuery()` or
-redirects, and route `error`/`forbidden` components are browser-only.
+render of its owner, and `blockNavigation()` does not cover
+`updateRouteQuery()` or redirects. A follow-up closed the router gaps: SSG
+prerenders routes under group or page loaders, hydrated first-page data seeds
+the loader cache, `caseSensitive` and `trailingSlash` also apply to matching
+and activity reads, and route `error`/`forbidden` components render on the
+server.
 
 ## Open audit boundaries
 

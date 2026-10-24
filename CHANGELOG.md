@@ -216,6 +216,12 @@
   or misreporting it as a render write. `composeRefs()` forwards the
   cleanups its callback refs return and gives `null` only to the refs that
   returned none.
+- `matchRoute()`, `isRoutePathActive()`, `currentRoute()` and the activity
+  predicates now apply a registry's `caseSensitive: false` and `trailingSlash`
+  options the way resolution does (static segments compare case-insensitively
+  when the path matches no route as written, and `isRoutePathActive()`
+  compares its candidates the same way), and a synchronous server render of a
+  non-canonical URL reports the canonical redirect instead of a missing route.
 
 - Resource and stream snapshot fields notify when the same mutable object
   is assigned again (a buffer the source pushed into), so a stream that

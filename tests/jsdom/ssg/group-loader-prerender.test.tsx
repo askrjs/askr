@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vite-plus/test';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { cleanupApp, hydrateSPA } from '@askrjs/askr/boot';
 import {
   createRouteRegistry,
@@ -109,9 +109,8 @@ describe('SSG with group and page loaders', () => {
       });
     });
     const pending = generate(registry);
-    await new Promise((resolve) => setTimeout(resolve, 20));
     // All three started before any settled: they ran in parallel.
-    expect(events).toEqual(['outer', 'inner', 'leaf']);
+    await vi.waitFor(() => expect(events).toEqual(['outer', 'inner', 'leaf']));
     for (const done of release) done();
     const { result, outputDir } = await pending;
     expect(result.routes[0]?.status).toBe('success');

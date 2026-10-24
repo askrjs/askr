@@ -1,6 +1,7 @@
 import type {
   ParsedSegment,
   Route,
+  RouteManifest,
   RouteMatch,
   RouteRecord,
   RouteRegistry,
@@ -18,10 +19,12 @@ import {
 } from './match';
 import type { InternalRoute, InternalRouteRecord } from './internal-types';
 import {
+  getRoutePathPolicy,
   getRouteRecords,
   getRouteTableVersion,
   isRouteStoreRoutes,
 } from './store';
+import { canonicalPathname } from './path-canonicalization';
 import { decodePathSegment } from './match';
 
 /**
@@ -310,10 +313,39 @@ export function getMatchingRouteRecord(
   return matchIndexedRecords(location.pathname, routeRecords);
 }
 
+/**
+ * The pathname resolution would serve `pathname` under: a registry with
+ * `trailingSlash` or `caseSensitive: false` redirects to this canonical form
+ * and matches it, so reads that never resolve (matching, activity, route
+ * snapshots) match it directly.
+ */
+export function canonicalMatchPath(
+  pathname: string,
+  manifest: RouteManifest
+): string {
+  return canonicalPathname(parseLocation(pathname).pathname, manifest, (path) =>
+    matchIndexedRecords(path, manifest.records)
+  );
+}
+
+/** Match `target` the way resolution does under the manifest's path policy. */
+export function getMatchingRouteRecordUnderPolicy(
+  target: string,
+  manifest: RouteManifest
+): { record: RouteRecord; params: Record<string, string> } | null {
+  const location = parseLocation(target);
+  return matchIndexedRecords(
+    canonicalMatchPath(location.pathname, manifest),
+    manifest.records
+  );
+}
+
 export function computeMatchesFromRoutes(
   pathname: string,
   routesList: readonly Route[]
 ): RouteMatch[] {
+  const policy = getRoutePathPolicy(routesList);
+  if (policy) pathname = canonicalMatchPath(pathname, policy);
   const bestMatch = isRouteStoreRoutes(routesList)
     ? getMatchingRouteRecord(pathname, getRouteRecords())
     : findBestResolvedRouteFromRoutes(pathname, routesList);
@@ -385,7 +417,7 @@ export function computeRouteActivityMatches(
   );
   if (logicalPath === undefined) return [];
   return computeMatchesFromRouteRecords(
-    logicalPath,
+    canonicalMatchPath(logicalPath, options.registry.manifest),
     options.registry.manifest.records
   ).slice(-1);
 }

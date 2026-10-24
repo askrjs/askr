@@ -160,10 +160,16 @@ The redirect is a 308 that keeps the query string and fragment. Server
 rendering returns it as a `{ kind: 'redirect', status: 308 }` result for the
 host to send; the browser follows it through the router (a client navigation
 pushes the canonical URL, so Back returns to the page it started from) and
-replaces the entry when it happens while booting. Both options apply to route
-resolution, so `matchRoute()`, activity helpers such as `isRoutePathActive()`
-and SSG output paths keep their existing, case-sensitive exact matching:
-link and generate the canonical form.
+replaces the entry when it happens while booting. Reads that never resolve
+apply the same canonical form before matching: `matchRoute()`,
+`isRoutePathActive()`, `currentRoute()` and the activity predicates match
+`/ABOUT` against `/about` with `caseSensitive: false` (a path that already
+matches a route as written keeps that match, as in resolution), compare
+`isRoutePathActive()` candidates case-insensitively, and apply the
+`trailingSlash` policy first. Parameter text keeps the case the URL gave it.
+A synchronous `renderToString()` of a non-canonical URL rejects with the
+redirect decision, like any other redirect. SSG output paths are the
+registered, canonical paths.
 
 ### Applications mounted below the origin root
 

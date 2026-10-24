@@ -13,7 +13,9 @@ import {
   insertRecordSorted,
   setDefaultRouteAuthOptions,
   getDefaultRouteBasePath,
+  setActivePathPolicy,
   setDefaultRouteBasePath,
+  setRoutePathPolicy,
   withRouteTable,
 } from './store';
 import type { InternalRouteRecord } from './internal-types';
@@ -38,6 +40,7 @@ function createRouteManifest(options: RouteRegistryOptions): RouteManifest {
 }
 
 export function _applyManifest(manifest: RouteManifest): void {
+  setActivePathPolicy(manifest);
   setDefaultRouteAuthOptions(manifest.auth);
   setDefaultRouteBasePath(normalizeRouteBasePath(manifest.basePath));
   for (const record of manifest.records) {
@@ -75,9 +78,9 @@ export function createRouteRegistry(
     setDefaultRouteAuthOptions(options.auth);
     setDefaultRouteBasePath(normalizeRouteBasePath(options.basePath));
     definition();
-    return Object.freeze({
-      manifest: createRouteManifest(options),
-      routes: getRouteList(),
-    }) as unknown as RouteRegistry;
+    const manifest = createRouteManifest(options);
+    const routes = getRouteList();
+    setRoutePathPolicy(routes, manifest);
+    return Object.freeze({ manifest, routes }) as unknown as RouteRegistry;
   });
 }

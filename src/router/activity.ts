@@ -19,10 +19,11 @@ import {
 } from '../core/api/hooks';
 import { createSource, notify, readSource } from '../core/api/hooks';
 import { deepFreeze, makeQuery, parseLocation } from './route-context';
-import { computeMatchesFromRoutes } from './route-matching';
+import { canonicalMatchPath, computeMatchesFromRoutes } from './route-matching';
 import {
   getActiveRouteBasePath,
   getActiveRoutes,
+  getRoutePathPolicy,
   getRouteTableVersion,
 } from './store';
 import { removeRouteBasePath } from './base-path';
@@ -266,15 +267,22 @@ function readCurrentRouteLocation(): {
 export function isRoutePathActive(
   pathOrPaths: string | readonly string[]
 ): boolean {
+  // A registry with `caseSensitive: false` or a `trailingSlash` policy
+  // compares paths in the canonical form resolution serves them under.
+  const policy = getRoutePathPolicy(getActiveRoutes());
+  const canonical = (path: string): string => {
+    const normalized = normalizeRouteActivityPath(path);
+    return policy
+      ? normalizeRouteActivityPath(canonicalMatchPath(normalized, policy))
+      : normalized;
+  };
   const candidates = new Set(
-    (Array.isArray(pathOrPaths) ? pathOrPaths : [pathOrPaths]).map(
-      normalizeRouteActivityPath
-    )
+    (Array.isArray(pathOrPaths) ? pathOrPaths : [pathOrPaths]).map(canonical)
   );
 
   const location = readCurrentRouteLocation();
   if (!location.withinBasePath) return false;
-  const activePath = normalizeRouteActivityPath(location.pathname);
+  const activePath = canonical(location.pathname);
   if (candidates.has(activePath)) {
     return true;
   }
@@ -282,7 +290,7 @@ export function isRoutePathActive(
   const matches = computeMatchesFromRoutes(activePath, getActiveRoutes());
   return matches
     .slice(-1)
-    .some((match) => candidates.has(normalizeRouteActivityPath(match.path)));
+    .some((match) => candidates.has(canonical(match.path)));
 }
 
 function readCurrentRouteSnapshot<

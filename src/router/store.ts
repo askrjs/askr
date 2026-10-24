@@ -1,4 +1,5 @@
 import type {
+  RouteManifest,
   LayoutScopeRecord,
   PageScopeRecord,
   Route,
@@ -141,6 +142,35 @@ export function addRouteToStores(routeObj: InternalRoute): void {
   if (routeObj.namespace) {
     activeTable.namespaces.add(routeObj.namespace);
   }
+}
+
+/**
+ * The registry manifest a route list belongs to, when it sets a
+ * `trailingSlash` or `caseSensitive` policy: activity reads and matching
+ * apply the same canonical form resolution does.
+ */
+const routePathPolicies = new WeakMap<readonly Route[], RouteManifest>();
+
+export function setRoutePathPolicy(
+  routes: readonly Route[],
+  manifest: RouteManifest
+): void {
+  if (manifest.trailingSlash || manifest.caseSensitive === false) {
+    routePathPolicies.set(routes, manifest);
+  } else {
+    routePathPolicies.delete(routes);
+  }
+}
+
+export function getRoutePathPolicy(
+  routes: readonly Route[]
+): RouteManifest | undefined {
+  return routePathPolicies.get(routes);
+}
+
+/** Adopt a manifest's path policy for the live route table. */
+export function setActivePathPolicy(manifest: RouteManifest): void {
+  setRoutePathPolicy(activeTable.routes, manifest);
 }
 
 export function getActiveRoutes(): readonly Route[] {
@@ -406,6 +436,7 @@ export function getLoadedNamespaces(): string[] {
 }
 
 export function clearRouteState(): void {
+  routePathPolicies.delete(activeTable.routes);
   activeTable.routes.length = 0;
   activeTable.records.length = 0;
   activeTable.matchKeys.clear();

@@ -7,6 +7,7 @@ import {
   route,
 } from '@askrjs/askr/router';
 import {
+  decodePathSegment,
   formatCatchAllCapture,
   matchSegments,
   splitPathSegments,
@@ -75,7 +76,12 @@ function lcg(seed: number): () => number {
 
 const STATIC = ['users', 'docs', 'caf%C3%A9', 'cafe', 'a', 'b', 'item-1'];
 
-function buildRegistry(random: () => number, count: number) {
+function buildRegistry(
+  random: () => number,
+  count: number,
+  options: Parameters<typeof createRouteRegistry>[1] = {},
+  statics: readonly string[] = STATIC
+) {
   const paths = new Set<string>();
   return createRouteRegistry(() => {
     route('/', () => null);
@@ -85,11 +91,11 @@ function buildRegistry(random: () => number, count: number) {
       for (let level = 0; level < depth; level += 1) {
         const roll = random();
         if (roll < 0.55)
-          segments.push(STATIC[Math.floor(random() * STATIC.length)]);
+          segments.push(statics[Math.floor(random() * statics.length)]);
         else if (roll < 0.8) segments.push(`{p${level}}`);
         else if (roll < 0.9) segments.push('*');
         else if (level === depth - 1) segments.push('{*rest}');
-        else segments.push(STATIC[0]);
+        else segments.push(statics[0]);
       }
       const path = `/${segments.join('/')}`;
       // The root and `/docs` fallbacks own `/*` and `/docs/*`; a bare splat
@@ -111,12 +117,15 @@ function buildRegistry(random: () => number, count: number) {
       }
     );
     fallback(() => null);
-  });
+  }, options);
 }
 
-function buildUrls(random: () => number, count: number): string[] {
+function buildUrls(
+  random: () => number,
+  count: number,
+  pieces: readonly string[] = [...STATIC, '42', 'x%20y', 'caf%C3%A9']
+): string[] {
   const urls = ['/', '/users/', '/users//', '/caf%C3%A9/a', '/cafe/b/c/d/e'];
-  const pieces = [...STATIC, '42', 'x%20y', 'caf%C3%A9'];
   for (let index = 0; index < count; index += 1) {
     const depth = Math.floor(random() * 5);
     const parts: string[] = [];
@@ -128,6 +137,59 @@ function buildUrls(random: () => number, count: number): string[] {
     urls.push(url);
   }
   return urls;
+}
+
+const MIXED_CASE = ['Users', 'DOCS', 'Caf%C3%A9', 'cafe', 'a', 'B', 'Item-1'];
+const MIXED_PIECES = [
+  ...MIXED_CASE,
+  'users',
+  'docs',
+  'USERS',
+  'caf%c3%a9',
+  'CAFE',
+  'b',
+  'item-1',
+  '42',
+  'X%20y',
+];
+
+/**
+ * With `caseSensitive: false` a path that matches a route as written keeps
+ * that match (resolution only redirects paths that match nothing); otherwise
+ * a route matches when its static segments equal the URL's ignoring case,
+ * and parameter text keeps the URL's own case. Scoped fallbacks keep matching
+ * their prefix as written. This oracle is a scan of the sorted records.
+ */
+function insensitiveOracle(
+  pathname: string,
+  records: readonly RouteRecord[]
+): { path: string; params: Record<string, string> } | null {
+  const parts = splitPathSegments(pathname);
+  const fold = (value: string) => decodePathSegment(value).toLowerCase();
+  const routes = records.filter(
+    (record) => !(record as { fallbackPrefix?: string }).fallbackPrefix
+  );
+  for (const record of routes) {
+    const params = matchSegments(parts, record.segments);
+    if (params !== null) return { path: record.path, params: { ...params } };
+  }
+  for (const record of routes) {
+    // Re-spell the URL with the route's own static segments, then match.
+    const respelled = parts.map((part, index) => {
+      const segment = record.segments[index];
+      return segment?.kind === 'static' && fold(segment.value) === fold(part)
+        ? segment.value
+        : part;
+    });
+    const params = matchSegments(respelled, record.segments);
+    if (params !== null) return { path: record.path, params: { ...params } };
+  }
+  return oracle(
+    pathname,
+    records.filter(
+      (record) => (record as { fallbackPrefix?: string }).fallbackPrefix
+    )
+  );
 }
 
 describe('indexed route matching', () => {
@@ -160,5 +222,40 @@ describe('indexed route matching', () => {
       '/users/me'
     );
     expect(matchRoute('/users/me', { registry })?.path).toBe('/users/{id}');
+  });
+
+  it('should match case-insensitively like a scan when caseSensitive is false', () => {
+    for (const trailingSlash of [undefined, 'never', 'always'] as const) {
+      for (let seed = 1; seed <= 8; seed += 1) {
+        const random = lcg(seed * 104729);
+        const registry = buildRegistry(
+          random,
+          40 + seed * 10,
+          { caseSensitive: false, trailingSlash },
+          MIXED_CASE
+        );
+        const records = registry.manifest.records;
+        for (const url of buildUrls(random, 120, MIXED_PIECES)) {
+          // A policy rewrites runs of trailing slashes to one canonical form.
+          if (trailingSlash && url.endsWith('//')) continue;
+          const expected = insensitiveOracle(url, records);
+          const actual = matchRoute(url, { registry });
+          const summary = actual
+            ? { path: actual.path, params: { ...actual.params } }
+            : null;
+          expect(summary, `seed ${seed} ${trailingSlash} url ${url}`).toEqual(
+            expected
+          );
+        }
+      }
+    }
+  });
+
+  it('should leave the case-sensitive default unchanged', () => {
+    const registry = createRouteRegistry(() => {
+      route('/about', () => null);
+    });
+    expect(matchRoute('/ABOUT', { registry })).toBeNull();
+    expect(matchRoute('/about/', { registry })?.path).toBe('/about');
   });
 });

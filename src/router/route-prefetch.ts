@@ -7,7 +7,7 @@ import {
   parseTargetUrl,
 } from './navigation-registry';
 import { resolveNavigationTargetsForApps } from './navigation-resolution';
-import { getMatchingRouteRecord } from './route-matching';
+import { getMatchingRouteRecordUnderPolicy } from './route-matching';
 
 /** A href prefetched this recently is not prefetched again. */
 const PREFETCH_TTL_MS = 30_000;
@@ -49,9 +49,9 @@ export function prefetchRoute(publicHref: string): void {
       normalizeRouteBasePath(app.registry.manifest.basePath)
     );
     if (logical === undefined) continue;
-    const match = getMatchingRouteRecord(
+    const match = getMatchingRouteRecordUnderPolicy(
       logical,
-      app.registry.manifest.records
+      app.registry.manifest
     );
     if (!match) continue;
     matched = true;
