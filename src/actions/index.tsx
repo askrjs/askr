@@ -8,7 +8,11 @@ import {
   currentComponent,
   onRenderDiscard,
 } from '../core/api/hooks';
-import { isCsrfCookieName, readSubmitTimeCsrfToken } from './csrf';
+import {
+  isCsrfCookieName,
+  readSubmitTimeCsrfToken,
+  TOKEN_PATTERN,
+} from './csrf';
 import { getCurrentRenderData } from '../common/render-context';
 import {
   assertDataRuntimeActive,
@@ -181,11 +185,18 @@ export function action<
     (options === null ||
       typeof options !== 'object' ||
       Array.isArray(options) ||
-      (options.csrfToken !== undefined &&
-        typeof options.csrfToken !== 'function') ||
       Object.keys(options).some(
         (key) => key !== 'csrfToken' && key !== 'csrfCookie'
       ))
+  ) {
+    throw new TypeError('action options accept only csrfToken and csrfCookie.');
+  }
+  // A present key must be a resolver: `{ csrfToken: undefined }` is more
+  // likely a lost value than a request for the default token sources.
+  if (
+    options !== undefined &&
+    'csrfToken' in options &&
+    typeof options.csrfToken !== 'function'
   ) {
     throw new TypeError('action csrfToken requires an explicit resolver.');
   }
@@ -197,8 +208,13 @@ export function action<
   }
   const resolveToken = options?.csrfToken;
   const csrfCookie = options?.csrfCookie;
-  const token = csrfToken();
+  // The render-data token first, as `ActionForm` reads it, then the app's.
   const appRuntime = currentAppRuntime();
+  const token =
+    csrfToken() ??
+    (typeof appRuntime?.framework.csrf === 'string'
+      ? appRuntime.framework.csrf
+      : undefined);
   const runtime = resolveDataRuntimeState(undefined, true);
   if (runtime.retired) {
     const instance = currentComponent();
@@ -247,18 +263,13 @@ export function action<
       try {
         const submissionToken = resolveToken
           ? await raceAbort(Promise.resolve(resolveToken(signal!)), [signal!])
-          : readSubmitTimeCsrfToken(
-              typeof appRuntime?.framework.csrf === 'string'
-                ? appRuntime.framework.csrf
-                : token,
-              csrfCookie
-            );
+          : readSubmitTimeCsrfToken(token, csrfCookie);
         signal?.throwIfAborted();
         if (
           resolveToken &&
           submissionToken !== undefined &&
           (typeof submissionToken !== 'string' ||
-            !/^[\x21-\x7e]+$/.test(submissionToken))
+            !TOKEN_PATTERN.test(submissionToken))
         ) {
           throw new TypeError(
             'action csrfToken must resolve to a non-empty ASCII token or undefined.'

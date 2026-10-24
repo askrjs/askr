@@ -141,7 +141,12 @@ describe('action CSRF freshness', () => {
     expect(() => action(save, { csrfToken: 'x' } as never)).toThrow(
       'csrfToken'
     );
-    expect(() => action(save, { other: 1 } as never)).toThrow('csrfToken');
+    expect(() => action(save, { csrfToken: undefined })).toThrow(
+      'csrfToken requires an explicit resolver'
+    );
+    expect(() => action(save, { other: 1 } as never)).toThrow(
+      'accept only csrfToken and csrfCookie'
+    );
   });
 
   async function hydrate(token: string) {

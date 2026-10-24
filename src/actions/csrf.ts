@@ -1,6 +1,7 @@
 import { isHydratedCsrfTokenRevoked } from '../common/csrf-token';
 
-const TOKEN_PATTERN = /^[\x21-\x7e]+$/;
+/** A usable CSRF token: a non-empty run of printable ASCII, as a header value. */
+export const TOKEN_PATTERN = /^[\x21-\x7e]+$/;
 const COOKIE_NAME_PATTERN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
 
 function usable(value: string | null | undefined): string | undefined {

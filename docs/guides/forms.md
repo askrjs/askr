@@ -142,6 +142,10 @@ than capturing it once at render. The first source that has a token wins:
    `action(rename, { csrfCookie: 'XSRF-TOKEN' })`. There is no default cookie
    name.
 
+`action()` rejects options other than `csrfToken` and `csrfCookie`, and a
+`csrfToken` key that is present but not a function (an `undefined` from a
+lost value), so a misconfigured resolver fails at render, not at submit.
+
 A value that is not a non-empty ASCII token is skipped. When no source has a
 token, the request carries none.
 
