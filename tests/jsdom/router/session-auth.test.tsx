@@ -487,6 +487,27 @@ it('should revoke the hydration CSRF token when the session identity changes or 
   expect(isHydratedCsrfTokenRevoked()).toBe(true);
 });
 
+it('should keep the hydration CSRF token when recovery repeats the confirmed anonymous identity', async () => {
+  const auth = createSessionAuth({
+    fetch: vi.fn().mockResolvedValue(Response.json(guest)),
+  });
+  const registry = createRouteRegistry(
+    () => {
+      route('/private', () => <main>public</main>);
+      route('/login', () => <main>login</main>);
+    },
+    { auth }
+  );
+  await createSPA({ root: view.container, registry });
+  await settle();
+  expect(isHydratedCsrfTokenRevoked()).toBe(false);
+  const state = getSessionAuthState(auth)!;
+  // A 401 for a visitor the server already called anonymous: the identity
+  // the token was issued for has not changed.
+  expect(state.recover(problem, '/private')).toBeDefined();
+  expect(isHydratedCsrfTokenRevoked()).toBe(false);
+});
+
 it('should retire every root before publishing identity even when one cleanup throws', async () => {
   const auth = createSessionAuth({
     fetch: vi.fn().mockResolvedValue(Response.json(user('a'))),

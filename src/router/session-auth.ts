@@ -288,10 +288,13 @@ export function createSessionAuth(
   };
   const invalidate = (value: AuthContext | undefined) => {
     // `undefined` only asks for a fresh look at the server; a value is the
-    // new identity (logout, a failed session), which ends the token's session.
+    // new identity (logout, a failed session). The token belongs to the
+    // identity the server last confirmed, so it ends when that changes, not
+    // when a 401 repeats the anonymous identity already confirmed.
     if (value !== undefined) {
-      revokeHydratedCsrfToken();
-      confirmedIdentity = JSON.stringify(project(value));
+      const next = JSON.stringify(project(value));
+      if (confirmedIdentity !== next) revokeHydratedCsrfToken();
+      confirmedIdentity = next;
     }
     generation++;
     const previous = pending;
