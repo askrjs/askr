@@ -293,6 +293,8 @@
 - Avoid splitting and parsing identical literal paths in direct route
   matching. Dynamic patterns and paths with empty interior segments retain
   the general matcher and its capture and validation rules.
+  Sparse keyed reorders retain unchanged sibling position hints instead of
+  rewriting every hint.
 
 - Index route records by their first segment for matching, memoize the last
   match per record list, and detect duplicate routes with a set lookup, so

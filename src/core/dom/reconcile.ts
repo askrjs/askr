@@ -339,7 +339,9 @@ export function reconcileChildren(
     for (let index = 0; index < result.length; index++) {
       const node = result[index];
       if (node.parent !== parent) node.parent = parent;
-      node.index = index;
+      // Retained siblings already have the right hint. Sparse changes need
+      // to update only the moved or newly created nodes.
+      if (sources[index] !== index) node.index = index;
     }
   });
   return result;
