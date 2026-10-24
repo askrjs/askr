@@ -12,7 +12,12 @@ import {
 } from '../data/query-registry';
 import type { DataRuntime, QueryPrefetchContext } from '../data/types';
 import type { ServerQueryRegistry } from '../data/query-registry';
-import { resolveRouteRequest } from '../router/resolution';
+import {
+  getRouteLayoutData,
+  hasRouteRenderData,
+  resolveRouteRequest,
+} from '../router/resolution';
+import { ROUTE_LOADED_AT } from '../router/route-hydration';
 import {
   createDeniedHandler,
   createRouteErrorHandler,
@@ -408,6 +413,11 @@ async function renderRouteRequestInternal(
         : undefined;
       const handler = resolved.handler;
       const record = resolved.record;
+      // The page's loader data is as old as this render, not as hydration.
+      const loadedAt =
+        hasRouteRenderData(resolved) || getRouteLayoutData(resolved)
+          ? Date.now()
+          : undefined;
       try {
         return renderOutcome({
           context,
@@ -423,6 +433,7 @@ async function renderRouteRequestInternal(
           transportError: failure
             ? (publicRouteError(failure.error) as Error)
             : undefined,
+          loadedAt,
         });
       } catch (error) {
         // A render failure shows the route's declared error component.
@@ -436,6 +447,7 @@ async function renderRouteRequestInternal(
           record,
           extra: { status: 500, error },
           transportError: shown,
+          loadedAt,
         });
       }
     })
@@ -454,9 +466,17 @@ async function renderRouteRequestInternal(
       denied?: true;
     };
     transportError?: Error;
+    loadedAt?: number;
   }): Extract<RenderRouteRequestResult, { kind: 'render' }> {
     const { context, record, extra } = input;
     context.params = input.params;
+    if (input.loadedAt !== undefined) {
+      const current = pageRenderEnvelope(context.hydrationData);
+      context.hydrationData = withPageFramework(current, {
+        ...current.framework,
+        [ROUTE_LOADED_AT]: input.loadedAt,
+      });
+    }
     if (context.hydrationData) {
       context.hydrationData = withHydratedAuth(
         context.hydrationData,

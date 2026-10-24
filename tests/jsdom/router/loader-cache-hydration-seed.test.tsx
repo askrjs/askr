@@ -20,7 +20,10 @@ vi.mock('../../../src/router/document-navigation', () => ({
 
 afterEach(resetRouteState);
 
-async function hydrateFirstPage(staleTimeMs: number | undefined) {
+async function hydrateFirstPage(
+  staleTimeMs: number | undefined,
+  renderedAgoMs = 0
+) {
   const calls = { leaf: 0, layout: 0 };
   let total = 0;
   const layoutLoader = async () => {
@@ -52,10 +55,17 @@ async function hydrateFirstPage(staleTimeMs: number | undefined) {
       }
     );
   });
-  const rendered = await renderRouteRequestToString({
-    url: '/post',
-    registry,
-  });
+  // The server rendered the page `renderedAgoMs` before the browser hydrates.
+  const now = Date.now;
+  const clock = vi
+    .spyOn(Date, 'now')
+    .mockImplementation(() => now() - renderedAgoMs);
+  let rendered;
+  try {
+    rendered = await renderRouteRequestToString({ url: '/post', registry });
+  } finally {
+    clock.mockRestore();
+  }
   if (rendered.kind !== 'render') throw new Error('expected render');
   calls.leaf = 0;
   calls.layout = 0;
@@ -91,6 +101,24 @@ describe('loader cache seeded from hydrated data', () => {
       await vi.waitFor(() => expect(root.textContent).toBe('home'));
       navigate('/post');
       await vi.waitFor(() => expect(root.textContent).toBe('navleaf1'));
+      await vi.waitFor(() => expect(root.textContent).toBe('navleaf2'));
+      expect(calls).toEqual({ leaf: 1, layout: 1 });
+    } finally {
+      cleanupApp(root);
+      root.remove();
+      disposeDataRuntime(dataRuntime);
+    }
+  });
+
+  it('should count the age of the seeded data from the server render', async () => {
+    const { calls, root, dataRuntime } = await hydrateFirstPage(
+      60_000,
+      120_000
+    );
+    try {
+      navigate('/');
+      await vi.waitFor(() => expect(root.textContent).toBe('home'));
+      navigate('/post');
       await vi.waitFor(() => expect(root.textContent).toBe('navleaf2'));
       expect(calls).toEqual({ leaf: 1, layout: 1 });
     } finally {

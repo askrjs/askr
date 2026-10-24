@@ -72,7 +72,10 @@ import {
 } from './session-auth-runtime';
 import { getSessionAuthState } from '../router/session-auth-state';
 import { createSPA } from './spa';
-import { readHydratedLayoutData } from '../router/route-hydration';
+import {
+  readHydratedLayoutData,
+  readRouteLoadedAt,
+} from '../router/route-hydration';
 import {
   createHydratedRouteErrorResult,
   isRouteErrorResult,
@@ -212,6 +215,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
             ? { leaf: { value: hydrationRenderData.route } }
             : {}),
           layout: appRouteSource.runtime.layoutData,
+          completedAt: readRouteLoadedAt(hydrationRenderData.framework),
         });
       }
     }

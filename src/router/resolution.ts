@@ -242,6 +242,8 @@ export function seedRouteLoaderCache(
   adopted: {
     leaf?: { readonly value: unknown };
     layout?: ReadonlyMap<unknown, unknown>;
+    /** When the server ran the loaders; the data is that old, not new. */
+    completedAt?: number;
   }
 ): void {
   const record = result.record;
@@ -249,13 +251,18 @@ export function seedRouteLoaderCache(
   if (!record || !context) return;
   const keyFor = (slot: string) =>
     routeLoaderKey(record, record.path, result.params, context.search, slot);
+  // A clock ahead of the browser's must not make the data count as fresh
+  // for longer than `staleTimeMs`.
+  const now = Date.now();
+  const completedAt = Math.min(adopted.completedAt ?? now, now);
   const chain = (record as InternalRouteRecord).loaderChain ?? [];
   chain.forEach((scope, index) => {
     if (adopted.layout?.has(scope.loader)) {
       seedLoaderCache(
         runtime,
         keyFor(`layout${index}`),
-        adopted.layout.get(scope.loader)
+        adopted.layout.get(scope.loader),
+        completedAt
       );
     }
   });
@@ -264,7 +271,7 @@ export function seedRouteLoaderCache(
     typeof record.options?.loader === 'function' &&
     !record.options.dehydrate
   ) {
-    seedLoaderCache(runtime, keyFor('leaf'), adopted.leaf.value);
+    seedLoaderCache(runtime, keyFor('leaf'), adopted.leaf.value, completedAt);
   }
 }
 

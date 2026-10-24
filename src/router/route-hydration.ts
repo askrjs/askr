@@ -24,6 +24,23 @@ export const ROUTE_HYDRATION_METADATA = 'rh';
 /** Framework-owned key for group/page loader data in the hydration envelope. */
 export const ROUTE_LAYOUT_DATA = 'rl';
 
+/**
+ * Framework-owned key for when the server ran the route's loaders (epoch
+ * milliseconds). The loader cache seeded from the page counts the data's age
+ * from here, not from hydration.
+ */
+export const ROUTE_LOADED_AT = 'rt';
+
+/** The server load time recorded in a hydration envelope, if any. */
+export function readRouteLoadedAt(
+  framework: Readonly<Record<string, unknown>> | undefined
+): number | undefined {
+  const value = framework?.[ROUTE_LOADED_AT];
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : undefined;
+}
+
 export interface RouteOmissionMap {
   readonly [key: string]: 1 | RouteOmissionMap;
 }

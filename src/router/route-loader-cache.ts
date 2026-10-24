@@ -48,17 +48,18 @@ export function routeLoaderKey(
 
 /**
  * Store a result the page already holds (server data adopted by hydration)
- * as if a loader had just produced it. A key that already has an entry keeps
- * it.
+ * as if a loader had produced it at `completedAt` (default: now). A key that
+ * already has an entry keeps it.
  */
 export function seedLoaderCache(
   runtime: DataRuntime | undefined,
   key: string,
-  data: unknown
+  data: unknown,
+  completedAt: number = Date.now()
 ): void {
   const entries = runtime ? findRouteLoaderEntries(runtime) : undefined;
   if (!entries || entries.has(key)) return;
-  entries.set(key, { hasData: true, data, completedAt: Date.now() });
+  entries.set(key, { hasData: true, data, completedAt });
   evict(entries);
 }
 
