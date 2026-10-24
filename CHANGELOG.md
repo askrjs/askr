@@ -42,7 +42,9 @@
 - `hydrateSPA()` seeds the route loader cache with the loader data it adopts
   (leaf and group/page loaders), so navigating away from a server-rendered
   first page and back does not run its loaders again while the data is fresh
-  (`staleTimeMs`). A leaf with `dehydrate()` is not seeded.
+  (`staleTimeMs`). The data's age counts from the server render, which
+  `renderRouteRequest()` records in the hydration data. A leaf with
+  `dehydrate()` is not seeded.
 - Server rendering renders a route's `error` and `forbidden` components:
   `renderRouteRequest()` and `renderRouteRequestToString()` resolve a loader,
   `preload`, policy or render failure to `{ kind: 'render', status: 500, error }`
@@ -57,15 +59,16 @@
   option and embeds their data, and reports a parameterized route without
   `entries()` as runtime-only instead of failing the build.
 
-- `blockNavigation()` now also guards `updateRouteQuery()` (a refused update is
-  dropped; the function still returns `undefined`) and a policy or auth redirect
-  met while an in-app navigation resolves, so a blocker that starts objecting
-  during resolution keeps the page as it is. A message the visitor already
-  confirmed for that navigation is not asked again. A blocked back/forward
-  traversal whose history position is unknown is undone by pushing the rendered
-  location again (one extra entry; forward entries are lost) instead of
-  proceeding. `navigationState()` gains `blocked`, the href of the latest
-  refused navigation until the next one begins.
+- `blockNavigation()` now also guards a policy or auth redirect met while an
+  in-app navigation resolves, so a blocker that starts objecting during
+  resolution keeps the page as it is. A message the visitor already confirmed
+  for that navigation is not asked again. `updateRouteQuery()` changes the
+  page that stays rendered and does not consult blockers. A blocked
+  back/forward traversal whose history position is unknown is undone by
+  pushing the rendered location again, with its `navigate()` state (one extra
+  entry; forward entries are lost) instead of proceeding. `navigationState()`
+  gains `blocked`, the href of the latest refused navigation until the next
+  one begins.
 
 - Add opt-in view transitions: `navigate(target, { viewTransition: true })`,
   `<Link viewTransition>` and a `viewTransitions: boolean | ((from, to) =>
@@ -215,7 +218,24 @@
   `selector()` with the derived-write error rather than letting it through
   or misreporting it as a render write. `composeRefs()` forwards the
   cleanups its callback refs return and gives `null` only to the refs that
-  returned none.
+  returned none, object refs included; when one ref throws on attach, the
+  cleanups the other callbacks returned run instead of being lost.
+- An `error` component renders inside layouts that have the group/page loader
+  data that did load before another loader failed, in the browser and on the
+  server, and a server render that falls back to the `error` component after
+  the page threw keeps the request's identity and layout data. A route with
+  group/page loaders waits for every loader to settle before a failure
+  surfaces.
+- The hydration CSRF token survives a session recovery that repeats the
+  identity the server already confirmed (a 401 for an anonymous visitor); it
+  is still revoked when the identity changes or the session ends. `action()`
+  reads the render-data token ahead of the app's at submit, as `ActionForm`
+  does, rejects `{ csrfToken: undefined }`, and names the accepted options
+  when it rejects an unknown one.
+- A navigation commit that fails inside `document.startViewTransition()` is
+  logged like a direct commit failure instead of vanishing with the
+  transition's promise. `isRoutePathActive()` canonicalizes the active
+  location once per location and route table rather than on every read.
 - `matchRoute()`, `isRoutePathActive()`, `currentRoute()` and the activity
   predicates now apply a registry's `caseSensitive: false` and `trailingSlash`
   options the way resolution does (static segments compare case-insensitively

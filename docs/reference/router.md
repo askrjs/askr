@@ -555,6 +555,10 @@ cancelled only when every navigation waiting on it has gone.
 - Up to 100 entries are kept per runtime, least recently used first.
 - `navigationState().revalidating` is true while a background revalidation is
   in flight (see the [navigation guide](../guides/navigation.md)).
+- `hydrateSPA()` seeds the cache with the server-rendered first page's loader
+  data. Its age counts from the server render, which `renderRouteRequest()`
+  records in the hydration data, so a page served from an HTTP cache for
+  longer than `staleTimeMs` revalidates on the first return to it.
 - Server rendering and SSG never read or write the cache.
 
 ### Group and page loaders
