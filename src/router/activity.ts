@@ -264,12 +264,26 @@ function readCurrentRouteLocation(): {
   };
 }
 
+/**
+ * The active location's canonical path and leaf match, kept across the many
+ * `isRoutePathActive()` reads one render makes (a navigation menu) and
+ * dropped when the location or the route table changes.
+ */
+let activePathMemo: {
+  routes: readonly Route[];
+  version: number;
+  pathname: string;
+  activePath: string;
+  leafPaths: readonly string[];
+} | null = null;
+
 export function isRoutePathActive(
   pathOrPaths: string | readonly string[]
 ): boolean {
   // A registry with `caseSensitive: false` or a `trailingSlash` policy
   // compares paths in the canonical form resolution serves them under.
-  const policy = getRoutePathPolicy(getActiveRoutes());
+  const routes = getActiveRoutes();
+  const policy = getRoutePathPolicy(routes);
   const canonical = (path: string): string => {
     const normalized = normalizeRouteActivityPath(path);
     return policy
@@ -444,6 +458,7 @@ export function syncCurrentRouteSnapshot(
 
 /** @internal Return route activity to its initial location. Part of the router-wide reset. */
 export function resetRouteActivity(): void {
+  activePathMemo = null;
   serverLocation = null;
   currentRouteSnapshot = buildRouteSnapshot('/', '', '');
 }
