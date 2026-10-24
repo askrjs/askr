@@ -41,6 +41,11 @@ interface NavigationState {
   readonly to: string | null;
   /** Cached route data is being refreshed in the background. */
   readonly revalidating: boolean;
+  /**
+   * The public href of the most recent navigation a {@link blockNavigation}
+   * blocker refused, until the next navigation begins; otherwise \`null\`.
+   */
+  readonly blocked: string | null;
 }
 /**
  * Read whether a navigation is pending and whether route data is being
@@ -56,10 +61,13 @@ declare function navigationState(): NavigationState;
  * \`true\` to refuse, a string to ask the visitor to confirm with that message,
  * or \`false\` to allow. Returns a function that removes the blocker.
  *
- * Limitations: \`updateRouteQuery()\` and redirects are not blocked; a traversal
- * is undone with \`history.go()\` after the browser has moved, so it needs a
- * known history position and flashes the destination URL; browsers show their
- * own fixed text on unload, not the string.
+ * \`updateRouteQuery()\` and a policy or auth redirect met during an in-app
+ * navigation consult blockers too; a refusal is dropped and reported through
+ * \`navigationState().blocked\`. Limitations: a traversal is undone after the
+ * browser has moved and flashes the destination URL, by \`history.go()\` when the
+ * history position is known and otherwise by pushing the current entry again
+ * (an extra entry; forward entries are lost); browsers show their own fixed
+ * text on unload, not the string.
  */
 declare function blockNavigation(
   shouldBlock: () => boolean | string

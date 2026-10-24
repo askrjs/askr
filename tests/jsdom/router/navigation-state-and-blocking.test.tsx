@@ -63,6 +63,7 @@ describe('navigationState()', () => {
       pending: false,
       to: null,
       revalidating: false,
+      blocked: null,
     });
 
     navigate('/slow');

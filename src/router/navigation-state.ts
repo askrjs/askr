@@ -17,17 +17,24 @@ export interface NavigationState {
   readonly to: string | null;
   /** Cached route data is being refreshed in the background. */
   readonly revalidating: boolean;
+  /**
+   * The public href of the most recent navigation a {@link blockNavigation}
+   * blocker refused, until the next navigation begins; otherwise `null`.
+   */
+  readonly blocked: string | null;
 }
 
 const IDLE: NavigationState = Object.freeze({
   pending: false,
   to: null,
   revalidating: false,
+  blocked: null,
 });
 
 let snapshot: NavigationState = IDLE;
 let pendingRequest: number | null = null;
 let pendingTo: string | null = null;
+let blockedTo: string | null = null;
 const source = createSource();
 
 function publish(): void {
@@ -37,11 +44,12 @@ function publish(): void {
   if (
     snapshot.pending === pending &&
     snapshot.to === to &&
-    snapshot.revalidating === revalidating
+    snapshot.revalidating === revalidating &&
+    snapshot.blocked === blockedTo
   ) {
     return;
   }
-  snapshot = Object.freeze({ pending, to, revalidating });
+  snapshot = Object.freeze({ pending, to, revalidating, blocked: blockedTo });
   notify(source);
 }
 
@@ -62,10 +70,17 @@ export function endPendingNavigation(id: number): void {
   publish();
 }
 
-/** Forget every pending navigation (teardown). */
+/** A blocker refused the navigation to `to`; it stays reported until the next one. */
+export function reportBlockedNavigation(to: string): void {
+  blockedTo = to;
+  publish();
+}
+
+/** Forget every pending navigation (teardown) and any reported refusal. */
 export function clearPendingNavigation(): void {
   pendingRequest = null;
   pendingTo = null;
+  blockedTo = null;
   publish();
 }
 

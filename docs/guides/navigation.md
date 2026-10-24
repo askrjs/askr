@@ -122,6 +122,7 @@ import { navigationState } from '@askrjs/askr/router';
 
 function RouteProgress() {
   const { pending, to, revalidating } = navigationState();
+  // `blocked` holds the href a blockNavigation() blocker refused, if any.
   return (
     <div role="status" aria-live="polite">
       {pending ? `Loading ${to}` : revalidating ? 'Refreshing' : ''}
@@ -137,7 +138,9 @@ the destination commits or fails; the current page stays on screen meanwhile.
 
 `blockNavigation(shouldBlock)` guards unsaved work. Return a message to ask the
 visitor, `true` to refuse and handle it yourself, or `false` to allow. It
-covers `navigate()`, links, back/forward and tab close.
+covers `navigate()`, links, `updateRouteQuery()`, redirects met while a
+navigation resolves, back/forward and tab close. A refused navigation is
+reported as `navigationState().blocked`.
 
 ```tsx
 const unblock = blockNavigation(() =>
@@ -147,7 +150,7 @@ const unblock = blockNavigation(() =>
 
 Call the returned function when the form is saved or unmounted. See the
 [reference](../reference/router.md#blocknavigationshouldblock) for the
-back-button limitations.
+back-button trade-offs.
 
 ## Focus and announcements
 

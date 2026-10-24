@@ -7,6 +7,11 @@ import {
   saveScrollPosition,
 } from './navigation-scroll';
 import { publishLocation } from './route-query';
+import {
+  allowNavigationLeave,
+  hasNavigationBlockers,
+} from './navigation-block';
+import { reportBlockedNavigation } from './navigation-state';
 import { applyNavigationFocus } from './navigation-focus';
 import {
   getCurrentHref,
@@ -167,6 +172,17 @@ export function applyNavigationTargets(
       throw new Error(
         `[Askr] Navigation redirect limit exceeded (${MAX_NAVIGATION_REDIRECTS}).`
       );
+    }
+
+    // Leaving for the redirect target is leaving the page like any other;
+    // a blocker that began objecting while the route resolved refuses it.
+    if (
+      !redirectState.skipBlockers &&
+      hasNavigationBlockers() &&
+      !allowNavigationLeave(redirectState.confirmed)
+    ) {
+      reportBlockedNavigation(redirectHref);
+      return;
     }
 
     redirectState.visited.add(redirectHref);

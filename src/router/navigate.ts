@@ -13,6 +13,7 @@ import {
   parseNavigationTarget,
   parseTargetUrl,
   syncRegisteredRouteSnapshot,
+  toDocumentUrl,
 } from './navigation-registry';
 import {
   applyNavigationTargets,
@@ -47,6 +48,7 @@ import {
 import { isFlushing as isRuntimeSchedulerExecuting } from '../core/reactive/scheduler';
 import {
   cancelHistoryReturn,
+  commitHistoryIndex,
   consumeHistoryReturn,
   initializeHistoryIndex,
   landOnHistoryEntry,
@@ -67,6 +69,7 @@ import {
   beginPendingNavigation,
   clearPendingNavigation,
   endPendingNavigation,
+  reportBlockedNavigation,
 } from './navigation-state';
 
 export { configureScrollRestoration } from './navigation-scroll';
@@ -178,11 +181,14 @@ export function navigateToPublicHref(
   }
   // Blockers guard leaving the page; the router's own session redirects and
   // a move to another fragment of the current page are not that.
+  const confirmed = new Set<string>();
+  const skipBlockers = internal?.skipBlockers === true;
   if (
-    !internal?.skipBlockers &&
+    !skipBlockers &&
     !isFragmentOnlyMove(href) &&
-    !allowNavigationLeave()
+    !allowNavigationLeave(confirmed)
   ) {
+    reportBlockedNavigation(href);
     return;
   }
 
@@ -191,6 +197,8 @@ export function navigateToPublicHref(
 
   const initialTarget = parseTargetUrl(href);
   const redirectState: NavigationRedirectState = {
+    skipBlockers,
+    confirmed,
     redirects: 0,
     visited: new Set([
       `${initialTarget.pathname}${initialTarget.search}${initialTarget.hash}`,
@@ -317,10 +325,23 @@ function handlePopState(event: PopStateEvent): void {
   }
   if (hasNavigationBlockers() && !allowNavigationLeave()) {
     // The browser already moved: record where it landed, then go back to the
-    // entry that is still rendered. Without a known position nothing can be
-    // undone, so the traversal proceeds.
+    // entry that is still rendered.
     landOnHistoryEntry(event.state);
+    reportBlockedNavigation(
+      `${window.location.pathname}${window.location.search}${window.location.hash}`
+    );
     if (returnToRenderedHistoryEntry()) return;
+    // The position is unknown: push the rendered location again so the page
+    // and the URL agree. The refused entry stays behind it, and forward
+    // entries are lost.
+    const renderedHref = getCurrentHref();
+    window.history.pushState(
+      { path: renderedHref },
+      '',
+      toDocumentUrl(renderedHref)
+    );
+    commitHistoryIndex(undefined);
+    return;
   }
   beginHistoryFocusRestoration();
   const request = beginRouteRequest();

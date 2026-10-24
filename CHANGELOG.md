@@ -45,6 +45,16 @@
   option and embeds their data, and reports a parameterized route without
   `entries()` as runtime-only instead of failing the build.
 
+- `blockNavigation()` now also guards `updateRouteQuery()` (a refused update is
+  dropped; the function still returns `undefined`) and a policy or auth redirect
+  met while an in-app navigation resolves, so a blocker that starts objecting
+  during resolution keeps the page as it is. A message the visitor already
+  confirmed for that navigation is not asked again. A blocked back/forward
+  traversal whose history position is unknown is undone by pushing the rendered
+  location again (one extra entry; forward entries are lost) instead of
+  proceeding. `navigationState()` gains `blocked`, the href of the latest
+  refused navigation until the next one begins.
+
 - Report `status: 404` on the SSR render result when a `fallback()` rendered
   the miss, so hosts can send the right status without reading the private
   route record.

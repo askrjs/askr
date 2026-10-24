@@ -25,6 +25,10 @@ export type NavigateOptions = {
 export type NavigationRedirectState = {
   redirects: number;
   visited: Set<string>;
+  /** Blockers were consulted by the caller (a traversal, a session retry). */
+  skipBlockers?: boolean;
+  /** Blocker messages the visitor already confirmed during this navigation. */
+  confirmed?: Set<string>;
 };
 
 export type AppNavigationTarget = {

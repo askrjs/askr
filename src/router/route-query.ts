@@ -1,6 +1,10 @@
 import { saveScrollPosition } from './navigation-scroll';
 import { beginRouteRequest } from './navigation-request';
-import { clearPendingNavigation } from './navigation-state';
+import {
+  clearPendingNavigation,
+  reportBlockedNavigation,
+} from './navigation-state';
+import { allowNavigationLeave } from './navigation-block';
 import { commitHistoryIndex, nextHistoryIndex } from './history-index';
 import {
   getCurrentHref,
@@ -99,6 +103,11 @@ export function updateRouteQuery(
 
   const href = `${url.pathname}${url.search}${url.hash}`;
   if (href === getWindowHref()) {
+    return;
+  }
+
+  if (!allowNavigationLeave()) {
+    reportBlockedNavigation(href);
     return;
   }
 

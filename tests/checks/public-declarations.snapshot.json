@@ -724,7 +724,7 @@
         "declare function navigationState(): NavigationState;"
       ],
       "NavigationState": [
-        "interface NavigationState {\n    readonly pending: boolean;\n    readonly to: string | null;\n    readonly revalidating: boolean;\n}"
+        "interface NavigationState {\n    readonly pending: boolean;\n    readonly to: string | null;\n    readonly revalidating: boolean;\n    readonly blocked: string | null;\n}"
       ],
       "notFound": ["declare function notFound(): AccessDenyDecision;"],
       "onRouteChange": [
@@ -1779,7 +1779,7 @@
     ],
     "navigationState": ["declare function navigationState(): NavigationState;"],
     "NavigationState": [
-      "interface NavigationState {\n    readonly pending: boolean;\n    readonly to: string | null;\n    readonly revalidating: boolean;\n}"
+      "interface NavigationState {\n    readonly pending: boolean;\n    readonly to: string | null;\n    readonly revalidating: boolean;\n    readonly blocked: string | null;\n}"
     ],
     "notFound": ["declare function notFound(): AccessDenyDecision;"],
     "on": [

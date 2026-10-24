@@ -17,12 +17,15 @@ function confirmLeave(message: string): boolean {
  * `true` refuses silently (the application shows its own UI), a string asks the
  * visitor to confirm with that message.
  */
-export function allowNavigationLeave(): boolean {
+export function allowNavigationLeave(confirmed?: Set<string>): boolean {
   for (const blocker of Array.from(blockers)) {
     const decision = blocker();
     if (decision === true) return false;
     if (typeof decision === 'string' && decision !== '') {
+      // Already confirmed earlier in this navigation (before a redirect).
+      if (confirmed?.has(decision)) continue;
       if (!confirmLeave(decision)) return false;
+      confirmed?.add(decision);
       // The visitor already agreed; do not ask again if this ends in an unload.
       leaveConfirmed = true;
       queueMicrotask(() => {
@@ -58,10 +61,13 @@ function onBeforeUnload(event: BeforeUnloadEvent): void {
  * `true` to refuse, a string to ask the visitor to confirm with that message,
  * or `false` to allow. Returns a function that removes the blocker.
  *
- * Limitations: `updateRouteQuery()` and redirects are not blocked; a traversal
- * is undone with `history.go()` after the browser has moved, so it needs a
- * known history position and flashes the destination URL; browsers show their
- * own fixed text on unload, not the string.
+ * `updateRouteQuery()` and a policy or auth redirect met during an in-app
+ * navigation consult blockers too; a refusal is dropped and reported through
+ * `navigationState().blocked`. Limitations: a traversal is undone after the
+ * browser has moved and flashes the destination URL, by `history.go()` when the
+ * history position is known and otherwise by pushing the current entry again
+ * (an extra entry; forward entries are lost); browsers show their own fixed
+ * text on unload, not the string.
  */
 export function blockNavigation(
   shouldBlock: () => boolean | string
