@@ -55,6 +55,12 @@
   proceeding. `navigationState()` gains `blocked`, the href of the latest
   refused navigation until the next one begins.
 
+- Add opt-in view transitions: `navigate(target, { viewTransition: true })`,
+  `<Link viewTransition>` and a `viewTransitions: boolean | ((from, to) =>
+  boolean)` option on `createSPA()`/`hydrateSPA()` (default off) run the
+  navigation commit inside `document.startViewTransition()` when it exists,
+  and commit directly otherwise. Back/forward follows the app option. See
+  the navigation guide.
 - Report `status: 404` on the SSR render result when a `fallback()` rendered
   the miss, so hosts can send the right status without reading the private
   route record.

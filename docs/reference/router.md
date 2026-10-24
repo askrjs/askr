@@ -912,6 +912,16 @@ to stay silent. `focus: false` disables both. A text-entry control that
 survives the navigation keeps focus. See the
 [navigation guide](../guides/navigation.md#focus-and-announcements).
 
+## View transitions
+
+`navigate(target, { viewTransition: true })`, `<Link viewTransition>` and the
+`viewTransitions: boolean | ((from, to) => boolean)` option of `createSPA()` and
+`hydrateSPA()` (default `false`) run the navigation commit inside
+`document.startViewTransition()` when the browser provides it; otherwise it
+commits directly. A per-navigation `viewTransition` overrides the app option.
+Back/forward traversals follow the app option. See the
+[navigation guide](../guides/navigation.md#view-transitions).
+
 ## `navigationState()`
 
 `navigationState()` returns `{ pending, to, revalidating, blocked }`:

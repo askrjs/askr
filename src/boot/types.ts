@@ -3,6 +3,7 @@ import type { RouteAuthOptions, RouteRegistry } from '../common/router';
 import type {
   NavigationFocusOptions,
   ScrollRestorationOptions,
+  ViewTransitionsOption,
 } from '../router/navigate';
 import type { AppRenderRuntime } from '../common/app-render-runtime';
 
@@ -66,6 +67,15 @@ export type SPAConfig = BootRouteSource & {
    * the new document title (the pathname without one). `false` turns both off.
    */
   focus?: false | NavigationFocusOptions;
+  /**
+   * Animate page changes with `document.startViewTransition()`. `true`
+   * animates every navigation (including back/forward), a function decides per
+   * navigation from the departing and arriving hrefs, and the default `false`
+   * never does unless a navigation asks (`navigate(target, { viewTransition:
+   * true })`, `<Link viewTransition>`). Browsers without the API commit
+   * directly.
+   */
+  viewTransitions?: ViewTransitionsOption;
   cleanupStrict?: boolean;
   component?: never;
 };
@@ -80,6 +90,8 @@ export type HydrateSPAConfig = BootRouteSource & {
   scrollRestoration?: boolean | ScrollRestorationOptions;
   /** Focus and announcement after a push navigation; see {@link SPAConfig.focus}. */
   focus?: false | NavigationFocusOptions;
+  /** View transitions between pages; see {@link SPAConfig.viewTransitions}. */
+  viewTransitions?: ViewTransitionsOption;
   cleanupStrict?: boolean;
   hydrate?: {
     verifyMarkup?: boolean;

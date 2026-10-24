@@ -21,6 +21,12 @@ type NavigateOptions = {
    * browser. Use it when the target came from untrusted input.
    */
   sameOrigin?: boolean;
+  /**
+   * Animate the page change with \`document.startViewTransition()\` when the
+   * browser has it; otherwise the navigation commits directly. Overrides the
+   * \`viewTransitions\` app option for this navigation.
+   */
+  viewTransition?: boolean;
 };
 /**
  * Navigate the client-side router using the History API.

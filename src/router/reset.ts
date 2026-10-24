@@ -11,6 +11,7 @@ import { resetNavigationBlockers } from './navigation-block';
 import { clearPendingNavigation } from './navigation-state';
 import { resetNavigationFocus } from './navigation-focus';
 import { resetRoutePrefetch } from './route-prefetch';
+import { resetViewTransitions } from './view-transition';
 
 /**
  * Return every part of the router to its initial state.
@@ -39,5 +40,6 @@ export function resetRouterState(): void {
   resetNavigationBlockers();
   resetNavigationFocus();
   resetRoutePrefetch();
+  resetViewTransitions();
   clearPendingNavigation();
 }

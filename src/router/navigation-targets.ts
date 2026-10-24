@@ -8,6 +8,10 @@ import {
 } from './navigation-scroll';
 import { publishLocation } from './route-query';
 import {
+  runNavigationCommit,
+  shouldUseViewTransition,
+} from './view-transition';
+import {
   allowNavigationLeave,
   hasNavigationBlockers,
 } from './navigation-block';
@@ -191,6 +195,9 @@ export function applyNavigationTargets(
       redirectHref,
       {
         history: getRedirectHistoryMode(resolved.replace),
+        ...(options.viewTransition !== undefined
+          ? { viewTransition: options.viewTransition }
+          : {}),
       },
       redirectState
     );
@@ -225,48 +232,56 @@ export function applyNavigationTargets(
   // Read the departing page's offset before its content is replaced: the
   // browser clamps the scroll position as soon as the document shrinks.
   saveScrollPosition(previousHref);
-  commitNavigationRoots(
+  runNavigationCommit(
+    shouldUseViewTransition(options.viewTransition, previousHref, href),
     requestId,
-    pathname,
-    href,
-    matchedTargets,
-    locationState,
     () => {
-      const historyMode = getNavigationHistoryMode(options);
-      const historyIndex = nextHistoryIndex(historyMode);
-      window.history[historyMode === 'replace' ? 'replaceState' : 'pushState'](
-        {
-          path: href,
-          askrHasState: locationState.hasState,
-          askrState: locationState.state,
-          askrIndex: historyIndex,
+      commitNavigationRoots(
+        requestId,
+        pathname,
+        href,
+        matchedTargets,
+        locationState,
+        () => {
+          const historyMode = getNavigationHistoryMode(options);
+          const historyIndex = nextHistoryIndex(historyMode);
+          window.history[
+            historyMode === 'replace' ? 'replaceState' : 'pushState'
+          ](
+            {
+              path: href,
+              askrHasState: locationState.hasState,
+              askrState: locationState.state,
+              askrIndex: historyIndex,
+            },
+            '',
+            toDocumentUrl(href)
+          );
+          commitHistoryIndex(historyIndex);
         },
-        '',
-        toDocumentUrl(href)
+        () => {
+          const destination = parseTargetUrl(href);
+          if (pathname !== previousPathname || destination.hash)
+            applyNavigationScroll(options.scroll);
+          // A fragment names its own target and a same-page query change keeps
+          // the visitor where they are.
+          if (pathname !== previousPathname && !destination.hash) {
+            applyNavigationFocus({
+              pathname: destination.pathname,
+              search: destination.search,
+              hash: destination.hash,
+            });
+          }
+        }
       );
-      commitHistoryIndex(historyIndex);
-    },
-    () => {
-      const destination = parseTargetUrl(href);
-      if (pathname !== previousPathname || destination.hash)
-        applyNavigationScroll(options.scroll);
-      // A fragment names its own target and a same-page query change keeps
-      // the visitor where they are.
-      if (pathname !== previousPathname && !destination.hash) {
-        applyNavigationFocus({
-          pathname: destination.pathname,
-          search: destination.search,
-          hash: destination.hash,
-        });
-      }
+      scheduleRevalidationRefresh(
+        requestId,
+        pathname,
+        href,
+        matchedTargets,
+        locationState
+      );
     }
-  );
-  scheduleRevalidationRefresh(
-    requestId,
-    pathname,
-    href,
-    matchedTargets,
-    locationState
   );
 }
 
@@ -338,28 +353,34 @@ export function applyPopStateNavigationTargets(
     askrState?: unknown;
   } | null;
   const hasState = historyState?.askrHasState === true;
-  commitNavigationRoots(
+  runNavigationCommit(
+    shouldUseViewTransition(undefined, previousHref, href),
     requestId,
-    pathname,
-    href,
-    matchedTargets,
-    { hasState, state: hasState ? historyState?.askrState : undefined },
-    () => commitHistoryIndex(historyIndex),
-    () => applyHistoryScroll(href, state),
     () => {
-      // A newer navigation owns history now.
-      if (isStaleRouteRequest(requestId)) return;
-      // Traverse back to the entry whose page is still rendered, which may
-      // be several entries away when this traversal superseded a pending
-      // one, rather than rewriting the entry the user landed on. If either
-      // position is unknown, the landed URL is the only truth left: load it.
-      if (!returnToRenderedHistoryEntry()) reloadDocument();
+      commitNavigationRoots(
+        requestId,
+        pathname,
+        href,
+        matchedTargets,
+        { hasState, state: hasState ? historyState?.askrState : undefined },
+        () => commitHistoryIndex(historyIndex),
+        () => applyHistoryScroll(href, state),
+        () => {
+          // A newer navigation owns history now.
+          if (isStaleRouteRequest(requestId)) return;
+          // Traverse back to the entry whose page is still rendered, which may
+          // be several entries away when this traversal superseded a pending
+          // one, rather than rewriting the entry the user landed on. If either
+          // position is unknown, the landed URL is the only truth left: load it.
+          if (!returnToRenderedHistoryEntry()) reloadDocument();
+        }
+      );
+      scheduleRevalidationRefresh(requestId, pathname, href, matchedTargets, {
+        hasState,
+        state: hasState ? historyState?.askrState : undefined,
+      });
     }
   );
-  scheduleRevalidationRefresh(requestId, pathname, href, matchedTargets, {
-    hasState,
-    state: hasState ? historyState?.askrState : undefined,
-  });
 }
 
 /**

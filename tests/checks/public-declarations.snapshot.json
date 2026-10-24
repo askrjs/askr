@@ -97,7 +97,7 @@
         "declare function hydrateSPA(config: HydrateSPAConfig): Promise<void>;"
       ],
       "HydrateSPAConfig": [
-        "type HydrateSPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    focus?: false | {\n        target?: string | ((root: Element) => Element | null);\n        announce?: false | ((route: {\n            readonly pathname: string;\n            readonly search: string;\n            readonly hash: string;\n            readonly title: string;\n        }) => string);\n    };\n    cleanupStrict?: boolean;\n    hydrate?: {\n        verifyMarkup?: boolean;\n        onMismatch?: (info: {\n            path: string;\n            expected: string;\n            actual: string;\n        }) => \"continue\" | void;\n        deferUntilIdle?: boolean;\n        deferBelowFold?: boolean;\n        foldThreshold?: number;\n        skipSelectors?: string[];\n    };\n};"
+        "type HydrateSPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    focus?: false | {\n        target?: string | ((root: Element) => Element | null);\n        announce?: false | ((route: {\n            readonly pathname: string;\n            readonly search: string;\n            readonly hash: string;\n            readonly title: string;\n        }) => string);\n    };\n    viewTransitions?: boolean | ((from: string, to: string) => boolean);\n    cleanupStrict?: boolean;\n    hydrate?: {\n        verifyMarkup?: boolean;\n        onMismatch?: (info: {\n            path: string;\n            expected: string;\n            actual: string;\n        }) => \"continue\" | void;\n        deferUntilIdle?: boolean;\n        deferBelowFold?: boolean;\n        foldThreshold?: number;\n        skipSelectors?: string[];\n    };\n};"
       ],
       "IslandConfig": [
         "type IslandConfig = {\n    root: Element | string;\n    component: ComponentFunction;\n    cspNonce?: string;\n    hydrate?: boolean | {\n        onMismatch?: (info: {\n            path: string;\n            expected: string;\n            actual: string;\n        }) => void;\n    };\n    dataRuntime?: DataRuntime;\n    cleanupStrict?: boolean;\n    routes?: never;\n};"
@@ -109,7 +109,7 @@
         "declare function replaceDataRuntime(root: Element | string, next: DataRuntime): void;"
       ],
       "SPAConfig": [
-        "type SPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    focus?: false | {\n        target?: string | ((root: Element) => Element | null);\n        announce?: false | ((route: {\n            readonly pathname: string;\n            readonly search: string;\n            readonly hash: string;\n            readonly title: string;\n        }) => string);\n    };\n    cleanupStrict?: boolean;\n    component?: never;\n};"
+        "type SPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    focus?: false | {\n        target?: string | ((root: Element) => Element | null);\n        announce?: false | ((route: {\n            readonly pathname: string;\n            readonly search: string;\n            readonly hash: string;\n            readonly title: string;\n        }) => string);\n    };\n    viewTransitions?: boolean | ((from: string, to: string) => boolean);\n    cleanupStrict?: boolean;\n    component?: never;\n};"
       ]
     },
     "./components": {
@@ -715,7 +715,7 @@
         "declare function navigate(target: string | RouteDestination, options?: NavigateOptions): void;"
       ],
       "NavigateOptions": [
-        "type NavigateOptions = {\n    history?: \"push\" | \"replace\";\n    replace?: boolean;\n    scroll?: NavigationScrollBehavior;\n    state?: unknown;\n    sameOrigin?: boolean;\n};"
+        "type NavigateOptions = {\n    history?: \"push\" | \"replace\";\n    replace?: boolean;\n    scroll?: NavigationScrollBehavior;\n    state?: unknown;\n    sameOrigin?: boolean;\n    viewTransition?: boolean;\n};"
       ],
       "NavigationScrollBehavior": [
         "type NavigationScrollBehavior = \"top\" | \"preserve\";"
@@ -1474,7 +1474,7 @@
       "declare function hydrateSPA(config: HydrateSPAConfig): Promise<void>;"
     ],
     "HydrateSPAConfig": [
-      "type HydrateSPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    focus?: false | {\n        target?: string | ((root: Element) => Element | null);\n        announce?: false | ((route: {\n            readonly pathname: string;\n            readonly search: string;\n            readonly hash: string;\n            readonly title: string;\n        }) => string);\n    };\n    cleanupStrict?: boolean;\n    hydrate?: {\n        verifyMarkup?: boolean;\n        onMismatch?: (info: {\n            path: string;\n            expected: string;\n            actual: string;\n        }) => \"continue\" | void;\n        deferUntilIdle?: boolean;\n        deferBelowFold?: boolean;\n        foldThreshold?: number;\n        skipSelectors?: string[];\n    };\n};"
+      "type HydrateSPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    focus?: false | {\n        target?: string | ((root: Element) => Element | null);\n        announce?: false | ((route: {\n            readonly pathname: string;\n            readonly search: string;\n            readonly hash: string;\n            readonly title: string;\n        }) => string);\n    };\n    viewTransitions?: boolean | ((from: string, to: string) => boolean);\n    cleanupStrict?: boolean;\n    hydrate?: {\n        verifyMarkup?: boolean;\n        onMismatch?: (info: {\n            path: string;\n            expected: string;\n            actual: string;\n        }) => \"continue\" | void;\n        deferUntilIdle?: boolean;\n        deferBelowFold?: boolean;\n        foldThreshold?: number;\n        skipSelectors?: string[];\n    };\n};"
     ],
     "IconBase": [
       "declare function IconBase({ size, strokeWidth, color, title, class: className, style, iconName, children, ref, ...rest }: IconProps): JSXElement;"
@@ -1685,7 +1685,7 @@
       "declare function Link({ href: suppliedHref, to, class: className, children, rel, target, \"aria-current\": ariaCurrent, \"aria-label\": ariaLabel, onPress, onClick, replace, state, scroll, prefetch, ...rest }: LinkProps): JSXElement;"
     ],
     "LinkBaseProps": [
-      "type LinkBaseProps = Omit<Props, \"children\" | \"href\" | \"class\" | \"rel\" | \"target\" | \"aria-current\" | \"aria-label\"> & {\n    class?: string;\n    children?: RenderableChild;\n    rel?: string;\n    target?: string;\n    \"aria-current\"?: \"page\" | \"step\" | \"location\" | \"date\" | \"time\" | \"true\" | \"false\";\n    \"aria-label\"?: string;\n    onPress?: (event: Event) => void;\n    onClick?: (event: MouseEvent) => void;\n    replace?: boolean;\n    state?: unknown;\n    scroll?: \"top\" | \"preserve\";\n    prefetch?: \"intent\" | \"render\" | \"none\";\n};"
+      "type LinkBaseProps = Omit<Props, \"children\" | \"href\" | \"class\" | \"rel\" | \"target\" | \"aria-current\" | \"aria-label\"> & {\n    class?: string;\n    children?: RenderableChild;\n    rel?: string;\n    target?: string;\n    \"aria-current\"?: \"page\" | \"step\" | \"location\" | \"date\" | \"time\" | \"true\" | \"false\";\n    \"aria-label\"?: string;\n    onPress?: (event: Event) => void;\n    onClick?: (event: MouseEvent) => void;\n    replace?: boolean;\n    state?: unknown;\n    scroll?: \"top\" | \"preserve\";\n    prefetch?: \"intent\" | \"render\" | \"none\";\n    viewTransition?: boolean;\n};"
     ],
     "LinkProps": [
       "type LinkProps = LinkBaseProps & ({\n    href: string;\n    to?: never;\n} | {\n    href?: never;\n    to: RouteDestination;\n});"
@@ -1772,7 +1772,7 @@
       "declare function navigate(target: string | RouteDestination, options?: NavigateOptions): void;"
     ],
     "NavigateOptions": [
-      "type NavigateOptions = {\n    history?: \"push\" | \"replace\";\n    replace?: boolean;\n    scroll?: NavigationScrollBehavior;\n    state?: unknown;\n    sameOrigin?: boolean;\n};"
+      "type NavigateOptions = {\n    history?: \"push\" | \"replace\";\n    replace?: boolean;\n    scroll?: NavigationScrollBehavior;\n    state?: unknown;\n    sameOrigin?: boolean;\n    viewTransition?: boolean;\n};"
     ],
     "NavigationScrollBehavior": [
       "type NavigationScrollBehavior = \"top\" | \"preserve\";"
@@ -2290,7 +2290,7 @@
       "type SnapshotSourceBrand = {\n    readonly [SNAPSHOT_SOURCE_BRAND]: true;\n};"
     ],
     "SPAConfig": [
-      "type SPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    focus?: false | {\n        target?: string | ((root: Element) => Element | null);\n        announce?: false | ((route: {\n            readonly pathname: string;\n            readonly search: string;\n            readonly hash: string;\n            readonly title: string;\n        }) => string);\n    };\n    cleanupStrict?: boolean;\n    component?: never;\n};"
+      "type SPAConfig = BootRouteSource & {\n    root: Element | string;\n    cspNonce?: string;\n    dataRuntime?: DataRuntime;\n    auth?: RouteAuthOptions;\n    scrollRestoration?: boolean | ScrollRestorationOptions;\n    focus?: false | {\n        target?: string | ((root: Element) => Element | null);\n        announce?: false | ((route: {\n            readonly pathname: string;\n            readonly search: string;\n            readonly hash: string;\n            readonly title: string;\n        }) => string);\n    };\n    viewTransitions?: boolean | ((from: string, to: string) => boolean);\n    cleanupStrict?: boolean;\n    component?: never;\n};"
     ],
     "SSGAssetSource": [
       "interface SSGAssetSource {\n    from: string;\n    to?: string;\n}"

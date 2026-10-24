@@ -112,6 +112,39 @@ Give routes a `staleTimeMs` when a prefetched result should count as fresh;
 with the default, the visit still revalidates in the background. Links also take
 `replace`, `state` and `scroll` to shape the history entry and scroll behavior.
 
+## View transitions
+
+Opt in to the browser's View Transition API for page changes:
+
+```tsx
+navigate('/posts/42', { viewTransition: true });
+<Link href="/posts/42" viewTransition>
+  Post 42
+</Link>;
+
+// Or for the whole app (default false):
+createSPA({ root: '#app', registry, viewTransitions: true });
+createSPA({
+  root: '#app',
+  registry,
+  // from and to are public hrefs (path, search and hash).
+  viewTransitions: (from, to) => !to.startsWith('/settings'),
+});
+```
+
+When enabled and `document.startViewTransition` exists, the whole commit (render
+of the destination, the location, metadata, scroll and focus) runs inside the
+transition's update callback, so the browser snapshots the old page first. The
+callback runs when the browser says so; a newer navigation that started in the
+meantime wins and the stale commit is skipped. Without the API, or when
+disabled, the navigation commits directly. Back/forward traversals follow the
+app option (a function receives the departing and arriving hrefs); a per-call
+`viewTransition` overrides the app option, including `false`, and is kept
+through a redirect. Fragment-only and query-only moves
+(`updateRouteQuery()`) never transition. Style the animation with
+`::view-transition-*` CSS; if the update callback throws, the transition is
+skipped and the failure is logged as for any failed navigation.
+
 ## Pending state
 
 `navigationState()` tells the UI when the router is waiting on a destination and

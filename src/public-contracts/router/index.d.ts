@@ -456,6 +456,11 @@ type LinkBaseProps = Omit<
    * cache) without rendering it.
    */
   prefetch?: 'intent' | 'render' | 'none';
+  /**
+   * Animate the page change with \`document.startViewTransition()\` when the
+   * browser has it, as \`navigate(href, { viewTransition: true })\`.
+   */
+  viewTransition?: boolean;
 };
 /** Props for {@link Link}: either a raw `href` or a typed route `to` destination. */
 type LinkProps = LinkBaseProps &

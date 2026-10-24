@@ -5,6 +5,7 @@ import { isProductionEnvironment } from '../common/env';
 import { jsx } from '../jsx/jsx-runtime';
 import {
   configureNavigationFocus,
+  configureViewTransitions,
   configureScrollRestoration,
 } from '../router/navigate';
 import {
@@ -88,6 +89,7 @@ export async function createSPA(config: SPAConfig): Promise<void> {
 
   configureScrollRestoration(config.scrollRestoration);
   configureNavigationFocus(config.focus, rootElement);
+  configureViewTransitions(config.viewTransitions);
 
   clearRouteState();
   _applyManifest(manifest);

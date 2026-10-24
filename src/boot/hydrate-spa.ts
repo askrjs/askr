@@ -5,6 +5,7 @@ import { isProductionEnvironment } from '../common/env';
 import type { ResolvedRoute } from '../common/router';
 import {
   configureNavigationFocus,
+  configureViewTransitions,
   configureScrollRestoration,
 } from '../router/navigate';
 import {
@@ -115,6 +116,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
 
     configureScrollRestoration(config.scrollRestoration);
     configureNavigationFocus(config.focus, rootElement);
+    configureViewTransitions(config.viewTransitions);
 
     clearRouteState();
     _applyManifest(manifest);

@@ -75,6 +75,8 @@ import {
 export { configureScrollRestoration } from './navigation-scroll';
 export { blockNavigation } from './navigation-block';
 export { configureNavigationFocus } from './navigation-focus';
+export { configureViewTransitions } from './view-transition';
+export type { ViewTransitionsOption } from './view-transition';
 export type {
   NavigationAnnouncement,
   NavigationFocusOptions,

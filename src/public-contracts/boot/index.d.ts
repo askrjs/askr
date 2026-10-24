@@ -72,6 +72,15 @@ type SPAConfig = BootRouteSource & {
               readonly title: string;
             }) => string);
       };
+  /**
+   * Animate page changes with \`document.startViewTransition()\`. \`true\`
+   * animates every navigation (including back/forward), a function decides per
+   * navigation from the departing and arriving hrefs, and the default \`false\`
+   * never does unless a navigation asks (\`navigate(target, { viewTransition:
+   * true })\`, \`<Link viewTransition>\`). Browsers without the API commit
+   * directly.
+   */
+  viewTransitions?: boolean | ((from: string, to: string) => boolean);
   cleanupStrict?: boolean;
   component?: never;
 };
@@ -97,6 +106,8 @@ type HydrateSPAConfig = BootRouteSource & {
               readonly title: string;
             }) => string);
       };
+  /** View transitions between pages; see \`SPAConfig.viewTransitions\`. */
+  viewTransitions?: boolean | ((from: string, to: string) => boolean);
   cleanupStrict?: boolean;
   hydrate?: {
     verifyMarkup?: boolean;

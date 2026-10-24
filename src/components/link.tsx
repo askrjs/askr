@@ -73,6 +73,11 @@ type LinkBaseProps = Omit<
    * cache) without rendering it.
    */
   prefetch?: 'intent' | 'render' | 'none';
+  /**
+   * Animate the page change with `document.startViewTransition()` when the
+   * browser has it, as `navigate(href, { viewTransition: true })`.
+   */
+  viewTransition?: boolean;
 };
 
 /** Props for {@link Link}: either a raw `href` or a typed route `to` destination. */
@@ -139,6 +144,7 @@ export function Link({
   state,
   scroll,
   prefetch = 'none',
+  viewTransition,
   ...rest
 }: LinkProps): JSXElement {
   // A typed destination already carries its public href; a raw href is logical.
@@ -188,6 +194,7 @@ export function Link({
       ...(replace ? { replace: true } : {}),
       ...(scroll ? { scroll } : {}),
       ...(state !== undefined ? { state } : {}),
+      ...(viewTransition !== undefined ? { viewTransition } : {}),
     });
   };
 
