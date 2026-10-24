@@ -138,6 +138,10 @@ event handlers (which already run in a batch), timers and promise callbacks.
 Nested batches flush only when the outermost one exits. It returns `fn`'s
 result, and queued work still flushes if `fn` throws.
 
+`untrack(fn)` does not relax the purity rules: a `state.set()` inside
+`untrack()` within a `derive()` or `selector()` is still rejected, because the
+derived computation is still the one running.
+
 `untrack(fn)` runs `fn` and returns its result without subscribing the running
 render, `derive()` or binding to anything `fn` reads. There is no separate
 `peek`: read a state getter inside `untrack()` instead.

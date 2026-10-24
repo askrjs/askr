@@ -16,6 +16,7 @@ import {
   notifySource,
   trackSource,
   type Source,
+  isDerivedRunActive,
 } from '../reactive/graph';
 import {
   effectScheduler,
@@ -56,6 +57,7 @@ export type StateTuple<T> = [get: State<T>, set: StateSetter<T>] & State<T>;
 
 /** A derived computation is running: writes would loop. */
 function isDerivedComputationActive(): boolean {
+  if (isDerivedRunActive()) return true;
   const running = getTrackingComputation();
   return running !== null && running._derived;
 }

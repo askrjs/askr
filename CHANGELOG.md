@@ -177,6 +177,12 @@
 
 ### Fixes
 
+- Reject a `state.set()` hidden inside `untrack()` from a `derive()` or
+  `selector()` with the derived-write error rather than letting it through
+  or misreporting it as a render write. `composeRefs()` forwards the
+  cleanups its callback refs return and gives `null` only to the refs that
+  returned none.
+
 - Resource and stream snapshot fields notify when the same mutable object
   is assigned again (a buffer the source pushed into), so a stream that
   yields one array keeps re-rendering. A comparator or run that throws

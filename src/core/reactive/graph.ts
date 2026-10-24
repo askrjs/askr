@@ -77,6 +77,17 @@ export function getTrackingComputation(): Computation | null {
   return tracking;
 }
 
+/** Derived computations (derive, selector) currently running, nested. */
+let derivedRunDepth = 0;
+
+/**
+ * Whether a derived computation is running, even inside `untrack()`, which
+ * hides reads from tracking but does not make a write acceptable.
+ */
+export function isDerivedRunActive(): boolean {
+  return derivedRunDepth > 0;
+}
+
 export function untrack<T>(fn: () => T): T {
   const previous = tracking;
   const previousSources = trackingSources;
@@ -203,6 +214,7 @@ export class Computation<T = unknown> extends Owner implements Source {
     trackingSources = nextSources;
     this._tracked = nextSources;
     this._running = true;
+    if (this._derived) derivedRunDepth++;
     this._invalidatedWhileRunning = false;
     this._dropped = false;
     let value: T | undefined;
@@ -214,6 +226,7 @@ export class Computation<T = unknown> extends Owner implements Source {
       failed = true;
       error = caught;
     } finally {
+      if (this._derived) derivedRunDepth--;
       this._running = false;
       this._tracked = null;
       tracking = previous;

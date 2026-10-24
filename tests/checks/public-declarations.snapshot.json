@@ -186,7 +186,7 @@
         "interface ComposeHandlersOptions {\n    checkDefaultPrevented?: boolean;\n}"
       ],
       "composeRefs": [
-        "declare function composeRefs<T>(...refs: Array<Ref$2<T>>): (value: T | null) => void;"
+        "declare function composeRefs<T>(...refs: Array<Ref$2<T>>): (value: T | null) => void | (() => void);"
       ],
       "formatId": [
         "declare function formatId(options: FormatIdOptions): string;"
@@ -201,7 +201,7 @@
         "declare function mergeProps<TBase extends object, TInjected extends object>(base: TBase, injected: TInjected): MergedProps<TBase, TInjected>;"
       ],
       "Ref": [
-        "type Ref$2<T> = ((value: T | null) => void) | {\n    current: T | null;\n} | null | undefined;"
+        "type Ref$2<T> = ((value: T | null) => void | (() => void)) | {\n    current: T | null;\n} | null | undefined;"
       ],
       "setRef": [
         "declare function setRef<T>(ref: Ref$2<T>, value: T | null): void;"
@@ -1167,7 +1167,7 @@
       "interface ComposeHandlersOptions {\n    checkDefaultPrevented?: boolean;\n}"
     ],
     "composeRefs": [
-      "declare function composeRefs<T>(...refs: Array<Ref$2<T>>): (value: T | null) => void;"
+      "declare function composeRefs<T>(...refs: Array<Ref$2<T>>): (value: T | null) => void | (() => void);"
     ],
     "configureRenderDiagnostics": [
       "declare function configureRenderDiagnostics(options: RenderDiagnosticsOptions): () => void;"
@@ -1963,7 +1963,7 @@
       "interface Ref<T extends Element = Element> {\n    current: T | null;\n}"
     ],
     "Ref$2": [
-      "type Ref$2<T> = ((value: T | null) => void) | {\n    current: T | null;\n} | null | undefined;"
+      "type Ref$2<T> = ((value: T | null) => void | (() => void)) | {\n    current: T | null;\n} | null | undefined;"
     ],
     "refreshOnActivity": [
       "declare function refreshOnActivity(prefix: string, options: RefreshOnActivityOptions): void;"

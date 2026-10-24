@@ -41,12 +41,22 @@ export function setRef<T>(ref: Ref<T>, value: T | null): void {
 /** Combine multiple refs into one callback ref that writes to all of them. */
 export function composeRefs<T>(
   ...refs: Array<Ref<T>>
-): (value: T | null) => void {
+): (value: T | null) => void | (() => void) {
   return (value: T | null) => {
     const errors: unknown[] = [];
+    // Cleanups the callbacks returned, and the refs that returned none
+    // and so expect null on detach, as they would when attached directly.
+    const releases: Array<() => void> = [];
+    const nullOnDetach: Array<Ref<T>> = [];
     for (const ref of refs) {
       try {
-        setRef(ref, value);
+        if (value !== null && typeof ref === 'function') {
+          const result = (ref as (value: T) => unknown)(value);
+          if (typeof result === 'function') releases.push(result as () => void);
+          else nullOnDetach.push(ref);
+        } else {
+          setRef(ref, value);
+        }
       } catch (error) {
         errors.push(error);
       }
@@ -54,5 +64,26 @@ export function composeRefs<T>(
     if (errors.length > 0) {
       throw new AggregateError(errors, 'Composed ref callbacks failed');
     }
+    if (value === null || releases.length === 0) return undefined;
+    return () => {
+      const failures: unknown[] = [];
+      for (const release of releases) {
+        try {
+          release();
+        } catch (error) {
+          failures.push(error);
+        }
+      }
+      for (const ref of nullOnDetach) {
+        try {
+          setRef(ref, null);
+        } catch (error) {
+          failures.push(error);
+        }
+      }
+      if (failures.length > 0) {
+        throw new AggregateError(failures, 'Composed ref cleanups failed');
+      }
+    };
   };
 }
