@@ -965,9 +965,9 @@ Back/forward traversals follow the app option. See the
 - `revalidating`: cached route data is being refreshed in the background (see
   [Loader cache](#loader-cache)).
 - `blocked`: the public href of the latest navigation a `blockNavigation()`
-  blocker refused (a link or `navigate()`, a redirect, `updateRouteQuery()`, a
-  traversal), until the next navigation begins; otherwise `null`. Use it to
-  show your own "unsaved changes" prompt.
+  blocker refused (a link or `navigate()`, a redirect, a traversal), until the
+  next navigation begins; otherwise `null`. Use it to show your own "unsaved
+  changes" prompt.
 
 Called while rendering a client component it is reactive: the component renders
 again when a field changes. The returned object is replaced, never mutated.
@@ -988,14 +988,14 @@ Asks before the router leaves the current page, for forms with unsaved work.
 `shouldBlock` returns `false` to allow, `true` to refuse silently (show your own
 dialog, then unblock and navigate), or a string to ask the visitor to confirm
 with `window.confirm(message)`. The first blocker that objects decides. It is
-evaluated for `navigate()`, `<Link>` clicks, `updateRouteQuery()`, back/forward
-traversals and, while any blocker is registered, for `beforeunload`. A policy or
-auth redirect met while an in-app navigation resolves is a second departure and
-consults blockers again (a message the visitor already confirmed for that
-navigation is not asked twice); a refusal leaves the page as it is. A
-`updateRouteQuery()` that a blocker refuses is dropped: the function still
-returns `undefined` and nothing changes. Every refusal is reported as
-`navigationState().blocked`. The returned function removes the blocker.
+evaluated for `navigate()`, `<Link>` clicks, back/forward traversals and, while
+any blocker is registered, for `beforeunload`. A policy or auth redirect met
+while an in-app navigation resolves is a second departure and consults blockers
+again (a message the visitor already confirmed for that navigation is not asked
+twice); a refusal leaves the page as it is. `updateRouteQuery()` changes the
+query of the page that stays rendered, which is not a departure, so blockers
+are not consulted. Every refusal is reported as `navigationState().blocked`.
+The returned function removes the blocker.
 
 ```ts
 import { blockNavigation } from '@askrjs/askr/router';
@@ -1015,9 +1015,9 @@ Limitations:
   returns to the rendered entry with `history.go()` using the history index it
   stamps on entries it writes, so the destination URL can flash. When that
   position is unknown (other code wrote history entries), the router pushes the
-  rendered location again instead: the page and URL agree, at the cost of one
-  extra history entry and the loss of forward entries, and the entry's
-  `navigate()` state is not restored.
+  rendered location again instead, with the rendered entry's `navigate()`
+  state: the page and URL agree, at the cost of one extra history entry and
+  the loss of forward entries.
 - Session-auth redirects (a session expiring or changing identity) and
   fragment-only moves are not blocked; documents opened by `target="_blank"` are
   not affected.

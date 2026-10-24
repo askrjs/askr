@@ -1,10 +1,6 @@
 import { saveScrollPosition } from './navigation-scroll';
 import { beginRouteRequest } from './navigation-request';
-import {
-  clearPendingNavigation,
-  reportBlockedNavigation,
-} from './navigation-state';
-import { allowNavigationLeave } from './navigation-block';
+import { clearPendingNavigation } from './navigation-state';
 import { commitHistoryIndex, nextHistoryIndex } from './history-index';
 import {
   getCurrentHref,
@@ -106,12 +102,8 @@ export function updateRouteQuery(
     return;
   }
 
-  if (!allowNavigationLeave()) {
-    reportBlockedNavigation(href);
-    return;
-  }
-
-  // The query update is the newest location: a navigation still resolving
+  // The page stays, so blockers are not consulted: a query change is not a
+  // departure. The query update is the newest location: a navigation still resolving
   // must not publish over it, and is no longer pending.
   beginRouteRequest();
   clearPendingNavigation();

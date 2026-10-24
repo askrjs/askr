@@ -28,6 +28,7 @@ import {
   isStaleRouteRequest,
 } from './navigation-request';
 import { resolveNavigationTargetsForApps } from './navigation-resolution';
+import { currentRouteLocationState } from './activity';
 import type {
   AppNavigationTarget,
   NavigateOptions,
@@ -337,8 +338,13 @@ function handlePopState(event: PopStateEvent): void {
     // and the URL agree. The refused entry stays behind it, and forward
     // entries are lost.
     const renderedHref = getCurrentHref();
+    const rendered = currentRouteLocationState();
     window.history.pushState(
-      { path: renderedHref },
+      {
+        path: renderedHref,
+        askrHasState: rendered.hasState,
+        askrState: rendered.state,
+      },
       '',
       toDocumentUrl(renderedHref)
     );

@@ -48,34 +48,20 @@ describe('blockNavigation() coverage', () => {
     vi.restoreAllMocks();
   });
 
-  it('should drop an updateRouteQuery() the blocker refuses and report it', async () => {
-    const registry = createRouteRegistry(() => {
-      route('/', () => <p>a</p>);
-    });
-    await createSPA({ root: container, registry });
-    const unblock = blockNavigation(() => true);
-    unblockers.push(unblock);
-
-    updateRouteQuery({ q: 'x' });
-    expect(window.location.search).toBe('');
-    expect(navigationState().blocked).toBe('/?q=x');
-
-    unblock();
-    updateRouteQuery({ q: 'x' });
-    expect(window.location.search).toBe('?q=x');
-    expect(navigationState().blocked).toBe(null);
-  });
-
-  it('should ask once and apply updateRouteQuery() when the visitor confirms', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  it('should apply updateRouteQuery() without consulting blockers', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
     const registry = createRouteRegistry(() => {
       route('/', () => <p>a</p>);
     });
     await createSPA({ root: container, registry });
     unblockers.push(blockNavigation(() => 'Discard?'));
-    updateRouteQuery({ q: 'y' });
-    expect(confirm).toHaveBeenCalledTimes(1);
-    expect(window.location.search).toBe('?q=y');
+    unblockers.push(blockNavigation(() => true));
+
+    // The page stays: a query change is not a departure.
+    updateRouteQuery({ q: 'x' });
+    expect(window.location.search).toBe('?q=x');
+    expect(confirm).not.toHaveBeenCalled();
+    expect(navigationState().blocked).toBe(null);
   });
 
   it('should leave the page as it is when a redirect is refused by a blocker', async () => {
@@ -134,7 +120,7 @@ describe('blockNavigation() coverage', () => {
     await vi.waitFor(() => expect(container.textContent).toBe('b'));
     // Other code pushes an entry, so positions are unknown from here on.
     window.history.pushState({}, '', '/x');
-    navigate('/c');
+    navigate('/c', { state: { draft: 1 } });
     await vi.waitFor(() => expect(container.textContent).toBe('c'));
     unblockers.push(blockNavigation(() => true));
 
@@ -142,5 +128,13 @@ describe('blockNavigation() coverage', () => {
     await vi.waitFor(() => expect(navigationState().blocked).toBe('/x'));
     await vi.waitFor(() => expect(window.location.pathname).toBe('/c'));
     expect(container.textContent).toBe('c');
+    // The re-pushed entry is the rendered page's entry, state included.
+    expect(window.history.state).toEqual(
+      expect.objectContaining({
+        path: '/c',
+        askrHasState: true,
+        askrState: { draft: 1 },
+      })
+    );
   });
 });

@@ -282,15 +282,40 @@ export function isRoutePathActive(
 
   const location = readCurrentRouteLocation();
   if (!location.withinBasePath) return false;
-  const activePath = canonical(location.pathname);
-  if (candidates.has(activePath)) {
+  const version = getRouteTableVersion();
+  let memo = activePathMemo;
+  if (
+    !memo ||
+    memo.routes !== routes ||
+    memo.version !== version ||
+    memo.pathname !== location.pathname
+  ) {
+    const activePath = canonical(location.pathname);
+    memo = activePathMemo = {
+      routes,
+      version,
+      pathname: location.pathname,
+      activePath,
+      leafPaths: computeMatchesFromRoutes(activePath, routes)
+        .slice(-1)
+        .map((match) => canonical(match.path)),
+    };
+  }
+  if (candidates.has(memo.activePath)) {
     return true;
   }
+  return memo.leafPaths.some((path) => candidates.has(path));
+}
 
-  const matches = computeMatchesFromRoutes(activePath, getActiveRoutes());
-  return matches
-    .slice(-1)
-    .some((match) => candidates.has(canonical(match.path)));
+/** @internal The location state of the history entry whose page is rendered. */
+export function currentRouteLocationState(): {
+  hasState: boolean;
+  state: unknown;
+} {
+  return {
+    hasState: currentRouteSnapshot.hasState,
+    state: currentRouteSnapshot.state,
+  };
 }
 
 function readCurrentRouteSnapshot<
