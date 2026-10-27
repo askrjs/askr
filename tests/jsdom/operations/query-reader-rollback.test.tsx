@@ -15,6 +15,46 @@ import {
 } from '../../../test-utils/render/test-renderer';
 
 describe('createQuery render rollback', () => {
+  it('should settle and cancel a queued refresh when its last reader unmounts', async () => {
+    const runtime = createDataRuntime();
+    const fetch = vi.fn(async () => ({ id: 'fetched' }));
+    let query!: Query<{ id: string }>;
+    const App = (): JSXElement => {
+      query = createQuery({
+        runtime,
+        key: 'query-queued-refresh-unmount',
+        initialData: { id: 'cached' },
+        fetch,
+        gcTime: 5000,
+      });
+      return <p>{query.data?.id}</p>;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      expect(container.textContent).toBe('cached');
+      expect(fetch).not.toHaveBeenCalled();
+
+      const pending = query.refresh();
+      let settled = false;
+      void pending.then(() => {
+        settled = true;
+      });
+
+      cleanup();
+      await Promise.resolve();
+      expect(settled).toBe(true);
+      expect(runtime.queryCache.has('query-queued-refresh-unmount')).toBe(true);
+
+      flushScheduler();
+      expect(fetch).not.toHaveBeenCalled();
+    } finally {
+      cleanup();
+      disposeDataRuntime(runtime);
+    }
+  });
+
   it('should not warn for a conflicting reader whose key-change render fails', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const runtime = createDataRuntime();
