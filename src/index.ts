@@ -10,6 +10,7 @@ export type { RenderDiagnosticsOptions } from './core/component/diagnostics';
 
 // Runtime primitives
 export { derive, getSignal, selector, state } from './core/api/state';
+export { store, unwrap } from './core/api/store';
 export type {
   Derived,
   Selector,
@@ -17,6 +18,10 @@ export type {
   StateSetter,
   StateTuple,
 } from './core/api/state';
+
+// Scheduling and tracking control
+export { batch } from './core/reactive/scheduler';
+export { untrack } from './core/reactive/graph';
 
 // Lexical scopes
 export { defineScope, readScope } from './core/api/scope';

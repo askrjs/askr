@@ -2,6 +2,50 @@ import { describe, expect, it, vi } from 'vite-plus/test';
 import { createRoot } from '../../../src/core/dom/root';
 
 describe('hydration child sync rollback', () => {
+  it('should restore text-split hydration state after a later sync abort and retry', () => {
+    const container = document.createElement('div');
+    container.innerHTML = '<p>AB<button>go</button><span>extra</span></p>';
+    const paragraph = container.querySelector('p')!;
+    const originalChildren = Array.from(paragraph.childNodes);
+    const text = paragraph.firstChild!;
+    const extra = paragraph.querySelector('span')!;
+    const removeChild = paragraph.removeChild.bind(paragraph);
+    const failure = new Error('later child removal failed');
+    let shouldFail = true;
+    const removal = vi
+      .spyOn(paragraph, 'removeChild')
+      .mockImplementation((child) => {
+        const removed = removeChild(child);
+        if (child === extra && shouldFail) {
+          shouldFail = false;
+          throw failure;
+        }
+        return removed;
+      });
+    const button = paragraph.querySelector('button')!;
+    const root = createRoot(container, { hydrate: true });
+    const view = (
+      <p>
+        {'A'}
+        {'B'}
+        <button>go</button>
+      </p>
+    );
+
+    expect(() => root.prepare(view).commit()).toThrow(failure);
+    expect(Array.from(paragraph.childNodes)).toEqual(originalChildren);
+    expect(text.textContent).toBe('AB');
+    expect(paragraph.querySelector('button')).toBe(button);
+
+    removal.mockRestore();
+    root.render(view);
+    expect(paragraph.firstChild).toBe(text);
+    expect(paragraph.textContent).toBe('ABgo');
+    expect(paragraph.querySelector('button')).toBe(button);
+    expect(paragraph.querySelector('span')).toBeNull();
+    root.dispose();
+  });
+
   it('should retry root hydration after a structural sync abort', () => {
     const container = document.createElement('div');
     container.innerHTML =

@@ -1,4 +1,5 @@
-import type { RouteContext, RouteOptions } from '../common/router';
+import type { RouteContext, RouteOptions, RouteRecord } from '../common/router';
+import type { InternalRouteRecord } from './internal-types';
 import { isPromiseLike } from '../common/promise';
 import { isDeferred } from '../common/deferred-value';
 import {
@@ -19,6 +20,26 @@ function isDeferredHydrationValue(
 
 /** Compact, framework-owned route hydration metadata key. */
 export const ROUTE_HYDRATION_METADATA = 'rh';
+
+/** Framework-owned key for group/page loader data in the hydration envelope. */
+export const ROUTE_LAYOUT_DATA = 'rl';
+
+/**
+ * Framework-owned key for when the server ran the route's loaders (epoch
+ * milliseconds). The loader cache seeded from the page counts the data's age
+ * from here, not from hydration.
+ */
+export const ROUTE_LOADED_AT = 'rt';
+
+/** The server load time recorded in a hydration envelope, if any. */
+export function readRouteLoadedAt(
+  framework: Readonly<Record<string, unknown>> | undefined
+): number | undefined {
+  const value = framework?.[ROUTE_LOADED_AT];
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : undefined;
+}
 
 export interface RouteOmissionMap {
   readonly [key: string]: 1 | RouteOmissionMap;
@@ -71,6 +92,15 @@ function omissionMap(
   const output: Record<string, 1 | RouteOmissionMap> = Object.create(null);
 
   try {
+    if (
+      Array.isArray(complete) &&
+      (!Array.isArray(selectedObject) ||
+        selectedObject.length < complete.length)
+    ) {
+      // `length` is non-enumerable, but reading it observes trailing entries
+      // that were removed from the hydrated array.
+      output.length = 1;
+    }
     for (const key of Object.keys(complete)) {
       if (
         !selectedObject ||
@@ -172,6 +202,9 @@ function guardOmissions(
         )
           ? omissions[property]
           : undefined;
+        if (omitted && property === 'length' && Array.isArray(target)) {
+          omittedRead(route, propertyPath(path, property));
+        }
         if (
           omitted &&
           !Object.prototype.hasOwnProperty.call(target, property)
@@ -208,8 +241,31 @@ export function getRouteHydrationMetadata(
 export function withoutRouteHydrationMetadata(
   framework: Readonly<Record<string, unknown>> | undefined
 ): Readonly<Record<string, unknown>> | undefined {
-  if (!framework || !(ROUTE_HYDRATION_METADATA in framework)) return framework;
+  if (
+    !framework ||
+    !(ROUTE_HYDRATION_METADATA in framework || ROUTE_LAYOUT_DATA in framework)
+  )
+    return framework;
   const next = { ...framework };
   delete next[ROUTE_HYDRATION_METADATA];
+  delete next[ROUTE_LAYOUT_DATA];
   return next;
+}
+
+/**
+ * Rebuild the loader-keyed group/page data of a server-rendered page from its
+ * transported array, which is aligned with the record's loader chain.
+ */
+export function readHydratedLayoutData(
+  record: RouteRecord | undefined,
+  framework: Readonly<Record<string, unknown>> | undefined
+): ReadonlyMap<unknown, unknown> | undefined {
+  const values = framework?.[ROUTE_LAYOUT_DATA];
+  const chain = (record as InternalRouteRecord | undefined)?.loaderChain;
+  if (!Array.isArray(values) || !chain) return undefined;
+  const layout = new Map<unknown, unknown>();
+  chain.forEach((scope, index) => {
+    layout.set(scope.loader, values[index] ?? undefined);
+  });
+  return layout;
 }

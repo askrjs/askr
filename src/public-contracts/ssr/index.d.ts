@@ -198,6 +198,17 @@ type RenderRouteRequestResult =
       stream?: ReadableStream<Uint8Array>;
       styles: readonly SSRStyleRegistration[];
       params: Record<string, string>;
+      /**
+       * `404` when a `fallback()` rendered the miss, `500` when a route's
+       * `error` component rendered a failure, the denial status (`401`,
+       * `403` or `404`) when its `forbidden` component rendered a denial;
+       * absent for a route.
+       */
+      status?: 401 | 403 | 404 | 500;
+      /** The failure an `error` component rendered (only with status `500`). */
+      error?: unknown;
+      /** `true` when a `forbidden` component rendered a denial; `status` is the denial status. */
+      denied?: true;
       record?: RouteRecord;
     }
   | AccessRedirectDecision

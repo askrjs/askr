@@ -1,9 +1,12 @@
 import type {
   RouteContext,
+  RouteMetaContext,
   RouteMeta,
   RouteMetaSource,
   RouteRecord,
 } from '../common/router';
+
+import { emptyRouteSearch, parseRouteSearch } from './route-search';
 
 function freezeMeta(meta: RouteMeta): Readonly<RouteMeta> {
   if (meta.openGraph) Object.freeze(meta.openGraph);
@@ -14,6 +17,46 @@ function freezeMeta(meta: RouteMeta): Readonly<RouteMeta> {
   if (Array.isArray(meta.jsonLd)) Object.freeze(meta.jsonLd);
   if (meta.html) Object.freeze(meta.html);
   return Object.freeze(meta);
+}
+
+/**
+ * Links are identified by `rel` and `href`: a link declared again by a more
+ * specific source replaces the earlier one in place instead of repeating.
+ */
+/** The attributes that make two `<link>` elements different resources. */
+const LINK_IDENTITY = [
+  'rel',
+  'href',
+  'hreflang',
+  'media',
+  'type',
+  'sizes',
+  'imagesrcset',
+  'imagesizes',
+] as const;
+
+function mergeLinks(
+  current: NonNullable<RouteMeta['links']>,
+  next: NonNullable<RouteMeta['links']>
+): NonNullable<RouteMeta['links']> {
+  const merged = new Map<string, NonNullable<RouteMeta['links']>[number]>();
+  for (const link of [...current, ...next]) {
+    // A later source replaces an earlier link for the same resource; links
+    // that target different variants (hreflang, media, type, sizes) stay.
+    const key = LINK_IDENTITY.map((name) => link[name] ?? '').join('\u0000');
+    merged.set(key, link);
+  }
+  return [...merged.values()];
+}
+
+/** JSON-LD blocks that serialize identically are written once. */
+function mergeJsonLd(values: readonly unknown[]): unknown[] {
+  const merged = new Map<string, unknown>();
+  for (const value of values) {
+    const key = JSON.stringify(value);
+    if (!merged.has(key)) merged.set(key, value);
+  }
+  return [...merged.values()];
 }
 
 function mergeMeta(current: RouteMeta, next: RouteMeta): RouteMeta {
@@ -36,11 +79,11 @@ function mergeMeta(current: RouteMeta, next: RouteMeta): RouteMeta {
       ? { openGraph: { ...current.openGraph, ...next.openGraph } }
       : {}),
     ...(current.links || next.links
-      ? { links: [...(current.links ?? []), ...(next.links ?? [])] }
+      ? { links: mergeLinks(current.links ?? [], next.links ?? []) }
       : {}),
     ...(current.jsonLd || next.jsonLd
       ? {
-          jsonLd: [
+          jsonLd: mergeJsonLd([
             ...(current.jsonLd === undefined
               ? []
               : Array.isArray(current.jsonLd)
@@ -51,7 +94,7 @@ function mergeMeta(current: RouteMeta, next: RouteMeta): RouteMeta {
               : Array.isArray(next.jsonLd)
                 ? next.jsonLd
                 : [next.jsonLd]),
-          ],
+          ]),
         }
       : {}),
     ...(current.html || next.html
@@ -68,7 +111,7 @@ function metadataSources(record: RouteRecord): readonly RouteMetaSource[] {
 /** Resolve a route's merged {@link RouteMeta} by running its metadata chain against `context`. */
 export function resolveRouteMeta(
   record: RouteRecord,
-  context: RouteContext
+  context: RouteContext & { data?: unknown }
 ): Promise<Readonly<RouteMeta>> {
   return resolveRouteMetaInternal(record, context);
 }
@@ -76,7 +119,7 @@ export function resolveRouteMeta(
 /** Private route-owner fence; the public metadata resolver stays unchanged. */
 export function resolveOwnedRouteMeta(
   record: RouteRecord,
-  context: RouteContext,
+  context: RouteContext & { data?: unknown },
   assertCurrent: () => void
 ): Promise<Readonly<RouteMeta>> {
   return resolveRouteMetaInternal(record, context, assertCurrent);
@@ -84,29 +127,120 @@ export function resolveOwnedRouteMeta(
 
 async function resolveRouteMetaInternal(
   record: RouteRecord,
-  context: RouteContext,
+  input: RouteContext & { data?: unknown },
   assertCurrent?: () => void
 ): Promise<Readonly<RouteMeta>> {
   assertCurrent?.();
+  // Callers that build their own context need not parse the query themselves.
+  const context: RouteMetaContext = {
+    ...input,
+    searchParams:
+      input.searchParams ??
+      (record.options.search
+        ? parseRouteSearch(record.options.search, input.search)
+        : emptyRouteSearch()),
+  };
   let resolved: RouteMeta = record.options.title
     ? { title: record.options.title }
     : {};
 
-  for (const source of metadataSources(record)) {
-    assertCurrent?.();
-    const next = typeof source === 'function' ? await source(context) : source;
-    assertCurrent?.();
-    resolved = mergeMeta(resolved, next);
-  }
+  // Sources are independent: start them all, then merge in declaration order.
+  const sources = metadataSources(record);
+  const settled = await Promise.all(
+    sources.map(async (source) =>
+      typeof source === 'function' ? source(context) : source
+    )
+  );
+  assertCurrent?.();
+  for (const next of settled) resolved = mergeMeta(resolved, next);
 
   return freezeMeta(resolved);
 }
 
-/** Replace only Askr-owned head nodes after a successful client navigation. */
+/**
+ * What the document declared before any route metadata was written: a shell
+ * `<title>` and the root `lang`/`dir`. A route without its own title,
+ * language or direction restores these.
+ */
+interface DocumentBaseline {
+  title: HTMLTitleElement | null;
+  titleText: string;
+  lang: string | null;
+  dir: string | null;
+  /** What the router last wrote; only that is reverted, never app edits. */
+  written: { title?: string; lang?: string; dir?: string };
+}
+
+const documentBaselines = new WeakMap<Document, DocumentBaseline>();
+
+/**
+ * Forget the captured baseline (router reset in tests and teardown); the next
+ * reconcile reads the document anew. Apps booting into the same document
+ * share one baseline, captured before any of them wrote to the head.
+ */
+export function resetRouteMetaBaseline(
+  target: Document | undefined = globalThis.document
+): void {
+  if (target) documentBaselines.delete(target);
+}
+
+function documentBaseline(target: Document): DocumentBaseline {
+  let baseline = documentBaselines.get(target);
+  if (!baseline) {
+    const title = target.head.querySelector<HTMLTitleElement>(
+      'title:not([data-askr-head])'
+    );
+    baseline = {
+      title,
+      titleText: title?.textContent ?? '',
+      lang: target.documentElement.getAttribute('lang'),
+      dir: target.documentElement.getAttribute('dir'),
+      written: {},
+    };
+    documentBaselines.set(target, baseline);
+  }
+  return baseline;
+}
+
+/**
+ * Write a route's root attribute, or put back the document's own value when
+ * the route declares none and the current value is still the router's.
+ * A value the application set itself is left alone.
+ */
+function writeRootAttribute(
+  target: Document,
+  name: 'lang' | 'dir',
+  value: string | undefined,
+  baseline: DocumentBaseline
+): void {
+  const root = target.documentElement;
+  if (value) {
+    if (root.getAttribute(name) !== value) root.setAttribute(name, value);
+    baseline.written[name] = value;
+    return;
+  }
+  const written = baseline.written[name];
+  if (written === undefined || root.getAttribute(name) !== written) return;
+  baseline.written[name] = undefined;
+  const original = baseline[name];
+  if (original === null) root.removeAttribute(name);
+  else root.setAttribute(name, original);
+}
+
+/**
+ * Write a route's metadata to the document head after a client navigation.
+ *
+ * Askr-owned nodes (marked `data-askr-head`, as SSR writes them) are replaced
+ * and nothing else is removed. A shell `<title>` the document already had is
+ * updated in place, because the browser reads the first `<title>`; a route
+ * without a title restores its original text. The root `lang` and `dir`
+ * attributes are restored the same way.
+ */
 export function reconcileRouteMeta(
   meta: Readonly<RouteMeta>,
   target: Document = document
 ): void {
+  const baseline = documentBaseline(target);
   for (const node of Array.from(
     target.head.querySelectorAll('[data-askr-head]')
   )) {
@@ -116,6 +250,10 @@ export function reconcileRouteMeta(
     element.setAttribute('data-askr-head', '');
     return element;
   };
+  const shellTitle =
+    baseline.title && baseline.title.parentNode === target.head
+      ? baseline.title
+      : null;
   const appendMeta = (
     attribute: 'name' | 'property',
     name: string,
@@ -126,7 +264,21 @@ export function reconcileRouteMeta(
     element.setAttribute('content', content);
     target.head.append(element);
   };
-  if (meta.title !== undefined) {
+  if (shellTitle) {
+    if (meta.title !== undefined) {
+      if (shellTitle.textContent !== meta.title) {
+        shellTitle.textContent = meta.title;
+      }
+      baseline.written.title = meta.title;
+    } else if (
+      baseline.written.title !== undefined &&
+      shellTitle.textContent === baseline.written.title
+    ) {
+      // Only the router's own title is put back; an app-updated title stays.
+      baseline.written.title = undefined;
+      shellTitle.textContent = baseline.titleText;
+    }
+  } else if (meta.title !== undefined) {
     const element = own(target.createElement('title'));
     element.textContent = meta.title;
     target.head.append(element);
@@ -164,9 +316,8 @@ export function reconcileRouteMeta(
       target.head.append(element);
     }
   }
-  if (meta.html?.lang)
-    target.documentElement.setAttribute('lang', meta.html.lang);
-  if (meta.html?.dir) target.documentElement.setAttribute('dir', meta.html.dir);
+  writeRootAttribute(target, 'lang', meta.html?.lang || undefined, baseline);
+  writeRootAttribute(target, 'dir', meta.html?.dir || undefined, baseline);
 }
 
 const LINK_ATTRIBUTES = new Set([

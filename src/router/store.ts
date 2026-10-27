@@ -1,4 +1,5 @@
 import type {
+  RouteManifest,
   LayoutScopeRecord,
   PageScopeRecord,
   Route,
@@ -16,7 +17,7 @@ import type {
   RegistrationScope,
   AppMetaDeclaration,
 } from './internal-types';
-import { compareRouteSpecificity } from './match';
+import { compareRouteSpecificity, routeMatchKey } from './match';
 
 /**
  * One route table: everything `route()`, `page()` and `group()` write to.
@@ -31,6 +32,10 @@ import { compareRouteSpecificity } from './match';
 export interface RouteTable {
   readonly routes: InternalRoute[];
   readonly records: InternalRouteRecord[];
+  /** Match shapes of `records`, for O(1) duplicate detection. */
+  readonly matchKeys: Set<string>;
+  /** Bumped on every change to `records`; match indexes key on it. */
+  version: number;
   readonly namespaces: Set<string>;
   readonly routesByDepth: Map<number, Route[]>;
   readonly registrationScopeStack: RegistrationScope[];
@@ -44,6 +49,8 @@ export function createRouteTable(): RouteTable {
   return {
     routes: [],
     records: [],
+    matchKeys: new Set<string>(),
+    version: 0,
     namespaces: new Set<string>(),
     routesByDepth: new Map<number, Route[]>(),
     registrationScopeStack: [],
@@ -79,6 +86,21 @@ export function getRouteRecords(): readonly InternalRouteRecord[] {
   return activeTable.records;
 }
 
+/** Changes whenever the live record list changes. */
+export function getRouteTableVersion(): number {
+  return activeTable.version;
+}
+
+/** The registered record with the same match shape as `key`, if any. */
+export function findRecordByMatchKey(
+  key: string
+): InternalRouteRecord | undefined {
+  if (!activeTable.matchKeys.has(key)) return undefined;
+  return activeTable.records.find(
+    (record) => routeMatchKey(record.segments, record.fallbackPrefix) === key
+  );
+}
+
 export function isRouteStoreRoutes(routeList: readonly Route[]): boolean {
   return routeList === activeTable.routes;
 }
@@ -100,6 +122,10 @@ export function insertRecordSorted(record: InternalRouteRecord): void {
     } else hi = mid;
   }
   activeTable.records.splice(lo, 0, record);
+  activeTable.matchKeys.add(
+    routeMatchKey(record.segments, record.fallbackPrefix)
+  );
+  activeTable.version += 1;
 }
 
 export function addRouteToStores(routeObj: InternalRoute): void {
@@ -116,6 +142,35 @@ export function addRouteToStores(routeObj: InternalRoute): void {
   if (routeObj.namespace) {
     activeTable.namespaces.add(routeObj.namespace);
   }
+}
+
+/**
+ * The registry manifest a route list belongs to, when it sets a
+ * `trailingSlash` or `caseSensitive` policy: activity reads and matching
+ * apply the same canonical form resolution does.
+ */
+const routePathPolicies = new WeakMap<readonly Route[], RouteManifest>();
+
+export function setRoutePathPolicy(
+  routes: readonly Route[],
+  manifest: RouteManifest
+): void {
+  if (manifest.trailingSlash || manifest.caseSensitive === false) {
+    routePathPolicies.set(routes, manifest);
+  } else {
+    routePathPolicies.delete(routes);
+  }
+}
+
+export function getRoutePathPolicy(
+  routes: readonly Route[]
+): RouteManifest | undefined {
+  return routePathPolicies.get(routes);
+}
+
+/** Adopt a manifest's path policy for the live route table. */
+export function setActivePathPolicy(manifest: RouteManifest): void {
+  setRoutePathPolicy(activeTable.routes, manifest);
 }
 
 export function getActiveRoutes(): readonly Route[] {
@@ -267,6 +322,23 @@ export function getCurrentInheritedMeta(): RouteMetaSource[] {
   );
 }
 
+/** The enclosing registration scopes, outermost first. */
+export function getRegistrationScopes(): readonly RegistrationScope[] {
+  return activeTable.registrationScopeStack;
+}
+
+/** The nearest enclosing scope's value for `key`, if any scope declares it. */
+export function getNearestScopeValue<K extends keyof RegistrationScope>(
+  key: K
+): RegistrationScope[K] | undefined {
+  const stack = activeTable.registrationScopeStack;
+  for (let index = stack.length - 1; index >= 0; index -= 1) {
+    const value = stack[index]![key];
+    if (value !== undefined) return value;
+  }
+  return undefined;
+}
+
 export function getCurrentInheritedAppMeta(): readonly AppMetaDeclaration[] {
   return Object.freeze(
     activeTable.registrationScopeStack.flatMap((scope) =>
@@ -345,8 +417,13 @@ export function unloadNamespace(namespace: string): number {
   }
 
   for (let i = activeTable.records.length - 1; i >= 0; i--) {
-    if (activeTable.records[i].options.namespace === namespace) {
+    const record = activeTable.records[i];
+    if (record.options.namespace === namespace) {
       activeTable.records.splice(i, 1);
+      activeTable.matchKeys.delete(
+        routeMatchKey(record.segments, record.fallbackPrefix)
+      );
+      activeTable.version += 1;
     }
   }
 
@@ -359,8 +436,11 @@ export function getLoadedNamespaces(): string[] {
 }
 
 export function clearRouteState(): void {
+  routePathPolicies.delete(activeTable.routes);
   activeTable.routes.length = 0;
   activeTable.records.length = 0;
+  activeTable.matchKeys.clear();
+  activeTable.version += 1;
   activeTable.namespaces.clear();
   activeTable.routesByDepth.clear();
   activeTable.registrationScopeStack.length = 0;

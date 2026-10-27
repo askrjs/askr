@@ -49,12 +49,12 @@ in order once the matching server DOM becomes interactive. The original event
 is stopped while it is queued, so an interaction runs once rather than once
 before and once after hydration.
 
-Queued `input` and `change` events retain the input or textarea value from each
-event, including checkbox and radio checked state. Hydration restores that
+Queued `input` and `change` events retain the input or textarea value, checkbox
+and radio checked state, and select option selections from each event. Hydration restores that
 state before each handler runs, so ordered edits followed by a queued submit
 observe the latest edit even if hydration wrote the initial value. Events for
 controls removed during hydration are discarded. File input values are not
-restored.
+restored. Aborting replay also discards any remaining queued interactions.
 
 Unmodified printable keys, Backspace, and Delete retain their native editing
 behavior in editable text inputs and textareas before handlers exist. Their
@@ -280,6 +280,23 @@ compare `style` attributes by their parsed declarations, so the server's
 skipped for a page hydrated at a different query or hash than it was rendered
 for. Portal content is included in the client-output check. Selective hydration
 skips that check while deferred regions remain.
+
+The error names the first differing node by its DOM path below the root and
+what differed:
+
+```text
+[Askr] Hydration mismatch detected at main > div:nth-child(2) > p: expected <span> but found <p>. ...
+```
+
+Pass `hydrate: { onMismatch(info) { ... } }` to receive `{ path, expected,
+actual }` for each difference. In verify mode, returning `'continue'` patches
+the markup and proceeds instead of failing; any other return value (the
+default) fails with the error above. Without verify mode (production) and for
+`createIsland({ hydrate: { onMismatch } })`, hydration always patches and
+proceeds. `onMismatch` is then a notification for each server node that did not
+match what the client rendered (a different tag or text at the cursor) and for
+each leftover server element or text it removed. A client node with no server
+node left is not reported there.
 
 ### Common Causes
 

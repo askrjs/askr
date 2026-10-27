@@ -17,15 +17,20 @@ import { logger } from '../../common/logger';
 import { ComponentInstance } from '../component/instance';
 import type { Owner } from '../reactive/owner';
 import {
+  ELEMENT,
+  FRAGMENT,
+  TEXT,
   descriptorType,
   normalizeChildren,
   type ChildDescriptor,
   type Key,
 } from '../view/children';
 import { CommitMutationError, type Pass } from './pass';
+import { elementNamespace } from './node-context';
 import {
   COMPONENT,
   HOST,
+  ROOT,
   NATIVE,
   collectDom,
   containerOf,
@@ -60,6 +65,7 @@ export interface RenderContext {
 declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
 
 const warnedMissingKeys = new WeakSet<Owner>();
+const warnedPartialKeys = new WeakSet<Owner>();
 
 /**
  * Warn (once per component, in development) about a dynamic array of more
@@ -72,26 +78,30 @@ function warnMissingKeys(value: unknown, owner: Owner | null): void {
     for (const item of value) warnMissingKeys(item, owner);
     return;
   }
-  let elements = 0;
+  let keyed = 0;
+  let unkeyed = 0;
   for (const item of value) {
     if (typeof item !== 'object' || item === null) continue;
     const vnode = item as { type?: unknown; key?: unknown };
     if (vnode.type === undefined) continue;
-    if (vnode.key !== undefined && vnode.key !== null) return;
-    elements++;
+    if (vnode.key !== undefined && vnode.key !== null) keyed++;
+    else unkeyed++;
   }
-  if (elements < 2) return;
+  if (keyed === 0 ? unkeyed < 2 : unkeyed === 0) return;
   let component: Owner | null = owner;
   while (component && !(component instanceof ComponentInstance)) {
     component = component.parent;
   }
   const key = component ?? warnedMissingKeysAnonymous;
-  if (warnedMissingKeys.has(key)) return;
-  warnedMissingKeys.add(key);
+  const warned = keyed === 0 ? warnedMissingKeys : warnedPartialKeys;
+  if (warned.has(key)) return;
+  warned.add(key);
   const name =
     (component as ComponentInstance | null)?.displayName || '<anonymous>';
   logger.warn(
-    `Missing keys on dynamic lists in ${name}. Each child in a list should have a unique "key" prop.`
+    keyed === 0
+      ? `Missing keys on dynamic lists in ${name}. Each child in a list should have a unique "key" prop.`
+      : `Missing keys on some children of a dynamic list in ${name}: ${keyed} have a "key" prop and ${unkeyed} do not. Give every child in a list a unique "key" prop.`
   );
 }
 
@@ -101,7 +111,26 @@ export function withOwner(
   ctx: RenderContext,
   owner: Owner | null
 ): RenderContext {
-  return owner === ctx.owner ? ctx : { ...ctx, owner };
+  return owner === ctx.owner
+    ? ctx
+    : {
+        pass: ctx.pass,
+        owner,
+        ns: ctx.ns,
+        nodes: ctx.nodes,
+        hydrate: ctx.hydrate,
+      };
+}
+
+/** The context for rendering inside an element; `ctx` itself when nothing differs. */
+export function childContext(
+  ctx: RenderContext,
+  ns: string | null,
+  hydrate: RenderContext['hydrate']
+): RenderContext {
+  return ns === ctx.ns && hydrate === ctx.hydrate
+    ? ctx
+    : { pass: ctx.pass, owner: ctx.owner, ns, nodes: ctx.nodes, hydrate };
 }
 
 function typeOf(node: RNode): unknown {
@@ -151,7 +180,14 @@ export function reconcileChildren(
       }
       seen.add(child.key);
     }
-    const result = next.map((child) => ctx.nodes.create(ctx, parent, child));
+    if (ctx.hydrate && ctx.hydrate.container === containerOf(parent)) {
+      planHydration(ctx, parent, next);
+    }
+    const result = next.map((child, index) => {
+      const node = ctx.nodes.create(ctx, parent, child);
+      node.index = index;
+      return node;
+    });
     if (parent.kind === HOST) {
       if (ctx.hydrate?.container === parent.el) {
         const el = parent.el;
@@ -159,7 +195,9 @@ export function reconcileChildren(
           syncChildren(
             ctx.pass,
             el,
-            result.flatMap((node) => collectDom(node))
+            result.flatMap((node) => collectDom(node)),
+            null,
+            ctx.hydrate!.cursor
           )
         );
       } else {
@@ -184,11 +222,10 @@ export function reconcileChildren(
       }
     }
     if (samePositions) {
-      const result = previous.slice();
       for (let i = 0; i < next.length; i++) {
         ctx.nodes.patch(ctx, previous[i], next[i]);
       }
-      return result;
+      return previous;
     }
   }
   const slot = ctx.pass.reserve();
@@ -281,21 +318,91 @@ export function reconcileChildren(
     );
     try {
       placeChildren(parent, result, sources, stable, record);
+      const departed: Node[] = [];
       for (const node of removed) {
         for (const dom of collectDom(node)) {
           record(dom);
-          dom.parentNode?.removeChild(dom);
+          departed.push(dom);
         }
+      }
+      if (ownsEveryChild(parent, result, departed)) {
+        // Every child of the host is being removed and none belongs to
+        // anyone else, so one write replaces N removals.
+        (parent as { el: Element }).el.replaceChildren();
+      } else {
+        for (const dom of departed) dom.parentNode?.removeChild(dom);
       }
     } catch (error) {
       throw new CommitMutationError(error);
     }
     parent.children = result;
-    for (const node of result) {
+    for (let index = 0; index < result.length; index++) {
+      const node = result[index];
       if (node.parent !== parent) node.parent = parent;
+      // Retained siblings already have the right hint. Sparse changes need
+      // to update only the moved or newly created nodes.
+      if (sources[index] !== index) node.index = index;
     }
   });
   return result;
+}
+
+/**
+ * A list of only elements and texts claims exactly one server node per child,
+ * so the cursor can be given a plan that skips the server's extra nodes and
+ * creates the client's extra ones. Components and other opaque children claim
+ * an unknown number of nodes, so those lists are claimed greedily.
+ */
+function planHydration(
+  ctx: RenderContext,
+  parent: Parent,
+  children: readonly ChildDescriptor[]
+): void {
+  if (parent.kind !== HOST && parent.kind !== ROOT) return;
+  const expected: Array<{ tag: string; ns: string | null } | null> = [];
+  if (!collectExpected(ctx, children, expected)) return;
+  ctx.hydrate!.cursor.plan(ctx.hydrate!.container, expected);
+}
+
+/** Fragments claim in order like their parent, so they are flattened. */
+function collectExpected(
+  ctx: RenderContext,
+  children: readonly ChildDescriptor[],
+  out: Array<{ tag: string; ns: string | null } | null>
+): boolean {
+  for (const child of children) {
+    if (child.kind === ELEMENT) {
+      out.push({ tag: child.tag, ns: elementNamespace(child.tag, ctx.ns) });
+    } else if (child.kind === TEXT && child.text !== '') {
+      out.push(null);
+    } else if (child.kind === FRAGMENT) {
+      if (!collectExpected(ctx, normalizeChildren(child.children), out)) {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Whether `departed` is every node in `parent`'s element: the new list is
+ * empty and no node (other code's, a tail, a sibling's) would be removed with
+ * them.
+ */
+function ownsEveryChild(
+  parent: Parent,
+  result: readonly RNode[],
+  departed: readonly Node[]
+): boolean {
+  if (parent.kind !== HOST || result.length !== 0 || departed.length < 2) {
+    return false;
+  }
+  const el = parent.el;
+  if (el.childNodes.length !== departed.length) return false;
+  for (const dom of departed) if (dom.parentNode !== el) return false;
+  return true;
 }
 
 interface ChildIndex {

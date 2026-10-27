@@ -5,6 +5,7 @@ import {
 } from '../common/render-context';
 import { currentAppRuntime as getCurrentAppRenderRuntime } from '../core/api/hooks';
 import type { RenderableChild } from '../common/vnode';
+import type { RouteContext } from '../common/router';
 import type { JSXElement } from '../common/jsx';
 import { resource } from '../core/api/resource';
 import { guardHydratedRouteData } from './route-hydration';
@@ -99,6 +100,28 @@ export function routeData<T>(): T {
     );
   }
   return guardHydratedRouteData(runtime.route, runtime.framework) as T;
+}
+
+/**
+ * Read the result of a `group()`/`page()` loader while rendering a route that
+ * runs it, typically from a layout or page host. The argument is the loader
+ * function declared on the scope, so the read is typed by that function and
+ * works anywhere below the scope, including the leaf.
+ */
+export function layoutData<TData>(
+  loader: (
+    context: RouteContext & { request?: Request }
+  ) => TData | PromiseLike<TData>
+): TData {
+  const values =
+    getActiveRenderContext()?.layoutData ??
+    getCurrentAppRenderRuntime()?.layoutData;
+  if (!values?.has(loader)) {
+    throw new Error(
+      'layoutData() can only read a group() or page() loader of the route being rendered.'
+    );
+  }
+  return values.get(loader) as TData;
 }
 
 function rejectedChild<T>(

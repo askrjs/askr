@@ -75,6 +75,10 @@ children's. A multi-node result needs no wrapper element and no marker comments:
 its nodes are found by walking its children, and the insertion point after it by
 walking its following siblings.
 
+Each node keeps its position among its parent's children as a checked hint, so
+finding the DOM after a component or fragment does not scan the sibling list;
+a stale hint costs one scan.
+
 Lifetimes are not tracked here. A tree node points at the owner that holds its
 lifetime, such as a component instance, a binding, or a function child's
 computation. Deep trees are walked iteratively, so long transparent component
@@ -86,7 +90,10 @@ chains do not consume the JavaScript call stack.
 committed children: by key, else by type in order. It asks the node kinds to
 patch matches and create the rest, then records one operation that removes
 departed children and places the remaining ones with a single
-longest-increasing-subsequence move pass. There is one keyed reconciler;
+longest-increasing-subsequence move pass. When every child of an element is removed and the element holds no other
+nodes (nothing added by other code), the removal is one `replaceChildren()`
+instead of one `removeChild` per node; the positions are still recorded, so a
+failed commit restores the children in order. There is one keyed reconciler;
 `For` rows go through it like any other keyed children.
 
 The reconciler knows lists, not node kinds. `src/core/dom/nodes.ts` owns how
@@ -135,7 +142,17 @@ unclaimed child. Creating a node first tries to claim the node under the
 cursor: an element with the same tag, or a text node (split when the server
 merged adjacent texts). A node that does not match is created fresh. When a
 container's children are rendered, one commit operation puts the claimed and
-created nodes in order and removes server nodes the client did not render.
+created nodes in order and removes server nodes the client did not render. Adopted elements keep
+attributes the client never mentions; only renderer bookkeeping and attributes
+the client renders as empty are removed (verify mode removes every unrendered
+attribute).
+When a container's children are only elements and texts (fragments count as
+their children), the cursor is first given a plan: the client's child tags and
+text kinds are aligned with the server's nodes by a longest common subsequence
+after trimming the common prefix and suffix. An extra node on either side then
+costs only itself, so `<i><b><p>` from the server against `<b><p>` from the
+client adopts `b` and `p` instead of rebuilding them. Lists with components or
+other opaque children, and lists too large to align, are claimed greedily.
 Markup marked `data-skip-hydrate` stays dormant until it is activated.
 
 ## Portals

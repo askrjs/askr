@@ -195,19 +195,18 @@ export class ComponentInstance extends Owner {
    * Called during render; undone if the render is discarded.
    */
   provide(key: unknown, value: unknown): void {
-    const context = (this.context ??= new Map());
-    const had = context.has(key);
-    const previous = context.get(key);
+    const had = this.context?.has(key) ?? false;
+    const previous = this.context?.get(key);
     if (had && Object.is(previous, value)) return;
     const previousRevision = this.contextRevision;
     this.contextRevision = ++nextContextRevision;
     contextEpoch++;
-    context.set(key, value);
+    this.setContext(key, value);
     recordUndo(() => {
       this.contextRevision = previousRevision;
       contextEpoch++;
-      if (had) context.set(key, previous);
-      else context.delete(key);
+      if (had) this.setContext(key, previous);
+      else this.deleteContext(key);
     });
   }
 
@@ -237,6 +236,10 @@ export class ComponentInstance extends Owner {
 
   protected override onDispose(): void {
     this.abortController?.abort(COMPONENT_ABORT_REASON);
+    // A retained instance (a stale closure, a diagnostic) must not keep the
+    // detached DOM, its ancestors, or the hook values alive.
+    this.view = null;
+    this.hooks = [];
   }
 }
 
@@ -261,6 +264,9 @@ function renderLaneScheduler(instance: ComponentInstance) {
       depth: instance.depth,
       run: () => renderHost?.rerender(instance),
       cancel: () => instance.computation.dropScheduled(),
+      get name() {
+        return instance.displayName;
+      },
       get skip() {
         return instance.disposed || !instance.computation.stale;
       },

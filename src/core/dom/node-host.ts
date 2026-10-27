@@ -1,4 +1,5 @@
 /** Host creation and patching record their live mutations on the Pass. */
+import { warnInvalidNesting } from '../../common/dev-warnings';
 import type { Props } from '../../common/props';
 import type { Key } from '../view/children';
 import { CommitMutationError } from './pass';
@@ -11,7 +12,11 @@ import {
   patchProps,
   restoreElementChildren,
 } from './props';
-import { reconcileChildren, type RenderContext } from './reconcile';
+import {
+  childContext,
+  reconcileChildren,
+  type RenderContext,
+} from './reconcile';
 import { HOST, type HostNode, type Parent } from './tree';
 import {
   childNamespace,
@@ -22,6 +27,16 @@ import {
 import { deferDormantHost } from './node-hydration';
 import { markSelectSynced, syncEnclosingSelect } from './node-select';
 
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
+
+/** Tag of the nearest host element above `parent`, if any. */
+function enclosingHostTag(parent: Parent): string | null {
+  for (let p: Parent | null = parent; p; p = p.parent) {
+    if (p.kind === HOST) return namespaceOf(p.el) === null ? p.tag : null;
+  }
+  return null;
+}
+
 export function createHost(
   ctx: RenderContext,
   parent: Parent,
@@ -30,6 +45,10 @@ export function createHost(
   props: Props
 ): HostNode {
   const ns = elementNamespace(tag, ctx.ns);
+  if (__ASKR_DEVELOPMENT_BUILD__ && ns === null) {
+    const host = enclosingHostTag(parent);
+    if (host) warnInvalidNesting(host, tag.toLowerCase(), 'client');
+  }
   const hydrate = ctx.hydrate;
   const adopted = hydrate
     ? hydrate.cursor.claimElement(hydrate.container, tag, ns)
@@ -51,31 +70,53 @@ export function createHost(
   };
   if (adopted && deferDormantHost(ctx, node, ns)) return node;
   applyInitialProps(ctx.pass, node, adopted !== null);
-  if (adopted) {
+  if (!adopted && isTextareaWithValue(el, props)) {
+    // A textarea's initial value is its text content, which is what SSR
+    // writes; fill it once the value is written so client and server markup
+    // agree. Later updates change only the live value.
     ctx.pass.op(() => {
       try {
-        removeUnrenderedAttributes(adopted, props, (attributes) => {
-          ctx.pass.onReversibleCommit(() => {
-            for (const attribute of attributes) {
-              adopted.setAttributeNode(attribute);
-            }
-          });
-        });
+        const control = el as HTMLTextAreaElement;
+        if (control.defaultValue !== control.value) {
+          control.defaultValue = control.value;
+        }
       } catch (error) {
         throw new CommitMutationError(error);
       }
     });
   }
-  if (!isDangerousInnerHTMLPayload(props.dangerouslySetInnerHTML)) {
+  if (adopted) {
+    ctx.pass.op(() => {
+      try {
+        removeUnrenderedAttributes(
+          adopted,
+          props,
+          hydrate!.cursor.strict,
+          (attributes) => {
+            ctx.pass.onReversibleCommit(() => {
+              for (const attribute of attributes) {
+                adopted.setAttributeNode(attribute);
+              }
+            });
+          }
+        );
+      } catch (error) {
+        throw new CommitMutationError(error);
+      }
+    });
+  }
+  if (
+    !isDangerousInnerHTMLPayload(props.dangerouslySetInnerHTML) &&
+    !(adopted && isTextareaWithValue(el, props))
+  ) {
     node.children = reconcileChildren(
-      {
-        ...ctx,
-        ns: childNamespace(tag, ns),
-        hydrate:
-          adopted && hydrate
-            ? { cursor: hydrate.cursor, container: adopted }
-            : null,
-      },
+      childContext(
+        ctx,
+        childNamespace(tag, ns),
+        adopted && hydrate
+          ? { cursor: hydrate.cursor, container: adopted }
+          : null
+      ),
       node,
       props.children,
       true
@@ -84,6 +125,18 @@ export function createHost(
   applyTrailingProps(ctx.pass, node, props, true, adopted !== null);
   attachRef(ctx.pass, node, undefined);
   return node;
+}
+
+/**
+ * SSR writes a `textarea` value as its text content (the control's initial
+ * value). Hydration keeps that server text rather than claiming children the
+ * client never renders, a fresh host writes it once, and re-renders leave it
+ * to the value writer.
+ */
+function isTextareaWithValue(el: Element, props: Props): boolean {
+  if (el.localName !== 'textarea' || namespaceOf(el) !== null) return false;
+  const value = props.value;
+  return value !== undefined && value !== null && value !== false;
 }
 
 function ownsChildren(props: Props): boolean {
@@ -135,15 +188,21 @@ export function patchHost(
   }
   if (isManaged) {
     reconcileChildren(
-      { ...ctx, ns: childNamespace(node.tag, namespaceOf(node.el)) },
+      childContext(
+        ctx,
+        childNamespace(node.tag, namespaceOf(node.el)),
+        ctx.hydrate
+      ),
       node,
       props.children,
       false
     );
     if (
-      props.children === undefined ||
-      props.children === null ||
-      props.children === false
+      (props.children === undefined ||
+        props.children === null ||
+        props.children === false) &&
+      // A textarea's text is its default value, owned by the value writer.
+      !isTextareaWithValue(node.el, props)
     ) {
       ctx.pass.op(() => {
         if (!node.el.firstChild) return;

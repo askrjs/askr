@@ -62,3 +62,20 @@ expectError(
 );
 expectError(createSPA({ root: document.body }));
 expectError(hydrateSPA({ root: document.body }));
+
+// Focus and announcement after push navigation.
+expectAssignable<SPAConfig>({ root: document.body, registry, focus: false });
+expectAssignable<SPAConfig>({
+  root: document.body,
+  registry,
+  focus: {
+    target: (root) => root.querySelector('h1'),
+    announce: (route) => `Now on ${route.pathname} (${route.title})`,
+  },
+});
+expectAssignable<HydrateSPAConfig>({
+  root: document.body,
+  registry,
+  focus: { target: 'main', announce: false },
+});
+expectError<SPAConfig>({ root: document.body, registry, focus: true });

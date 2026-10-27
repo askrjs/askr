@@ -5,19 +5,23 @@ import {
   getRegisteredAppsSnapshot,
   type AppRegistration,
 } from './navigation-registry';
-import { resolveOwnedRouteRequest, getRouteRenderContext } from './resolution';
+import { resolveOwnedRouteRequest, getRouteMetaContext } from './resolution';
 import { resolveOwnedRouteMeta } from './metadata';
+import { isRouteErrorResult } from './route-error';
 import { isRenderResult, type AppNavigationTarget } from './navigation-types';
 
-function createNavigationTarget(
+export function createNavigationTarget(
   app: AppRegistration,
   resolved: RouteRequestResult,
-  runtime: AppRenderRuntime | undefined
+  runtime: AppRenderRuntime | undefined,
+  skipMetadata = false
 ): AppNavigationTarget | Promise<AppNavigationTarget> {
   if (
+    skipMetadata ||
     app.instance.appRuntime !== runtime ||
     !isRenderResult(resolved) ||
-    !resolved.record
+    !resolved.record ||
+    isRouteErrorResult(resolved)
   )
     return { app, resolved, runtime };
   const hasMetadata = Boolean(
@@ -26,7 +30,7 @@ function createNavigationTarget(
     resolved.record.metaChain?.length
   );
   if (!hasMetadata) return { app, resolved, runtime };
-  const context = getRouteRenderContext(resolved);
+  const context = getRouteMetaContext(resolved);
   if (!context) return { app, resolved, runtime };
   return resolveOwnedRouteMeta(resolved.record, context, () => {
     if (app.instance.appRuntime !== runtime) {
@@ -43,7 +47,8 @@ function resolveAppRouteRequest(
   pathname: string,
   href: string,
   signal: AbortSignal,
-  runtime: AppRenderRuntime | undefined
+  runtime: AppRenderRuntime | undefined,
+  prefetch = false
 ): RouteRequestResult | Promise<RouteRequestResult> {
   return resolveOwnedRouteRequest(
     href,
@@ -52,6 +57,8 @@ function resolveAppRouteRequest(
       auth: app.auth,
       signal,
       dataRuntime: runtime?.dataRuntime,
+      routeErrors: !prefetch,
+      ...(prefetch ? { prefetch: true } : {}),
     },
     () => {
       if (app.instance.appRuntime !== runtime) {
@@ -67,7 +74,8 @@ function resolveAppRouteRequest(
 export function resolveNavigationTargetsForApps(
   pathname: string,
   href: string,
-  signal: AbortSignal
+  signal: AbortSignal,
+  options: { prefetch?: boolean } = {}
 ): AppNavigationTarget[] | Promise<AppNavigationTarget[]> {
   const apps = getRegisteredAppsSnapshot();
 
@@ -79,17 +87,28 @@ export function resolveNavigationTargetsForApps(
       pathname,
       href,
       signal,
-      runtime
+      runtime,
+      options.prefetch
     );
     if (isPromiseLike<RouteRequestResult>(resolved)) {
       return Promise.resolve(resolved).then((next) => {
-        const target = createNavigationTarget(app, next, runtime);
+        const target = createNavigationTarget(
+          app,
+          next,
+          runtime,
+          options.prefetch
+        );
         return isPromiseLike(target)
           ? Promise.resolve(target).then((ready) => [ready])
           : [target];
       });
     }
-    const target = createNavigationTarget(app, resolved, runtime);
+    const target = createNavigationTarget(
+      app,
+      resolved,
+      runtime,
+      options.prefetch
+    );
     return isPromiseLike(target)
       ? Promise.resolve(target).then((next) => [next])
       : [target];
@@ -105,17 +124,23 @@ export function resolveNavigationTargetsForApps(
       pathname,
       href,
       signal,
-      runtime
+      runtime,
+      options.prefetch
     );
     if (isPromiseLike<RouteRequestResult>(resolved)) {
       pendingTargets.push(
         Promise.resolve(resolved).then((next) =>
-          createNavigationTarget(app, next, runtime)
+          createNavigationTarget(app, next, runtime, options.prefetch)
         )
       );
       continue;
     }
-    const target = createNavigationTarget(app, resolved, runtime);
+    const target = createNavigationTarget(
+      app,
+      resolved,
+      runtime,
+      options.prefetch
+    );
     if (isPromiseLike(target)) pendingTargets.push(Promise.resolve(target));
     else syncTargets.push(target);
   }

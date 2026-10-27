@@ -42,4 +42,34 @@ describe('scoped query array keys', () => {
     expect(scope.key(parts)).toBe('s=arrays:a[s=alpha,s=beta]:');
     expect(scope.prefix(parts)).toBe(scope.key(['alpha', 'beta']));
   });
+
+  it('should serialize lone surrogate strings and object keys without collisions', () => {
+    const scope = queryScope('surrogates');
+    const high = '\uD800';
+    const low = '\uDC00';
+
+    expect(() => scope.key(high)).not.toThrow();
+    expect(() => scope.key({ [low]: 'value' })).not.toThrow();
+    expect(scope.key(high)).not.toBe(scope.key('\uFFFD'));
+    expect(scope.key(low)).not.toBe(scope.key('%uDC00'));
+    expect(scope.key({ [low]: 'value' })).not.toBe(
+      scope.key({ '%uDC00': 'value' })
+    );
+  });
+
+  it('should serialize false and special numeric key parts distinctly', () => {
+    const scope = queryScope('primitives');
+
+    expect(scope.key(false)).toBe('s=primitives:b=0:');
+    expect(scope.key(Number.NaN)).toBe('s=primitives:n=NaN:');
+    expect(scope.key(-0)).toBe('s=primitives:n=-0:');
+    expect(scope.key(Infinity)).toBe('s=primitives:n=Infinity:');
+    expect(scope.key(-Infinity)).toBe('s=primitives:n=-Infinity:');
+  });
+
+  it('should encode well-formed surrogate pairs in strings', () => {
+    const scope = queryScope('surrogates');
+
+    expect(scope.key('\uD83D\uDE00')).toBe('s=surrogates:s=%F0%9F%98%80:');
+  });
 });

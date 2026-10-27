@@ -13,13 +13,16 @@ import {
   insertRecordSorted,
   setDefaultRouteAuthOptions,
   getDefaultRouteBasePath,
+  setActivePathPolicy,
   setDefaultRouteBasePath,
+  setRoutePathPolicy,
   withRouteTable,
 } from './store';
 import type { InternalRouteRecord } from './internal-types';
 import { normalizeRouteBasePath } from './base-path';
+import { validatePathPolicyOptions } from './path-canonical';
 
-function createRouteManifest(): RouteManifest {
+function createRouteManifest(options: RouteRegistryOptions): RouteManifest {
   const auth = getDefaultRouteAuthOptions();
   return {
     records: [...getRouteRecords()],
@@ -27,10 +30,17 @@ function createRouteManifest(): RouteManifest {
     ...(getDefaultRouteBasePath()
       ? { basePath: getDefaultRouteBasePath() }
       : {}),
+    ...(options.trailingSlash === 'never' || options.trailingSlash === 'always'
+      ? { trailingSlash: options.trailingSlash }
+      : {}),
+    ...(options.caseSensitive === false
+      ? { caseSensitive: false as const }
+      : {}),
   };
 }
 
 export function _applyManifest(manifest: RouteManifest): void {
+  setActivePathPolicy(manifest);
   setDefaultRouteAuthOptions(manifest.auth);
   setDefaultRouteBasePath(normalizeRouteBasePath(manifest.basePath));
   for (const record of manifest.records) {
@@ -39,6 +49,7 @@ export function _applyManifest(manifest: RouteManifest): void {
       path: record.path,
       handler: record.handler,
       namespace: record.options.namespace,
+      ...(record.options.search ? { searchSchema: record.options.search } : {}),
       ...((record as InternalRouteRecord).appMetaChain
         ? { appMetaChain: (record as InternalRouteRecord).appMetaChain }
         : {}),
@@ -60,15 +71,16 @@ export function createRouteRegistry(
   definition: RouteDefinition,
   options: RouteRegistryOptions = {}
 ): RouteRegistry {
+  validatePathPolicyOptions(options);
   // Built against a table of its own, so declaring a registry never disturbs
   // the application's routes and two registries can be built independently.
   return withRouteTable(createRouteTable(), () => {
     setDefaultRouteAuthOptions(options.auth);
     setDefaultRouteBasePath(normalizeRouteBasePath(options.basePath));
     definition();
-    return Object.freeze({
-      manifest: createRouteManifest(),
-      routes: getRouteList(),
-    }) as unknown as RouteRegistry;
+    const manifest = createRouteManifest(options);
+    const routes = getRouteList();
+    setRoutePathPolicy(routes, manifest);
+    return Object.freeze({ manifest, routes }) as unknown as RouteRegistry;
   });
 }

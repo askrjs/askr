@@ -19,6 +19,7 @@ export default defineConfig({
           environment: 'node',
           tier: 'tier1',
           include: [
+            'benches/tier1/tier1-hotpath-graph-*.ts',
             'benches/tier1/tier1-hotpath-router-*.ts',
             'benches/tier1/tier1-hotpath-scheduler-flush.ts',
             'benches/tier1/tier1-hotpath-ssr-*.{ts,tsx}',

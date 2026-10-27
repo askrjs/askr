@@ -111,3 +111,59 @@ describe('route metadata', () => {
     );
   });
 });
+
+describe('metadata merge deduplication', () => {
+  it('should keep one link per rel and href and let the later source win', async () => {
+    const registry = createRouteRegistry(() => {
+      group(
+        {
+          meta: {
+            links: [
+              { rel: 'preload', href: '/font.woff2', as: 'font' },
+              { rel: 'alternate', href: '/fr', hreflang: 'fr' },
+            ],
+          },
+        },
+        () => {
+          route('/p', () => null, {
+            meta: {
+              links: [
+                {
+                  rel: 'preload',
+                  href: '/font.woff2',
+                  as: 'font',
+                  crossorigin: '',
+                },
+                { rel: 'preload', href: '/other.css', as: 'style' },
+              ],
+            },
+          });
+        }
+      );
+    });
+    const meta = await resolveRouteMeta(registry.manifest.records[0]!, context);
+    expect(meta.links).toEqual([
+      { rel: 'preload', href: '/font.woff2', as: 'font', crossorigin: '' },
+      { rel: 'alternate', href: '/fr', hreflang: 'fr' },
+      { rel: 'preload', href: '/other.css', as: 'style' },
+    ]);
+  });
+
+  it('should keep one JSON-LD block per distinct value', async () => {
+    const org = { '@type': 'Organization', name: 'Acme' };
+    const registry = createRouteRegistry(() => {
+      group({ meta: { jsonLd: org } }, () => {
+        route('/p', () => null, {
+          meta: {
+            jsonLd: [{ ...org }, { '@type': 'WebPage', name: 'Page' }],
+          },
+        });
+      });
+    });
+    const meta = await resolveRouteMeta(registry.manifest.records[0]!, context);
+    expect(meta.jsonLd).toEqual([org, { '@type': 'WebPage', name: 'Page' }]);
+    expect(
+      serializeRouteMeta(meta).match(/application\/ld\+json/g)
+    ).toHaveLength(2);
+  });
+});

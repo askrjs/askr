@@ -278,7 +278,7 @@ it('should stop obsolete auth before publishing its identity or invoking its loa
 });
 
 it.each(['policy', 'preload'] as const)(
-  'should not start an old loader after its pending %s settles',
+  'should not start or publish an old loader after its pending %s settles',
   async (stage) => {
     const old = createDataRuntime();
     const next = createDataRuntime();
@@ -300,7 +300,8 @@ it.each(['policy', 'preload'] as const)(
     replaceDataRuntime(view.container, next);
     pending.resolve();
     await settle();
-    expect(loader).not.toHaveBeenCalled();
+    // A preload runs alongside its loader, so only a later stage is withheld.
+    if (stage === 'policy') expect(loader).not.toHaveBeenCalled();
     expect(view.container.textContent).toBe('home');
     expect(location.pathname).toBe('/');
     disposeDataRuntime(old);
@@ -502,9 +503,10 @@ it('should restore retained collection ownership when a replacement render fails
   const next = createDataRuntime();
   old.queryData.set('rollback-row:1', 'old row');
   next.queryData.set('rollback-row:1', 'next row');
+  const fetch = vi.fn(async () => 'fetched');
   const definition = defineQuery({
     key: (id: number) => `rollback-row:${id}`,
-    fetch: async () => 'fetched',
+    fetch,
   });
   let collection!: QueryCollection<number, string, number>;
   let fail = false;
@@ -531,7 +533,8 @@ it('should restore retained collection ownership when a replacement render fails
   fail = false;
   replaceDataRuntime(view.container, next);
   await settle();
-  expect(view.container.textContent).toBe('fetched');
+  expect(view.container.textContent).toBe('next row');
+  expect(fetch).not.toHaveBeenCalled();
   disposeDataRuntime(old);
   disposeDataRuntime(next);
 });

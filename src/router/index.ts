@@ -45,6 +45,8 @@ export type {
   RouteHandler,
   RouteMode,
   RouteContext,
+  RouteErrorProps,
+  RouteForbiddenProps,
   RoutePolicy,
   RouteRenderResult,
   RouteRequestOptions,
@@ -70,6 +72,7 @@ export type { LazyRouteComponent, LazyRouteDataLoader } from './lazy';
 export type { RouteDataLoadPhase } from './route-data-loader';
 export { RouteDataLoadError } from './route-data-loader';
 export { to } from './destination';
+export { localTarget } from './local-target';
 export {
   reconcileRouteMeta,
   resolveRouteMeta,
@@ -82,13 +85,20 @@ export {
   isDeferred,
   resolveDeferredValues,
   routeData,
+  layoutData,
   Resolve,
 } from './deferred';
 export type { Deferred, DeferredState, ResolveProps } from './deferred';
 
-export { navigate, updateRouteQuery } from './navigate';
+export {
+  navigate,
+  updateRouteQuery,
+  blockNavigation,
+  navigationState,
+} from './navigate';
 export type {
   NavigateOptions,
+  NavigationState,
   NavigationScrollBehavior,
   HistoryScrollBehavior,
   ScrollRestorationOptions,

@@ -4,6 +4,10 @@
  */
 import './jsx-globals.js';
 export {
+  store,
+  unwrap,
+  batch,
+  untrack,
   selector,
   StateSetter,
   StateTuple,
@@ -109,6 +113,8 @@ export {
   AccessDecision,
   RouteDestination,
   RouteContext,
+  RouteErrorProps,
+  RouteForbiddenProps,
   AccessAllowDecision,
   RouteRegistryOptions,
   AccessRedirectDecision,

@@ -52,6 +52,15 @@ in the hydration envelope and verifies against it exactly.
 - Build metadata: `metadata.json` with per-route status, file sizes, and render durations
 - When built through `askr ssg`, a canonical `sitemap.xml`
 
+SSG reserves its generated metadata and manifest paths. Routes or copied assets
+that overlap generated files are rejected before publication. Asset directories
+may contain route output directories when their files do not collide. Output
+collision checks account for case and Unicode normalization on common
+case-insensitive filesystems. Generations in the same process serialize when
+their output directories overlap. Incremental publication invalidates its manifest
+before changing output and writes it only after static assets are copied, so a failed or interrupted update triggers a full build
+on the next run.
+
 ## Programmatic API
 
 Import from the SSG subpath:
@@ -108,11 +117,32 @@ warns when a document renderer omits a non-empty registration set; use
 route during a build. Applications that intentionally externalize all generated
 rules can opt out with `styleRegistrationValidation: 'off'`.
 
+The document callback also receives `context.meta`, the route's resolved
+metadata chain (`title`, `meta`, group metadata), so a document can write the
+head with `serializeRouteMeta(context.meta)` from `@askrjs/askr/router`
+instead of resolving it again. Metadata sources receive the resolved leaf
+loader result as `context.data`, as they do during navigation and SSR.
+A route `preload` runs before the page renders
+against a page-local data runtime; pass `queryRegistry` (the same
+`defineServerQueries()` registry SSR uses) so prefetches are served, and the
+prefetched query data is embedded in the page like an SSR response.
+
 ## Route config
 
 When you pass a registry, SSG reads path, handler, access metadata, and
 `entries()` from route records. Route definitions are shared with SPA and SSR;
-there is no separate raw SSG route array.
+there is no separate raw SSG route array. The root `fallback()` is written as
+`404.html`, which static hosts serve for every miss; scoped fallbacks are not
+generated. A parameterized route without `entries()` is reported as
+runtime-only (status `skipped`, reason `runtime-only`) rather than failing the
+build, so a registry shared with SSR can hold routes that only the server
+renders.
+
+Routes under a `group()` or `page()` loader are prerendered like any other:
+the build runs those loaders (outermost first, together with the leaf loader)
+with the same context a request render uses, `layoutData(loader)` resolves in
+layouts, page hosts and leaves, and the data is embedded for hydration.
+Results must be JSON-compatible, as with leaf loaders.
 
 ## Parameterized routes
 
@@ -252,6 +282,8 @@ route on a case-insensitive deployment filesystem.
 Incremental route updates use a temporary file and rename it into place, so a
 failed route write also preserves that route's previously published HTML.
 An unchanged route is regenerated if its published HTML file is missing.
+For a rendered route, Askr compares the existing HTML before skipping a write
+when its stored hash matches, so a hash collision cannot hide changed content.
 When incremental mode is requested without a compatible manifest, `mode` in the
 result is `full`. If that fallback full build fails, successfully rendered
 routes report `written: false` because the atomic output was not published.

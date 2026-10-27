@@ -43,6 +43,8 @@ type CollectionRecord<
   readonly queryKey: string;
   readonly cell: QueryCell<TResult>;
   readonly owner: object;
+  readonly initialData: TResult | undefined;
+  readonly hasInitialData: boolean;
 };
 
 type CollectionTask<TResult extends {}> = {
@@ -112,6 +114,10 @@ class QueryCollectionCell<
 {
   private readonly source = createReadableSource();
   private records = new Map<TKey, CollectionRecord<TInput, TResult, TKey>>();
+  private committedRecords = new Map<
+    TKey,
+    CollectionRecord<TInput, TResult, TKey>
+  >();
   private ordered: readonly CollectionRecord<TInput, TResult, TKey>[] = [];
   private registeredCells = new Set<QueryCell<TResult>>();
   private readonly tasks = new Map<
@@ -119,8 +125,10 @@ class QueryCollectionCell<
     CollectionTask<TResult>
   >();
   private readonly queue: CollectionTask<TResult>[] = [];
+  private readonly consumedInitialData = new WeakSet<QueryCell<TResult>>();
   private activeCount = 0;
   private concurrency = DEFAULT_QUERY_COLLECTION_CONCURRENCY;
+  private updateRevision = 0;
   private disposed = false;
 
   private readonly unregisterRuntimeOwner: () => void;
@@ -214,10 +222,12 @@ class QueryCollectionCell<
     keyForInput: (input: TInput) => TKey,
     concurrency: number,
     startInitialFetches: boolean
-  ): void {
-    if (this.disposed) return;
+  ): () => void {
+    if (this.disposed) return () => {};
 
-    this.concurrency = concurrency;
+    const previousRecords = this.records;
+    const previousOrdered = this.ordered;
+    const revision = ++this.updateRevision;
     const desired: Array<{ input: TInput; key: TKey; queryKey: string }> = [];
     const seenKeys = new Set<TKey>();
     for (const input of inputs) {
@@ -233,7 +243,7 @@ class QueryCollectionCell<
     >();
     const nextOrdered: CollectionRecord<TInput, TResult, TKey>[] = [];
     const startCandidates = new Set<QueryCell<TResult>>();
-    const detachedCells = new Set<QueryCell<TResult>>();
+    const provisionalRecords: CollectionRecord<TInput, TResult, TKey>[] = [];
 
     for (const { input, key, queryKey } of desired) {
       const cellOptions = createCellOptions(query, input, queryKey);
@@ -241,23 +251,17 @@ class QueryCollectionCell<
       let record: CollectionRecord<TInput, TResult, TKey>;
 
       if (previous?.queryKey === queryKey) {
-        previous.input = input;
-        previous.cell.define(cellOptions, previous.owner, 0);
-        record = previous;
+        record = { ...previous, input };
       } else {
-        if (previous) {
-          this.detach(previous);
-          detachedCells.add(previous.cell);
-        }
         const cache = this.runtimeState.queryCache;
         let cell = cache.get(queryKey) as QueryCell<TResult> | undefined;
+        let provisional = false;
+        const hasInitialData =
+          !cell && this.runtimeState.queryData.has(queryKey);
+        const initialData = hasInitialData
+          ? (this.runtimeState.queryData.get(queryKey) as TResult)
+          : undefined;
         if (!cell) {
-          // Client readers consume hydrated data once; see readQueryData.
-          const initialData = readQueryData(
-            this.runtimeState,
-            queryKey,
-            startInitialFetches
-          ) as TResult | undefined;
           cell = new QueryCell(
             { ...cellOptions, initialData },
             queryKey,
@@ -265,11 +269,14 @@ class QueryCollectionCell<
             this.runtimeState
           );
           cache.set(queryKey, cell as QueryCell<unknown>);
+          provisional = true;
         }
 
         const owner = {};
-        cell.attach(owner, 0);
-        cell.define(cellOptions, owner, 0);
+        if (provisional) {
+          cell.attach(owner, 0);
+          cell.define(cellOptions, owner, 0);
+        }
         record = {
           key,
           input,
@@ -277,7 +284,10 @@ class QueryCollectionCell<
           queryKey,
           cell,
           owner,
+          initialData,
+          hasInitialData,
         };
+        if (provisional) provisionalRecords.push(record);
         if (startInitialFetches && cell.needsInitialStart()) {
           startCandidates.add(cell);
         }
@@ -287,31 +297,78 @@ class QueryCollectionCell<
       nextOrdered.push(record);
     }
 
-    for (const [key, record] of this.records) {
-      if (!nextRecords.has(key)) {
-        this.detach(record);
-        detachedCells.add(record.cell);
-      }
-    }
-
-    const nextCells = new Set(nextOrdered.map((record) => record.cell));
     this.records = nextRecords;
     this.ordered = Object.freeze(nextOrdered);
-    for (const cell of this.registeredCells) {
-      if (!nextCells.has(cell)) unregisterCollectionCell(cell, this);
-    }
-    for (const cell of nextCells) {
-      if (!this.registeredCells.has(cell)) registerCollectionCell(cell, this);
-    }
-    this.registeredCells = nextCells;
-    for (const cell of detachedCells) this.cancelIfUnused(cell);
-    for (const cell of startCandidates) this.schedule(cell);
-    this.pump();
+    onRenderDiscard(() => {
+      if (this.disposed) return;
+      if (this.updateRevision !== revision) return;
+      this.records = previousRecords;
+      this.ordered = previousOrdered;
+      this.updateRevision -= 1;
+      for (const record of provisionalRecords) {
+        record.cell.detach(record.owner, 0);
+      }
+    });
+
+    return () => {
+      if (this.disposed || this.updateRevision !== revision) return;
+
+      const previousCommittedRecords = this.committedRecords;
+      const nextCells = new Set(
+        Array.from(nextRecords.values(), (record) => record.cell)
+      );
+      const nextOwners = new Set(
+        Array.from(nextRecords.values(), (record) => record.owner)
+      );
+      for (const record of nextRecords.values()) {
+        record.cell.attach(record.owner, 0);
+        record.cell.define(
+          createCellOptions(query, record.input, record.queryKey),
+          record.owner,
+          0
+        );
+        if (
+          startInitialFetches &&
+          record.hasInitialData &&
+          !this.consumedInitialData.has(record.cell) &&
+          this.runtimeState.queryData.get(record.queryKey) ===
+            record.initialData
+        ) {
+          readQueryData(this.runtimeState, record.queryKey, true);
+          this.consumedInitialData.add(record.cell);
+        }
+      }
+
+      const registeredCells = nextCells;
+      for (const cell of this.registeredCells) {
+        if (!registeredCells.has(cell)) unregisterCollectionCell(cell, this);
+      }
+      for (const cell of registeredCells) {
+        if (!this.registeredCells.has(cell)) registerCollectionCell(cell, this);
+      }
+      this.registeredCells = registeredCells;
+      this.committedRecords = nextRecords;
+
+      const detachedCells = new Set<QueryCell<TResult>>();
+      for (const record of previousCommittedRecords.values()) {
+        if (!nextOwners.has(record.owner)) {
+          record.cell.detach(record.owner, 0);
+          detachedCells.add(record.cell);
+        }
+      }
+      this.concurrency = concurrency;
+      for (const cell of detachedCells) this.cancelIfUnused(cell);
+      for (const cell of startCandidates) {
+        if (cell.needsInitialStart()) this.schedule(cell);
+      }
+      this.pump();
+    };
   }
 
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.updateRevision += 1;
     this.unregisterRuntimeOwner();
 
     for (const cell of this.registeredCells) {
@@ -319,18 +376,19 @@ class QueryCollectionCell<
     }
     this.registeredCells.clear();
     const cells = new Set<QueryCell<TResult>>();
-    for (const record of this.records.values()) {
+    const records = new Set([
+      ...this.records.values(),
+      ...this.committedRecords.values(),
+    ]);
+    for (const record of records) {
       cells.add(record.cell);
       record.cell.detach(record.owner, 0);
     }
     this.records.clear();
+    this.committedRecords.clear();
     this.ordered = [];
     for (const cell of cells) this.cancelIfUnused(cell);
     this.queue.length = 0;
-  }
-
-  private detach(record: CollectionRecord<TInput, TResult, TKey>): void {
-    record.cell.detach(record.owner, 0);
   }
 
   private isCellUsed(cell: QueryCell<TResult>): boolean {
@@ -511,12 +569,13 @@ export function createQueryCollection<
     TResult,
     TKey
   >;
-  collection.update(
+  const commitUpdate = collection.update(
     options.query,
     inputs,
     options.key,
     concurrency,
     startInitialFetches
   );
+  instance.onCommitSync(commitUpdate);
   return collection;
 }

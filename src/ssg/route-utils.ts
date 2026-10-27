@@ -1,5 +1,6 @@
 import type { RouteConfig } from './types';
 import { encodePathSegment } from '../router/match';
+import { foldPortablePathCase } from './unicode-case-fold';
 
 export interface ResolvedRouteDescriptor {
   route: RouteConfig;
@@ -10,7 +11,7 @@ export interface ResolvedRouteDescriptor {
 }
 
 function getPortableOutputPathKey(filePath: string): string {
-  return filePath.normalize('NFC').replaceAll('\\', '/').toLowerCase();
+  return foldPortablePathCase(filePath.normalize('NFC').replaceAll('\\', '/'));
 }
 
 function describeRoute(descriptor: ResolvedRouteDescriptor): string {
@@ -20,19 +21,44 @@ function describeRoute(descriptor: ResolvedRouteDescriptor): string {
   return `"${descriptor.route.path}" (resolved as "${descriptor.path}")`;
 }
 
+function outputPathsOverlap(left: string, right: string): boolean {
+  const leftKey = getPortableOutputPathKey(left);
+  const rightKey = getPortableOutputPathKey(right);
+  return (
+    leftKey === rightKey ||
+    leftKey.startsWith(`${rightKey}/`) ||
+    rightKey.startsWith(`${leftKey}/`)
+  );
+}
+
 /** Reject routes that could overwrite one another on any supported filesystem. */
 export function validateOutputPathCollisions(
   descriptors: readonly ResolvedRouteDescriptor[]
 ): void {
   const seen = new Map<string, ResolvedRouteDescriptor>();
+  const reservedFiles = ['metadata.json', '.askr/ssg-manifest.json'];
 
   for (const descriptor of descriptors) {
     const key = getPortableOutputPathKey(descriptor.filePath);
     const existing = seen.get(key);
     if (existing) {
       throw new Error(
-        `SSG output path collision: routes ${describeRoute(existing)} and ${describeRoute(descriptor)} both map to "${descriptor.filePath}" after case-insensitive normalization`
+        `SSG output path collision: routes ${describeRoute(existing)} and ${describeRoute(descriptor)} map to overlapping paths after case-insensitive normalization`
       );
+    }
+    for (const reservedFile of reservedFiles) {
+      if (outputPathsOverlap(descriptor.filePath, reservedFile)) {
+        throw new Error(
+          `SSG output path collision: route ${describeRoute(descriptor)} overlaps generated file "${reservedFile}"`
+        );
+      }
+    }
+    for (const prior of seen.values()) {
+      if (outputPathsOverlap(prior.filePath, descriptor.filePath)) {
+        throw new Error(
+          `SSG output path collision: routes ${describeRoute(prior)} and ${describeRoute(descriptor)} map to overlapping paths after case-insensitive normalization`
+        );
+      }
     }
     seen.set(key, descriptor);
   }
@@ -51,6 +77,9 @@ function assertSafeRoutePath(pathStr: string): void {
     );
   }
 }
+
+/** Where hosts look for the not-found page. */
+export const NOT_FOUND_FILE = '404.html';
 
 export function getOutputFilePath(pathStr: string): string {
   assertSafeRoutePath(pathStr);
@@ -112,7 +141,7 @@ export function resolveRouteDescriptor(
   route: RouteConfig
 ): ResolvedRouteDescriptor {
   const path = interpolateRoutePath(route.path, route.params);
-  const filePath = getOutputFilePath(path);
+  const filePath = route.notFound ? NOT_FOUND_FILE : getOutputFilePath(path);
   return {
     route,
     path,

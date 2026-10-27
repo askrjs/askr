@@ -1,12 +1,26 @@
 /** Prop categories shared by orchestration and binding installation. */
 import { isCustomElementName } from '../../common/attr-names';
-import { getDomPropertyName } from '../../common/dom-properties';
+import {
+  getDomPropertyName,
+  PROPERTY_PROP_PREFIX,
+} from '../../common/dom-properties';
 
-export function isBinding(key: string, value: unknown): value is () => unknown {
+export function isBinding(
+  key: string,
+  value: unknown,
+  tag?: string
+): value is () => unknown {
   return (
     typeof value === 'function' &&
     key !== 'ref' &&
-    key !== 'dangerouslySetInnerHTML'
+    key !== 'dangerouslySetInnerHTML' &&
+    // A function given `prop:` on a custom element is the property's value
+    // (a formatter, a callback), not something to read.
+    !(
+      tag !== undefined &&
+      key.startsWith(PROPERTY_PROP_PREFIX) &&
+      isCustomElementName(tag)
+    )
   );
 }
 

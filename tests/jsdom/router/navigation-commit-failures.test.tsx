@@ -6,9 +6,14 @@ import {
   it,
   vi,
 } from 'vite-plus/test';
-import { createSPA } from '../../../src/boot';
+import { cleanupApp, createSPA } from '../../../src/boot';
 import { navigate } from '../../../src/router/navigate';
-import { route } from '../../../src/router/route';
+import {
+  createRouteRegistry,
+  currentAuth,
+  route,
+} from '../../../src/router/route';
+import { currentOwner, onDispose } from '../../../src/core/api/hooks';
 import {
   createTestContainer,
   flushScheduler,
@@ -61,6 +66,223 @@ describe('navigation commit failures', () => {
     window.history.replaceState({}, '', '/');
   });
 
+  it('should recover both roots after a history write fails following publication', async () => {
+    const second = createTestContainer();
+    const failure = new DOMException('history unavailable', 'SecurityError');
+    route('/a', () => <p>A</p>);
+    route('/b', () => <p>B</p>);
+    route('/c', () => <p>C</p>);
+    try {
+      const registry = currentRouteRegistry();
+      await createSPA({ root: container, registry });
+      await createSPA({ root: second.container, registry });
+      await settle();
+      vi.spyOn(window.history, 'pushState').mockImplementationOnce(() => {
+        throw failure;
+      });
+      expect(() => navigate('/b')).toThrow(failure);
+      expect(container.textContent).toBe('B');
+      expect(second.container.textContent).toBe('B');
+      expect(window.location.pathname).toBe('/a');
+      navigate('/c');
+      await settle();
+      expect(container.textContent).toBe('C');
+      expect(second.container.textContent).toBe('C');
+      expect(window.location.pathname).toBe('/c');
+    } finally {
+      second.cleanup();
+    }
+  });
+
+  it('should preserve a navigation started synchronously from a destination ref', async () => {
+    let redirected = false;
+    route('/a', () => <p>A</p>);
+    route('/b', () => (
+      <p
+        ref={(element) => {
+          if (element && !redirected) {
+            redirected = true;
+            navigate('/c');
+          }
+        }}
+      >
+        B
+      </p>
+    ));
+    route('/c', () => <p>C</p>);
+    route('/d', () => <p>D</p>);
+    const second = createTestContainer();
+    try {
+      const registry = currentRouteRegistry();
+      await createSPA({ root: container, registry });
+      await createSPA({ root: second.container, registry });
+      await settle();
+
+      navigate('/b');
+      await settle();
+
+      expect(window.location.pathname).toBe('/c');
+      expect(container.textContent).toBe('C');
+      expect(second.container.textContent).toBe('C');
+
+      navigate('/d');
+      await settle();
+      expect(window.location.pathname).toBe('/d');
+      expect(container.textContent).toBe('D');
+      expect(second.container.textContent).toBe('D');
+    } finally {
+      second.cleanup();
+    }
+  });
+
+  it('should not publish to a root cleaned up by an earlier destination ref', async () => {
+    const second = createTestContainer();
+    let removed = false;
+    route('/a', () => <p>A</p>);
+    route('/b', () => (
+      <p
+        ref={(element) => {
+          if (element && !removed) {
+            removed = true;
+            cleanupApp(second.container);
+          }
+        }}
+      >
+        B
+      </p>
+    ));
+    try {
+      const registry = currentRouteRegistry();
+      await createSPA({ root: container, registry });
+      await createSPA({ root: second.container, registry });
+      await settle();
+
+      navigate('/b');
+      await settle();
+
+      expect(container.textContent).toBe('B');
+      expect(second.container.textContent).toBe('');
+    } finally {
+      cleanupApp(second.container);
+      second.cleanup();
+    }
+  });
+
+  it('should not let a stale navigation publish later roots after reentry', async () => {
+    const second = createTestContainer();
+    const third = createTestContainer();
+    let redirected = false;
+    route('/a', () => <p>A</p>);
+    route('/b', () => (
+      <p
+        ref={(element) => {
+          if (element && second.container.contains(element) && !redirected) {
+            redirected = true;
+            navigate('/c');
+          }
+        }}
+      >
+        B
+      </p>
+    ));
+    route('/c', () => <p>C</p>);
+    try {
+      const registry = currentRouteRegistry();
+      await createSPA({ root: container, registry });
+      await createSPA({ root: second.container, registry });
+      await createSPA({ root: third.container, registry });
+      await settle();
+
+      navigate('/b');
+      await settle();
+
+      expect(window.location.pathname).toBe('/c');
+      expect(container.textContent).toBe('C');
+      expect(second.container.textContent).toBe('C');
+      expect(third.container.textContent).toBe('C');
+    } finally {
+      second.cleanup();
+      third.cleanup();
+    }
+  });
+
+  it('should stop publishing stale destinations to later roots after first-root ref reentry', async () => {
+    const second = createTestContainer();
+    const third = createTestContainer();
+    let redirected = false;
+    let staleThirdRootMounts = 0;
+    route('/a', () => <p>A</p>);
+    route('/b', () => (
+      <p
+        ref={(element) => {
+          if (element && container.contains(element) && !redirected) {
+            redirected = true;
+            navigate('/c');
+          }
+          if (element && third.container.contains(element)) {
+            staleThirdRootMounts += 1;
+          }
+        }}
+      >
+        B
+      </p>
+    ));
+    route('/c', () => <p>C</p>);
+    try {
+      const registry = currentRouteRegistry();
+      await createSPA({ root: container, registry });
+      await createSPA({ root: second.container, registry });
+      await createSPA({ root: third.container, registry });
+      await settle();
+
+      navigate('/b');
+      await settle();
+
+      expect(staleThirdRootMounts).toBe(0);
+      expect(window.location.pathname).toBe('/c');
+      expect(container.textContent).toBe('C');
+      expect(second.container.textContent).toBe('C');
+      expect(third.container.textContent).toBe('C');
+    } finally {
+      second.cleanup();
+      third.cleanup();
+    }
+  });
+
+  it('should discard earlier prepared roots when a later root fails during render', async () => {
+    const second = createTestContainer();
+    let destinationRenders = 0;
+    let provisionalCleanups = 0;
+    const renderFailure = new Error('second destination render failed');
+    route('/a', () => <p>A</p>);
+    route('/b', () => {
+      destinationRenders += 1;
+      if (destinationRenders === 1) {
+        onDispose(currentOwner()!, () => {
+          provisionalCleanups += 1;
+        });
+        return <p>B</p>;
+      }
+      throw renderFailure;
+    });
+    try {
+      const registry = currentRouteRegistry();
+      await createSPA({ root: container, registry });
+      await createSPA({ root: second.container, registry });
+      await settle();
+
+      expect(() => navigate('/b')).toThrow(renderFailure);
+
+      expect(destinationRenders).toBe(2);
+      expect(provisionalCleanups).toBe(1);
+      expect(container.textContent).toBe('A');
+      expect(second.container.textContent).toBe('A');
+      expect(window.location.pathname).toBe('/a');
+    } finally {
+      second.cleanup();
+    }
+  });
+
   it('should finish navigating when the destination commit applied but a ref threw', async () => {
     const refFailure = new Error('ref failed');
     route('/a', () => <p>A</p>);
@@ -110,5 +332,95 @@ describe('navigation commit failures', () => {
     await settle();
     expect(container.textContent).toBe('B');
     expect(window.location.pathname).toBe('/b');
+  });
+
+  it('should preserve navigation started by provisional cleanup during rollback', async () => {
+    const second = createTestContainer();
+    const writeFailure = new Error('insert failed');
+    let redirected = false;
+    route('/a', () => <p>A</p>);
+    route('/b', () => {
+      onDispose(currentOwner()!, () => {
+        if (!redirected) {
+          redirected = true;
+          navigate('/c');
+        }
+      });
+      return <p>B</p>;
+    });
+    route('/c', () => <p>C</p>);
+    try {
+      const registry = currentRouteRegistry();
+      await createSPA({ root: container, registry });
+      await createSPA({ root: second.container, registry });
+      await settle();
+      failNextInsertInto(second.container, writeFailure);
+
+      expect(() => navigate('/b')).toThrow(writeFailure);
+      await settle();
+
+      expect(window.location.pathname).toBe('/c');
+      expect(container.textContent).toBe('C');
+      expect(second.container.textContent).toBe('C');
+    } finally {
+      second.cleanup();
+    }
+  });
+
+  it('should keep departing auth visible to DOM callbacks until all roots apply', async () => {
+    const second = createTestContainer();
+    const identity = (id: string) => ({
+      authenticated: true,
+      principal: { id, subject: id },
+      session: null,
+      tenant: null,
+      scopes: [],
+    });
+    const observed: (string | undefined)[] = [];
+    const tag = `askr-auth-observer-${Math.random().toString(36).slice(2)}`;
+    customElements.define(
+      tag,
+      class extends HTMLElement {
+        connectedCallback() {
+          observed.push(currentAuth().principal?.id);
+        }
+      }
+    );
+    const registry = createRouteRegistry(
+      () => {
+        route('/a', () => <p>A</p>);
+        route('/b', () => (
+          <>
+            <p>B</p>
+            <askr-auth-observer />
+          </>
+        ));
+      },
+      {
+        auth: {
+          resolve: ({ pathname }) =>
+            identity(pathname === '/a' ? 'alice' : 'bob'),
+        },
+      }
+    );
+    try {
+      await createSPA({ root: container, registry });
+      await createSPA({ root: second.container, registry });
+      await settle();
+      observed.length = 0;
+      const writeFailure = new Error('second root insert failed');
+      failNextInsertInto(second.container, writeFailure);
+
+      expect(() => navigate('/b')).toThrow(writeFailure);
+      vi.mocked(Element.prototype.insertBefore).mockRestore();
+      await settle();
+
+      expect(observed).not.toContain('bob');
+      expect(currentAuth().principal?.id).toBe('alice');
+      expect(container.textContent).toBe('A');
+      expect(second.container.textContent).toBe('A');
+    } finally {
+      second.cleanup();
+    }
   });
 });

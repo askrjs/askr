@@ -4,6 +4,7 @@ import type {
   RouteComponent,
   RouteDefinition,
 } from '../common/router';
+import type { RegistrationScope } from './internal-types';
 import { compileNodePolicies } from './access';
 import { snapshotAppMeta } from './app-meta';
 import {
@@ -56,6 +57,33 @@ export function resolveRouteRegistrationPath(path: string): string {
   return joinRoutePaths(prefix, path);
 }
 
+function scopeLoader(
+  options: GroupHelperOptions | PageHelperOptions
+): Pick<RegistrationScope, 'loader' | 'staleTimeMs'> {
+  if (options.loader !== undefined && typeof options.loader !== 'function') {
+    throw new TypeError('group()/page() loader must be a function.');
+  }
+  assertStaleTime(options.staleTimeMs);
+  return {
+    ...(options.loader ? { loader: options.loader } : {}),
+    ...(options.staleTimeMs !== undefined
+      ? { staleTimeMs: options.staleTimeMs }
+      : {}),
+  };
+}
+
+export function assertStaleTime(value: unknown): void {
+  if (
+    value !== undefined &&
+    value !== 'always' &&
+    (typeof value !== 'number' || !Number.isFinite(value) || value < 0)
+  ) {
+    throw new RangeError(
+      'staleTimeMs must be a finite non-negative number or "always".'
+    );
+  }
+}
+
 export function pushGroupScope(
   options: GroupHelperOptions,
   fn: RouteDefinition
@@ -71,6 +99,9 @@ export function pushGroupScope(
       policies,
       meta: options.meta,
       appMeta: snapshotAppMeta(options.appMeta),
+      error: options.error,
+      forbidden: options.forbidden,
+      ...scopeLoader(options),
     },
     fn
   );
@@ -101,6 +132,9 @@ export function pushPageScope(
       policies,
       meta: options.meta,
       appMeta: snapshotAppMeta(options.appMeta),
+      error: options.error,
+      forbidden: options.forbidden,
+      ...scopeLoader(options),
     },
     fn
   );

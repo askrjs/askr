@@ -104,6 +104,36 @@ describe('DefaultPortal isolation', () => {
     expect(rootB.textContent).toContain('portal-b');
   });
 
+  it('should keep a sibling portal reactive after another root is disposed', () => {
+    let update!: (value: string) => void;
+    function RootB() {
+      const label = state('before');
+      update = label.set;
+      return (
+        <Portal>
+          <div data-portal-owner="b">{label()}</div>
+        </Portal>
+      );
+    }
+    createIsland({
+      root: rootA,
+      component: () => (
+        <Portal>
+          <div>root a</div>
+        </Portal>
+      ),
+    });
+    createIsland({ root: rootB, component: RootB });
+    flushScheduler();
+    const portal = rootB.querySelector('[data-portal-owner="b"]');
+    expect(portal?.textContent).toBe('before');
+    cleanupA();
+    update('after');
+    flushScheduler();
+    expect(rootB.querySelector('[data-portal-owner="b"]')).toBe(portal);
+    expect(portal?.textContent).toBe('after');
+  });
+
   it('should not route an ambiguous imperative write into the last active root', () => {
     createIsland({
       root: rootA,

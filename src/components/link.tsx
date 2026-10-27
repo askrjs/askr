@@ -9,7 +9,12 @@ import type { RenderableChild } from '../common/vnode';
 import { navigateToPublicHref } from '../router/navigate';
 import type { RouteDestination } from '../common/router';
 import { applyInteractionPolicy } from '../foundations/interactions';
-import { mergeProps } from '../foundations/utilities';
+import {
+  composeHandlers,
+  composeRefs,
+  mergeProps,
+} from '../foundations/utilities';
+import { prefetchRoute } from '../router/route-prefetch';
 import { assertPathHrefStaysOnOrigin, isSafeHref } from '../common/url';
 import { addLogicalRouteBasePath } from '../router/base-path';
 import { getActiveRouteBasePath } from '../router/store';
@@ -54,6 +59,25 @@ type LinkBaseProps = Omit<
   'aria-label'?: string;
   onPress?: (event: Event) => void;
   onClick?: (event: MouseEvent) => void;
+  /** Replace the current history entry instead of pushing a new one. */
+  replace?: boolean;
+  /** Entry-local history state for the destination, as `navigate(href, { state })`. */
+  state?: unknown;
+  /** Scroll to the top (default) or keep the offset after the navigation. */
+  scroll?: 'top' | 'preserve';
+  /**
+   * Warm the destination before the visitor commits to it. `'intent'` does so
+   * on pointer enter and keyboard focus, `'render'` when the link mounts, and
+   * `'none'` (the default) never. Prefetching starts the route's lazy chunk and
+   * resolves it like a navigation (auth, policies, loaders through the loader
+   * cache) without rendering it.
+   */
+  prefetch?: 'intent' | 'render' | 'none';
+  /**
+   * Animate the page change with `document.startViewTransition()` when the
+   * browser has it, as `navigate(href, { viewTransition: true })`.
+   */
+  viewTransition?: boolean;
 };
 
 /** Props for {@link Link}: either a raw `href` or a typed route `to` destination. */
@@ -116,6 +140,11 @@ export function Link({
   'aria-label': ariaLabel,
   onPress,
   onClick,
+  replace,
+  state,
+  scroll,
+  prefetch = 'none',
+  viewTransition,
   ...rest
 }: LinkProps): JSXElement {
   // A typed destination already carries its public href; a raw href is logical.
@@ -161,14 +190,39 @@ export function Link({
     }
 
     event.preventDefault();
-    navigateToPublicHref(href);
+    navigateToPublicHref(href, {
+      ...(replace ? { replace: true } : {}),
+      ...(scroll ? { scroll } : {}),
+      ...(state !== undefined ? { state } : {}),
+      ...(viewTransition !== undefined ? { viewTransition } : {}),
+    });
   };
 
+  const warm = () => prefetchRoute(href);
+  const userProps = rest as Record<string, unknown>;
+  const intentHandlers =
+    prefetch === 'intent'
+      ? {
+          onPointerEnter: composeHandlers(
+            warm,
+            userProps.onPointerEnter as never
+          ),
+          onFocus: composeHandlers(warm, userProps.onFocus as never),
+        }
+      : {};
   const interaction = applyInteractionPolicy({
     isNative: true,
     disabled: false,
     onPress: handleNavigation,
-    ref: (rest as Record<string, unknown>).ref as never,
+    ref:
+      prefetch === 'render'
+        ? composeRefs(
+            userProps.ref as never,
+            ((element: Element | null) => {
+              if (element) queueMicrotask(warm);
+            }) as never
+          )
+        : (userProps.ref as never),
   });
   const consumerActivation = (e: Event) => {
     onPress?.(e);
@@ -177,6 +231,7 @@ export function Link({
 
   const props = mergeProps(interaction, {
     ...rest,
+    ...intentHandlers,
     onClick: consumerActivation,
     href,
     class: className,

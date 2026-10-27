@@ -4,6 +4,7 @@ import type {
   QueryPrefetchContext,
   ServerQueryHandler,
 } from './types';
+import { anyAbortSignal } from '../common/abort-signal';
 import {
   assertDataRuntimeActive,
   createDataRuntime,
@@ -103,7 +104,7 @@ export function createQueryPrefetchContext(
   if (runtimeState) assertDataRuntimeActive(runtimeState);
   const contextSignal = options.signal ?? new AbortController().signal;
   const signal = runtimeState
-    ? AbortSignal.any([contextSignal, runtimeState.retirement.signal])
+    ? anyAbortSignal([contextSignal, runtimeState.retirement.signal])
     : contextSignal;
   const storePrefetchedValue = (key: string, value: {}): boolean => {
     if (signal.aborted || runtimeState?.retired) return false;
@@ -133,6 +134,7 @@ export function createQueryPrefetchContext(
     async prefetch(query, input) {
       return withTelemetry(options.telemetry?.queryPrefetch, {}, async () => {
         if (runtimeState) assertDataRuntimeActive(runtimeState);
+        if (signal.aborted) return false;
         const key = query.key(input);
         // A live query cell already owns this key; its reader would ignore a
         // newly prefetched value.
@@ -165,6 +167,7 @@ export function createQueryPrefetchContext(
           new Map<string, InflightPrefetch>();
         for (;;) {
           if (runtimeState) assertDataRuntimeActive(runtimeState);
+          if (signal.aborted) return false;
           let pending = inflight.get(key);
           // Join a running fetch for this key unless its own caller already
           // cancelled it while this caller is still live.
@@ -187,21 +190,40 @@ export function createQueryPrefetchContext(
           }
           const current = pending!;
           current.waiters += 1;
+          let ownerFetchFailed = false;
+          let ownerFetchFailure: unknown;
+          const ownerPromise = joined
+            ? current.promise
+            : current.promise.catch((error: unknown) => {
+                ownerFetchFailed = true;
+                ownerFetchFailure = error;
+                throw error;
+              });
           try {
             let value: {};
             try {
-              // A joiner honours its own signal, and restarts when the
+              // A joiner honours its own signal and restarts when the
               // starting caller aborts, even if the fetch never settles.
               value = await (joined
                 ? raceAbort(current.promise, [signal, current.signal])
                 : runtimeState
-                  ? raceAbort(current.promise, [runtimeState.retirement.signal])
-                  : current.promise);
+                  ? raceAbort(
+                      ownerPromise,
+                      [signal, runtimeState.retirement.signal],
+                      true
+                    )
+                  : raceAbort(ownerPromise, [signal], true));
             } catch (error) {
               if (runtimeState) assertDataRuntimeActive(runtimeState);
               // A fetch cancelled by its starting caller does not fail a
               // still-live joiner; it starts a replacement.
               if (current.signal.aborted && !signal.aborted) continue;
+              // A started prefetch has no remaining result to publish once
+              // its own caller cancels, even if the fetch ignores abort.
+              if (!joined && signal.aborted) {
+                if (ownerFetchFailed) throw ownerFetchFailure;
+                return false;
+              }
               throw error;
             }
             // An invalidation since the fetch started makes its result

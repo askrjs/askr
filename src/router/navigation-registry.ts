@@ -103,6 +103,10 @@ export function getRegisteredAppsSnapshot(): AppRegistration[] {
   return [...registeredApps];
 }
 
+export function isCurrentAppRegistration(app: AppRegistration): boolean {
+  return registeredApps.includes(app);
+}
+
 export function hasRegisteredApps(): boolean {
   return registeredApps.length > 0;
 }

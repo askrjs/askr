@@ -17,7 +17,7 @@ import type { RouteComponent } from '../../../src/router';
 function setGlobalWindow(path: string) {
   (global as unknown as { window?: Window }).window = {
     location: { pathname: path, search: '', hash: '' } as Location,
-    history: { pushState() {} } as unknown as History,
+    history: { pushState() {}, replaceState() {} } as unknown as History,
     addEventListener() {},
     removeEventListener() {},
   } as unknown as Window;

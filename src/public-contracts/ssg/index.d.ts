@@ -10,6 +10,7 @@ import {
   RoutePolicy,
 } from '../core.js';
 import { AuthRequirement } from '../peer-types.js';
+import type { ServerQueryRegistry } from '../core.js';
 /** Whether an SSG run rebuilds every route (`full`) or only changed ones (`incremental`). */
 type SSGMode = 'full' | 'incremental';
 /** Outcome of generating a single route's static HTML. */
@@ -88,6 +89,8 @@ interface SSGBaseOptions {
   concurrency?: number;
   /** Preferred render parallelism. `'auto'` resolves from the host machine. */
   parallelism?: number | 'auto';
+  /** Server query handlers that route `preload` prefetches run against. */
+  queryRegistry?: ServerQueryRegistry;
 }
 /** A static file or directory to copy alongside generated routes. */
 interface SSGAssetSource {

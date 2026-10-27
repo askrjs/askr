@@ -2,6 +2,7 @@
 import type { Props } from '../../common/props';
 import { isSkippedProp } from '../../common/prop-classification';
 import { recordUndo } from '../component/journal';
+import { sameInnerHTMLPayload } from './prop-value-html';
 import { parseEventProp } from './events';
 import { CommitMutationError, type Pass } from './pass';
 import {
@@ -35,6 +36,16 @@ import { recordSelectUndo } from './prop-select';
 export { attachRef, releaseProps } from './prop-lifecycle';
 export { restoreElementChildren } from './prop-transaction';
 export { recordSelectUndo, enclosingSelect, resyncSelect } from './prop-select';
+
+function queueSelectUndo(pass: Pass, node: HostNode): void {
+  pass.op(() => {
+    try {
+      recordSelectUndo(pass, node);
+    } catch (error) {
+      throw new CommitMutationError(error);
+    }
+  });
+}
 
 /**
  * Write props to an element that has no committed props yet: a new, detached
@@ -94,7 +105,7 @@ export function applyInitialProps(
         // releases it, or the delegation outlives every element using it.
         recordUndo(() => setHandler(node, key, undefined));
       }
-    } else if (isBinding(key, value)) {
+    } else if (isBinding(key, value, node.tag)) {
       flushScalars();
       if (!followsChildren(node.tag, key)) {
         bind(pass, node, key, value, undefined, !adopted);
@@ -114,7 +125,7 @@ export function applyTrailingProps(
   adopted = false
 ): void {
   if (node.tag !== 'select' || !('value' in props)) return;
-  if (initial && adopted) pass.op(() => recordSelectUndo(pass, node));
+  if (initial && adopted) queueSelectUndo(pass, node);
   if (typeof props.value === 'function') {
     if (initial)
       bind(
@@ -143,6 +154,54 @@ export function applyTrailingProps(
   }
 }
 
+/**
+ * Props whose DOM state can change without the renderer: form control state,
+ * and `prop:` writes (hydration removes the attribute a reflected property
+ * adds, so the property is written again on the next update).
+ */
+function isLiveFormProp(key: string): boolean {
+  return (
+    key === 'value' ||
+    key === 'checked' ||
+    key === 'selected' ||
+    // Properties the user or the browser changes on their own.
+    key === 'indeterminate' ||
+    key === 'muted' ||
+    key === 'open' ||
+    key.startsWith('prop:')
+  );
+}
+
+/** Whether `value` renders exactly what `old` rendered. */
+function sameAppliedValue(key: string, value: unknown, old: unknown): boolean {
+  if (Object.is(value, old)) return true;
+  if (key === 'dangerouslySetInnerHTML')
+    return sameInnerHTMLPayload(value, old);
+  if (
+    key === 'style' &&
+    typeof value === 'object' &&
+    typeof old === 'object' &&
+    value !== null &&
+    old !== null &&
+    !Array.isArray(value) &&
+    !Array.isArray(old)
+  ) {
+    return shallowEqual(value as object, old as object);
+  }
+  return false;
+}
+
+function shallowEqual(a: object, b: object): boolean {
+  let count = 0;
+  for (const name in a) {
+    if (!Object.is((a as never)[name], (b as never)[name])) return false;
+    if (!(name in b)) return false;
+    count++;
+  }
+  for (const _ in b) count--;
+  return count === 0;
+}
+
 /** Record the writes that turn `previous` into `next` on a committed element. */
 export function patchProps(
   pass: Pass,
@@ -154,14 +213,14 @@ export function patchProps(
   for (const key in previous) {
     if (key in next || isSkippedProp(key)) continue;
     if (followsChildren(tag, key)) {
-      pass.op(() => recordSelectUndo(pass, node));
+      queueSelectUndo(pass, node);
     }
     const old = previous[key];
     if (parseEventProp(key)) {
       setHandlerForCommit(pass, node, key, undefined, old);
-    } else if (!isBinding(key, old) && isInputValue(tag, key)) {
+    } else if (!isBinding(key, old, tag) && isInputValue(tag, key)) {
       writeInputValue(pass, node, undefined, old);
-    } else if (!isBinding(key, old) && isBooleanControl(tag, key)) {
+    } else if (!isBinding(key, old, tag) && isBooleanControl(tag, key)) {
       writeBooleanControl(
         pass,
         node,
@@ -169,16 +228,22 @@ export function patchProps(
         undefined,
         old
       );
-    } else if (!isBinding(key, old) && isSimpleAttribute(tag, key, undefined)) {
+    } else if (
+      !isBinding(key, old, tag) &&
+      isSimpleAttribute(tag, key, undefined)
+    ) {
       writeSimpleAttribute(pass, node, key, undefined, old);
     } else if (
-      !isBinding(key, old) &&
+      !isBinding(key, old, tag) &&
       (key === 'class' || key === 'className' || key === 'style')
     ) {
       writeReflectedProp(pass, node, key, () =>
         applyScalarPropValue(el, key, undefined, tag, old)
       );
-    } else if (isBinding(key, old) && isSimpleAttribute(tag, key, undefined)) {
+    } else if (
+      isBinding(key, old, tag) &&
+      isSimpleAttribute(tag, key, undefined)
+    ) {
       const binding = node.bindings?.get(key);
       writeSimpleAttribute(
         pass,
@@ -189,7 +254,7 @@ export function patchProps(
         () => retireBindingForCommit(pass, node, key)
       );
     } else if (
-      isBinding(key, old) &&
+      isBinding(key, old, tag) &&
       (key === 'class' || key === 'className' || key === 'style')
     ) {
       const binding = node.bindings?.get(key);
@@ -204,7 +269,7 @@ export function patchProps(
     } else {
       queueScalarProp(pass, node, key, undefined, () => {
         const binding = retireBindingForCommit(pass, node, key);
-        const from = isBinding(key, old) ? lastApplied(binding) : old;
+        const from = isBinding(key, old, tag) ? lastApplied(binding) : old;
         try {
           applyScalarPropValue(el, key, undefined, tag, from);
         } catch (error) {
@@ -218,7 +283,7 @@ export function patchProps(
   for (const key in next) {
     if (isSkippedProp(key)) continue;
     if (followsChildren(tag, key)) {
-      pass.op(() => recordSelectUndo(pass, node));
+      queueSelectUndo(pass, node);
     }
     const value = next[key];
     const old = previous[key];
@@ -228,7 +293,7 @@ export function patchProps(
       }
       continue;
     }
-    if (isBinding(key, value)) {
+    if (isBinding(key, value, node.tag)) {
       if (value === old && node.bindings?.has(key)) continue;
       const replaced = node.bindings?.get(key);
       const from = replaced ? lastApplied(replaced) : old;
@@ -236,7 +301,7 @@ export function patchProps(
       bind(pass, node, key, value, from, false);
       continue;
     }
-    if (isBinding(key, old)) {
+    if (isBinding(key, old, tag)) {
       const binding = node.bindings?.get(key);
       const from = lastApplied(binding);
       if (isSimpleAttribute(tag, key, value)) {
@@ -259,9 +324,10 @@ export function patchProps(
       }
       continue;
     }
-    // A host may change a rendered value between passes. The scalar writer
-    // compares against the live DOM and leaves equal values untouched.
-    if (Object.is(value, old) && key === 'dangerouslySetInnerHTML') continue;
+    // A value equal to the one last applied needs no DOM read or write. Form
+    // control state is the exception: the user changes it without the
+    // renderer's involvement, so the writer verifies it against the live DOM.
+    if (!isLiveFormProp(key) && sameAppliedValue(key, value, old)) continue;
     if (isInputValue(tag, key)) {
       writeInputValue(pass, node, value, old);
     } else if (isBooleanControl(tag, key)) {

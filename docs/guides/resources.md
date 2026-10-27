@@ -129,7 +129,8 @@ and latest-value lifecycle state; it does not infer replay or retry semantics.
 SSR and SSG render the initial value, when supplied, without opening the source.
 After a stream completes or errors, a committed source change starts a new
 connection. Calling `close()` keeps it closed across source changes until
-`restart()` is called.
+`restart()` is called. If an iterator's `next` accessor restarts or closes the
+stream, the superseded generation does not invoke the method it returned.
 
 ## SSR with preloaded data
 
@@ -166,9 +167,14 @@ the deferred component reads its preloaded value when it activates.
 
 ## Combining resources with `derive()`
 
-A resource snapshot is not a `ReadableSource`. Reading `user.value` inside
-`derive(() => ...)` does not create a fine-grained dependency on the resource;
-updates still arrive when `resource()` schedules a component re-render.
+The fields of a resource snapshot (`value`, `pending`, `error`) are reactive per
+field. Reading `user.value` inside `derive(() => ...)`, a render, or a binding
+subscribes that computation to the field alone. A child component that is handed
+the snapshot and reads `snapshot.value` re-renders on its own when the value
+changes, and does not re-render when only `pending` or `error` change. The same
+holds for `stream()` snapshots (`value`, `status`, `pending`, `stale`, `error`).
+The component that declares the resource no longer re-renders for a result it
+does not read.
 
 Prefer the snapshot form when mapping resolved data:
 

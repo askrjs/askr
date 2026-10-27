@@ -242,6 +242,23 @@ export function applyNavigationScroll(
   scrollToPosition({ x: 0, y: 0 });
 }
 
+/** Whether a history entry carries, or the router saved, a scroll offset. */
+export function hasSavedScrollPosition(
+  href: string,
+  state: PopStateEvent['state']
+): boolean {
+  const fromState =
+    state && typeof state === 'object' && 'scroll' in state
+      ? (state.scroll as { x?: unknown; y?: unknown })
+      : undefined;
+  return (
+    (fromState !== undefined &&
+      typeof fromState.x === 'number' &&
+      typeof fromState.y === 'number') ||
+    scrollPositions.has(href)
+  );
+}
+
 export function applyHistoryScroll(
   href: string,
   state: PopStateEvent['state']

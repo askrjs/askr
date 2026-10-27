@@ -27,7 +27,10 @@ import {
 // Minimal testing window type helpers to avoid `any` casts
 type TestWindow = {
   location: { pathname: string; search?: string; hash?: string };
-  history: { pushState(...args: unknown[]): void };
+  history: {
+    pushState(...args: unknown[]): void;
+    replaceState(...args: unknown[]): void;
+  };
   addEventListener: (...args: unknown[]) => void;
   removeEventListener: (...args: unknown[]) => void;
 };
@@ -42,7 +45,7 @@ function updateGlobalPath(path: string) {
   else
     setGlobalWindow({
       location: { pathname: path },
-      history: { pushState() {} },
+      history: { pushState() {}, replaceState() {} },
       addEventListener() {},
       removeEventListener() {},
     });
@@ -89,7 +92,7 @@ describe('route accessor (public)', () => {
     // Provide a minimal window object expected by initializeNavigation
     setGlobalWindow({
       location: { pathname: '/', search: '', hash: '' },
-      history: { pushState() {} },
+      history: { pushState() {}, replaceState() {} },
       addEventListener() {},
       removeEventListener() {},
     });
@@ -134,7 +137,7 @@ describe('route accessor (public)', () => {
     // Provide a minimal window object expected by initializeNavigation
     setGlobalWindow({
       location: { pathname: '/home', search: '', hash: '' },
-      history: { pushState() {} },
+      history: { pushState() {}, replaceState() {} },
       addEventListener() {},
       removeEventListener() {},
     });
@@ -180,7 +183,7 @@ describe('route accessor (public)', () => {
     // Hydrate on client with same location
     setGlobalWindow({
       location: { pathname: '/items/99', search: '?q=abc', hash: '#frag' },
-      history: { pushState() {} },
+      history: { pushState() {}, replaceState() {} },
       addEventListener() {},
       removeEventListener() {},
     });
@@ -237,7 +240,7 @@ describe('route accessor (public)', () => {
 
     setGlobalWindow({
       location: { pathname: '/', search: '', hash: '' },
-      history: { pushState() {} },
+      history: { pushState() {}, replaceState() {} },
       addEventListener() {},
       removeEventListener() {},
     });
@@ -294,7 +297,7 @@ describe('route accessor (public)', () => {
 
     setGlobalWindow({
       location: { pathname: '/', search: '', hash: '' },
-      history: { pushState() {} },
+      history: { pushState() {}, replaceState() {} },
       addEventListener() {},
       removeEventListener() {},
     });
@@ -345,7 +348,7 @@ describe('route accessor (public)', () => {
 
     setGlobalWindow({
       location: { pathname: '/', search: '', hash: '' },
-      history: { pushState() {} },
+      history: { pushState() {}, replaceState() {} },
       addEventListener() {},
       removeEventListener() {},
     });
@@ -382,7 +385,7 @@ describe('route accessor (public)', () => {
 
     setGlobalWindow({
       location: { pathname: '/', search: '', hash: '' },
-      history: { pushState() {} },
+      history: { pushState() {}, replaceState() {} },
       addEventListener() {},
       removeEventListener() {},
     });

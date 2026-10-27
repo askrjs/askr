@@ -10,6 +10,7 @@ import {
   claimHookIndex,
   currentAppRuntime as getCurrentAppRenderRuntime,
   currentComponent as getCurrentComponentInstance,
+  onRenderDiscard,
   readSource as recordReadableRead,
 } from '../core/api/hooks';
 import { schedule, type Job } from '../core/reactive/scheduler';
@@ -143,6 +144,9 @@ export class QueryCell<T> {
   define(options: QueryCellOptions<T>, owner: object, hookIndex: number): void {
     this.lifetime.define(options, owner, hookIndex);
   }
+  captureRenderState(owner: object, hookIndex: number): () => void {
+    return this.lifetime.captureRenderState(owner, hookIndex);
+  }
   warnOnConflictingDefinition(options: QueryCellOptions<T>): void {
     this.lifetime.warnOnConflictingDefinition(options);
   }
@@ -154,6 +158,11 @@ export class QueryCell<T> {
   }
   private destroy(): void {
     this.lifetime.destroy();
+  }
+
+  /** @internal Retire a cell created only by a render that was discarded. */
+  discardIfUnowned(): void {
+    if (this.ownerCount === 0) this.destroy();
   }
 
   /** Revoke queued/running work before the lifetime retains its cached snapshot. */
@@ -430,7 +439,22 @@ export class QueryCell<T> {
 
     // An in-flight fetch keeps the definition it started with, even if the
     // owning reader re-renders with new callbacks before it settles.
-    const { fetch, isConsistent: checkConsistent, reconcile } = this.options;
+    let fetch: QueryCellOptions<T>['fetch'];
+    let checkConsistent: QueryCellOptions<T>['isConsistent'];
+    let reconcile: QueryCellOptions<T>['reconcile'];
+    try {
+      ({ fetch, isConsistent: checkConsistent, reconcile } = this.options);
+    } catch (error) {
+      if (!this.isCurrent(operation)) return;
+      this.setState(
+        errorQueryState(
+          this.state.data,
+          normalizeAsyncDataError(error, 'Query options resolution failed')
+        ),
+        operation
+      );
+      return;
+    }
     let nextData: T;
     try {
       nextData = await fetch({ signal: controller.signal });
@@ -557,18 +581,21 @@ export class QueryCell<T> {
 
 function createCell<T>(
   options: QueryCellOptions<T>,
-  runtimeState: DataRuntimeState
+  runtimeState: DataRuntimeState,
+  start = true,
+  consumeInitialData = true
 ): QueryCell<T> {
   const cache = runtimeState.queryCache;
   const cellOptions = options.takeInitialData
     ? {
         ...options,
-        initialData: options.takeInitialData() ?? options.initialData,
+        initialData:
+          options.takeInitialData(consumeInitialData) ?? options.initialData,
       }
     : options;
   const cell = new QueryCell(cellOptions, options.key, cache, runtimeState);
   cache.set(options.key, cell as QueryCell<unknown>);
-  cell.ensureStarted();
+  if (start) cell.ensureStarted();
   return cell;
 }
 
@@ -612,27 +639,68 @@ function createLegacyQuery<T extends {}>(
   const slotStore = getQuerySlotStore(runtimeState, instance);
   const existingSlot = slotStore.get(hookIndex);
   if (existingSlot && existingSlot.key === options.key) {
-    (existingSlot.cell as QueryCell<T>).define(options, generation, hookIndex);
+    instance.onCommitSync(() => {
+      if (instance.disposed || slotStore.get(hookIndex) !== existingSlot)
+        return;
+      (existingSlot.cell as QueryCell<T>).define(
+        options,
+        generation,
+        hookIndex
+      );
+    });
     return existingSlot.cell as unknown as Query<T>;
   }
 
-  if (existingSlot) {
-    existingSlot.cell.detach(generation, hookIndex);
+  if (override) {
+    if (existingSlot) {
+      instance.onCommitSync(() => {
+        if (instance.disposed || slotStore.get(hookIndex) !== existingSlot)
+          return;
+        slotStore.delete(hookIndex);
+        existingSlot.cell.detach(generation, hookIndex);
+      });
+    }
+    return override;
   }
 
-  if (override) return override;
+  let cell = cache.get(options.key) as QueryCell<T> | undefined;
+  const createdCell = !cell;
+  if (!cell) cell = createCell(options, runtimeState, false, false);
 
-  const cell =
-    (cache.get(options.key) as QueryCell<T> | undefined) ??
-    createCell(options, runtimeState);
-
-  slotStore.set(hookIndex, {
+  const nextSlot = {
     key: options.key,
     cell: cell as QueryCell<unknown>,
-  });
+  };
+  const rollbackCellRender = cell.captureRenderState(generation, hookIndex);
+  slotStore.set(hookIndex, nextSlot);
   cell.attach(generation, hookIndex);
   cell.define(options, generation, hookIndex);
-  cell.ensureStarted();
+  onRenderDiscard(() => {
+    if (slotStore.get(hookIndex) === nextSlot) {
+      if (existingSlot) slotStore.set(hookIndex, existingSlot);
+      else slotStore.delete(hookIndex);
+    }
+    rollbackCellRender();
+    if (createdCell) cell!.discardIfUnowned();
+  });
+  if (existingSlot) {
+    instance.onCommitSync(() => {
+      if (instance.disposed || slotStore.get(hookIndex) !== nextSlot) return;
+      cell!.ensureStarted();
+      existingSlot.cell.detach(generation, hookIndex);
+    });
+  } else {
+    instance.onCommitSync(() => {
+      if (instance.disposed || slotStore.get(hookIndex) !== nextSlot) return;
+      cell!.ensureStarted();
+    });
+  }
+  if (createdCell && options.takeInitialData) {
+    instance.onCommitSync(() => {
+      if (instance.disposed || slotStore.get(hookIndex) !== nextSlot) return;
+      options.takeInitialData?.(true);
+    });
+  }
   return cell as unknown as Query<T>;
 }
 
@@ -660,8 +728,10 @@ export function createDefinedQuery<TInput, TResult extends {}>(
     isConsistent: definition.isConsistent,
     reconcile: definition.reconcile,
     // Server renders read without consuming so the data can be dehydrated.
-    takeInitialData: () =>
-      readQueryData(runtimeState, key, !serverRender) as TResult | undefined,
+    takeInitialData: (consume = true) =>
+      readQueryData(runtimeState, key, consume && !serverRender) as
+        | TResult
+        | undefined,
     skipInitialFetch: serverRender || options.skipInitialFetch === true,
     runtime: dataRuntime,
   });

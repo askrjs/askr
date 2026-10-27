@@ -60,6 +60,8 @@ export interface ActiveRenderContext {
   keyCounter: number;
   renderData: PageRenderEnvelope | null;
   hydrationData: PageRenderEnvelope | null;
+  /** Group/page loader results by loader function, bound by the route handler. */
+  layoutData?: ReadonlyMap<unknown, unknown>;
   deferredBoundaries: DeferredBoundaryRegistration[];
   ssrStyles: Map<string, SSRStyleRegistration>;
   ssrPortals: SSRPortalState;
@@ -138,13 +140,6 @@ export function registerSSRStyle(id: string, cssText: string): void {
 export function getCurrentRenderData(): PageRenderEnvelope | null {
   const ctx = getActiveRenderContext();
   return ctx?.renderData ?? hydrationRenderData;
-}
-
-export function resetRenderKeyCounter(): void {
-  const ctx = getActiveRenderContext();
-  if (ctx) {
-    ctx.keyCounter = 0;
-  }
 }
 
 export function getNextRenderKey(): string {

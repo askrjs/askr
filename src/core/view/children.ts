@@ -9,8 +9,18 @@
  */
 
 import type { ComponentFunction } from '../../common/component';
-import { STATIC_CHILDREN, isFragmentType } from '../../common/jsx';
+import {
+  ELEMENT_TYPE,
+  STATIC_CHILDREN,
+  isFragmentType,
+} from '../../common/jsx';
+import { warnOncePerObject } from '../../common/dev-warnings';
 import type { Props } from '../../common/props';
+
+declare const __ASKR_DEVELOPMENT_BUILD__: boolean;
+
+/** Values already reported as unrenderable children. */
+const warnedChildren = new WeakSet<object>();
 
 export const ELEMENT = 0;
 export const TEXT = 1;
@@ -50,6 +60,7 @@ export type ChildDescriptor =
 export const OWNED_TYPE = Symbol.for('askr.core.owned');
 
 interface ElementLike {
+  $$typeof?: unknown;
   type?: unknown;
   props?: Props | null;
   key?: unknown;
@@ -148,22 +159,41 @@ export function normalizeChildren(
   if (isHostNode(value)) {
     // Imperative nodes are not JSX children. A boundary fallback wraps the
     // node explicitly so it can still be adopted at its own position.
+    if (__ASKR_DEVELOPMENT_BUILD__) {
+      warnOncePerObject(
+        warnedChildren,
+        value,
+        '[Askr] A DOM node was passed as a child and is not rendered. Attach it from a ref callback instead.'
+      );
+    }
     return out;
   }
 
   const vnode = value as ElementLike;
-  const type = vnode.type;
-  if (type === undefined) {
+  if (vnode.$$typeof !== ELEMENT_TYPE) {
     if (Symbol.iterator in (value as object)) {
       for (const item of value as Iterable<unknown>) {
         normalizeChildren(item, out);
       }
       return out;
     }
-    // Plain data objects have no visual representation. A surrounding array
-    // can still contain renderable siblings after one of these values.
+    // Only JSX runtime output is an element. Plain data objects, including
+    // JSON that happens to carry a `type` field, have no visual
+    // representation. A surrounding array can still contain renderable
+    // siblings after one of these values.
+    if (
+      __ASKR_DEVELOPMENT_BUILD__ &&
+      typeof (value as { then?: unknown }).then === 'function'
+    ) {
+      warnOncePerObject(
+        warnedChildren,
+        value as object,
+        '[Askr] A Promise was passed as a child and is not rendered. Read its value with resource() and render the result.'
+      );
+    }
     return out;
   }
+  const type = vnode.type;
 
   const key = keyOf(vnode);
   if (typeof type === 'string') {

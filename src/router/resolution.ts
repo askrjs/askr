@@ -4,7 +4,11 @@ import type {
   RouteAuthOptions,
   RouteDestination,
   RouteContext,
+  RouteMetaContext,
   RouteHandler,
+  RouteOptions,
+  RouteScopeLoader,
+  RouteStaleTime,
   RoutePolicy,
   RouteRecord,
   RouteRenderResult,
@@ -13,20 +17,37 @@ import type {
 } from '../common/router';
 import { isPromiseLike } from '../common/promise';
 import { getActiveRenderContext } from '../common/render-context';
-import { replacePageRoute } from '../common/page-render-envelope';
+import {
+  pageRenderEnvelope,
+  replacePageRoute,
+} from '../common/page-render-envelope';
 import type { CoreTelemetry } from '../common/telemetry';
 import { withTelemetry } from '../common/telemetry';
 import { createQueryPrefetchContext } from '../data/query-registry';
 import type { DataRuntime } from '../data/types';
-import { buildRouteContext, buildRouteContextBase } from './route-context';
+import {
+  buildRouteContext,
+  buildRouteContextBase,
+  parseLocation,
+} from './route-context';
+import { emptyRouteSearch, parseRouteSearch } from './route-search';
 import { getRenderHandler } from './rendering';
 import { getMatchingRouteRecord } from './route-matching';
 import { getActiveRouteAuthOptions } from './store';
 import { setCurrentAuth, unresolvedAuth } from './auth';
-import { _preloadRouteRecord } from './lazy';
+import { _preloadRouteRecord, _routeRecordLoadFailure } from './lazy';
+import {
+  loadThroughCache,
+  routeLoaderKey,
+  seedLoaderCache,
+  type CachedLoad,
+} from './route-loader-cache';
+import type { InternalRouteRecord } from './internal-types';
 import {
   prepareRouteHydrationData,
   ROUTE_HYDRATION_METADATA,
+  ROUTE_LAYOUT_DATA,
+  validateRouteHydrationData,
   withoutRouteHydrationMetadata,
   type PreparedRouteHydrationData,
 } from './route-hydration';
@@ -40,17 +61,87 @@ import { formatNavigationUrl, resolveNavigationUrl } from '../common/url';
 import { normalizeRouteBasePath, removeRouteBasePath } from './base-path';
 import { getSessionAuthState } from './session-auth-state';
 import { RouteDataLoadError } from './route-data-loader';
+import { canonicalPathRedirect } from './path-canonical';
+import {
+  createRouteErrorHandler,
+  markDeniedRoute,
+  markRouteErrorResult,
+  publicRouteError,
+  routeErrorComponent,
+  routeForbiddenComponent,
+} from './route-error';
 import { loadDocument } from './document-navigation';
+import { reloadForStaleDeployment } from './stale-deployment';
+import { isAbortError } from './route-data-loader';
 
 export { resolveRoute } from './route-matching';
 
+function isAbortLikeError(error: unknown): boolean {
+  return isAbortError(error);
+}
+
+function rememberResolvedAuth(
+  result: RouteRequestResult | PromiseLike<RouteRequestResult>,
+  auth: AuthContext
+): void {
+  if (isPromiseLike(result)) {
+    void Promise.resolve(result).then(
+      (settled) => rememberResolvedAuth(settled, auth),
+      () => undefined
+    );
+    return;
+  }
+  if (result && typeof result === 'object' && result.kind !== 'render') {
+    resolvedAuthContexts.set(result, auth);
+  }
+}
+
 const routeRenderContexts = new WeakMap<object, RouteContext>();
 const routeRenderData = new WeakMap<object, unknown>();
+const routeLayoutData = new WeakMap<object, ReadonlyMap<unknown, unknown>>();
+/**
+ * Group/page loader results that did load before another loader failed,
+ * keyed by that failure, so the error component renders inside layouts that
+ * have their data.
+ */
+const partialLayoutData = new WeakMap<object, BoundLayoutData>();
+const routeRevalidations = new WeakMap<object, Promise<unknown[]>>();
+const routeRevalidationCurrent = new WeakMap<object, () => boolean>();
 
 export function getRouteRenderContext(
   result: RouteRenderResult
 ): RouteContext | undefined {
   return routeRenderContexts.get(result);
+}
+
+/**
+ * Make the identity a client navigation resolved the browser's current one.
+ * Called by the navigation commit boundary and at initial mount, so a
+ * pending, failed or superseded navigation never changes what the rendered
+ * page reads from `currentAuth()`.
+ */
+export function publishResolvedAuth(result: RouteRequestResult): void {
+  if (!result || typeof result !== 'object') return;
+  const auth =
+    (result.kind === 'render'
+      ? routeRenderContexts.get(result)?.auth
+      : undefined) ?? resolvedAuthContexts.get(result);
+  if (auth) setCurrentAuth(auth, 'spa');
+}
+
+/** The identity each browser resolution produced, for denials and redirects. */
+const resolvedAuthContexts = new WeakMap<object, AuthContext>();
+
+/** The context metadata sources receive: the route context plus loader data. */
+export function getRouteMetaContext(
+  result: RouteRenderResult
+): RouteMetaContext | undefined {
+  const context = routeRenderContexts.get(result);
+  if (!context) return undefined;
+  const full = withSearchParams(context);
+  return routeRenderData.has(result)
+    ? { ...full, data: routeRenderData.get(result) }
+    : full;
 }
 
 export function getRouteRenderData(result: RouteRenderResult): unknown {
@@ -90,80 +181,245 @@ function withoutInitialRouteHydrationMetadata(
   );
 }
 
+/** Group/page loader results bound to one route render. */
+export interface BoundLayoutData {
+  readonly values: ReadonlyMap<unknown, unknown>;
+  /** JSON transport array aligned with the record's loader chain (SSR only). */
+  readonly hydration?: readonly unknown[];
+}
+
 /** @internal Bind resolved loader output to one route subtree and its hydration envelope. */
 export function bindResolvedRouteData(
   handler: RouteHandler,
   data: unknown,
-  hydration?: PreparedRouteHydrationData
+  hydration?: PreparedRouteHydrationData,
+  layout?: BoundLayoutData,
+  hasLeafData = true
 ): RouteHandler {
   return (params, context) => {
     const renderContext = getActiveRenderContext();
     if (renderContext) {
-      const envelope = replacePageRoute(renderContext.renderData, data);
-      renderContext.renderData = hydration
-        ? envelope
-        : withoutInitialRouteHydrationMetadata(envelope);
-      const hydrationEnvelope = replacePageRoute(
-        renderContext.hydrationData,
-        hydration?.data ?? data
-      );
-      renderContext.hydrationData = hydration
-        ? withPageFramework(hydrationEnvelope, {
-            ...hydrationEnvelope.framework,
-            [ROUTE_HYDRATION_METADATA]: hydration.metadata,
-          })
-        : withoutInitialRouteHydrationMetadata(hydrationEnvelope);
+      if (hasLeafData) {
+        const envelope = replacePageRoute(renderContext.renderData, data);
+        renderContext.renderData = hydration
+          ? envelope
+          : withoutInitialRouteHydrationMetadata(envelope);
+        const hydrationEnvelope = replacePageRoute(
+          renderContext.hydrationData,
+          hydration?.data ?? data
+        );
+        renderContext.hydrationData = hydration
+          ? withPageFramework(hydrationEnvelope, {
+              ...hydrationEnvelope.framework,
+              [ROUTE_HYDRATION_METADATA]: hydration.metadata,
+            })
+          : withoutInitialRouteHydrationMetadata(hydrationEnvelope);
+      }
+      if (layout) {
+        renderContext.layoutData = layout.values;
+        if (layout.hydration) {
+          const current = pageRenderEnvelope(renderContext.hydrationData);
+          renderContext.hydrationData = withPageFramework(current, {
+            ...current.framework,
+            [ROUTE_LAYOUT_DATA]: layout.hydration,
+          });
+        }
+      }
     }
     return handler(params, context);
   };
+}
+
+/** Group/page loader results of a resolved render, keyed by loader function. */
+export function getRouteLayoutData(
+  result: RouteRenderResult
+): ReadonlyMap<unknown, unknown> | undefined {
+  return routeLayoutData.get(result);
+}
+
+/**
+ * Insert the loader data hydration adopted into the loader cache, under the
+ * keys a client resolution of the same location computes, so returning to the
+ * first page does not run its loaders again. A leaf that declares
+ * `dehydrate()` is skipped: the page holds only part of its data.
+ */
+export function seedRouteLoaderCache(
+  result: RouteRenderResult,
+  runtime: DataRuntime,
+  adopted: {
+    leaf?: { readonly value: unknown };
+    layout?: ReadonlyMap<unknown, unknown>;
+    /** When the server ran the loaders; the data is that old, not new. */
+    completedAt?: number;
+  }
+): void {
+  const record = result.record;
+  const context = routeRenderContexts.get(result);
+  if (!record || !context) return;
+  const keyFor = (slot: string) =>
+    routeLoaderKey(record, record.path, result.params, context.search, slot);
+  // A clock ahead of the browser's must not make the data count as fresh
+  // for longer than `staleTimeMs`.
+  const now = Date.now();
+  const completedAt = Math.min(adopted.completedAt ?? now, now);
+  const chain = (record as InternalRouteRecord).loaderChain ?? [];
+  chain.forEach((scope, index) => {
+    if (adopted.layout?.has(scope.loader)) {
+      seedLoaderCache(
+        runtime,
+        keyFor(`layout${index}`),
+        adopted.layout.get(scope.loader),
+        completedAt
+      );
+    }
+  });
+  if (
+    adopted.leaf &&
+    typeof record.options?.loader === 'function' &&
+    !record.options.dehydrate
+  ) {
+    seedLoaderCache(runtime, keyFor('leaf'), adopted.leaf.value, completedAt);
+  }
+}
+
+/** Settles with every loader's fresh value once cached data was revalidated. */
+export function getRouteRevalidation(
+  result: RouteRenderResult
+): Promise<unknown[]> | undefined {
+  return routeRevalidations.get(result);
+}
+
+/** Whether every cached loader entry that produced revalidation data is live. */
+export function isRouteRevalidationCurrent(result: RouteRenderResult): boolean {
+  return routeRevalidationCurrent.get(result)?.() ?? true;
 }
 
 export function hasRouteRenderData(result: RouteRenderResult): boolean {
   return routeRenderData.has(result);
 }
 
-function buildRenderResult(
+type LoaderRun = {
+  readonly loader: RouteScopeLoader;
+  readonly staleTimeMs: RouteStaleTime;
+  /** Separates a group/page loader's cache entry from the leaf's. */
+  readonly slot: string;
+};
+
+function collectLoaderRuns(
+  record: RouteRecord,
+  includeLeaf: RouteOptions['loader']
+): { runs: LoaderRun[]; layoutCount: number } {
+  const chain = (record as InternalRouteRecord).loaderChain ?? [];
+  const runs: LoaderRun[] = chain.map((scope, index) => ({
+    loader: scope.loader,
+    staleTimeMs: scope.staleTimeMs ?? 0,
+    slot: `layout${index}`,
+  }));
+  if (includeLeaf) {
+    runs.push({
+      loader: includeLeaf as RouteScopeLoader,
+      staleTimeMs: record.options?.staleTimeMs ?? 0,
+      slot: 'leaf',
+    });
+  }
+  return { runs, layoutCount: chain.length };
+}
+
+function assembleLoadedResult(
   record: RouteRecord,
   params: Record<string, string>,
   context: RouteContext,
   request: Request | undefined,
-  telemetry: CoreTelemetry | undefined,
-  load: boolean,
-  dataRuntime: DataRuntime | undefined,
-  assertCurrent?: () => void
-): RouteRequestResult | Promise<RouteRequestResult> {
-  assertCurrent?.();
-  const lazyImport = _preloadRouteRecord(record);
-  if (lazyImport) {
-    return lazyImport.then(() =>
-      buildLoadedRenderResult(
-        record,
-        params,
-        context,
-        request,
-        telemetry,
-        load,
-        dataRuntime,
-        assertCurrent
-      )
-    );
+  renderHandler: RouteHandler,
+  runs: readonly LoaderRun[],
+  layoutCount: number,
+  hasLeaf: boolean,
+  settled: readonly unknown[]
+): RouteRenderResult {
+  const data = hasLeaf ? settled[layoutCount] : undefined;
+  const layout = new Map<unknown, unknown>();
+  for (let index = 0; index < layoutCount; index += 1) {
+    layout.set(runs[index]!.loader, settled[index]);
   }
-  return buildLoadedRenderResult(
+  const route = context.href || context.pathname || record.path;
+  const hydration =
+    context.mode === 'ssr' && hasLeaf
+      ? prepareRouteHydrationData(
+          data,
+          record.options?.dehydrate,
+          { ...context, params, request },
+          route
+        )
+      : undefined;
+  const layoutHydration =
+    context.mode === 'ssr' && layoutCount > 0
+      ? Array.from({ length: layoutCount }, (_, index) => {
+          validateRouteHydrationData(settled[index], `${route} (layout)`);
+          return settled[index] ?? null;
+        })
+      : undefined;
+  const result = createRouteRenderResult(
     record,
     params,
     context,
-    request,
-    telemetry,
-    load,
-    dataRuntime,
-    assertCurrent
+    bindResolvedRouteData(
+      renderHandler,
+      data,
+      hydration,
+      layoutCount > 0
+        ? { values: layout, hydration: layoutHydration }
+        : undefined,
+      hasLeaf
+    )
+  );
+  if (hasLeaf) routeRenderData.set(result, data);
+  if (layoutCount > 0) routeLayoutData.set(result, layout);
+  return result;
+}
+
+/**
+ * A sibling of `result` carrying freshly revalidated loader values, in the
+ * order the cached read produced them (group/page loaders, then the leaf).
+ */
+export function refreshRouteRenderResult(
+  result: RouteRenderResult,
+  values: readonly unknown[]
+): RouteRenderResult | undefined {
+  const record = result.record;
+  const context = routeRenderContexts.get(result);
+  if (!record || !context) return undefined;
+  const hasLeaf = typeof record.options?.loader === 'function';
+  const { runs, layoutCount } = collectLoaderRuns(
+    record,
+    record.options?.loader
+  );
+  return assembleLoadedResult(
+    record,
+    result.params,
+    context,
+    undefined,
+    getRenderHandler(record),
+    runs,
+    layoutCount,
+    hasLeaf,
+    values
   );
 }
 
-function buildLoadedRenderResult(
+function withSearchParams(context: RouteContext): RouteContextWithSearch {
+  return context.searchParams
+    ? (context as RouteContextWithSearch)
+    : { ...context, searchParams: emptyRouteSearch() };
+}
+
+type RouteContextWithSearch = RouteContext & {
+  searchParams: NonNullable<RouteContext['searchParams']>;
+};
+
+function buildRenderResult(
   record: RouteRecord,
   params: Record<string, string>,
-  context: RouteContext,
+  baseContext: RouteContext,
   request: Request | undefined,
   telemetry: CoreTelemetry | undefined,
   load: boolean,
@@ -171,9 +427,13 @@ function buildLoadedRenderResult(
   assertCurrent?: () => void
 ): RouteRequestResult | Promise<RouteRequestResult> {
   assertCurrent?.();
+  const context = withSearchParams(baseContext);
   const renderHandler = getRenderHandler(record);
-  const loader =
-    context.mode !== 'ssg' && load ? record.options?.loader : undefined;
+  const useLoaders = context.mode !== 'ssg' && load;
+  const leafLoader = useLoaders ? record.options?.loader : undefined;
+  const { runs, layoutCount } = useLoaders
+    ? collectLoaderRuns(record, leafLoader)
+    : { runs: [] as LoaderRun[], layoutCount: 0 };
   const preload = record.options?.preload;
   const active = getActiveRenderContext();
   const prefetch =
@@ -185,48 +445,166 @@ function buildLoadedRenderResult(
       runtime: (active?.dataRuntime as DataRuntime | undefined) ?? dataRuntime,
       telemetry,
     });
-  const runPreload = preload
-    ? Promise.resolve(
-        preload({ ...context, params, request, data: prefetch })
-      ).then(() => undefined)
-    : undefined;
-  if (loader) {
-    const load = () => {
-      assertCurrent?.();
-      return withTelemetry(telemetry?.loader, { route: record.path }, () =>
-        loader({ ...context, params, request })
-      );
-    };
-    const loaded = runPreload ? runPreload.then(load) : load();
-    const finalize = (data: unknown): RouteRenderResult => {
-      const hydration =
-        context.mode === 'ssr'
-          ? prepareRouteHydrationData(
-              data,
-              record.options?.dehydrate,
-              { ...context, params, request },
-              context.href || context.pathname || record.path
-            )
-          : undefined;
-      const result = createRouteRenderResult(
-        record,
-        params,
-        context,
-        bindResolvedRouteData(renderHandler, data, hydration)
-      );
-      routeRenderData.set(result, data);
-      return result;
-    };
-    return isPromiseLike(loaded)
-      ? Promise.resolve(loaded).then(finalize)
-      : finalize(loaded);
-  }
-  if (runPreload) {
-    return runPreload.then(() =>
-      createRouteRenderResult(record, params, context, renderHandler)
+  // The lazy chunk, preload and every loader are independent: start them
+  // together so the slowest decides latency instead of their sum.
+  const pending: Array<PromiseLike<unknown>> = [];
+  const lazyImport = _preloadRouteRecord(record);
+  if (lazyImport) pending.push(lazyImport);
+  if (preload) {
+    pending.push(
+      new Promise<unknown>((resolve) =>
+        resolve(preload({ ...context, params, request, data: prefetch }))
+      )
     );
   }
-  return createRouteRenderResult(record, params, context, renderHandler);
+  const cacheRuntime = context.mode === 'spa' ? dataRuntime : undefined;
+  const loads: CachedLoad[] = [];
+  let failure: { error: unknown } | undefined;
+  for (const run of runs) {
+    const invoke = (signal?: AbortSignal) =>
+      withTelemetry(telemetry?.loader, { route: record.path }, () =>
+        run.loader({
+          ...context,
+          ...(signal ? { signal } : {}),
+          params,
+          request,
+        })
+      );
+    try {
+      assertCurrent?.();
+      loads.push(
+        cacheRuntime
+          ? loadThroughCache(
+              cacheRuntime,
+              routeLoaderKey(
+                record,
+                record.path,
+                params,
+                context.search,
+                run.slot
+              ),
+              invoke,
+              { signal: context.signal, staleTimeMs: run.staleTimeMs }
+            )
+          : { value: invoke() }
+      );
+    } catch (error) {
+      failure = { error };
+      break;
+    }
+  }
+  const values: unknown[] = loads.map((load) => load.value);
+  if (failure) {
+    if (pending.length === 0 && loads.length === 0) throw failure.error;
+    values.push(Promise.reject(failure.error));
+  }
+  const asyncLoads = values.some(isPromiseLike);
+
+  const finalize = (settled: unknown[]): RouteRenderResult => {
+    assertCurrent?.();
+    if (runs.length === 0) {
+      return createRouteRenderResult(record, params, context, renderHandler);
+    }
+    const result = assembleLoadedResult(
+      record,
+      params,
+      context,
+      request,
+      renderHandler,
+      runs,
+      layoutCount,
+      Boolean(leafLoader),
+      settled
+    );
+    if (loads.some((load) => load.revalidation)) {
+      const revalidation = Promise.all(
+        loads.map((load, index) => load.revalidation ?? settled[index])
+      );
+      // A result that is never committed must not leave a rejection unhandled.
+      revalidation.catch(() => undefined);
+      routeRevalidations.set(result, revalidation);
+      routeRevalidationCurrent.set(result, () =>
+        loads.every(
+          (load) =>
+            !load.revalidation || load.isRevalidationCurrent?.() !== false
+        )
+      );
+    }
+    return result;
+  };
+  if (!asyncLoads && pending.length === 0) return finalize(values);
+  // With group/page loaders every loader settles before a failure surfaces,
+  // so the error component renders inside layouts that have their data.
+  const loaded =
+    asyncLoads && layoutCount > 0
+      ? Promise.allSettled(values).then((outcomes) => {
+          const rejected = outcomes.find(
+            (outcome): outcome is PromiseRejectedResult =>
+              outcome.status === 'rejected'
+          );
+          if (!rejected) {
+            return outcomes.map(
+              (outcome) => (outcome as PromiseFulfilledResult<unknown>).value
+            );
+          }
+          rememberPartialLayoutData(
+            rejected.reason,
+            runs,
+            layoutCount,
+            outcomes,
+            context.mode === 'ssr'
+              ? context.href || context.pathname || record.path
+              : undefined
+          );
+          throw rejected.reason;
+        })
+      : Promise.all(values);
+  return Promise.all([loaded, ...pending]).then(([settled]) => {
+    // A lazy chunk that failed to load is not a result: surface it here, where
+    // the route can show its error component, not later while rendering.
+    const failure = lazyImport ? _routeRecordLoadFailure(record) : undefined;
+    if (failure) throw failure.error;
+    return finalize(settled);
+  });
+}
+
+/**
+ * Keep the group/page loader values that did load against the failure that
+ * stops this resolution. On the server they also enter the hydration
+ * envelope, as a successful render's would.
+ */
+function rememberPartialLayoutData(
+  error: unknown,
+  runs: readonly LoaderRun[],
+  layoutCount: number,
+  outcomes: readonly PromiseSettledResult<unknown>[],
+  ssrRoute: string | undefined
+): void {
+  if (!error || typeof error !== 'object') return;
+  const values = new Map<unknown, unknown>();
+  for (let index = 0; index < layoutCount; index += 1) {
+    const outcome = outcomes[index]!;
+    if (outcome.status === 'fulfilled') {
+      values.set(runs[index]!.loader, outcome.value);
+    }
+  }
+  if (values.size === 0) return;
+  let hydration: unknown[] | undefined;
+  if (ssrRoute !== undefined) {
+    try {
+      hydration = Array.from({ length: layoutCount }, (_, index) => {
+        const outcome = outcomes[index]!;
+        if (outcome.status !== 'fulfilled') return null;
+        validateRouteHydrationData(outcome.value, `${ssrRoute} (layout)`);
+        return outcome.value ?? null;
+      });
+    } catch {
+      // Data the page cannot carry stays out of the envelope; the server
+      // render still binds it.
+      hydration = undefined;
+    }
+  }
+  partialLayoutData.set(error, { values, hydration });
 }
 
 function runPolicies(
@@ -420,6 +798,13 @@ function resolveRouteRequestInternal(
   if (logicalTarget === undefined) return null;
   return withTelemetry(options.telemetry?.routeMatch, {}, () => {
     const records = options.registry.manifest.records;
+    const canonical = canonicalPathRedirect(
+      logicalTarget,
+      options.registry.manifest
+    );
+    if (canonical) {
+      return basePath ? exposeRedirectDecision(canonical, basePath) : canonical;
+    }
     const match = getMatchingRouteRecord(logicalTarget, records);
     if (!match) return null;
     assertCurrent?.();
@@ -429,25 +814,45 @@ function resolveRouteRequestInternal(
     const authOptions = getActiveRouteAuthOptions(
       options.auth ?? options.registry.manifest.auth
     );
+    const searchParams = match.record.options.search
+      ? parseRouteSearch(
+          match.record.options.search,
+          parseLocation(logicalTarget).search
+        )
+      : emptyRouteSearch();
     const base = buildRouteContextBase(logicalTarget, match.params, {
       mode,
       signal,
+      searchParams,
     });
     const exposeRedirect = (result: RouteRequestResult): RouteRequestResult =>
       result?.kind === 'redirect'
         ? exposeRedirectDecision(result, basePath)
         : result;
+    let resolvedContext: RouteContext | undefined;
     const finalize = (authContext: AuthContext) => {
       assertCurrent?.();
-      if (!signal.aborted) setCurrentAuth(authContext, mode);
+      // A server or hydration render owns its identity at once. A browser
+      // navigation publishes it when it commits (see publishResolvedAuth),
+      // so a page still on screen keeps the identity it rendered with; a
+      // prefetch never publishes.
+      if (
+        !signal.aborted &&
+        !options.prefetch &&
+        (mode !== 'spa' || getActiveRenderContext())
+      ) {
+        setCurrentAuth(authContext, mode);
+      }
+      resolvedContext = buildRouteContext(logicalTarget, match.params, {
+        mode,
+        signal,
+        authContext,
+        searchParams,
+      });
       const result = resolveMatchedRoute(
         match.record,
         match.params,
-        buildRouteContext(logicalTarget, match.params, {
-          mode,
-          signal,
-          authContext,
-        }),
+        resolvedContext,
         authOptions,
         options.request,
         options.telemetry,
@@ -455,20 +860,90 @@ function resolveRouteRequestInternal(
         options.dataRuntime,
         assertCurrent
       );
-      if (!basePath) return result;
+      const marked = markDenial(result);
+      if (mode === 'spa') rememberResolvedAuth(marked, authContext);
+      if (!basePath) return marked;
+      return isPromiseLike(marked)
+        ? Promise.resolve(marked).then(exposeRedirect)
+        : exposeRedirect(marked);
+    };
+    const markDenial = (
+      result: RouteRequestResult | Promise<RouteRequestResult>
+    ): RouteRequestResult | Promise<RouteRequestResult> => {
+      // Only a route with a forbidden component needs the marking hop.
+      if (!routeForbiddenComponent(match.record)) return result;
+      const mark = (next: RouteRequestResult): RouteRequestResult => {
+        if (next?.kind !== 'deny' || !routeForbiddenComponent(match.record)) {
+          return next;
+        }
+        // A copy: the decision a policy returned may be shared.
+        const denied = { ...next };
+        markDeniedRoute(denied, match.record);
+        return denied;
+      };
       return isPromiseLike(result)
-        ? Promise.resolve(result).then(exposeRedirect)
-        : exposeRedirect(result);
+        ? Promise.resolve(result).then(mark)
+        : mark(result);
+    };
+    const showError = (error: unknown): RouteRequestResult => {
+      reloadStaleDeployment(error);
+      if (
+        !options.routeErrors ||
+        signal.aborted ||
+        isAbortLikeError(error) ||
+        !routeErrorComponent(match.record)
+      ) {
+        throw error;
+      }
+      assertCurrent?.();
+      // A server render shows the page's visitors only what the failure
+      // opted in to expose; the host still receives the failure itself.
+      const handler = createRouteErrorHandler(
+        match.record,
+        mode === 'ssr' ? publicRouteError(error) : error
+      )!;
+      // Layouts above the error component read the loader data that did load.
+      const layout =
+        error && typeof error === 'object'
+          ? partialLayoutData.get(error)
+          : undefined;
+      const result = createRouteRenderResult(
+        match.record,
+        match.params,
+        resolvedContext ??
+          buildRouteContext(logicalTarget, match.params, {
+            mode,
+            signal,
+            authContext: options.authContext ?? unresolvedAuth(mode),
+            searchParams,
+          }),
+        layout
+          ? bindResolvedRouteData(handler, undefined, undefined, layout, false)
+          : handler
+      );
+      if (layout) routeLayoutData.set(result, layout.values);
+      markRouteErrorResult(result, error);
+      return result;
+    };
+    const reloadStaleDeployment = (error: unknown): void => {
+      if (mode !== 'spa' || options.prefetch || signal.aborted) return;
+      const url = resolveNavigationUrl(target, window.location.href);
+      reloadForStaleDeployment(
+        error,
+        url.href,
+        url.href === window.location.href ? 'replace' : 'push'
+      );
     };
     const recover = (error: unknown): RouteRequestResult => {
       assertCurrent?.();
-      if (mode !== 'spa' || signal.aborted) throw error;
+      if (serverErrors) return showError(error);
+      if (mode !== 'spa' || signal.aborted || options.prefetch) throw error;
       const state = getSessionAuthState(authOptions);
       const recovery = state?.recover(
         error instanceof RouteDataLoadError ? error.cause : error,
         targetHref()
       );
-      if (!recovery) throw error;
+      if (!recovery) return showError(error);
       if (recovery.document) {
         if (!state!.hasMountedRoots())
           loadDocument(
@@ -479,6 +954,12 @@ function resolveRouteRequestInternal(
       }
       return { kind: 'redirect', to: recovery.href, replace: true };
     };
+    // A server render shows a declared error component for a failing route.
+    const serverErrors =
+      mode === 'ssr' &&
+      Boolean(options.routeErrors) &&
+      !options.prefetch &&
+      Boolean(routeErrorComponent(match.record));
     const targetHref = () => {
       const url = resolveNavigationUrl(
         target,
@@ -497,8 +978,10 @@ function resolveRouteRequestInternal(
                 ? Promise.resolve(resolved).then(finalize)
                 : finalize(resolved);
             })();
-      return mode === 'spa' &&
-        getSessionAuthState(authOptions) &&
+      return ((mode === 'spa' &&
+        (getSessionAuthState(authOptions) ||
+          (options.routeErrors && routeErrorComponent(match.record)))) ||
+        serverErrors) &&
         isPromiseLike(result)
         ? Promise.resolve(result).catch(recover)
         : result;

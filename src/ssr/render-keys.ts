@@ -8,7 +8,6 @@
 import {
   getCurrentRenderData as getCommonCurrentRenderData,
   getNextRenderKey,
-  resetRenderKeyCounter,
   startHydrationRenderPhase as startCommonHydrationRenderPhase,
   startRenderPhase as startCommonRenderPhase,
   stopHydrationRenderPhase as stopCommonHydrationRenderPhase,
@@ -22,10 +21,6 @@ import {
 
 export function getCurrentRenderData(): Record<string, unknown> | null {
   return getCommonCurrentRenderData()?.resources ?? null;
-}
-
-export function resetKeyCounter() {
-  resetRenderKeyCounter();
 }
 
 export function getNextKey(): string {

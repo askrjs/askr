@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vite-plus/test';
 import { page } from 'vite-plus/test/browser/context';
 import { cleanupApp, createSPA } from '@askrjs/askr/boot';
+import { invalidate } from '@askrjs/askr/data';
 import { createRouteRegistry, navigate, route } from '@askrjs/askr/router';
 
 // @askr-allow-real-timers -- browser history traversals settle asynchronously.
@@ -134,6 +135,8 @@ test('should return to the rendered entry when a failed traversal superseded a p
 
   holdB = true;
   failA = true;
+  // A cached result would render at once instead of waiting on the loader.
+  invalidate('route-data:');
   window.history.back();
   await expect.poll(() => window.location.pathname).toBe('/b');
   window.history.back();
@@ -218,6 +221,22 @@ test('should keep stamping history positions after a plain fragment link', async
   expect(window.history.state.askrIndex).toBe(start + 2);
 });
 
+test('should not assign a guessed position to an older unindexed fragment', async () => {
+  window.history.pushState({}, '', '/home#older');
+  window.history.pushState({}, '', '/middle');
+  startAt('/home#newer');
+  await createSPA({
+    root,
+    registry: createRouteRegistry(() => {
+      route('/home', () => <Page path="/home" />);
+    }),
+  });
+
+  window.history.go(-2);
+  await expect.poll(() => window.location.hash).toBe('#older');
+  expect(window.history.state.askrIndex).toBeUndefined();
+});
+
 test('should reload instead of landing on the wrong entry after an external pushState', async () => {
   let failHome = false;
   startAt('/home');
@@ -278,6 +297,7 @@ test('should return to the rendered entry when another app mounts during a faili
 
   holdA = true;
   failA = true;
+  invalidate('route-data:');
   window.history.back();
   await expect.poll(() => window.location.pathname).toBe('/a');
   const second = document.body.appendChild(document.createElement('div'));
@@ -344,6 +364,7 @@ test('should return to the rendered entry when a back/forward loader rejects', a
   await expect.poll(renderedPath).toBe('/b');
 
   rejectA = true;
+  invalidate('route-data:');
   window.history.back();
   await waitForRenderFailure('a loader failed');
   await settleTraversal();

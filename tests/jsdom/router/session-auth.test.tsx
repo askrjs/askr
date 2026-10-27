@@ -33,6 +33,10 @@ import {
   flushScheduler,
 } from '../../../test-utils/render/test-renderer';
 import { loadDocument } from '../../../src/router/document-navigation';
+import {
+  isHydratedCsrfTokenRevoked,
+  resetHydratedCsrfToken,
+} from '../../../src/common/csrf-token';
 
 vi.mock('../../../src/router/document-navigation', () => ({
   loadDocument: vi.fn(),
@@ -169,6 +173,29 @@ it('should fence a pending pre-logout GET even when its transport ignores abort'
   await auth.logout();
   pending.resolve(Response.json(user('old')));
   expect(await outcome).toMatchObject({ name: 'AbortError' });
+  expect(auth.resolve(context())).toMatchObject({ authenticated: false });
+});
+
+it('should reject all shared session waiters on logout and ignore their late response', async () => {
+  const pending = deferred<Response>();
+  const transport = vi.fn((request: RequestInfo | URL) =>
+    (request as Request).method === 'POST'
+      ? Promise.resolve(new Response(null, { status: 204 }))
+      : pending.promise
+  );
+  const auth = createSessionAuth({ fetch: transport });
+  const first = Promise.resolve(auth.resolve(context())).catch(
+    (error: unknown) => error
+  );
+  const second = Promise.resolve(auth.resolve(context())).catch(
+    (error: unknown) => error
+  );
+  expect(transport).toHaveBeenCalledTimes(1);
+  await auth.logout();
+  expect(await first).toMatchObject({ name: 'AbortError' });
+  expect(await second).toMatchObject({ name: 'AbortError' });
+  pending.resolve(Response.json(user('old')));
+  await settle();
   expect(auth.resolve(context())).toMatchObject({ authenticated: false });
 });
 
@@ -434,6 +461,76 @@ it('should revalidate cross-tab login from storage fallback and immediately clea
   expect(transport).toHaveBeenCalledTimes(3);
 });
 
+it('should revoke the hydration CSRF token when the session identity changes or ends', async () => {
+  const transport = vi
+    .fn()
+    .mockResolvedValueOnce(Response.json(user('a')))
+    .mockResolvedValueOnce(Response.json(user('a')))
+    .mockResolvedValueOnce(Response.json(user('b')))
+    .mockResolvedValueOnce(Response.json(guest));
+  const auth = createSessionAuth({ fetch: transport });
+  const registry = createRouteRegistry(
+    () => {
+      route('/private', () => <main>{currentAuth().principal?.id}</main>, {
+        auth: requireUser(),
+      });
+      route('/login', () => <main>login</main>);
+    },
+    { auth }
+  );
+  await createSPA({ root: view.container, registry });
+  expect(isHydratedCsrfTokenRevoked()).toBe(false);
+  // The same identity keeps the token.
+  window.dispatchEvent(
+    new StorageEvent('storage', {
+      key: '__askr_provider_session_1',
+      newValue: JSON.stringify({ protocol: 1, kind: 'changed' }),
+    })
+  );
+  await settle();
+  expect(isHydratedCsrfTokenRevoked()).toBe(false);
+  // Another identity revokes it.
+  window.dispatchEvent(
+    new StorageEvent('storage', {
+      key: '__askr_provider_session_1',
+      newValue: JSON.stringify({ protocol: 1, kind: 'changed' }),
+    })
+  );
+  await settle();
+  expect(isHydratedCsrfTokenRevoked()).toBe(true);
+  // Logout revokes it as well.
+  resetHydratedCsrfToken();
+  window.dispatchEvent(
+    new StorageEvent('storage', {
+      key: '__askr_provider_session_1',
+      newValue: JSON.stringify({ protocol: 1, kind: 'logout' }),
+    })
+  );
+  await settle();
+  expect(isHydratedCsrfTokenRevoked()).toBe(true);
+});
+
+it('should keep the hydration CSRF token when recovery repeats the confirmed anonymous identity', async () => {
+  const auth = createSessionAuth({
+    fetch: vi.fn().mockResolvedValue(Response.json(guest)),
+  });
+  const registry = createRouteRegistry(
+    () => {
+      route('/private', () => <main>public</main>);
+      route('/login', () => <main>login</main>);
+    },
+    { auth }
+  );
+  await createSPA({ root: view.container, registry });
+  await settle();
+  expect(isHydratedCsrfTokenRevoked()).toBe(false);
+  const state = getSessionAuthState(auth)!;
+  // A 401 for a visitor the server already called anonymous: the identity
+  // the token was issued for has not changed.
+  expect(state.recover(problem, '/private')).toBeDefined();
+  expect(isHydratedCsrfTokenRevoked()).toBe(false);
+});
+
 it('should retire every root before publishing identity even when one cleanup throws', async () => {
   const auth = createSessionAuth({
     fetch: vi.fn().mockResolvedValue(Response.json(user('a'))),
@@ -682,7 +779,8 @@ it.each(['pageshow', 'visibility'] as const)(
       visible.mockReturnValue('visible');
       document.dispatchEvent(new Event('visibilitychange'));
     }
-    expect(view.container.textContent).toBe('');
+    // The page stays until the server confirms the identity changed.
+    expect(view.container.textContent).toBe('private');
     await settle();
     expect(view.container.textContent).toBe('login');
     expect(transport).toHaveBeenCalledTimes(2);
@@ -1180,6 +1278,7 @@ it('should ignore malformed and queued cross-tab events after the root is detach
   class Channel {
     onmessage: ((event: MessageEvent) => void) | null = null;
     constructor() {
+      // eslint-disable-next-line typescript/no-this-alias -- Capture the fake channel for queued events.
       last = this;
     }
     postMessage() {}
@@ -1211,7 +1310,7 @@ it('should ignore malformed and queued cross-tab events after the root is detach
   expect(transport).toHaveBeenCalledTimes(1);
 });
 
-it('should stop an old navigation metadata chain before later sources or head publication after logout', async () => {
+it('should stop an old navigation metadata chain before head publication after logout', async () => {
   const started = deferred<void>();
   const blocked = deferred<{ title: string }>();
   const logout = deferred<Response>();
@@ -1255,6 +1354,6 @@ it('should stop an old navigation metadata chain before later sources or head pu
   expect(document.title).toBe('Login');
   blocked.resolve({ title: 'Old parent' });
   await settle();
-  expect(later).not.toHaveBeenCalled();
+  // Sources run in parallel, so a later one may have started; none publishes.
   expect(document.title).toBe('Login');
 });

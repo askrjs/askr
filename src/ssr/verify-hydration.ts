@@ -12,15 +12,17 @@ import { getHydrationRenderUrl } from '../common/page-render-envelope';
 import { withHydrationVerificationRender } from '../common/render-context';
 import { getRouteRenderContext } from '../router/resolution';
 import { currentAuth } from '../router/auth';
+import { readHydratedLayoutData } from '../router/route-hydration';
+import {
+  describeNode,
+  describeText,
+  domPath,
+  type HydrationMismatchInfo,
+} from '../common/dom-path';
 
 const SSR_STYLE_REGISTRY_SELECTOR = 'style[data-askr-style-registry]';
 
-// Hydration and key bookkeeping the renderers write, not application markup.
-const RENDERER_BOOKKEEPING_ATTRS = [
-  'data-skip-hydrate',
-  'data-key',
-  'data-askr-key-kind',
-];
+import { RENDERER_BOOKKEEPING_ATTRS } from '../common/hydration-bookkeeping';
 
 /**
  * Parsed declarations in a canonical order. Each parsed longhand is unique, so
@@ -109,18 +111,60 @@ export function captureServerHydrationMarkup(
   url: string,
   envelope?: PageRenderEnvelope
 ): string | null {
-  const html = root.innerHTML;
   if (!clientRendersServerUrl(url, envelope)) {
     return null;
   }
-  return normalizeHydrationHtml(html);
+  return normalizeHydrationHtml(serializeHydrationMarkup(root));
+}
+
+let serializerRestoresLeadingNewline: boolean | null = null;
+
+/**
+ * Whether this host's serializer writes the extra newline the HTML
+ * serialization algorithm requires after a `<pre>`, `<textarea>` or
+ * `<listing>` start tag when the content starts with one. Browsers do; a
+ * host that does not would lose that newline on every parse of its output.
+ */
+function hostSerializerRestoresLeadingNewline(): boolean {
+  if (serializerRestoresLeadingNewline === null) {
+    const probe = document.createElement('template');
+    const pre = document.createElement('pre');
+    pre.appendChild(document.createTextNode('\nx'));
+    probe.content.appendChild(pre);
+    serializerRestoresLeadingNewline = probe.innerHTML.startsWith('<pre>\n\n');
+  }
+  return serializerRestoresLeadingNewline;
 }
 
 /**
- * Whether client markup left by hydration (`clientHtml`) matches the server
- * markup captured before it ran. Hydration reconciles the server DOM in place,
- * so an SSR/client renderer divergence shows up here even when a fresh server
- * render reproduces the server HTML exactly.
+ * The markup under `root` as the HTML serialization algorithm writes it, so
+ * that parsing it reproduces the live DOM. When the host serializer omits the
+ * newline that the parser drops after `<pre>`/`<textarea>`/`<listing>` start
+ * tags, it is added here from a clone.
+ */
+export function serializeHydrationMarkup(root: Element): string {
+  if (hostSerializerRestoresLeadingNewline()) return root.innerHTML;
+  const template = document.createElement('template');
+  for (const child of Array.from(root.childNodes)) {
+    template.content.appendChild(child.cloneNode(true));
+  }
+  for (const element of Array.from(
+    template.content.querySelectorAll('pre, textarea, listing')
+  )) {
+    const first = element.firstChild;
+    if (first?.nodeType === 3 && (first as Text).data.startsWith('\n')) {
+      (first as Text).data = '\n' + (first as Text).data;
+    }
+  }
+  return template.innerHTML;
+}
+
+/**
+ * Whether client markup left by hydration (serialized with
+ * {@link serializeHydrationMarkup}) matches the server markup captured before
+ * it ran. Hydration reconciles the server DOM in place, so an SSR/client
+ * renderer divergence shows up here even when a fresh server render
+ * reproduces the server HTML exactly.
  */
 export function verifyClientHydrationMarkup(
   clientHtml: string,
@@ -129,7 +173,128 @@ export function verifyClientHydrationMarkup(
   return normalizeHydrationHtml(clientHtml) === serverMarkup;
 }
 
-export function verifyHydrationSyncForUrl(opts: {
+function parseHydrationHtml(html: string): DocumentFragment {
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  return template.content;
+}
+
+function significantChildren(parent: Node): Node[] {
+  return Array.from(parent.childNodes).filter(
+    (node) => node.nodeType === 1 || node.nodeType === 3
+  );
+}
+
+/** An element's opening tag, which carries its attributes. */
+function openingTag(element: Element): string {
+  const shallow = element.cloneNode(false) as Element;
+  const html = shallow.outerHTML;
+  const end = html.lastIndexOf('</');
+  const tag = end > 0 ? html.slice(0, end) : html;
+  return tag.length > 120 ? `${tag.slice(0, 120)}...>` : tag;
+}
+
+function sameAttributes(a: Element, b: Element): boolean {
+  if (a.attributes.length !== b.attributes.length) return false;
+  for (const attribute of Array.from(a.attributes)) {
+    if (b.getAttribute(attribute.name) !== attribute.value) return false;
+  }
+  return true;
+}
+
+function firstDifference(
+  expected: Node,
+  actual: Node,
+  expectedRoot: Node,
+  actualRoot: Node
+): HydrationMismatchInfo | null {
+  const want = significantChildren(expected);
+  const have = significantChildren(actual);
+  const length = Math.max(want.length, have.length);
+  for (let index = 0; index < length; index += 1) {
+    const e = want[index];
+    const a = have[index];
+    if (!e || !a) {
+      return {
+        path: domPath((a ?? e) as Node, a ? actualRoot : expectedRoot),
+        expected: describeNode(e),
+        actual: describeNode(a),
+      };
+    }
+    if (e.nodeType !== a.nodeType) {
+      return {
+        path: domPath(a, actualRoot),
+        expected: describeNode(e),
+        actual: describeNode(a),
+      };
+    }
+    if (e.nodeType === 3) {
+      if ((e as Text).data !== (a as Text).data) {
+        return {
+          path: domPath(a, actualRoot),
+          expected: describeText((e as Text).data),
+          actual: describeText((a as Text).data),
+        };
+      }
+      continue;
+    }
+    const ee = e as Element;
+    const ae = a as Element;
+    if (ee.localName !== ae.localName) {
+      return {
+        path: domPath(ae, actualRoot),
+        expected: describeNode(ee),
+        actual: describeNode(ae),
+      };
+    }
+    if (!sameAttributes(ee, ae)) {
+      return {
+        path: domPath(ae, actualRoot),
+        expected: openingTag(ee),
+        actual: openingTag(ae),
+      };
+    }
+    const nested = firstDifference(ee, ae, expectedRoot, actualRoot);
+    if (nested) return nested;
+  }
+  return null;
+}
+
+/**
+ * Where two normalized hydration documents first differ, or `null` when they
+ * match. The path names the differing node in the actual (document) markup.
+ */
+export function findHydrationMismatch(
+  expectedHtml: string,
+  actualHtml: string
+): HydrationMismatchInfo | null {
+  if (expectedHtml === actualHtml) return null;
+  const expected = parseHydrationHtml(expectedHtml);
+  const actual = parseHydrationHtml(actualHtml);
+  return (
+    firstDifference(expected, actual, expected, actual) ?? {
+      path: '',
+      expected: 'the expected markup',
+      actual: 'different markup',
+    }
+  );
+}
+
+/**
+ * Where client markup left by hydration first differs from the server markup
+ * captured before it ran, or `null` when they match.
+ */
+export function diffClientHydrationMarkup(
+  clientHtml: string,
+  serverMarkup: string
+): HydrationMismatchInfo | null {
+  return findHydrationMismatch(
+    normalizeHydrationHtml(clientHtml),
+    serverMarkup
+  );
+}
+
+export function checkHydrationSyncForUrl(opts: {
   root: Element;
   url: string;
   registry: RouteRegistry;
@@ -141,7 +306,7 @@ export function verifyHydrationSyncForUrl(opts: {
     envelope?: PageRenderEnvelope;
     cspNonce?: string;
   };
-}): boolean {
+}): HydrationMismatchInfo | null {
   const { root, url, registry, resolved, options } = opts;
   const verificationUrl =
     getHydrationRenderUrl(options?.envelope) ??
@@ -155,13 +320,26 @@ export function verifyHydrationSyncForUrl(opts: {
         registry,
         handler: resolved.handler,
         params: resolved.params,
-        options,
+        options: {
+          ...options,
+          layoutData: readHydratedLayoutData(
+            (resolved as RouteRenderResult).record,
+            options?.envelope?.framework
+          ),
+        },
       },
       authContext
     )
   );
 
-  return (
-    normalizeHydrationHtml(root.innerHTML) === normalizeHydrationHtml(expected)
+  return findHydrationMismatch(
+    normalizeHydrationHtml(expected),
+    normalizeHydrationHtml(serializeHydrationMarkup(root))
   );
+}
+
+export function verifyHydrationSyncForUrl(
+  opts: Parameters<typeof checkHydrationSyncForUrl>[0]
+): boolean {
+  return checkHydrationSyncForUrl(opts) === null;
 }

@@ -40,24 +40,33 @@ export function normalizeAsyncDataError(
   error: unknown,
   fallbackMessage: string
 ): Error {
-  if (error instanceof Error) {
-    return error;
+  try {
+    if (error instanceof Error) {
+      return error;
+    }
+    return new Error(error == null ? fallbackMessage : String(error));
+  } catch {
+    return new Error(fallbackMessage);
   }
-  return new Error(error == null ? fallbackMessage : String(error));
 }
 
 /** Settle promptly on abort, while observing uncancellable late completions. */
 export function raceAbort<T>(
   promise: Promise<T>,
-  signals: readonly AbortSignal[]
+  signals: readonly AbortSignal[],
+  deferAbort = false
 ): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const cleanup = () => {
       for (const signal of signals) signal.removeEventListener('abort', abort);
     };
-    const abort = () => {
+    const rejectForAbort = () => {
       cleanup();
       reject(signals.find((signal) => signal.aborted)!.reason);
+    };
+    const abort = () => {
+      if (deferAbort) queueMicrotask(rejectForAbort);
+      else rejectForAbort();
     };
     for (const signal of signals) signal.addEventListener('abort', abort);
     if (signals.some((signal) => signal.aborted)) abort();

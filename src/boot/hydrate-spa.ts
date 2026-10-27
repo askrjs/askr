@@ -1,9 +1,14 @@
 /**
  * App bootstrap and mount
  */
+import { resetHydratedCsrfToken } from '../common/csrf-token';
 import { isProductionEnvironment } from '../common/env';
 import type { ResolvedRoute } from '../common/router';
-import { configureScrollRestoration } from '../router/navigate';
+import {
+  configureNavigationFocus,
+  configureViewTransitions,
+  configureScrollRestoration,
+} from '../router/navigate';
 import {
   _applyManifest,
   _setActiveRouteAuthOptions,
@@ -11,6 +16,12 @@ import {
   setServerLocation,
 } from '../router/route';
 import { clearRouteState } from '../router/store';
+import {
+  publishResolvedAuth,
+  resolvedRouteHasLoader,
+  seedRouteLoaderCache,
+} from '../router/resolution';
+import { settleNavigationChunks } from '../router/stale-deployment';
 import { readHydratedAuth, withoutHydratedAuth } from '../router/auth';
 import { assertExecutionModel } from '../common/execution-model';
 import { flushSync as flushRuntimeScheduler } from '../core/reactive/scheduler';
@@ -43,6 +54,11 @@ import {
   resolveInitialRoute,
 } from './route-startup';
 import type { HydrateSPAConfig } from './types';
+import {
+  formatHydrationMismatch,
+  type HydrationMismatchInfo,
+} from '../common/dom-path';
+import type { HydrationOptions } from '../core/dom/hydration';
 import { hydrateDataRuntime } from '../data/query-registry';
 import { getDefaultDataRuntime } from '../data/data-runtime';
 import { resolveRootElement } from './root-element';
@@ -56,6 +72,17 @@ import {
 } from './session-auth-runtime';
 import { getSessionAuthState } from '../router/session-auth-state';
 import { createSPA } from './spa';
+import {
+  readHydratedLayoutData,
+  readRouteLoadedAt,
+} from '../router/route-hydration';
+import {
+  createHydratedRouteErrorResult,
+  isRouteErrorResult,
+  readRouteErrorOutcome,
+  routeErrorComponent,
+  setRootRendersRouteError,
+} from '../router/route-error';
 
 /**
  * hydrateSPA: Hydrate server-rendered HTML with an explicit route registry.
@@ -87,22 +114,39 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   const boot = beginSessionAuthBoot(routeAuth, dataRuntime, () => {
     if (!getAppRoot(rootElement)) rootElement.replaceChildren();
   });
+  let hydrationRenderDataForApp: ReturnType<typeof withoutHydratedAuth> = null;
+  const withHydrationRenderData = <T>(work: () => T): T => {
+    if (!hydrationRenderDataForApp) return work();
+    startHydrationRenderPhase(hydrationRenderDataForApp);
+    try {
+      return work();
+    } finally {
+      stopHydrationRenderPhase();
+    }
+  };
   let restart = false;
   const interactionReplay = beginHydrationInteractionReplay(
     rootElement,
-    (boundary) => activateHydrationBoundary(rootElement, boundary),
+    (boundary) =>
+      withHydrationRenderData(() =>
+        activateHydrationBoundary(rootElement, boundary)
+      ),
     config.hydrate?.skipSelectors
   );
   try {
     applyDeferredStreamPatches(rootElement);
     adoptSsrStyleCarriers(rootElement);
     const hydrationRenderData = takeHydrationRenderData(rootElement);
+    // A freshly delivered envelope carries a token for the current session.
+    resetHydratedCsrfToken();
     const hydrationQueryCache = hydrationRenderData?.queries;
     // The auth snapshot is consumed by route resolution below; components
     // never see it through render data.
-    const hydrationRenderDataForApp = withoutHydratedAuth(hydrationRenderData);
+    hydrationRenderDataForApp = withoutHydratedAuth(hydrationRenderData);
 
     configureScrollRestoration(config.scrollRestoration);
+    configureNavigationFocus(config.focus, rootElement);
+    configureViewTransitions(config.viewTransitions);
 
     clearRouteState();
     _applyManifest(manifest);
@@ -154,7 +198,40 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       releaseSessionDataRuntime(dataRuntime);
       return;
     }
-    const { path, href: currentUrl, resolved } = initialRoute;
+    const { path, href: currentUrl } = initialRoute;
+    let resolved = initialRoute.resolved;
+    // The server rendered the route's `error` component for a failure; the
+    // client renders the same component instead of rerunning the route.
+    const serverError =
+      resolved?.kind === 'render' &&
+      resolved.record &&
+      routeErrorComponent(resolved.record)
+        ? readRouteErrorOutcome(hydrationRenderData?.framework)
+        : undefined;
+    if (resolved?.kind === 'render' && resolved.record && serverError) {
+      publishResolvedAuth(resolved);
+      resolved = createHydratedRouteErrorResult(
+        resolved.record,
+        resolved.params,
+        serverError
+      );
+    }
+    if (resolved?.kind === 'render') {
+      appRouteSource.runtime.layoutData = readHydratedLayoutData(
+        resolved.record,
+        hydrationRenderData?.framework
+      );
+      // Returning to this page reuses the data the server rendered it with.
+      if (!serverError && hydrationRenderData) {
+        seedRouteLoaderCache(resolved, dataRuntime, {
+          ...(resolvedRouteHasLoader(resolved)
+            ? { leaf: { value: hydrationRenderData.route } }
+            : {}),
+          layout: appRouteSource.runtime.layoutData,
+          completedAt: readRouteLoadedAt(hydrationRenderData.framework),
+        });
+      }
+    }
     if (isProductionEnvironment()) lockRouteRegistration();
 
     if (!resolved) {
@@ -165,52 +242,87 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       reconcileInitialRouteMetadata(resolved, boot.assertCurrent)
     );
     boot.assertCurrent();
+    publishResolvedAuth(resolved);
+    settleNavigationChunks();
+    boot.assertCurrent();
     setServerLocation(currentUrl);
 
     const hydrationResolved: ResolvedRoute =
       resolved.kind === 'deny'
-        ? { handler: bindDeniedRouteHandler(resolved.status), params: {} }
+        ? { handler: bindDeniedRouteHandler(resolved), params: {} }
         : resolved;
     let verifyClientMarkup: (() => Promise<void>) | undefined;
     // What the hydration commit itself rendered, before post-commit work runs.
     let clientMarkup: string | null = null;
+    let serializeClientMarkup: ((root: Element) => string) | undefined;
     const captureClientMarkup = () => {
-      if (verifyClientMarkup) clientMarkup = rootElement.innerHTML;
+      if (verifyClientMarkup && serializeClientMarkup) {
+        clientMarkup = serializeClientMarkup(rootElement);
+      }
+    };
+
+    const verifying = shouldVerifyHydrationMarkup(config);
+    // Verify mode compares markup and reports there; otherwise the cursor
+    // reports the nodes it could not adopt.
+    const hydrationOptions: HydrationOptions = {
+      strict: verifying,
+      onMismatch: verifying ? undefined : config.hydrate?.onMismatch,
+      reported: new WeakSet(),
+    };
+    const failOnMismatch = (info: HydrationMismatchInfo, reason: string) => {
+      if (config.hydrate?.onMismatch?.(info) === 'continue') return;
+      throw new Error(formatHydrationMismatch(info, reason));
+    };
+
+    // A navigation away from a mounted error page must remount, not patch.
+    const markErrorRoot = () => {
+      const mounted = getAppRoot(rootElement);
+      if (
+        mounted &&
+        resolved?.kind === 'render' &&
+        isRouteErrorResult(resolved)
+      )
+        setRootRendersRouteError(mounted, true);
     };
 
     const mountHydratedRoot: typeof mountOrUpdate = (...args) => {
       boot.assertCurrent();
-      return mountOrUpdate(args[0], args[1], {
-        ...args[2],
-        cspNonce: config.cspNonce,
-        hydrate: true,
-        onCommit: captureClientMarkup,
-      });
+      return withHydrationRenderData(() =>
+        mountOrUpdate(args[0], args[1], {
+          ...args[2],
+          cspNonce: config.cspNonce,
+          hydrate: true,
+          hydrateOptions: hydrationOptions,
+          onCommit: captureClientMarkup,
+        })
+      );
     };
 
-    if (shouldVerifyHydrationMarkup(config)) {
+    if (verifying) {
       const {
         captureServerHydrationMarkup,
-        verifyClientHydrationMarkup,
-        verifyHydrationSyncForUrl,
+        diffClientHydrationMarkup,
+        checkHydrationSyncForUrl,
+        serializeHydrationMarkup,
       } = await boot.wait(import('../ssr/verify-hydration'));
+      serializeClientMarkup = serializeHydrationMarkup;
       boot.assertCurrent();
-      if (
-        !verifyHydrationSyncForUrl({
-          root: rootElement,
-          url: currentUrl,
-          registry: config.registry,
-          resolved: hydrationResolved,
-          options: {
-            data: hydrationRenderDataForApp?.resources,
-            dataRuntime,
-            envelope: hydrationRenderDataForApp ?? undefined,
-            cspNonce: config.cspNonce,
-          },
-        })
-      ) {
-        throw new Error(
-          '[Askr] Hydration mismatch detected. Server HTML does not match expected server-render output.'
+      const serverMismatch = checkHydrationSyncForUrl({
+        root: rootElement,
+        url: currentUrl,
+        registry: config.registry,
+        resolved: hydrationResolved,
+        options: {
+          data: hydrationRenderDataForApp?.resources,
+          dataRuntime,
+          envelope: hydrationRenderDataForApp ?? undefined,
+          cspNonce: config.cspNonce,
+        },
+      });
+      if (serverMismatch) {
+        failOnMismatch(
+          serverMismatch,
+          'Server HTML does not match expected server-render output.'
         );
       }
       // The server render above cannot see differences between the SSR
@@ -230,15 +342,19 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
           // boundary fallbacks, portal retirement) settles. Matching at either
           // point accepts application updates made after the commit, such as
           // a ref adopting a persisted preference.
-          const matchedAtCommit =
-            clientMarkup !== null &&
-            verifyClientHydrationMarkup(clientMarkup, serverMarkup);
-          if (
-            !matchedAtCommit &&
-            !verifyClientHydrationMarkup(rootElement.innerHTML, serverMarkup)
-          ) {
-            throw new Error(
-              '[Askr] Hydration mismatch detected between server and client markup.'
+          const atCommit =
+            clientMarkup !== null
+              ? diffClientHydrationMarkup(clientMarkup, serverMarkup)
+              : undefined;
+          if (atCommit === null) return;
+          const settled = diffClientHydrationMarkup(
+            serializeHydrationMarkup(rootElement),
+            serverMarkup
+          );
+          if (settled) {
+            failOnMismatch(
+              atCommit ?? settled,
+              'Server and client markup differ.'
             );
           }
         };
@@ -248,35 +364,30 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     const hydrateOptions = config.hydrate;
     if (hydrateOptions) {
       if (hydrateOptions.deferUntilIdle || hydrateOptions.deferBelowFold) {
-        if (hydrationRenderDataForApp) {
-          startHydrationRenderPhase(hydrationRenderDataForApp);
-        }
-        try {
-          await boot.wait(
-            applySelectiveHydration(
-              rootElement,
-              hydrationResolved,
-              path,
-              config.cleanupStrict,
-              hydrateOptions,
-              appRouteSource,
-              {
-                mountOrUpdate: mountHydratedRoot,
-                registerAppNavigation: (...args) => {
-                  boot.assertCurrent();
-                  return registerAppNavigation(...args);
-                },
-                registerRootCleanupCallback,
-                activateHydrationBoundary,
+        await boot.wait(
+          applySelectiveHydration(
+            rootElement,
+            hydrationResolved,
+            path,
+            config.cleanupStrict,
+            hydrateOptions,
+            appRouteSource,
+            {
+              mountOrUpdate: mountHydratedRoot,
+              registerAppNavigation: (...args) => {
+                boot.assertCurrent();
+                markErrorRoot();
+                return registerAppNavigation(...args);
               },
-              interactionReplay
-            )
-          );
-        } finally {
-          if (hydrationRenderDataForApp) {
-            stopHydrationRenderPhase();
-          }
-        }
+              registerRootCleanupCallback,
+              activateHydrationBoundary: (root, boundary) =>
+                withHydrationRenderData(() =>
+                  activateHydrationBoundary(root, boundary)
+                ),
+            },
+            interactionReplay
+          )
+        );
         flushRuntimeScheduler();
         if (!rootElement.querySelector('[data-skip-hydrate]')) {
           await verifyClientMarkup?.();
@@ -291,30 +402,22 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       }
     }
 
-    if (hydrationRenderDataForApp) {
-      startHydrationRenderPhase(hydrationRenderDataForApp);
-    }
-    try {
-      mountHydratedRoot(
-        rootElement,
-        resolved.kind === 'deny'
-          ? bindDeniedStatus(resolved.status)
-          : bindResolvedRouteHandler(hydrationResolved),
-        {
-          cleanupStrict: config.cleanupStrict,
-          appRuntime: appRouteSource.runtime,
-        }
-      );
-      flushRuntimeScheduler();
-    } finally {
-      if (hydrationRenderDataForApp) {
-        stopHydrationRenderPhase();
+    mountHydratedRoot(
+      rootElement,
+      resolved.kind === 'deny'
+        ? bindDeniedStatus(resolved)
+        : bindResolvedRouteHandler(hydrationResolved),
+      {
+        cleanupStrict: config.cleanupStrict,
+        appRuntime: appRouteSource.runtime,
       }
-    }
+    );
+    flushRuntimeScheduler();
     await verifyClientMarkup?.();
     boot.assertCurrent();
     interactionReplay.complete();
     boot.assertCurrent();
+    markErrorRoot();
     await registerAppNavigation(rootElement, path, {
       ...appRouteSource,
     });

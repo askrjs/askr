@@ -240,9 +240,11 @@ prefixes are configured separately.
 When you pass a registry, URL-based SSR applies the registry's synchronous route
 auth and policy decisions before rendering. A redirect or deny decision is not
 rendered: `renderToString()` and `renderToStream()` throw
-`SSRAccessDecisionError`, whose `decision` is the same redirect or deny result
-that `renderRouteRequest()` returns, so the server can send the matching
-response:
+`SSRAccessDecisionError`, whose `decision` is the redirect or deny result, so
+the server can send the matching response. `renderRouteRequest()` returns the
+same redirect or deny result, except that a denied route with a `forbidden`
+component renders it and resolves to `{ kind: 'render', status, denied: true }`
+(see the [router reference](../reference/router.md#route-error-and-forbidden-components)):
 
 ```ts
 import type { RouteRegistry } from '@askrjs/askr/router';

@@ -1,4 +1,4 @@
-import { RouteSnapshot, RouteParams } from './core.js';
+import { RouteSnapshot, RouteParams, RouteSearch } from './core.js';
 /** Options for {@link onRouteChange}. */
 interface RouteChangeOptions {
   immediate?: boolean;
@@ -18,5 +18,6 @@ declare function currentRoute<
   TParams extends RouteParams = RouteParams,
   TState = unknown,
   TAppMeta = unknown,
->(): RouteSnapshot<TParams, TState, TAppMeta>;
+  TSearch = RouteSearch,
+>(): RouteSnapshot<TParams, TState, TAppMeta, TSearch>;
 export { onRouteChange, RouteChangeOptions, currentRoute, RouteChangeCleanup };

@@ -31,6 +31,11 @@ export function currentAuth(): AuthContext {
   return clientAuth;
 }
 
+/** @internal The browser's process-wide identity, for commit rollback. */
+export function readClientAuth(): AuthContext {
+  return clientAuth;
+}
+
 /** @internal Updated atomically with route resolution. */
 export function setCurrentAuth(context: AuthContext, mode: RouteMode): void {
   const render = getActiveRenderContext();

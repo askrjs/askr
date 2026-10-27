@@ -310,7 +310,7 @@ describe('Static Site Generation', () => {
       );
     });
 
-    it('should not generate registry fallback records as concrete pages', async () => {
+    it('should write the root fallback only as the 404 page, never as a concrete route', async () => {
       const registry = createRouteRegistry(() => {
         route('/', () => <main>{'Registry Home'}</main>);
         fallback(() => <main>{'Missing'}</main>);
@@ -322,9 +322,16 @@ describe('Static Site Generation', () => {
 
       const result = await ssg.generate();
 
-      expect(result.totalRoutes).toBe(1);
-      expect(result.routes.map((route) => route.path)).toEqual(['/']);
+      expect(result.totalRoutes).toBe(2);
+      expect(result.routes.map((route) => route.path)).toEqual(['/', '/404']);
+      expect(result.routes[1]?.filePath).toBe('404.html');
       expect(fs.existsSync(path.join(tempDir, '*', 'index.html'))).toBe(false);
+      expect(fs.existsSync(path.join(tempDir, '404', 'index.html'))).toBe(
+        false
+      );
+      expect(fs.readFileSync(path.join(tempDir, '404.html'), 'utf8')).toContain(
+        'Missing'
+      );
     });
 
     it('should preserve Context sibling children in generated HTML', async () => {
@@ -733,6 +740,40 @@ describe('Static Site Generation', () => {
         fs.readFileSync(path.join(tempDir, 'assets', 'app.js'), 'utf8')
       ).toBe('console.log("app");');
       expect(fs.existsSync(path.join(tempDir, 'index.html'))).toBe(true);
+    });
+
+    it('should reject a static asset that would overwrite generated route HTML', async () => {
+      const sourcePath = path.join(tempDir, 'asset-index.html');
+      fs.writeFileSync(sourcePath, '<main>asset</main>');
+
+      await expect(
+        createStaticGen({
+          routes: [{ path: '/', component: Home }],
+          outputDir: tempDir,
+          assets: [{ from: sourcePath, to: 'index.html' }],
+        }).generate()
+      ).rejects.toThrow(/asset destination collision.*index\.html/i);
+      expect(fs.existsSync(path.join(tempDir, 'metadata.json'))).toBe(false);
+    });
+
+    it('should allow static asset directories that contain generated route outputs', async () => {
+      const sourceDir = path.join(tempDir, 'client-assets');
+      fs.mkdirSync(sourceDir, { recursive: true });
+      fs.writeFileSync(path.join(sourceDir, 'app.js'), 'console.log("app");');
+
+      await createStaticGen({
+        routes: [{ path: '/assets/page', component: Home }],
+        outputDir: tempDir,
+        assets: [{ from: sourceDir, to: 'assets' }],
+      }).generate();
+
+      expect(fs.existsSync(path.join(tempDir, 'assets', 'app.js'))).toBe(true);
+      expect(
+        fs.readFileSync(
+          path.join(tempDir, 'assets', 'page', 'index.html'),
+          'utf8'
+        )
+      ).toContain('Home');
     });
 
     it('should reject asset destinations outside outputDir', async () => {
@@ -1249,6 +1290,37 @@ describe('Static Site Generation', () => {
           '<main>previous site</main>'
         );
         expect(fs.existsSync(path.join(tempDir, 'metadata.json'))).toBe(false);
+      } finally {
+        fs.rmSync(stagingDir, { recursive: true, force: true });
+      }
+    });
+
+    it('should keep the committed site when backup cleanup partially fails', async () => {
+      fs.writeFileSync(path.join(tempDir, 'index.html'), 'previous site');
+      const stagingDir = path.join(
+        path.dirname(tempDir),
+        '.askr-staging-cleanup-test'
+      );
+      fs.mkdirSync(stagingDir, { recursive: true });
+      fs.writeFileSync(path.join(stagingDir, 'index.html'), 'next site');
+      const nativeRename = fs.promises.rename;
+      const nativeRemove = fs.promises.rm;
+
+      try {
+        await expect(
+          replaceOutputDirectory(stagingDir, tempDir, {
+            rename: nativeRename,
+            rm: async (target, options) => {
+              await nativeRemove(target, options);
+              if (String(target).includes('.askr-backup-')) {
+                throw new Error('backup cleanup failed');
+              }
+            },
+          })
+        ).rejects.toThrow('backup cleanup failed');
+        expect(fs.readFileSync(path.join(tempDir, 'index.html'), 'utf8')).toBe(
+          'next site'
+        );
       } finally {
         fs.rmSync(stagingDir, { recursive: true, force: true });
       }

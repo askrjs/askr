@@ -40,12 +40,17 @@ export function isKnownBooleanProperty(key: string): boolean {
  * The DOM property a prop is written to, or `null` when it is an attribute.
  *
  * Custom elements (a tag name containing `-`) receive object and array values
- * as properties; their primitive values stay attributes.
+ * as properties. With the element in hand (`el`, at write time), any
+ * non-string value (a boolean, number or function too) is assigned as a
+ * property when the element has one by that name (`key in el`), so an upgraded
+ * element gets typed values; strings stay attributes, and so does anything
+ * the element has no property for.
  */
 export function getDomPropertyName(
   tagName: string,
   key: string,
-  value: unknown
+  value: unknown,
+  el?: Element
 ): string | null {
   if (key.startsWith(PROPERTY_PROP_PREFIX)) {
     return key.slice(PROPERTY_PROP_PREFIX.length);
@@ -57,12 +62,13 @@ export function getDomPropertyName(
 
   if (
     value !== null &&
-    typeof value === 'object' &&
+    value !== undefined &&
     key !== 'style' &&
     key !== 'dangerouslySetInnerHTML' &&
     isCustomElementName(tagName)
   ) {
-    return key;
+    if (typeof value === 'object') return key;
+    if (typeof value !== 'string' && el && key in el) return key;
   }
 
   return null;
@@ -103,7 +109,7 @@ export function matchesDomPropertyProp(
   value: unknown,
   tagName: string
 ): boolean | null {
-  const name = getDomPropertyName(tagName, key, value);
+  const name = getDomPropertyName(tagName, key, value, el);
   if (name === null) return null;
   return Object.is(
     (el as Element & Record<string, unknown>)[name],

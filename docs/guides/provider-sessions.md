@@ -75,9 +75,13 @@ revocation are explicit server actions.
 Cross-tab messages contain only invalidation hints. They immediately retire
 local private state, then revalidate the current server authority. A delayed
 logout message cannot install an old anonymous snapshot over a newer login.
-BroadcastChannel is preferred, with storage/focus fallback. Persisted `pageshow`
-and hidden-to-visible transitions also revalidate after potentially missed hints;
-initial page display does not trigger an extra hydration GET. A page binding
+BroadcastChannel is preferred, with storage/focus fallback. Persisted `pageshow`,
+hidden-to-visible transitions and (without a channel) window focus revalidate in
+the background after potentially missed hints: the session is fetched while the
+page stays as it is, and private state is retired and the page re-resolved only
+when the server identity differs. An unchanged identity keeps component state
+and any navigation in flight. Initial page display does not trigger an extra
+hydration GET. A page binding
 announces its presence once; cancelled initial boots do not rebroadcast on every
 restart. Root teardown removes its listeners and retires its owned runtime.
 
@@ -120,6 +124,8 @@ loader's typed interaction error follows the same recovery path, including a
 login page with `next`; consent recovery constructs the known server provider
 login route from the validated provider, canonical resource and scopes. It
 never follows a URL supplied by an arbitrary error body.
+If another navigation supersedes a queued recovery before it runs, that newer
+navigation remains in control.
 
 `loginHref(provider, { returnTo, resource?, scopes? })` creates the server's
 `/auth/login/:provider` URL with one `returnTo`, optional `resource` and repeated

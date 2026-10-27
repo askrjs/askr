@@ -81,6 +81,10 @@ test('should retain the output lock through draining and preserve the first erro
   const blocked = new Promise<void>((resolve) => {
     release = resolve;
   });
+  let bothWritesStarted!: () => void;
+  const writesStarted = new Promise<void>((resolve) => {
+    bothWritesStarted = resolve;
+  });
   const failure = new Error('first write');
   const events: string[] = [];
   const results: RouteRenderResult[] = ['first', 'second', 'never'].map(
@@ -110,6 +114,8 @@ test('should retain the output lock through draining and preserve the first erro
             rmdir: async () => undefined,
             writeFile: async (_path, data) => {
               events.push(String(data));
+              if (events.includes('first') && events.includes('second'))
+                bothWritesStarted();
               if (data === 'first') throw failure;
               await blocked;
             },
@@ -133,7 +139,7 @@ test('should retain the output lock through draining and preserve the first erro
       events.push('next generation');
     }
   );
-  await new Promise<void>((resolve) => setImmediate(resolve));
+  await writesStarted;
   expect(events).toEqual(['first', 'second']);
   release();
   expect(await observed).toBe(failure);
@@ -145,6 +151,67 @@ test('should retain the output lock through draining and preserve the first erro
     'staging cleanup',
     'next generation',
   ]);
+});
+
+test('should serialize output directories with Unicode case-fold-equivalent names', async () => {
+  let release!: () => void;
+  const blocked = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let started!: () => void;
+  const firstStarted = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  const events: string[] = [];
+  const first = withOutputDirectoryLock('/tmp/askr-Straße', async () => {
+    events.push('first started');
+    started();
+    await blocked;
+    events.push('first finished');
+  });
+  await firstStarted;
+  const second = withOutputDirectoryLock('/tmp/askr-STRASSE', async () => {
+    events.push('second started');
+  });
+
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  expect(events).toEqual(['first started']);
+  release();
+  await Promise.all([first, second]);
+  expect(events).toEqual(['first started', 'first finished', 'second started']);
+});
+
+test('should serialize overlapping parent and child output directories', async () => {
+  let release!: () => void;
+  const blocked = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let started!: () => void;
+  const ready = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  const events: string[] = [];
+  const parent = withOutputDirectoryLock('/tmp/askr-output', async () => {
+    events.push('parent start');
+    started();
+    await blocked;
+    events.push('parent finish');
+  });
+  await ready;
+  const child = withOutputDirectoryLock('/tmp/askr-output/nested', async () => {
+    events.push('child');
+  });
+  const sibling = withOutputDirectoryLock(
+    '/tmp/askr-output-other',
+    async () => {
+      events.push('sibling');
+    }
+  );
+  await sibling;
+  expect(events).toEqual(['parent start', 'sibling']);
+  release();
+  await Promise.all([parent, child]);
+  expect(events).toEqual(['parent start', 'sibling', 'parent finish', 'child']);
 });
 
 test('should drain preparation failures from live results before cleanup and releasing the output lock', async () => {

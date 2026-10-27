@@ -10,7 +10,7 @@ import { compileNodePolicies } from './access';
 import { snapshotAppMeta } from './app-meta';
 import { createRouteHandler } from './rendering';
 import { joinRoutePaths, validateRoutePath } from './path-policy';
-import { resolveIndexPath } from './registration-scope';
+import { assertStaleTime, resolveIndexPath } from './registration-scope';
 import {
   addRouteToStores,
   assertRouteRegistrationUnlocked,
@@ -23,7 +23,9 @@ import {
   getCurrentPageScope,
   getCurrentPathPrefix,
   getCurrentScopeKind,
-  getRouteRecords,
+  findRecordByMatchKey,
+  getNearestScopeValue,
+  getRegistrationScopes,
   hasActivePageScope,
   insertRecordSorted,
 } from './store';
@@ -52,6 +54,9 @@ function normalizeRouteOptions(
     !options.search &&
     !options.meta &&
     !options.actions &&
+    !options.error &&
+    options.staleTimeMs === undefined &&
+    !options.forbidden &&
     options.appMeta === undefined &&
     options.auth === undefined
   ) {
@@ -73,6 +78,11 @@ function normalizeRouteOptions(
     ...(options.search ? { search: options.search } : {}),
     ...(options.meta ? { meta: options.meta } : {}),
     ...(options.actions ? { actions: options.actions } : {}),
+    ...(options.error ? { error: options.error } : {}),
+    ...(options.staleTimeMs !== undefined
+      ? { staleTimeMs: options.staleTimeMs }
+      : {}),
+    ...(options.forbidden ? { forbidden: options.forbidden } : {}),
     ...(options.appMeta !== undefined
       ? { appMeta: snapshotAppMeta(options.appMeta) }
       : {}),
@@ -85,9 +95,7 @@ function assertRouteNotDuplicated(
   fallbackPrefix: string | undefined
 ): void {
   const key = routeMatchKey(segments, fallbackPrefix);
-  const existing = getRouteRecords().find(
-    (record) => routeMatchKey(record.segments, record.fallbackPrefix) === key
-  );
+  const existing = findRecordByMatchKey(key);
   if (existing) {
     const hint =
       existing.path === path
@@ -127,6 +135,7 @@ export function registerRouteAtResolvedPath(
     throw new Error('Route registration requires a component function.');
   }
   validateRoutePath(path);
+  assertStaleTime(options?.staleTimeMs);
 
   const segments = parseSegments(path);
   assertRouteNotDuplicated(path, segments, metadata?.fallbackPrefix);
@@ -164,6 +173,22 @@ export function registerRouteAtResolvedPath(
         ])
       : undefined;
 
+  const errorComponent =
+    normalizedOptions?.error ?? getNearestScopeValue('error');
+  const forbiddenComponent =
+    normalizedOptions?.forbidden ?? getNearestScopeValue('forbidden');
+  const loaderChain = getRegistrationScopes().flatMap((scope) =>
+    scope.loader
+      ? [
+          Object.freeze({
+            loader: scope.loader,
+            ...(scope.staleTimeMs !== undefined
+              ? { staleTimeMs: scope.staleTimeMs }
+              : {}),
+          }),
+        ]
+      : []
+  );
   const handler = createRouteHandler(comp, pageChain, chain);
   const renderHandler = createRouteHandler(comp, pageChain, chain, true);
 
@@ -187,6 +212,9 @@ export function registerRouteAtResolvedPath(
           : {},
     ...(metaChain.length > 0 ? { metaChain } : {}),
     ...(appMetaChain ? { appMetaChain } : {}),
+    ...(loaderChain.length > 0 ? { loaderChain } : {}),
+    ...(errorComponent ? { errorComponent } : {}),
+    ...(forbiddenComponent ? { forbiddenComponent } : {}),
     isFallback,
     handler,
     renderHandler,
@@ -200,6 +228,9 @@ export function registerRouteAtResolvedPath(
     path,
     handler,
     namespace: normalizedOptions?.namespace ?? options?.namespace,
+    ...(normalizedOptions?.search
+      ? { searchSchema: normalizedOptions.search }
+      : {}),
     ...(appMetaChain ? { appMetaChain } : {}),
     ...(metadata?.fallbackPrefix
       ? { fallbackPrefix: metadata.fallbackPrefix }

@@ -7,6 +7,7 @@ import type {
 } from '../common/router';
 import type { AnyRouteComponent } from './internal-types';
 import { _wrapRouteDataLoadError } from './route-data-loader';
+import { markNavigationChunkLoaded } from './stale-deployment';
 
 const pendingLazy = new Set<Promise<unknown>>();
 type LazyState<TComponent extends AnyRouteComponent> = {
@@ -43,6 +44,7 @@ function startLazyLoad(state: LazyState<AnyRouteComponent>): Promise<void> {
             : (mod as { default: AnyRouteComponent }).default;
         state.loadError = null;
         state.hasLoadError = false;
+        markNavigationChunkLoaded();
       },
       (err: unknown) => {
         state.loadError = err;
@@ -135,6 +137,21 @@ export function _preloadRouteRecord(record: RouteRecord): Promise<void> | null {
     return state && !state.resolved ? [startLazyLoad(state)] : [];
   });
   return imports.length > 0 ? Promise.all(imports).then(() => undefined) : null;
+}
+
+/** The load failure of a lazy component in `record`'s chain, if one failed. */
+export function _routeRecordLoadFailure(
+  record: RouteRecord
+): { error: unknown } | undefined {
+  for (const component of [
+    record.component,
+    ...record.pageChain.map((scope) => scope.component),
+    ...record.layoutChain.map((scope) => scope.component),
+  ]) {
+    const state = lazyStates.get(component);
+    if (state?.hasLoadError) return { error: state.loadError };
+  }
+  return undefined;
 }
 
 export function _associateLazyHandler(

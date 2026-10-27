@@ -1,8 +1,18 @@
 import type { RenderableChild } from '../common/vnode';
+import { anyAbortSignal } from '../common/abort-signal';
 import type { JSXElement } from '../common/jsx';
 import type { ObjectSchema } from '@askrjs/schema';
 import { getSignal, state } from '../core/api/state';
-import { currentComponent, onRenderDiscard } from '../core/api/hooks';
+import {
+  currentAppRuntime,
+  currentComponent,
+  onRenderDiscard,
+} from '../core/api/hooks';
+import {
+  isCsrfCookieName,
+  readSubmitTimeCsrfToken,
+  TOKEN_PATTERN,
+} from './csrf';
 import { getCurrentRenderData } from '../common/render-context';
 import {
   assertDataRuntimeActive,
@@ -13,6 +23,7 @@ import {
 import { readActionFramework } from './runtime';
 import { isCurrentAsyncGeneration, raceAbort } from '../data/shared';
 import { resolveNavigationUrl } from '../common/url';
+import { followSameOriginRedirect } from '../common/redirect-host';
 
 const actionSubmissionGenerations = new WeakMap<object, number>();
 const actionRuntimeBindings = new WeakMap<
@@ -107,7 +118,7 @@ function initialStatus<TResult>(actionId: string): ActionStatus<TResult> {
  * Validate an action redirect and return its absolute URL. Path-like targets
  * that leave the origin, including dot segments that collapse to `//host`,
  * are refused by {@link resolveNavigationUrl}; explicit URLs on another origin
- * are refused here. The absolute form keeps `location.assign()` on the origin.
+ * are refused here. The absolute form keeps the redirect on the origin.
  */
 function normalizeActionRedirect(value: string): string {
   const current = new URL(location.href);
@@ -155,6 +166,9 @@ function actionFailure(status: number, cause?: unknown): Error {
  * called from event handlers or other async work. An explicit csrfToken
  * resolver runs fresh for every submission under the component/data lifetime.
  * Its undefined result omits the token instead of falling back to SSR data.
+ * Without a resolver the token is read at every submission: the hydration
+ * token (until the session identity changes), else the `csrf-token` meta
+ * element, else the cookie named by `csrfCookie`.
  */
 export function action<
   TInput extends Record<string, unknown>,
@@ -162,7 +176,8 @@ export function action<
 >(
   descriptor: ActionDescriptor<TInput>,
   options?: {
-    readonly csrfToken: (signal: AbortSignal) => Promise<string | undefined>;
+    readonly csrfToken?: (signal: AbortSignal) => Promise<string | undefined>;
+    readonly csrfCookie?: string;
   }
 ) {
   if (
@@ -170,12 +185,36 @@ export function action<
     (options === null ||
       typeof options !== 'object' ||
       Array.isArray(options) ||
-      typeof options.csrfToken !== 'function' ||
-      Object.keys(options).some((key) => key !== 'csrfToken'))
+      Object.keys(options).some(
+        (key) => key !== 'csrfToken' && key !== 'csrfCookie'
+      ))
+  ) {
+    throw new TypeError('action options accept only csrfToken and csrfCookie.');
+  }
+  // A present key must be a resolver: `{ csrfToken: undefined }` is more
+  // likely a lost value than a request for the default token sources.
+  if (
+    options !== undefined &&
+    'csrfToken' in options &&
+    typeof options.csrfToken !== 'function'
   ) {
     throw new TypeError('action csrfToken requires an explicit resolver.');
   }
-  const token = csrfToken();
+  if (
+    options?.csrfCookie !== undefined &&
+    !isCsrfCookieName(options.csrfCookie)
+  ) {
+    throw new TypeError('action csrfCookie must be a cookie name.');
+  }
+  const resolveToken = options?.csrfToken;
+  const csrfCookie = options?.csrfCookie;
+  // The render-data token first, as `ActionForm` reads it, then the app's.
+  const appRuntime = currentAppRuntime();
+  const token =
+    csrfToken() ??
+    (typeof appRuntime?.framework.csrf === 'string'
+      ? appRuntime.framework.csrf
+      : undefined);
   const runtime = resolveDataRuntimeState(undefined, true);
   if (runtime.retired) {
     const instance = currentComponent();
@@ -191,9 +230,7 @@ export function action<
     if (binding?.runtime !== runtime || binding?.actionId !== descriptor.id)
       assertDataRuntimeActive(runtime);
   }
-  const signal = options
-    ? AbortSignal.any([getSignal(), runtime.retirement.signal])
-    : undefined;
+  const signal = composedActionSignal(getSignal(), runtime.retirement.signal);
   const value = state<ActionStatus<TResult>>(
     initialStatus<TResult>(descriptor.id)
   );
@@ -222,17 +259,15 @@ export function action<
       // submit again before the first request settles.
       setValue((previous) => ({ pending: true, result: previous.result }));
       try {
-        const submissionToken = options
-          ? await raceAbort(Promise.resolve(options.csrfToken(signal!)), [
-              signal!,
-            ])
-          : token;
+        const submissionToken = resolveToken
+          ? await raceAbort(Promise.resolve(resolveToken(signal!)), [signal!])
+          : readSubmitTimeCsrfToken(token, csrfCookie);
         signal?.throwIfAborted();
         if (
-          options &&
+          resolveToken &&
           submissionToken !== undefined &&
           (typeof submissionToken !== 'string' ||
-            !/^[\x21-\x7e]+$/.test(submissionToken))
+            !TOKEN_PATTERN.test(submissionToken))
         ) {
           throw new TypeError(
             'action csrfToken must resolve to a non-empty ASCII token or undefined.'
@@ -251,61 +286,70 @@ export function action<
           body: JSON.stringify(input),
           ...(signal ? { signal } : {}),
         });
-        const response = await (signal
-          ? raceAbort(responsePromise, [signal])
-          : responsePromise);
-        signal?.throwIfAborted();
-        let parsed: unknown;
-        try {
-          const bodyPromise = response.text();
-          const body = await (signal
-            ? raceAbort(bodyPromise, [signal])
-            : bodyPromise);
-          signal?.throwIfAborted();
-          // A bodiless success (204/205 or an empty 2xx) is a completed
-          // mutation with no result; it still runs declared invalidations.
-          parsed = response.ok && body === '' ? undefined : JSON.parse(body);
-        } catch (cause) {
-          signal?.throwIfAborted();
-          // A proxy or crashed server can answer with HTML or plain text;
-          // keep the HTTP status visible rather than a JSON parse error.
-          throw actionFailure(response.status, cause);
-        }
-        const envelope = (parsed ?? {}) as {
-          result?: TResult;
-          error?: unknown;
-          invalidates?: unknown;
-          redirect?: unknown;
-          kind?: unknown;
-          action?: unknown;
-          values?: unknown;
-          issues?: unknown;
-          fieldErrors?: unknown;
-        };
-        if (!response.ok) {
-          if (envelope.error != null) {
-            throw actionFailure(response.status, envelope.error);
+        const responseResult = responsePromise.then(async (response) => {
+          let parsed: unknown;
+          try {
+            const body = await response.text();
+            // A bodiless success (204/205 or an empty 2xx) is a completed
+            // mutation with no result; it still runs declared invalidations.
+            parsed = response.ok && body === '' ? undefined : JSON.parse(body);
+          } catch (cause) {
+            // A proxy or crashed server can answer with HTML or plain text;
+            // keep the HTTP status visible rather than a JSON parse error.
+            throw actionFailure(response.status, cause);
           }
-          // Otherwise report the body itself, such as a problem response.
-          throw (
-            validationError(envelope, descriptor.id) ??
-            actionFailure(response.status, parsed ?? undefined)
-          );
-        }
-        const redirect =
-          typeof envelope.redirect === 'string'
-            ? normalizeActionRedirect(envelope.redirect)
-            : undefined;
-        const invalidates = Array.isArray(envelope.invalidates)
-          ? envelope.invalidates.filter(
-              (prefix): prefix is string => typeof prefix === 'string'
-            )
-          : descriptor.invalidates;
-        signal?.throwIfAborted();
-        // Every successful server mutation invalidates its confirmed prefixes,
-        // even when a newer submission owns the visible action state.
-        for (const prefix of invalidates)
-          invalidateQueriesForRuntime(runtime, prefix, true);
+          const envelope = (parsed ?? {}) as {
+            result?: TResult;
+            error?: unknown;
+            invalidates?: unknown;
+            redirect?: unknown;
+            kind?: unknown;
+            action?: unknown;
+            values?: unknown;
+            issues?: unknown;
+            fieldErrors?: unknown;
+          };
+          if (!response.ok) {
+            if (envelope.error != null) {
+              throw actionFailure(response.status, envelope.error);
+            }
+            // Otherwise report the body itself, such as a problem response.
+            throw (
+              validationError(envelope, descriptor.id) ??
+              actionFailure(response.status, parsed ?? undefined)
+            );
+          }
+          const redirect =
+            typeof envelope.redirect === 'string'
+              ? normalizeActionRedirect(envelope.redirect)
+              : undefined;
+          const invalidates = Array.isArray(envelope.invalidates)
+            ? envelope.invalidates.filter(
+                (prefix): prefix is string => typeof prefix === 'string'
+              )
+            : descriptor.invalidates;
+          // A client abort cannot undo a server mutation that has already
+          // succeeded. Observe the response independently of the caller so
+          // surviving query readers still become stale, without publishing
+          // action state or following a late redirect.
+          const runtimes = new Set([runtime]);
+          const currentBinding = actionRuntimeBindings.get(value);
+          if (currentBinding?.actionId === descriptor.id) {
+            runtimes.add(currentBinding.runtime);
+          }
+          for (const targetRuntime of runtimes) {
+            for (const prefix of invalidates) {
+              invalidateQueriesForRuntime(targetRuntime, prefix, true);
+            }
+          }
+          return { envelope, redirect };
+        });
+        // If cancellation wins the race, the response observer still needs
+        // to consume and classify a later response without an unhandled error.
+        void responseResult.catch(() => undefined);
+        const { envelope, redirect } = await (signal
+          ? raceAbort(responseResult, [signal])
+          : responseResult);
         signal?.throwIfAborted();
         if (
           isCurrentAsyncGeneration(
@@ -315,7 +359,7 @@ export function action<
         ) {
           setValue({ pending: false, result: envelope.result });
           signal?.throwIfAborted();
-          if (redirect) location.assign(redirect);
+          if (redirect) followSameOriginRedirect(redirect);
         }
         return envelope.result as TResult;
       } catch (error) {
@@ -332,4 +376,31 @@ export function action<
       }
     },
   };
+}
+
+/**
+ * The component's signal joined with its runtime's, computed once per pair.
+ * Without native `AbortSignal.any` the join adds listeners, and a render runs
+ * `action()` again each time, so the join is cached per component signal.
+ */
+const composedActionSignals = new WeakMap<
+  AbortSignal,
+  WeakMap<AbortSignal, AbortSignal>
+>();
+
+function composedActionSignal(
+  owner: AbortSignal,
+  retirement: AbortSignal
+): AbortSignal {
+  let byRetirement = composedActionSignals.get(owner);
+  if (!byRetirement) {
+    byRetirement = new WeakMap();
+    composedActionSignals.set(owner, byRetirement);
+  }
+  let composed = byRetirement.get(retirement);
+  if (!composed) {
+    composed = anyAbortSignal([owner, retirement]);
+    byRetirement.set(retirement, composed);
+  }
+  return composed;
 }

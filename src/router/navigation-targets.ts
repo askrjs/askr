@@ -3,8 +3,20 @@ import { logger } from '../common/logger';
 import {
   applyHistoryScroll,
   applyNavigationScroll,
+  hasSavedScrollPosition,
   saveScrollPosition,
 } from './navigation-scroll';
+import { publishLocation } from './route-query';
+import {
+  runNavigationCommit,
+  shouldUseViewTransition,
+} from './view-transition';
+import {
+  allowNavigationLeave,
+  hasNavigationBlockers,
+} from './navigation-block';
+import { reportBlockedNavigation } from './navigation-state';
+import { applyNavigationFocus } from './navigation-focus';
 import {
   getCurrentHref,
   getCurrentPathname,
@@ -22,7 +34,13 @@ import {
 } from './history-index';
 import { isStaleRouteRequest } from './navigation-request';
 import { commitNavigationRoots } from './navigation-commit';
-import { hasCurrentNavigationOwners } from './navigation-types';
+import { createNavigationTarget } from './navigation-resolution';
+import {
+  getRouteRevalidation,
+  isRouteRevalidationCurrent,
+  refreshRouteRenderResult,
+} from './resolution';
+import { hasCurrentNavigationOwners, isRenderResult } from './navigation-types';
 import type {
   NavigateOptions,
   NavigationRedirectState,
@@ -40,6 +58,64 @@ export {
   cancelRouteRequests,
 } from './navigation-request';
 export { resolveNavigationTargetsForApps } from './navigation-resolution';
+
+/**
+ * A committed route that rendered cached loader data refreshes in place once
+ * the background request settles. Any newer navigation request, or a replaced
+ * app owner, makes the refresh obsolete; the cache is already up to date for
+ * the next visit.
+ */
+function scheduleRevalidationRefresh(
+  requestId: number,
+  pathname: string,
+  href: string,
+  targets: readonly AppNavigationTarget[],
+  locationState: { hasState: boolean; state: unknown }
+): void {
+  for (const target of targets) {
+    const resolved = target.resolved;
+    if (!isRenderResult(resolved)) continue;
+    const revalidation = getRouteRevalidation(resolved);
+    if (!revalidation) continue;
+    // Only a root that actually committed this location refreshes.
+    if (getCurrentHref() !== href) continue;
+    // The committed root's runtime owns the refresh; a replaced one does not.
+    const committed = target.app.instance.appRuntime;
+    void revalidation.then(
+      async (values) => {
+        if (isStaleRouteRequest(requestId)) return;
+        if (target.app.instance.appRuntime !== committed) return;
+        if (!isRouteRevalidationCurrent(resolved)) return;
+        const refreshed = refreshRouteRenderResult(resolved, values);
+        if (!refreshed) return;
+        const next = await createNavigationTarget(
+          target.app,
+          refreshed,
+          committed
+        );
+        if (isStaleRouteRequest(requestId)) return;
+        if (target.app.instance.appRuntime !== committed) return;
+        if (!isRouteRevalidationCurrent(resolved)) return;
+        try {
+          commitNavigationRoots(
+            requestId,
+            pathname,
+            href,
+            [next],
+            locationState,
+            () => undefined,
+            () => undefined,
+            undefined,
+            () => isRouteRevalidationCurrent(resolved)
+          );
+        } catch (error) {
+          logger.error('[Askr] route data refresh failed:', error);
+        }
+      },
+      () => undefined
+    );
+  }
+}
 
 const MAX_NAVIGATION_REDIRECTS = 20;
 
@@ -110,12 +186,26 @@ export function applyNavigationTargets(
       );
     }
 
+    // Leaving for the redirect target is leaving the page like any other;
+    // a blocker that began objecting while the route resolved refuses it.
+    if (
+      !redirectState.skipBlockers &&
+      hasNavigationBlockers() &&
+      !allowNavigationLeave(redirectState.confirmed)
+    ) {
+      reportBlockedNavigation(redirectHref);
+      return;
+    }
+
     redirectState.visited.add(redirectHref);
     redirectState.redirects++;
     navigateWithRedirectState(
       redirectHref,
       {
         history: getRedirectHistoryMode(resolved.replace),
+        ...(options.viewTransition !== undefined
+          ? { viewTransition: options.viewTransition }
+          : {}),
       },
       redirectState
     );
@@ -146,33 +236,82 @@ export function applyNavigationTargets(
     hasState,
     state: hasState ? options.state : undefined,
   };
-  commitNavigationRoots(
+  if (hasState) assertCloneableHistoryState(locationState.state);
+  // Read the departing page's offset before its content is replaced: the
+  // browser clamps the scroll position as soon as the document shrinks.
+  saveScrollPosition(previousHref);
+  runNavigationCommit(
+    shouldUseViewTransition(options.viewTransition, previousHref, href),
     requestId,
-    pathname,
-    href,
-    matchedTargets,
-    locationState,
     () => {
-      saveScrollPosition(previousHref);
-      const historyMode = getNavigationHistoryMode(options);
-      const historyIndex = nextHistoryIndex(historyMode);
-      window.history[historyMode === 'replace' ? 'replaceState' : 'pushState'](
-        {
-          path: href,
-          askrHasState: locationState.hasState,
-          askrState: locationState.state,
-          askrIndex: historyIndex,
+      commitNavigationRoots(
+        requestId,
+        pathname,
+        href,
+        matchedTargets,
+        locationState,
+        () => {
+          const historyMode = getNavigationHistoryMode(options);
+          const historyIndex = nextHistoryIndex(historyMode);
+          window.history[
+            historyMode === 'replace' ? 'replaceState' : 'pushState'
+          ](
+            {
+              path: href,
+              askrHasState: locationState.hasState,
+              askrState: locationState.state,
+              askrIndex: historyIndex,
+            },
+            '',
+            toDocumentUrl(href)
+          );
+          commitHistoryIndex(historyIndex);
         },
-        '',
-        toDocumentUrl(href)
+        () => {
+          const destination = parseTargetUrl(href);
+          if (pathname !== previousPathname || destination.hash)
+            applyNavigationScroll(options.scroll);
+          // A fragment names its own target and a same-page query change keeps
+          // the visitor where they are.
+          if (pathname !== previousPathname && !destination.hash) {
+            applyNavigationFocus({
+              pathname: destination.pathname,
+              search: destination.search,
+              hash: destination.hash,
+            });
+          }
+        }
       );
-      commitHistoryIndex(historyIndex);
-    },
-    () => {
-      if (pathname !== previousPathname || parseTargetUrl(href).hash)
-        applyNavigationScroll(options.scroll);
+      scheduleRevalidationRefresh(
+        requestId,
+        pathname,
+        href,
+        matchedTargets,
+        locationState
+      );
     }
   );
+}
+
+/**
+ * A history entry for the rendered page that differs only by fragment: the
+ * page stays, the location and scroll move. Mirrors `navigate()`'s fragment
+ * path for back/forward traversal.
+ */
+export function applyPopStateFragmentChange(
+  previousHref: string,
+  historyIndex: number | undefined,
+  pathname: string,
+  href: string,
+  state: unknown
+): void {
+  saveScrollPosition(previousHref);
+  commitHistoryIndex(historyIndex);
+  publishLocation(pathname, href);
+  // An entry traversed before (back, forward) restores its offset; a fresh
+  // one (a native anchor click) scrolls to its fragment, as navigate() does.
+  if (hasSavedScrollPosition(href, state)) applyHistoryScroll(href, state);
+  else applyNavigationScroll();
 }
 
 export function applyPopStateNavigationTargets(
@@ -195,12 +334,6 @@ export function applyPopStateNavigationTargets(
 
   const matchedTargets = targets.filter((target) => target.resolved !== null);
   if (matchedTargets.length === 0) {
-    // Only the fragment moved away from the rendered page, which is still
-    // the right page for this entry.
-    if (href.split('#')[0] === previousHref.split('#')[0]) {
-      commitHistoryIndex(historyIndex);
-      return;
-    }
     // The browser already moved to this entry; only a document load can
     // render it, so the old page does not stay mounted under the new URL.
     if (isDevelopmentEnvironment()) {
@@ -228,22 +361,50 @@ export function applyPopStateNavigationTargets(
     askrState?: unknown;
   } | null;
   const hasState = historyState?.askrHasState === true;
-  commitNavigationRoots(
+  runNavigationCommit(
+    shouldUseViewTransition(undefined, previousHref, href),
     requestId,
-    pathname,
-    href,
-    matchedTargets,
-    { hasState, state: hasState ? historyState?.askrState : undefined },
-    () => commitHistoryIndex(historyIndex),
-    () => applyHistoryScroll(href, state),
     () => {
-      // A newer navigation owns history now.
-      if (isStaleRouteRequest(requestId)) return;
-      // Traverse back to the entry whose page is still rendered, which may
-      // be several entries away when this traversal superseded a pending
-      // one, rather than rewriting the entry the user landed on. If either
-      // position is unknown, the landed URL is the only truth left: load it.
-      if (!returnToRenderedHistoryEntry()) reloadDocument();
+      commitNavigationRoots(
+        requestId,
+        pathname,
+        href,
+        matchedTargets,
+        { hasState, state: hasState ? historyState?.askrState : undefined },
+        () => commitHistoryIndex(historyIndex),
+        () => applyHistoryScroll(href, state),
+        () => {
+          // A newer navigation owns history now.
+          if (isStaleRouteRequest(requestId)) return;
+          // Traverse back to the entry whose page is still rendered, which may
+          // be several entries away when this traversal superseded a pending
+          // one, rather than rewriting the entry the user landed on. If either
+          // position is unknown, the landed URL is the only truth left: load it.
+          if (!returnToRenderedHistoryEntry()) reloadDocument();
+        }
+      );
+      scheduleRevalidationRefresh(requestId, pathname, href, matchedTargets, {
+        hasState,
+        state: hasState ? historyState?.askrState : undefined,
+      });
     }
   );
+}
+
+/**
+ * `history.pushState` rejects state that cannot be structured-cloned, and it
+ * runs after the destination has rendered. Checking first keeps the page and
+ * the URL in agreement: an uncloneable value fails before anything changes.
+ */
+export function assertCloneableHistoryState(state: unknown): void {
+  if (typeof structuredClone !== 'function') return;
+  try {
+    structuredClone(state);
+  } catch (error) {
+    const failure = new TypeError(
+      '[Askr] Navigation state must be structured-cloneable; it is stored in history.state.'
+    );
+    (failure as { cause?: unknown }).cause = error;
+    throw failure;
+  }
 }

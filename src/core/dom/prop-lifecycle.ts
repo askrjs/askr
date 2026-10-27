@@ -4,7 +4,7 @@ import { deliverToBoundary } from '../component/errors';
 import { readValue } from '../reactive/readable';
 import { effectScheduler } from '../reactive/scheduler';
 import { throwCollected } from '../reactive/owner';
-import { setRef } from './refs';
+import { attachRefTo, detachRefFrom } from './refs';
 import {
   parseEventProp,
   removeAllListeners,
@@ -207,12 +207,12 @@ export function attachRef(pass: Pass, node: HostNode, previous: unknown): void {
   pass.after(() => {
     const errors: unknown[] = [];
     try {
-      if (previous) setRef(previous, null);
+      if (previous) detachRefFrom(previous, el);
     } catch (error) {
       errors.push(error);
     }
     try {
-      if (ref) setRef(ref, el);
+      if (ref) attachRefTo(ref, el);
     } catch (error) {
       errors.push(error);
     }
@@ -230,7 +230,7 @@ export function releaseProps(node: HostNode, errors: unknown[]): void {
   const ref = node.props.ref;
   if (ref) {
     try {
-      setRef(ref, null);
+      detachRefFrom(ref, node.el);
     } catch (error) {
       errors.push(error);
     }

@@ -61,4 +61,16 @@ describe('initial root commit retry', () => {
     ]);
     root.dispose();
   });
+
+  it('should not commit prepared DOM after its root is disposed', () => {
+    const container = document.createElement('div');
+    const root = createRoot(container);
+    root.render(<section>initial</section>);
+    const prepared = root.prepare(<section>prepared</section>);
+
+    root.dispose();
+    prepared.commit();
+
+    expect(container.childNodes).toHaveLength(0);
+  });
 });

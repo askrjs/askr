@@ -322,6 +322,9 @@ export function matchSegments(
       );
       return params;
     } else {
+      // An empty segment (`/users//x`) is not a value: a parameter and a
+      // single-segment wildcard both need one path segment of text.
+      if (part === '') return null;
       if (params === null) params = {};
       if (seg.kind === 'param') {
         setCapturedParameter(params, seg.value, decodePathSegment(part));
@@ -358,6 +361,17 @@ export function match(path: string, pattern: string): MatchResult {
     path.endsWith('/') && path !== '/' ? path.slice(0, -1) : path;
   const normalizedPattern =
     pattern.endsWith('/') && pattern !== '/' ? pattern.slice(0, -1) : pattern;
+
+  // Identical literal paths need no splitting, parsing or capture walk. Keep
+  // dynamic patterns and empty interior segments on the general matcher.
+  if (
+    normalizedPath === normalizedPattern &&
+    !normalizedPattern.includes('{') &&
+    !normalizedPattern.includes('*') &&
+    !normalizedPattern.includes('//')
+  ) {
+    return { matched: true, params: emptyParams };
+  }
 
   const pathSegments = splitPathSegments(normalizedPath);
   const patternSegments = parseSegments(normalizedPattern);

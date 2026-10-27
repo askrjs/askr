@@ -3,7 +3,11 @@ import { isSSRPortalWriterAnchor } from '../../common/portal';
 import type { ComponentInstance } from '../component/instance';
 import { NATIVE } from '../view/children';
 import { CommitMutationError, type Pass } from './pass';
-import { HydrationCursor, removeUnrenderedAttributes } from './hydration';
+import {
+  DEFAULT_HYDRATION_OPTIONS,
+  HydrationCursor,
+  removeUnrenderedAttributes,
+} from './hydration';
 import { isDangerousInnerHTMLPayload } from './prop-values';
 import { applyInitialProps, applyTrailingProps, attachRef } from './props';
 import {
@@ -33,7 +37,11 @@ export function deferDormantHost(
   const adopted = node.el;
   if (!adopted.hasAttribute(SKIP_HYDRATE)) return false;
   ctx.pass.hasDormantPortalWriter ||= containsPortalWriterAnchor(adopted);
-  node.dormant = { owner: ctx.owner, ns };
+  node.dormant = {
+    owner: ctx.owner,
+    ns,
+    options: ctx.hydrate?.cursor.options ?? DEFAULT_HYDRATION_OPTIONS,
+  };
   ctx.pass.op(() => {
     const previous = dormantHosts.get(adopted);
     ctx.pass.onReversibleCommit(() => {
@@ -82,7 +90,10 @@ export function activateDormantHost(
     owner: dormant.owner,
     ns: dormant.ns,
     nodes,
-    hydrate: { cursor: new HydrationCursor(), container: el },
+    hydrate: {
+      cursor: new HydrationCursor(null, undefined, dormant.options),
+      container: el,
+    },
   };
   const props = node.props;
   applyInitialProps(pass, node, true);
@@ -106,13 +117,18 @@ export function activateDormantHost(
       dormantHosts.set(el, node);
     });
     try {
-      removeUnrenderedAttributes(el, props, (attributes) => {
-        pass.onReversibleCommit(() => {
-          for (const attribute of attributes) {
-            el.setAttributeNode(attribute);
-          }
-        });
-      });
+      removeUnrenderedAttributes(
+        el,
+        props,
+        dormant.options.strict,
+        (attributes) => {
+          pass.onReversibleCommit(() => {
+            for (const attribute of attributes) {
+              el.setAttributeNode(attribute);
+            }
+          });
+        }
+      );
     } catch (error) {
       throw new CommitMutationError(error);
     }

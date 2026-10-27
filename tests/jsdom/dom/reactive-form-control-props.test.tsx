@@ -282,10 +282,11 @@ describe('reactive form control props', () => {
     expect(values()).toEqual(['a', 'a', 'a']);
   });
 
-  it('should hand a readable returned by a prop: function to the property as-is', () => {
+  it('should hand a function given prop: on a custom element to the property as-is', () => {
     let source!: State<string>;
     const received: unknown[] = [];
-    const Row = () => <data-view prop:source={() => source} />;
+    const read = () => source;
+    const Row = () => <data-view prop:source={read} />;
     mount(() => {
       source = state('s');
       return (
@@ -299,6 +300,6 @@ describe('reactive form control props', () => {
     for (const el of container.querySelectorAll('data-view')) {
       received.push((el as HTMLElement & { source?: unknown }).source);
     }
-    expect(received).toEqual([source, source]);
+    expect(received).toEqual([read, read]);
   });
 });

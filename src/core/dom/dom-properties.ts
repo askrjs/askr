@@ -66,7 +66,7 @@ export function captureDomPropertyUndo(
   value: unknown,
   tagName: string
 ): (() => void) | null {
-  const name = getDomPropertyName(tagName, key, value);
+  const name = getDomPropertyName(tagName, key, value, el);
   const written = writtenDomProperties.get(el);
   const previousName = written?.get(key);
   if (name === null && previousName === undefined) return null;
@@ -141,7 +141,7 @@ export function hasDomPropertyWrite(
   tagName: string
 ): boolean {
   return (
-    getDomPropertyName(tagName, key, value) !== null ||
+    getDomPropertyName(tagName, key, value, el) !== null ||
     writtenDomProperties.get(el)?.has(key) === true
   );
 }
@@ -210,7 +210,7 @@ export function applyDomPropertyProp(
   value: unknown,
   tagName: string
 ): boolean {
-  const name = getDomPropertyName(tagName, key, value);
+  const name = getDomPropertyName(tagName, key, value, el);
 
   if (name === null) {
     // Only a custom element prop can move from a property to an attribute.

@@ -37,15 +37,6 @@ const _TEXT_ESCAPE_RE = /[&<>]/g;
 const STYLE_PROP_CACHE = new Map<string, string>();
 const MAX_STYLE_PROP_CACHE_SIZE = 512;
 
-// Pre-compute escape map functions for faster replacement
-const _textEscapeMap = (ch: string): string => {
-  const code = ch.charCodeAt(0);
-  if (code === 38) return '&amp;'; // &
-  if (code === 60) return '&lt;'; // <
-  if (code === 62) return '&gt;'; // >
-  return ch;
-};
-
 function toKebabCached(prop: string): string {
   const cached = STYLE_PROP_CACHE.get(prop);
   if (cached !== undefined) return cached;
@@ -146,6 +137,32 @@ export function getRawTextElement(tag: string): RawTextElement | null {
   return tag === 'script' || tag === 'style' ? tag : null;
 }
 
+/**
+ * HTML elements the parser reads as RAWTEXT besides `script` and `style`.
+ * Their text children are never entity-decoded, so they are written verbatim;
+ * only the element's own end tag, which RAWTEXT cannot escape, is broken.
+ */
+const PARSER_RAW_TEXT_ELEMENTS = new Set([
+  'xmp',
+  'iframe',
+  'noembed',
+  'noframes',
+]);
+
+export function isParserRawTextElement(tag: string): boolean {
+  return PARSER_RAW_TEXT_ELEMENTS.has(tag);
+}
+
+/**
+ * Text child of an {@link isParserRawTextElement} element. Every `</` becomes
+ * `<\/`, so no end tag can form, and `follows` says the previous text child
+ * ended with `<` (a `</` split across children). Returns the text to write.
+ */
+export function escapeParserRawText(text: string, follows: boolean): string {
+  const joined = follows && text.startsWith('/') ? '\\' + text : text;
+  return joined.includes('</') ? joined.replaceAll('</', '<\\/') : joined;
+}
+
 const SCRIPT_RAW_TEXT_RE = /<(\/|!--|script)/gi;
 
 /**
@@ -225,8 +242,7 @@ export function styleObjToCss(value: unknown): string | null {
   const styleObj = value as Record<string, unknown>;
   let result = '';
 
-  for (const k in styleObj) {
-    const v = styleObj[k];
+  for (const [k, v] of Object.entries(styleObj)) {
     if (v === null || v === undefined || v === false) continue;
 
     const prop = toKebabCached(k);

@@ -10,6 +10,22 @@ export function isDangerousInnerHTMLPayload(
   );
 }
 
+/** Elements already reported, so a re-render does not repeat the warning. */
+const warnedElements = new WeakSet<Element>();
+
+/** Whether two payloads carry the same HTML text. */
+export function sameInnerHTMLPayload(a: unknown, b: unknown): boolean {
+  if (!isDangerousInnerHTMLPayload(a) || !isDangerousInnerHTMLPayload(b)) {
+    return false;
+  }
+  const left = a.__html;
+  const right = b.__html;
+  if (left === right) return true;
+  const empty = (value: unknown) => value === null || value === undefined;
+  if (empty(left) || empty(right)) return empty(left) && empty(right);
+  return String(left) === String(right);
+}
+
 export function applyDangerousInnerHTMLValue(
   el: Element,
   value: unknown
@@ -18,7 +34,8 @@ export function applyDangerousInnerHTMLValue(
     return;
   }
 
-  if (isDevelopmentEnvironment()) {
+  if (isDevelopmentEnvironment() && !warnedElements.has(el)) {
+    warnedElements.add(el);
     logger.warn(
       '[Askr] dangerouslySetInnerHTML is being used, which bypasses the ' +
         "framework's normal rendering and can introduce XSS vulnerabilities " +

@@ -117,6 +117,26 @@
       "stability": "preview",
       "docs": "https://github.com/askrjs/askr/blob/main/docs/guides/provider-sessions.md",
       "docsPath": "docs/guides/provider-sessions.md"
+    },
+    {
+      "intent": "navigation loader cache, pending state, link prefetch, blocking and focus",
+      "package": "@askrjs/askr",
+      "import": "@askrjs/askr/router",
+      "exports": [
+        "navigationState",
+        "blockNavigation",
+        "layoutData",
+        "localTarget",
+        "Link"
+      ],
+      "constraints": [
+        "loader results are cached per data runtime and revalidated in the background",
+        "focus moves and the title is announced after push navigation unless focus: false",
+        "group and page loaders are not run by static generation"
+      ],
+      "stability": "preview",
+      "docs": "https://github.com/askrjs/askr/blob/main/docs/guides/navigation.md",
+      "docsPath": "docs/guides/navigation.md"
     }
   ]
 }
