@@ -10,6 +10,7 @@ import {
   claimHookIndex,
   currentAppRuntime as getCurrentAppRenderRuntime,
   currentComponent as getCurrentComponentInstance,
+  onRenderDiscard,
   readSource as recordReadableRead,
 } from '../core/api/hooks';
 import { schedule, type Job } from '../core/reactive/scheduler';
@@ -154,6 +155,11 @@ export class QueryCell<T> {
   }
   private destroy(): void {
     this.lifetime.destroy();
+  }
+
+  /** @internal Retire a cell created only by a render that was discarded. */
+  discardIfUnowned(): void {
+    if (this.ownerCount === 0) this.destroy();
   }
 
   /** Revoke queued/running work before the lifetime retains its cached snapshot. */
@@ -631,23 +637,44 @@ function createLegacyQuery<T extends {}>(
     return existingSlot.cell as unknown as Query<T>;
   }
 
-  if (existingSlot) {
-    existingSlot.cell.detach(generation, hookIndex);
+  if (override) {
+    if (existingSlot) {
+      instance.onCommitSync(() => {
+        if (instance.disposed || slotStore.get(hookIndex) !== existingSlot)
+          return;
+        slotStore.delete(hookIndex);
+        existingSlot.cell.detach(generation, hookIndex);
+      });
+    }
+    return override;
   }
 
-  if (override) return override;
+  let cell = cache.get(options.key) as QueryCell<T> | undefined;
+  const createdCell = !cell;
+  if (!cell) cell = createCell(options, runtimeState);
 
-  const cell =
-    (cache.get(options.key) as QueryCell<T> | undefined) ??
-    createCell(options, runtimeState);
-
-  slotStore.set(hookIndex, {
+  const nextSlot = {
     key: options.key,
     cell: cell as QueryCell<unknown>,
-  });
+  };
+  slotStore.set(hookIndex, nextSlot);
   cell.attach(generation, hookIndex);
   cell.define(options, generation, hookIndex);
   cell.ensureStarted();
+  onRenderDiscard(() => {
+    if (slotStore.get(hookIndex) === nextSlot) {
+      if (existingSlot) slotStore.set(hookIndex, existingSlot);
+      else slotStore.delete(hookIndex);
+    }
+    cell!.detach(generation, hookIndex);
+    if (createdCell) cell!.discardIfUnowned();
+  });
+  if (existingSlot) {
+    instance.onCommitSync(() => {
+      if (instance.disposed || slotStore.get(hookIndex) !== nextSlot) return;
+      existingSlot.cell.detach(generation, hookIndex);
+    });
+  }
   return cell as unknown as Query<T>;
 }
 
