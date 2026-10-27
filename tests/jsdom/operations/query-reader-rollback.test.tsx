@@ -15,6 +15,74 @@ import {
 } from '../../../test-utils/render/test-renderer';
 
 describe('createQuery render rollback', () => {
+  it('should not warn for a conflicting reader whose key-change render fails', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const runtime = createDataRuntime();
+    let key!: State<string>;
+    let fail!: State<boolean>;
+    const primaryFetch = async () => 'primary';
+    const provisionalFetch = async () => 'provisional';
+    const Primary = (): JSXElement => {
+      const query = createQuery({
+        runtime,
+        key: 'query-conflict-rollback:shared',
+        fetch: primaryFetch,
+      });
+      return <p>{query.data}</p>;
+    };
+    const Secondary = (): JSXElement => {
+      const currentKey = key();
+      const query = createQuery({
+        runtime,
+        key: `query-conflict-rollback:${currentKey}`,
+        fetch: provisionalFetch,
+      });
+      if (fail()) throw new Error('render failed');
+      return <p>{query.data}</p>;
+    };
+    const App = (): JSXElement => {
+      key = state('separate');
+      fail = state(false);
+      return (
+        <section>
+          <Primary />
+          <Secondary />
+        </section>
+      );
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      expect(warn).not.toHaveBeenCalled();
+
+      expect(() => {
+        key.set('shared');
+        fail.set(true);
+        flushScheduler();
+      }).toThrow('render failed');
+
+      expect(warn).not.toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[askr] Conflicting shared query definition for key "query-conflict-rollback:shared"'
+        )
+      );
+      expect(container.textContent).toBe('');
+
+      fail.set(false);
+      flushScheduler();
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[askr] Conflicting shared query definition for key "query-conflict-rollback:shared"'
+        )
+      );
+    } finally {
+      cleanup();
+      disposeDataRuntime(runtime);
+      vi.restoreAllMocks();
+    }
+  });
+
   it('should keep the committed query reader when a key change render fails', async () => {
     const runtime = createDataRuntime();
     const fetch = vi.fn(async (id: string) => ({ id }));
