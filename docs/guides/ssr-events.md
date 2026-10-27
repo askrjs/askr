@@ -54,7 +54,7 @@ and radio checked state, and select option selections from each event. Hydration
 state before each handler runs, so ordered edits followed by a queued submit
 observe the latest edit even if hydration wrote the initial value. Events for
 controls removed during hydration are discarded. File input values are not
-restored.
+restored. Aborting replay also discards any remaining queued interactions.
 
 Unmodified printable keys, Backspace, and Delete retain their native editing
 behavior in editable text inputs and textareas before handlers exist. Their

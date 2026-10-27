@@ -175,6 +175,39 @@ test('should serialize output directories with Unicode case-fold-equivalent name
   expect(events).toEqual(['first started', 'first finished', 'second started']);
 });
 
+test('should serialize overlapping parent and child output directories', async () => {
+  let release!: () => void;
+  const blocked = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let started!: () => void;
+  const ready = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  const events: string[] = [];
+  const parent = withOutputDirectoryLock('/tmp/askr-output', async () => {
+    events.push('parent start');
+    started();
+    await blocked;
+    events.push('parent finish');
+  });
+  await ready;
+  const child = withOutputDirectoryLock('/tmp/askr-output/nested', async () => {
+    events.push('child');
+  });
+  const sibling = withOutputDirectoryLock(
+    '/tmp/askr-output-other',
+    async () => {
+      events.push('sibling');
+    }
+  );
+  await sibling;
+  expect(events).toEqual(['parent start', 'sibling']);
+  release();
+  await Promise.all([parent, child]);
+  expect(events).toEqual(['parent start', 'sibling', 'parent finish', 'child']);
+});
+
 test('should drain preparation failures from live results before cleanup and releasing the output lock', async () => {
   let release!: () => void;
   const blocked = new Promise<void>((resolve) => {

@@ -30,6 +30,7 @@ export function writeSimpleAttribute(
   const { el, tag } = node;
   const name = getRenderedAttributeName(el, key);
   pass.op(() => {
+    recordRadioGroupPeerUndo(pass, node, key, value);
     recordAttributeUndo(pass, el, name);
     try {
       beforeApply?.();
@@ -112,6 +113,7 @@ function writePropertyScalar(
 ): void {
   pass.op(() => {
     try {
+      recordRadioGroupPeerUndo(pass, node, key, value);
       const undo = captureDomPropertyUndo(node.el, key, value, node.tag);
       if (undo) pass.onReversibleCommit(undo);
       apply();
@@ -149,6 +151,7 @@ export function queueScalarProp(
     writePropertyScalar(pass, node, key, value, apply);
   } else {
     pass.op(() => {
+      recordRadioGroupPeerUndo(pass, node, key, value);
       recordAttributeUndo(
         pass,
         node.el,
@@ -239,9 +242,11 @@ export function recordBooleanControlUndo(
 
 /** Checking one radio mutates every same-group peer, including uncontrolled inputs. */
 function captureRadioPeerState(
-  control: HTMLInputElement
+  control: HTMLInputElement,
+  name = control.name,
+  includeNonRadio = false
 ): Array<readonly [HTMLInputElement, boolean]> {
-  if (control.type !== 'radio' || !control.name) return [];
+  if ((!includeNonRadio && control.type !== 'radio') || !name) return [];
   const candidates = control.form
     ? control.form.elements
     : (control.getRootNode() as ParentNode).querySelectorAll?.('input');
@@ -252,11 +257,40 @@ function captureRadioPeerState(
     if (
       peer !== control &&
       peer.type === 'radio' &&
-      peer.name === control.name &&
+      peer.name === name &&
       peer.form === control.form
     ) {
       peers.push([peer, peer.checked]);
     }
   }
   return peers;
+}
+
+function recordRadioGroupPeerUndo(
+  pass: Pass,
+  node: HostNode,
+  key: string,
+  value: unknown
+): void {
+  const isName = key === 'name' || key === 'prop:name';
+  const isType = key === 'type' || key === 'prop:type';
+  if (node.tag !== 'input' || (!isName && !isType) || typeof value !== 'string')
+    return;
+  const control = node.el as HTMLInputElement;
+  const peers = snapshot(() => {
+    if (
+      !control.checked ||
+      (!(isName && control.type === 'radio') &&
+        !(isType && value.toLowerCase() === 'radio'))
+    )
+      return [];
+    return captureRadioPeerState(
+      control,
+      isName ? value : control.name,
+      isType
+    );
+  });
+  pass.onReversibleCommit(() => {
+    for (const [peer, checked] of peers) peer.checked = checked;
+  });
 }

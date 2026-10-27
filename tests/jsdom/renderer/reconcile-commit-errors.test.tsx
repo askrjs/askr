@@ -56,6 +56,60 @@ describe('reconciliation commit errors', () => {
     vi.restoreAllMocks();
   });
 
+  it('should restore a radio group when changing a checked radio name is rolled back', () => {
+    const root = createRoot(container);
+    const view = (name: string, title: string) => (
+      <div>
+        <input id="moving" type="radio" name={name} checked />
+        <input id="peer" type="radio" name="target" />
+        <span title={title} />
+      </div>
+    );
+    root.render(view('source', 'old'));
+    const moving = container.querySelector<HTMLInputElement>('#moving')!;
+    const peer = container.querySelector<HTMLInputElement>('#peer')!;
+    const later = container.querySelector('span')!;
+    peer.checked = true;
+    const failure = new Error('later write failed');
+    const setAttribute = later.setAttribute.bind(later);
+    vi.spyOn(later, 'setAttribute').mockImplementation((name, value) => {
+      if (name === 'title' && value === 'new') throw failure;
+      setAttribute(name, value);
+    });
+    expect(() => root.render(view('target', 'new'))).toThrow(failure);
+    expect(moving.name).toBe('source');
+    expect(moving.checked).toBe(true);
+    expect(peer.checked).toBe(true);
+    root.dispose();
+  });
+
+  it('should restore a radio peer when changing a checked input type is rolled back', () => {
+    const root = createRoot(container);
+    const view = (type: string, title: string) => (
+      <div>
+        <input id="moving" type={type} name="target" checked />
+        <input id="peer" type="radio" name="target" />
+        <span title={title} />
+      </div>
+    );
+    root.render(view('checkbox', 'old'));
+    const moving = container.querySelector<HTMLInputElement>('#moving')!;
+    const peer = container.querySelector<HTMLInputElement>('#peer')!;
+    const later = container.querySelector('span')!;
+    peer.checked = true;
+    const failure = new Error('later write failed');
+    const setAttribute = later.setAttribute.bind(later);
+    vi.spyOn(later, 'setAttribute').mockImplementation((name, value) => {
+      if (name === 'title' && value === 'new') throw failure;
+      setAttribute(name, value);
+    });
+    expect(() => root.render(view('radio', 'new'))).toThrow(failure);
+    expect(moving.type).toBe('checkbox');
+    expect(moving.checked).toBe(true);
+    expect(peer.checked).toBe(true);
+    root.dispose();
+  });
+
   it('should restore the previous tree when a new textarea default value write fails', () => {
     const root = createRoot(container);
     root.render(<p>previous</p>);

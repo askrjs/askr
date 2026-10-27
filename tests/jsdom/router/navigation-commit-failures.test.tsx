@@ -66,6 +66,34 @@ describe('navigation commit failures', () => {
     window.history.replaceState({}, '', '/');
   });
 
+  it('should recover both roots after a history write fails following publication', async () => {
+    const second = createTestContainer();
+    const failure = new DOMException('history unavailable', 'SecurityError');
+    route('/a', () => <p>A</p>);
+    route('/b', () => <p>B</p>);
+    route('/c', () => <p>C</p>);
+    try {
+      const registry = currentRouteRegistry();
+      await createSPA({ root: container, registry });
+      await createSPA({ root: second.container, registry });
+      await settle();
+      vi.spyOn(window.history, 'pushState').mockImplementationOnce(() => {
+        throw failure;
+      });
+      expect(() => navigate('/b')).toThrow(failure);
+      expect(container.textContent).toBe('B');
+      expect(second.container.textContent).toBe('B');
+      expect(window.location.pathname).toBe('/a');
+      navigate('/c');
+      await settle();
+      expect(container.textContent).toBe('C');
+      expect(second.container.textContent).toBe('C');
+      expect(window.location.pathname).toBe('/c');
+    } finally {
+      second.cleanup();
+    }
+  });
+
   it('should preserve a navigation started synchronously from a destination ref', async () => {
     let redirected = false;
     route('/a', () => <p>A</p>);

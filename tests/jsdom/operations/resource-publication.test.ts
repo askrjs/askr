@@ -388,6 +388,32 @@ describe('resource execution and publication isolation', () => {
     expect(cell.snapshot.value).toBe('fresh');
   });
 
+  it('should not invoke a nested thenable after its getter disposes the resource', async () => {
+    let cell!: ResourceCell<string>;
+    let calls = 0;
+    const nested = Object.defineProperty({}, 'then', {
+      get() {
+        cell.dispose();
+        return (resolve: (value: string) => void) => {
+          calls++;
+          resolve('stale');
+        };
+      },
+    });
+    cell = resource(
+      () =>
+        ({
+          then(resolve: (value: unknown) => void) {
+            resolve(nested);
+          },
+        }) as PromiseLike<string>
+    );
+    cell.start();
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+    expect(calls).toBe(0);
+    expect(cell.snapshot.value).toBeNull();
+  });
+
   it('should assimilate a Promise subclass through its captured then method', async () => {
     class DerivedPromise<T> extends Promise<T> {}
     const cell = resource(() => DerivedPromise.resolve('subclass'));

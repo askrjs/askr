@@ -15,6 +15,31 @@ function mount(component: () => unknown) {
 }
 
 describe('store()', () => {
+  it('should notify array readers when a rejected truncation partially deletes entries', () => {
+    const raw = [0, 1, 2, 3];
+    Object.defineProperty(raw, '1', {
+      configurable: false,
+      writable: true,
+      value: 1,
+    });
+    let value!: number[];
+    const { container, cleanup } = mount(() => {
+      value = store(raw);
+      return (
+        <p>{`${value.length}:${value[3] ?? 'missing'}:${value.join(',')}`}</p>
+      );
+    });
+    try {
+      expect(() => {
+        value.length = 0;
+      }).toThrow(TypeError);
+      flushScheduler();
+      expect(raw).toEqual([0, 1]);
+      expect(container.textContent).toBe('2:missing:0,1');
+    } finally {
+      cleanup();
+    }
+  });
   it('should track symbol properties and notify their readers', () => {
     const key = Symbol('count');
     let value!: { [key]: number };

@@ -31,6 +31,54 @@ async function settleCollection(collection: {
 }
 
 describe('query collections', () => {
+  it('should ignore a removed member that settles after its replacement starts', async () => {
+    let setKeys!: (value: readonly string[]) => void;
+    let collection!: QueryCollection<string, { value: string }, string>;
+    const releases = new Map<string, (value: { value: string }) => void>();
+    const query = defineQuery({
+      key: (id: string) => `removed:${id}`,
+      fetch: (id) =>
+        new Promise<{ value: string }>((resolve) => releases.set(id, resolve)),
+    });
+    const App = (): JSXElement => {
+      const keys = state<readonly string[]>(['old']);
+      setKeys = keys.set;
+      collection = createQueryCollection({
+        query,
+        inputs: keys,
+        key: (id) => id,
+        concurrency: 1,
+      });
+      return (
+        <p>
+          {collection.entries
+            .map((entry) => entry.query.data?.value ?? entry.key)
+            .join(',')}
+        </p>
+      );
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+      setKeys(['new']);
+      flushScheduler();
+      await settle();
+      expect(releases.has('new')).toBe(true);
+      releases.get('new')!({ value: 'new result' });
+      await settleCollection(collection);
+      releases.get('old')!({ value: 'old result' });
+      await settle();
+      expect(collection.entries.map((entry) => entry.key)).toEqual(['new']);
+      expect(collection.get('new')?.query.data).toEqual({
+        value: 'new result',
+      });
+      expect(container.textContent).toBe('new result');
+    } finally {
+      cleanup();
+    }
+  });
   it('should consume hydrated entries once and refetch after remount', async () => {
     const runtime = createDataRuntime();
     runtime.queryData.set('hydrated-schemas:postgres', { version: 'ssr' });

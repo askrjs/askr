@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { hydrateSPA } from '../../../src/boot';
+import { beginHydrationInteractionReplay } from '../../../src/boot/hydration-interaction-replay';
 import { renderToString } from '../../../src/ssr';
 import { routeRegistryFromTable } from '../../router-test-utils';
 import {
@@ -8,6 +9,26 @@ import {
 } from '../../../test-utils/render/test-renderer';
 
 describe('hydration interaction replay', () => {
+  it('should stop a queued batch when a replayed handler aborts it', () => {
+    const { container, cleanup } = createTestContainer();
+    const button = document.createElement('button');
+    container.append(button);
+    const replay = beginHydrationInteractionReplay(container, () => true);
+    let calls = 0;
+    button.addEventListener('click', () => {
+      calls++;
+      replay.abort();
+    });
+    try {
+      button.click();
+      button.click();
+      replay.complete();
+      expect(calls).toBe(1);
+    } finally {
+      replay.abort();
+      cleanup();
+    }
+  });
   it('should replay multiple selection changes without losing earlier choices', async () => {
     const { container, cleanup } = createTestContainer();
     const observed: string[][] = [];

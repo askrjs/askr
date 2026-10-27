@@ -56,7 +56,8 @@ SSG reserves its generated metadata and manifest paths. Routes or copied assets
 that overlap generated files are rejected before publication. Asset directories
 may contain route output directories when their files do not collide. Output
 collision checks account for case and Unicode normalization on common
-case-insensitive filesystems. Incremental publication invalidates its manifest
+case-insensitive filesystems. Generations in the same process serialize when
+their output directories overlap. Incremental publication invalidates its manifest
 before changing output and writes it only after static assets are copied, so a failed or interrupted update triggers a full build
 on the next run.
 

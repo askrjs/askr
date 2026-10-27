@@ -344,6 +344,42 @@ describe('core scheduler', () => {
     expect(getSchedulerState().queueLength).toBe(0);
   });
 
+  it('should discard work queued by a throwing cancellation and remain usable', () => {
+    const failure = new Error('cancel failed');
+    let staleRan = false;
+    let siblingCanceled = false;
+    let laterRan = false;
+    schedule(
+      {
+        run: () => undefined,
+        cancel: () => {
+          queueTask(() => {
+            staleRan = true;
+          });
+          throw failure;
+        },
+      },
+      'post'
+    );
+    schedule(
+      {
+        run: () => undefined,
+        cancel: () => {
+          siblingCanceled = true;
+        },
+      },
+      'post'
+    );
+    expect(() => clearScheduler()).toThrow(failure);
+    expect(siblingCanceled).toBe(true);
+    queueTask(() => {
+      laterRan = true;
+    });
+    flushSync();
+    expect(staleRan).toBe(false);
+    expect(laterRan).toBe(true);
+  });
+
   it('should run equal-depth render jobs in queue order, including jobs queued mid-flush', () => {
     const order: string[] = [];
     const renderAt = (name: string, depth: number, then?: () => void): Job => {

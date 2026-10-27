@@ -275,6 +275,12 @@ DOM updates are applied as a transaction. If a commit fails while capturing
 an attribute or form-control snapshot, or initializing a new textarea's default
 value, Askr rolls back earlier reversible writes and reports the error to the
 applicable error boundary or caller.
+When a checked input changes radio group or becomes a radio, rollback also
+restores the checked state of affected peers, including uncontrolled inputs.
+
+If an array length assignment fails after JavaScript has already deleted some
+entries, store readers are notified of the resulting partial change while the
+assignment still reports its failure.
 
 ## Update loop guard
 

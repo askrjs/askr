@@ -4,6 +4,10 @@
 
 ### Fixes
 
+- Restore radio-group peers when a failed DOM commit rolls back a checked input's name or type change.
+- Stop queued hydration interactions if replay is aborted during a handler.
+- Serialize static generation into overlapping parent and child output directories within the same process.
+- Notify store readers when a failed array truncation has already removed entries.
 - Stop a superseded stream before invoking an iterator method whose getter restarted or closed it.
 - Ignore late promised stream sources before reading their iterator accessors.
 - Preserve each select's selection when replaying queued hydration interactions, including multiple selections.

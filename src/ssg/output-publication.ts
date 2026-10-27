@@ -12,7 +12,14 @@ export async function withOutputDirectoryLock<T>(
   const key = foldPortablePathCase(
     pathModule.resolve(outputDir).normalize('NFC').replaceAll('\\', '/')
   );
-  const previous = outputDirectoryQueues.get(key) ?? Promise.resolve();
+  const overlaps = (left: string, right: string) =>
+    left === right ||
+    left.startsWith(right.endsWith('/') ? right : `${right}/`);
+  const previous = Promise.all(
+    [...outputDirectoryQueues]
+      .filter(([other]) => overlaps(key, other) || overlaps(other, key))
+      .map(([, tail]) => tail.catch(() => undefined))
+  );
   let release!: () => void;
   const current = new Promise<void>((resolve) => {
     release = resolve;
@@ -23,7 +30,7 @@ export async function withOutputDirectoryLock<T>(
   );
   outputDirectoryQueues.set(key, tail);
 
-  await previous.catch(() => undefined);
+  await previous;
   try {
     return await operation();
   } finally {

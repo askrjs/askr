@@ -196,7 +196,23 @@ function handlerFor(meta: Meta): ProxyHandler<object> {
       const nextLength = isArray && key === 'length' ? Number(raw) : 0;
       // Let the array validate length before notifying any readers. Invalid
       // assignments throw without changing the target and must stay invisible.
-      if (!Reflect.set(target, key, raw, receiver)) return false;
+      if (!Reflect.set(target, key, raw, receiver)) {
+        if (isArray && key === 'length') {
+          const actualLength = (target as unknown[]).length;
+          if (actualLength < previousLength) {
+            if (meta.signals) {
+              for (const [signalKey, signal] of meta.signals) {
+                if (isIndex(signalKey) && Number(signalKey) >= actualLength)
+                  bump(signal);
+              }
+            }
+            bump(meta.signals?.get('length'));
+            bump(meta.keys);
+            bump(meta.version);
+          }
+        }
+        return false;
+      }
       if (isArray && key === 'length') {
         // Truncation removes the elements at and beyond the new length.
         if (nextLength < previousLength && meta.signals) {
