@@ -135,7 +135,7 @@ it('should rebuild routes after incremental manifest publication fails', async (
   content = 'version B';
   vi.mocked(fsPromises.writeFile).mockImplementation(
     (filePath, data, options) => {
-      if (String(filePath).endsWith('.askr/ssg-manifest.json')) {
+      if (String(filePath).endsWith(path.join('.askr', 'ssg-manifest.json'))) {
         return Promise.reject(new Error('manifest write failed'));
       }
       return originalFs.writeFile(filePath, data, options);
