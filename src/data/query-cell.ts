@@ -633,7 +633,15 @@ function createLegacyQuery<T extends {}>(
   const slotStore = getQuerySlotStore(runtimeState, instance);
   const existingSlot = slotStore.get(hookIndex);
   if (existingSlot && existingSlot.key === options.key) {
-    (existingSlot.cell as QueryCell<T>).define(options, generation, hookIndex);
+    instance.onCommitSync(() => {
+      if (instance.disposed || slotStore.get(hookIndex) !== existingSlot)
+        return;
+      (existingSlot.cell as QueryCell<T>).define(
+        options,
+        generation,
+        hookIndex
+      );
+    });
     return existingSlot.cell as unknown as Query<T>;
   }
 

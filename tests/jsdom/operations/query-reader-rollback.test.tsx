@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
-import { state } from '../../../src';
+import { state, type State } from '../../../src';
 import { createDataRuntime, createQuery, type Query } from '../../../src/data';
-import type { State } from '../../../src';
 import type { JSXElement } from '../../../src/jsx/types';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
@@ -56,6 +55,51 @@ describe('createQuery render rollback', () => {
       await refresh;
       expect(fetch).toHaveBeenCalledOnce();
       expect(committedQuery.data).toEqual({ id: 'a' });
+    } finally {
+      cleanup();
+      vi.restoreAllMocks();
+    }
+  });
+
+  it('should retain the committed fetch definition after a failed same-key render', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const runtime = createDataRuntime();
+    const fetch = vi.fn(async (version: string) => ({ version }));
+    let version!: State<string>;
+    let fail!: State<boolean>;
+    let committedQuery!: Query<{ version: string }>;
+    const App = (): JSXElement => {
+      version = state('committed');
+      fail = state(false);
+      const currentVersion = version();
+      const query = createQuery({
+        runtime,
+        key: 'query-definition-rollback',
+        initialData: { version: 'cached' },
+        fetch: () => fetch(currentVersion),
+      });
+      if (!fail()) committedQuery = query;
+      if (fail()) throw new Error('render failed');
+      return <p>reader</p>;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      expect(container.textContent).toBe('reader');
+
+      expect(() => {
+        version.set('discarded');
+        fail.set(true);
+        flushScheduler();
+      }).toThrow('render failed');
+
+      const refresh = committedQuery.refresh();
+      flushScheduler();
+      await refresh;
+      expect(fetch).toHaveBeenCalledWith('committed');
+      expect(committedQuery.data).toEqual({ version: 'committed' });
     } finally {
       cleanup();
       vi.restoreAllMocks();
