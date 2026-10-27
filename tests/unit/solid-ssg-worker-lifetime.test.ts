@@ -81,6 +81,10 @@ test('should retain the output lock through draining and preserve the first erro
   const blocked = new Promise<void>((resolve) => {
     release = resolve;
   });
+  let bothWritesStarted!: () => void;
+  const writesStarted = new Promise<void>((resolve) => {
+    bothWritesStarted = resolve;
+  });
   const failure = new Error('first write');
   const events: string[] = [];
   const results: RouteRenderResult[] = ['first', 'second', 'never'].map(
@@ -110,6 +114,8 @@ test('should retain the output lock through draining and preserve the first erro
             rmdir: async () => undefined,
             writeFile: async (_path, data) => {
               events.push(String(data));
+              if (events.includes('first') && events.includes('second'))
+                bothWritesStarted();
               if (data === 'first') throw failure;
               await blocked;
             },
@@ -133,7 +139,7 @@ test('should retain the output lock through draining and preserve the first erro
       events.push('next generation');
     }
   );
-  await new Promise<void>((resolve) => setImmediate(resolve));
+  await writesStarted;
   expect(events).toEqual(['first', 'second']);
   release();
   expect(await observed).toBe(failure);

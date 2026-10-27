@@ -4,31 +4,64 @@ import type { SSGAssetSource } from './types';
 import { foldPortablePathCase } from './unicode-case-fold';
 
 const outputDirectoryQueues = new Map<string, Promise<void>>();
+let outputDirectoryRegistration = Promise.resolve();
+
+async function canonicalOutputDirectory(outputDir: string): Promise<string> {
+  let candidate = pathModule.resolve(outputDir);
+  const suffix: string[] = [];
+  while (true) {
+    try {
+      return pathModule
+        .resolve(await fs.realpath(candidate), ...suffix)
+        .normalize('NFC')
+        .replaceAll('\\', '/');
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== 'ENOENT' && code !== 'ENOTDIR') throw error;
+      const parent = pathModule.dirname(candidate);
+      if (parent === candidate) throw error;
+      suffix.unshift(pathModule.basename(candidate));
+      candidate = parent;
+    }
+  }
+}
 
 export async function withOutputDirectoryLock<T>(
   outputDir: string,
   operation: () => Promise<T>
 ): Promise<T> {
-  const key = foldPortablePathCase(
-    pathModule.resolve(outputDir).normalize('NFC').replaceAll('\\', '/')
-  );
-  const overlaps = (left: string, right: string) =>
-    left === right ||
-    left.startsWith(right.endsWith('/') ? right : `${right}/`);
-  const previous = Promise.all(
-    [...outputDirectoryQueues]
-      .filter(([other]) => overlaps(key, other) || overlaps(other, key))
-      .map(([, tail]) => tail.catch(() => undefined))
-  );
-  let release!: () => void;
-  const current = new Promise<void>((resolve) => {
-    release = resolve;
+  const registration = outputDirectoryRegistration;
+  let releaseRegistration!: () => void;
+  outputDirectoryRegistration = new Promise<void>((resolve) => {
+    releaseRegistration = resolve;
   });
-  const tail = previous.then(
-    () => current,
-    () => current
-  );
-  outputDirectoryQueues.set(key, tail);
+  await registration;
+
+  let previous!: Promise<unknown[]>;
+  let tail!: Promise<void>;
+  let key!: string;
+  let release!: () => void;
+  try {
+    key = foldPortablePathCase(await canonicalOutputDirectory(outputDir));
+    const overlaps = (left: string, right: string) =>
+      left === right ||
+      left.startsWith(right.endsWith('/') ? right : `${right}/`);
+    previous = Promise.all(
+      [...outputDirectoryQueues]
+        .filter(([other]) => overlaps(key, other) || overlaps(other, key))
+        .map(([, tail]) => tail.catch(() => undefined))
+    );
+    const current = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    tail = previous.then(
+      () => current,
+      () => current
+    );
+    outputDirectoryQueues.set(key, tail);
+  } finally {
+    releaseRegistration();
+  }
 
   await previous;
   try {
