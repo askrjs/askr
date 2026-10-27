@@ -581,13 +581,15 @@ export class QueryCell<T> {
 
 function createCell<T>(
   options: QueryCellOptions<T>,
-  runtimeState: DataRuntimeState
+  runtimeState: DataRuntimeState,
+  consumeInitialData = true
 ): QueryCell<T> {
   const cache = runtimeState.queryCache;
   const cellOptions = options.takeInitialData
     ? {
         ...options,
-        initialData: options.takeInitialData() ?? options.initialData,
+        initialData:
+          options.takeInitialData(consumeInitialData) ?? options.initialData,
       }
     : options;
   const cell = new QueryCell(cellOptions, options.key, cache, runtimeState);
@@ -662,7 +664,7 @@ function createLegacyQuery<T extends {}>(
 
   let cell = cache.get(options.key) as QueryCell<T> | undefined;
   const createdCell = !cell;
-  if (!cell) cell = createCell(options, runtimeState);
+  if (!cell) cell = createCell(options, runtimeState, false);
 
   const nextSlot = {
     key: options.key,
@@ -685,6 +687,12 @@ function createLegacyQuery<T extends {}>(
     instance.onCommitSync(() => {
       if (instance.disposed || slotStore.get(hookIndex) !== nextSlot) return;
       existingSlot.cell.detach(generation, hookIndex);
+    });
+  }
+  if (createdCell && options.takeInitialData) {
+    instance.onCommitSync(() => {
+      if (instance.disposed || slotStore.get(hookIndex) !== nextSlot) return;
+      options.takeInitialData?.(true);
     });
   }
   return cell as unknown as Query<T>;
@@ -714,8 +722,10 @@ export function createDefinedQuery<TInput, TResult extends {}>(
     isConsistent: definition.isConsistent,
     reconcile: definition.reconcile,
     // Server renders read without consuming so the data can be dehydrated.
-    takeInitialData: () =>
-      readQueryData(runtimeState, key, !serverRender) as TResult | undefined,
+    takeInitialData: (consume = true) =>
+      readQueryData(runtimeState, key, consume && !serverRender) as
+        | TResult
+        | undefined,
     skipInitialFetch: serverRender || options.skipInitialFetch === true,
     runtime: dataRuntime,
   });

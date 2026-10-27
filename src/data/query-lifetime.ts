@@ -20,7 +20,7 @@ export function validateGcTime(gcTime: number | undefined): void {
 export type QueryCellOptions<T> = QueryOptions<T> & {
   readonly definitionIdentity?: object;
   /** Supplies `initialData` when a new cell is created for this key. */
-  readonly takeInitialData?: () => T | undefined;
+  readonly takeInitialData?: (consume?: boolean) => T | undefined;
 };
 
 /** Capabilities invoked at reader-lifetime transitions, in their original order. */

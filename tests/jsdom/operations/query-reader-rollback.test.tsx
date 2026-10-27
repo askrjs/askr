@@ -3,6 +3,7 @@ import { state, type State } from '../../../src';
 import {
   createDataRuntime,
   createQuery,
+  defineQuery,
   disposeDataRuntime,
   type Query,
 } from '../../../src/data';
@@ -152,6 +153,45 @@ describe('createQuery render rollback', () => {
       cleanup();
       disposeDataRuntime(runtime);
       vi.restoreAllMocks();
+    }
+  });
+
+  it('should not consume prefetched data in a failed key-change render', () => {
+    const runtime = createDataRuntime();
+    runtime.queryData.set('query-prefetch-render-rollback:b', { id: 'seed' });
+    const definition = defineQuery({
+      key: ({ id }: { id: string }) => `query-prefetch-render-rollback:${id}`,
+      fetch: async ({ id }: { id: string }) => ({ id }),
+    });
+    let id!: State<string>;
+    let fail!: State<boolean>;
+    const App = (): JSXElement => {
+      id = state('a');
+      fail = state(false);
+      const query = createQuery(definition, { id: id() }, { runtime });
+      if (fail()) throw new Error('render failed');
+      return <p>{query.data?.id}</p>;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      expect(runtime.queryData.has('query-prefetch-render-rollback:b')).toBe(
+        true
+      );
+
+      expect(() => {
+        id.set('b');
+        fail.set(true);
+        flushScheduler();
+      }).toThrow('render failed');
+
+      expect(runtime.queryData.get('query-prefetch-render-rollback:b')).toEqual(
+        { id: 'seed' }
+      );
+    } finally {
+      cleanup();
+      disposeDataRuntime(runtime);
     }
   });
 });
