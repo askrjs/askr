@@ -15,6 +15,91 @@ import {
 } from '../../../test-utils/render/test-renderer';
 
 describe('createQuery render rollback', () => {
+  it('should restore a shared query when multiple hook slots converge and fail', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const runtime = createDataRuntime();
+    const primaryFetch = vi.fn(async () => ({ id: 'primary-refresh' }));
+    const firstFetch = vi.fn(async () => ({ id: 'first' }));
+    const secondFetch = vi.fn(async () => ({ id: 'second' }));
+    let firstKey!: State<string>;
+    let secondKey!: State<string>;
+    let fail!: State<boolean>;
+    let primaryQuery!: Query<{ id: string }>;
+    const Primary = (): JSXElement => {
+      primaryQuery = createQuery({
+        runtime,
+        key: 'query-multislot-rollback:shared',
+        initialData: { id: 'primary' },
+        fetch: primaryFetch,
+      });
+      return <p>{primaryQuery.data?.id}</p>;
+    };
+    const App = (): JSXElement => {
+      firstKey = state('first-source');
+      secondKey = state('second-source');
+      fail = state(false);
+      createQuery({
+        runtime,
+        key: `query-multislot-rollback:${firstKey()}`,
+        initialData: { id: 'first-source' },
+        fetch: firstFetch,
+      });
+      createQuery({
+        runtime,
+        key: `query-multislot-rollback:${secondKey()}`,
+        initialData: { id: 'second-source' },
+        fetch: secondFetch,
+      });
+      if (fail()) throw new Error('render failed');
+      return <p>secondary</p>;
+    };
+    const Root = (): JSXElement => (
+      <section>
+        <Primary />
+        <App />
+      </section>
+    );
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: Root });
+      flushScheduler();
+      expect(container.textContent).toContain('primary');
+      expect(warn).not.toHaveBeenCalled();
+
+      expect(() => {
+        firstKey.set('shared');
+        secondKey.set('shared');
+        fail.set(true);
+        flushScheduler();
+      }).toThrow('render failed');
+
+      expect(warn).not.toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[askr] Conflicting shared query definition for key "query-multislot-rollback:shared"'
+        )
+      );
+      const refresh = primaryQuery.refresh();
+      flushScheduler();
+      await refresh;
+      expect(primaryFetch).toHaveBeenCalledOnce();
+      expect(primaryQuery.data).toEqual({ id: 'primary-refresh' });
+
+      firstKey.set('shared');
+      secondKey.set('shared');
+      fail.set(false);
+      flushScheduler();
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[askr] Conflicting shared query definition for key "query-multislot-rollback:shared"'
+        )
+      );
+    } finally {
+      cleanup();
+      disposeDataRuntime(runtime);
+      vi.restoreAllMocks();
+    }
+  });
+
   it('should settle and cancel a queued refresh when its last reader unmounts', async () => {
     const runtime = createDataRuntime();
     const fetch = vi.fn(async () => ({ id: 'fetched' }));
