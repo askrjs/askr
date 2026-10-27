@@ -130,6 +130,34 @@ function evict(entries: Map<string, RouteLoaderEntry>): void {
   }
 }
 
+function settleForWaiter<T>(
+  promise: Promise<T>,
+  signal: AbortSignal
+): Promise<T> {
+  if (signal.aborted) return Promise.reject(signal.reason);
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    let abort!: () => void;
+    const cleanup = () => signal.removeEventListener('abort', abort);
+    const finish = (settle: () => void) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      settle();
+    };
+    abort = () => finish(() => reject(signal.reason));
+    signal.addEventListener('abort', abort, { once: true });
+    if (signal.aborted) {
+      abort();
+      return;
+    }
+    void promise.then(
+      (value) => finish(() => resolve(value)),
+      (error: unknown) => finish(() => reject(error))
+    );
+  });
+}
+
 function startRequest(
   entries: Map<string, RouteLoaderEntry>,
   key: string,
@@ -191,6 +219,9 @@ export function loadThroughCache(
   run: (signal: AbortSignal) => unknown,
   options: CachedLoadOptions
 ): CachedLoad {
+  if (options.signal.aborted) {
+    return { value: Promise.reject(options.signal.reason) };
+  }
   const entries = runtime ? findRouteLoaderEntries(runtime) : undefined;
   if (!entries) return { value: run(options.signal) };
 
@@ -239,5 +270,5 @@ export function loadThroughCache(
   };
   if (options.signal.aborted) onAbort();
   else options.signal.addEventListener('abort', onAbort, { once: true });
-  return { value: inflight.promise };
+  return { value: settleForWaiter(inflight.promise, options.signal) };
 }

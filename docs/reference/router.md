@@ -536,8 +536,9 @@ In the browser, loader results live in the application's data runtime
 route template, params and search. Visiting a URL again, including back and
 forward traversal, renders the cached result immediately and revalidates it in
 the background; when the new result arrives, the route re-renders in place with
-it. Concurrent navigations to one key share a single request, which is
-cancelled only when every navigation waiting on it has gone.
+it. Concurrent navigations to one key share a single request. Each canceled
+navigation stops waiting immediately; the shared request is cancelled only
+when every navigation waiting on it has gone.
 
 - `staleTimeMs` (route, `group()` or `page()` option; default `0`): how long a
   cached result counts as fresh. A fresh result renders with no request. `0`
