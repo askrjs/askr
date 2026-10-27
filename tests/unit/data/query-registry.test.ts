@@ -176,6 +176,24 @@ describe('query prefetch in-flight dedupe', () => {
     return { promise, resolve, reject };
   }
 
+  it('should not start a fetch for a pre-aborted prefetch context', async () => {
+    const runtime = createDataRuntime();
+    const controller = new AbortController();
+    controller.abort();
+    const fetch = vi.fn(async () => ({ v: 1 }));
+    const query = defineQuery({ key: () => 'pre-aborted:1', fetch });
+
+    await expect(
+      prefetchQuery(
+        createQueryPrefetchContext({ runtime, signal: controller.signal }),
+        query,
+        {}
+      )
+    ).resolves.toBe(false);
+    expect(fetch).not.toHaveBeenCalled();
+    disposeDataRuntime(runtime);
+  });
+
   it('should retain a live joiner replacement when the aborted owner resolves last', async () => {
     const runtime = createDataRuntime();
     const owner = new AbortController();
@@ -206,7 +224,7 @@ describe('query prefetch in-flight dedupe', () => {
     disposeDataRuntime(runtime);
   });
 
-  it('should retire a replacement and every joiner even when both fetches ignore cancellation', async () => {
+  it('should settle an aborted owner and retire its replacement joiner', async () => {
     const runtime = createDataRuntime();
     const owner = new AbortController();
     const old = deferred<{ v: number }>();
@@ -230,8 +248,8 @@ describe('query prefetch in-flight dedupe', () => {
     const secondResult = second.catch((error: unknown) => error);
     owner.abort();
     await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    expect(await firstResult).toBe(false);
     disposeDataRuntime(runtime);
-    expect(await firstResult).toMatchObject({ name: 'AbortError' });
     expect(await secondResult).toMatchObject({ name: 'AbortError' });
     old.resolve({ v: 1 });
     replacement.resolve({ v: 2 });
@@ -577,10 +595,15 @@ describe('query prefetch in-flight dedupe', () => {
     const query = defineQuery({ key: () => 'hung-owner:1', fetch });
     const owner = new AbortController();
 
-    void prefetchQuery(
+    const ownerPrefetch = prefetchQuery(
       createQueryPrefetchContext({ runtime, signal: owner.signal }),
       query,
       {}
+    );
+    let ownerOutcome: unknown = 'pending';
+    void ownerPrefetch.then(
+      (value: boolean) => (ownerOutcome = value),
+      (error: unknown) => (ownerOutcome = error)
     );
     const joiner = prefetchQuery(
       createQueryPrefetchContext({ runtime }),
@@ -590,6 +613,8 @@ describe('query prefetch in-flight dedupe', () => {
     owner.abort();
 
     await expect(joiner).resolves.toBe(true);
+    for (let turn = 0; turn < 10; turn += 1) await Promise.resolve();
+    expect(ownerOutcome).toBe(false);
     expect(fetch).toHaveBeenCalledTimes(2);
     expect(runtime.queryData.get('hung-owner:1')).toEqual({ v: 2 });
   });

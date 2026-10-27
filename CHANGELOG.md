@@ -22,6 +22,7 @@
 - Stop stale stream generations after reentrant async-iterator accessors, and assimilate resource thenables through captured methods with generation checks across nested resolutions.
 - Ensure scheduler queue clearing cancels every dropped job, ignores work enqueued by cancellation hooks during the drop, and reports cancellation failures after cleanup.
 - Abort action submissions when their component or data runtime is disposed, including submissions using the default submit-time CSRF sources.
+- Settle an aborted query prefetch owner promptly when its fetch ignores cancellation, without caching a late value.
 - Detect SSG output collisions and serialize generation locks for paths that are case-equivalent on case-insensitive filesystems; retain a committed site if removing its backup fails.
 - Invalidate an incremental SSG manifest before publishing changed output, so a failed or interrupted publication forces a clean full rebuild.
 - Publish the incremental SSG manifest only after static assets are copied, so failed asset publication also forces a full rebuild.

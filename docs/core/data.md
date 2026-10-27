@@ -674,6 +674,10 @@ handler that resolves it, and `defineServerQueries(...entries)` collects those
 pairs into the registry that SSR and SSG prefetching use.
 `createQueryPrefetchContext(options?)` builds the context that
 `prefetchQuery()` fills ahead of render.
+Aborting the context signal cancels that caller's prefetch. If it started the
+fetch and the fetch ignores the signal, `prefetchQuery()` resolves `false` and
+a late value is not cached. Aborting a joiner rejects that call with its signal
+reason. Fetch errors that arrive before cancellation wins still reject.
 
 `dehydrateDataRuntime(runtime)` snapshots a runtime's query cache for
 transport, and `hydrateDataRuntime(runtime, data)` loads that snapshot into a
