@@ -430,7 +430,22 @@ export class QueryCell<T> {
 
     // An in-flight fetch keeps the definition it started with, even if the
     // owning reader re-renders with new callbacks before it settles.
-    const { fetch, isConsistent: checkConsistent, reconcile } = this.options;
+    let fetch: QueryCellOptions<T>['fetch'];
+    let checkConsistent: QueryCellOptions<T>['isConsistent'];
+    let reconcile: QueryCellOptions<T>['reconcile'];
+    try {
+      ({ fetch, isConsistent: checkConsistent, reconcile } = this.options);
+    } catch (error) {
+      if (!this.isCurrent(operation)) return;
+      this.setState(
+        errorQueryState(
+          this.state.data,
+          normalizeAsyncDataError(error, 'Query options resolution failed')
+        ),
+        operation
+      );
+      return;
+    }
     let nextData: T;
     try {
       nextData = await fetch({ signal: controller.signal });
