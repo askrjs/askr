@@ -124,6 +124,8 @@ loader's typed interaction error follows the same recovery path, including a
 login page with `next`; consent recovery constructs the known server provider
 login route from the validated provider, canonical resource and scopes. It
 never follows a URL supplied by an arbitrary error body.
+If another navigation supersedes a queued recovery before it runs, that newer
+navigation remains in control.
 
 `loginHref(provider, { returnTo, resource?, scopes? })` creates the server's
 `/auth/login/:provider` URL with one `returnTo`, optional `resource` and repeated

@@ -231,3 +231,28 @@ it('should keep the app and a pending navigation when a refocus finds the same i
   expect(window.location.pathname).toBe('/slow');
   expect(view.container.textContent).toBe('slow');
 });
+
+it('should not let a queued auth recovery override a newer destination', async () => {
+  window.history.replaceState({}, '', '/start');
+  const auth = createSessionAuth({
+    fetch: vi.fn().mockResolvedValue(Response.json(user('a'))),
+  });
+  const registry = createRouteRegistry(
+    () => {
+      route('/start', () => <main>start</main>);
+      route('/elsewhere', () => <main>elsewhere</main>);
+      route('/login', () => <main>login</main>);
+    },
+    { auth }
+  );
+  await createSPA({ root: view.container, registry });
+  await settle();
+  expect(view.container.textContent).toBe('start');
+
+  expect(auth.handleAuthFailure(problem)).toBe(true);
+  navigate('/elsewhere');
+  await settle();
+
+  expect(window.location.pathname).toBe('/elsewhere');
+  expect(view.container.textContent).toBe('elsewhere');
+});
