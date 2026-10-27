@@ -635,6 +635,38 @@ describe('stream()', () => {
     }
   );
 
+  it.each(['primitive', 42, undefined] as const)(
+    'should reject a non-object iterator result: %s',
+    async (result) => {
+      const source: AsyncIterable<string> = {
+        [Symbol.asyncIterator]: () => ({
+          next: async () => result as unknown as IteratorResult<string>,
+        }),
+      };
+      let current!: StreamResult<string>;
+      const { container, cleanup } = createTestContainer();
+      try {
+        createIsland({
+          root: container,
+          component: () => {
+            current = stream(() => source);
+            return <p>{current.status}</p>;
+          },
+        });
+        flushScheduler();
+        await settle();
+        await settle();
+
+        expect(current.status).toBe('error');
+        expect(current.error).toBeInstanceOf(TypeError);
+        expect(current.value).toBeNull();
+        expect(container.textContent).toBe('error');
+      } finally {
+        cleanup();
+      }
+    }
+  );
+
   it('should treat an explicitly supplied null initial value as retained data', async () => {
     const source = new ControlledAsyncIterable<string | null>();
     let current: StreamResult<string | null> | undefined;

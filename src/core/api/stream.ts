@@ -163,6 +163,12 @@ async function consume<T>(
     if (!isCurrent(slot, generation)) {
       return;
     }
+    if (
+      step === null ||
+      (typeof step !== 'object' && typeof step !== 'function')
+    ) {
+      throw new TypeError('Iterator result must be an object.');
+    }
     const done = step.done;
     if (!isCurrent(slot, generation)) {
       return;
