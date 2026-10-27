@@ -2,6 +2,62 @@ import { describe, expect, it, vi } from 'vite-plus/test';
 import { createMutation } from '../../../src/data';
 
 describe('overlapping mutations', () => {
+  it.each(['success', 'failure'] as const)(
+    'should preserve optimistic rollback ordering when rollback starts newer work that ends in %s',
+    async (outcome) => {
+      let value = 'original';
+      let mutation!: ReturnType<typeof createMutation<string, string>>;
+      let thirdResolve!: (result: string) => void;
+      let thirdReject!: (error: Error) => void;
+      let third: Promise<string> | undefined;
+      mutation = createMutation({
+        optimistic: (input: string) => {
+          const previous = value;
+          value = input;
+          return () => {
+            value = previous;
+            if (input === 'second') third = mutation.execute('third');
+          };
+        },
+        action: (input: string, { signal }) => {
+          if (input === 'third') {
+            return new Promise<string>((resolve, reject) => {
+              thirdResolve = resolve;
+              thirdReject = reject;
+            });
+          }
+          return new Promise<string>((_resolve, reject) => {
+            signal.addEventListener('abort', () => reject(signal.reason), {
+              once: true,
+            });
+          });
+        },
+      });
+
+      const first = mutation.execute('first');
+      const second = mutation.execute('second');
+      mutation.reset();
+
+      expect(third).toBeDefined();
+      expect(value).toBe('third');
+      expect(mutation.pending).toBe(true);
+      await expect(first).rejects.toBeDefined();
+      await expect(second).rejects.toBeDefined();
+
+      if (outcome === 'success') {
+        thirdResolve('saved');
+        await expect(third).resolves.toBe('saved');
+        expect(value).toBe('third');
+        expect(mutation.status).toBe('success');
+      } else {
+        thirdReject(new Error('third failed'));
+        await expect(third).rejects.toThrow('third failed');
+        expect(value).toBe('original');
+        expect(mutation.status).toBe('error');
+      }
+    }
+  );
+
   it('should invalidate an aborted completed write without replacing a newer result', async () => {
     const affects = vi.fn(() => ['posts']);
     const mutation = createMutation({
