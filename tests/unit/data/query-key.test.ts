@@ -56,4 +56,20 @@ describe('scoped query array keys', () => {
       scope.key({ '%uDC00': 'value' })
     );
   });
+
+  it('should serialize false and special numeric key parts distinctly', () => {
+    const scope = queryScope('primitives');
+
+    expect(scope.key(false)).toBe('s=primitives:b=0:');
+    expect(scope.key(Number.NaN)).toBe('s=primitives:n=NaN:');
+    expect(scope.key(-0)).toBe('s=primitives:n=-0:');
+    expect(scope.key(Infinity)).toBe('s=primitives:n=Infinity:');
+    expect(scope.key(-Infinity)).toBe('s=primitives:n=-Infinity:');
+  });
+
+  it('should encode well-formed surrogate pairs in strings', () => {
+    const scope = queryScope('surrogates');
+
+    expect(scope.key('\uD83D\uDE00')).toBe('s=surrogates:s=%F0%9F%98%80:');
+  });
 });
