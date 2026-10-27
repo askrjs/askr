@@ -11,6 +11,28 @@ afterEach(() => {
 });
 
 describe('query generation authority across user callbacks', () => {
+  it('should settle a query when a rejected value throws during error normalization', async () => {
+    const runtime = createDataRuntime();
+    const failure = {
+      toString() {
+        throw new Error('conversion failed');
+      },
+    };
+    const query = createQuery({
+      key: 'hostile-query-failure',
+      runtime,
+      fetch: () => Promise.reject(failure),
+    });
+
+    const pending = query.refresh();
+    flushSync();
+    await pending;
+
+    expect(query.error).toMatchObject({ message: 'Unknown query error' });
+    expect(query.loading).toBe(false);
+    expect(query.refreshing).toBe(false);
+  });
+
   it('should publish a query option getter failure without rejecting scheduled work', async () => {
     const runtime = createDataRuntime();
     const failure = new Error('fetch option getter failed');

@@ -40,10 +40,14 @@ export function normalizeAsyncDataError(
   error: unknown,
   fallbackMessage: string
 ): Error {
-  if (error instanceof Error) {
-    return error;
+  try {
+    if (error instanceof Error) {
+      return error;
+    }
+    return new Error(error == null ? fallbackMessage : String(error));
+  } catch {
+    return new Error(fallbackMessage);
   }
-  return new Error(error == null ? fallbackMessage : String(error));
 }
 
 /** Settle promptly on abort, while observing uncancellable late completions. */
