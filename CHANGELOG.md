@@ -4,6 +4,11 @@
 
 ### Fixes
 
+- Stop a superseded stream before invoking an iterator method whose getter restarted or closed it.
+- Ignore late promised stream sources before reading their iterator accessors.
+- Preserve each select's selection when replaying queued hydration interactions, including multiple selections.
+- Do not start a mutation action when its optimistic callback aborts or resets it.
+- Reject a pending mutation canceled before its synchronous action result is published, while invalidating queries for the completed write.
 - Roll back a DOM commit if initializing a new textarea's default value throws.
 - Roll back earlier DOM writes when capturing an attribute or form-control snapshot fails.
 - Invalidate cached inherited scope lookups when `Owner.reset()` detaches child owners, so cleanup in the detached subtree cannot observe stale ancestor context.
@@ -13,6 +18,7 @@
 - Abort action submissions when their component or data runtime is disposed, including submissions using the default submit-time CSRF sources.
 - Detect SSG output collisions and serialize generation locks for paths that are case-equivalent on case-insensitive filesystems; retain a committed site if removing its backup fails.
 - Invalidate an incremental SSG manifest before publishing changed output, so a failed or interrupted publication forces a clean full rebuild.
+- Publish the incremental SSG manifest only after static assets are copied, so failed asset publication also forces a full rebuild.
 - Compare rendered HTML with the published file before skipping an incremental write when their hashes match, preventing hash collisions from leaving stale content.
 - Avoid guessing history positions for unindexed fragment entries reached by back or multi-entry traversals.
 - Reject SSG routes and static assets that overlap generated HTML, metadata, or manifest paths before publication begins.

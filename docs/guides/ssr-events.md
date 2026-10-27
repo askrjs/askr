@@ -49,8 +49,8 @@ in order once the matching server DOM becomes interactive. The original event
 is stopped while it is queued, so an interaction runs once rather than once
 before and once after hydration.
 
-Queued `input` and `change` events retain the input or textarea value from each
-event, including checkbox and radio checked state. Hydration restores that
+Queued `input` and `change` events retain the input or textarea value, checkbox
+and radio checked state, and select option selections from each event. Hydration restores that
 state before each handler runs, so ordered edits followed by a queued submit
 observe the latest edit even if hydration wrote the initial value. Events for
 controls removed during hydration are discarded. File input values are not

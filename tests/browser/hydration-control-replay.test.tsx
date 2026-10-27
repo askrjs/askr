@@ -75,6 +75,52 @@ function edit(
   );
 }
 
+test.each([false, true])(
+  'should replay queued select edits with multiple=%s',
+  async (multiple) => {
+    const observed: string[][] = [];
+    const Page = () => (
+      <select
+        multiple={multiple}
+        onChange={(event) =>
+          observed.push(
+            Array.from(
+              (event.target as HTMLSelectElement).selectedOptions,
+              (option) => option.value
+            )
+          )
+        }
+      >
+        <option value="a">A</option>
+        <option value="b">B</option>
+        <option value="c">C</option>
+      </select>
+    );
+    const root = serverRoot(Page);
+    const select = root.querySelector('select')!;
+    const hydration = hydrateSPA({
+      root,
+      registry: routeRegistryFromTable([{ path: '/', handler: Page }]),
+    });
+    select.options[0]!.selected = multiple;
+    select.options[1]!.selected = true;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    select.options[1]!.selected = multiple;
+    select.options[2]!.selected = true;
+    select.options[0]!.selected = false;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    await hydration;
+    expect(observed).toEqual(
+      multiple
+        ? [
+            ['a', 'b'],
+            ['b', 'c'],
+          ]
+        : [['b'], ['c']]
+    );
+  }
+);
+
 for (const kind of ['input', 'textarea', 'checkbox'] as const) {
   test(`should preserve the queued ${kind} edit through public root hydration`, async () => {
     const observed: Array<string | boolean> = [];

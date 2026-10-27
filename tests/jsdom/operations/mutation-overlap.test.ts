@@ -2,6 +2,64 @@ import { describe, expect, it, vi } from 'vite-plus/test';
 import { createMutation } from '../../../src/data';
 
 describe('overlapping mutations', () => {
+  it('should invalidate an aborted completed write without replacing a newer result', async () => {
+    const affects = vi.fn(() => ['posts']);
+    const mutation = createMutation({
+      action: (input: string) => Promise.resolve(input),
+      affects,
+      afterSuccess: 'invalidate',
+    });
+    const first = mutation.execute('first');
+    mutation.abort();
+    const second = mutation.execute('second');
+
+    await expect(first).rejects.toMatchObject({ name: 'AbortError' });
+    await expect(second).resolves.toBe('second');
+    await Promise.resolve();
+    expect(mutation.status).toBe('success');
+    expect(mutation.result).toBe('second');
+    expect(affects).toHaveBeenCalledTimes(2);
+    expect(affects).toHaveBeenCalledWith('first', 'first');
+    expect(affects).toHaveBeenCalledWith('second', 'second');
+  });
+  it('should keep an aborted synchronous success from publishing mutation state', async () => {
+    const affects = vi.fn(() => ['posts']);
+    const mutation = createMutation({
+      action: () => Promise.resolve('saved'),
+      affects,
+      afterSuccess: 'invalidate',
+    });
+    const execution = mutation.execute('write');
+    mutation.abort();
+    await expect(execution).rejects.toMatchObject({ name: 'AbortError' });
+    await Promise.resolve();
+    expect(mutation.status).toBe('idle');
+    expect(affects).toHaveBeenCalledOnce();
+  });
+  it.each(['abort', 'reset'] as const)(
+    'should not invoke an action after optimistic %s',
+    async (cancel) => {
+      let value = 'before';
+      const action = vi.fn(() => Promise.resolve('saved'));
+      const mutation = createMutation({
+        action,
+        optimistic: () => {
+          value = 'optimistic';
+          mutation[cancel]();
+          return () => {
+            value = 'before';
+          };
+        },
+      });
+
+      await expect(mutation.execute('write')).rejects.toMatchObject({
+        name: 'AbortError',
+      });
+      expect(action).not.toHaveBeenCalled();
+      expect(value).toBe('before');
+      expect(mutation.status).toBe('idle');
+    }
+  );
   it('should keep earlier writes alive and let only the latest write publish visible state', async () => {
     const requests = new Map<
       string,

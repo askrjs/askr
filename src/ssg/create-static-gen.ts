@@ -259,6 +259,8 @@ async function publishGeneration({
 
     await writeMetadata(metadata, targetOutputDir);
 
+    await copyStaticAssets(assets, targetOutputDir);
+
     await writeIncrementalManifest(
       {
         schemaVersion: SSG_MANIFEST_SCHEMA_VERSION,
@@ -268,8 +270,6 @@ async function publishGeneration({
       },
       targetOutputDir
     );
-
-    await copyStaticAssets(assets, targetOutputDir);
 
     if (effectiveMode === 'full') {
       await replaceOutputDirectory(targetOutputDir, outputDir);

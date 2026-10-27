@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
-import { createDataRuntime } from '../../../src/data/data-runtime';
+import {
+  createDataRuntime,
+  disposeDataRuntime,
+} from '../../../src/data/data-runtime';
 import {
   createQueryPrefetchContext,
   defineQuery,
@@ -10,6 +13,8 @@ import {
   serveQuery,
 } from '../../../src/data/query-registry';
 import { invalidate } from '../../../src/data/invalidation';
+import { createQuery } from '../../../src/data/query-cell';
+import { addInvalidationListener } from '../../../src/data/invalidation-listeners';
 
 describe('dehydrateDataRuntime', () => {
   it.each(['__proto__', 'constructor', 'toString'])(
@@ -170,6 +175,207 @@ describe('query prefetch in-flight dedupe', () => {
     });
     return { promise, resolve, reject };
   }
+
+  it('should retain a live joiner replacement when the aborted owner resolves last', async () => {
+    const runtime = createDataRuntime();
+    const owner = new AbortController();
+    const old = deferred<{ v: number }>();
+    const replacement = deferred<{ v: number }>();
+    const fetch = vi
+      .fn<() => Promise<{ v: number }>>()
+      .mockReturnValueOnce(old.promise)
+      .mockReturnValueOnce(replacement.promise);
+    const query = defineQuery({ key: () => 'handoff', fetch });
+    const first = prefetchQuery(
+      createQueryPrefetchContext({ runtime, signal: owner.signal }),
+      query,
+      {}
+    );
+    const second = prefetchQuery(
+      createQueryPrefetchContext({ runtime }),
+      query,
+      {}
+    );
+    owner.abort();
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    replacement.resolve({ v: 2 });
+    await expect(second).resolves.toBe(true);
+    old.resolve({ v: 1 });
+    await expect(first).resolves.toBe(false);
+    expect(runtime.queryData.get('handoff')).toEqual({ v: 2 });
+    disposeDataRuntime(runtime);
+  });
+
+  it('should retire a replacement and every joiner even when both fetches ignore cancellation', async () => {
+    const runtime = createDataRuntime();
+    const owner = new AbortController();
+    const old = deferred<{ v: number }>();
+    const replacement = deferred<{ v: number }>();
+    const fetch = vi
+      .fn<() => Promise<{ v: number }>>()
+      .mockReturnValueOnce(old.promise)
+      .mockReturnValueOnce(replacement.promise);
+    const query = defineQuery({ key: () => 'retired-handoff', fetch });
+    const first = prefetchQuery(
+      createQueryPrefetchContext({ runtime, signal: owner.signal }),
+      query,
+      {}
+    );
+    const second = prefetchQuery(
+      createQueryPrefetchContext({ runtime }),
+      query,
+      {}
+    );
+    const firstResult = first.catch((error: unknown) => error);
+    const secondResult = second.catch((error: unknown) => error);
+    owner.abort();
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    disposeDataRuntime(runtime);
+    expect(await firstResult).toMatchObject({ name: 'AbortError' });
+    expect(await secondResult).toMatchObject({ name: 'AbortError' });
+    old.resolve({ v: 1 });
+    replacement.resolve({ v: 2 });
+    await Promise.resolve();
+    expect(runtime.queryData.has('retired-handoff')).toBe(false);
+  });
+
+  it('should let a live joiner replace an aborted owner after another joiner cancels', async () => {
+    const runtime = createDataRuntime();
+    const owner = new AbortController();
+    const cancelled = new AbortController();
+    const old = deferred<{ v: number }>();
+    const replacement = deferred<{ v: number }>();
+    const fetch = vi
+      .fn<() => Promise<{ v: number }>>()
+      .mockReturnValueOnce(old.promise)
+      .mockReturnValueOnce(replacement.promise);
+    const query = defineQuery({ key: () => 'many-joiners', fetch });
+    const first = prefetchQuery(
+      createQueryPrefetchContext({ runtime, signal: owner.signal }),
+      query,
+      {}
+    );
+    const leaving = prefetchQuery(
+      createQueryPrefetchContext({ runtime, signal: cancelled.signal }),
+      query,
+      {}
+    );
+    const live = prefetchQuery(
+      createQueryPrefetchContext({ runtime }),
+      query,
+      {}
+    );
+    const reason = new Error('joiner left');
+    cancelled.abort(reason);
+    await expect(leaving).rejects.toBe(reason);
+    owner.abort();
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    replacement.resolve({ v: 2 });
+    await expect(live).resolves.toBe(true);
+    old.resolve({ v: 1 });
+    await expect(first).resolves.toBe(false);
+    expect(runtime.queryData.get('many-joiners')).toEqual({ v: 2 });
+    disposeDataRuntime(runtime);
+  });
+
+  it('should discard a replacement invalidated while a joiner switches to it', async () => {
+    const runtime = createDataRuntime();
+    const owner = new AbortController();
+    const old = deferred<{ v: number }>();
+    const replacement = deferred<{ v: number }>();
+    const fetch = vi
+      .fn<() => Promise<{ v: number }>>()
+      .mockReturnValueOnce(old.promise)
+      .mockReturnValueOnce(replacement.promise);
+    const query = defineQuery({ key: () => 'handoff-invalidated', fetch });
+    const first = prefetchQuery(
+      createQueryPrefetchContext({ runtime, signal: owner.signal }),
+      query,
+      {}
+    );
+    const second = prefetchQuery(
+      createQueryPrefetchContext({ runtime }),
+      query,
+      {}
+    );
+    owner.abort();
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    invalidate('handoff-invalidated', { runtime });
+    replacement.resolve({ v: 2 });
+    old.resolve({ v: 1 });
+    await expect(Promise.all([first, second])).resolves.toEqual([false, false]);
+    expect(runtime.queryData.has('handoff-invalidated')).toBe(false);
+    disposeDataRuntime(runtime);
+  });
+
+  it('should keep an attached query authoritative when the replacement prefetch settles', async () => {
+    const runtime = createDataRuntime();
+    const owner = new AbortController();
+    const old = deferred<{ v: number }>();
+    const replacement = deferred<{ v: number }>();
+    const fetch = vi
+      .fn<() => Promise<{ v: number }>>()
+      .mockReturnValueOnce(old.promise)
+      .mockReturnValueOnce(replacement.promise);
+    const definition = defineQuery({ key: () => 'attached-handoff', fetch });
+    const first = prefetchQuery(
+      createQueryPrefetchContext({ runtime, signal: owner.signal }),
+      definition,
+      {}
+    );
+    const joiner = prefetchQuery(
+      createQueryPrefetchContext({ runtime }),
+      definition,
+      {}
+    );
+    owner.abort();
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    const query = createQuery({
+      runtime,
+      key: 'attached-handoff',
+      initialData: { v: 3 },
+      skipInitialFetch: true,
+      fetch: async () => ({ v: 4 }),
+    });
+    replacement.resolve({ v: 2 });
+    await expect(joiner).resolves.toBe(true);
+    old.resolve({ v: 1 });
+    await expect(first).resolves.toBe(false);
+    expect(query.data).toEqual({ v: 3 });
+    expect(runtime.queryData.has('attached-handoff')).toBe(false);
+    disposeDataRuntime(runtime);
+  });
+
+  it('should discard a prefetch joined during an invalidation callback', async () => {
+    const runtime = createDataRuntime();
+    const old = deferred<{ v: number }>();
+    const fetch = vi
+      .fn<() => Promise<{ v: number }>>()
+      .mockReturnValueOnce(old.promise)
+      .mockResolvedValueOnce({ v: 2 });
+    const query = defineQuery({ key: () => 'callback-prefetch', fetch });
+    const context = createQueryPrefetchContext({ runtime });
+    const first = prefetchQuery(context, query, {});
+    let joined!: Promise<boolean>;
+    const stop = addInvalidationListener((event) => {
+      if (event.prefix === 'callback-prefetch')
+        joined = prefetchQuery(context, query, {});
+    });
+    try {
+      invalidate('callback-prefetch', { runtime });
+      old.resolve({ v: 1 });
+      await expect(Promise.all([first, joined])).resolves.toEqual([
+        false,
+        false,
+      ]);
+      expect(runtime.queryData.has('callback-prefetch')).toBe(false);
+      await expect(prefetchQuery(context, query, {})).resolves.toBe(true);
+      expect(runtime.queryData.get('callback-prefetch')).toEqual({ v: 2 });
+    } finally {
+      stop();
+      disposeDataRuntime(runtime);
+    }
+  });
 
   it('should share one fetch between concurrent prefetches of a key', async () => {
     const runtime = createDataRuntime();

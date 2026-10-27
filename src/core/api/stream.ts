@@ -136,6 +136,7 @@ async function consume<T>(
   generation: StreamGeneration<T>,
   iterable: AsyncIterable<T>
 ): Promise<void> {
+  if (!isCurrent(slot, generation)) return;
   const iteratorFactory = iterable?.[Symbol.asyncIterator];
   if (!isCurrent(slot, generation)) return;
   if (typeof iteratorFactory !== 'function') {
@@ -156,7 +157,9 @@ async function consume<T>(
   }
 
   while (isCurrent(slot, generation)) {
-    const step = await iterator.next();
+    const next = iterator.next;
+    if (!isCurrent(slot, generation)) return;
+    const step = await next.call(iterator);
     if (!isCurrent(slot, generation)) {
       return;
     }

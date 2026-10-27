@@ -144,6 +144,7 @@ export class MutationCell<TInput, TResult> {
         }
       }
       assertDataRuntimeActive(this.runtimeState);
+      controller.signal.throwIfAborted();
       actionPromise = Promise.resolve(
         action(input, { signal: controller.signal })
       );
@@ -152,6 +153,7 @@ export class MutationCell<TInput, TResult> {
         this.runtimeState.retirement.signal,
       ]);
       assertDataRuntimeActive(this.runtimeState);
+      controller.signal.throwIfAborted();
       this.commitOptimistic(controller);
     } catch (cause) {
       if (

@@ -83,6 +83,184 @@ async function settle(): Promise<void> {
 }
 
 describe('stream()', () => {
+  it.each(['close', 'restart', 'dispose'] as const)(
+    'should ignore a promised source resolving after %s',
+    async (action) => {
+      let release!: (value: AsyncIterable<string>) => void;
+      const pending = new Promise<AsyncIterable<string>>((resolve) => {
+        release = resolve;
+      });
+      let factories = 0;
+      let reads = 0;
+      const stale: AsyncIterable<string> = {
+        get [Symbol.asyncIterator]() {
+          reads++;
+          return () => {
+            factories++;
+            return {
+              next: async () => ({ done: true as const, value: undefined }),
+            };
+          };
+        },
+      };
+      const successor = new ControlledAsyncIterable<string>();
+      let current!: StreamResult<string>;
+      let starts = 0;
+      const { container, cleanup } = createTestContainer();
+      try {
+        createIsland({
+          root: container,
+          component: () => {
+            current = stream(() => (starts++ === 0 ? pending : successor));
+            return <p>{current.status}</p>;
+          },
+        });
+        flushScheduler();
+        if (action === 'dispose') cleanup();
+        else current[action]();
+        release(stale);
+        await settle();
+        await settle();
+        expect(reads).toBe(0);
+        expect(factories).toBe(0);
+        if (action === 'restart') expect(starts).toBe(2);
+      } finally {
+        cleanup();
+      }
+    }
+  );
+
+  it('should ignore a superseded next rejection after the newer stream publishes', async () => {
+    let rejectOld!: (error: Error) => void;
+    const old: AsyncIterable<string> = {
+      [Symbol.asyncIterator]: () => ({
+        next: () =>
+          new Promise((_resolve, reject) => {
+            rejectOld = reject;
+          }),
+        return: async () => ({ done: true, value: undefined }),
+      }),
+    };
+    const successor = new ControlledAsyncIterable<string>();
+    let current!: StreamResult<string>;
+    let starts = 0;
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({
+        root: container,
+        component: () => {
+          current = stream(() => (starts++ === 0 ? old : successor));
+          return <p>{current.value ?? current.status}</p>;
+        },
+      });
+      flushScheduler();
+      await settle();
+      current.restart();
+      await settle();
+      successor.yield('new');
+      await settle();
+      rejectOld(new Error('old failed'));
+      await settle();
+      expect(current).toMatchObject({
+        value: 'new',
+        status: 'connected',
+        error: null,
+      });
+      expect(container.textContent).toBe('new');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it.each(['throw', 'reject'] as const)(
+    'should preserve a restart when iterator return %s follows reentry',
+    async (failure) => {
+      const successor = new ControlledAsyncIterable<string>();
+      let current!: StreamResult<string>;
+      let starts = 0;
+      let returns = 0;
+      const old: AsyncIterable<string> = {
+        [Symbol.asyncIterator]: () => ({
+          next: () => new Promise<IteratorResult<string>>(() => {}),
+          return: () => {
+            returns++;
+            current.restart();
+            if (failure === 'throw') throw new Error('return failed');
+            return Promise.reject(new Error('return failed'));
+          },
+        }),
+      };
+      const { container, cleanup } = createTestContainer();
+      try {
+        createIsland({
+          root: container,
+          component: () => {
+            current = stream(() => (starts++ === 0 ? old : successor));
+            return <p>{current.value ?? current.status}</p>;
+          },
+        });
+        flushScheduler();
+        await settle();
+        current.close();
+        await settle();
+        expect(returns).toBe(1);
+        expect(starts).toBe(2);
+        successor.yield('live');
+        await settle();
+        expect(current).toMatchObject({
+          value: 'live',
+          status: 'connected',
+          error: null,
+        });
+      } finally {
+        cleanup();
+      }
+    }
+  );
+  it('should not invoke a stale next method after its getter restarts the stream', async () => {
+    const successor = new ControlledAsyncIterable<string>();
+    let current!: StreamResult<string>;
+    let starts = 0;
+    let reads = 0;
+    let staleCalls = 0;
+    let returns = 0;
+    const first: AsyncIterable<string> = {
+      [Symbol.asyncIterator]: () => ({
+        get next() {
+          if (++reads === 2) current.restart();
+          return () => {
+            staleCalls++;
+            return new Promise<IteratorResult<string>>(() => {});
+          };
+        },
+        return: async () => {
+          returns++;
+          return { done: true as const, value: undefined };
+        },
+      }),
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({
+        root: container,
+        component: () => {
+          current = stream(() => (starts++ === 0 ? first : successor));
+          return <p>{current.value ?? current.status}</p>;
+        },
+      });
+      flushScheduler();
+      await settle();
+      await settle();
+      expect(staleCalls).toBe(0);
+      expect(returns).toBe(1);
+      expect(starts).toBe(2);
+      successor.yield('live');
+      await settle();
+      expect(current.value).toBe('live');
+    } finally {
+      cleanup();
+    }
+  });
   it('should reject calls without a component owner', () => {
     let inputReads = 0;
     let starts = 0;

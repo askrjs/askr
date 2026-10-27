@@ -732,7 +732,11 @@ if (saveUser.status === 'error') {
 For immediate feedback, `optimistic(input, { signal })` runs before `action`
 and may return a synchronous rollback function. Askr calls that rollback once
 if the write fails or is explicitly aborted; a successful write keeps the
-optimistic change and then applies `afterSuccess` invalidation. For example,
+optimistic change and then applies `afterSuccess` invalidation. If the optimistic
+callback aborts or resets the mutation, Askr rolls back its change and does not
+start the action. Cancellation before a result is published rejects the pending
+execution even if the action has already returned; a successful write still
+triggers its configured query invalidation. For example,
 inside a component with a `state()` value:
 
 ```ts

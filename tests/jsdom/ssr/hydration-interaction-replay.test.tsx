@@ -8,6 +8,80 @@ import {
 } from '../../../test-utils/render/test-renderer';
 
 describe('hydration interaction replay', () => {
+  it('should replay multiple selection changes without losing earlier choices', async () => {
+    const { container, cleanup } = createTestContainer();
+    const observed: string[][] = [];
+    const Component = () => (
+      <select
+        multiple
+        onChange={(event) =>
+          observed.push(
+            Array.from(
+              (event.target as HTMLSelectElement).selectedOptions,
+              (option) => option.value
+            )
+          )
+        }
+      >
+        <option value="a">A</option>
+        <option value="b">B</option>
+        <option value="c">C</option>
+      </select>
+    );
+    const registry = routeRegistryFromTable([
+      { path: '/', handler: Component },
+    ]);
+    container.innerHTML = renderToString({ url: '/', registry });
+    try {
+      const hydration = hydrateSPA({ root: container, registry });
+      const select = container.querySelector('select')!;
+      select.options[0]!.selected = true;
+      select.options[1]!.selected = true;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      select.options[0]!.selected = false;
+      select.options[2]!.selected = true;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      await hydration;
+      expect(observed).toEqual([
+        ['a', 'b'],
+        ['b', 'c'],
+      ]);
+    } finally {
+      cleanup();
+    }
+  });
+  it('should replay each queued select change with its original selection', async () => {
+    const { container, cleanup } = createTestContainer();
+    const observed: string[] = [];
+    const Component = () => (
+      <select
+        onChange={(event) =>
+          observed.push((event.target as HTMLSelectElement).value)
+        }
+      >
+        <option value="a">A</option>
+        <option value="b">B</option>
+        <option value="c">C</option>
+      </select>
+    );
+    const registry = routeRegistryFromTable([
+      { path: '/', handler: Component },
+    ]);
+    container.innerHTML = renderToString({ url: '/', registry });
+    try {
+      const hydration = hydrateSPA({ root: container, registry });
+      const select = container.querySelector('select')!;
+      select.value = 'b';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      select.value = 'c';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      await hydration;
+      expect(observed).toEqual(['b', 'c']);
+      expect(select.value).toBe('c');
+    } finally {
+      cleanup();
+    }
+  });
   it('should replay a click fired during plain root hydration', async () => {
     const { container, cleanup } = createTestContainer();
     let clicks = 0;

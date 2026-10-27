@@ -57,7 +57,7 @@ that overlap generated files are rejected before publication. Asset directories
 may contain route output directories when their files do not collide. Output
 collision checks account for case and Unicode normalization on common
 case-insensitive filesystems. Incremental publication invalidates its manifest
-before changing output, so a failed or interrupted update triggers a full build
+before changing output and writes it only after static assets are copied, so a failed or interrupted update triggers a full build
 on the next run.
 
 ## Programmatic API
