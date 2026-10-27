@@ -91,6 +91,12 @@ still throw instead of being awaited. The synchronous `renderToString({ url,
 registry })` does not run route loaders and throws `SSRDataMissingError` for a
 route that declares one.
 
+When passing both `url` and `request`, use the same pathname and query string in
+each. Askr rejects a mismatch before starting route loaders so the matched
+route, loader context, and request cannot describe different locations. When
+you also pass `signal`, Askr combines it with `request.signal` and gives the
+combined signal to both route context and loaders.
+
 ## Reactive primitives
 
 `state()`, `derive()` and `selector()` are positional component hooks. They
@@ -264,6 +270,11 @@ Microtasks and timers are application scheduling choices, not implicit Askr
 flushes. Await a microtask or timer only when the application code explicitly
 uses that boundary; otherwise use the scheduler or routed-render test helper
 that corresponds to the public operation above.
+
+DOM updates are applied as a transaction. If a commit fails while capturing
+an attribute or form-control snapshot, or initializing a new textarea's default
+value, Askr rolls back earlier reversible writes and reports the error to the
+applicable error boundary or caller.
 
 ## Update loop guard
 

@@ -66,7 +66,9 @@ export interface RenderRouteRequestOptions {
   registry: RouteRegistry;
   auth?: RouteAuthOptions;
   authContext?: AuthContext;
+  /** Must have the same pathname and query as `url`; its fragment is ignored. */
   request?: Request;
+  /** Composed with `request.signal` when both are supplied. */
   signal?: AbortSignal;
   seed?: number;
   data?: SSRData;
@@ -352,10 +354,29 @@ async function renderRouteRequestInternal(
 
   const cspNonce = validateCspNonce(options.cspNonce);
   const manifest = options.registry.manifest;
+  const inputRequest =
+    options.request ??
+    new Request(new URL(options.url, 'http://localhost'), {
+      signal: options.signal,
+    });
   const signal =
-    options.signal ?? options.request?.signal ?? new AbortController().signal;
+    options.signal && options.signal !== inputRequest.signal
+      ? AbortSignal.any([options.signal, inputRequest.signal])
+      : (options.signal ?? inputRequest.signal);
   const request =
-    options.request ?? new Request(new URL(options.url, 'http://localhost'));
+    signal === inputRequest.signal
+      ? inputRequest
+      : new Request(inputRequest, { signal });
+  const routeUrl = new URL(options.url, request.url);
+  const requestUrl = new URL(request.url);
+  if (
+    routeUrl.pathname !== requestUrl.pathname ||
+    routeUrl.search !== requestUrl.search
+  ) {
+    throw new TypeError(
+      'renderRouteRequest: request URL must match options.url pathname and query.'
+    );
+  }
   const runtime = options.dataRuntime ?? createDataRuntime();
   const prefetch =
     options.queryPrefetch ??

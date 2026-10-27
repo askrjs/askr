@@ -42,4 +42,18 @@ describe('scoped query array keys', () => {
     expect(scope.key(parts)).toBe('s=arrays:a[s=alpha,s=beta]:');
     expect(scope.prefix(parts)).toBe(scope.key(['alpha', 'beta']));
   });
+
+  it('should serialize lone surrogate strings and object keys without collisions', () => {
+    const scope = queryScope('surrogates');
+    const high = '\uD800';
+    const low = '\uDC00';
+
+    expect(() => scope.key(high)).not.toThrow();
+    expect(() => scope.key({ [low]: 'value' })).not.toThrow();
+    expect(scope.key(high)).not.toBe(scope.key('\uFFFD'));
+    expect(scope.key(low)).not.toBe(scope.key('%uDC00'));
+    expect(scope.key({ [low]: 'value' })).not.toBe(
+      scope.key({ '%uDC00': 'value' })
+    );
+  });
 });

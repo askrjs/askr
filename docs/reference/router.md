@@ -930,8 +930,9 @@ stack and can be traversed to again. Navigating while that return is pending
 cancels it, and the returning traversal then renders normally.
 
 Askr records each entry's position (`askrIndex`) in the history state it
-writes. An entry added by a plain fragment link is placed after the entry it
-was followed from. If other code writes an entry, for example with
+writes. An unindexed fragment entry is assigned the next position only when the
+browser's Navigation API confirms a one-entry forward move. Otherwise its
+position remains unknown. If other code writes an entry, for example with
 `history.pushState()`, positions are unknown until the user returns to an entry
 Askr wrote, and a failed Back/Forward reloads the landed URL instead of guessing
 which entry to return to.

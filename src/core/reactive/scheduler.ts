@@ -184,10 +184,12 @@ const queued = new Set<Job>();
 let flushing = false;
 let batchDepth = 0;
 let kickScheduled = false;
+let droppingQueued = false;
 let flushVersion = 0;
 const flushWaiters: Array<() => void> = [];
 
 export function schedule(job: Job, lane: Lane): void {
+  if (droppingQueued) return;
   if (queued.has(job)) return;
   queued.add(job);
   lanes[lane].push(job);
@@ -319,8 +321,12 @@ export function flushSync(): void {
       queued.delete(job);
       if (job.skip) continue;
       if (++executed - initialJobs > MAX_FOLLOW_UP_JOBS_PER_FLUSH) {
-        job.cancel?.();
-        dropQueued();
+        try {
+          job.cancel?.();
+        } catch (error) {
+          failures.push(error);
+        }
+        failures.push(...dropQueued());
         failures.push(
           new Error(
             `[Askr] scheduler flush exceeded ${MAX_FOLLOW_UP_JOBS_PER_FLUSH} follow-up jobs: a task keeps queueing new tasks. Queued work was dropped.`
@@ -334,7 +340,11 @@ export function flushSync(): void {
       job.flushStamp = flushVersion;
       job.flushRuns = count;
       if (count > (job.maxRuns ?? MAX_RUNS_PER_FLUSH)) {
-        job.cancel?.();
+        try {
+          job.cancel?.();
+        } catch (error) {
+          failures.push(error);
+        }
         if (job.onLimit) {
           try {
             job.onLimit();
@@ -400,12 +410,29 @@ export function waitForFlush(): Promise<void> {
 
 /** Drop all queued work (test isolation). */
 export function clearScheduler(): void {
-  dropQueued();
+  const failures = dropQueued();
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1) {
+    throw new AggregateError(failures, 'Scheduler cancellation failed');
+  }
 }
 
-function dropQueued(): void {
+function dropQueued(): unknown[] {
   const dropped = [...queued];
   for (const lane of Object.values(lanes)) lane.clear();
   queued.clear();
-  for (const job of dropped) job.cancel?.();
+  const failures: unknown[] = [];
+  droppingQueued = true;
+  try {
+    for (const job of dropped) {
+      try {
+        job.cancel?.();
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+  } finally {
+    droppingQueued = false;
+  }
+  return failures;
 }

@@ -52,6 +52,14 @@ in the hydration envelope and verifies against it exactly.
 - Build metadata: `metadata.json` with per-route status, file sizes, and render durations
 - When built through `askr ssg`, a canonical `sitemap.xml`
 
+SSG reserves its generated metadata and manifest paths. Routes or copied assets
+that overlap generated files are rejected before publication. Asset directories
+may contain route output directories when their files do not collide. Output
+collision checks account for case and Unicode normalization on common
+case-insensitive filesystems. Incremental publication invalidates its manifest
+before changing output, so a failed or interrupted update triggers a full build
+on the next run.
+
 ## Programmatic API
 
 Import from the SSG subpath:
@@ -273,6 +281,8 @@ route on a case-insensitive deployment filesystem.
 Incremental route updates use a temporary file and rename it into place, so a
 failed route write also preserves that route's previously published HTML.
 An unchanged route is regenerated if its published HTML file is missing.
+For a rendered route, Askr compares the existing HTML before skipping a write
+when its stored hash matches, so a hash collision cannot hide changed content.
 When incremental mode is requested without a compatible manifest, `mode` in the
 result is `full`. If that fallback full build fails, successfully rendered
 routes report `written: false` because the atomic output was not published.

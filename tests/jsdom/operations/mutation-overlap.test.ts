@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vite-plus/test';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { createMutation } from '../../../src/data';
 
 describe('overlapping mutations', () => {
@@ -49,6 +49,52 @@ describe('overlapping mutations', () => {
     await expect(first).rejects.toBeDefined();
     await expect(second).rejects.toBeDefined();
     expect(mutation.status).toBe('idle');
+  });
+
+  it('should settle execute promptly when an action ignores its abort signal', async () => {
+    let resolveAction!: (value: string) => void;
+    const mutation = createMutation({
+      action: () =>
+        new Promise<string>((resolve) => {
+          resolveAction = resolve;
+        }),
+    });
+    const execution = mutation.execute('write');
+    const observed = execution.then(
+      () => 'resolved',
+      (error: unknown) => error
+    );
+
+    mutation.abort();
+    const outcome = await observed;
+    resolveAction('late result');
+    await execution.catch(() => undefined);
+
+    expect(outcome).toMatchObject({ name: 'AbortError' });
+    expect(mutation.status).toBe('idle');
+    expect(mutation.result).toBeNull();
+  });
+
+  it('should invalidate affected queries when an aborted action later commits', async () => {
+    let resolveAction!: (value: string) => void;
+    const affects = vi.fn(() => ['posts']);
+    const mutation = createMutation({
+      action: () =>
+        new Promise<string>((resolve) => {
+          resolveAction = resolve;
+        }),
+      affects,
+      afterSuccess: 'invalidate',
+    });
+    const execution = mutation.execute('write');
+
+    mutation.abort();
+    await expect(execution).rejects.toMatchObject({ name: 'AbortError' });
+    resolveAction('committed');
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(affects).toHaveBeenCalledWith('write', 'committed');
   });
 
   it('should cancel an older pending write after the latest write has succeeded', async () => {
@@ -132,7 +178,96 @@ describe('overlapping mutations', () => {
     await expect(second).rejects.toBeDefined();
     expect(labels.get('first')).toBe('old first');
     expect(labels.get('second')).toBe('old second');
-    expect(rolledBack).toEqual(['first', 'second']);
+    expect(rolledBack).toEqual(['second', 'first']);
+  });
+
+  it('should restore the pre-mutation value when overlapping optimistic writes are aborted', async () => {
+    let value = 'original';
+    const mutation = createMutation({
+      optimistic: (next: string) => {
+        const previous = value;
+        value = next;
+        return () => {
+          value = previous;
+        };
+      },
+      action: (_input: string, { signal }) =>
+        new Promise<string>((_resolve, reject) => {
+          signal.addEventListener('abort', () => reject(signal.reason), {
+            once: true,
+          });
+        }),
+    });
+
+    const first = mutation.execute('first');
+    const second = mutation.execute('second');
+    mutation.abort();
+    await Promise.all(
+      [first, second].map((request) => request.catch(() => {}))
+    );
+
+    expect(value).toBe('original');
+  });
+
+  it('should preserve a later optimistic write when an earlier write fails', async () => {
+    let value = 'original';
+    let rejectFirst!: (reason: Error) => void;
+    const mutation = createMutation({
+      optimistic: (next: string) => {
+        const previous = value;
+        value = next;
+        return () => {
+          value = previous;
+        };
+      },
+      action: (input: string, { signal }) =>
+        new Promise<string>((resolve, reject) => {
+          if (input === 'first') rejectFirst = reject;
+          signal.addEventListener('abort', () => reject(signal.reason), {
+            once: true,
+          });
+          if (input === 'second') {
+            signal.addEventListener('abort', () => {}, { once: true });
+          }
+          void resolve;
+        }),
+    });
+
+    const first = mutation.execute('first');
+    const second = mutation.execute('second');
+    rejectFirst(new Error('first failed'));
+    await expect(first).rejects.toThrow('first failed');
+
+    expect(value).toBe('second');
+    mutation.abort();
+    await expect(second).rejects.toBeDefined();
+  });
+
+  it('should not let an older failed write roll back a newer success', async () => {
+    let value = 'original';
+    let rejectFirst!: (reason: Error) => void;
+    const mutation = createMutation({
+      optimistic: (next: string) => {
+        const previous = value;
+        value = next;
+        return () => {
+          value = previous;
+        };
+      },
+      action: (input: string) =>
+        input === 'first'
+          ? new Promise<string>((_resolve, reject) => {
+              rejectFirst = reject;
+            })
+          : Promise.resolve(input),
+    });
+
+    const first = mutation.execute('first');
+    await expect(mutation.execute('second')).resolves.toBe('second');
+    rejectFirst(new Error('first failed'));
+    await expect(first).rejects.toThrow('first failed');
+
+    expect(value).toBe('second');
   });
 
   it('should retain an optimistic change after success', async () => {

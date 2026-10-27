@@ -28,9 +28,10 @@ describe('createElement keys', () => {
         order = state(['a', 'b', 'c']);
         return (
           <ul>
-            {order().map((id) =>
-              createElement(Row, { ...{ label: id }, key: id })
-            )}
+            {order().map((id) => {
+              const props = { label: id };
+              return createElement(Row, { ...props, key: id });
+            })}
           </ul>
         );
       },

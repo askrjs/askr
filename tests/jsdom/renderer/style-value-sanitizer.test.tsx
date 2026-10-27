@@ -99,4 +99,13 @@ describe('style object value sanitizer', () => {
     }
     expect(html).not.toContain('width:');
   });
+
+  it('should ignore inherited style declarations in SSR like the DOM renderer', () => {
+    const style = Object.assign(Object.create({ color: 'red' }), {
+      opacity: 0.5,
+    });
+    const html = renderToStringSync(() => <div style={style}>x</div>);
+    expect(html).toContain('style="opacity:0.5;"');
+    expect(html).not.toContain('color:red');
+  });
 });

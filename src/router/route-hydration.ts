@@ -92,6 +92,15 @@ function omissionMap(
   const output: Record<string, 1 | RouteOmissionMap> = Object.create(null);
 
   try {
+    if (
+      Array.isArray(complete) &&
+      (!Array.isArray(selectedObject) ||
+        selectedObject.length < complete.length)
+    ) {
+      // `length` is non-enumerable, but reading it observes trailing entries
+      // that were removed from the hydrated array.
+      output.length = 1;
+    }
     for (const key of Object.keys(complete)) {
       if (
         !selectedObject ||
@@ -193,6 +202,9 @@ function guardOmissions(
         )
           ? omissions[property]
           : undefined;
+        if (omitted && property === 'length' && Array.isArray(target)) {
+          omittedRead(route, propertyPath(path, property));
+        }
         if (
           omitted &&
           !Object.prototype.hasOwnProperty.call(target, property)

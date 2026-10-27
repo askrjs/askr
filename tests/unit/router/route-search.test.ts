@@ -56,6 +56,21 @@ describe('parseRouteSearch', () => {
     });
     expect(parseRouteSearch(Required, '?id=nope&q=x')).toEqual({ q: 'x' });
   });
+
+  it('should parse a declared __proto__ search property as data', () => {
+    const ProtoSearch = schema.object({ ['__proto__']: schema.string() });
+
+    const result = parseRouteSearch(ProtoSearch, '?__proto__=safe');
+    expect(Object.hasOwn(result, '__proto__')).toBe(true);
+    expect(result['__proto__']).toBe('safe');
+
+    const DefaultProtoSearch = schema.object({
+      ['__proto__']: schema.string({ default: 'fallback' }),
+    });
+    const withDefault = parseRouteSearch(DefaultProtoSearch, '');
+    expect(Object.hasOwn(withDefault, '__proto__')).toBe(true);
+    expect(withDefault['__proto__']).toBe('fallback');
+  });
 });
 
 describe('route search in resolution', () => {

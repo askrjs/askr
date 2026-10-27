@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
-import { derive, selector, state, type State } from '../../../src/index';
+import {
+  derive,
+  selector,
+  state,
+  untrack,
+  type State,
+} from '../../../src/index';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -16,6 +22,31 @@ describe('state.set() inside derived computations', () => {
     ({ container, cleanup } = createTestContainer());
   });
   afterEach(() => cleanup());
+
+  it('should reject a write from a derive equality comparator outside render', () => {
+    let count!: State<number>;
+    let other!: State<number>;
+    let value!: () => number;
+    const Component = () => {
+      count = state(0);
+      other = state(0);
+      value = derive(() => count(), {
+        equals: (previous, next) => {
+          other.set(next);
+          return previous === next;
+        },
+      });
+      void untrack(() => value());
+      void untrack(() => other());
+      return <div />;
+    };
+
+    createIsland({ root: container, component: Component });
+    flushScheduler();
+    count.set(1);
+    expect(() => value()).toThrow(DERIVED_WRITE_ERROR);
+    expect(other()).toBe(0);
+  });
 
   it('should reject a write from a derive() compute during render', () => {
     const Component = () => {

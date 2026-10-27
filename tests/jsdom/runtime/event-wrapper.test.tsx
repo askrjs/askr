@@ -199,7 +199,9 @@ describe('handler options', () => {
     flushScheduler();
     const call = add.mock.calls.find((c: unknown[]) => c[0] === 'wheel');
     add.mockRestore();
-    expect((call?.[2] as AddEventListenerOptions).passive).toBe(true);
+    expect((call?.[2] as AddEventListenerOptions | undefined)?.passive).toBe(
+      true
+    );
   });
 
   it('should run a Once handler a single time', () => {

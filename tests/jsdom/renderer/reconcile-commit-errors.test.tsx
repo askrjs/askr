@@ -8,6 +8,7 @@ import {
 } from 'vite-plus/test';
 import { state, type State } from '../../../src/index';
 import { ErrorBoundary } from '@askrjs/askr/components';
+import { createRoot } from '../../../src/core/dom/root';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -53,6 +54,124 @@ describe('reconciliation commit errors', () => {
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
+  });
+
+  it('should restore the previous tree when a new textarea default value write fails', () => {
+    const root = createRoot(container);
+    root.render(<p>previous</p>);
+    const previous = container.firstChild;
+    const error = new Error('textarea default value failed');
+    const descriptor = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      'defaultValue'
+    )!;
+    vi.spyOn(
+      HTMLTextAreaElement.prototype,
+      'defaultValue',
+      'set'
+    ).mockImplementation(function (this: HTMLTextAreaElement, value: string) {
+      descriptor.set!.call(this, value);
+      throw error;
+    });
+
+    expect(() => root.render(<textarea value="next" />)).toThrow(error);
+    expect(container.firstChild).toBe(previous);
+    expect(container.textContent).toBe('previous');
+    root.dispose();
+  });
+
+  it('should roll back earlier writes when an attribute snapshot throws', () => {
+    const root = createRoot(container);
+    root.render(
+      <>
+        <p>previous</p>
+        <button data-mode="previous" />
+      </>
+    );
+    const button = container.querySelector('button')!;
+    const read = button.getAttribute.bind(button);
+    const error = new Error('attribute snapshot failed');
+    vi.spyOn(button, 'getAttribute').mockImplementation((name) => {
+      if (name === 'data-mode') throw error;
+      return read(name);
+    });
+
+    expect(() =>
+      root.render(
+        <>
+          <p>next</p>
+          <button data-mode="next" />
+        </>
+      )
+    ).toThrow(error);
+    expect(container.querySelector('p')?.textContent).toBe('previous');
+    vi.restoreAllMocks();
+    expect(button.getAttribute('data-mode')).toBe('previous');
+    root.dispose();
+  });
+
+  it('should roll back earlier writes when a select snapshot throws', () => {
+    const root = createRoot(container);
+    root.render(
+      <>
+        <p>previous</p>
+        <select value="a">
+          <option value="a">A</option>
+          <option value="b">B</option>
+        </select>
+      </>
+    );
+    const select = container.querySelector('select')!;
+    const error = new Error('select snapshot failed');
+    const read = vi
+      .spyOn(select, 'selectedIndex', 'get')
+      .mockImplementation(() => {
+        throw error;
+      });
+
+    expect(() =>
+      root.render(
+        <>
+          <p>next</p>
+          <select value="b">
+            <option value="a">A</option>
+            <option value="b">B</option>
+          </select>
+        </>
+      )
+    ).toThrow(error);
+    expect(container.querySelector('p')?.textContent).toBe('previous');
+    read.mockRestore();
+    expect(select.value).toBe('a');
+    root.dispose();
+  });
+
+  it('should roll back earlier writes when an input snapshot throws', () => {
+    const root = createRoot(container);
+    root.render(
+      <>
+        <p>previous</p>
+        <input value="previous" />
+      </>
+    );
+    const input = container.querySelector('input')!;
+    const error = new Error('input snapshot failed');
+    const read = vi.spyOn(input, 'value', 'get').mockImplementation(() => {
+      throw error;
+    });
+
+    expect(() =>
+      root.render(
+        <>
+          <p>next</p>
+          <input value="next" />
+        </>
+      )
+    ).toThrow(error);
+    expect(container.querySelector('p')?.textContent).toBe('previous');
+    read.mockRestore();
+    expect(input.value).toBe('previous');
+    root.dispose();
   });
 
   // Small keyed lists that reorder and grow take full reconciliation.
@@ -554,6 +673,47 @@ describe('reconciliation commit errors', () => {
     expect(container.innerHTML).toBe(stable);
     expect(first.checked).toBe(false);
     expect(second.checked).toBe(false);
+  });
+
+  it('should restore an uncontrolled radio peer when a later write aborts the commit', () => {
+    const App = () => {
+      flip = state(false);
+      return (
+        <div>
+          <input id="peer" type="radio" name="choice" />
+          <input id="controlled" type="radio" name="choice" checked={flip()} />
+          <form>
+            <input id="other-form" type="radio" name="choice" />
+          </form>
+          <span title={flip() ? 'new' : 'old'} />
+        </div>
+      );
+    };
+    createIsland({ root: container, component: App });
+    flushScheduler();
+    const peer = container.querySelector<HTMLInputElement>('#peer')!;
+    const controlled =
+      container.querySelector<HTMLInputElement>('#controlled')!;
+    const otherForm = container.querySelector<HTMLInputElement>('#other-form')!;
+    const later = container.querySelector('span')!;
+    peer.checked = true;
+    otherForm.checked = true;
+    const write = later.setAttribute.bind(later);
+    const error = new Error('later title write failed');
+    let armed = true;
+    vi.spyOn(later, 'setAttribute').mockImplementation((name, value) => {
+      if (armed && name === 'title') {
+        armed = false;
+        throw error;
+      }
+      write(name, value);
+    });
+
+    flip.set(true);
+    expect(() => flushScheduler()).toThrow(error);
+    expect(controlled.checked).toBe(false);
+    expect(peer.checked).toBe(true);
+    expect(otherForm.checked).toBe(true);
   });
 
   it('should restore live option state when a later selected attribute write fails', () => {

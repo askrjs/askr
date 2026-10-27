@@ -35,7 +35,11 @@ import {
 import { isStaleRouteRequest } from './navigation-request';
 import { commitNavigationRoots } from './navigation-commit';
 import { createNavigationTarget } from './navigation-resolution';
-import { getRouteRevalidation, refreshRouteRenderResult } from './resolution';
+import {
+  getRouteRevalidation,
+  isRouteRevalidationCurrent,
+  refreshRouteRenderResult,
+} from './resolution';
 import { hasCurrentNavigationOwners, isRenderResult } from './navigation-types';
 import type {
   NavigateOptions,
@@ -81,6 +85,7 @@ function scheduleRevalidationRefresh(
       async (values) => {
         if (isStaleRouteRequest(requestId)) return;
         if (target.app.instance.appRuntime !== committed) return;
+        if (!isRouteRevalidationCurrent(resolved)) return;
         const refreshed = refreshRouteRenderResult(resolved, values);
         if (!refreshed) return;
         const next = await createNavigationTarget(
@@ -90,6 +95,7 @@ function scheduleRevalidationRefresh(
         );
         if (isStaleRouteRequest(requestId)) return;
         if (target.app.instance.appRuntime !== committed) return;
+        if (!isRouteRevalidationCurrent(resolved)) return;
         try {
           commitNavigationRoots(
             requestId,
@@ -98,7 +104,9 @@ function scheduleRevalidationRefresh(
             [next],
             locationState,
             () => undefined,
-            () => undefined
+            () => undefined,
+            undefined,
+            () => isRouteRevalidationCurrent(resolved)
           );
         } catch (error) {
           logger.error('[Askr] route data refresh failed:', error);

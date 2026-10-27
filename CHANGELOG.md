@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.5.1 - 2026-10-26
+
+### Fixes
+
+- Roll back a DOM commit if initializing a new textarea's default value throws.
+- Roll back earlier DOM writes when capturing an attribute or form-control snapshot fails.
+- Invalidate cached inherited scope lookups when `Owner.reset()` detaches child owners, so cleanup in the detached subtree cannot observe stale ancestor context.
+- Keep derived computations retryable and selector source values atomic when a custom equality comparator throws, run derived and selector comparators without tracking comparator-only reads, and avoid tracking comparator reads or calling a state comparator twice for one write.
+- Stop stale stream generations after reentrant async-iterator accessors, and assimilate resource thenables through captured methods with generation checks across nested resolutions.
+- Ensure scheduler queue clearing cancels every dropped job, ignores work enqueued by cancellation hooks during the drop, and reports cancellation failures after cleanup.
+- Abort action submissions when their component or data runtime is disposed, including submissions using the default submit-time CSRF sources.
+- Detect SSG output collisions and serialize generation locks for paths that are case-equivalent on case-insensitive filesystems; retain a committed site if removing its backup fails.
+- Invalidate an incremental SSG manifest before publishing changed output, so a failed or interrupted publication forces a clean full rebuild.
+- Compare rendered HTML with the published file before skipping an incremental write when their hashes match, preventing hash collisions from leaving stale content.
+- Avoid guessing history positions for unindexed fragment entries reached by back or multi-entry traversals.
+- Reject SSG routes and static assets that overlap generated HTML, metadata, or manifest paths before publication begins.
+- Reject SSR request/route URL mismatches before running loaders and compose explicit render cancellation with the request signal.
+- Settle `mutation.execute()` promptly when explicitly aborted, even if its action ignores the signal, while preserving action-provided abort errors and invalidating queries if the late action still commits.
+
 ## 0.5.0 - 2026-10-12
 
 - Document the application-owned stable ID pattern for label and description associations, with installed SSR/hydration, keyed reordering, independent roots and native browser qualification.

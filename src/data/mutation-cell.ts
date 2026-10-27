@@ -12,6 +12,7 @@ import {
   resolveDataRuntimeState,
   type DataRuntimeState,
 } from './data-runtime';
+import { reportUncaughtErrorLater } from '../common/report-error';
 import {
   createReadableSource,
   isAbortError,
@@ -31,7 +32,12 @@ export class MutationCell<TInput, TResult> {
   private afterSuccess?: MutationOptions<TInput, TResult>['afterSuccess'];
   private controller: AbortController | null = null;
   private readonly activeControllers = new Set<AbortController>();
-  private readonly rollbacks = new Map<AbortController, () => void>();
+  private readonly optimisticTransactions: Array<{
+    controller: AbortController;
+    rollback?: () => void;
+    outcome: 'pending' | 'failed';
+    ready: boolean;
+  }> = [];
   private generation = 0;
 
   private state: MutationRecord<TResult> = {
@@ -101,21 +107,76 @@ export class MutationCell<TInput, TResult> {
     const controller = new AbortController();
     this.controller = controller;
     this.activeControllers.add(controller);
+    const transaction: {
+      controller: AbortController;
+      rollback?: () => void;
+      outcome: 'pending' | 'failed';
+      ready: boolean;
+    } = { controller, outcome: 'pending', ready: !optimistic };
+    this.optimisticTransactions.push(transaction);
 
     this.setState({ status: 'pending', error: null, result: null });
 
+    let actionPromise: Promise<TResult> | null = null;
     let result: TResult;
     try {
-      const rollback = optimistic?.(input, { signal: controller.signal });
-      if (rollback) this.rollbacks.set(controller, rollback);
+      if (optimistic) {
+        let rollback: void | (() => void);
+        try {
+          rollback = optimistic(input, {
+            signal: controller.signal,
+          });
+        } catch (error) {
+          transaction.ready = true;
+          throw error;
+        }
+        if (typeof rollback === 'function') {
+          transaction.rollback = rollback;
+        }
+        transaction.ready = true;
+        const failures = this.drainFailedOptimisticTransactions();
+        if (failures.length === 1) throw failures[0];
+        if (failures.length > 1) {
+          throw new AggregateError(
+            failures,
+            'Optimistic mutation rollback failed'
+          );
+        }
+      }
       assertDataRuntimeActive(this.runtimeState);
-      result = await raceAbort(
-        Promise.resolve(action(input, { signal: controller.signal })),
-        [this.runtimeState.retirement.signal]
+      actionPromise = Promise.resolve(
+        action(input, { signal: controller.signal })
       );
+      const actionResult = raceAbort(actionPromise, [controller.signal], true);
+      result = await raceAbort(actionResult, [
+        this.runtimeState.retirement.signal,
+      ]);
       assertDataRuntimeActive(this.runtimeState);
-      this.rollbacks.delete(controller);
+      this.commitOptimistic(controller);
     } catch (cause) {
+      if (
+        controller.signal.aborted &&
+        actionPromise &&
+        afterSuccess === 'invalidate'
+      ) {
+        // Cancellation settles execute() promptly, but an action that ignores
+        // its signal may still commit remotely. Keep invalidation attached to
+        // that late success so cached reads cannot miss the committed write.
+        void actionPromise.then(
+          (lateResult) => {
+            if (this.runtimeState.retired) return;
+            try {
+              const prefixes = affects?.(input, lateResult) ?? [];
+              for (const prefix of new Set(prefixes)) {
+                invalidateQueriesForRuntime(this.runtimeState, prefix, true);
+              }
+            } catch (error) {
+              reportUncaughtErrorLater(error);
+            }
+          },
+          () => undefined
+        );
+      }
       let error = cause;
       try {
         this.rollbackOptimistic(controller);
@@ -148,7 +209,6 @@ export class MutationCell<TInput, TResult> {
       throw error;
     } finally {
       this.activeControllers.delete(controller);
-      this.rollbacks.delete(controller);
     }
 
     const isCurrent = isCurrentAsyncOperation(
@@ -200,9 +260,41 @@ export class MutationCell<TInput, TResult> {
   }
 
   private rollbackOptimistic(controller: AbortController): void {
-    const rollback = this.rollbacks.get(controller);
-    this.rollbacks.delete(controller);
-    rollback?.();
+    const transaction = this.optimisticTransactions.find(
+      (candidate) => candidate.controller === controller
+    );
+    if (!transaction) return;
+    transaction.outcome = 'failed';
+    const errors = this.drainFailedOptimisticTransactions();
+    if (errors.length === 1) throw errors[0];
+    if (errors.length > 1) {
+      throw new AggregateError(errors, 'Optimistic mutation rollback failed');
+    }
+  }
+
+  /** A successful write supersedes earlier optimistic snapshots. */
+  private commitOptimistic(controller: AbortController): void {
+    const index = this.optimisticTransactions.findIndex(
+      (candidate) => candidate.controller === controller
+    );
+    if (index !== -1) this.optimisticTransactions.splice(0, index + 1);
+  }
+
+  /** Unwind failed optimistic writes in reverse order once newer work settles. */
+  private drainFailedOptimisticTransactions(): unknown[] {
+    const errors: unknown[] = [];
+    while (true) {
+      const last =
+        this.optimisticTransactions[this.optimisticTransactions.length - 1];
+      if (last?.outcome !== 'failed' || !last.ready) break;
+      const transaction = this.optimisticTransactions.pop()!;
+      try {
+        transaction.rollback?.();
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    return errors;
   }
 
   /** @internal Retirement differs from ordinary abort: late writes are inert. */
@@ -220,13 +312,13 @@ export class MutationCell<TInput, TResult> {
   private cancelActive(): void {
     const controllers = [...this.activeControllers];
     this.activeControllers.clear();
+    const canceled = new Set(controllers);
+    for (const transaction of this.optimisticTransactions) {
+      if (canceled.has(transaction.controller)) transaction.outcome = 'failed';
+    }
     const errors: unknown[] = [];
+    errors.push(...this.drainFailedOptimisticTransactions());
     for (const controller of controllers) {
-      try {
-        this.rollbackOptimistic(controller);
-      } catch (error) {
-        errors.push(error);
-      }
       controller.abort();
     }
     if (errors.length > 0) {

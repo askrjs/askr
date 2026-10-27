@@ -106,6 +106,7 @@ const routeLayoutData = new WeakMap<object, ReadonlyMap<unknown, unknown>>();
  */
 const partialLayoutData = new WeakMap<object, BoundLayoutData>();
 const routeRevalidations = new WeakMap<object, Promise<unknown[]>>();
+const routeRevalidationCurrent = new WeakMap<object, () => boolean>();
 
 export function getRouteRenderContext(
   result: RouteRenderResult
@@ -286,6 +287,11 @@ export function getRouteRevalidation(
   result: RouteRenderResult
 ): Promise<unknown[]> | undefined {
   return routeRevalidations.get(result);
+}
+
+/** Whether every cached loader entry that produced revalidation data is live. */
+export function isRouteRevalidationCurrent(result: RouteRenderResult): boolean {
+  return routeRevalidationCurrent.get(result)?.() ?? true;
 }
 
 export function hasRouteRenderData(result: RouteRenderResult): boolean {
@@ -517,6 +523,12 @@ function buildRenderResult(
       // A result that is never committed must not leave a rejection unhandled.
       revalidation.catch(() => undefined);
       routeRevalidations.set(result, revalidation);
+      routeRevalidationCurrent.set(result, () =>
+        loads.every(
+          (load) =>
+            !load.revalidation || load.isRevalidationCurrent?.() !== false
+        )
+      );
     }
     return result;
   };

@@ -147,6 +147,34 @@ test('should retain the output lock through draining and preserve the first erro
   ]);
 });
 
+test('should serialize output directories with Unicode case-fold-equivalent names', async () => {
+  let release!: () => void;
+  const blocked = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let started!: () => void;
+  const firstStarted = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  const events: string[] = [];
+  const first = withOutputDirectoryLock('/tmp/askr-Straße', async () => {
+    events.push('first started');
+    started();
+    await blocked;
+    events.push('first finished');
+  });
+  await firstStarted;
+  const second = withOutputDirectoryLock('/tmp/askr-STRASSE', async () => {
+    events.push('second started');
+  });
+
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  expect(events).toEqual(['first started']);
+  release();
+  await Promise.all([first, second]);
+  expect(events).toEqual(['first started', 'first finished', 'second started']);
+});
+
 test('should drain preparation failures from live results before cleanup and releasing the output lock', async () => {
   let release!: () => void;
   const blocked = new Promise<void>((resolve) => {

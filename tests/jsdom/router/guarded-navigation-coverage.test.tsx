@@ -114,6 +114,51 @@ describe('guarded router navigation coverage', () => {
     }
   });
 
+  it('should replace a traversed history entry when its route redirects', async () => {
+    route('/', () => <div>{'home'}</div>);
+    route('/private', () => <div>{'private'}</div>, {
+      policies: [() => redirect('/login')],
+    });
+    route('/away', () => <div>{'away'}</div>);
+    route('/login', () => <div>{'login'}</div>);
+    const { container, cleanup } = createTestContainer();
+    try {
+      const registry = currentRouteRegistry();
+      await createSPA({ root: container, registry });
+      flushScheduler();
+      navigate('/private');
+      await settleNavigation();
+      navigate('/away');
+      await settleNavigation();
+      const replaceState = vi.spyOn(window.history, 'replaceState');
+      const pushState = vi.spyOn(window.history, 'pushState');
+      const lengthBeforeTraversal = window.history.length;
+
+      // Model the browser landing on the previous /private entry.
+      window.history.replaceState(window.history.state, '', '/private');
+      window.dispatchEvent(
+        new PopStateEvent('popstate', { state: window.history.state })
+      );
+      await settleNavigation();
+
+      expect(window.location.pathname).toBe('/login');
+      expect(container.textContent).toBe('login');
+      expect(replaceState).toHaveBeenCalledWith(
+        expect.objectContaining({ path: '/login' }),
+        '',
+        expect.stringContaining('/login')
+      );
+      expect(window.history.length).toBe(lengthBeforeTraversal);
+      expect(pushState).not.toHaveBeenCalledWith(
+        expect.objectContaining({ path: '/login' }),
+        '',
+        expect.any(String)
+      );
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should ignore stale async guarded navigations after a newer navigation wins', async () => {
     let releaseSlowGuard = null as (() => void) | null;
 

@@ -77,6 +77,8 @@ export interface CachedLoad {
   readonly value: unknown;
   /** Settles with the fresh value once a stale cached value is refreshed. */
   readonly revalidation?: Promise<unknown>;
+  /** Whether this background result still belongs to the live cache entry. */
+  readonly isRevalidationCurrent?: () => boolean;
 }
 
 let revalidating = 0;
@@ -201,7 +203,11 @@ export function loadThroughCache(
         logger.warn('[Askr] route data revalidation failed:', error)
       );
     }
-    return { value: entry.data, revalidation: inflight.promise };
+    return {
+      value: entry.data,
+      revalidation: inflight.promise,
+      isRevalidationCurrent: () => entries.get(key) === entry,
+    };
   }
 
   const inflight =

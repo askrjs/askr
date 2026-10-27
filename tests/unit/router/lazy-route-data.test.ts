@@ -64,6 +64,26 @@ describe('lazy route data', () => {
     ).rejects.toBeInstanceOf(RouteDataLoadError);
   });
 
+  it('should retain a non-stringifiable rejection as the route error cause', async () => {
+    const cause = Object.create(null) as object;
+    const registry = createRouteRegistry(() => {
+      route('/docs', () => null, {
+        loader: lazyRouteData(async () => {
+          throw cause;
+        }),
+      });
+    });
+
+    await expect(
+      resolveRouteRequest('/docs', { registry, mode: 'spa' })
+    ).rejects.toMatchObject({
+      name: 'RouteDataLoadError',
+      route: '/docs',
+      phase: 'client',
+      cause,
+    });
+  });
+
   it('should retry a failed module import on the next route request', async () => {
     const loadDocs = vi
       .fn<() => Promise<{ page: string }>>()

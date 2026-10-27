@@ -92,6 +92,24 @@ describe('hydration markup verification parity', () => {
     expect(style.opacity).toBe('0.5');
   });
 
+  it('should ignore inherited style declarations on both sides of hydration', async () => {
+    const style = Object.assign(Object.create({ color: 'red' }), {
+      opacity: 0.5,
+    });
+    const Styled = () => <p style={style}>styled</p>;
+    const { container, registry } = setup(Styled);
+
+    await hydrateSPA({
+      root: container,
+      registry,
+      hydrate: { verifyMarkup: true },
+    });
+
+    expect(container.querySelector('p')!.getAttribute('style')).toBe(
+      'opacity:0.5;'
+    );
+  });
+
   it('should still reject a style value that differs from the client render', async () => {
     const Styled = () => <p style={{ color: 'red' }}>styled</p>;
     const { container, registry } = setup(

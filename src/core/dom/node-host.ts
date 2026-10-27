@@ -75,9 +75,13 @@ export function createHost(
     // writes; fill it once the value is written so client and server markup
     // agree. Later updates change only the live value.
     ctx.pass.op(() => {
-      const control = el as HTMLTextAreaElement;
-      if (control.defaultValue !== control.value) {
-        control.defaultValue = control.value;
+      try {
+        const control = el as HTMLTextAreaElement;
+        if (control.defaultValue !== control.value) {
+          control.defaultValue = control.value;
+        }
+      } catch (error) {
+        throw new CommitMutationError(error);
       }
     });
   }

@@ -38,8 +38,6 @@ export function prefetchRoute(publicHref: string): void {
   const now = Date.now();
   const last = recent.get(href);
   if (last !== undefined && now - last < PREFETCH_TTL_MS) return;
-  if (recent.size >= PREFETCH_MEMORY_LIMIT) recent.clear();
-  recent.set(href, now);
 
   const apps = getRegisteredAppsSnapshot();
   let matched = false;
@@ -58,6 +56,8 @@ export function prefetchRoute(publicHref: string): void {
     _preloadRouteRecord(match.record)?.catch(ignore);
   }
   if (!matched) return;
+  if (recent.size >= PREFETCH_MEMORY_LIMIT) recent.clear();
+  recent.set(href, now);
 
   try {
     const resolved = resolveNavigationTargetsForApps(

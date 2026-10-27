@@ -242,8 +242,7 @@ export function styleObjToCss(value: unknown): string | null {
   const styleObj = value as Record<string, unknown>;
   let result = '';
 
-  for (const k in styleObj) {
-    const v = styleObj[k];
+  for (const [k, v] of Object.entries(styleObj)) {
     if (v === null || v === undefined || v === false) continue;
 
     const prop = toKebabCached(k);

@@ -230,9 +230,7 @@ export function action<
     if (binding?.runtime !== runtime || binding?.actionId !== descriptor.id)
       assertDataRuntimeActive(runtime);
   }
-  const signal = resolveToken
-    ? composedActionSignal(getSignal(), runtime.retirement.signal)
-    : undefined;
+  const signal = composedActionSignal(getSignal(), runtime.retirement.signal);
   const value = state<ActionStatus<TResult>>(
     initialStatus<TResult>(descriptor.id)
   );
@@ -288,61 +286,70 @@ export function action<
           body: JSON.stringify(input),
           ...(signal ? { signal } : {}),
         });
-        const response = await (signal
-          ? raceAbort(responsePromise, [signal])
-          : responsePromise);
-        signal?.throwIfAborted();
-        let parsed: unknown;
-        try {
-          const bodyPromise = response.text();
-          const body = await (signal
-            ? raceAbort(bodyPromise, [signal])
-            : bodyPromise);
-          signal?.throwIfAborted();
-          // A bodiless success (204/205 or an empty 2xx) is a completed
-          // mutation with no result; it still runs declared invalidations.
-          parsed = response.ok && body === '' ? undefined : JSON.parse(body);
-        } catch (cause) {
-          signal?.throwIfAborted();
-          // A proxy or crashed server can answer with HTML or plain text;
-          // keep the HTTP status visible rather than a JSON parse error.
-          throw actionFailure(response.status, cause);
-        }
-        const envelope = (parsed ?? {}) as {
-          result?: TResult;
-          error?: unknown;
-          invalidates?: unknown;
-          redirect?: unknown;
-          kind?: unknown;
-          action?: unknown;
-          values?: unknown;
-          issues?: unknown;
-          fieldErrors?: unknown;
-        };
-        if (!response.ok) {
-          if (envelope.error != null) {
-            throw actionFailure(response.status, envelope.error);
+        const responseResult = responsePromise.then(async (response) => {
+          let parsed: unknown;
+          try {
+            const body = await response.text();
+            // A bodiless success (204/205 or an empty 2xx) is a completed
+            // mutation with no result; it still runs declared invalidations.
+            parsed = response.ok && body === '' ? undefined : JSON.parse(body);
+          } catch (cause) {
+            // A proxy or crashed server can answer with HTML or plain text;
+            // keep the HTTP status visible rather than a JSON parse error.
+            throw actionFailure(response.status, cause);
           }
-          // Otherwise report the body itself, such as a problem response.
-          throw (
-            validationError(envelope, descriptor.id) ??
-            actionFailure(response.status, parsed ?? undefined)
-          );
-        }
-        const redirect =
-          typeof envelope.redirect === 'string'
-            ? normalizeActionRedirect(envelope.redirect)
-            : undefined;
-        const invalidates = Array.isArray(envelope.invalidates)
-          ? envelope.invalidates.filter(
-              (prefix): prefix is string => typeof prefix === 'string'
-            )
-          : descriptor.invalidates;
-        signal?.throwIfAborted();
-        // Every successful server mutation invalidates its confirmed prefixes,
-        // even when a newer submission owns the visible action state.
-        for (const prefix of invalidates)
-          invalidateQueriesForRuntime(runtime, prefix, true);
+          const envelope = (parsed ?? {}) as {
+            result?: TResult;
+            error?: unknown;
+            invalidates?: unknown;
+            redirect?: unknown;
+            kind?: unknown;
+            action?: unknown;
+            values?: unknown;
+            issues?: unknown;
+            fieldErrors?: unknown;
+          };
+          if (!response.ok) {
+            if (envelope.error != null) {
+              throw actionFailure(response.status, envelope.error);
+            }
+            // Otherwise report the body itself, such as a problem response.
+            throw (
+              validationError(envelope, descriptor.id) ??
+              actionFailure(response.status, parsed ?? undefined)
+            );
+          }
+          const redirect =
+            typeof envelope.redirect === 'string'
+              ? normalizeActionRedirect(envelope.redirect)
+              : undefined;
+          const invalidates = Array.isArray(envelope.invalidates)
+            ? envelope.invalidates.filter(
+                (prefix): prefix is string => typeof prefix === 'string'
+              )
+            : descriptor.invalidates;
+          // A client abort cannot undo a server mutation that has already
+          // succeeded. Observe the response independently of the caller so
+          // surviving query readers still become stale, without publishing
+          // action state or following a late redirect.
+          const runtimes = new Set([runtime]);
+          const currentBinding = actionRuntimeBindings.get(value);
+          if (currentBinding?.actionId === descriptor.id) {
+            runtimes.add(currentBinding.runtime);
+          }
+          for (const targetRuntime of runtimes) {
+            for (const prefix of invalidates) {
+              invalidateQueriesForRuntime(targetRuntime, prefix, true);
+            }
+          }
+          return { envelope, redirect };
+        });
+        // If cancellation wins the race, the response observer still needs
+        // to consume and classify a later response without an unhandled error.
+        void responseResult.catch(() => undefined);
+        const { envelope, redirect } = await (signal
+          ? raceAbort(responseResult, [signal])
+          : responseResult);
         signal?.throwIfAborted();
         if (
           isCurrentAsyncGeneration(

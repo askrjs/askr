@@ -274,6 +274,7 @@ export function createSessionAuth(
     const errors: unknown[] = [];
     transitions++;
     try {
+      // eslint-disable-next-line unicorn/no-useless-spread -- Snapshot callbacks before they can mutate roots.
       for (const callback of [...roots.values()]) {
         try {
           callback();

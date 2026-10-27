@@ -30,7 +30,10 @@ import {
   stripComments,
 } from '../../../test-utils/render/test-renderer';
 
+let observeDeferredDepth: ((remaining: number) => void) | undefined;
+
 function DeferredDepthChain(props: { remaining: number }): JSXElement {
+  observeDeferredDepth?.(props.remaining);
   return props.remaining === 0 ? (
     <span>ready</span>
   ) : (
@@ -1136,10 +1139,18 @@ describe('hydration (SSR)', () => {
         const boundary = container.querySelector('.below-fold')!;
         expect(boundary.hasAttribute('data-skip-hydrate')).toBe(true);
 
-        depth!.set(5000);
+        depth!.set(50_000);
         flushScheduler();
+        expect(reportError).not.toHaveBeenCalled();
+        expect(boundary.hasAttribute('data-skip-hydrate')).toBe(true);
         top = 0;
+        let maxDepth = 0;
+        observeDeferredDepth = (remaining) => {
+          maxDepth = Math.max(maxDepth, remaining);
+        };
         window.dispatchEvent(new Event('scroll'));
+        expect(boundary.hasAttribute('data-skip-hydrate')).toBe(true);
+        expect(maxDepth).toBe(50_000);
         await Promise.resolve();
 
         expect(reportError).toHaveBeenCalledTimes(1);
@@ -1148,18 +1159,23 @@ describe('hydration (SSR)', () => {
         expect((error as RenderDepthError).cause).toBeInstanceOf(RangeError);
         expect(boundary.hasAttribute('data-skip-hydrate')).toBe(true);
 
+        maxDepth = 0;
         window.dispatchEvent(new Event('scroll'));
+        expect(maxDepth).toBe(50_000);
         await Promise.resolve();
         expect(reportError).toHaveBeenCalledTimes(1);
         expect(boundary.hasAttribute('data-skip-hydrate')).toBe(true);
 
         depth!.set(100);
         flushScheduler();
+        maxDepth = 0;
         window.dispatchEvent(new Event('scroll'));
+        expect(maxDepth).toBe(100);
         await Promise.resolve();
         expect(reportError).toHaveBeenCalledTimes(1);
         expect(boundary.hasAttribute('data-skip-hydrate')).toBe(false);
       } finally {
+        observeDeferredDepth = undefined;
         Element.prototype.getBoundingClientRect = originalRect;
       }
     });

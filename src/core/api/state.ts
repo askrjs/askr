@@ -17,6 +17,7 @@ import {
   trackSource,
   type Source,
   isDerivedRunActive,
+  untrack,
 } from '../reactive/graph';
 import {
   effectScheduler,
@@ -107,9 +108,9 @@ export function createStateCell<T>(
       typeof valueOrUpdater === 'function'
         ? (valueOrUpdater as (prev: T) => T)(signal.peek())
         : valueOrUpdater;
-    if (signal._equals(signal.peek(), next)) return;
+    if (untrack(() => signal._equals(signal.peek(), next))) return;
     guardDerivedWrite('state.set()');
-    signal.write(next);
+    signal.write(next, true);
   };
   markReadable(read);
   read.set = set as State<T>['set'];
@@ -438,7 +439,7 @@ function createSelector<T>(
 
   const notifyChange = (previous: T, next: T) => {
     if (equals !== Object.is) {
-      if (equals(previous, next)) return;
+      if (untrack(() => equals(previous, next))) return;
       for (const entry of primitives.values()) notifySource(entry);
       // Object candidates are only reachable through the WeakMap; readers
       // re-check on their own next read, so notify the watcher instead.
@@ -458,8 +459,8 @@ function createSelector<T>(
       const next = source();
       if (hasValue && !Object.is(value, next)) {
         const previous = value;
-        value = next;
         notifyChange(previous, next);
+        value = next;
       } else {
         value = next;
         hasValue = true;
@@ -486,7 +487,7 @@ function createSelector<T>(
       // the WeakMap that cannot be enumerated for targeted invalidation.
       trackSource(allObjects);
     }
-    return equals(value, candidate);
+    return untrack(() => equals(value, candidate));
   }) as Selector<T>;
   candidateCounts.set(predicate, () => primitives.size);
 

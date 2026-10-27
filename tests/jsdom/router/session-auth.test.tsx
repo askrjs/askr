@@ -1255,6 +1255,7 @@ it('should ignore malformed and queued cross-tab events after the root is detach
   class Channel {
     onmessage: ((event: MessageEvent) => void) | null = null;
     constructor() {
+      // eslint-disable-next-line typescript/no-this-alias -- Capture the fake channel for queued events.
       last = this;
     }
     postMessage() {}

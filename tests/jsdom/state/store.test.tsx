@@ -68,6 +68,59 @@ describe('store()', () => {
     }
   });
 
+  it('should notify readers when an accessor writes through the store proxy', () => {
+    const raw = { x: 1 } as { x: number; alias: number };
+    Object.defineProperty(raw, 'alias', {
+      enumerable: true,
+      configurable: true,
+      get() {
+        return this.x;
+      },
+      set(value: number) {
+        this.x = value;
+      },
+    });
+    let value!: typeof raw;
+    const { container, cleanup } = mount(() => {
+      value = store(raw);
+      return <p>{value.x}</p>;
+    });
+    try {
+      value.alias = 2;
+      flushScheduler();
+      expect(container.textContent).toBe('2');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should notify nested accessor writes even when the setter then throws', () => {
+    const raw = { x: 1 } as { x: number; alias: number };
+    Object.defineProperty(raw, 'alias', {
+      enumerable: true,
+      configurable: true,
+      set(value: number) {
+        this.x = value;
+        throw new Error('setter failed');
+      },
+    });
+    let value!: typeof raw;
+    const { container, cleanup } = mount(() => {
+      value = store(raw);
+      return <p>{value.x}</p>;
+    });
+    try {
+      expect(() => {
+        value.alias = 2;
+      }).toThrow('setter failed');
+      flushScheduler();
+      expect(value.x).toBe(2);
+      expect(container.textContent).toBe('2');
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should not notify when a property is assigned the same value', () => {
     let renders = 0;
     let s!: { x: number };
@@ -191,6 +244,28 @@ describe('store()', () => {
       flushScheduler();
       expect(indexRenders).toBe(i + 1);
       expect(lengthRenders).toBe(l + 2);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should not notify readers when an invalid array length write fails', () => {
+    let renders = 0;
+    let list!: number[];
+    const { container, cleanup } = mount(() => {
+      renders++;
+      list = store([1, 2, 3]);
+      return <p>{`${list.length}:${String(list[2])}`}</p>;
+    });
+    try {
+      const before = renders;
+      expect(() => {
+        list.length = 1.5;
+      }).toThrow(RangeError);
+      flushScheduler();
+      expect(list).toHaveLength(3);
+      expect(container.textContent).toBe('3:3');
+      expect(renders).toBe(before);
     } finally {
       cleanup();
     }

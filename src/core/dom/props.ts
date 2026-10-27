@@ -37,6 +37,16 @@ export { attachRef, releaseProps } from './prop-lifecycle';
 export { restoreElementChildren } from './prop-transaction';
 export { recordSelectUndo, enclosingSelect, resyncSelect } from './prop-select';
 
+function queueSelectUndo(pass: Pass, node: HostNode): void {
+  pass.op(() => {
+    try {
+      recordSelectUndo(pass, node);
+    } catch (error) {
+      throw new CommitMutationError(error);
+    }
+  });
+}
+
 /**
  * Write props to an element that has no committed props yet: a new, detached
  * element (written now) or an adopted server element (`adopted`: recorded as
@@ -115,7 +125,7 @@ export function applyTrailingProps(
   adopted = false
 ): void {
   if (node.tag !== 'select' || !('value' in props)) return;
-  if (initial && adopted) pass.op(() => recordSelectUndo(pass, node));
+  if (initial && adopted) queueSelectUndo(pass, node);
   if (typeof props.value === 'function') {
     if (initial)
       bind(
@@ -203,7 +213,7 @@ export function patchProps(
   for (const key in previous) {
     if (key in next || isSkippedProp(key)) continue;
     if (followsChildren(tag, key)) {
-      pass.op(() => recordSelectUndo(pass, node));
+      queueSelectUndo(pass, node);
     }
     const old = previous[key];
     if (parseEventProp(key)) {
@@ -273,7 +283,7 @@ export function patchProps(
   for (const key in next) {
     if (isSkippedProp(key)) continue;
     if (followsChildren(tag, key)) {
-      pass.op(() => recordSelectUndo(pass, node));
+      queueSelectUndo(pass, node);
     }
     const value = next[key];
     const old = previous[key];

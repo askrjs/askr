@@ -8,7 +8,11 @@ import {
   vi,
 } from 'vite-plus/test';
 import { createSPA } from '@askrjs/askr/boot';
-import { createDataRuntime, disposeDataRuntime } from '../../../src/data';
+import {
+  createDataRuntime,
+  disposeDataRuntime,
+  invalidate,
+} from '../../../src/data';
 import { navigate } from '../../../src/router/navigate';
 import {
   createRouteRegistry,
@@ -72,6 +76,102 @@ describe('route loader cache in the browser', () => {
     expect(version).toBe(2);
     release?.();
     await vi.waitFor(() => expect(container.textContent).toBe('v2'));
+  });
+
+  it('should not publish a background revalidation after its route data is invalidated', async () => {
+    let version = 0;
+    let release!: () => void;
+    let revalidationSettled = false;
+    const registry = createRouteRegistry(() => {
+      route('/', () => <p>home</p>);
+      route('/post', () => <p>{routeData<string>()}</p>, {
+        loader: async () => {
+          const current = `v${(version += 1)}`;
+          if (version > 1) {
+            await new Promise<void>((resolve) => {
+              release = resolve;
+            });
+            revalidationSettled = true;
+          }
+          return current;
+        },
+      });
+    });
+    await createSPA({ root: container, registry, dataRuntime });
+
+    navigate('/post');
+    await vi.waitFor(() => expect(container.textContent).toBe('v1'));
+    navigate('/');
+    await vi.waitFor(() => expect(container.textContent).toBe('home'));
+    navigate('/post');
+    await vi.waitFor(() => expect(container.textContent).toBe('v1'));
+    expect(version).toBe(2);
+
+    invalidate('route-data:/post', { runtime: dataRuntime });
+    release();
+    await vi.waitFor(() => expect(revalidationSettled).toBe(true));
+    for (let index = 0; index < 6; index += 1) await Promise.resolve();
+
+    expect(container.textContent).toBe('v1');
+  });
+
+  it('should not publish revalidation data invalidated by a destination DOM callback', async () => {
+    let version = 0;
+    let release!: () => void;
+    let invalidated = false;
+    const tag = 'askr-route-invalidator';
+    customElements.define(
+      tag,
+      class extends HTMLElement {
+        connectedCallback() {
+          if (!invalidated) {
+            invalidated = true;
+            invalidate('route-data:/post', { runtime: dataRuntime });
+          }
+        }
+      }
+    );
+    const registry = createRouteRegistry(() => {
+      route('/', () => <p>home</p>);
+      route(
+        '/post',
+        () => {
+          const value = routeData<string>();
+          return (
+            <>
+              <p>{value}</p>
+              {value === 'v2' && <askr-route-invalidator />}
+            </>
+          );
+        },
+        {
+          loader: async () => {
+            const current = `v${(version += 1)}`;
+            if (version > 1) {
+              await new Promise<void>((resolve) => {
+                release = resolve;
+              });
+            }
+            return current;
+          },
+        }
+      );
+    });
+    await createSPA({ root: container, registry, dataRuntime });
+
+    navigate('/post');
+    await vi.waitFor(() => expect(container.textContent).toBe('v1'));
+    navigate('/');
+    await vi.waitFor(() => expect(container.textContent).toBe('home'));
+    navigate('/post');
+    await vi.waitFor(() => expect(container.textContent).toBe('v1'));
+    expect(version).toBe(2);
+
+    release();
+    await vi.waitFor(() => expect(invalidated).toBe(true));
+    for (let index = 0; index < 6; index++) await Promise.resolve();
+
+    expect(container.textContent).toBe('v1');
   });
 
   it('should render cached data on back navigation', async () => {

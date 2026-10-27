@@ -17,6 +17,7 @@ let scopeEpoch = 0;
 
 /** Distance between cached owners on a compressed lookup path. */
 const SCOPE_CACHE_STRIDE = 8;
+const SCOPE_NOT_FOUND = Symbol('scope-not-found');
 
 export class Owner {
   parent: Owner | null;
@@ -86,29 +87,35 @@ export class Owner {
   lookupScope<T>(key: unknown, notFound: T): unknown {
     const epoch = scopeEpoch;
     let found: unknown = notFound;
+    let foundScope = false;
     let steps = 0;
+    // eslint-disable-next-line typescript/no-this-alias -- Walk the owner ancestry.
     let owner: Owner | null = this;
     for (; owner; owner = owner.parent) {
       if (owner.scopeCacheEpoch === epoch && owner.scopeCache?.has(key)) {
-        found = owner.scopeCache.get(key);
+        const cached = owner.scopeCache.get(key);
+        foundScope = cached !== SCOPE_NOT_FOUND;
+        found = foundScope ? cached : notFound;
         break;
       }
       const context = owner.context;
       if (context?.has(key)) {
         found = context.get(key);
+        foundScope = true;
         break;
       }
       steps++;
     }
     if (steps >= SCOPE_CACHE_STRIDE) {
       let index = 0;
+      // eslint-disable-next-line typescript/no-this-alias -- Walk the ancestry again to populate caches.
       for (let o: Owner | null = this; index < steps; o = o!.parent, index++) {
         if (index % SCOPE_CACHE_STRIDE !== 0) continue;
         if (o!.scopeCacheEpoch !== epoch || !o!.scopeCache) {
           o!.scopeCache = new Map();
           o!.scopeCacheEpoch = epoch;
         }
-        o!.scopeCache.set(key, found);
+        o!.scopeCache.set(key, foundScope ? found : SCOPE_NOT_FOUND);
       }
     }
     return found;
@@ -183,6 +190,7 @@ function takeOwned(owner: Owner): Array<Owner | null> | null {
 function disposeChildren(owner: Owner, errors: unknown[]): void {
   const owned = takeOwned(owner);
   if (!owned) return;
+  if (owned.length > 0) scopeEpoch++;
   for (let i = owned.length - 1; i >= 0; i--) {
     const child = owned[i];
     if (!child) continue;
@@ -226,6 +234,7 @@ function disposeTree(owner: Owner, errors: unknown[]): void {
     pending.push({ owner: current, finish: true });
     const children = takeOwned(current);
     if (!children) continue;
+    if (children.length > 0) scopeEpoch++;
     for (const child of children) {
       if (child) pending.push({ owner: child, finish: false, detach: true });
     }

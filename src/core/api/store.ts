@@ -184,7 +184,7 @@ function handlerFor(meta: Meta): ProxyHandler<object> {
       return Reflect.ownKeys(target);
     },
 
-    set(target, key, value) {
+    set(target, key, value, receiver) {
       guardRenderWrite(label(meta, 'assignment'));
       guardDerivedWrite(label(meta, 'assignment'));
       const raw = unwrap(value);
@@ -193,17 +193,24 @@ function handlerFor(meta: Meta): ProxyHandler<object> {
       const previous = (target as Record<PropertyKey, unknown>)[key];
       if (hadKey && Object.is(previous, raw)) return true;
       const previousLength = isArray ? (target as unknown[]).length : 0;
+      const nextLength = isArray && key === 'length' ? Number(raw) : 0;
+      // Let the array validate length before notifying any readers. Invalid
+      // assignments throw without changing the target and must stay invisible.
+      if (!Reflect.set(target, key, raw, receiver)) return false;
       if (isArray && key === 'length') {
         // Truncation removes the elements at and beyond the new length.
-        const next = Number(raw);
-        if (next < previousLength && meta.signals) {
+        if (nextLength < previousLength && meta.signals) {
           for (const [signalKey, signal] of meta.signals) {
-            if (isIndex(signalKey) && Number(signalKey) >= next) bump(signal);
+            if (isIndex(signalKey) && Number(signalKey) >= nextLength) {
+              bump(signal);
+            }
           }
         }
-        if (next < previousLength) bump(meta.keys);
+        if (nextLength < previousLength) bump(meta.keys);
       }
-      if (!Reflect.set(target, key, raw)) return false;
+      // Preserve ordinary assignment semantics for accessor properties: their
+      // getter/setter must observe the proxy as `this` so reads and writes the
+      // accessor performs flow through the reactive traps.
       bump(meta.signals?.get(key));
       if (!hadKey) bump(meta.keys);
       if (isArray) {

@@ -25,7 +25,7 @@ export interface IncrementalManifest {
 }
 
 export function hashHtml(html: string): string {
-  // Deterministic 32-bit FNV-1a hash is sufficient for incremental change checks.
+  // The hash is a fast change check; matching hashes require a content check.
   let hash = 0x811c9dc5;
   for (let index = 0; index < html.length; index += 1) {
     hash ^= html.charCodeAt(index);
@@ -139,4 +139,19 @@ export function getExistingOutputFileSize(
 
 export function outputFileExists(outputDir: string, filePath: string): boolean {
   return fs.existsSync(resolveSsgOutputPath(outputDir, filePath));
+}
+
+export function outputFileMatches(
+  outputDir: string,
+  filePath: string,
+  html: string
+): boolean {
+  try {
+    return (
+      fs.readFileSync(resolveSsgOutputPath(outputDir, filePath), 'utf8') ===
+      html
+    );
+  } catch {
+    return false;
+  }
 }

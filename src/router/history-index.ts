@@ -11,6 +11,17 @@ let landedIndex: number | undefined;
 let renderedIndex: number | undefined;
 let pendingReturnIndex: number | undefined;
 let historyIndexInitialized = false;
+let browserHistoryPosition: number | undefined;
+
+function currentBrowserHistoryPosition(): number | undefined {
+  const navigation = (
+    window as Window & {
+      navigation?: { currentEntry?: { index?: number } | null };
+    }
+  ).navigation;
+  const index = navigation?.currentEntry?.index;
+  return typeof index === 'number' && index >= 0 ? index : undefined;
+}
 
 export function readHistoryIndex(state: unknown): number | undefined {
   if (!state || typeof state !== 'object') return undefined;
@@ -42,20 +53,34 @@ export function nextHistoryIndex(mode: 'push' | 'replace'): number | undefined {
 /** Record that the entry at `index` is active and its page rendered. */
 export function commitHistoryIndex(index: number | undefined): void {
   landedIndex = renderedIndex = index;
+  browserHistoryPosition = currentBrowserHistoryPosition();
 }
 
 /**
  * Record the entry a popstate landed on, before its page renders. An entry
- * without an index was added by a fragment navigation from the entry the user
- * was on, so it is stamped as the next position.
+ * without an index may have been written outside the router, so its position
+ * cannot be inferred safely unless the Navigation API confirms a one-entry
+ * forward move to a fragment entry.
  */
-export function landOnHistoryEntry(state: unknown): number | undefined {
+export function landOnHistoryEntry(
+  state: unknown,
+  fragmentTraversal = false
+): number | undefined {
   let index = readHistoryIndex(state);
-  if (index === undefined && landedIndex !== undefined) {
+  const position = currentBrowserHistoryPosition();
+  if (
+    index === undefined &&
+    fragmentTraversal &&
+    landedIndex !== undefined &&
+    position !== undefined &&
+    browserHistoryPosition !== undefined &&
+    position === browserHistoryPosition + 1
+  ) {
     index = landedIndex + 1;
     stampActiveEntry(state, index);
   }
   landedIndex = index;
+  browserHistoryPosition = position;
   return index;
 }
 
@@ -84,6 +109,7 @@ export function initializeHistoryIndex(): void {
 /** @internal Forget tracked history positions, as a fresh document would. */
 export function resetHistoryIndex(): void {
   landedIndex = renderedIndex = pendingReturnIndex = undefined;
+  browserHistoryPosition = undefined;
   historyIndexInitialized = false;
 }
 
