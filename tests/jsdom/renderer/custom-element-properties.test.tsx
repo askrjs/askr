@@ -82,3 +82,73 @@ test('should leave a boolean as an attribute on the server', () => {
     'open'
   );
 });
+
+test('should restore a custom property-to-attribute transition when a later write fails', () => {
+  const container = document.createElement('div');
+  const root = createRoot(container);
+  const config = { mode: 'property' };
+  root.render(
+    <>
+      <x-prop-widget config={config} />
+      <button data-mode="old" />
+    </>
+  );
+  const widget = container.querySelector('x-prop-widget') as Widget &
+    Record<string, unknown>;
+  const button = container.querySelector('button')!;
+  expect(widget.config).toBe(config);
+  expect(widget.hasAttribute('config')).toBe(false);
+
+  const setAttribute = button.setAttribute.bind(button);
+  const failure = new Error('later write failed');
+  const write = vi
+    .spyOn(button, 'setAttribute')
+    .mockImplementation((name, value) => {
+      if (name === 'data-mode' && value === 'new') throw failure;
+      setAttribute(name, value);
+    });
+
+  expect(() =>
+    root.render(
+      <>
+        <x-prop-widget config="attribute" />
+        <button data-mode="new" />
+      </>
+    )
+  ).toThrow(failure);
+  expect(widget.config).toBe(config);
+  expect(widget.hasAttribute('config')).toBe(false);
+
+  write.mockRestore();
+  root.render(
+    <>
+      <x-prop-widget config="attribute" />
+      <button data-mode="new" />
+    </>
+  );
+  expect(widget.config).toBeUndefined();
+  expect(widget.getAttribute('config')).toBe('attribute');
+
+  root.dispose();
+});
+
+test('should roll back a custom setter that mutates before throwing', () => {
+  const { container, root, el } = mount(<x-prop-widget prop:count={1} />);
+  let count = 1;
+  const failure = new Error('setter failed after mutation');
+  Object.defineProperty(el, 'count', {
+    configurable: true,
+    get: () => count,
+    set: (value: number) => {
+      count = value;
+      if (value === 2) throw failure;
+    },
+  });
+
+  expect(() => root.render(<x-prop-widget prop:count={2} />)).toThrow(failure);
+  expect(container.firstElementChild).toBe(el);
+  expect(el.count).toBe(1);
+  root.render(<x-prop-widget prop:count={3} />);
+  expect(el.count).toBe(3);
+  root.dispose();
+});

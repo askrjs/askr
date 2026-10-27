@@ -280,6 +280,106 @@ describe('core scheduler', () => {
     back.dispose();
   });
 
+  it('should drop work queued by cancellation callbacks while clearing', () => {
+    let ran = false;
+    schedule(
+      {
+        run: () => {
+          throw new Error('cleared job ran');
+        },
+        cancel: () => queueTask(() => (ran = true)),
+      },
+      'post'
+    );
+
+    clearScheduler();
+
+    expect(getSchedulerState().queueLength).toBe(0);
+    expect(() => flushSync()).not.toThrow();
+    expect(ran).toBe(false);
+  });
+
+  it('should clear queued siblings during a flush and keep later work', () => {
+    const order: string[] = [];
+    enqueue(() => {
+      order.push('running');
+      clearScheduler();
+      schedule({ run: () => order.push('after-clear') }, 'post');
+    });
+    enqueue(() => order.push('cleared-sibling'));
+
+    flushSync();
+
+    expect(order).toEqual(['running', 'after-clear']);
+    expect(getSchedulerState()).toMatchObject({
+      queueLength: 0,
+      running: false,
+    });
+  });
+
+  it('should cancel every queued job even when a cancellation callback throws', () => {
+    const failure = new Error('cancel failed');
+    let laterCancelled = false;
+    schedule(
+      {
+        run: () => undefined,
+        cancel: () => {
+          throw failure;
+        },
+      },
+      'post'
+    );
+    schedule(
+      {
+        run: () => undefined,
+        cancel: () => {
+          laterCancelled = true;
+        },
+      },
+      'post'
+    );
+
+    expect(() => clearScheduler()).toThrow(failure);
+    expect(laterCancelled).toBe(true);
+    expect(getSchedulerState().queueLength).toBe(0);
+  });
+
+  it('should discard work queued by a throwing cancellation and remain usable', () => {
+    const failure = new Error('cancel failed');
+    let staleRan = false;
+    let siblingCanceled = false;
+    let laterRan = false;
+    schedule(
+      {
+        run: () => undefined,
+        cancel: () => {
+          queueTask(() => {
+            staleRan = true;
+          });
+          throw failure;
+        },
+      },
+      'post'
+    );
+    schedule(
+      {
+        run: () => undefined,
+        cancel: () => {
+          siblingCanceled = true;
+        },
+      },
+      'post'
+    );
+    expect(() => clearScheduler()).toThrow(failure);
+    expect(siblingCanceled).toBe(true);
+    queueTask(() => {
+      laterRan = true;
+    });
+    flushSync();
+    expect(staleRan).toBe(false);
+    expect(laterRan).toBe(true);
+  });
+
   it('should run equal-depth render jobs in queue order, including jobs queued mid-flush', () => {
     const order: string[] = [];
     const renderAt = (name: string, depth: number, then?: () => void): Job => {

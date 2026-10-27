@@ -13,7 +13,10 @@ const HYDRATION_INTERACTION_TYPES = [
 type QueuedHydrationInteraction = {
   target: EventTarget;
   event: Event;
-  controlState?: { value: string } | { checked: boolean };
+  controlState?:
+    | { value: string }
+    | { checked: boolean }
+    | { selected: boolean[] };
 };
 
 /** @internal Root-scoped interaction replay used only during hydration. */
@@ -84,13 +87,23 @@ function captureControlState(
     if (target.type !== 'file') return { value: target.value };
   }
   if (target instanceof HTMLTextAreaElement) return { value: target.value };
+  if (target instanceof HTMLSelectElement)
+    return {
+      selected: Array.from(target.options, (option) => option.selected),
+    };
   return undefined;
 }
 
 function restoreControlState(interaction: QueuedHydrationInteraction): void {
   const { target, controlState } = interaction;
   if (!controlState) return;
-  if ('checked' in controlState) {
+  if ('selected' in controlState) {
+    if (target instanceof HTMLSelectElement) {
+      for (const [index, option] of Array.from(target.options).entries()) {
+        option.selected = controlState.selected[index] ?? false;
+      }
+    }
+  } else if ('checked' in controlState) {
     if (
       target instanceof HTMLInputElement &&
       (target.type === 'checkbox' || target.type === 'radio')
@@ -150,6 +163,7 @@ export function beginHydrationInteractionReplay(
   const queued: QueuedHydrationInteraction[] = [];
   const deferredBoundaries = new Set<Element>();
   let active = true;
+  let aborted = false;
   let hydratingRoot = true;
   let replaying = false;
   let hadDeferredBoundaries = false;
@@ -221,6 +235,7 @@ export function beginHydrationInteractionReplay(
 
   function replayInteraction(interaction: QueuedHydrationInteraction): void {
     if (
+      aborted ||
       !(interaction.target instanceof Node) ||
       !root.contains(interaction.target)
     ) {
@@ -241,7 +256,7 @@ export function beginHydrationInteractionReplay(
     }
 
     // Activating a boundary may replace or retire the original control.
-    if (!root.contains(interaction.target)) {
+    if (aborted || !root.contains(interaction.target)) {
       releaseIfFinished();
       return;
     }
@@ -328,6 +343,7 @@ export function beginHydrationInteractionReplay(
       releaseIfFinished();
     },
     abort() {
+      aborted = true;
       queued.length = 0;
       deferredBoundaries.clear();
       onDeferredBoundariesDrained = undefined;

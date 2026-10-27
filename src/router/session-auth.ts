@@ -5,6 +5,10 @@ import { Signal } from '../core/reactive/graph';
 import { resolveNavigationUrl } from '../common/url';
 import { reportUncaughtErrorLater } from '../common/report-error';
 import { navigateToPublicHref } from './navigate';
+import {
+  getCurrentRouteRequestId,
+  isStaleRouteRequest,
+} from './navigation-request';
 import { loadDocument } from './document-navigation';
 import { revokeHydratedCsrfToken } from '../common/csrf-token';
 import {
@@ -274,6 +278,7 @@ export function createSessionAuth(
     const errors: unknown[] = [];
     transitions++;
     try {
+      // eslint-disable-next-line unicorn/no-useless-spread -- Snapshot callbacks before they can mutate roots.
       for (const callback of [...roots.values()]) {
         try {
           callback();
@@ -451,9 +456,15 @@ export function createSessionAuth(
     lastRecovery = target;
     if (mountedRoots.size) {
       const ownGeneration = generation;
+      const ownRouteRequest = getCurrentRouteRequestId();
       queueMicrotask(() => {
         if (recoveryTarget === target) recoveryTarget = undefined;
-        if (ownGeneration !== generation || !mountedRoots.size) return;
+        if (
+          ownGeneration !== generation ||
+          isStaleRouteRequest(ownRouteRequest) ||
+          !mountedRoots.size
+        )
+          return;
         if (target.document)
           loadDocument(
             new URL(target.href, window.location.href).href,

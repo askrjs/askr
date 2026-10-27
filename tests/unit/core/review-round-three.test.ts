@@ -33,6 +33,27 @@ describe('reactive snapshot fields', () => {
 });
 
 describe('stale chain walk', () => {
+  it('should keep a derived computation stale when its comparator throws', () => {
+    const source = new Signal(1);
+    let throwOnce = true;
+    const derived = new Computation(
+      null,
+      () => source.read() * 10,
+      null,
+      (previous, next) => {
+        if (throwOnce) {
+          throwOnce = false;
+          throw new Error('equals failed');
+        }
+        return Object.is(previous, next);
+      }
+    );
+    expect(derived.read()).toBe(10);
+    source.write(2);
+    expect(() => derived.read()).toThrow('equals failed');
+    expect(derived.read()).toBe(20);
+  });
+
   it('should recover after a comparator throws during the walk', () => {
     clearScheduler();
     const a = new Signal(1);
@@ -54,6 +75,7 @@ describe('stale chain walk', () => {
     expect(outer.read()).toBe(12);
     a.write(2);
     expect(() => outer.read()).toThrow('equals failed');
+    expect(outer.read()).toBe(22);
     a.write(3);
     expect(outer.read()).toBe(32);
     a.write(7);

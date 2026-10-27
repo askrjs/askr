@@ -129,7 +129,8 @@ and latest-value lifecycle state; it does not infer replay or retry semantics.
 SSR and SSG render the initial value, when supplied, without opening the source.
 After a stream completes or errors, a committed source change starts a new
 connection. Calling `close()` keeps it closed across source changes until
-`restart()` is called.
+`restart()` is called. If an iterator's `next` accessor restarts or closes the
+stream, the superseded generation does not invoke the method it returned.
 
 ## SSR with preloaded data
 

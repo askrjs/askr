@@ -106,6 +106,84 @@ describe('route data dehydration', () => {
     }
   });
 
+  it('should guard array length when dehydrate omits trailing entries', async () => {
+    const { container, cleanup } = createTestContainer();
+    const registry = createRouteRegistry(() => {
+      route(
+        '/items',
+        () => {
+          const data = routeData<{ items: string[] }>();
+          return <p>{data.items.length}</p>;
+        },
+        {
+          loader: () => ({ items: ['first', 'server-only'] }),
+          dehydrate: (data) => ({ items: [data.items[0]!] }),
+        }
+      );
+    });
+
+    try {
+      window.history.replaceState({}, '', '/items');
+      const result = await renderRouteRequestToString({
+        url: '/items',
+        registry,
+      });
+      if (result.kind !== 'render') throw new Error('expected render');
+      expect(result.html).toContain('<p>2</p>');
+      container.innerHTML = result.html;
+
+      await expect(
+        hydrateSPA({
+          root: container,
+          registry,
+          hydrate: { verifyMarkup: false },
+        })
+      ).rejects.toThrow(/routeData\(\).*items\.length.*initial hydration/);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should guard nested array length when dehydrate omits trailing entries', async () => {
+    const { container, cleanup } = createTestContainer();
+    const registry = createRouteRegistry(() => {
+      route(
+        '/nested-items',
+        () => {
+          const data = routeData<{ group: { items: string[] } }>();
+          return <p>{data.group.items.length}</p>;
+        },
+        {
+          loader: () => ({ group: { items: ['first', 'server-only'] } }),
+          dehydrate: (data) => ({ group: { items: [data.group.items[0]!] } }),
+        }
+      );
+    });
+
+    try {
+      window.history.replaceState({}, '', '/nested-items');
+      const result = await renderRouteRequestToString({
+        url: '/nested-items',
+        registry,
+      });
+      if (result.kind !== 'render') throw new Error('expected render');
+      expect(result.html).toContain('<p>2</p>');
+      container.innerHTML = result.html;
+
+      await expect(
+        hydrateSPA({
+          root: container,
+          registry,
+          hydrate: { verifyMarkup: false },
+        })
+      ).rejects.toThrow(
+        /routeData\(\).*group\.items\.length.*initial hydration/
+      );
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should hydrate the selected subset and expose complete data after navigation', async () => {
     const { container, cleanup } = createTestContainer();
     let initialLoads = 0;

@@ -47,6 +47,7 @@ import {
   releaseNavigationFocusCapture,
 } from './navigation-scroll';
 import { isFlushing as isRuntimeSchedulerExecuting } from '../core/reactive/scheduler';
+import { deferNavigationUntilCommitSettles } from './navigation-commit';
 import {
   cancelHistoryReturn,
   commitHistoryIndex,
@@ -178,6 +179,13 @@ export function navigateToPublicHref(
   options: NavigateOptions = {},
   internal?: { skipBlockers?: boolean }
 ): void {
+  if (
+    deferNavigationUntilCommitSettles(() =>
+      navigateToPublicHref(href, options, internal)
+    )
+  ) {
+    return;
+  }
   ensureNavigationRegistryHost();
   if (typeof window === 'undefined') {
     return;
@@ -364,7 +372,7 @@ function handlePopState(event: PopStateEvent): void {
   beginNavigationChunkTracking();
   clearPendingNavigation();
   const previousHref = getCurrentHref();
-  const historyIndex = landOnHistoryEntry(event.state);
+  const historyIndex = landOnHistoryEntry(event.state, fragmentTraversal);
   const pathname = window.location.pathname;
 
   if (!hasRegisteredApps()) {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { Computation, Signal } from '../../../src/core/reactive/graph';
 import { Owner } from '../../../src/core/reactive/owner';
+import { createStateCell } from '../../../src/core/api/state';
 import {
   clearScheduler,
   effectScheduler,
@@ -14,6 +15,33 @@ function effect(fn: () => void, owner: Owner | null = null) {
 }
 
 describe('reactive graph subscriptions', () => {
+  it('should not track reads made by a state equality comparator', () => {
+    clearScheduler();
+    const trigger = new Signal(0);
+    const side = new Signal(0);
+    const cell = createStateCell(
+      new Signal(0, (previous, next) => {
+        side.read();
+        return previous === next;
+      })
+    );
+    let runs = 0;
+    const computation = effect(() => {
+      runs++;
+      trigger.read();
+      cell.set(1);
+    });
+
+    trigger.write(1);
+    flushSync();
+    const settledRuns = runs;
+    side.write(1);
+    flushSync();
+
+    expect(runs).toBe(settledRuns);
+    computation.dispose();
+  });
+
   it('should see a write to a source first read in the same run', () => {
     clearScheduler();
     const count = new Signal(0);

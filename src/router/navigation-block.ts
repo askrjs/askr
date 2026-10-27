@@ -18,6 +18,7 @@ function confirmLeave(message: string): boolean {
  * visitor to confirm with that message.
  */
 export function allowNavigationLeave(confirmed?: Set<string>): boolean {
+  let confirmedLeave = false;
   for (const blocker of Array.from(blockers)) {
     const decision = blocker();
     if (decision === true) return false;
@@ -26,13 +27,16 @@ export function allowNavigationLeave(confirmed?: Set<string>): boolean {
       if (confirmed?.has(decision)) continue;
       if (!confirmLeave(decision)) return false;
       confirmed?.add(decision);
-      // The visitor already agreed; do not ask again if this ends in an unload.
-      leaveConfirmed = true;
-      queueMicrotask(() => {
-        leaveConfirmed = false;
-      });
-      return true;
+      confirmedLeave = true;
     }
+  }
+  if (confirmedLeave) {
+    // The visitor agreed to every prompt; do not ask again if this ends in an
+    // unload. Set this only after all blockers have allowed the navigation.
+    leaveConfirmed = true;
+    queueMicrotask(() => {
+      leaveConfirmed = false;
+    });
   }
   return true;
 }

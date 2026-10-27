@@ -18,6 +18,7 @@ import {
   createStagingDirectory,
   copyStaticAssets,
   replaceOutputDirectory,
+  validateAssetOutputCollisions,
 } from './output-publication';
 export { replaceOutputDirectory } from './output-publication';
 import {
@@ -35,7 +36,9 @@ import {
 import {
   getExistingOutputFileSize,
   outputFileExists,
+  outputFileMatches,
   readIncrementalManifest,
+  getIncrementalManifestPath,
   type IncrementalManifestRouteEntry,
   writeIncrementalManifest,
   hashHtml,
@@ -162,7 +165,7 @@ function assembleRouteResults({
         effectiveMode === 'full' ||
         !previous ||
         previous.htmlHash !== htmlDigest ||
-        !outputFileExists(outputDir, descriptor.filePath);
+        !outputFileMatches(outputDir, descriptor.filePath, nextResult.html);
 
       nextResult.written = shouldWrite;
       if (!shouldWrite) {
@@ -224,12 +227,29 @@ async function publishGeneration({
   assets,
   metadata,
 }: PublishGenerationInput): Promise<void> {
+  await validateAssetOutputCollisions(assets, outputDir, [
+    ...routeResults
+      .filter(
+        (route) => route.status !== 'removed' && route.reason !== 'runtime-only'
+      )
+      .map((route) => route.filePath),
+    'metadata.json',
+    '.askr/ssg-manifest.json',
+  ]);
+
   const targetOutputDir =
     effectiveMode === 'full'
       ? await createStagingDirectory(outputDir)
       : outputDir;
 
   try {
+    if (effectiveMode === 'incremental') {
+      // Output files are published before the next manifest. If this process
+      // stops in between, a stale hash could make a later build skip a file
+      // whose contents no longer match that manifest.
+      await fs.rm(getIncrementalManifestPath(outputDir), { force: true });
+    }
+
     // Write HTML, metadata, and the manifest into the same target. Full
     // builds use a sibling staging directory; incremental builds retain
     // their existing per-route behavior.
@@ -238,6 +258,8 @@ async function publishGeneration({
     });
 
     await writeMetadata(metadata, targetOutputDir);
+
+    await copyStaticAssets(assets, targetOutputDir);
 
     await writeIncrementalManifest(
       {
@@ -248,8 +270,6 @@ async function publishGeneration({
       },
       targetOutputDir
     );
-
-    await copyStaticAssets(assets, targetOutputDir);
 
     if (effectiveMode === 'full') {
       await replaceOutputDirectory(targetOutputDir, outputDir);

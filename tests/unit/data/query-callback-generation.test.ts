@@ -11,6 +11,52 @@ afterEach(() => {
 });
 
 describe('query generation authority across user callbacks', () => {
+  it('should settle a query when a rejected value throws during error normalization', async () => {
+    const runtime = createDataRuntime();
+    const failure = {
+      toString() {
+        throw new Error('conversion failed');
+      },
+    };
+    const query = createQuery({
+      key: 'hostile-query-failure',
+      runtime,
+      fetch: () => Promise.reject(failure),
+    });
+
+    const pending = query.refresh();
+    flushSync();
+    await pending;
+
+    expect(query.error).toMatchObject({ message: 'Unknown query error' });
+    expect(query.loading).toBe(false);
+    expect(query.refreshing).toBe(false);
+  });
+
+  it('should publish a query option getter failure without rejecting scheduled work', async () => {
+    const runtime = createDataRuntime();
+    const failure = new Error('fetch option getter failed');
+    const options = {
+      key: 'fetch-option-getter',
+      runtime,
+      fetch: async () => ({ value: 1 }),
+    };
+    Object.defineProperty(options, 'fetch', {
+      get() {
+        throw failure;
+      },
+    });
+    const query = createQuery(options);
+
+    const pending = query.refresh();
+    flushSync();
+    await pending;
+
+    expect(query.error).toBe(failure);
+    expect(query.loading).toBe(false);
+    expect(query.refreshing).toBe(false);
+  });
+
   it('should skip an obsolete start when aborting its predecessor creates newer invalidation work', async () => {
     const runtime = createDataRuntime();
     const fetch = vi.fn(async ({ signal }: { signal: AbortSignal }) => {

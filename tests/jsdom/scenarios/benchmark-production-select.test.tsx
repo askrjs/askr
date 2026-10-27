@@ -55,7 +55,7 @@ test(
       selectedState = state<number | null>(null);
       const isSelected = selector(selectedState);
 
-      const _remove = (_: number) => undefined;
+      const _remove = () => undefined;
       const select = (id: number) => selectedState.set(id);
 
       return (

@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vite-plus/test';
-import { derive, state, type State } from '../../../src';
+import { describe, expect, it, vi } from 'vite-plus/test';
+import { derive, state, untrack, type State } from '../../../src';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
   createTestContainer,
@@ -29,6 +29,30 @@ describe('equals option', () => {
       flushScheduler();
       expect(renders).toBe(base + 1);
       expect(container.textContent).toBe('2');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should call the state comparator once for an unequal write', () => {
+    let value!: ReturnType<typeof state<number>>;
+    const compare = vi.fn(
+      (previous: number, next: number) => previous === next
+    );
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({
+        root: container,
+        component: () => {
+          value = state<number>(0, { equals: compare });
+          return <p>{value()}</p>;
+        },
+      });
+      flushScheduler();
+      compare.mockClear();
+      value.set(1);
+      expect(compare).toHaveBeenCalledTimes(1);
+      expect(value()).toBe(1);
     } finally {
       cleanup();
     }
@@ -108,6 +132,74 @@ describe('equals option', () => {
       n.set(3);
       flushScheduler();
       expect(renders).toBe(base);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should not track comparator reads as outer derive dependencies', () => {
+    let source!: State<number>;
+    let side!: State<number>;
+    let inner!: () => number;
+    let outer!: () => number;
+    let outerRuns = 0;
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({
+        root: container,
+        component: () => {
+          source = state(0);
+          side = state(0);
+          inner = derive(() => source(), {
+            equals: (previous, next) => {
+              side();
+              return previous === next;
+            },
+          });
+          outer = derive(() => {
+            outerRuns++;
+            return inner();
+          });
+          void untrack(() => outer());
+          return <p />;
+        },
+      });
+      flushScheduler();
+      source.set(1);
+      expect(outer()).toBe(1);
+      const settledRuns = outerRuns;
+      side.set(1);
+      flushScheduler();
+      expect(outerRuns).toBe(settledRuns);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should reject a comparator that recursively reads its derived value', () => {
+    let source!: State<number>;
+    let value!: () => number;
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({
+        root: container,
+        component: () => {
+          source = state(0);
+          value = derive(() => source(), {
+            equals: (previous, next) => {
+              value();
+              return previous === next;
+            },
+          });
+          void untrack(() => value());
+          return <p />;
+        },
+      });
+      flushScheduler();
+      source.set(1);
+      expect(() => untrack(() => value())).toThrow(
+        'derive() cannot read itself recursively'
+      );
     } finally {
       cleanup();
     }

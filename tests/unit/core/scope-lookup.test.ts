@@ -54,6 +54,16 @@ describe('scope lookup cache', () => {
     expect(CountingMap.probes).toBeLessThan(40);
   });
 
+  it('should use the current not-found marker for a negatively cached key', () => {
+    const owners = chain(32);
+    const leaf = owners[owners.length - 1]!;
+    const firstMarker = Symbol('first');
+    const secondMarker = Symbol('second');
+
+    expect(leaf.lookupScope(KEY, firstMarker)).toBe(firstMarker);
+    expect(leaf.lookupScope(KEY, secondMarker)).toBe(secondMarker);
+  });
+
   it('should see a provider change, a nearer provider and a removal', () => {
     const owners = chain(300);
     const leaf = owners[owners.length - 1]!;
@@ -75,5 +85,39 @@ describe('scope lookup cache', () => {
     expect(leaf.lookupScope(KEY, NOT_FOUND)).toBe('root');
     owners[50]!.detach();
     expect(leaf.lookupScope(KEY, NOT_FOUND)).toBe(NOT_FOUND);
+  });
+
+  it('should invalidate inherited scope caches when reset detaches children', () => {
+    const root = new Owner(null);
+    root.setContext(KEY, 'root');
+    let leaf = root;
+    for (let index = 0; index < 32; index++) leaf = new Owner(leaf);
+    expect(leaf.lookupScope(KEY, NOT_FOUND)).toBe('root');
+
+    let valueDuringCleanup: unknown;
+    leaf.onCleanup(() => {
+      valueDuringCleanup = leaf.lookupScope(KEY, NOT_FOUND);
+    });
+
+    root.reset();
+
+    expect(valueDuringCleanup).toBe(NOT_FOUND);
+  });
+
+  it('should invalidate inherited scope caches when disposal detaches children', () => {
+    const root = new Owner(null);
+    root.setContext(KEY, 'root');
+    let leaf = root;
+    for (let index = 0; index < 32; index++) leaf = new Owner(leaf);
+    expect(leaf.lookupScope(KEY, NOT_FOUND)).toBe('root');
+
+    let valueDuringCleanup: unknown;
+    leaf.onCleanup(() => {
+      valueDuringCleanup = leaf.lookupScope(KEY, NOT_FOUND);
+    });
+
+    root.dispose();
+
+    expect(valueDuringCleanup).toBe(NOT_FOUND);
   });
 });

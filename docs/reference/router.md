@@ -536,8 +536,9 @@ In the browser, loader results live in the application's data runtime
 route template, params and search. Visiting a URL again, including back and
 forward traversal, renders the cached result immediately and revalidates it in
 the background; when the new result arrives, the route re-renders in place with
-it. Concurrent navigations to one key share a single request, which is
-cancelled only when every navigation waiting on it has gone.
+it. Concurrent navigations to one key share a single request. Each canceled
+navigation stops waiting immediately; the shared request is cancelled only
+when every navigation waiting on it has gone.
 
 - `staleTimeMs` (route, `group()` or `page()` option; default `0`): how long a
   cached result counts as fresh. A fresh result renders with no request. `0`
@@ -552,7 +553,9 @@ cancelled only when every navigation waiting on it has gone.
   `invalidate('route-data:')` clears all route data. Invalidating also stops
   an in-flight request from storing its result. Call it after a mutation that
   changes what a loader returns.
-- Up to 100 entries are kept per runtime, least recently used first.
+- Up to 100 settled entries are kept per runtime, least recently used first.
+  Active requests may temporarily exceed that count so concurrent navigations
+  can continue to share them; eligible entries are evicted as requests settle.
 - `navigationState().revalidating` is true while a background revalidation is
   in flight (see the [navigation guide](../guides/navigation.md)).
 - `hydrateSPA()` seeds the cache with the server-rendered first page's loader
@@ -930,8 +933,9 @@ stack and can be traversed to again. Navigating while that return is pending
 cancels it, and the returning traversal then renders normally.
 
 Askr records each entry's position (`askrIndex`) in the history state it
-writes. An entry added by a plain fragment link is placed after the entry it
-was followed from. If other code writes an entry, for example with
+writes. An unindexed fragment entry is assigned the next position only when the
+browser's Navigation API confirms a one-entry forward move. Otherwise its
+position remains unknown. If other code writes an entry, for example with
 `history.pushState()`, positions are unknown until the user returns to an entry
 Askr wrote, and a failed Back/Forward reloads the landed URL instead of guessing
 which entry to return to.

@@ -742,6 +742,40 @@ describe('Static Site Generation', () => {
       expect(fs.existsSync(path.join(tempDir, 'index.html'))).toBe(true);
     });
 
+    it('should reject a static asset that would overwrite generated route HTML', async () => {
+      const sourcePath = path.join(tempDir, 'asset-index.html');
+      fs.writeFileSync(sourcePath, '<main>asset</main>');
+
+      await expect(
+        createStaticGen({
+          routes: [{ path: '/', component: Home }],
+          outputDir: tempDir,
+          assets: [{ from: sourcePath, to: 'index.html' }],
+        }).generate()
+      ).rejects.toThrow(/asset destination collision.*index\.html/i);
+      expect(fs.existsSync(path.join(tempDir, 'metadata.json'))).toBe(false);
+    });
+
+    it('should allow static asset directories that contain generated route outputs', async () => {
+      const sourceDir = path.join(tempDir, 'client-assets');
+      fs.mkdirSync(sourceDir, { recursive: true });
+      fs.writeFileSync(path.join(sourceDir, 'app.js'), 'console.log("app");');
+
+      await createStaticGen({
+        routes: [{ path: '/assets/page', component: Home }],
+        outputDir: tempDir,
+        assets: [{ from: sourceDir, to: 'assets' }],
+      }).generate();
+
+      expect(fs.existsSync(path.join(tempDir, 'assets', 'app.js'))).toBe(true);
+      expect(
+        fs.readFileSync(
+          path.join(tempDir, 'assets', 'page', 'index.html'),
+          'utf8'
+        )
+      ).toContain('Home');
+    });
+
     it('should reject asset destinations outside outputDir', async () => {
       const sourcePath = path.join(tempDir, 'app.js');
       const escapedPath = path.resolve(tempDir, '..', 'escaped-app.js');
@@ -1256,6 +1290,37 @@ describe('Static Site Generation', () => {
           '<main>previous site</main>'
         );
         expect(fs.existsSync(path.join(tempDir, 'metadata.json'))).toBe(false);
+      } finally {
+        fs.rmSync(stagingDir, { recursive: true, force: true });
+      }
+    });
+
+    it('should keep the committed site when backup cleanup partially fails', async () => {
+      fs.writeFileSync(path.join(tempDir, 'index.html'), 'previous site');
+      const stagingDir = path.join(
+        path.dirname(tempDir),
+        '.askr-staging-cleanup-test'
+      );
+      fs.mkdirSync(stagingDir, { recursive: true });
+      fs.writeFileSync(path.join(stagingDir, 'index.html'), 'next site');
+      const nativeRename = fs.promises.rename;
+      const nativeRemove = fs.promises.rm;
+
+      try {
+        await expect(
+          replaceOutputDirectory(stagingDir, tempDir, {
+            rename: nativeRename,
+            rm: async (target, options) => {
+              await nativeRemove(target, options);
+              if (String(target).includes('.askr-backup-')) {
+                throw new Error('backup cleanup failed');
+              }
+            },
+          })
+        ).rejects.toThrow('backup cleanup failed');
+        expect(fs.readFileSync(path.join(tempDir, 'index.html'), 'utf8')).toBe(
+          'next site'
+        );
       } finally {
         fs.rmSync(stagingDir, { recursive: true, force: true });
       }

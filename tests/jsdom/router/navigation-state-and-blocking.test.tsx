@@ -169,6 +169,20 @@ describe('blockNavigation()', () => {
     await vi.waitFor(() => expect(container.textContent).toBe('b'));
   });
 
+  it('should still honor a later silent blocker after an earlier confirmation', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await createSPA({ root: container, registry: registry() });
+    unblockers.push(blockNavigation(() => 'Discard changes?'));
+    unblockers.push(blockNavigation(() => true));
+
+    navigate('/b');
+    await Promise.resolve();
+
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(container.textContent).toBe('a');
+    expect(window.location.pathname).toBe('/');
+  });
+
   it('should not ask when the blocker allows leaving', async () => {
     const confirm = vi.spyOn(window, 'confirm');
     await createSPA({ root: container, registry: registry() });

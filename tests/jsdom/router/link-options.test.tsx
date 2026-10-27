@@ -16,6 +16,7 @@ import {
   route,
   routeData,
 } from '../../../src/router';
+import { prefetchRoute } from '../../../src/router/route-prefetch';
 import { createTestContainer } from '../../../test-utils/render/test-renderer';
 
 vi.mock('../../../src/router/document-navigation', () => ({
@@ -196,6 +197,37 @@ describe('Link navigation options', () => {
       await createSPA({ root: container, registry, dataRuntime });
       await settle();
       expect(container.querySelectorAll('a')).toHaveLength(2);
+    });
+
+    it('should prefetch a route that is registered after an earlier unmatched attempt', async () => {
+      const first = createRouteRegistry(() => {
+        route('/', () => <p>first app</p>);
+      });
+      await createSPA({ root: container, registry: first, dataRuntime });
+      prefetchRoute('/later');
+
+      const second = createTestContainer();
+      const loader = vi.fn(async () => 'later data');
+      const chunk = vi.fn(async () => ({
+        default: () => <p>{routeData<string>()}</p>,
+      }));
+      try {
+        const registry = createRouteRegistry(() => {
+          route('/', () => <p>second app</p>);
+          route('/later', lazy(chunk as never), { loader });
+        });
+        await createSPA({
+          root: second.container,
+          registry,
+          dataRuntime,
+        });
+
+        prefetchRoute('/later');
+        await vi.waitFor(() => expect(loader).toHaveBeenCalledTimes(1));
+        expect(chunk).toHaveBeenCalledTimes(1);
+      } finally {
+        second.cleanup();
+      }
     });
   });
 });

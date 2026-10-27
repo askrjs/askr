@@ -69,7 +69,10 @@ export function runNavigationCommit(
     commit();
     return;
   }
-  const transition = start.call(document, () => {
+  let commitStarted = false;
+  const update = () => {
+    if (commitStarted) return;
+    commitStarted = true;
     if (isStaleRouteRequest(requestId)) return;
     try {
       commit();
@@ -78,7 +81,18 @@ export function runNavigationCommit(
       // caller the way a direct commit's does, so it is reported here.
       logger.error('[Askr] navigation failed:', error);
     }
-  }) as ViewTransitionLike | undefined;
+  };
+  let transition: ViewTransitionLike | undefined;
+  try {
+    transition = start.call(document, update) as ViewTransitionLike | undefined;
+  } catch (error) {
+    logger.error('[Askr] view transition failed:', error);
+    if (!commitStarted) {
+      commitStarted = true;
+      if (!isStaleRouteRequest(requestId)) commit();
+    }
+    return;
+  }
   // A rejected promise only reports the transition itself as skipped.
   for (const promise of [
     transition?.ready,

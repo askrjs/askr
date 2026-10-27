@@ -294,17 +294,6 @@ function findDeepestFallback<T extends { fallbackPrefix?: string }>(
   return best;
 }
 
-function findBestScopedFallbackRecord(
-  pathname: string,
-  routeRecords: readonly RouteRecord[]
-): { record: InternalRouteRecord; params: Record<string, string> } | null {
-  const fallback = findDeepestFallback(
-    pathname,
-    routeRecords as readonly InternalRouteRecord[]
-  );
-  return fallback ? { record: fallback.entry, params: fallback.params } : null;
-}
-
 export function getMatchingRouteRecord(
   target: string,
   routeRecords: readonly RouteRecord[]

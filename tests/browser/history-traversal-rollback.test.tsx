@@ -221,6 +221,22 @@ test('should keep stamping history positions after a plain fragment link', async
   expect(window.history.state.askrIndex).toBe(start + 2);
 });
 
+test('should not assign a guessed position to an older unindexed fragment', async () => {
+  window.history.pushState({}, '', '/home#older');
+  window.history.pushState({}, '', '/middle');
+  startAt('/home#newer');
+  await createSPA({
+    root,
+    registry: createRouteRegistry(() => {
+      route('/home', () => <Page path="/home" />);
+    }),
+  });
+
+  window.history.go(-2);
+  await expect.poll(() => window.location.hash).toBe('#older');
+  expect(window.history.state.askrIndex).toBeUndefined();
+});
+
 test('should reload instead of landing on the wrong entry after an external pushState', async () => {
   let failHome = false;
   startAt('/home');

@@ -90,6 +90,34 @@ describe('For instance items', () => {
     expect(received.describe).toBe(account.describe);
   });
 
+  it('should preserve symbol keys and descriptors for frozen plain items', () => {
+    const marker = Symbol('marker');
+    const item = Object.freeze({ id: 1, [marker]: 'symbol' });
+    const container = document.createElement('div');
+    let items!: State<readonly (typeof item)[]>;
+    function App() {
+      items = state<readonly (typeof item)[]>([item]);
+      return (
+        <For each={items} by={(row) => row.id}>
+          {(row) => (
+            <output>
+              {`${Object.keys(row).join(',')}|${Reflect.ownKeys(row)
+                .map(String)
+                .join(
+                  ','
+                )}|${String(row[marker])}|${String(Object.getOwnPropertyDescriptor(row, 'id')?.configurable)}`}
+            </output>
+          )}
+        </For>
+      );
+    }
+    root = createRoot(container);
+    root.render(<App />);
+
+    expect(container.textContent).toBe('id|id,Symbol(marker)|symbol|true');
+    expect(() => Object.preventExtensions(items()[0]!)).not.toThrow();
+  });
+
   it('should keep keyed row state and current class data through replacement and reorder', () => {
     const container = document.createElement('div');
     const first = new Account(1, 'Alpha');

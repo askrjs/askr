@@ -5,6 +5,10 @@ type JsonSchemaNode = Readonly<Record<string, unknown>>;
 
 const EMPTY_SEARCH: Readonly<RouteSearch> = Object.freeze({});
 
+function hasOwn(record: object, key: PropertyKey): boolean {
+  return Object.prototype.hasOwnProperty.call(record, key);
+}
+
 /** The parsed search of a route that declares no `search` schema. */
 export function emptyRouteSearch(): Readonly<RouteSearch> {
   return EMPTY_SEARCH;
@@ -91,8 +95,8 @@ export function parseRouteSearch(
 ): Readonly<RouteSearch> {
   const properties = node(node(schema.jsonSchema)?.properties) ?? {};
   const params = new URLSearchParams(search);
-  const defaults: Record<string, unknown> = {};
-  const candidate: Record<string, unknown> = {};
+  const defaults = Object.create(null) as Record<string, unknown>;
+  const candidate = Object.create(null) as Record<string, unknown>;
   for (const [key, definition] of Object.entries(properties)) {
     const property = node(definition) ?? {};
     if (property.default !== undefined) defaults[key] = property.default;
@@ -112,9 +116,9 @@ export function parseRouteSearch(
     let progressed = false;
     for (const issue of result.issues) {
       const key = issue.path[0];
-      if (typeof key !== 'string' || !(key in properties)) continue;
-      if (!(key in candidate) && !(key in defaults)) continue;
-      if (key in defaults && !settled.has(key)) {
+      if (typeof key !== 'string' || !hasOwn(properties, key)) continue;
+      if (!hasOwn(candidate, key) && !hasOwn(defaults, key)) continue;
+      if (hasOwn(defaults, key) && !settled.has(key)) {
         settled.add(key);
         candidate[key] = defaults[key];
       } else {

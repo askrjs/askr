@@ -176,6 +176,29 @@ it('should fence a pending pre-logout GET even when its transport ignores abort'
   expect(auth.resolve(context())).toMatchObject({ authenticated: false });
 });
 
+it('should reject all shared session waiters on logout and ignore their late response', async () => {
+  const pending = deferred<Response>();
+  const transport = vi.fn((request: RequestInfo | URL) =>
+    (request as Request).method === 'POST'
+      ? Promise.resolve(new Response(null, { status: 204 }))
+      : pending.promise
+  );
+  const auth = createSessionAuth({ fetch: transport });
+  const first = Promise.resolve(auth.resolve(context())).catch(
+    (error: unknown) => error
+  );
+  const second = Promise.resolve(auth.resolve(context())).catch(
+    (error: unknown) => error
+  );
+  expect(transport).toHaveBeenCalledTimes(1);
+  await auth.logout();
+  expect(await first).toMatchObject({ name: 'AbortError' });
+  expect(await second).toMatchObject({ name: 'AbortError' });
+  pending.resolve(Response.json(user('old')));
+  await settle();
+  expect(auth.resolve(context())).toMatchObject({ authenticated: false });
+});
+
 it('should reject malformed token-bearing session JSON and never cache it', async () => {
   const transport = vi
     .fn()
@@ -1255,6 +1278,7 @@ it('should ignore malformed and queued cross-tab events after the root is detach
   class Channel {
     onmessage: ((event: MessageEvent) => void) | null = null;
     constructor() {
+      // eslint-disable-next-line typescript/no-this-alias -- Capture the fake channel for queued events.
       last = this;
     }
     postMessage() {}

@@ -179,6 +179,70 @@ describe('SSR route error and forbidden components', () => {
     }
   });
 
+  it('should preserve nested group loader order when the leaf loader fails', async () => {
+    const outerLoader = async () => 'outer';
+    const innerLoader = async () => 'inner';
+    const registry = createRouteRegistry(() => {
+      group(
+        {
+          loader: outerLoader,
+          layout: ({ children }: { children?: unknown }) => (
+            <section>
+              <h1>{layoutData(outerLoader)}</h1>
+              {children as never}
+            </section>
+          ),
+        },
+        () =>
+          group(
+            {
+              loader: innerLoader,
+              layout: ({ children }: { children?: unknown }) => (
+                <article>
+                  <h2>{layoutData(innerLoader)}</h2>
+                  {children as never}
+                </article>
+              ),
+            },
+            () => {
+              route('/nested-error', () => <p>content</p>, {
+                loader: async () => {
+                  throw exposed;
+                },
+                error: () => <p>failed</p>,
+              });
+            }
+          )
+      );
+    });
+    const result = await renderRouteRequestToString({
+      url: '/nested-error',
+      registry,
+    });
+    if (result.kind !== 'render') throw new Error('expected render');
+    expect(result.status).toBe(500);
+    expect(result.html).toContain(
+      '<section><h1>outer</h1><article><h2>inner</h2><p>failed</p></article></section>'
+    );
+
+    const root = document.body.appendChild(document.createElement('div'));
+    root.innerHTML = result.html;
+    window.history.replaceState({}, '', '/nested-error');
+    const mismatch = vi.fn();
+    try {
+      await hydrateSPA({
+        root,
+        registry,
+        hydrate: { verifyMarkup: true, onMismatch: mismatch },
+      });
+      expect(mismatch).not.toHaveBeenCalled();
+      expect(root.textContent).toBe('outerinnerfailed');
+    } finally {
+      cleanupApp(root);
+      root.remove();
+    }
+  });
+
   it('should keep the current results when no error component is declared', async () => {
     const registry = createRouteRegistry(() => {
       route('/load', () => <p>x</p>, {

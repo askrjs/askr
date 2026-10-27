@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.5.1 - 2026-10-26
+
+### Fixes
+
+- Keep newly started route loader requests joinable when the cache is full, then evict settled entries to restore the cache limit.
+- Settle canceled route loader waiters promptly while preserving shared work for remaining navigations; skip loader starts for already-aborted requests.
+- Restore radio-group peers when a failed DOM commit rolls back a checked input's name or type change.
+- Stop queued hydration interactions if replay is aborted during a handler.
+- Serialize static generation into overlapping parent and child output directories within the same process.
+- Notify store readers when a failed array truncation has already removed entries.
+- Stop a superseded stream before invoking an iterator method whose getter restarted or closed it.
+- Ignore late promised stream sources before reading their iterator accessors.
+- Preserve each select's selection when replaying queued hydration interactions, including multiple selections.
+- Do not start a mutation action when its optimistic callback aborts or resets it.
+- Reject a pending mutation canceled before its synchronous action result is published, while invalidating queries for the completed write.
+- Roll back a DOM commit if initializing a new textarea's default value throws.
+- Roll back earlier DOM writes when capturing an attribute or form-control snapshot fails.
+- Invalidate cached inherited scope lookups when `Owner.reset()` detaches child owners, so cleanup in the detached subtree cannot observe stale ancestor context.
+- Keep derived computations retryable and selector source values atomic when a custom equality comparator throws, run derived and selector comparators without tracking comparator-only reads, and avoid tracking comparator reads or calling a state comparator twice for one write.
+- Stop stale stream generations after reentrant async-iterator accessors, and assimilate resource thenables through captured methods with generation checks across nested resolutions.
+- Ensure scheduler queue clearing cancels every dropped job, ignores work enqueued by cancellation hooks during the drop, and reports cancellation failures after cleanup.
+- Abort action submissions when their component or data runtime is disposed, including submissions using the default submit-time CSRF sources.
+- Settle an aborted query prefetch owner promptly when its fetch ignores cancellation, without caching a late value.
+- Detect SSG output collisions and serialize generation locks for paths that are case-equivalent on case-insensitive filesystems; retain a committed site if removing its backup fails.
+- Invalidate an incremental SSG manifest before publishing changed output, so a failed or interrupted publication forces a clean full rebuild.
+- Publish the incremental SSG manifest only after static assets are copied, so failed asset publication also forces a full rebuild.
+- Compare rendered HTML with the published file before skipping an incremental write when their hashes match, preventing hash collisions from leaving stale content.
+- Avoid guessing history positions for unindexed fragment entries reached by back or multi-entry traversals.
+- Reject SSG routes and static assets that overlap generated HTML, metadata, or manifest paths before publication begins.
+- Reject SSR request/route URL mismatches before running loaders and compose explicit render cancellation with the request signal.
+- Settle `mutation.execute()` promptly when explicitly aborted, even if its action ignores the signal, while preserving action-provided abort errors and invalidating queries if the late action still commits.
+
 ## 0.5.0 - 2026-10-12
 
 - Document the application-owned stable ID pattern for label and description associations, with installed SSR/hydration, keyed reordering, independent roots and native browser qualification.

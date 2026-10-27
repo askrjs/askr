@@ -20,7 +20,7 @@ export function validateGcTime(gcTime: number | undefined): void {
 export type QueryCellOptions<T> = QueryOptions<T> & {
   readonly definitionIdentity?: object;
   /** Supplies `initialData` when a new cell is created for this key. */
-  readonly takeInitialData?: () => T | undefined;
+  readonly takeInitialData?: (consume?: boolean) => T | undefined;
 };
 
 /** Capabilities invoked at reader-lifetime transitions, in their original order. */
@@ -41,7 +41,11 @@ export class QueryLifetime<T> {
 
   private gcTimer: ReturnType<typeof setTimeout> | null = null;
 
+  private gcDeadline: number | null = null;
+
   private unownedTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private unownedDeadline: number | null = null;
 
   // Attached readers by lifetime and hook slot, with each reader's latest
   // definition (null until the reader defines one).
@@ -90,10 +94,12 @@ export class QueryLifetime<T> {
     if (this.unownedTimer !== null) {
       clearTimeout(this.unownedTimer);
       this.unownedTimer = null;
+      this.unownedDeadline = null;
     }
     if (this.gcTimer !== null) {
       clearTimeout(this.gcTimer);
       this.gcTimer = null;
+      this.gcDeadline = null;
     }
     let hooks = this.owners.get(generation);
     if (!hooks) {
@@ -107,6 +113,52 @@ export class QueryLifetime<T> {
 
     hooks.set(hookIndex, null);
     this.ownerCount += 1;
+  }
+
+  /** Capture reader and cache state so a provisional render attach can undo. */
+  captureRenderState(generation: object, hookIndex: number): () => void {
+    const hooks = this.owners.get(generation);
+    const hadHooks = hooks !== undefined;
+    const hadReader = hooks?.has(hookIndex) ?? false;
+    const previousReader = hooks?.get(hookIndex);
+    const previousOwnerCount = this.ownerCount;
+    const previousOptions = this.options;
+    const previousDefinitionOwner = this.definitionOwner;
+    const previousDefinitionOwnerHook = this.definitionOwnerHook;
+    const gcRemaining =
+      this.gcDeadline === null
+        ? null
+        : Math.max(0, this.gcDeadline - Date.now());
+    const unownedRemaining =
+      this.unownedDeadline === null
+        ? null
+        : Math.max(0, this.unownedDeadline - Date.now());
+
+    return () => {
+      if (this.destroyed) return;
+      this.clearGcTimer();
+      this.clearUnownedTimer();
+
+      const currentHooks = this.owners.get(generation);
+      if (hadReader) {
+        const restoredHooks = currentHooks ?? new Map();
+        restoredHooks.set(hookIndex, previousReader ?? null);
+        this.owners.set(generation, restoredHooks);
+      } else if (currentHooks) {
+        currentHooks.delete(hookIndex);
+        if (currentHooks.size === 0) this.owners.delete(generation);
+      }
+      if (hadHooks && !this.owners.has(generation)) {
+        this.owners.set(generation, new Map());
+      }
+
+      this.ownerCount = previousOwnerCount;
+      this.options = previousOptions;
+      this.definitionOwner = previousDefinitionOwner;
+      this.definitionOwnerHook = previousDefinitionOwnerHook;
+      if (gcRemaining !== null) this.startGcTimer(gcRemaining);
+      if (unownedRemaining !== null) this.startUnownedTimer(unownedRemaining);
+    };
   }
 
   detach(generation: object, hookIndex: number): void {
@@ -135,7 +187,7 @@ export class QueryLifetime<T> {
         if (this.work.snapshot().refreshing) {
           this.work.markRetainedAborted();
         }
-        this.gcTimer = setTimeout(() => this.destroy(), gcTime);
+        this.startGcTimer(gcTime);
         // Abort listeners may attach a new reader; complete the inactive
         // transition first so that listener's lifecycle decision survives.
         controller?.abort();
@@ -262,10 +314,12 @@ export class QueryLifetime<T> {
     if (this.gcTimer !== null) {
       clearTimeout(this.gcTimer);
       this.gcTimer = null;
+      this.gcDeadline = null;
     }
     if (this.unownedTimer !== null) {
       clearTimeout(this.unownedTimer);
       this.unownedTimer = null;
+      this.unownedDeadline = null;
     }
     // Abort listeners may acquire the same key. Retire this lookup identity
     // first, so they create a live cell instead of attaching to this dead one.
@@ -290,16 +344,42 @@ export class QueryLifetime<T> {
   /** Ownerless handles stay usable after their cache lookup window expires. */
   scheduleUnownedCacheEviction(gcTime: number): void {
     if (isServerQueryRender() || this.ownerCount > 0 || this.destroyed) return;
-    if (this.unownedTimer !== null) clearTimeout(this.unownedTimer);
-    this.unownedTimer = null;
+    this.clearUnownedTimer();
     if (gcTime === 0) {
       this.evictFromCache();
       return;
     }
+    this.startUnownedTimer(gcTime);
+  }
+
+  private clearGcTimer(): void {
+    if (this.gcTimer !== null) clearTimeout(this.gcTimer);
+    this.gcTimer = null;
+    this.gcDeadline = null;
+  }
+
+  private clearUnownedTimer(): void {
+    if (this.unownedTimer !== null) clearTimeout(this.unownedTimer);
+    this.unownedTimer = null;
+    this.unownedDeadline = null;
+  }
+
+  private startGcTimer(delay: number): void {
+    this.gcDeadline = Date.now() + delay;
+    this.gcTimer = setTimeout(() => {
+      this.gcTimer = null;
+      this.gcDeadline = null;
+      this.destroy();
+    }, delay);
+  }
+
+  private startUnownedTimer(delay: number): void {
+    this.unownedDeadline = Date.now() + delay;
     this.unownedTimer = setTimeout(() => {
       this.unownedTimer = null;
+      this.unownedDeadline = null;
       if (this.ownerCount === 0) this.evictFromCache();
-    }, gcTime);
+    }, delay);
   }
 
   private getDefinitionConflicts(

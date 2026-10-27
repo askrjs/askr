@@ -114,10 +114,23 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
   const boot = beginSessionAuthBoot(routeAuth, dataRuntime, () => {
     if (!getAppRoot(rootElement)) rootElement.replaceChildren();
   });
+  let hydrationRenderDataForApp: ReturnType<typeof withoutHydratedAuth> = null;
+  const withHydrationRenderData = <T>(work: () => T): T => {
+    if (!hydrationRenderDataForApp) return work();
+    startHydrationRenderPhase(hydrationRenderDataForApp);
+    try {
+      return work();
+    } finally {
+      stopHydrationRenderPhase();
+    }
+  };
   let restart = false;
   const interactionReplay = beginHydrationInteractionReplay(
     rootElement,
-    (boundary) => activateHydrationBoundary(rootElement, boundary),
+    (boundary) =>
+      withHydrationRenderData(() =>
+        activateHydrationBoundary(rootElement, boundary)
+      ),
     config.hydrate?.skipSelectors
   );
   try {
@@ -129,7 +142,7 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     const hydrationQueryCache = hydrationRenderData?.queries;
     // The auth snapshot is consumed by route resolution below; components
     // never see it through render data.
-    const hydrationRenderDataForApp = withoutHydratedAuth(hydrationRenderData);
+    hydrationRenderDataForApp = withoutHydratedAuth(hydrationRenderData);
 
     configureScrollRestoration(config.scrollRestoration);
     configureNavigationFocus(config.focus, rootElement);
@@ -274,13 +287,15 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
 
     const mountHydratedRoot: typeof mountOrUpdate = (...args) => {
       boot.assertCurrent();
-      return mountOrUpdate(args[0], args[1], {
-        ...args[2],
-        cspNonce: config.cspNonce,
-        hydrate: true,
-        hydrateOptions: hydrationOptions,
-        onCommit: captureClientMarkup,
-      });
+      return withHydrationRenderData(() =>
+        mountOrUpdate(args[0], args[1], {
+          ...args[2],
+          cspNonce: config.cspNonce,
+          hydrate: true,
+          hydrateOptions: hydrationOptions,
+          onCommit: captureClientMarkup,
+        })
+      );
     };
 
     if (verifying) {
@@ -349,36 +364,30 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
     const hydrateOptions = config.hydrate;
     if (hydrateOptions) {
       if (hydrateOptions.deferUntilIdle || hydrateOptions.deferBelowFold) {
-        if (hydrationRenderDataForApp) {
-          startHydrationRenderPhase(hydrationRenderDataForApp);
-        }
-        try {
-          await boot.wait(
-            applySelectiveHydration(
-              rootElement,
-              hydrationResolved,
-              path,
-              config.cleanupStrict,
-              hydrateOptions,
-              appRouteSource,
-              {
-                mountOrUpdate: mountHydratedRoot,
-                registerAppNavigation: (...args) => {
-                  boot.assertCurrent();
-                  markErrorRoot();
-                  return registerAppNavigation(...args);
-                },
-                registerRootCleanupCallback,
-                activateHydrationBoundary,
+        await boot.wait(
+          applySelectiveHydration(
+            rootElement,
+            hydrationResolved,
+            path,
+            config.cleanupStrict,
+            hydrateOptions,
+            appRouteSource,
+            {
+              mountOrUpdate: mountHydratedRoot,
+              registerAppNavigation: (...args) => {
+                boot.assertCurrent();
+                markErrorRoot();
+                return registerAppNavigation(...args);
               },
-              interactionReplay
-            )
-          );
-        } finally {
-          if (hydrationRenderDataForApp) {
-            stopHydrationRenderPhase();
-          }
-        }
+              registerRootCleanupCallback,
+              activateHydrationBoundary: (root, boundary) =>
+                withHydrationRenderData(() =>
+                  activateHydrationBoundary(root, boundary)
+                ),
+            },
+            interactionReplay
+          )
+        );
         flushRuntimeScheduler();
         if (!rootElement.querySelector('[data-skip-hydrate]')) {
           await verifyClientMarkup?.();
@@ -393,26 +402,17 @@ export async function hydrateSPA(config: HydrateSPAConfig): Promise<void> {
       }
     }
 
-    if (hydrationRenderDataForApp) {
-      startHydrationRenderPhase(hydrationRenderDataForApp);
-    }
-    try {
-      mountHydratedRoot(
-        rootElement,
-        resolved.kind === 'deny'
-          ? bindDeniedStatus(resolved)
-          : bindResolvedRouteHandler(hydrationResolved),
-        {
-          cleanupStrict: config.cleanupStrict,
-          appRuntime: appRouteSource.runtime,
-        }
-      );
-      flushRuntimeScheduler();
-    } finally {
-      if (hydrationRenderDataForApp) {
-        stopHydrationRenderPhase();
+    mountHydratedRoot(
+      rootElement,
+      resolved.kind === 'deny'
+        ? bindDeniedStatus(resolved)
+        : bindResolvedRouteHandler(hydrationResolved),
+      {
+        cleanupStrict: config.cleanupStrict,
+        appRuntime: appRouteSource.runtime,
       }
-    }
+    );
+    flushRuntimeScheduler();
     await verifyClientMarkup?.();
     boot.assertCurrent();
     interactionReplay.complete();

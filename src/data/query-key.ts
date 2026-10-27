@@ -5,6 +5,37 @@ type InvalidateQueryPrefix = (
   options?: InvalidateOptions
 ) => void;
 
+function encodeQueryKeyString(value: string): string {
+  const encoded: string[] = [];
+  for (let index = 0; index < value.length;) {
+    const code = value.charCodeAt(index);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (next >= 0xdc00 && next <= 0xdfff) {
+        encoded.push(encodeURIComponent(value.slice(index, index + 2)));
+        index += 2;
+      } else {
+        encoded.push(`%u${code.toString(16).toUpperCase().padStart(4, '0')}`);
+        index += 1;
+      }
+      continue;
+    }
+    if (code >= 0xdc00 && code <= 0xdfff) {
+      encoded.push(`%u${code.toString(16).toUpperCase().padStart(4, '0')}`);
+      index += 1;
+      continue;
+    }
+    const start = index;
+    while (index < value.length) {
+      const next = value.charCodeAt(index);
+      if (next >= 0xd800 && next <= 0xdfff) break;
+      index += 1;
+    }
+    encoded.push(encodeURIComponent(value.slice(start, index)));
+  }
+  return encoded.join('');
+}
+
 function serializeQueryKeyNumber(part: number): string {
   if (Number.isNaN(part)) {
     return 'NaN';
@@ -40,7 +71,7 @@ function serializeQueryKeyPart(part: QueryKeyPart): string {
 
   switch (typeof part) {
     case 'string':
-      return `s=${encodeURIComponent(part)}`;
+      return `s=${encodeQueryKeyString(part)}`;
     case 'number':
       return `n=${serializeQueryKeyNumber(part)}`;
     case 'boolean':
@@ -60,7 +91,7 @@ function serializeQueryKeyPart(part: QueryKeyPart): string {
         .sort()
         .map(
           (key) =>
-            `${encodeURIComponent(key)}=${serializeQueryKeyPart(objectPart[key])}`
+            `${encodeQueryKeyString(key)}=${serializeQueryKeyPart(objectPart[key])}`
         )
         .join(',')}}`;
     default:

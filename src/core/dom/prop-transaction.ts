@@ -10,6 +10,14 @@ import { CommitMutationError, type Pass } from './pass';
 import { replaceChildrenOf } from './replace-children';
 import type { HostNode } from './tree';
 
+function snapshot<T>(read: () => T): T {
+  try {
+    return read();
+  } catch (error) {
+    throw new CommitMutationError(error);
+  }
+}
+
 /** Record the live attribute before applying a reversible scalar write. */
 export function writeSimpleAttribute(
   pass: Pass,
@@ -22,6 +30,7 @@ export function writeSimpleAttribute(
   const { el, tag } = node;
   const name = getRenderedAttributeName(el, key);
   pass.op(() => {
+    recordRadioGroupPeerUndo(pass, node, key, value);
     recordAttributeUndo(pass, el, name);
     try {
       beforeApply?.();
@@ -61,9 +70,9 @@ export function recordAttributeUndo(
   const namespace = attributeNamespace(el.namespaceURI, name);
   const colon = name.indexOf(':');
   const localName = colon === -1 ? name : name.slice(colon + 1);
-  const before = namespace
-    ? el.getAttributeNS(namespace, localName)
-    : el.getAttribute(name);
+  const before = snapshot(() =>
+    namespace ? el.getAttributeNS(namespace, localName) : el.getAttribute(name)
+  );
   pass.onReversibleCommit(() => {
     if (before === null) {
       if (namespace) el.removeAttributeNS(namespace, localName);
@@ -104,6 +113,7 @@ function writePropertyScalar(
 ): void {
   pass.op(() => {
     try {
+      recordRadioGroupPeerUndo(pass, node, key, value);
       const undo = captureDomPropertyUndo(node.el, key, value, node.tag);
       if (undo) pass.onReversibleCommit(undo);
       apply();
@@ -141,6 +151,7 @@ export function queueScalarProp(
     writePropertyScalar(pass, node, key, value, apply);
   } else {
     pass.op(() => {
+      recordRadioGroupPeerUndo(pass, node, key, value);
       recordAttributeUndo(
         pass,
         node.el,
@@ -195,8 +206,9 @@ export function writeBooleanControl(
 
 export function recordInputValueUndo(pass: Pass, node: HostNode): void {
   const control = node.el as HTMLInputElement | HTMLTextAreaElement;
-  const beforeValue = control.value;
-  const beforeAttribute = node.el.getAttribute('value');
+  const [beforeValue, beforeAttribute] = snapshot(
+    () => [control.value, node.el.getAttribute('value')] as const
+  );
   pass.onReversibleCommit(() => {
     if (beforeAttribute === null) node.el.removeAttribute('value');
     else node.el.setAttribute('value', beforeAttribute);
@@ -210,11 +222,75 @@ export function recordBooleanControlUndo(
   key: 'checked' | 'selected'
 ): void {
   const control = node.el as HTMLInputElement & HTMLOptionElement;
-  const beforeValue = control[key];
-  const beforeAttribute = node.el.getAttribute(key);
+  const [beforeValue, beforeAttribute, radioPeers] = snapshot(
+    () =>
+      [
+        control[key],
+        node.el.getAttribute(key),
+        key === 'checked'
+          ? captureRadioPeerState(control as HTMLInputElement)
+          : [],
+      ] as const
+  );
   pass.onReversibleCommit(() => {
     if (beforeAttribute === null) node.el.removeAttribute(key);
     else node.el.setAttribute(key, beforeAttribute);
     control[key] = beforeValue;
+    for (const [peer, checked] of radioPeers) peer.checked = checked;
+  });
+}
+
+/** Checking one radio mutates every same-group peer, including uncontrolled inputs. */
+function captureRadioPeerState(
+  control: HTMLInputElement,
+  name = control.name,
+  includeNonRadio = false
+): Array<readonly [HTMLInputElement, boolean]> {
+  if ((!includeNonRadio && control.type !== 'radio') || !name) return [];
+  const candidates = control.form
+    ? control.form.elements
+    : (control.getRootNode() as ParentNode).querySelectorAll?.('input');
+  if (!candidates) return [];
+  const peers: Array<readonly [HTMLInputElement, boolean]> = [];
+  for (const candidate of candidates) {
+    const peer = candidate as HTMLInputElement;
+    if (
+      peer !== control &&
+      peer.type === 'radio' &&
+      peer.name === name &&
+      peer.form === control.form
+    ) {
+      peers.push([peer, peer.checked]);
+    }
+  }
+  return peers;
+}
+
+function recordRadioGroupPeerUndo(
+  pass: Pass,
+  node: HostNode,
+  key: string,
+  value: unknown
+): void {
+  const isName = key === 'name' || key === 'prop:name';
+  const isType = key === 'type' || key === 'prop:type';
+  if (node.tag !== 'input' || (!isName && !isType) || typeof value !== 'string')
+    return;
+  const control = node.el as HTMLInputElement;
+  const peers = snapshot(() => {
+    if (
+      !control.checked ||
+      (!(isName && control.type === 'radio') &&
+        !(isType && value.toLowerCase() === 'radio'))
+    )
+      return [];
+    return captureRadioPeerState(
+      control,
+      isName ? value : control.name,
+      isType
+    );
+  });
+  pass.onReversibleCommit(() => {
+    for (const [peer, checked] of peers) peer.checked = checked;
   });
 }

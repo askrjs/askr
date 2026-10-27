@@ -20,6 +20,10 @@ export function isStaleRouteRequest(requestId: number): boolean {
   return requestId !== activeRouteRequestId;
 }
 
+export function getCurrentRouteRequestId(): number {
+  return activeRouteRequestId;
+}
+
 /**
  * @internal Teardown-only cancellation. Prefer aborting through the signal
  * returned by `beginRouteRequest()`; this exists for registry teardown, where

@@ -1,7 +1,16 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vite-plus/test';
 import { cleanupApp, createSPA } from '../../../src/boot';
+import { getAppRoot } from '../../../src/boot/root-lifecycle';
 import { createRouteRegistry, route } from '../../../src/router/route';
-import { navigate } from '../../../src/router/navigate';
+import { navigationState } from '../../../src/router/navigation-state';
+import { navigate, registerAppInstance } from '../../../src/router/navigate';
 import { resetRouterState } from '../../../src/router/reset';
 import {
   beginRouteRequest,
@@ -127,6 +136,86 @@ describe('navigation resolution ownership', () => {
     expect(window.location.pathname).toBe('/latest');
     expect(window.history.length).toBe(historyLength);
     expect(window.history.state.askrState).toEqual({ latest: true });
+  });
+
+  it('should discard resolved targets after the app registration is replaced', async () => {
+    const originalRegistry = createRouteRegistry(() => {
+      route('/start', () => <p>start</p>);
+      route('/pending', () => <p>old registry</p>);
+    });
+    const replacementRegistry = createRouteRegistry(() => {
+      route('/start', () => <p>start</p>);
+      route('/pending', () => <p>new registry</p>);
+    });
+    await createSPA({ root: view.container, registry: originalRegistry });
+
+    const app = getAppRoot(view.container)!;
+    const request = beginRouteRequest();
+    const targets = await resolveNavigationTargetsForApps(
+      '/pending',
+      '/pending',
+      request.signal
+    );
+    expect(targets).toHaveLength(1);
+
+    registerAppInstance(app, '/start', { registry: replacementRegistry });
+    applyNavigationTargets(
+      request.id,
+      '/pending',
+      {},
+      { redirects: 0, visited: new Set(['/pending']) },
+      '/pending',
+      '/pending',
+      targets,
+      () => {
+        throw new Error('unexpected redirect');
+      }
+    );
+    await settle();
+
+    expect(view.container.textContent).toBe('start');
+    expect(window.location.pathname).toBe('/start');
+  });
+
+  it('should discard pending targets after one app unregisters', async () => {
+    const other = createTestContainer();
+    let release!: (value: string) => void;
+    const pending = new Promise<string>((resolve) => {
+      release = resolve;
+    });
+    const registry = createRouteRegistry(() => {
+      route('/start', () => <p>first</p>);
+      route('/pending', () => <p>stale first</p>, {
+        policies: [
+          async () => {
+            await pending;
+            return { kind: 'allow' as const };
+          },
+        ],
+      });
+    });
+    const otherRegistry = createRouteRegistry(() => {
+      route('/start', () => <p>second</p>);
+      route('/pending', () => <p>stale second</p>);
+    });
+    try {
+      await createSPA({ root: view.container, registry });
+      await createSPA({ root: other.container, registry: otherRegistry });
+      navigate('/pending');
+      await vi.waitFor(() => expect(navigationState().pending).toBe(true));
+
+      cleanupApp(view.container);
+      release('resolved after unregister');
+      await settle();
+
+      expect(view.container.textContent).toBe('');
+      expect(other.container.textContent).toBe('second');
+      expect(window.location.pathname).toBe('/start');
+    } finally {
+      cleanupApp(view.container);
+      cleanupApp(other.container);
+      other.cleanup();
+    }
   });
 
   it('should resolve every root without publication until the commit boundary is called', async () => {

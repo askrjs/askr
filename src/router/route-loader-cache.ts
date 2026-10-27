@@ -77,6 +77,8 @@ export interface CachedLoad {
   readonly value: unknown;
   /** Settles with the fresh value once a stale cached value is refreshed. */
   readonly revalidation?: Promise<unknown>;
+  /** Whether this background result still belongs to the live cache entry. */
+  readonly isRevalidationCurrent?: () => boolean;
 }
 
 let revalidating = 0;
@@ -128,6 +130,34 @@ function evict(entries: Map<string, RouteLoaderEntry>): void {
   }
 }
 
+function settleForWaiter<T>(
+  promise: Promise<T>,
+  signal: AbortSignal
+): Promise<T> {
+  if (signal.aborted) return Promise.reject(signal.reason);
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    let abort!: () => void;
+    const cleanup = () => signal.removeEventListener('abort', abort);
+    const finish = (settle: () => void) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      settle();
+    };
+    abort = () => finish(() => reject(signal.reason));
+    signal.addEventListener('abort', abort, { once: true });
+    if (signal.aborted) {
+      abort();
+      return;
+    }
+    void promise.then(
+      (value) => finish(() => resolve(value)),
+      (error: unknown) => finish(() => reject(error))
+    );
+  });
+}
+
 function startRequest(
   entries: Map<string, RouteLoaderEntry>,
   key: string,
@@ -136,9 +166,13 @@ function startRequest(
   background: boolean
 ): NonNullable<RouteLoaderEntry['inflight']> {
   const controller = new AbortController();
-  const promise: Promise<unknown> = new Promise<unknown>((resolve) =>
-    resolve(run(controller.signal))
-  ).then(
+  let resolveRun!: (value: unknown) => void;
+  let rejectRun!: (reason: unknown) => void;
+  const result = new Promise<unknown>((resolve, reject) => {
+    resolveRun = resolve;
+    rejectRun = reject;
+  });
+  const promise: Promise<unknown> = result.then(
     (data) => {
       if (entry.inflight?.promise === promise) delete entry.inflight;
       // An invalidation replaced or removed the entry: do not resurrect it.
@@ -148,16 +182,23 @@ function startRequest(
         entry.completedAt = Date.now();
         touch(entries, key);
       }
+      evict(entries);
       return data;
     },
     (error: unknown) => {
       if (entry.inflight?.promise === promise) delete entry.inflight;
       if (!entry.hasData && entries.get(key) === entry) entries.delete(key);
+      evict(entries);
       throw error;
     }
   );
   const inflight = { promise, controller, waiters: 0, background };
   entry.inflight = inflight;
+  try {
+    resolveRun(run(controller.signal));
+  } catch (error) {
+    rejectRun(error);
+  }
   return inflight;
 }
 
@@ -178,6 +219,9 @@ export function loadThroughCache(
   run: (signal: AbortSignal) => unknown,
   options: CachedLoadOptions
 ): CachedLoad {
+  if (options.signal.aborted) {
+    return { value: Promise.reject(options.signal.reason) };
+  }
   const entries = runtime ? findRouteLoaderEntries(runtime) : undefined;
   if (!entries) return { value: run(options.signal) };
 
@@ -185,7 +229,6 @@ export function loadThroughCache(
   if (!entry) {
     entry = { hasData: false, data: undefined, completedAt: 0 };
     entries.set(key, entry);
-    evict(entries);
   } else {
     touch(entries, key);
   }
@@ -201,11 +244,16 @@ export function loadThroughCache(
         logger.warn('[Askr] route data revalidation failed:', error)
       );
     }
-    return { value: entry.data, revalidation: inflight.promise };
+    return {
+      value: entry.data,
+      revalidation: inflight.promise,
+      isRevalidationCurrent: () => entries.get(key) === entry,
+    };
   }
 
   const inflight =
     entry.inflight ?? startRequest(entries, key, entry, run, false);
+  if (!entry.hasData && inflight.waiters === 0) evict(entries);
   inflight.background = false;
   inflight.waiters += 1;
   // A navigation keeps the request's signal alive after the request settles:
@@ -222,5 +270,5 @@ export function loadThroughCache(
   };
   if (options.signal.aborted) onAbort();
   else options.signal.addEventListener('abort', onAbort, { once: true });
-  return { value: inflight.promise };
+  return { value: settleForWaiter(inflight.promise, options.signal) };
 }

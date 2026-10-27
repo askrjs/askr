@@ -1,9 +1,173 @@
 import { isProductionEnvironment } from '../../common/env';
 import { logger } from '../../common/logger';
-import { isPromiseLike } from '../../common/promise';
 import { throwSSRDataMissing } from '../../common/render-context';
 import { runWithOwner, type Owner } from '../reactive/owner';
 import { untrack } from '../reactive/graph';
+
+type ThenMethod<T> = (
+  onfulfilled: (value: T | PromiseLike<T>) => void,
+  onrejected: (reason: unknown) => void
+) => unknown;
+
+/** Assimilate a captured then method once, using the Promise job queue. */
+function assimilate<T>(
+  value: unknown,
+  then: ThenMethod<T>,
+  active: (() => boolean) | undefined,
+  fulfilled: (value: T) => void,
+  rejected: (error: unknown) => void
+): void {
+  let nativePromiseConstructor = false;
+  if (
+    value !== null &&
+    (typeof value === 'object' || typeof value === 'function') &&
+    Object.getPrototypeOf(value) === Promise.prototype
+  ) {
+    // PromiseResolve checks constructor before its identity fast path. Keep
+    // that observable getter behavior, but always subscribe through the then
+    // method captured above so an accessor is not read again below.
+    nativePromiseConstructor =
+      (value as Promise<T> & { constructor: unknown }).constructor === Promise;
+  }
+  // Inspecting the promise constructor can run user code through an accessor.
+  // It may refresh this resource, making the captured then method stale.
+  if (active && !active()) return;
+  let nativeCalled = false;
+  const deliver = (next: T) => {
+    if (nativeCalled) return;
+    nativeCalled = true;
+    if (active && !active()) return;
+    fulfilled(next);
+  };
+  const failDelivery = (error: unknown) => {
+    if (nativeCalled) return;
+    nativeCalled = true;
+    if (active && !active()) return;
+    rejected(error);
+  };
+  if (nativePromiseConstructor) {
+    try {
+      Reflect.apply(then, value, [(next) => deliver(next as T), failDelivery]);
+    } catch (error) {
+      failDelivery(error);
+    }
+    return;
+  }
+  const adopted = new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const resolving = new Set<object>();
+    const finish = (next: T) => {
+      if (settled) return;
+      settled = true;
+      resolve(next);
+    };
+    const fail = (error: unknown) => {
+      if (settled) return;
+      settled = true;
+      reject(error);
+    };
+    const ignoreStale = () => finish(undefined as T);
+    const resolveValue = (next: unknown): void => {
+      if (settled) return;
+      if (active && !active()) {
+        ignoreStale();
+        return;
+      }
+      if (
+        next !== null &&
+        (typeof next === 'object' || typeof next === 'function')
+      ) {
+        if (next === value) {
+          fail(new TypeError('Thenable resolution cycle'));
+          return;
+        }
+        let nextThen: ThenMethod<unknown> | null;
+        try {
+          nextThen = getThen<unknown>(next);
+        } catch (error) {
+          fail(error);
+          return;
+        }
+        if (active && !active()) {
+          ignoreStale();
+          return;
+        }
+        if (nextThen) {
+          if (resolving.has(next)) {
+            fail(new TypeError('Thenable resolution cycle'));
+            return;
+          }
+          resolving.add(next);
+          let called = false;
+          queueMicrotask(() => {
+            if (settled || called) return;
+            if (active && !active()) {
+              ignoreStale();
+              return;
+            }
+            const resolveOnce = (resolved: unknown) => {
+              if (called) return;
+              called = true;
+              resolving.delete(next);
+              resolveValue(resolved);
+            };
+            const rejectOnce = (error: unknown) => {
+              if (called) return;
+              called = true;
+              resolving.delete(next);
+              fail(error);
+            };
+            try {
+              Reflect.apply(nextThen!, next, [resolveOnce, rejectOnce]);
+            } catch (error) {
+              rejectOnce(error);
+            }
+          });
+          return;
+        }
+      }
+      finish(next as T);
+    };
+    let called = false;
+    const resolveOnce = (next: T | PromiseLike<T>) => {
+      if (called) return;
+      called = true;
+      resolving.add(value as object);
+      resolveValue(next);
+    };
+    const rejectOnce = (error: unknown) => {
+      if (called) return;
+      called = true;
+      fail(error);
+    };
+    const invoke = () => {
+      if (settled || called) return;
+      if (active && !active()) {
+        ignoreStale();
+        return;
+      }
+      try {
+        Reflect.apply(then, value, [resolveOnce, rejectOnce]);
+      } catch (error) {
+        rejectOnce(error);
+      }
+    };
+    queueMicrotask(invoke);
+  });
+  void adopted.then(fulfilled, rejected);
+}
+
+function getThen<T>(value: unknown): ThenMethod<T> | null {
+  if (
+    value === null ||
+    (typeof value !== 'object' && typeof value !== 'function')
+  ) {
+    return null;
+  }
+  const then = (value as { then?: unknown }).then;
+  return typeof then === 'function' ? (then as ThenMethod<T>) : null;
+}
+
 import {
   brandSnapshotSource,
   makeReactiveFields,
@@ -142,19 +306,26 @@ export class ResourceCell<U> {
     };
 
     let result: PromiseLike<U> | U;
-    let asynchronous: boolean;
+    let then: ThenMethod<U> | null;
     try {
       // Execute only the synchronous step inside the frozen resource frame.
       result = untrack(() =>
         runWithOwner(this.owner, () => this.fn({ signal: controller.signal }))
       );
-      asynchronous = isPromiseLike<U>(result);
+      // Capture a potentially user-defined accessor once. Promise.resolve(result)
+      // would read it again and could assimilate a generation canceled by that
+      // second read.
+      then = getThen<U>(result);
     } catch (err) {
       fail(err);
       return;
     }
 
-    if (!asynchronous) {
+    // Reading a user-defined `then` accessor can refresh or dispose this
+    // resource before the captured method is assimilated.
+    if (!current()) return;
+
+    if (!then) {
       if (!current()) return;
       this.value = result as U;
       this.pending = false;
@@ -166,13 +337,22 @@ export class ResourceCell<U> {
     if (ssr) {
       // Observe rejected work before abort listeners can reject it. SSR stays
       // synchronous, but the loader's asynchronous failure must remain owned.
-      new Promise<U>((resolve) => resolve(result)).then(undefined, () => {});
+      assimilate<U>(
+        result,
+        then,
+        undefined,
+        () => {},
+        () => {}
+      );
       controller.abort();
       throwSSRDataMissing();
     }
 
     try {
-      Promise.resolve(result).then(
+      assimilate<U>(
+        result,
+        then,
+        current,
         (val) => {
           if (!current()) return;
           this.value = val;

@@ -50,7 +50,10 @@ describe('route metadata link merging', () => {
 
 describe('class value collections', () => {
   it('should skip falsy numbers inside arrays and objects like clsx', () => {
-    expect(normalizeClassValue([0 && 'has-items', 'a', NaN, 2])).toBe('a 2');
+    const count = Number('0');
+    expect(normalizeClassValue([count && 'has-items', 'a', NaN, 2])).toBe(
+      'a 2'
+    );
     expect(normalizeClassValue({ a: 0, b: 1 })).toBe('b');
   });
 });

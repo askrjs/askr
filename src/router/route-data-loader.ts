@@ -10,7 +10,12 @@ export class RouteDataLoadError extends Error {
   readonly cause: unknown;
 
   constructor(route: string, phase: RouteDataLoadPhase, cause: unknown) {
-    const detail = cause instanceof Error ? cause.message : String(cause);
+    let detail: string;
+    try {
+      detail = String(cause instanceof Error ? cause.message : cause);
+    } catch {
+      detail = '[unprintable rejection reason]';
+    }
     super(
       '[Askr] Route data loader failed for "' +
         route +

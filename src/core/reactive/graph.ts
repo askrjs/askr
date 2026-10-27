@@ -123,8 +123,8 @@ export class Signal<T> implements Source {
   }
 
   /** Returns true when the value changed and observers were notified. */
-  write(value: T): boolean {
-    if (this._equals(this._value, value)) return false;
+  write(value: T, equalAlreadyChecked = false): boolean {
+    if (!equalAlreadyChecked && this._equals(this._value, value)) return false;
     this._value = value;
     notifySource(this);
     return true;
@@ -256,11 +256,22 @@ export class Computation<T = unknown> extends Owner implements Source {
       return;
     }
 
-    const changed =
-      this._hasError ||
-      !this._hasValue ||
-      this._equals === null ||
-      !this._equals(this._value as T, value as T);
+    let changed = this._hasError || !this._hasValue || this._equals === null;
+    if (!changed) {
+      this._running = true;
+      if (this._derived) derivedRunDepth++;
+      try {
+        changed = !untrack(() => this._equals!(this._value as T, value as T));
+      } catch (caught) {
+        // Keep the new value unpublished and retry on the next read. The
+        // source walk may have consumed this invalidation already.
+        this._state = DIRTY;
+        throw caught;
+      } finally {
+        this._running = false;
+        if (this._derived) derivedRunDepth--;
+      }
+    }
     this._hasError = false;
     this._hasValue = true;
     this._error = undefined;

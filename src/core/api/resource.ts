@@ -61,8 +61,9 @@ function resolveResourceRenderData(useRuntimeResources: boolean): {
   hasPreloadedData: boolean;
 } {
   const renderData =
-    getCurrentRenderData()?.resources ??
-    (useRuntimeResources ? currentAppRuntime()?.hydrationResources : undefined);
+    (useRuntimeResources
+      ? currentAppRuntime()?.hydrationResources
+      : undefined) ?? getCurrentRenderData()?.resources;
   const hasPreloadedData = Boolean(
     renderData &&
     (getActiveRenderContext()?.resourceDataProvided ||
@@ -204,10 +205,10 @@ function createResource<T>(
   const verificationSnapshot = renderKey
     ? getResourceVerificationSnapshot(
         renderKey,
-        getCurrentRenderData()?.framework ??
-          (inst.hydrationResourceKeys !== null
-            ? currentAppRuntime()?.framework
-            : undefined)
+        inst.hydrationResourceKeys !== null
+          ? (currentAppRuntime()?.framework ??
+              getCurrentRenderData()?.framework)
+          : getCurrentRenderData()?.framework
       )
     : null;
 

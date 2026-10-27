@@ -34,7 +34,7 @@ function deferred<T>() {
   });
   return { promise, resolve };
 }
-function mount(resolve: Resolver) {
+function mount(resolve?: Resolver) {
   const view = createTestContainer();
   const runtime = createDataRuntime();
   views.push(view);
@@ -44,9 +44,10 @@ function mount(resolve: Resolver) {
     root: view.container,
     dataRuntime: runtime,
     component: () => {
-      command = action<{ name: string }, { saved: string }>(save, {
-        csrfToken: resolve,
-      });
+      command = action<{ name: string }, { saved: string }>(
+        save,
+        resolve ? { csrfToken: resolve } : undefined
+      );
       return <p>{command.state().pending ? 'pending' : 'ready'}</p>;
     },
   });
@@ -58,6 +59,31 @@ function mount(resolve: Resolver) {
     },
   };
 }
+
+it('should abort a default-token POST when its data runtime retires', async () => {
+  const pending = deferred<Response>();
+  const request = vi.fn(
+    (_input: RequestInfo | URL, _init?: RequestInit) => pending.promise
+  );
+  vi.stubGlobal('fetch', request);
+  const view = mount();
+  const command = view.command;
+  const outcome = command
+    .submit({ name: 'private' })
+    .catch((error: unknown) => error);
+
+  await vi.waitFor(() => expect(request).toHaveBeenCalledOnce());
+  const signal = request.mock.calls[0]![1]?.signal;
+  expect(signal).toBeInstanceOf(AbortSignal);
+  disposeDataRuntime(view.runtime);
+
+  expect(signal?.aborted).toBe(true);
+  expect(await outcome).toMatchObject({ name: 'AbortError' });
+  pending.resolve(Response.json({ result: { saved: 'late' } }));
+  await Promise.resolve();
+  flushScheduler();
+  expect(command.state().result).toBeUndefined();
+});
 function post() {
   const request = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) =>
     Response.json({ result: { saved: JSON.parse(String(init?.body)).name } })
@@ -237,6 +263,54 @@ it('should settle on retirement while an old POST ignores abort and prevent its 
   await Promise.resolve();
   flushScheduler();
   expect(command.state().result).toBeUndefined();
+});
+
+it('should invalidate declared query prefixes when an unmounted action later succeeds', async () => {
+  const pending = deferred<Response>();
+  const request = vi.fn(
+    (_input: RequestInfo | URL, _init?: RequestInit) => pending.promise
+  );
+  vi.stubGlobal('fetch', request);
+  const view = mount();
+  const command = view.command;
+  view.runtime.queryData.set('items:one', { stale: true });
+  const outcome = command
+    .submit({ name: 'saved' })
+    .catch((error: unknown) => error);
+
+  await vi.waitFor(() => expect(request).toHaveBeenCalledOnce());
+  cleanupApp(view.container);
+  expect(await outcome).toMatchObject({ name: 'AbortError' });
+
+  pending.resolve(Response.json({ result: { saved: 'saved' } }));
+  await vi.waitFor(() => {
+    flushScheduler();
+    expect(view.runtime.queryData.has('items:one')).toBe(false);
+  });
+  expect(command.state().result).toBeUndefined();
+});
+
+it('should invalidate the newly bound runtime when an action succeeds after runtime replacement', async () => {
+  const pending = deferred<Response>();
+  const request = vi.fn(
+    (_input: RequestInfo | URL, _init?: RequestInit) => pending.promise
+  );
+  vi.stubGlobal('fetch', request);
+  const view = mount();
+  const next = createDataRuntime();
+  runtimes.push(next);
+  view.runtime.queryData.set('items:one', { stale: 'old' });
+  next.queryData.set('items:one', { stale: 'new' });
+  const submission = view.command.submit({ name: 'saved' });
+
+  await vi.waitFor(() => expect(request).toHaveBeenCalledOnce());
+  replaceDataRuntime(view.container, next);
+  pending.resolve(Response.json({ result: { saved: 'saved' } }));
+  await expect(submission).resolves.toEqual({ saved: 'saved' });
+
+  expect(view.runtime.queryData.has('items:one')).toBe(false);
+  expect(next.queryData.has('items:one')).toBe(false);
+  expect(view.command.state().result).toEqual({ saved: 'saved' });
 });
 
 it('should preserve last-started-wins status while both requested mutations settle', async () => {

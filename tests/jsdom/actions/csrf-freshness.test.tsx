@@ -24,8 +24,9 @@ type Command = ReturnType<typeof action<{ name: string }, unknown>>;
 type Options = Parameters<typeof action>[1];
 
 function post() {
-  const request = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) =>
-    Response.json({ result: { ok: true } })
+  const request = vi.fn(
+    async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      Response.json({ result: { ok: true } })
   );
   vi.stubGlobal('fetch', request);
   const tokens = () =>

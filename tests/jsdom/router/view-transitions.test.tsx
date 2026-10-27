@@ -100,6 +100,38 @@ describe('view transitions', () => {
     await vi.waitFor(() => expect(container.textContent).toBe('b'));
   });
 
+  it('should navigate directly when starting a view transition throws', async () => {
+    await createSPA({ root: container, registry: registry() });
+    (document as unknown as Record<string, unknown>).startViewTransition =
+      () => {
+        throw new DOMException(
+          'View transitions are unavailable',
+          'InvalidStateError'
+        );
+      };
+
+    expect(() => navigate('/b', { viewTransition: true })).not.toThrow();
+    await vi.waitFor(() => expect(container.textContent).toBe('b'));
+    expect(window.location.pathname).toBe('/b');
+  });
+
+  it('should not commit twice if a transition invokes its callback then throws', async () => {
+    await createSPA({ root: container, registry: registry() });
+    const pushState = vi.spyOn(window.history, 'pushState');
+    (document as unknown as Record<string, unknown>).startViewTransition = (
+      update: () => void
+    ) => {
+      update();
+      throw new DOMException('Transition setup failed', 'InvalidStateError');
+    };
+
+    expect(() => navigate('/b', { viewTransition: true })).not.toThrow();
+
+    expect(container.textContent).toBe('b');
+    expect(window.location.pathname).toBe('/b');
+    expect(pushState).toHaveBeenCalledTimes(1);
+  });
+
   it('should not use a transition by default', async () => {
     await createSPA({ root: container, registry: registry() });
     const stub = stubViewTransition(container);
@@ -214,6 +246,32 @@ describe('view transitions', () => {
     navigate('/c');
     await vi.waitFor(() => expect(container.textContent).toBe('c'));
     await Promise.all(stub.finished);
+    expect(container.textContent).toBe('c');
+    expect(window.location.pathname).toBe('/c');
+  });
+
+  it('should keep the newest navigation when overlapping transition callbacks run out of order', async () => {
+    await createSPA({ root: container, registry: registry() });
+    const updates: Array<() => void> = [];
+    (document as unknown as Record<string, unknown>).startViewTransition = (
+      update: () => void
+    ) => {
+      updates.push(update);
+      const updateCallbackDone = Promise.resolve();
+      return {
+        ready: Promise.resolve(),
+        updateCallbackDone,
+        finished: updateCallbackDone,
+      };
+    };
+
+    navigate('/b', { viewTransition: true });
+    navigate('/c', { viewTransition: true });
+    expect(updates).toHaveLength(2);
+
+    updates[1]!();
+    updates[0]!();
+
     expect(container.textContent).toBe('c');
     expect(window.location.pathname).toBe('/c');
   });

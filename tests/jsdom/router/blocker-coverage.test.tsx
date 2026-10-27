@@ -131,6 +131,38 @@ describe('blockNavigation() coverage', () => {
     expect(confirm).toHaveBeenCalledTimes(1);
   });
 
+  it('should honor a later blocker that refuses after a confirmed route redirects', async () => {
+    const slow = deferred<string>();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    let refuseRedirect = false;
+    const registry = createRouteRegistry(() => {
+      route('/', () => <p>a</p>);
+      route('/login', () => <p>login</p>);
+      route('/admin', () => <p>admin</p>, {
+        policies: [
+          async () => {
+            await slow.promise;
+            return redirect('/login');
+          },
+        ],
+      });
+    });
+    await createSPA({ root: container, registry });
+    unblockers.push(blockNavigation(() => 'Leave?'));
+    unblockers.push(blockNavigation(() => refuseRedirect));
+
+    navigate('/admin');
+    await vi.waitFor(() => expect(navigationState().pending).toBe(true));
+    refuseRedirect = true;
+    slow.resolve('go');
+
+    await vi.waitFor(() => expect(navigationState().pending).toBe(false));
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(container.textContent).toBe('a');
+    expect(window.location.pathname).toBe('/');
+    expect(navigationState().blocked).toBe('/login');
+  });
+
   it('should undo a blocked traversal by re-pushing the current entry when the position is unknown', async () => {
     const registry = createRouteRegistry(() => {
       route('/', () => <p>a</p>);
@@ -158,5 +190,31 @@ describe('blockNavigation() coverage', () => {
         askrState: { draft: 1 },
       })
     );
+  });
+
+  it('should restore directly after a blocked traversal skips unknown entries', async () => {
+    const registry = createRouteRegistry(() => {
+      route('/', () => <p>a</p>);
+      route('/a', () => <p>a</p>);
+      route('/x', () => <p>x</p>);
+      route('/y', () => <p>y</p>);
+    });
+    await createSPA({ root: container, registry });
+    navigate('/a');
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/a'));
+
+    window.history.pushState({}, '', '/x');
+    window.history.pushState({}, '', '/y');
+
+    const blocker = vi.fn(() => true);
+    unblockers.push(blockNavigation(blocker));
+    window.dispatchEvent(
+      new PopStateEvent('popstate', { state: window.history.state })
+    );
+    await vi.waitFor(() => expect(navigationState().blocked).toBe('/y'));
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/a'));
+
+    expect(container.textContent).toBe('a');
+    expect(blocker).toHaveBeenCalledTimes(1);
   });
 });

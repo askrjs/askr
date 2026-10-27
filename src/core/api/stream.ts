@@ -136,7 +136,9 @@ async function consume<T>(
   generation: StreamGeneration<T>,
   iterable: AsyncIterable<T>
 ): Promise<void> {
+  if (!isCurrent(slot, generation)) return;
   const iteratorFactory = iterable?.[Symbol.asyncIterator];
+  if (!isCurrent(slot, generation)) return;
   if (typeof iteratorFactory !== 'function') {
     throw new TypeError('stream() source must return an AsyncIterable.');
   }
@@ -155,11 +157,23 @@ async function consume<T>(
   }
 
   while (isCurrent(slot, generation)) {
-    const step = await iterator.next();
+    const next = iterator.next;
+    if (!isCurrent(slot, generation)) return;
+    const step = await next.call(iterator);
     if (!isCurrent(slot, generation)) {
       return;
     }
-    if (step.done) {
+    if (
+      step === null ||
+      (typeof step !== 'object' && typeof step !== 'function')
+    ) {
+      throw new TypeError('Iterator result must be an object.');
+    }
+    const done = step.done;
+    if (!isCurrent(slot, generation)) {
+      return;
+    }
+    if (done) {
       slot.current = null;
       slot.snapshot.status = 'closed';
       slot.snapshot.pending = false;
@@ -168,7 +182,11 @@ async function consume<T>(
       return;
     }
 
-    slot.snapshot.value = step.value;
+    const value = step.value;
+    if (!isCurrent(slot, generation)) {
+      return;
+    }
+    slot.snapshot.value = value;
     slot.hasValue = true;
     slot.snapshot.status = 'connected';
     slot.snapshot.pending = false;

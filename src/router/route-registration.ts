@@ -26,7 +26,6 @@ import {
   findRecordByMatchKey,
   getNearestScopeValue,
   getRegistrationScopes,
-  getRouteRecords,
   hasActivePageScope,
   insertRecordSorted,
 } from './store';

@@ -16,6 +16,11 @@ import {
   getRouteRevalidation,
 } from '../../../src/router/resolution';
 import type { RouteRenderResult } from '../../../src/common/router';
+import { findRouteLoaderEntries } from '../../../src/data/data-runtime';
+import {
+  loadThroughCache,
+  ROUTE_LOADER_CACHE_LIMIT,
+} from '../../../src/router/route-loader-cache';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -44,6 +49,109 @@ describe('route loader cache', () => {
   afterEach(() => {
     vi.useRealTimers();
     for (const created of runtimes.splice(0)) disposeDataRuntime(created);
+  });
+
+  it('should restore the route loader cache bound as in-flight entries settle', async () => {
+    const dataRuntime = runtime();
+    const entries = findRouteLoaderEntries(dataRuntime)!;
+    const controllers: AbortController[] = [];
+    const resolvers: Array<(value: number) => void> = [];
+    const requests: Array<Promise<unknown>> = [];
+    const waiters: Array<Promise<unknown>> = [];
+
+    for (let index = 0; index <= ROUTE_LOADER_CACHE_LIMIT; index += 1) {
+      const controller = new AbortController();
+      controllers.push(controller);
+      const load = loadThroughCache(
+        dataRuntime,
+        `route-${index}`,
+        () =>
+          new Promise<number>((resolve) => {
+            resolvers.push(resolve);
+          }),
+        { signal: controller.signal, staleTimeMs: 'always' }
+      );
+      requests.push(load.value as Promise<unknown>);
+      waiters.push(load.value as Promise<unknown>);
+    }
+
+    expect(entries.size).toBe(ROUTE_LOADER_CACHE_LIMIT + 1);
+    expect(entries.has(`route-${ROUTE_LOADER_CACHE_LIMIT}`)).toBe(true);
+    resolvers[0]!(0);
+    await requests[0];
+    for (const controller of controllers) controller.abort();
+    await Promise.allSettled(waiters);
+
+    expect(entries.size).toBeLessThanOrEqual(ROUTE_LOADER_CACHE_LIMIT);
+  });
+
+  it('should share a new request when the route cache is full of in-flight entries', async () => {
+    const dataRuntime = runtime();
+    const controllers: AbortController[] = [];
+    const started: Array<ReturnType<typeof deferred<number>>> = [];
+    const waiters: Array<Promise<unknown>> = [];
+    const load = (key: string) => {
+      const controller = new AbortController();
+      const request = deferred<number>();
+      controllers.push(controller);
+      const load = loadThroughCache(
+        dataRuntime,
+        key,
+        () => {
+          started.push(request);
+          return request.promise;
+        },
+        { signal: controller.signal, staleTimeMs: 'always' }
+      );
+      waiters.push(Promise.resolve(load.value));
+      return load;
+    };
+
+    for (let index = 0; index < ROUTE_LOADER_CACHE_LIMIT; index += 1) {
+      load(`in-flight-${index}`);
+    }
+
+    const first = load('new-key');
+    const second = load('new-key');
+
+    expect(started).toHaveLength(ROUTE_LOADER_CACHE_LIMIT + 1);
+    expect(first.value).not.toBe(second.value);
+
+    started.forEach((request, index) => request.resolve(index));
+    await Promise.all(started.map((request) => request.promise));
+    await Promise.all(waiters);
+    for (const controller of controllers) controller.abort();
+  });
+
+  it('should publish the in-flight entry before invoking a reentrant loader', async () => {
+    const dataRuntime = runtime();
+    const controller = new AbortController();
+    let starts = 0;
+    let nested: ReturnType<typeof loadThroughCache> | undefined;
+    const first = loadThroughCache(
+      dataRuntime,
+      'reentrant',
+      () => {
+        starts += 1;
+        nested = loadThroughCache(
+          dataRuntime,
+          'reentrant',
+          () => {
+            starts += 1;
+            return Promise.resolve('duplicate');
+          },
+          { signal: controller.signal, staleTimeMs: 'always' }
+        );
+        return Promise.resolve('shared');
+      },
+      { signal: controller.signal, staleTimeMs: 'always' }
+    );
+
+    expect(starts).toBe(1);
+    expect(nested).toBeDefined();
+    await expect(first.value).resolves.toBe('shared');
+    await expect(nested!.value).resolves.toBe('shared');
+    controller.abort();
   });
 
   it('should render cached data immediately and revalidate in the background on a repeat visit', async () => {
@@ -158,6 +266,37 @@ describe('route loader cache', () => {
     expect(resolveRouteRequest('/q', options)).not.toBeInstanceOf(Promise);
   });
 
+  it('should detach an invalidated in-flight load without caching its result', async () => {
+    const first = deferred<string>();
+    const replacement = deferred<string>();
+    const loader = vi
+      .fn<() => Promise<string>>()
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(replacement.promise);
+    const registry = createRouteRegistry(() => {
+      route('/p', () => null, { loader });
+    });
+    const dataRuntime = runtime();
+    const options = { registry, mode: 'spa' as const, dataRuntime };
+
+    const oldRequest = resolveRouteRequest('/p', options);
+    expect(oldRequest).toBeInstanceOf(Promise);
+
+    invalidate('route-data:/p', { runtime: dataRuntime });
+    const newRequest = resolveRouteRequest('/p', options);
+    expect(newRequest).toBeInstanceOf(Promise);
+    expect(loader).toHaveBeenCalledTimes(2);
+
+    first.resolve('invalidated');
+    expect(getRouteRenderData(render(await oldRequest))).toBe('invalidated');
+
+    replacement.resolve('fresh');
+    expect(getRouteRenderData(render(await newRequest))).toBe('fresh');
+    expect(getRouteRenderData(render(resolveRouteRequest('/p', options)))).toBe(
+      'fresh'
+    );
+  });
+
   it('should keep cached data and ignore a failed revalidation', async () => {
     const loader = vi
       .fn<() => Promise<string>>()
@@ -204,11 +343,64 @@ describe('route loader cache', () => {
     });
     first.abort();
     expect(signals[0]!.aborted).toBe(false);
+    await expect(a).rejects.toMatchObject({ name: 'AbortError' });
     second.abort();
     expect(signals[0]!.aborted).toBe(true);
+    await expect(b).rejects.toMatchObject({ name: 'AbortError' });
     pending.reject(new Error('aborted'));
-    await expect(a).rejects.toThrow();
-    await expect(b).rejects.toThrow();
+  });
+
+  it('should settle one aborted waiter while another keeps the loader alive', async () => {
+    const pending = deferred<string>();
+    const dataRuntime = runtime();
+    const firstController = new AbortController();
+    const secondController = new AbortController();
+    let loaderSignal!: AbortSignal;
+    const load = (signal: AbortSignal) =>
+      loadThroughCache(
+        dataRuntime,
+        'shared-abort-waiter',
+        (sharedSignal) => {
+          loaderSignal = sharedSignal;
+          return pending.promise;
+        },
+        { signal, staleTimeMs: 'always' }
+      );
+
+    const first = load(firstController.signal);
+    const second = load(secondController.signal);
+    const firstOutcome = Promise.resolve(first.value).then(
+      () => 'resolved',
+      () => 'rejected'
+    );
+
+    firstController.abort();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(await Promise.race([firstOutcome, Promise.resolve('pending')])).toBe(
+      'rejected'
+    );
+    expect(loaderSignal.aborted).toBe(false);
+
+    pending.resolve('shared result');
+    await expect(second.value).resolves.toBe('shared result');
+    secondController.abort();
+  });
+
+  it('should not start a route loader for an already aborted waiter', async () => {
+    const dataRuntime = runtime();
+    const controller = new AbortController();
+    const run = vi.fn(() => Promise.resolve('unwanted'));
+    controller.abort();
+
+    const load = loadThroughCache(dataRuntime, 'already-aborted', run, {
+      signal: controller.signal,
+      staleTimeMs: 'always',
+    });
+
+    expect(run).not.toHaveBeenCalled();
+    await expect(load.value).rejects.toBe(controller.signal.reason);
   });
 
   it('should start a new request after every waiting navigation left a loader that ignores its signal', async () => {

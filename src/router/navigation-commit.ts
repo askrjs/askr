@@ -44,6 +44,38 @@ import {
 } from './navigation-types';
 
 const EMPTY_ROUTE_META: Readonly<RouteMeta> = Object.freeze({});
+let navigationApplyDepth = 0;
+let navigationRollbackDepth = 0;
+const deferredNavigations: Array<() => void> = [];
+
+/** Keep user navigation callbacks outside a partially applied root batch. */
+export function deferNavigationUntilCommitSettles(
+  navigate: () => void
+): boolean {
+  if (navigationApplyDepth === 0 && navigationRollbackDepth === 0) return false;
+  deferredNavigations.push(navigate);
+  return true;
+}
+
+function scheduleDeferredNavigations(): void {
+  if (
+    navigationApplyDepth > 0 ||
+    navigationRollbackDepth > 0 ||
+    deferredNavigations.length === 0
+  ) {
+    return;
+  }
+  const pending = deferredNavigations.splice(0);
+  queueMicrotask(() => {
+    for (const navigate of pending) {
+      try {
+        navigate();
+      } catch (error) {
+        reportUncaughtErrorLater(error);
+      }
+    }
+  });
+}
 
 /** The last rendered destination's identity becomes the client identity. */
 function publishNavigationAuth(targets: readonly AppNavigationTarget[]): void {
@@ -157,7 +189,8 @@ export function commitNavigationRoots(
   locationState: AppRenderRouteState,
   updateHistory: () => void,
   updateScroll: () => void,
-  restoreHistory?: () => void
+  restoreHistory?: () => void,
+  isCommitCurrent: () => boolean = () => true
 ): void {
   if (!hasCurrentNavigationOwners(targets)) return;
   const previousPathname = getCurrentPathname();
@@ -186,15 +219,21 @@ export function commitNavigationRoots(
     const previousAuth = readClientAuth();
     const rollback = () => {
       const errors: unknown[] = [];
-      for (let index = roots.length - 1; index >= 0; index--) {
-        errors.push(...roots[index]!.prepared.rollback());
-      }
-      setCurrentRouteLocation(previousPathname, previousHref);
-      setCurrentAuth(previousAuth, 'spa');
+      navigationRollbackDepth += 1;
       try {
-        restoreHistory?.();
-      } catch (error) {
-        errors.push(error);
+        for (let index = roots.length - 1; index >= 0; index--) {
+          errors.push(...roots[index]!.prepared.rollback());
+        }
+        setCurrentRouteLocation(previousPathname, previousHref);
+        setCurrentAuth(previousAuth, 'spa');
+        try {
+          restoreHistory?.();
+        } catch (error) {
+          errors.push(error);
+        }
+      } finally {
+        navigationRollbackDepth -= 1;
+        scheduleDeferredNavigations();
       }
       reportRouteCleanupErrors(errors);
     };
@@ -202,17 +241,29 @@ export function commitNavigationRoots(
     // The destination renders with the identity its navigation resolved; a
     // rollback puts the departing page's identity back with its DOM.
     publishNavigationAuth(targets);
+    navigationApplyDepth += 1;
     try {
-      // Replacement lifetimes render before refreshed ones.
-      for (const replaceLifetime of [true, false]) {
-        for (const root of roots) {
-          if (root.replaceLifetime === replaceLifetime) root.prepared.apply();
+      try {
+        // Replacement lifetimes render before refreshed ones.
+        for (const replaceLifetime of [true, false]) {
+          for (const root of roots) {
+            if (root.replaceLifetime === replaceLifetime) root.prepared.apply();
+          }
         }
+      } catch (error) {
+        rollback();
+        logger.error('[Askr] navigation failed:', error);
+        throw error;
       }
-    } catch (error) {
+    } finally {
+      navigationApplyDepth -= 1;
+      scheduleDeferredNavigations();
+    }
+    // Applying prepared DOM can synchronously run custom-element callbacks.
+    // A callback may invalidate the cache entry that produced this refresh.
+    if (!isCommitCurrent()) {
       rollback();
-      logger.error('[Askr] navigation failed:', error);
-      throw error;
+      return;
     }
     if (isStaleRouteRequest(requestId)) {
       rollback();

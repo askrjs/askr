@@ -2439,6 +2439,72 @@ describe('data layer', () => {
     }
   });
 
+  it('should keep an abort-listener refresh fenced by the invalidation generation', async () => {
+    let resolveStale!: (value: { version: number }) => void;
+    let resolveFresh!: (value: { version: number }) => void;
+    const stale = new Promise<{ version: number }>((resolve) => {
+      resolveStale = resolve;
+    });
+    const fresh = new Promise<{ version: number }>((resolve) => {
+      resolveFresh = resolve;
+    });
+    let queryRef!: Query<{ version: number }>;
+    let calls = 0;
+    let abortRefresh!: Promise<void>;
+    const App = () => {
+      queryRef = createQuery({
+        key: 'logs:abort-reentry',
+        fetch: ({ signal }) => {
+          calls += 1;
+          if (calls === 1) return Promise.resolve({ version: 1 });
+          if (calls === 2) {
+            signal.addEventListener(
+              'abort',
+              () => {
+                abortRefresh = queryRef.refresh();
+              },
+              { once: true }
+            );
+            return stale;
+          }
+          return fresh;
+        },
+      });
+      return <output>{queryRef.data?.version ?? 'loading'}</output>;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settle();
+      expect(queryRef.data).toEqual({ version: 1 });
+
+      const refresh = queryRef.refresh();
+      flushScheduler();
+      expect(calls).toBe(2);
+      invalidate('logs:abort-reentry');
+      flushScheduler();
+      expect(calls).toBe(3);
+
+      let settled = false;
+      void abortRefresh.then(() => {
+        settled = true;
+      });
+      resolveStale({ version: 2 });
+      await Promise.resolve();
+      expect(queryRef.data).toEqual({ version: 1 });
+      expect(settled).toBe(false);
+
+      resolveFresh({ version: 3 });
+      await Promise.all([refresh, abortRefresh]);
+      await settle();
+      expect(queryRef.data).toEqual({ version: 3 });
+      expect(container.textContent).toBe('3');
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should keep a refresh waiter pending when invalidation supersedes its fetch', async () => {
     const pending: Array<(value: { version: number }) => void> = [];
     let queryRef!: Query<{ version: number }>;

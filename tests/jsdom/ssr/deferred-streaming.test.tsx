@@ -128,6 +128,199 @@ function twoBoundaryPage() {
 }
 
 describe('deferred route streaming', () => {
+  it('should discard queued patches and stop later work when a paused consumer cancels', async () => {
+    let first!: (value: string) => void;
+    let second!: (value: string) => void;
+    const one = new Promise<string>((resolve) => {
+      first = resolve;
+    });
+    const two = new Promise<string>((resolve) => {
+      second = resolve;
+    });
+    let secondRenders = 0;
+    const registry = createRouteRegistry(() => {
+      route(
+        '/',
+        () => {
+          const data = routeData<{
+            first: ReturnType<typeof defer<string>>;
+            second: ReturnType<typeof defer<string>>;
+          }>();
+          return (
+            <main>
+              <Resolve value={data.first} pending={<p>first</p>}>
+                {(value) => <p>{value}</p>}
+              </Resolve>
+              <Resolve value={data.second} pending={<p>second</p>}>
+                {(value) => {
+                  secondRenders++;
+                  return <p>{value}</p>;
+                }}
+              </Resolve>
+            </main>
+          );
+        },
+        { loader: () => ({ first: defer(one), second: defer(two) }) }
+      );
+    });
+    const result = await renderRouteRequest({ url: '/', registry });
+    if (result.kind !== 'render' || !result.stream)
+      throw new Error('expected stream');
+    const reader = result.stream.getReader();
+    await reader.read();
+    first('ready');
+    for (let index = 0; index < 8; index++) await Promise.resolve();
+    await reader.cancel();
+    second('late');
+    for (let index = 0; index < 8; index++) await Promise.resolve();
+    expect((await reader.read()).done).toBe(true);
+    expect(secondRenders).toBe(0);
+  });
+  it('should stop other boundary renders when the consumer cancels during a patch render', async () => {
+    let first!: (value: string) => void;
+    let second!: (value: string) => void;
+    const one = new Promise<string>((resolve) => {
+      first = resolve;
+    });
+    const two = new Promise<string>((resolve) => {
+      second = resolve;
+    });
+    let reader!: ReadableStreamDefaultReader<Uint8Array>;
+    let laterRenders = 0;
+    const registry = createRouteRegistry(() => {
+      route(
+        '/',
+        () => {
+          const data = routeData<{
+            first: ReturnType<typeof defer<string>>;
+            second: ReturnType<typeof defer<string>>;
+          }>();
+          return (
+            <main>
+              <Resolve value={data.first} pending={<p>first</p>}>
+                {() => {
+                  void reader.cancel();
+                  return <p>discarded</p>;
+                }}
+              </Resolve>
+              <Resolve value={data.second} pending={<p>second</p>}>
+                {() => {
+                  laterRenders++;
+                  return <p>late</p>;
+                }}
+              </Resolve>
+            </main>
+          );
+        },
+        { loader: () => ({ first: defer(one), second: defer(two) }) }
+      );
+    });
+    const result = await renderRouteRequest({ url: '/', registry });
+    if (result.kind !== 'render' || !result.stream)
+      throw new Error('expected stream');
+    reader = result.stream.getReader();
+    await reader.read();
+    first('ready');
+    expect((await reader.read()).done).toBe(true);
+    second('late');
+    for (let index = 0; index < 8; index++) await Promise.resolve();
+    expect(laterRenders).toBe(0);
+  });
+  it('should isolate cancellation of requests sharing deferred work', async () => {
+    let release!: (value: string) => void;
+    const pending = new Promise<string>((resolve) => {
+      release = resolve;
+    });
+    const controller = new AbortController();
+    const registry = createRouteRegistry(() => {
+      route(
+        '/user/{id}',
+        () => {
+          const data = routeData<DeferredPageData>();
+          return (
+            <Resolve value={data.message} pending={<p>pending</p>}>
+              {(message) => (
+                <p>{`${currentAuth().principal?.id}:${currentRoute<{ id: string }>().params.id}:${message}`}</p>
+              )}
+            </Resolve>
+          );
+        },
+        { loader: () => ({ message: defer(pending) }) }
+      );
+    });
+    const auth = (id: string): AuthContext => ({
+      authenticated: true,
+      principal: { id },
+      session: null,
+      tenant: null,
+    });
+    const first = await renderRouteRequest({
+      url: '/user/1',
+      registry,
+      signal: controller.signal,
+      authContext: auth('alice'),
+    });
+    const second = await renderRouteRequest({
+      url: '/user/2',
+      registry,
+      authContext: auth('bob'),
+    });
+    if (
+      first.kind !== 'render' ||
+      !first.stream ||
+      second.kind !== 'render' ||
+      !second.stream
+    )
+      throw new Error('expected streams');
+    const a = first.stream.getReader();
+    const b = second.stream.getReader();
+    await a.read();
+    await b.read();
+    controller.abort();
+    expect((await a.read()).done).toBe(true);
+    release('ready');
+    expect(new TextDecoder().decode((await b.read()).value)).toContain(
+      '<p>bob:2:ready</p>'
+    );
+    await b.cancel();
+  });
+
+  it('should fail a stream when a deferred renderer throws and leave the next request usable', async () => {
+    let release!: (value: string) => void;
+    const pending = new Promise<string>((resolve) => {
+      release = resolve;
+    });
+    const failure = new Error('boundary render failed');
+    const registry = createRouteRegistry(() => {
+      route(
+        '/',
+        () => {
+          const data = routeData<DeferredPageData>();
+          return (
+            <Resolve value={data.message} pending={<p>pending</p>}>
+              {() => {
+                throw failure;
+              }}
+            </Resolve>
+          );
+        },
+        { loader: () => ({ message: defer(pending) }) }
+      );
+    });
+    const result = await renderRouteRequest({ url: '/', registry });
+    if (result.kind !== 'render' || !result.stream)
+      throw new Error('expected stream');
+    const reader = result.stream.getReader();
+    await reader.read();
+    release('ready');
+    await expect(reader.read()).rejects.toBe(failure);
+    const next = await renderRouteRequestToString({
+      url: '/',
+      registry: createRouteRegistry(() => route('/', () => <p>next</p>)),
+    });
+    expect(next.kind).toBe('render');
+    if (next.kind === 'render') expect(next.html).toContain('next');
+  });
   it('should retain request-local auth when a deferred boundary renders after another request', async () => {
     let release!: (value: string) => void;
     const pending = new Promise<string>((resolve) => {
@@ -360,6 +553,67 @@ describe('deferred route streaming', () => {
       throw new Error('expected stream');
     const reader = result.stream.getReader();
     await reader.read();
+    controller.abort();
+
+    expect((await reader.read()).done).toBe(true);
+  });
+
+  it('should close after the buffered shell when abort precedes the first reader', async () => {
+    const pending = new Promise<string>(() => undefined);
+    const controller = new AbortController();
+    const registry = createRouteRegistry(() => {
+      route('/', deferredPage, { loader: () => ({ message: defer(pending) }) });
+    });
+    const result = await renderRouteRequest({
+      url: '/',
+      registry,
+      signal: controller.signal,
+    });
+    if (result.kind !== 'render' || !result.stream)
+      throw new Error('expected stream');
+
+    controller.abort();
+    const reader = result.stream.getReader();
+    expect(new TextDecoder().decode((await reader.read()).value)).toContain(
+      '<askr-resolve data-askr-deferred="d:0">'
+    );
+    expect((await reader.read()).done).toBe(true);
+  });
+
+  it('should stop nested patches after abort between boundary levels', async () => {
+    let releaseOuter!: (value: NestedOuter) => void;
+    const outerPromise = new Promise<NestedOuter>((resolve) => {
+      releaseOuter = resolve;
+    });
+    const innerPromise = new Promise<string>(() => undefined);
+    const controller = new AbortController();
+    const registry = createRouteRegistry(() => {
+      route('/n/{id}', nestedPage, {
+        loader: () => ({
+          outer: defer(
+            outerPromise.then((value) => ({
+              ...value,
+              inner: defer(value.inner),
+            }))
+          ),
+        }),
+      });
+    });
+    const result = await renderRouteRequest({
+      url: '/n/7',
+      registry,
+      signal: controller.signal,
+    });
+    if (result.kind !== 'render' || !result.stream)
+      throw new Error('expected stream');
+    const reader = result.stream.getReader();
+    const decoder = new TextDecoder();
+    await reader.read();
+    releaseOuter({ label: 'outer', inner: innerPromise });
+    expect(decoder.decode((await reader.read()).value)).toContain(
+      'data-askr-deferred-patch="d:0"'
+    );
+
     controller.abort();
 
     expect((await reader.read()).done).toBe(true);
