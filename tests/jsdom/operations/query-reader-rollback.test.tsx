@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { state, type State } from '../../../src';
-import { createDataRuntime, createQuery, type Query } from '../../../src/data';
+import {
+  createDataRuntime,
+  createQuery,
+  disposeDataRuntime,
+  type Query,
+} from '../../../src/data';
 import type { JSXElement } from '../../../src/jsx/types';
 import { createIsland } from '../../../test-utils/render/create-island';
 import {
@@ -102,6 +107,50 @@ describe('createQuery render rollback', () => {
       expect(committedQuery.data).toEqual({ version: 'committed' });
     } finally {
       cleanup();
+      vi.restoreAllMocks();
+    }
+  });
+
+  it('should not evict an ownerless cached target on a failed key change', () => {
+    const runtime = createDataRuntime();
+    const targetQuery = createQuery({
+      runtime,
+      key: 'query-ownerless-target',
+      initialData: { id: 'target' },
+      fetch: async () => ({ id: 'target' }),
+    });
+    let key!: State<string>;
+    let fail!: State<boolean>;
+    const App = (): JSXElement => {
+      key = state('query-ownerless-source');
+      fail = state(false);
+      createQuery({
+        runtime,
+        key: key(),
+        initialData: { id: 'source' },
+        fetch: async () => ({ id: 'source' }),
+      });
+      if (fail()) throw new Error('render failed');
+      return <p>reader</p>;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      // The runtime's ownerless handle cache has a bounded retention window.
+      expect(targetQuery.data).toEqual({ id: 'target' });
+      expect(runtime.queryCache.has('query-ownerless-target')).toBe(true);
+      createIsland({ root: container, component: App });
+      flushScheduler();
+
+      expect(() => {
+        key.set('query-ownerless-target');
+        fail.set(true);
+        flushScheduler();
+      }).toThrow('render failed');
+
+      expect(runtime.queryCache.has('query-ownerless-target')).toBe(true);
+    } finally {
+      cleanup();
+      disposeDataRuntime(runtime);
       vi.restoreAllMocks();
     }
   });

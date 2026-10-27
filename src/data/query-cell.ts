@@ -144,6 +144,9 @@ export class QueryCell<T> {
   define(options: QueryCellOptions<T>, owner: object, hookIndex: number): void {
     this.lifetime.define(options, owner, hookIndex);
   }
+  captureRenderState(owner: object, hookIndex: number): () => void {
+    return this.lifetime.captureRenderState(owner, hookIndex);
+  }
   warnOnConflictingDefinition(options: QueryCellOptions<T>): void {
     this.lifetime.warnOnConflictingDefinition(options);
   }
@@ -665,6 +668,7 @@ function createLegacyQuery<T extends {}>(
     key: options.key,
     cell: cell as QueryCell<unknown>,
   };
+  const rollbackCellRender = cell.captureRenderState(generation, hookIndex);
   slotStore.set(hookIndex, nextSlot);
   cell.attach(generation, hookIndex);
   cell.define(options, generation, hookIndex);
@@ -674,7 +678,7 @@ function createLegacyQuery<T extends {}>(
       if (existingSlot) slotStore.set(hookIndex, existingSlot);
       else slotStore.delete(hookIndex);
     }
-    cell!.detach(generation, hookIndex);
+    rollbackCellRender();
     if (createdCell) cell!.discardIfUnowned();
   });
   if (existingSlot) {
