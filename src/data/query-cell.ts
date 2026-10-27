@@ -582,6 +582,7 @@ export class QueryCell<T> {
 function createCell<T>(
   options: QueryCellOptions<T>,
   runtimeState: DataRuntimeState,
+  start = true,
   consumeInitialData = true
 ): QueryCell<T> {
   const cache = runtimeState.queryCache;
@@ -594,7 +595,7 @@ function createCell<T>(
     : options;
   const cell = new QueryCell(cellOptions, options.key, cache, runtimeState);
   cache.set(options.key, cell as QueryCell<unknown>);
-  cell.ensureStarted();
+  if (start) cell.ensureStarted();
   return cell;
 }
 
@@ -664,7 +665,7 @@ function createLegacyQuery<T extends {}>(
 
   let cell = cache.get(options.key) as QueryCell<T> | undefined;
   const createdCell = !cell;
-  if (!cell) cell = createCell(options, runtimeState, false);
+  if (!cell) cell = createCell(options, runtimeState, false, false);
 
   const nextSlot = {
     key: options.key,
@@ -674,7 +675,6 @@ function createLegacyQuery<T extends {}>(
   slotStore.set(hookIndex, nextSlot);
   cell.attach(generation, hookIndex);
   cell.define(options, generation, hookIndex);
-  cell.ensureStarted();
   onRenderDiscard(() => {
     if (slotStore.get(hookIndex) === nextSlot) {
       if (existingSlot) slotStore.set(hookIndex, existingSlot);
@@ -686,7 +686,13 @@ function createLegacyQuery<T extends {}>(
   if (existingSlot) {
     instance.onCommitSync(() => {
       if (instance.disposed || slotStore.get(hookIndex) !== nextSlot) return;
+      cell!.ensureStarted();
       existingSlot.cell.detach(generation, hookIndex);
+    });
+  } else {
+    instance.onCommitSync(() => {
+      if (instance.disposed || slotStore.get(hookIndex) !== nextSlot) return;
+      cell!.ensureStarted();
     });
   }
   if (createdCell && options.takeInitialData) {

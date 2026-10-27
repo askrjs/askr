@@ -194,4 +194,84 @@ describe('createQuery render rollback', () => {
       disposeDataRuntime(runtime);
     }
   });
+
+  it('should cancel a new query initial fetch when its render fails', () => {
+    const runtime = createDataRuntime();
+    const fetch = vi.fn(async (id: string) => ({ id }));
+    let id!: State<string>;
+    let fail!: State<boolean>;
+    const App = (): JSXElement => {
+      id = state('a');
+      fail = state(false);
+      const currentId = id();
+      const query = createQuery({
+        runtime,
+        key: `query-discarded-start:${currentId}`,
+        initialData: currentId === 'a' ? { id: 'a' } : undefined,
+        fetch: () => fetch(currentId),
+      });
+      if (fail()) throw new Error('render failed');
+      return <p>{query.data?.id}</p>;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      expect(fetch).not.toHaveBeenCalled();
+
+      expect(() => {
+        id.set('b');
+        fail.set(true);
+        flushScheduler();
+      }).toThrow('render failed');
+
+      expect(runtime.queryCache.has('query-discarded-start:b')).toBe(false);
+      expect(fetch).not.toHaveBeenCalled();
+    } finally {
+      cleanup();
+      disposeDataRuntime(runtime);
+    }
+  });
+
+  it('should not start an ownerless cached query from a failed render', () => {
+    const runtime = createDataRuntime();
+    const ownerlessFetch = vi.fn(async () => ({ id: 'ownerless' }));
+    createQuery({
+      runtime,
+      key: 'query-discarded-cached-start',
+      skipInitialFetch: true,
+      fetch: ownerlessFetch,
+    });
+    let key!: State<string>;
+    let fail!: State<boolean>;
+    const App = (): JSXElement => {
+      key = state('query-discarded-source');
+      fail = state(false);
+      createQuery({
+        runtime,
+        key: key(),
+        initialData: { id: 'source' },
+        fetch: async () => ({ id: 'switcher' }),
+      });
+      if (fail()) throw new Error('render failed');
+      return <p>reader</p>;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      expect(ownerlessFetch).not.toHaveBeenCalled();
+
+      expect(() => {
+        key.set('query-discarded-cached-start');
+        fail.set(true);
+        flushScheduler();
+      }).toThrow('render failed');
+
+      expect(ownerlessFetch).not.toHaveBeenCalled();
+    } finally {
+      cleanup();
+      disposeDataRuntime(runtime);
+    }
+  });
 });
