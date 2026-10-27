@@ -503,9 +503,10 @@ it('should restore retained collection ownership when a replacement render fails
   const next = createDataRuntime();
   old.queryData.set('rollback-row:1', 'old row');
   next.queryData.set('rollback-row:1', 'next row');
+  const fetch = vi.fn(async () => 'fetched');
   const definition = defineQuery({
     key: (id: number) => `rollback-row:${id}`,
-    fetch: async () => 'fetched',
+    fetch,
   });
   let collection!: QueryCollection<number, string, number>;
   let fail = false;
@@ -532,7 +533,8 @@ it('should restore retained collection ownership when a replacement render fails
   fail = false;
   replaceDataRuntime(view.container, next);
   await settle();
-  expect(view.container.textContent).toBe('fetched');
+  expect(view.container.textContent).toBe('next row');
+  expect(fetch).not.toHaveBeenCalled();
   disposeDataRuntime(old);
   disposeDataRuntime(next);
 });

@@ -30,7 +30,129 @@ async function settleCollection(collection: {
   }
 }
 
+function flushIgnoringRenderFailure(): void {
+  try {
+    flushScheduler();
+  } catch {
+    // A discarded render may report its failure through the scheduler.
+  }
+}
+
 describe('query collections', () => {
+  it('should retain committed entries when a same-runtime collection update rolls back', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const runtime = createDataRuntime();
+    runtime.queryData.set('collection-rollback:a', { id: 'a' });
+    runtime.queryData.set('collection-rollback:b', { id: 'b' });
+    const fetch = vi.fn(async (id: string) => ({ id }));
+    const query = defineQuery({
+      key: (id: string) => `collection-rollback:${id}`,
+      fetch,
+    });
+    let setId!: (id: string) => void;
+    let setFail!: (fail: boolean) => void;
+    let collection!: QueryCollection<string, { id: string }>;
+    const App = (): JSXElement => {
+      const id = state('a');
+      const fail = state(false);
+      setId = id.set;
+      setFail = fail.set;
+      collection = createQueryCollection({
+        runtime,
+        query,
+        inputs: () => [id()],
+        key: (value) => value,
+      });
+      if (fail()) throw new Error('sibling render failed');
+      return <p>{collection.get(id())?.query.data?.id ?? 'missing'}</p>;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      expect(container.textContent).toBe('a');
+      expect(collection.entries.map((entry) => entry.key)).toEqual(['a']);
+
+      setId('b');
+      setFail(true);
+      flushIgnoringRenderFailure();
+
+      expect(container.textContent).toBe('a');
+      expect(collection.entries.map((entry) => entry.key)).toEqual(['a']);
+      expect(collection.get('a')?.query.data).toEqual({ id: 'a' });
+      expect(runtime.queryData.get('collection-rollback:b')).toEqual({
+        id: 'b',
+      });
+
+      setFail(false);
+      flushScheduler();
+      expect(container.textContent).toBe('b');
+      expect(collection.entries.map((entry) => entry.key)).toEqual(['b']);
+      expect(fetch).not.toHaveBeenCalled();
+      expect(runtime.queryData.has('collection-rollback:b')).toBe(false);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should retain the committed fetch definition when a collection render rolls back', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const runtime = createDataRuntime();
+    runtime.queryData.set('collection-definition:shared', { id: 'seed' });
+    const committedFetch = vi.fn(async () => ({ id: 'committed' }));
+    const discardedFetch = vi.fn(async () => ({ id: 'discarded' }));
+    const committedQuery = defineQuery({
+      key: () => 'collection-definition:shared',
+      fetch: committedFetch,
+    });
+    const discardedQuery = defineQuery({
+      key: () => 'collection-definition:shared',
+      fetch: discardedFetch,
+    });
+    let setDiscarded!: (value: boolean) => void;
+    let setFail!: (value: boolean) => void;
+    let collection!: QueryCollection<string, { id: string }>;
+    const App = (): JSXElement => {
+      const discarded = state(false);
+      const fail = state(false);
+      setDiscarded = discarded.set;
+      setFail = fail.set;
+      collection = createQueryCollection({
+        runtime,
+        query: discarded() ? discardedQuery : committedQuery,
+        inputs: () => ['shared'],
+        key: (id) => id,
+      });
+      if (fail()) throw new Error('sibling render failed');
+      return <p>static</p>;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      expect(collection.get('shared')?.query.data).toEqual({ id: 'seed' });
+
+      setDiscarded(true);
+      setFail(true);
+      flushIgnoringRenderFailure();
+      expect(collection.get('shared')?.query.data).toEqual({ id: 'seed' });
+
+      const pending = collection.get('shared')!.query.refresh();
+      flushIgnoringRenderFailure();
+      await pending;
+
+      expect(committedFetch).toHaveBeenCalledOnce();
+      expect(discardedFetch).not.toHaveBeenCalled();
+      expect(collection.get('shared')?.query.data).toEqual({ id: 'committed' });
+
+      setDiscarded(false);
+      setFail(false);
+      flushScheduler();
+    } finally {
+      cleanup();
+    }
+  });
+
   it('should ignore a removed member that settles after its replacement starts', async () => {
     let setKeys!: (value: readonly string[]) => void;
     let collection!: QueryCollection<string, { value: string }, string>;
@@ -368,6 +490,72 @@ describe('query collections', () => {
       finish.get('c')?.();
       await settleCollection(strict);
       expect(strict.settled).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('should keep active shared invalidation work when its initiating collection drops the entry', async () => {
+    const runtime = createDataRuntime();
+    let attempts = 0;
+    let activeSignal!: AbortSignal;
+    let finish!: (value: { attempt: number }) => void;
+    const query = defineQuery({
+      key: (id: string) => `active-handoff:${id}`,
+      fetch: (_id: string, { signal }: { signal: AbortSignal }) => {
+        attempts += 1;
+        if (attempts === 1) return Promise.resolve({ attempt: attempts });
+        activeSignal = signal;
+        return new Promise<{ attempt: number }>((resolve) => {
+          finish = resolve;
+        });
+      },
+    });
+    let setFirstInputs!: (inputs: readonly string[]) => void;
+    let first!: QueryCollection<string, { attempt: number }>;
+    let remaining!: QueryCollection<string, { attempt: number }>;
+    const App = (): JSXElement => {
+      const inputs = state<readonly string[]>(['shared']);
+      setFirstInputs = inputs.set;
+      first = createQueryCollection({
+        runtime,
+        query,
+        inputs,
+        key: (id) => id,
+        concurrency: 1,
+      });
+      remaining = createQueryCollection({
+        runtime,
+        query,
+        inputs: () => ['shared'],
+        key: (id) => id,
+        concurrency: 1,
+      });
+      return <div>{remaining.entries.length}</div>;
+    };
+    const { container, cleanup } = createTestContainer();
+    try {
+      createIsland({ root: container, component: App });
+      flushScheduler();
+      await settleCollection(first);
+      await settleCollection(remaining);
+      await settle();
+
+      invalidate('active-handoff:', { runtime });
+      flushScheduler();
+      expect(attempts).toBe(2);
+      expect(remaining.get('shared')?.query.refreshing).toBe(true);
+
+      setFirstInputs([]);
+      flushScheduler();
+      expect(activeSignal.aborted).toBe(false);
+      expect(first.get('shared')).toBeUndefined();
+      expect(remaining.get('shared')?.query.refreshing).toBe(true);
+
+      finish({ attempt: 2 });
+      await settleCollection(remaining);
+      expect(remaining.get('shared')?.query.data).toEqual({ attempt: 2 });
+      expect(attempts).toBe(2);
     } finally {
       cleanup();
     }
