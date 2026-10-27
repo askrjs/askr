@@ -552,7 +552,9 @@ cancelled only when every navigation waiting on it has gone.
   `invalidate('route-data:')` clears all route data. Invalidating also stops
   an in-flight request from storing its result. Call it after a mutation that
   changes what a loader returns.
-- Up to 100 entries are kept per runtime, least recently used first.
+- Up to 100 settled entries are kept per runtime, least recently used first.
+  Active requests may temporarily exceed that count so concurrent navigations
+  can continue to share them; eligible entries are evicted as requests settle.
 - `navigationState().revalidating` is true while a background revalidation is
   in flight (see the [navigation guide](../guides/navigation.md)).
 - `hydrateSPA()` seeds the cache with the server-rendered first page's loader

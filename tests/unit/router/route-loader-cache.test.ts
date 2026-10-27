@@ -74,13 +74,77 @@ describe('route loader cache', () => {
       );
     }
 
-    expect(entries.size).toBe(ROUTE_LOADER_CACHE_LIMIT);
-    expect(entries.has(`route-${ROUTE_LOADER_CACHE_LIMIT}`)).toBe(false);
+    expect(entries.size).toBe(ROUTE_LOADER_CACHE_LIMIT + 1);
+    expect(entries.has(`route-${ROUTE_LOADER_CACHE_LIMIT}`)).toBe(true);
     resolvers[0]!(0);
     await requests[0];
 
     expect(entries.size).toBeLessThanOrEqual(ROUTE_LOADER_CACHE_LIMIT);
     for (const controller of controllers) controller.abort();
+  });
+
+  it('should share a new request when the route cache is full of in-flight entries', async () => {
+    const dataRuntime = runtime();
+    const controllers: AbortController[] = [];
+    const started: Array<ReturnType<typeof deferred<number>>> = [];
+    const load = (key: string) => {
+      const controller = new AbortController();
+      const request = deferred<number>();
+      controllers.push(controller);
+      return loadThroughCache(
+        dataRuntime,
+        key,
+        () => {
+          started.push(request);
+          return request.promise;
+        },
+        { signal: controller.signal, staleTimeMs: 'always' }
+      );
+    };
+
+    for (let index = 0; index < ROUTE_LOADER_CACHE_LIMIT; index += 1) {
+      load(`in-flight-${index}`);
+    }
+
+    const first = load('new-key');
+    const second = load('new-key');
+
+    expect(started).toHaveLength(ROUTE_LOADER_CACHE_LIMIT + 1);
+    expect(first.value).toBe(second.value);
+
+    started.forEach((request, index) => request.resolve(index));
+    await Promise.all(started.map((request) => request.promise));
+    for (const controller of controllers) controller.abort();
+  });
+
+  it('should publish the in-flight entry before invoking a reentrant loader', async () => {
+    const dataRuntime = runtime();
+    const controller = new AbortController();
+    let starts = 0;
+    let nested: ReturnType<typeof loadThroughCache> | undefined;
+    const first = loadThroughCache(
+      dataRuntime,
+      'reentrant',
+      () => {
+        starts += 1;
+        nested = loadThroughCache(
+          dataRuntime,
+          'reentrant',
+          () => {
+            starts += 1;
+            return Promise.resolve('duplicate');
+          },
+          { signal: controller.signal, staleTimeMs: 'always' }
+        );
+        return Promise.resolve('shared');
+      },
+      { signal: controller.signal, staleTimeMs: 'always' }
+    );
+
+    expect(starts).toBe(1);
+    expect(nested?.value).toBe(first.value);
+    await expect(first.value).resolves.toBe('shared');
+    controller.abort();
   });
 
   it('should render cached data immediately and revalidate in the background on a repeat visit', async () => {

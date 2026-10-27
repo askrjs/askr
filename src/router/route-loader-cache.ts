@@ -138,9 +138,13 @@ function startRequest(
   background: boolean
 ): NonNullable<RouteLoaderEntry['inflight']> {
   const controller = new AbortController();
-  const promise: Promise<unknown> = new Promise<unknown>((resolve) =>
-    resolve(run(controller.signal))
-  ).then(
+  let resolveRun!: (value: unknown) => void;
+  let rejectRun!: (reason: unknown) => void;
+  const result = new Promise<unknown>((resolve, reject) => {
+    resolveRun = resolve;
+    rejectRun = reject;
+  });
+  const promise: Promise<unknown> = result.then(
     (data) => {
       if (entry.inflight?.promise === promise) delete entry.inflight;
       // An invalidation replaced or removed the entry: do not resurrect it.
@@ -150,16 +154,23 @@ function startRequest(
         entry.completedAt = Date.now();
         touch(entries, key);
       }
+      evict(entries);
       return data;
     },
     (error: unknown) => {
       if (entry.inflight?.promise === promise) delete entry.inflight;
       if (!entry.hasData && entries.get(key) === entry) entries.delete(key);
+      evict(entries);
       throw error;
     }
   );
   const inflight = { promise, controller, waiters: 0, background };
   entry.inflight = inflight;
+  try {
+    resolveRun(run(controller.signal));
+  } catch (error) {
+    rejectRun(error);
+  }
   return inflight;
 }
 
@@ -187,7 +198,6 @@ export function loadThroughCache(
   if (!entry) {
     entry = { hasData: false, data: undefined, completedAt: 0 };
     entries.set(key, entry);
-    evict(entries);
   } else {
     touch(entries, key);
   }
@@ -212,6 +222,7 @@ export function loadThroughCache(
 
   const inflight =
     entry.inflight ?? startRequest(entries, key, entry, run, false);
+  if (!entry.hasData && inflight.waiters === 0) evict(entries);
   inflight.background = false;
   inflight.waiters += 1;
   // A navigation keeps the request's signal alive after the request settles:

@@ -4,6 +4,7 @@
 
 ### Fixes
 
+- Keep newly started route loader requests joinable when the cache is full, then evict settled entries to restore the cache limit.
 - Restore radio-group peers when a failed DOM commit rolls back a checked input's name or type change.
 - Stop queued hydration interactions if replay is aborted during a handler.
 - Serialize static generation into overlapping parent and child output directories within the same process.
