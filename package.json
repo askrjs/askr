@@ -153,7 +153,7 @@
     "@askrjs/schema": ">=0.5.0 <0.6.0",
     "@testing-library/dom": "10.4.2",
     "@testing-library/user-event": "14.6.8",
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "@typescript/typescript6": "^6.0.2",
     "@vitest/browser-playwright": "5.0.5",
     "@vitest/coverage-v8": "5.0.5",
