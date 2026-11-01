@@ -167,8 +167,8 @@ try {
     })
   );
   const compilers = [
-    'node_modules/@typescript/typescript6/bin/tsc6',
-    'node_modules/typescript/bin/tsc',
+    'node_modules/typescript/bin/tsc6',
+    'node_modules/@typescript/native/bin/tsc',
   ].map((entry) => resolve(repositoryRoot, entry));
   writeFileSync(
     join(consumerRoot, 'tsconfig-accessible-node-next.json'),

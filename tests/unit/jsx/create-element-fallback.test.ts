@@ -1,4 +1,4 @@
-import ts from '@typescript/typescript6';
+import ts from 'typescript';
 import { describe, expect, it } from 'vite-plus/test';
 import * as root from '../../../src/index';
 import { STATIC_CHILDREN } from '../../../src/common/jsx';

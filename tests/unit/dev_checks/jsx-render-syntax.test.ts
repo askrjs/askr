@@ -3,7 +3,7 @@
 import { describe, it, expect } from 'vite-plus/test';
 import fs from 'node:fs';
 import path from 'node:path';
-import ts from '@typescript/typescript6';
+import ts from 'typescript';
 
 const rootDir = path.resolve(__dirname, '..', '..', '..');
 const sourceRoots = [

@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import ts from '@typescript/typescript6';
+import ts from 'typescript';
 import type { ExportInventory } from './scanner.ts';
 
 export interface SourceIdentity {
