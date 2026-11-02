@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import ts from '@typescript/typescript6';
+import ts from 'typescript';
 import {
   afterAll,
   afterEach,

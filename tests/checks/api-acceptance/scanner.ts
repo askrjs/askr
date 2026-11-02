@@ -1,4 +1,4 @@
-import ts from '@typescript/typescript6';
+import ts from 'typescript';
 
 export interface ExportInventory {
   packages: { name: string; repo: string }[];

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import ts from '@typescript/typescript6';
+import ts from 'typescript';
 import { scanText, type Hit } from './scanner.ts';
 import {
   hash,
@@ -112,19 +112,17 @@ export function receiptInputs() {
     };
   });
   const require = createRequire(import.meta.url);
-  const compilerEntry = require.resolve('@typescript/typescript6');
+  const compilerEntry = require.resolve('typescript');
+  const compilerManifest = JSON.parse(
+    fs.readFileSync(require.resolve('typescript/package.json'), 'utf8')
+  );
   const implementation =
     createRequire(compilerEntry).resolve('@typescript/old');
   return {
     compiler: ts.version,
     compilerPackage: {
-      name: '@typescript/typescript6',
-      version: JSON.parse(
-        fs.readFileSync(
-          require.resolve('@typescript/typescript6/package.json'),
-          'utf8'
-        )
-      ).version,
+      name: compilerManifest.name,
+      version: compilerManifest.version,
       entrySha256: hash(fs.readFileSync(compilerEntry)),
     },
     compilerSha256: hash(fs.readFileSync(implementation)),
