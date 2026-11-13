@@ -152,7 +152,7 @@
     "@askrjs/auth": ">=0.5.0 <0.6.0",
     "@askrjs/schema": ">=0.5.0 <0.6.0",
     "@testing-library/dom": "10.4.2",
-    "@testing-library/user-event": "14.6.8",
+    "@testing-library/user-event": "14.6.9",
     "@types/node": "^26.6.6",
     "@typescript/native": "npm:typescript@^7.0.2",
     "@vitest/browser-playwright": "5.0.5",
