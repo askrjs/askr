@@ -287,17 +287,24 @@ function isRenderResult(
 
 /** Tear down a test render, given either its {@link RenderResult} or container element. */
 export function cleanup(target: RenderResult | HTMLElement): void {
-  cleanupContainer(isRenderResult(target) ? target.container : target);
+  if (isRenderResult(target)) target.cleanup();
+  else cleanupContainer(target);
 }
 
-function createRenderResult(container: HTMLElement): RenderResult {
+function createRenderResult(
+  container: HTMLElement,
+  state: RenderState
+): RenderResult {
+  const unmount = () => {
+    if (state.active) cleanupContainer(container);
+  };
   return {
     container,
     root: container,
     flush,
     dispatch,
-    unmount: () => cleanupContainer(container),
-    cleanup: () => cleanupContainer(container),
+    unmount,
+    cleanup: unmount,
   };
 }
 
@@ -322,7 +329,7 @@ export function render(
       dataRuntime: options?.dataRuntime,
     });
     flush();
-    return createRenderResult(container);
+    return createRenderResult(container, state);
   } catch (error) {
     cleanupContainer(container);
     throw error;
@@ -364,7 +371,7 @@ export async function renderRoute(
       cleanupStrict: options.cleanupStrict,
     });
     flush();
-    return createRenderResult(container);
+    return createRenderResult(container, state);
   } catch (error) {
     cleanupContainer(container);
     throw error;
