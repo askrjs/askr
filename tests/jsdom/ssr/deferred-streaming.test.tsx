@@ -8,7 +8,7 @@ import {
 import { currentRoute } from '../../../src/router/activity';
 import { Link } from '../../../src/components/link';
 import { defer, Resolve, routeData } from '../../../src/router/deferred';
-import { state } from '../../../src/index';
+import { defineScope, readScope, state } from '../../../src/index';
 import {
   renderRouteRequest,
   renderRouteRequestToString,
@@ -447,6 +447,118 @@ describe('deferred route streaming', () => {
       cleanup();
     }
   });
+
+  it.each(['drain', 'cancel'])(
+    'should render settled patches only when read (%s)',
+    async (mode) => {
+      let release!: () => void;
+      const pending = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let patches = 0;
+      const registry = createRouteRegistry(() => {
+        route('/', () => (
+          <main>
+            {Array.from({ length: 40 }, (_, i) => (
+              <Resolve value={defer(pending)} pending="waiting">
+                {() => {
+                  patches++;
+                  return <p>{i}</p>;
+                }}
+              </Resolve>
+            ))}
+          </main>
+        ));
+      });
+      const result = await renderRouteRequest({ url: '/', registry });
+      if (result.kind !== 'render' || !result.stream)
+        throw new Error('expected stream');
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(patches).toBe(0);
+      const reader = result.stream.getReader();
+      expect(new TextDecoder().decode((await reader.read()).value)).toContain(
+        'waiting'
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(patches).toBeLessThanOrEqual(1);
+      if (mode === 'cancel') {
+        const alreadyRendered = patches;
+        await reader.cancel();
+        expect((await reader.read()).done).toBe(true);
+        expect(patches).toBe(alreadyRendered);
+      } else {
+        let read = 0;
+        for (;;) {
+          const next = await reader.read();
+          if (next.done) break;
+          if (
+            new TextDecoder()
+              .decode(next.value)
+              .includes('data-askr-deferred-patch=')
+          )
+            read++;
+          expect(patches).toBeLessThanOrEqual(read + 1);
+        }
+        expect(read).toBe(40);
+        expect(patches).toBe(40);
+      }
+    }
+  );
+
+  it.each(['fulfilled', 'rejected'])(
+    'should restore the nearest lexical scope for delayed %s content',
+    async (branch) => {
+      const Locale = defineScope('missing');
+      let release!: (value: string) => void;
+      const pending = new Promise<string>((resolve, reject) => {
+        release =
+          branch === 'fulfilled' ? resolve : () => reject(new Error('failed'));
+      });
+      const registry = createRouteRegistry(() => {
+        route(
+          '/',
+          () => (
+            <Locale value="outer">
+              <Locale value="bonjour">
+                <Resolve
+                  value={routeData<DeferredPageData>().message}
+                  pending="loading"
+                  rejected={() => <p>{readScope(Locale)}</p>}
+                >
+                  {() => <p>{readScope(Locale)}</p>}
+                </Resolve>
+              </Locale>
+            </Locale>
+          ),
+          { loader: () => ({ message: defer(pending) }) }
+        );
+      });
+      const result = await renderRouteRequest({ url: '/', registry });
+      if (result.kind !== 'render' || !result.stream)
+        throw new Error('expected stream');
+      const reader = result.stream.getReader();
+      const decoder = new TextDecoder();
+      const shell = decoder.decode((await reader.read()).value);
+      expect(shell).toContain('loading');
+      release('ready');
+      const patch = decoder.decode((await reader.read()).value);
+      expect(patch).toContain('<p>bonjour</p>');
+      const hydration = decoder.decode((await reader.read()).value);
+      const { container, cleanup } = createTestContainer();
+      try {
+        container.innerHTML = shell + patch + hydration;
+        await hydrateSPA({
+          root: container,
+          registry,
+          hydrate: { verifyMarkup: true },
+        });
+        expect(container.querySelector('p')?.textContent).toBe('bonjour');
+      } finally {
+        cleanup();
+      }
+    }
+  );
 
   it('should flush fallback first and then emit a deterministic fulfilled patch', async () => {
     let release!: (value: string) => void;

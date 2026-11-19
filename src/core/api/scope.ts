@@ -5,7 +5,7 @@
  */
 
 import { ELEMENT_TYPE, Fragment, type JSXElement } from '../../common/jsx';
-import { getOwner } from '../reactive/owner';
+import { getOwner, type Owner } from '../reactive/owner';
 import { currentComponent } from './hooks';
 
 type ScopeChildren = unknown;
@@ -23,8 +23,30 @@ interface ProviderProps {
   children?: ScopeChildren;
 }
 
+// Only lexical providers are copied into a deferred pass. Other owner context
+// (including the application runtime) belongs to its original render.
+const scopes = new WeakMap<Owner, ReadonlyMap<symbol, unknown>>();
+
+export function captureScope(): () => void {
+  const values = new Map<symbol, unknown>();
+  for (let owner = getOwner(); owner; owner = owner.parent) {
+    for (const [key, value] of scopes.get(owner) ?? []) {
+      if (!values.has(key)) values.set(key, value);
+    }
+  }
+  return () => {
+    const owner = getOwner();
+    if (!owner) return;
+    for (const [key, value] of values) owner.setContext(key, value);
+    scopes.set(owner, values);
+  };
+}
+
 function ScopeProvider(props: ProviderProps): unknown {
-  currentComponent()?.provide(props.scopeKey, props.value);
+  const instance = currentComponent();
+  if (instance?.serverContext)
+    scopes.set(instance, new Map([[props.scopeKey, props.value]]));
+  instance?.provide(props.scopeKey, props.value);
   if (typeof Node !== 'undefined' && props.children instanceof Node) {
     return null;
   }
