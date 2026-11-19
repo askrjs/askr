@@ -8,9 +8,9 @@
     "entrySha256": "d3f3cd2b04b7f466f4484df921b744223f7bd1f3e353ec9110bdf52695b983d5"
   },
   "compilerSha256": "569177652966bd528c319171c7dd22860dbf72bde116cbc4f644f1d02bb12e39",
-  "packageLockSha256": "a5eb993994f7f9e8c413003d137df37524796626c8d879393cb1b1f70eea2aa7",
+  "packageLockSha256": "1548c2647bc500aeb500df422c79d34480a7b13a354ef502430f98cc8274dacc",
   "inventorySha256": "ec7d24688639b94b194265bf085a83ee403283b3ed78dbd00262b034182939f9",
-  "dispositionsSha256": "5dbef7143c3a86ef6ff16416e897ce99bef1ac9f9a5e13ef793188e393cba323",
+  "dispositionsSha256": "c2f67cf2344467a8c30f32d7a85e556abdd13654aef1ca783306aec6d29b1f41",
   "searchTools": [
     {
       "path": "tests/checks/api-acceptance/scanner.ts",
@@ -157,10 +157,10 @@
     },
     {
       "repo": "askrjs/askr-examples",
-      "commit": "a10fe69f56357c1891711aa2b51d6593e8db74d0",
-      "tree": "6c9f66ef7dd27c616628071218a98fc78c547288",
-      "files": 153,
-      "filesSha256": "fe30d7be733f7ef7bf4323e94bdec80964b280447fa7160916189de2ce287b54"
+      "commit": "c4292c52e15516c1534a45b10301a0cd5fe99e46",
+      "tree": "4b3c6d5e8a160a4c2ac51eada98476ca5e97ac74",
+      "files": 160,
+      "filesSha256": "c9f264d01aea6fe1b3012d4f4591c4c69563db5a968a1ba89d1993857128ac85"
     },
     {
       "repo": "askrjs/website",
@@ -170,7 +170,7 @@
       "filesSha256": "9da5a5f24a9075b0537922f8d7748d18740033c5e38d48f7375ea91eb3d81ee4"
     }
   ],
-  "files": 3169,
+  "files": 3176,
   "importReferenceChecks": 13178,
   "executableStaleCallersFound": 0,
   "deliberateNegativeReferences": 219,

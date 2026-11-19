@@ -3,7 +3,7 @@
   "consumerSources": [
     {
       "repo": "askrjs/askr-examples",
-      "commit": "a10fe69f56357c1891711aa2b51d6593e8db74d0"
+      "commit": "c4292c52e15516c1534a45b10301a0cd5fe99e46"
     },
     {
       "repo": "askrjs/website",
