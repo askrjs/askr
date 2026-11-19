@@ -1,3 +1,4 @@
+import { captureScope } from '../core/api/scope';
 import {
   getActiveRenderContext,
   getCurrentRenderData,
@@ -151,10 +152,17 @@ export function Resolve<T>(props: ResolveProps<T>): JSXElement {
     return rejectedChild(props, props.value.error) as unknown as JSXElement;
   }
   if (renderContext) {
+    const restoreScope = captureScope();
     const id = registerDeferredBoundary(renderContext, {
       promise: props.value.promise,
-      fulfilled: (value) => props.children(value as T),
-      rejected: (error) => rejectedChild(props, error),
+      fulfilled: (value) => {
+        restoreScope();
+        return props.children(value as T);
+      },
+      rejected: (error) => {
+        restoreScope();
+        return rejectedChild(props, error);
+      },
     });
     return {
       type: DEFERRED_BOUNDARY,
