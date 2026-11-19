@@ -93,6 +93,7 @@ describe('deep element-wrapped component chains', () => {
     try {
       createIsland({
         root: container,
+        hydrate: false,
         component: () => <Chain remaining={OVERFLOWING_DEPTH} label={'a'} />,
       });
       flushScheduler();
