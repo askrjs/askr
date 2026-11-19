@@ -49,20 +49,20 @@ describe('style object value sanitizer', () => {
     });
     flushScheduler();
     const style = mounted.container.querySelector('div')!.style;
-    expect(style.getPropertyValue('grid-template-columns')).toBe(
-      'repeat(3, minmax(0, 1fr))'
-    );
-    expect(style.getPropertyValue('transform')).toBe(
-      'translate3d(1px, 2px, 3px) rotate3d(1, 0, 0, 45deg)'
-    );
-    expect(style.getPropertyValue('filter')).toBe(
-      'blur(4px) drop-shadow(0 0 2px red)'
-    );
-    expect(style.getPropertyValue('backdrop-filter')).toBe('blur(2px)');
-    expect(style.getPropertyValue('clip-path')).toBe(
-      'polygon(0 0, 100% 0, 100% 100%)'
-    );
-    expect(style.getPropertyValue('content')).toBe('"\u201C"');
+    const reference = document.createElement('div').style;
+    Object.assign(reference, ordinary);
+    for (const name of [
+      'grid-template-columns',
+      'transform',
+      'filter',
+      'backdrop-filter',
+      'clip-path',
+      'content',
+    ]) {
+      const expected = reference.getPropertyValue(name);
+      expect(expected).not.toBe('');
+      expect(style.getPropertyValue(name)).toBe(expected);
+    }
     expect(style.getPropertyValue('width')).toBe('');
     expect(style.getPropertyValue('background-image')).toBe('');
     expect(style.getPropertyValue('mask-image')).toBe('');
