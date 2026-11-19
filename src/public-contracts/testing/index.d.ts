@@ -73,7 +73,7 @@ declare function mount(
   component: ComponentFunction,
   options?: RenderOptions
 ): RenderResult;
-/** Mount a routed app (via {@link createSPA}) into a test container for the given route registry. */
+/** Mount a routed app for the given registry after cleaning up any component renders. */
 declare function renderRoute(
   options: RouteRenderOptions
 ): Promise<RenderResult>;

@@ -13,6 +13,10 @@ import { validateCspNonce } from '../csp-nonce';
  */
 export function createIsland(config: IslandConfig): void {
   assertExecutionModel('islands');
+  return mountIsland(config);
+}
+
+export function mountIsland(config: IslandConfig): void {
   if (!config || typeof config !== 'object') {
     throw new Error('createIsland requires a config object');
   }

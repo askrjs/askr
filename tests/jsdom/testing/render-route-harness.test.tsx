@@ -2,7 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { currentRoute, createRouteRegistry, route } from '@askrjs/askr/router';
 import { createQuery, queryScope } from '@askrjs/askr/data';
 import { createQueryTestRegistry, mockQuery } from '@askrjs/askr/testing';
-import { renderRoute, type RenderResult } from '@askrjs/askr/testing';
+import {
+  cleanup,
+  render,
+  renderRoute,
+  type RenderResult,
+} from '@askrjs/askr/testing';
 
 let mounted: RenderResult | undefined;
 
@@ -12,6 +17,36 @@ afterEach(() => {
 });
 
 describe('testing routed render harness', () => {
+  it('should switch models only after the last test root is released', async () => {
+    const registry = createRouteRegistry(() => route('/', () => <h1>Home</h1>));
+    const component = () => <p>Island</p>;
+    const first = render(component);
+    const second = render(component);
+    first.unmount();
+    first.cleanup();
+    await expect(renderRoute({ registry })).rejects.toThrow(
+      'mixing execution models'
+    );
+    second.cleanup();
+    mounted = await renderRoute({ registry, url: '/' });
+    expect(mounted.root.textContent).toBe('Home');
+    mounted.cleanup();
+    mounted = render(component);
+    expect(mounted.root.textContent).toBe('Island');
+  });
+
+  it('should keep the current render when a retired handle is cleaned up again', async () => {
+    const container = document.createElement('div');
+    const registry = createRouteRegistry(() => route('/', () => <h1>Home</h1>));
+    const previous = render(() => <p>Previous</p>, { container });
+    previous.cleanup();
+    mounted = await renderRoute({ container, registry, url: '/' });
+    cleanup(previous);
+    previous.unmount();
+    expect(mounted.root.textContent).toBe('Home');
+    expect(() => render(() => <p>Other</p>)).toThrow('mixing execution models');
+  });
+
   it('should fail clearly without a browser-like window', async () => {
     const registry = createRouteRegistry(() => {
       route('/', () => <h1>{'home'}</h1>);

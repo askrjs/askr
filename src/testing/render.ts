@@ -1,6 +1,9 @@
 import type { ComponentFunction } from '../common/component';
 import type { RouteAuthOptions, RouteRegistry } from '../common/router';
-import { cleanupApp, createIsland, createSPA } from '../boot';
+import { cleanupApp } from '../boot';
+import { mountIsland } from '../boot/islands';
+import { mountSPA } from '../boot/spa';
+import { acquireTestExecutionModel } from '../common/execution-model';
 import { flushSync as flushRuntimeScheduler } from '../core/reactive/scheduler';
 
 /** Options for {@link render} and {@link mount}. */
@@ -55,6 +58,7 @@ export interface RenderResult {
 interface RenderState {
   active: boolean;
   managed: boolean;
+  releaseModel?: () => void;
   restoreHistory?: History;
   restoreUrl?: string;
 }
@@ -263,6 +267,7 @@ function cleanupContainer(container: HTMLElement): void {
   try {
     cleanupApp(container);
   } finally {
+    state.releaseModel?.();
     container.replaceChildren();
     if (state.managed) {
       container.remove();
@@ -282,17 +287,24 @@ function isRenderResult(
 
 /** Tear down a test render, given either its {@link RenderResult} or container element. */
 export function cleanup(target: RenderResult | HTMLElement): void {
-  cleanupContainer(isRenderResult(target) ? target.container : target);
+  if (isRenderResult(target)) target.cleanup();
+  else cleanupContainer(target);
 }
 
-function createRenderResult(container: HTMLElement): RenderResult {
+function createRenderResult(
+  container: HTMLElement,
+  state: RenderState
+): RenderResult {
+  const unmount = () => {
+    if (state.active) cleanupContainer(container);
+  };
   return {
     container,
     root: container,
     flush,
     dispatch,
-    unmount: () => cleanupContainer(container),
-    cleanup: () => cleanupContainer(container),
+    unmount,
+    cleanup: unmount,
   };
 }
 
@@ -307,16 +319,17 @@ export function render(
     );
   }
 
-  const { container } = prepareContainer(options);
+  const { container, state } = prepareContainer(options);
   try {
-    createIsland({
+    state.releaseModel = acquireTestExecutionModel('islands');
+    mountIsland({
       root: container,
       component,
       cleanupStrict: options?.cleanupStrict,
       dataRuntime: options?.dataRuntime,
     });
     flush();
-    return createRenderResult(container);
+    return createRenderResult(container, state);
   } catch (error) {
     cleanupContainer(container);
     throw error;
@@ -331,7 +344,7 @@ export function mount(
   return render(component, options);
 }
 
-/** Mount a routed app (via {@link createSPA}) into a test container for the given route registry. */
+/** Mount a routed app for the given registry after cleaning up any component renders. */
 export async function renderRoute(
   options: RouteRenderOptions
 ): Promise<RenderResult> {
@@ -344,12 +357,13 @@ export async function renderRoute(
   const currentWindow = requireWindow();
   const { container, state } = prepareContainer(options);
   try {
+    state.releaseModel = acquireTestExecutionModel('spa');
     if (options.url !== undefined) {
       state.restoreHistory = currentWindow.history;
       state.restoreUrl = `${currentWindow.location.pathname}${currentWindow.location.search}${currentWindow.location.hash}`;
       currentWindow.history.replaceState({}, '', options.url);
     }
-    await createSPA({
+    await mountSPA({
       root: container,
       registry: options.registry,
       auth: options.auth,
@@ -357,7 +371,7 @@ export async function renderRoute(
       cleanupStrict: options.cleanupStrict,
     });
     flush();
-    return createRenderResult(container);
+    return createRenderResult(container, state);
   } catch (error) {
     cleanupContainer(container);
     throw error;
