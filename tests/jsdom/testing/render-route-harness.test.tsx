@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { currentRoute, createRouteRegistry, route } from '@askrjs/askr/router';
 import { createQuery, queryScope } from '@askrjs/askr/data';
 import { createQueryTestRegistry, mockQuery } from '@askrjs/askr/testing';
-import { renderRoute, type RenderResult } from '@askrjs/askr/testing';
+import { render, renderRoute, type RenderResult } from '@askrjs/askr/testing';
 
 let mounted: RenderResult | undefined;
 
@@ -12,6 +12,24 @@ afterEach(() => {
 });
 
 describe('testing routed render harness', () => {
+  it('should switch models only after the last test root is released', async () => {
+    const registry = createRouteRegistry(() => route('/', () => <h1>Home</h1>));
+    const component = () => <p>Island</p>;
+    const first = render(component);
+    const second = render(component);
+    first.unmount();
+    first.cleanup();
+    await expect(renderRoute({ registry })).rejects.toThrow(
+      'mixing execution models'
+    );
+    second.cleanup();
+    mounted = await renderRoute({ registry, url: '/' });
+    expect(mounted.root.textContent).toBe('Home');
+    mounted.cleanup();
+    mounted = render(component);
+    expect(mounted.root.textContent).toBe('Island');
+  });
+
   it('should fail clearly without a browser-like window', async () => {
     const registry = createRouteRegistry(() => {
       route('/', () => <h1>{'home'}</h1>);

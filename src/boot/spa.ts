@@ -63,6 +63,10 @@ import { getSessionAuthState } from '../router/session-auth-state';
  */
 export async function createSPA(config: SPAConfig): Promise<void> {
   assertExecutionModel('spa');
+  return mountSPA(config);
+}
+
+export async function mountSPA(config: SPAConfig): Promise<void> {
   if (!config || typeof config !== 'object') {
     throw new Error('createSPA requires a config object');
   }

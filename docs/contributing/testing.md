@@ -171,9 +171,8 @@ button. Use distinct document-wide IDs for their label/description targets.
 For a routed screen, await `renderRoute({ registry, url, dataRuntime })`, then
 use the same query/interaction recipe; keep one routed view per realm because
 the router shares browser history. Ordinary component renders use the islands
-execution model; routed renders use SPA. Keep these in separate test files with
-isolated DOM realms. Cleanup does not permit mixing execution models in one
-realm. Author the application registry before bootstrapping its SPA, as in an
+execution model. Routed renders use SPA. You can test both in one file. Call
+`cleanup()` or `unmount()` on every active view before switching models. Author the application registry before bootstrapping its SPA, as in an
 application.
 
 Await every interaction before flushing or tearing down its view. Create a
