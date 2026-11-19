@@ -234,8 +234,22 @@ function createDeferredRenderStream(
   let cancelled = false;
   let closed = false;
   let unsettled = 0;
+  const ready: (() => void)[] = [];
+  const drain = (controller: ReadableStreamDefaultController<Uint8Array>) => {
+    while (
+      !closed &&
+      !cancelled &&
+      (controller.desiredSize ?? 0) > 0 &&
+      ready.length
+    ) {
+      ready.shift()!();
+    }
+  };
   let controllerRef: ReadableStreamDefaultController<Uint8Array> | undefined;
-  const cleanup = () => signal.removeEventListener('abort', abort);
+  const cleanup = () => {
+    ready.length = 0;
+    signal.removeEventListener('abort', abort);
+  };
   const close = (controller: ReadableStreamDefaultController<Uint8Array>) => {
     if (closed) return;
     closed = true;
@@ -270,32 +284,35 @@ function createDeferredRenderStream(
       )
       .then(({ state, payload }) => {
         if (cancelled || closed || local.signal.aborted) return;
-        try {
-          const rendered = renderBoundary(boundary, state, payload, pass);
-          controller.enqueue(
-            encoder.encode(
-              patchChunk(
-                boundary.id,
-                rendered.html,
-                rendered.styles,
-                pass.cspNonce
+        ready.push(() => {
+          try {
+            const rendered = renderBoundary(boundary, state, payload, pass);
+            controller.enqueue(
+              encoder.encode(
+                patchChunk(
+                  boundary.id,
+                  rendered.html,
+                  rendered.styles,
+                  pass.cspNonce
+                )
               )
-            )
-          );
-          for (const nested of rendered.boundaries) {
-            streamBoundary(controller, nested);
+            );
+            for (const nested of rendered.boundaries) {
+              streamBoundary(controller, nested);
+            }
+            unsettled -= 1;
+            if (unsettled > 0) return;
+            const hydration = serializeHydrationRenderData(
+              pass.data ?? undefined,
+              runtime
+            );
+            if (hydration) controller.enqueue(encoder.encode(hydration));
+            close(controller);
+          } catch (error) {
+            fail(controller, error);
           }
-          unsettled -= 1;
-          if (unsettled > 0) return;
-          const hydration = serializeHydrationRenderData(
-            pass.data ?? undefined,
-            runtime
-          );
-          if (hydration) controller.enqueue(encoder.encode(hydration));
-          close(controller);
-        } catch (error) {
-          fail(controller, error);
-        }
+        });
+        drain(controller);
       });
   };
 
@@ -309,6 +326,7 @@ function createDeferredRenderStream(
       controller.enqueue(encoder.encode(stripHydrationPayload(initialHtml)));
       for (const boundary of boundaries) streamBoundary(controller, boundary);
     },
+    pull: drain,
     cancel(reason) {
       cancelled = true;
       local.abort(reason);
