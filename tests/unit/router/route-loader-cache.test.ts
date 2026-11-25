@@ -98,6 +98,28 @@ describe('route loader cache', () => {
     }
   });
 
+  it('should retire revalidation that was removed from the cache by invalidation', async () => {
+    const dataRuntime = runtime();
+    const refresh = deferred<string>();
+    const key = 'route-data:/post';
+    seedLoaderCache(dataRuntime, key, 'cached');
+    const load = loadThroughCache(dataRuntime, key, () => refresh.promise, {
+      signal: new AbortController().signal,
+      staleTimeMs: 'always',
+    });
+    try {
+      expect(activeRouteRevalidations()).toBe(1);
+      invalidate(key, { runtime: dataRuntime });
+      expect(load.isRevalidationCurrent?.()).toBe(false);
+      disposeDataRuntime(dataRuntime);
+      expect(activeRouteRevalidations()).toBe(0);
+    } finally {
+      refresh.resolve('late');
+      await load.revalidation;
+    }
+    expect(activeRouteRevalidations()).toBe(0);
+  });
+
   it('should restore the route loader cache bound as in-flight entries settle', async () => {
     const dataRuntime = runtime();
     const entries = findRouteLoaderEntries(dataRuntime)!;

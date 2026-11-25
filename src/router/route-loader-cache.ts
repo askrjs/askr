@@ -1,5 +1,6 @@
 import { logger } from '../common/logger';
 import {
+  findDataRuntimeState,
   findRouteLoaderEntries,
   type RouteLoaderEntry,
 } from '../data/data-runtime';
@@ -231,8 +232,9 @@ export function loadThroughCache(
   if (options.signal.aborted) {
     return { value: Promise.reject(options.signal.reason) };
   }
-  const entries = runtime ? findRouteLoaderEntries(runtime) : undefined;
-  if (!entries) return { value: run(options.signal) };
+  const state = runtime ? findDataRuntimeState(runtime) : undefined;
+  if (!state || state.retired) return { value: run(options.signal) };
+  const entries = state.routeLoaders;
 
   let entry = entries.get(key);
   if (!entry) {
@@ -247,7 +249,7 @@ export function loadThroughCache(
     const joining = entry.inflight;
     const inflight = joining ?? startRequest(entries, key, entry, run, true);
     if (!joining) {
-      trackRevalidation(inflight.promise, inflight.controller.signal);
+      trackRevalidation(inflight.promise, state.retirement.signal);
       // A failed refresh keeps the cached value; the next visit retries.
       inflight.promise.catch((error: unknown) =>
         logger.warn('[Askr] route data revalidation failed:', error)
@@ -256,8 +258,7 @@ export function loadThroughCache(
     return {
       value: entry.data,
       revalidation: inflight.promise,
-      isRevalidationCurrent: () =>
-        !inflight.controller.signal.aborted && entries.get(key) === entry,
+      isRevalidationCurrent: () => !state.retired && entries.get(key) === entry,
     };
   }
 
