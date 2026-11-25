@@ -142,3 +142,5 @@ git config core.hooksPath .githooks
 ```
 
 Commit messages may not contain `Co-authored-by:` trailers. The canonical Dependabot co-author trailer is the only exception. Pull requests run the same validation on GitHub, so the policy applies even when a contributor has not enabled local hooks.
+
+Before squash-merging, check the final commit message for co-author trailers. GitHub can add contributors from the pull request to its default squash message. Remove disallowed trailers from the proposed message and keep contributor credit in the pull request. GitHub checks the actual commit message again after it reaches `main`.
