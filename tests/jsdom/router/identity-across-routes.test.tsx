@@ -72,18 +72,16 @@ describe('identity across routes (ROUTER)', () => {
   });
 
   it('should isolate route component state per route', async () => {
-    let route1Value = 0;
-    let route2Value = 0;
-
-    route('/counter1', (_params) => {
-      route1Value = 1;
-      return <div>Count1: {route1Value}</div>;
-    });
-
-    route('/counter2', (_params) => {
-      route2Value = 2;
-      return <div>Count2: {route2Value}</div>;
-    });
+    const Counter = ({ label }: { label: string }) => {
+      const [count, setCount] = state(0);
+      return (
+        <button onClick={() => setCount(count() + 1)}>
+          {label}: {count()}
+        </button>
+      );
+    };
+    route('/counter1', () => <Counter label="A" />);
+    route('/counter2', () => <Counter label="B" />);
 
     const App = () => {
       return <div>App</div>;
@@ -94,13 +92,17 @@ describe('identity across routes (ROUTER)', () => {
 
     navigate('/counter1');
     flushScheduler();
+    container.querySelector('button')!.click();
+    flushScheduler();
+    expect(container.textContent).toContain('A: 1');
 
     navigate('/counter2');
     flushScheduler();
-
-    // Each route should have run with different values
-    expect(route1Value).toBe(1);
-    expect(route2Value).toBe(2);
+    expect(container.textContent).toContain('B: 0');
+    container.querySelector('button')!.click();
+    flushScheduler();
+    expect(container.textContent).toContain('B: 1');
+    expect(container.textContent).not.toContain('A:');
   });
 
   it('should replace DOM on route transition', async () => {

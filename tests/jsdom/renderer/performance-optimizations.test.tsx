@@ -1,5 +1,12 @@
 // tests/renderer/performance-optimizations.test.tsx
-import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  vi,
+} from 'vite-plus/test';
 import { state } from '../../../src/index';
 import { createIsland } from '@askrjs/askr/boot';
 import {
@@ -68,19 +75,17 @@ describe('performance optimizations (RENDERER)', () => {
     });
 
     it('should create new wrapper for changed handler reference', () => {
-      let clickCount = 0;
+      const firstHandler = vi.fn();
+      const replacementHandler = vi.fn();
+      let handler = firstHandler;
+      let revision!: ReturnType<typeof state<number>>;
 
       const Component = () => {
-        const count = state(0);
+        revision = state(0);
+        revision();
         return (
-          <button
-            id="btn"
-            onClick={() => {
-              clickCount++;
-              count.set(count() + 1);
-            }}
-          >
-            Click {count()}
+          <button id="btn" onClick={handler}>
+            Click
           </button>
         );
       };
@@ -89,22 +94,22 @@ describe('performance optimizations (RENDERER)', () => {
       flushScheduler();
 
       const btn = container.querySelector('#btn') as HTMLButtonElement;
-
       btn.click();
       flushScheduler();
-      expect(clickCount).toBe(1);
-      expect(btn.textContent).toBe('Click 1');
-
-      btn.click();
+      expect(firstHandler).toHaveBeenCalledTimes(1);
+      handler = replacementHandler;
+      revision.set(1);
       flushScheduler();
-      expect(clickCount).toBe(2);
-      expect(btn.textContent).toBe('Click 2');
+      btn.click();
+      expect(firstHandler).toHaveBeenCalledTimes(1);
+      expect(replacementHandler).toHaveBeenCalledTimes(1);
     });
 
-    it('should handle many unique handlers efficiently', () => {
+    it('should wire many unique handlers to their elements', () => {
+      const calls: number[] = [];
       const handlers: Array<() => void> = [];
       for (let i = 0; i < 100; i++) {
-        handlers.push(() => undefined);
+        handlers.push(() => calls.push(i));
       }
 
       const Component = () => {
@@ -135,6 +140,7 @@ describe('performance optimizations (RENDERER)', () => {
         btn50.click();
         btn99.click();
       }).not.toThrow();
+      expect(calls).toEqual([0, 50, 99]);
     });
   });
 

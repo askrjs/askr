@@ -26,10 +26,12 @@ vi.mock('../../../src/router/document-navigation', () => ({
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((next) => {
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((next, fail) => {
+    reject = fail;
     resolve = next;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 describe('navigationState()', () => {
@@ -112,6 +114,58 @@ describe('navigationState()', () => {
     await vi.waitFor(() => expect(container.textContent).toBe('v2'));
     expect(navigationState().revalidating).toBe(false);
   });
+
+  it.each(['resolves', 'rejects'] as const)(
+    'should retire background revalidation immediately when its loader later %s',
+    async (outcome) => {
+      const abandoned = deferred<string>();
+      const registry = createRouteRegistry(() => {
+        route('/', () => <p>home</p>);
+        route('/post', () => <p>{routeData<string>()}</p>, {
+          loader: vi
+            .fn()
+            .mockResolvedValueOnce('cached')
+            .mockReturnValue(abandoned.promise),
+        });
+      });
+      try {
+        await createSPA({ root: container, registry, dataRuntime });
+        navigate('/post');
+        await vi.waitFor(() => expect(container.textContent).toBe('cached'));
+        navigate('/');
+        await vi.waitFor(() => expect(container.textContent).toBe('home'));
+        navigate('/post');
+        await vi.waitFor(() =>
+          expect(navigationState().revalidating).toBe(true)
+        );
+        disposeDataRuntime(dataRuntime);
+        cleanup();
+        resetRouteState();
+        window.history.replaceState({}, '', '/');
+        ({ container, cleanup } = createTestContainer());
+        dataRuntime = createDataRuntime();
+        const replacement = createRouteRegistry(() => {
+          route('/', () => (
+            <p>{navigationState().revalidating ? 'refreshing' : 'idle'}</p>
+          ));
+        });
+        await createSPA({
+          root: container,
+          registry: replacement,
+          dataRuntime,
+        });
+        expect(container.textContent).toBe('idle');
+
+        if (outcome === 'resolves') abandoned.resolve('late');
+        else abandoned.reject(new Error('late loader failure'));
+        await abandoned.promise.catch(() => undefined);
+        await vi.waitFor(() => expect(container.textContent).toBe('idle'));
+        expect(navigationState().revalidating).toBe(false);
+      } finally {
+        abandoned.resolve('cleanup');
+      }
+    }
+  );
 });
 
 describe('blockNavigation()', () => {

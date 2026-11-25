@@ -86,7 +86,10 @@ describe('large tree updates (STRESS)', () => {
     value!.set('b');
     flushScheduler();
 
-    expect(container.textContent).toContain('b-0');
-    expect(container.textContent).toContain('b-999');
+    expect(
+      Array.from(container.querySelectorAll('span')).map(
+        (node) => node.textContent
+      )
+    ).toEqual(Array.from({ length: 1000 }, (_, i) => `b-${i}`));
   }, 15000);
 });

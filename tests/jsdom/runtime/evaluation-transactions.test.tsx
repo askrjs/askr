@@ -104,28 +104,51 @@ describe('evaluation transactions (SPEC 2.1)', () => {
       expect(input.className).toContain('input-field');
     });
 
-    it('should atomically update nested tree structure', () => {
-      const Component = ({ depth }: { depth: number }): JSXElement => {
-        if (depth === 0) return <span>Leaf</span>;
+    it('should preserve the nested tree when a later sibling fails', () => {
+      let mode!: State<'before' | 'fail' | 'after'>;
+      const stages: string[] = [];
+      const Nested = ({ updated }: { updated: boolean }) => {
+        if (updated) stages.push('nested update');
         return (
-          <div>
-            <Component depth={depth - 1} />
-          </div>
+          <section>
+            <div>
+              {updated ? <strong>new leaf</strong> : <span>old leaf</span>}
+            </div>
+          </section>
+        );
+      };
+      const Tail = ({ fail }: { fail: boolean }) => {
+        if (fail) throw new Error('nested transaction failed');
+        return <aside>tail</aside>;
+      };
+      const Component = () => {
+        mode = state<'before' | 'fail' | 'after'>('before');
+        return (
+          <main>
+            <Nested updated={mode() !== 'before'} />
+            <Tail fail={mode() === 'fail'} />
+          </main>
         );
       };
 
-      createIsland({
-        root: container,
-        component: () => Component({ depth: 3 }),
-      });
+      createIsland({ root: container, component: Component });
+      flushScheduler();
+      const before = container.innerHTML;
+      const originalLeaf = container.querySelector('section span');
+      expect(originalLeaf?.textContent).toBe('old leaf');
 
-      // Verify complete structure exists
-      // The component creates 3 nested divs. The runtime also adds a portal host div.
-      const divs = container.querySelectorAll('div').length;
-      const span = container.querySelector('span');
+      mode.set('fail');
+      expect(() => flushScheduler()).toThrow('nested transaction failed');
+      expect(stages).toContain('nested update');
+      expect(container.innerHTML).toBe(before);
+      expect(container.querySelector('section span')).toBe(originalLeaf);
 
-      expect(divs).toBeGreaterThanOrEqual(3);
-      expect(span?.textContent).toBe('Leaf');
+      mode.set('after');
+      flushScheduler();
+      expect(container.querySelector('section strong')?.textContent).toBe(
+        'new leaf'
+      );
+      expect(container.querySelector('section span')).toBeNull();
     });
   });
 
@@ -757,109 +780,88 @@ describe('evaluation transactions (SPEC 2.1)', () => {
     });
 
     it('should commit only latest generation resource result', async () => {
-      // Rewritten to avoid brittle createIsland replacement and to use
-      // an in-component state transition so resource refresh is exercised.
-      const renders: string[] = [];
-
-      const Component = ({ id, delay }: { id: string; delay: number }) => {
-        const r = resource(async () => {
-          renders.push(id);
-          await new Promise((r) => setTimeout(r, delay));
-          return id;
-        }, [id, delay]);
-
-        return <div>{r.value ?? ''}</div>;
+      let select!: ReturnType<typeof state<string>>;
+      const resolvers = new Map<string, (value: string) => void>();
+      const started: string[] = [];
+      const Component = () => {
+        select = state('slow');
+        const current = select();
+        const result = resource(() => {
+          started.push(current);
+          return new Promise<string>((resolve) =>
+            resolvers.set(current, resolve)
+          );
+        }, [current]);
+        return <div>{result.value ?? ''}</div>;
       };
 
-      // Mount slow instance
-      createIsland({
-        root: container,
-        component: () => Component({ id: 'slow', delay: 100 }),
-      });
-
-      // Unmount slow before it completes, then mount a faster resource instance
-      await new Promise((r) => setTimeout(r, 30));
-      cleanup();
-      createIsland({
-        root: container,
-        component: () => Component({ id: 'fast', delay: 0 }),
-      });
-
-      // Wait for all to complete and flush
-      await new Promise((r) => setTimeout(r, 150));
-      await new Promise((r) => setTimeout(r, 0));
+      createIsland({ root: container, component: Component });
       flushScheduler();
+      expect(started).toEqual(['slow']);
+      select.set('fast');
+      flushScheduler();
+      expect(started).toEqual(['slow', 'fast']);
 
-      // At minimum the slow resource should have executed. Fast may or may
-      // not have started depending on timing; we don't assert it strictly.
-      expect(renders).toContain('slow');
+      resolvers.get('fast')!('fast');
+      await Promise.resolve();
+      flushScheduler();
+      expect(container.textContent).toBe('fast');
+
+      resolvers.get('slow')!('slow');
+      await Promise.resolve();
+      flushScheduler();
+      expect(container.textContent).toBe('fast');
     });
   });
 
   describe('listener attachment is commit-coupled', () => {
-    it('should attach listeners only after successful commit', async () => {
-      let listenerFired = false;
+    it.each(['commit', 'rollback'] as const)(
+      'should preserve the committed handler during evaluation and publish according to %s',
+      (outcome) => {
+        let updated!: State<boolean>;
+        let button!: HTMLButtonElement;
+        const previous = vi.fn();
+        const replacement = vi.fn();
+        const Tail = ({ observe }: { observe: boolean }) => {
+          if (observe) {
+            button.click();
+            if (outcome === 'rollback')
+              throw new Error('listener transaction failed');
+          }
+          return <span>tail</span>;
+        };
+        const Component = () => {
+          updated = state(false);
+          return (
+            <div>
+              <button onClick={updated() ? replacement : previous}>
+                Click
+              </button>
+              <Tail observe={updated()} />
+            </div>
+          );
+        };
 
-      const Component = () => (
-        <button
-          onClick={() => {
-            listenerFired = true;
-          }}
-        >
-          Click
-        </button>
-      );
+        createIsland({ root: container, component: Component });
+        flushScheduler();
+        button = container.querySelector('button')!;
+        updated.set(true);
+        if (outcome === 'rollback') {
+          expect(() => flushScheduler()).toThrow('listener transaction failed');
+        } else {
+          flushScheduler();
+        }
+        expect(previous).toHaveBeenCalledTimes(1);
+        expect(replacement).not.toHaveBeenCalled();
 
-      createIsland({ root: container, component: Component });
-      flushScheduler();
-
-      const button = container.querySelector('button') as HTMLButtonElement;
-      button?.click();
-
-      flushScheduler();
-
-      expect(listenerFired).toBe(true);
-    });
-
-    it('should not attach listeners when render fails', () => {
-      let listenerFired = false;
-
-      const Component = ({ shouldFail }: { shouldFail: boolean }) => {
-        if (shouldFail) throw new Error('Failed');
-        return (
-          <button
-            onClick={() => {
-              listenerFired = true;
-            }}
-          >
-            Click
-          </button>
+        expect(container.querySelector('button')).toBe(button);
+        button.click();
+        expect(previous).toHaveBeenCalledTimes(outcome === 'rollback' ? 2 : 1);
+        expect(replacement).toHaveBeenCalledTimes(
+          outcome === 'rollback' ? 0 : 1
         );
-      };
-
-      // First render succeeds, listener attached
-      createIsland({
-        root: container,
-        component: () => Component({ shouldFail: false }),
-      });
-      const button1 = container.querySelector('button') as HTMLButtonElement;
-      button1?.click();
-      expect(listenerFired).toBe(true);
-
-      // Second render fails, no new listener attached
-      try {
-        createIsland({
-          root: container,
-          component: () => Component({ shouldFail: true }),
-        });
-      } catch {
-        // Expected
       }
-
-      // Original button still has listener (because DOM didn't change)
-      const button2 = container.querySelector('button');
-      expect(button2).toBe(button1); // Same node
-    });
+    );
   });
 });
 // @askr-allow-real-timers -- async transaction integration fixture.

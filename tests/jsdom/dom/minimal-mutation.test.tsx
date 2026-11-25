@@ -86,10 +86,24 @@ describe('minimal DOM mutation (DOM)', () => {
       flushScheduler();
 
       const div = container.querySelector('div') as HTMLElement;
+      const textNode = div.firstChild;
+      const observer = new MutationObserver(() => {});
+      observer.observe(container, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+      });
       text!.set('world');
       flushScheduler();
 
       expect(div.textContent).toBe('world');
+      expect(container.querySelector('div')).toBe(div);
+      expect(div.firstChild).toBe(textNode);
+      await Promise.resolve();
+      expect(
+        observer.takeRecords().some((record) => record.type === 'childList')
+      ).toBe(false);
+      observer.disconnect();
     });
 
     it('should update only changed attributes when state changes', async () => {
@@ -107,12 +121,20 @@ describe('minimal DOM mutation (DOM)', () => {
       createIsland({ root: container, component: Component });
       flushScheduler();
 
+      const div = container.querySelector('div') as HTMLElement;
+      const observer = new MutationObserver(() => {});
+      observer.observe(div, { attributes: true });
       color!.set('blue');
       flushScheduler();
 
-      const div = container.querySelector('div') as HTMLElement;
       expect(div.style.color).toContain('blue');
       expect(div.className).toBe('box');
+      await Promise.resolve();
+      const mutations = observer.takeRecords();
+      expect(mutations.map((record) => record.attributeName)).not.toContain(
+        'class'
+      );
+      observer.disconnect();
     });
   });
 });

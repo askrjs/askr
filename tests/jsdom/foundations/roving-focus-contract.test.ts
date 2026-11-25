@@ -95,14 +95,43 @@ describe('rovingFocus contract helpers (FOUNDATIONS)', () => {
   });
 
   it('should preserve roving focus given active-item removal when the collection updates', () => {
-    const navigation = rovingFocus({
-      currentIndex: 2,
-      itemCount: 2,
-      onNavigate: vi.fn(),
+    const host = document.createElement('div');
+    let items = ['A', 'B', 'C'].map((label) => {
+      const button = document.createElement('button');
+      button.textContent = label;
+      host.append(button);
+      return button;
     });
+    document.body.append(host);
+    try {
+      const initial = rovingFocus({
+        currentIndex: 2,
+        itemCount: 3,
+        onNavigate: vi.fn(),
+      });
+      items.forEach((button, index) => {
+        button.tabIndex = initial.item(index).tabIndex;
+      });
+      items[2]!.focus();
+      expect(document.activeElement).toBe(items[2]);
 
-    expect(navigation.item(0).tabIndex).toBe(0);
-    expect(navigation.item(1).tabIndex).toBe(-1);
+      items[2]!.remove();
+      items = items.slice(0, 2);
+      const afterRemoval = rovingFocus({
+        currentIndex: 2,
+        itemCount: items.length,
+        onNavigate: vi.fn(),
+      });
+      items.forEach((button, index) => {
+        button.tabIndex = afterRemoval.item(index).tabIndex;
+      });
+      items.find((button) => button.tabIndex === 0)?.focus();
+
+      expect(document.activeElement).toBe(items[0]);
+      expect(items.map((button) => button.tabIndex)).toEqual([0, -1]);
+    } finally {
+      host.remove();
+    }
   });
 
   it('should follow computed RTL direction for horizontal arrow navigation', () => {

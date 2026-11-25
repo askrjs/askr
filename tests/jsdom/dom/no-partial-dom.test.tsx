@@ -354,30 +354,58 @@ describe('no partial DOM (DOM)', () => {
     expect(container.innerHTML).toBe(stable);
   });
 
-  it('should update both sibling components or neither when render fails', async () => {
-    let flip: ReturnType<typeof state<boolean>> | null = null;
-
+  it('should update both sibling components or neither when commit fails', () => {
+    let updated!: ReturnType<typeof state<boolean>>;
+    const First = ({ value }: { value: boolean }) => (
+      <span id="a" title={value ? 'A2' : 'A1'} />
+    );
+    const Second = ({ value }: { value: boolean }) => (
+      <span id="b" title={value ? 'B2' : 'B1'} />
+    );
     const Component = () => {
-      flip = state(false);
+      updated = state(false);
       return (
         <div>
-          <span id={'a'}>{flip() ? 'A2' : 'A1'}</span>
-          <span id={'b'}>{flip() ? 'B2' : 'B1'}</span>
+          <First value={updated()} />
+          <Second value={updated()} />
         </div>
       );
     };
 
     createIsland({ root: container, component: Component });
     flushScheduler();
-
     const before = container.innerHTML;
-    flip!.set(true);
+    const first = container.querySelector<HTMLSpanElement>('#a')!;
+    const second = container.querySelector<HTMLSpanElement>('#b')!;
+    const setAttribute = second.setAttribute.bind(second);
+    const titlesAtFailure: string[] = [];
+    const failure = vi
+      .spyOn(second, 'setAttribute')
+      .mockImplementation((name, value) => {
+        if (name === 'title' && value === 'B2') {
+          titlesAtFailure.push(first.title);
+          throw new Error('second sibling commit failed');
+        }
+        setAttribute(name, value);
+      });
 
-    // If an update fails mid-way, neither sibling should change.
-    // (We don't inject a failure here yet; this test asserts the transactional spec.)
+    try {
+      updated.set(true);
+      expect(() => flushScheduler()).toThrow('second sibling commit failed');
+      expect(titlesAtFailure).toEqual(['A2']);
+      expect(container.innerHTML).toBe(before);
+      expect(container.querySelector('#a')).toBe(first);
+      expect(container.querySelector('#b')).toBe(second);
+    } finally {
+      failure.mockRestore();
+    }
+
+    updated.set(false);
     flushScheduler();
-    expect(container.innerHTML).not.toBe('');
-    expect(container.innerHTML).not.toBe(before);
+    updated.set(true);
+    flushScheduler();
+    expect(first.title).toBe('A2');
+    expect(second.title).toBe('B2');
   });
 
   it('should roll back retained text when a later prop read throws', () => {

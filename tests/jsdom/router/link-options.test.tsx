@@ -182,6 +182,8 @@ describe('Link navigation options', () => {
     });
 
     it('should ignore hrefs no route renders', async () => {
+      const loader = vi.fn(async () => 'registered data');
+      const chunk = vi.fn(async () => ({ default: () => <p>registered</p> }));
       const registry = createRouteRegistry(() => {
         route('/', () => (
           <div>
@@ -193,10 +195,13 @@ describe('Link navigation options', () => {
             </Link>
           </div>
         ));
+        route('/registered', lazy(chunk as never), { loader });
       });
       await createSPA({ root: container, registry, dataRuntime });
       await settle();
       expect(container.querySelectorAll('a')).toHaveLength(2);
+      expect(loader).not.toHaveBeenCalled();
+      expect(chunk).not.toHaveBeenCalled();
     });
 
     it('should prefetch a route that is registered after an earlier unmatched attempt', async () => {

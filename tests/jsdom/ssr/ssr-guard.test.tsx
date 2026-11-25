@@ -70,11 +70,15 @@ describe('SSR strict-purity guard (dev-only)', () => {
   });
 
   it('should restore Math.random after render', () => {
-    const Before = Math.random();
+    const originalRandom = Math.random;
     renderToStringSync(() => (<div>ok</div>) as unknown as JSXElement);
-    const After = Math.random();
-    // Both should be numbers between 0 and 1
-    expect(typeof Before).toBe('number');
-    expect(typeof After).toBe('number');
+    expect(Math.random).toBe(originalRandom);
+
+    expect(() =>
+      renderToStringSync(() => {
+        throw new Error('render failed');
+      })
+    ).toThrow('render failed');
+    expect(Math.random).toBe(originalRandom);
   });
 });

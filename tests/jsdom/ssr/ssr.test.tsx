@@ -5,6 +5,7 @@ import {
 } from '../../router-test-utils';
 import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
 import { hydrateSPA } from '../../../src/boot';
+import { state } from '../../../src';
 import { Case, For, Match, Show } from '../../../src/control';
 import { defineScope, readScope } from '../../../src/index';
 import { fallback, route } from '../../../src/router/route';
@@ -43,11 +44,14 @@ describe('snapshot restore (SSR)', () => {
   afterEach(() => cleanup());
 
   it('should capture component state in snapshot', async () => {
-    const Component = () => <div>hello</div>;
+    const Component = () => {
+      const [count] = state(7);
+      return <div>count: {count()}</div>;
+    };
     const html = renderToStringSync(Component);
 
     expect(html).toContain('<div');
-    expect(html).toContain('hello');
+    expect(html).toContain('count: 7');
   });
 
   it('should apply snapshot to new instance during restore', async () => {

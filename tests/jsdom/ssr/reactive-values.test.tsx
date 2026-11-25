@@ -1341,11 +1341,15 @@ describe('SSR reactive values', () => {
     );
 
     it('should not surface the upgrade from an async function child', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      let settleChild!: (value: string) => void;
+      const childPromise = new Promise<string>((resolve) => {
+        settleChild = resolve;
+      });
       const Component = () => (
         <div>
           {async () => {
-            const [value] = state('x');
-            return value();
+            return await childPromise;
           }}
         </div>
       );
@@ -1355,7 +1359,15 @@ describe('SSR reactive values', () => {
         registry: routeRegistryFromTable([{ path: '/', handler: Component }]),
       });
       flushScheduler();
-      for (let index = 0; index < 5; index += 1) await Promise.resolve();
+      expect(container.textContent).not.toContain('leaked child');
+      settleChild('leaked child');
+      await childPromise;
+      flushScheduler();
+      expect(container.textContent).not.toContain('leaked child');
+      expect(warn.mock.calls.flat().join(' ')).toContain(
+        'A Promise was passed as a child and is not rendered'
+      );
+      warn.mockRestore();
       flushScheduler();
     });
 

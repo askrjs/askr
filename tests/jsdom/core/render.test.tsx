@@ -165,16 +165,30 @@ describe('core renderer', () => {
   });
 
   it('should dispatch events with batching', () => {
+    let renderCount = 0;
     function Button() {
-      const [n, set] = state(0);
-      return <button onClick={() => set(n() + 1)}>{n()}</button>;
+      const [n, setN] = state(0);
+      const [label, setLabel] = state('idle');
+      renderCount++;
+      return (
+        <button
+          onClick={() => {
+            setN(n() + 1);
+            setLabel('updated');
+          }}
+        >
+          {n()} {label()}
+        </button>
+      );
     }
     const { el } = mount(<Button />);
     const button = el.querySelector('button')!;
+    const initialRenders = renderCount;
     button.click();
-    expect(button.textContent).toBe('1');
+    expect(button.textContent).toBe('1 updated');
+    expect(renderCount - initialRenders).toBe(1);
     button.click();
-    expect(button.textContent).toBe('2');
+    expect(button.textContent).toBe('2 updated');
     expect(el.querySelector('button')).toBe(button);
   });
 });

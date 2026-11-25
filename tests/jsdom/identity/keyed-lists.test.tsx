@@ -93,17 +93,18 @@ describe('keyed lists (SPEC 2.4)', () => {
 
       // Get the root div rendered by the component
       const root = container.children[0] as HTMLElement;
-      // Second child of root should be the item with 'B'
-      const firstSecondItem = root.children[1] as HTMLElement;
-      expect(firstSecondItem?.textContent).toBe('B');
+      const before = Array.from(root.children) as HTMLElement[];
+      expect(before.map((node) => node.textContent)).toEqual(['A', 'B', 'C']);
 
       // Reorder to ['C', 'A', 'B']
       items!.set(['C', 'A', 'B']);
       flushScheduler();
 
-      // Second position now has 'A', not 'B'
-      const secondSecondItem = root.children[1] as HTMLElement;
-      expect(secondSecondItem?.textContent).toBe('A');
+      const after = Array.from(root.children) as HTMLElement[];
+      expect(after[0]).toBe(before[0]);
+      expect(after[1]).toBe(before[1]);
+      expect(after[2]).toBe(before[2]);
+      expect(after.map((node) => node.textContent)).toEqual(['C', 'A', 'B']);
     });
 
     it('should maintain key stability across updates', async () => {
