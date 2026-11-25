@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
 
       - name: Setup Vite+
         uses: voidzero-dev/setup-vp@v1.22.0
@@ -35,7 +35,7 @@ jobs:
 
       - name: Upload failing seed traces
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: quality-seed-traces
           path: .askr-quality-traces/
@@ -58,7 +58,7 @@ jobs:
             browser: webkit
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
 
       - name: Setup Vite+
         uses: voidzero-dev/setup-vp@v1.22.0
@@ -83,7 +83,7 @@ jobs:
 
       - name: Upload browser diagnostics
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: quality-browser-${{ matrix.os }}-${{ matrix.browser }}
           path: |

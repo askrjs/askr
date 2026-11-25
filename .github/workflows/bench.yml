@@ -57,7 +57,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
 
       - name: Setup Vite+
         uses: voidzero-dev/setup-vp@v1.22.0
@@ -98,7 +98,7 @@ jobs:
 
       - name: Checkout comparison baseline
         if: inputs.baseline != ''
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.baseline }}
           path: .benchmark-baseline
@@ -145,7 +145,7 @@ jobs:
 
       - name: Upload benchmark artifacts
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: bench-results-stable-tier${{ matrix.tier }}
           path: bench-results/

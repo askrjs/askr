@@ -148,10 +148,13 @@ export function isUnsafeUrlAttribute(key: string, value: unknown): boolean {
 
 const WARNED_URL_PREVIEW_LENGTH = 80;
 const WARNED_URL_LIMIT = 256;
+const warnedUrlsKey = Symbol.for('@askrjs/askr.warned-unsafe-urls');
 // Attribute/value pairs already reported. A component re-render and the
 // hydration verification render re-check the same value; each is reported
 // once. Cleared at the limit so arbitrary data cannot grow it without bound.
-const warnedUrls = new Set<string>();
+const warnedUrls = ((globalThis as unknown as Record<symbol, Set<string>>)[
+  warnedUrlsKey
+] ??= new Set());
 // Bidi overrides/isolates and line/paragraph separators would let a crafted
 // value reorder or break the console line.
 const MISLEADING_PREVIEW_CHARS_RE = /[\u202A-\u202E\u2066-\u2069\u2028\u2029]/g;
