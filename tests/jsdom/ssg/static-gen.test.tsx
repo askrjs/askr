@@ -1698,17 +1698,29 @@ describe('Static Site Generation', () => {
 
   describe('concurrent rendering', () => {
     it('should render multiple routes in parallel', async () => {
+      const started: number[] = [];
+      const resolvers: Array<(value: Record<string, never>) => void> = [];
       const routes = Array.from({ length: 5 }, (_, i) => ({
         path: `/page-${i}`,
-        component: () => <div>Page {i}</div>,
+        handler: () => <div>Page {i}</div>,
+        loader: () => {
+          started.push(i);
+          return new Promise<Record<string, never>>((resolve) =>
+            resolvers.push(resolve)
+          );
+        },
       }));
 
       const ssg = createStaticGen({
         routes,
         outputDir: tempDir,
+        concurrency: 5,
       });
 
-      const result = await ssg.generate();
+      const generation = ssg.generate();
+      await vi.waitFor(() => expect(started).toEqual([0, 1, 2, 3, 4]));
+      resolvers.forEach((resolve) => resolve({}));
+      const result = await generation;
 
       expect(result.totalRoutes).toBe(5);
       expect(result.successful).toBe(5);

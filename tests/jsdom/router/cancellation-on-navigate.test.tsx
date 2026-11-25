@@ -19,7 +19,7 @@ import { navigate } from '../../../src/router/navigate';
 import { route } from '../../../src/router/route';
 import { defer } from '../../../src/router/deferred';
 import { resource } from '../../../src/resources';
-import { getSignal } from '../../../src/index';
+import { onRouteChange } from '../../../src/router';
 import {
   createTestContainer,
   flushScheduler,
@@ -50,32 +50,17 @@ describe('cancellation on navigate (ROUTER)', () => {
   });
 
   it('should abort pending async operations on navigation', async () => {
-    let _fetchAborted = false;
-    let renderCount = 0;
-
-    routeUnsupportedHandler('/page1', () => {
-      return async () => {
-        renderCount++;
-        const signal = getSignal();
-
-        try {
-          // Simulate async fetch with abort signal
-          await new Promise((resolve) => {
-            setTimeout(resolve, 100);
-          });
-
-          if (signal.aborted) {
-            _fetchAborted = true;
-            throw new DOMException('Aborted', 'AbortError');
-          }
-        } catch (e) {
-          if ((e as { name?: string }).name === 'AbortError') {
-            _fetchAborted = true;
-          }
-        }
-
-        return <div>Page 1</div>;
-      };
+    let operationSignal: AbortSignal | undefined;
+    let resolveOperation!: () => void;
+    const operation = new Promise<void>((resolve) => {
+      resolveOperation = resolve;
+    });
+    route('/page1', () => {
+      const result = resource(({ signal }) => {
+        operationSignal = signal;
+        return operation.then(() => 'stale result');
+      }, []);
+      return <div>{result.value ?? 'Loading'}</div>;
     });
 
     route('/page2', () => {
@@ -95,14 +80,19 @@ describe('cancellation on navigate (ROUTER)', () => {
       );
     };
 
+    window.history.replaceState({}, '', '/page1');
     await createSPA({ root: container, registry: currentRouteRegistry() });
     flushScheduler();
-
-    // Navigate away while async operation pending
+    expect(operationSignal).toBeDefined();
+    expect(operationSignal?.aborted).toBe(false);
     navigate('/page2');
     flushScheduler();
-
-    expect(renderCount).toBeGreaterThanOrEqual(0);
+    expect(operationSignal?.aborted).toBe(true);
+    resolveOperation();
+    await Promise.resolve();
+    flushScheduler();
+    expect(container.textContent).toContain('Page 2');
+    expect(container.textContent).not.toContain('stale result');
   });
 
   it('should cancel deferred route data given route replacement when the previous route is no longer active', async () => {
@@ -163,15 +153,19 @@ describe('cancellation on navigate (ROUTER)', () => {
   });
 
   it('should perform cleanup before next route mounts', async () => {
-    const _order: string[] = [];
-
-    route('/first', () => {
+    const order: string[] = [];
+    const First = () => {
+      onRouteChange(() => () => order.push('first cleanup'), {
+        immediate: true,
+      });
       return <div>First</div>;
-    });
-
-    route('/second', () => {
-      return <div>Second</div>;
-    });
+    };
+    route('/first', () => <First />);
+    route('/second', () => (
+      <div ref={(node) => node && order.push('second committed mount')}>
+        Second
+      </div>
+    ));
 
     const _App = () => {
       // Component unmounts and remounts on navigation
@@ -189,6 +183,7 @@ describe('cancellation on navigate (ROUTER)', () => {
 
     // Verify navigation completed (App component is replaced by route)
     expect(container.textContent).toContain('Second');
+    expect(order).toEqual(['first cleanup', 'second committed mount']);
   });
 
   it('should process only latest route when multiple rapid navigations occur', async () => {

@@ -11,12 +11,13 @@ import {
 import { createIsland } from '../../../test-utils/render/create-island';
 
 describe('For JSX primitive', () => {
-  it('should render frozen readonly array sources without copying or mutation', () => {
+  it('should render frozen readonly array sources without mutation', () => {
     const { container, cleanup } = createTestContainer();
     const items = Object.freeze([
       Object.freeze({ id: 'docs', label: 'Docs' }),
       Object.freeze({ id: 'api', label: 'API' }),
     ]);
+    const originalItems = items.slice();
     const App = () => (
       <div>
         <For each={items} by={(item) => item.id}>
@@ -42,6 +43,12 @@ describe('For JSX primitive', () => {
     ).toEqual(['Docs', 'API']);
     expect(Object.isFrozen(items)).toBe(true);
     expect(items.map((item) => item.id)).toEqual(['docs', 'api']);
+    expect(items[0]).toBe(originalItems[0]);
+    expect(items[1]).toBe(originalItems[1]);
+    expect(items).toEqual([
+      { id: 'docs', label: 'Docs' },
+      { id: 'api', label: 'API' },
+    ]);
     cleanup();
   });
 

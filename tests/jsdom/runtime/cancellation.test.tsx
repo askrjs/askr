@@ -7,7 +7,14 @@
  * or is replaced. This allows async work to be cancelled properly.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vite-plus/test';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  vi,
+} from 'vite-plus/test';
 import { getSignal, state } from '../../../src/index';
 import { resource } from '../../../src/resources';
 import {
@@ -28,6 +35,7 @@ describe('cancellation (SPEC 2.6)', () => {
 
   afterEach(() => {
     cleanup();
+    vi.unstubAllGlobals();
   });
 
   describe('abort signal lifecycle', () => {
@@ -245,6 +253,18 @@ describe('cancellation (SPEC 2.6)', () => {
 
   it('should propagate abort signal to async operations without wrapping fetch', async () => {
     let aborted = false;
+    let capturedSignal: AbortSignal | undefined;
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      capturedSignal = init?.signal ?? undefined;
+      return new Promise<Response>((_resolve, reject) => {
+        capturedSignal?.addEventListener(
+          'abort',
+          () => reject(new DOMException('Aborted', 'AbortError')),
+          { once: true }
+        );
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
 
     const Component = () => {
       resource(({ signal }) => {
@@ -255,7 +275,7 @@ describe('cancellation (SPEC 2.6)', () => {
         });
 
         try {
-          fetch('https://httpbin.org/delay/1', {
+          fetch('/controlled-resource', {
             signal: controller.signal,
           }).catch(() => {
             aborted = true;
@@ -275,9 +295,11 @@ describe('cancellation (SPEC 2.6)', () => {
     // Unmount quickly
     cleanup();
 
-    await new Promise((r) => setTimeout(r, 10));
-
+    await Promise.resolve();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(capturedSignal?.aborted).toBe(true);
     expect(aborted).toBe(true);
+    vi.unstubAllGlobals();
   });
 });
 // @askr-allow-real-timers -- cancellation integration uses real abort timing.

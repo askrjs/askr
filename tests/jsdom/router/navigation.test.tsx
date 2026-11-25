@@ -301,7 +301,12 @@ describe('route navigation (ROUTER)', () => {
       await createSPA({ root: container, registry: currentRouteRegistry() });
       flushScheduler();
 
-      expect(currentPath).toBeNull(); // Not navigated yet
+      navigate('/about');
+      flushScheduler();
+
+      expect(window.location.pathname).toBe('/about');
+      expect(currentPath).toBe('/about');
+      expect(container.textContent).toContain('About Page');
     });
 
     it('should warn and load the document when navigating to missing routes', async () => {

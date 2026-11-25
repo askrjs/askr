@@ -3,11 +3,14 @@ import { click, submit, type } from '../../../src/testing';
 
 describe('@askrjs/askr/testing interaction helpers', () => {
   it('should dispatch a bubbling click event', () => {
+    const parent = document.createElement('div');
     const button = document.createElement('button');
-    const handler = vi.fn();
-    button.addEventListener('click', handler);
+    parent.append(button);
+    const handler = vi.fn((event: Event) => event.target);
+    parent.addEventListener('click', handler);
     expect(click(button)).toBe(true);
     expect(handler).toHaveBeenCalledOnce();
+    expect(handler.mock.results[0]?.value).toBe(button);
   });
 
   it('should append text and emit input for each character', () => {

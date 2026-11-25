@@ -780,42 +780,37 @@ describe('evaluation transactions (SPEC 2.1)', () => {
     });
 
     it('should commit only latest generation resource result', async () => {
-      // Rewritten to avoid brittle createIsland replacement and to use
-      // an in-component state transition so resource refresh is exercised.
-      const renders: string[] = [];
-
-      const Component = ({ id, delay }: { id: string; delay: number }) => {
-        const r = resource(async () => {
-          renders.push(id);
-          await new Promise((r) => setTimeout(r, delay));
-          return id;
-        }, [id, delay]);
-
-        return <div>{r.value ?? ''}</div>;
+      let select!: ReturnType<typeof state<string>>;
+      const resolvers = new Map<string, (value: string) => void>();
+      const started: string[] = [];
+      const Component = () => {
+        select = state('slow');
+        const current = select();
+        const result = resource(() => {
+          started.push(current);
+          return new Promise<string>((resolve) =>
+            resolvers.set(current, resolve)
+          );
+        }, [current]);
+        return <div>{result.value ?? ''}</div>;
       };
 
-      // Mount slow instance
-      createIsland({
-        root: container,
-        component: () => Component({ id: 'slow', delay: 100 }),
-      });
-
-      // Unmount slow before it completes, then mount a faster resource instance
-      await new Promise((r) => setTimeout(r, 30));
-      cleanup();
-      createIsland({
-        root: container,
-        component: () => Component({ id: 'fast', delay: 0 }),
-      });
-
-      // Wait for all to complete and flush
-      await new Promise((r) => setTimeout(r, 150));
-      await new Promise((r) => setTimeout(r, 0));
+      createIsland({ root: container, component: Component });
       flushScheduler();
+      expect(started).toEqual(['slow']);
+      select.set('fast');
+      flushScheduler();
+      expect(started).toEqual(['slow', 'fast']);
 
-      // At minimum the slow resource should have executed. Fast may or may
-      // not have started depending on timing; we don't assert it strictly.
-      expect(renders).toContain('slow');
+      resolvers.get('fast')!('fast');
+      await Promise.resolve();
+      flushScheduler();
+      expect(container.textContent).toBe('fast');
+
+      resolvers.get('slow')!('slow');
+      await Promise.resolve();
+      flushScheduler();
+      expect(container.textContent).toBe('fast');
     });
   });
 

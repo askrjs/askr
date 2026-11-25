@@ -187,8 +187,9 @@ describe('route matching (ROUTER)', () => {
 
   describe('edge cases', () => {
     it('should handle empty segments correctly when matching', () => {
-      const result = match('/users/123', '/users/123');
-      expect(result.matched).toBe(true);
+      const result = match('/docs//tabs', '/docs/{section}/tabs');
+      expect(result.matched).toBe(false);
+      expect(result.params).toEqual({});
     });
 
     it('should not collapse duplicate slashes in request paths', () => {

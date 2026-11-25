@@ -334,8 +334,6 @@ describe('history integration (ROUTER)', () => {
     });
 
     it('should update URL in address bar', async () => {
-      const _originalLocation = window.location.pathname;
-
       const routes = [
         {
           path: '/new-page',
@@ -353,12 +351,17 @@ describe('history integration (ROUTER)', () => {
       });
       flushScheduler();
 
-      // History push would update location in real browser
+      const pushStateSpy = vi.spyOn(window.history, 'pushState');
       navigate('/new-page');
       flushScheduler();
 
-      // In test environment, location might not update, but history call should happen
-      expect(window.history.pushState).toBeDefined();
+      expect(pushStateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ path: '/new-page' }),
+        '',
+        `${window.location.origin}/new-page`
+      );
+      expect(window.location.pathname).toBe('/new-page');
+      expect(container.textContent).toContain('New Page');
     });
 
     it('should create separate history entries for each navigation', async () => {
@@ -385,7 +388,11 @@ describe('history integration (ROUTER)', () => {
       flushScheduler();
 
       // Each navigation should create history entry
-      expect(pushStateSpy.mock.calls.length).toBeGreaterThanOrEqual(1);
+      expect(
+        pushStateSpy.mock.calls.map(
+          ([state]) => (state as { path: string }).path
+        )
+      ).toEqual(['/page1', '/page2', '/page3']);
 
       pushStateSpy.mockRestore();
     });
@@ -737,13 +744,16 @@ describe('history integration (ROUTER)', () => {
       });
       flushScheduler();
 
-      navigate('/page/123');
+      const metadata = { source: 'audit', sequence: 17 };
+      navigate('/page/123', { state: metadata });
       flushScheduler();
 
       const callArgs =
         pushStateSpy.mock.calls[pushStateSpy.mock.calls.length - 1];
       const stateObj = callArgs[0];
-      expect(stateObj).toBeDefined();
+      expect(stateObj).toEqual(
+        expect.objectContaining({ askrHasState: true, askrState: metadata })
+      );
 
       pushStateSpy.mockRestore();
     });
@@ -775,7 +785,12 @@ describe('history integration (ROUTER)', () => {
       navigate('/search/hello%20world');
       flushScheduler();
 
-      expect(pushStateSpy).toHaveBeenCalled();
+      expect(pushStateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ path: '/search/hello%20world' }),
+        '',
+        `${window.location.origin}/search/hello%20world`
+      );
+      expect(container.textContent).toContain('Results for: hello world');
 
       pushStateSpy.mockRestore();
     });
@@ -803,7 +818,12 @@ describe('history integration (ROUTER)', () => {
       navigate('/page5');
       flushScheduler();
 
-      expect(pushStateSpy.mock.calls.length).toBeGreaterThanOrEqual(1);
+      expect(
+        pushStateSpy.mock.calls.map(
+          ([state]) => (state as { path: string }).path
+        )
+      ).toEqual(['/page1', '/page2', '/page3', '/page4', '/page5']);
+      expect(window.location.pathname).toBe('/page5');
 
       pushStateSpy.mockRestore();
     });
@@ -857,8 +877,7 @@ describe('history integration (ROUTER)', () => {
       navigate('/page2');
       flushScheduler();
 
-      // History length should increase (or stay same in test environment)
-      expect(window.history.length).toBeGreaterThanOrEqual(initialLength);
+      expect(window.history.length - initialLength).toBe(2);
     });
   });
 });

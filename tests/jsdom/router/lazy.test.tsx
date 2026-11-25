@@ -234,11 +234,32 @@ describe('lazy()', () => {
     const B = () => 'b';
     const C = () => 'c';
 
-    const stubA = lazy(() => Promise.resolve({ default: A }));
-    const stubB = lazy(() => Promise.resolve({ default: B }));
-    const stubC = lazy(() => Promise.resolve({ default: C }));
+    const starts: string[] = [];
+    const resolvers = new Map<
+      string,
+      (value: { default: () => string }) => void
+    >();
+    const load = (name: string) => () => {
+      starts.push(name);
+      return new Promise<{ default: () => string }>((resolve) =>
+        resolvers.set(name, resolve)
+      );
+    };
+    const stubA = lazy(load('a'));
+    const stubB = lazy(load('b'));
+    const stubC = lazy(load('c'));
 
-    await Promise.all([stubA.preload(), stubB.preload(), stubC.preload()]);
+    const preload = Promise.all([
+      stubA.preload(),
+      stubB.preload(),
+      stubC.preload(),
+    ]);
+    await Promise.resolve();
+    expect(starts).toEqual(['a', 'b', 'c']);
+    resolvers.get('a')!({ default: A });
+    resolvers.get('b')!({ default: B });
+    resolvers.get('c')!({ default: C });
+    await preload;
 
     expect(stubA()).toBe('a');
     expect(stubB()).toBe('b');

@@ -58,14 +58,27 @@ describe('state persistence (SPEC 2.5)', () => {
     });
 
     it('should persist multiple state values independently', async () => {
+      let xState!: ReturnType<typeof state<number>>;
+      let yState!: ReturnType<typeof state<number>>;
+      let zState!: ReturnType<typeof state<number>>;
+      let alternate!: ReturnType<typeof state<boolean>>;
       const Component = () => {
-        const x = state(1);
-        const y = state(2);
-        const z = state(3);
+        const x = (xState = state(1));
+        const y = (yState = state(2));
+        const z = (zState = state(3));
+        const showAlternate = (alternate = state(false));
 
         return (
           <div>
-            x={x()} y={y()} z={z()}
+            {showAlternate() ? (
+              <section>
+                x={x()} y={y()} z={z()}
+              </section>
+            ) : (
+              <span>
+                x={x()} y={y()} z={z()}
+              </span>
+            )}
           </div>
         );
       };
@@ -74,6 +87,20 @@ describe('state persistence (SPEC 2.5)', () => {
       flushScheduler();
 
       expect(container.textContent).toContain('x=1 y=2 z=3');
+      xState.set(10);
+      flushScheduler();
+      expect(container.textContent).toContain('x=10 y=2 z=3');
+      yState.set(20);
+      flushScheduler();
+      expect(container.textContent).toContain('x=10 y=20 z=3');
+      zState.set(30);
+      flushScheduler();
+      expect(container.textContent).toContain('x=10 y=20 z=30');
+      alternate.set(true);
+      flushScheduler();
+      expect(container.querySelector('section')?.textContent).toBe(
+        'x=10 y=20 z=30'
+      );
     });
 
     it('should persist state after DOM node replacement', async () => {

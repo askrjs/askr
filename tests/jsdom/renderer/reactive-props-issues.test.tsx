@@ -10,12 +10,14 @@ import { allowFrameworkWarnings } from '../../setup-env';
 describe('reactive props issues validation', () => {
   test('should not recreate reactive prop subscription when function reference stays the same', () => {
     const { container, cleanup } = createTestContainer();
+    let textState!: ReturnType<typeof state<string>>;
+    const stableFunction = () => textState();
+    let rerender!: ReturnType<typeof state<number>>;
 
     const Component = () => {
-      const textState = state('initial');
-      const stableFunction = () => textState();
-
-      return <div title={stableFunction}>{'test'}</div>;
+      textState = state('initial');
+      rerender = state(0);
+      return <div title={stableFunction}>{rerender()}</div>;
     };
 
     createIsland({ root: container, component: Component });
@@ -23,6 +25,12 @@ describe('reactive props issues validation', () => {
 
     const div = container.querySelector('div');
     expect(div?.getAttribute('title')).toBe('initial');
+    rerender.set(1);
+    flushScheduler();
+    expect(div?.getAttribute('title')).toBe('initial');
+    textState.set('updated');
+    flushScheduler();
+    expect(div?.getAttribute('title')).toBe('updated');
 
     cleanup();
   });

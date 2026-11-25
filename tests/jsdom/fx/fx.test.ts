@@ -112,26 +112,20 @@ describe('FX layer', () => {
   });
 
   it('should enqueue attempts and be cancellable (scheduleRetry)', async () => {
-    const attempts: number[] = [];
-    let i = 0;
-    const fn = vi.fn(() => {
-      attempts.push(i);
-      i++;
-      return Promise.reject(new Error('fail'));
-    });
+    const fn = vi.fn(() => Promise.reject(new Error('fail')));
 
     const cancelable = scheduleRetry(fn, { maxAttempts: 3, delayMs: 10 });
-
-    // run timers to let retries schedule
-    vi.advanceTimersByTime(1000);
-
-    // Allow scheduler tasks to execute
     flushScheduler();
-
-    // Because fn always rejects we expect multiple attempts scheduled (3)
-    expect(fn.mock.calls.length).toBeGreaterThanOrEqual(1);
-
+    expect(fn).toHaveBeenCalledTimes(1);
+    await Promise.resolve();
+    vi.advanceTimersByTime(10);
+    flushScheduler();
+    expect(fn).toHaveBeenCalledTimes(2);
+    await Promise.resolve();
     cancelable.cancel();
+    vi.advanceTimersByTime(1000);
+    flushScheduler();
+    expect(fn).toHaveBeenCalledTimes(2);
   });
 
   it('should expose the final result of scheduleRetry', async () => {

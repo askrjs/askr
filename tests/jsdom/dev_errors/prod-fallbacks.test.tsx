@@ -33,7 +33,7 @@ describe('prod fallbacks (DEV_ERRORS)', () => {
   });
   afterEach(() => cleanup());
 
-  it('should silently skip invariant checks when in production mode', () => {
+  it('should reject render-time state mutation in production mode', () => {
     const prev = process.env.NODE_ENV;
     process.env.NODE_ENV = 'production';
 
