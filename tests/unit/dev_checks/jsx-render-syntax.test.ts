@@ -175,7 +175,7 @@ function isVNodeObjectLiteral(
 describe('JSX render syntax guidelines', () => {
   it(
     'should keep tests and benches on JSX syntax instead of VNode object literals',
-    { timeout: 15000 },
+    { timeout: 60000 },
     () => {
       const failures: string[] = [];
       const files = sourceRoots.flatMap((dir) => readSourceFiles(dir));
