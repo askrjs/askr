@@ -557,7 +557,9 @@ when every navigation waiting on it has gone.
   Active requests may temporarily exceed that count so concurrent navigations
   can continue to share them; eligible entries are evicted as requests settle.
 - `navigationState().revalidating` is true while a background revalidation is
-  in flight (see the [navigation guide](../guides/navigation.md)).
+  in flight (see the [navigation guide](../guides/navigation.md)). Disposing an
+  isolated runtime immediately stops its refreshes from contributing to this
+  state, even if a loader ignores its abort signal.
 - `hydrateSPA()` seeds the cache with the server-rendered first page's loader
   data. Its age counts from the server render, which `renderRouteRequest()`
   records in the hydration data, so a page served from an HTTP cache for
