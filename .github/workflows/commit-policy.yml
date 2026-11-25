@@ -1,0 +1,33 @@
+name: Commit policy
+
+on:
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+
+jobs:
+  commit-messages:
+    name: Commit messages
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Validate co-author trailers
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+        run: |
+          message_file=$(mktemp)
+          trap 'rm -f "$message_file"' EXIT
+
+          while IFS= read -r commit; do
+            git log -1 --format=%B "$commit" > "$message_file"
+            .githooks/validate-commit-message "$message_file"
+          done < <(git rev-list "$BASE_SHA..$HEAD_SHA")

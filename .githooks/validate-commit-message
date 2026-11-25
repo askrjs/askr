@@ -1,0 +1,26 @@
+#!/bin/sh
+
+awk '
+BEGIN {
+    allowed = "co-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>"
+}
+/^[[:space:]]*[Cc][Oo]-[Aa][Uu][Tt][Hh][Oo][Rr][Ee][Dd]-[Bb][Yy][[:space:]]*:/ {
+    line = tolower($0)
+    sub(/\r$/, "", line)
+    sub(/^[[:space:]]+/, "", line)
+    if (line != allowed) {
+        exit 42
+    }
+}
+' "$1"
+status=$?
+
+if [ "$status" -eq 42 ]; then
+    echo "Commit rejected: only Dependabot may be a co-author." >&2
+    exit 1
+fi
+
+if [ "$status" -ne 0 ]; then
+    echo "Commit rejected: could not validate co-author trailers." >&2
+    exit 1
+fi
