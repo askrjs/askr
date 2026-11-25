@@ -18,7 +18,9 @@ import {
 import type { RouteRenderResult } from '../../../src/common/router';
 import { findRouteLoaderEntries } from '../../../src/data/data-runtime';
 import {
+  activeRouteRevalidations,
   loadThroughCache,
+  seedLoaderCache,
   ROUTE_LOADER_CACHE_LIMIT,
 } from '../../../src/router/route-loader-cache';
 
@@ -49,6 +51,51 @@ describe('route loader cache', () => {
   afterEach(() => {
     vi.useRealTimers();
     for (const created of runtimes.splice(0)) disposeDataRuntime(created);
+  });
+
+  it('should retire only the disposed runtime revalidation even after late settlement', async () => {
+    const retiredRuntime = runtime();
+    const liveRuntime = runtime();
+    const retired = deferred<string>();
+    const live = deferred<string>();
+    const options = {
+      signal: new AbortController().signal,
+      staleTimeMs: 'always',
+    } as const;
+    seedLoaderCache(retiredRuntime, 'route', 'retired cache');
+    seedLoaderCache(liveRuntime, 'route', 'live cache');
+    const retiredLoad = loadThroughCache(
+      retiredRuntime,
+      'route',
+      () => retired.promise,
+      options
+    );
+    const liveLoad = loadThroughCache(
+      liveRuntime,
+      'route',
+      () => live.promise,
+      options
+    );
+    try {
+      expect(activeRouteRevalidations()).toBe(2);
+      disposeDataRuntime(retiredRuntime);
+      expect(activeRouteRevalidations()).toBe(1);
+      expect(retiredLoad.isRevalidationCurrent?.()).toBe(false);
+      retired.resolve('discarded');
+      await retiredLoad.revalidation;
+      expect(activeRouteRevalidations()).toBe(1);
+      expect(liveLoad.isRevalidationCurrent?.()).toBe(true);
+      live.resolve('fresh');
+      await liveLoad.revalidation;
+      expect(activeRouteRevalidations()).toBe(0);
+    } finally {
+      retired.resolve('cleanup');
+      live.resolve('cleanup');
+      await Promise.allSettled([
+        retiredLoad.revalidation,
+        liveLoad.revalidation,
+      ]);
+    }
   });
 
   it('should restore the route loader cache bound as in-flight entries settle', async () => {

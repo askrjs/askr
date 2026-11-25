@@ -96,14 +96,23 @@ export function onRouteRevalidationChange(listener: () => void): () => void {
   };
 }
 
-function trackRevalidation(promise: Promise<unknown>): void {
-  revalidating += 1;
-  for (const listener of revalidationListeners) listener();
+function trackRevalidation(
+  promise: Promise<unknown>,
+  signal: AbortSignal
+): void {
+  if (signal.aborted) return;
+  let active = true;
   const done = () => {
+    if (!active) return;
+    active = false;
+    signal.removeEventListener('abort', done);
     revalidating -= 1;
     for (const listener of revalidationListeners) listener();
   };
+  signal.addEventListener('abort', done, { once: true });
   void promise.then(done, done);
+  revalidating += 1;
+  for (const listener of revalidationListeners) listener();
 }
 
 function isStale(
@@ -238,7 +247,7 @@ export function loadThroughCache(
     const joining = entry.inflight;
     const inflight = joining ?? startRequest(entries, key, entry, run, true);
     if (!joining) {
-      trackRevalidation(inflight.promise);
+      trackRevalidation(inflight.promise, inflight.controller.signal);
       // A failed refresh keeps the cached value; the next visit retries.
       inflight.promise.catch((error: unknown) =>
         logger.warn('[Askr] route data revalidation failed:', error)
@@ -247,7 +256,8 @@ export function loadThroughCache(
     return {
       value: entry.data,
       revalidation: inflight.promise,
-      isRevalidationCurrent: () => entries.get(key) === entry,
+      isRevalidationCurrent: () =>
+        !inflight.controller.signal.aborted && entries.get(key) === entry,
     };
   }
 
