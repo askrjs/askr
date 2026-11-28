@@ -18,7 +18,7 @@ Packages are published to npm under the `@askrjs` scope.
 
 The release flow is split across dedicated workflows:
 
-- `.github/workflows/ci.yml`: Ubuntu checks on `develop` and `main`, including
+- `.github/workflows/ci.yml`: Ubuntu checks on `main`, including
   lint, build, public type contracts, unit/jsdom tests, a packed clean-consumer
   smoke test, and Chromium integration coverage.
 - `.github/workflows/matrix.yml`: the same checks on Ubuntu, Windows, and macOS
@@ -26,9 +26,10 @@ The release flow is split across dedicated workflows:
 - `.github/workflows/quality.yml`: PR and scheduled replayable lifecycle sequences
   plus Chromium and Firefox on Linux and WebKit on macOS. Failed runs retain
   browser reports and seed-trace artifacts.
-- `.github/workflows/publish.yml`: manual release workflow. It installs Chromium
-  and runs the complete release gate before any tag is created. A reused tag
-  must resolve to that verified commit; only then can the workflow publish it.
+- `.github/workflows/publish.yml`: manual release workflow. It requires a
+  successful push CI run for the selected `main` commit. It builds and validates
+  the npm archive, verifies any existing tag against that commit, and publishes
+  the archive with npm Trusted Publishing.
 - `.github/workflows/bench.yml`: manual benchmark runner for stable and browser
   perf lanes. It captures three repetitions on one pinned host, raw tier JSON,
   and commit/OS/architecture/CPU/Node context. The tracked tier benchmark files
@@ -39,9 +40,8 @@ The release flow is split across dedicated workflows:
   include `mean`, `p50`, and `samplesCount`. The removed `--outputJson` flag
   and the Vitest 4 report shape are no longer supported.
 - `prepack`: always rebuilds package artifacts before npm creates a tarball.
-- `prepublishOnly`: runs `npm run release:verify`; manual npm publishing cannot
-  skip lint, build, checks, public types, test suites, or the packed consumer
-  contract. The Chromium browser integration suite is part of that gate.
+- `prepublishOnly`: runs `npm run check` when publishing from a checkout. Hosted
+  publishing reuses CI and publishes the prepared archive directly.
 - The packed consumer and development checks run on the current LTS toolchain,
   which must satisfy the package's declared Node.js engine.
 
@@ -69,11 +69,13 @@ This qualification does not publish a package or require a version change.
 
 The intended happy path is:
 
-1. Bump `package.json` to the release version on `develop` and complete its checks.
-2. Promote `develop` to `main` with a pull request using a merge commit.
-3. Run `publish.yml` manually, selecting `main` as the workflow branch. The
-   workflow rejects any other branch.
-4. Confirm the workflow’s created-or-reused `v<version>` tag and npm publish.
+1. Open a release pull request to `main` with the version, lockfile, and
+   changelog updates.
+2. Merge the release pull request after its checks pass. Wait for CI on the
+   resulting `main` commit.
+3. Run `publish.yml` manually from `main`.
+4. Confirm that `v<version>` and the published npm version match the release
+   commit.
 
 ## Pre-release checklist
 
@@ -100,13 +102,13 @@ Use the smallest recovery step that matches the failure point.
 ### CI failures
 
 - Fix the code or workflow issue.
-- Rerun `ci.yml`, or rerun `publish.yml` if you are in the middle of a release.
+- Rerun the failed push CI run. Dispatch `publish.yml` after it succeeds.
 
 ### Tag failures
 
 - If tag creation failed before the tag was pushed, rerun `publish.yml`.
-- If the tag already exists, `publish.yml` reuses it and checks it out before
-  building and publishing.
+- If the tag already exists, `publish.yml` reuses it only if it points to the
+  same verified commit.
 
 ### Publish failures
 
