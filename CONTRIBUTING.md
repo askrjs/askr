@@ -37,13 +37,12 @@ npm install
 
 ## Branches
 
-`develop` is the default integration branch. `main` contains release candidates
-and receives changes through promotion pull requests from `develop`.
+`main` is the default integration and release branch. Merge changes through
+pull requests into `main`.
 
 ## Development Workflow
 
-1. Create a topic branch from `develop` and target `develop` with its pull
-   request.
+1. Create a topic branch from `main` and target `main` with its pull request.
 2. Make focused changes with tests or docs when behavior changes.
 3. Run the relevant quality gates locally.
 4. Open a pull request with a clear description.
