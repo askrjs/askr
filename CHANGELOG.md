@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+## 0.5.2 - 2026-11-28
+
+### Fixed
+
+- Preserve lexical scope and honor backpressure in deferred SSR. Release the execution model after test-render cleanup.
+
 ## 0.5.1 - 2026-10-26
 
 ### Fixes
